@@ -49,6 +49,7 @@ typedef sig_t sighandler_t;
 #include "cutils.h"
 #include "list.h"
 #include "quickjs-libc.h"
+#include "quv.h"
 
 static void js_std_dbuf_init(JSContext *ctx, DynBuf *s)
 {
@@ -74,16 +75,15 @@ typedef struct {
 } JSOSSignalHandler;
 
 typedef struct {
-    struct list_head link;
-    BOOL has_object;
-    int64_t timeout;
+    uv_timer_t handle;
     JSValue func;
+    JSValue obj;
+    JSContext *ctx;
 } JSOSTimer;
 
 /* initialize the lists so js_std_free_handlers() can always be called */
 static struct list_head os_rw_handlers = LIST_HEAD_INIT(os_rw_handlers);
 static struct list_head os_signal_handlers = LIST_HEAD_INIT(os_signal_handlers);
-static struct list_head os_timers = LIST_HEAD_INIT(os_timers);
 static uint64_t os_pending_signals;
 static int eval_script_recurse;
 static int (*os_poll_func)(JSContext *ctx);
@@ -1349,35 +1349,41 @@ static JSValue js_os_signal(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-#if defined(__linux__) || defined(__APPLE__)
-static int64_t get_time_ms(void)
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * 1000 + (ts.tv_nsec / 1000000);
-}
-#else
-/* more portable, but does not work if the date is updated */
-static int64_t get_time_ms(void)
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (int64_t)tv.tv_sec * 1000 + (tv.tv_usec / 1000);
-}
-#endif
-
-static void unlink_timer(JSRuntime *rt, JSOSTimer *th)
-{
-    if (th->link.prev) {
-        list_del(&th->link);
-        th->link.prev = th->link.next = NULL;
-    }
-}
-
 static void free_timer(JSRuntime *rt, JSOSTimer *th)
 {
     JS_FreeValueRT(rt, th->func);
     js_free_rt(rt, th);
+}
+
+static void call_handler(JSContext *ctx, JSValueConst func)
+{
+    JSValue ret;
+    ret = JS_Call(ctx, func, JS_UNDEFINED, 0, NULL);
+    if (JS_IsException(ret))
+        js_std_dump_error(ctx);
+    JS_FreeValue(ctx, ret);
+}
+
+static void uv__timer_close(uv_handle_t *handle) {
+    JSOSTimer *th = handle->data;
+    if (th) {
+        JSRuntime *rt = JS_GetRuntime(th->ctx);
+        free_timer(rt, th);
+    }
+}
+
+static void uv__timer_cb(uv_timer_t *handle) {
+    JSOSTimer *th = handle->data;
+    if (th) {
+        JSContext *ctx = th->ctx;
+        JSValue func = th->func;
+        th->func = JS_UNDEFINED;
+        call_handler(ctx, func);
+        JS_FreeValue(ctx, func);
+        JSValue obj = th->obj;
+        th->obj = JS_UNDEFINED;
+        JS_FreeValue(ctx, obj);  // decref
+    }
 }
 
 static JSClassID js_os_timer_class_id;
@@ -1386,9 +1392,7 @@ static void js_os_timer_finalizer(JSRuntime *rt, JSValue val)
 {
     JSOSTimer *th = JS_GetOpaque(val, js_os_timer_class_id);
     if (th) {
-        th->has_object = FALSE;
-        if (!th->link.prev)
-            free_timer(rt, th);
+        uv_close((uv_handle_t*)&th->handle, uv__timer_close);
     }
 }
 
@@ -1408,24 +1412,32 @@ static JSValue js_os_setTimeout(JSContext *ctx, JSValueConst this_val,
     JSValueConst func;
     JSOSTimer *th;
     JSValue obj;
+    quv_state_t *quv_state;
 
-    if (JS_ToInt64(ctx, &delay, argv[0]))
-        return JS_EXCEPTION;
-    func = argv[1];
+    quv_state = JS_GetContextOpaque(ctx);
+    if (!quv_state) {
+        return JS_ThrowInternalError(ctx, "couldn't find uv state");
+    }
+
+    func = argv[0];
     if (!JS_IsFunction(ctx, func))
         return JS_ThrowTypeError(ctx, "not a function");
+    if (JS_ToInt64(ctx, &delay, argv[1]))
+        return JS_EXCEPTION;
     obj = JS_NewObjectClass(ctx, js_os_timer_class_id);
     if (JS_IsException(obj))
         return obj;
     th = js_mallocz(ctx, sizeof(*th));
-    th->has_object = TRUE;
     if (!th) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
     }
-    th->timeout = get_time_ms() + delay;
+    th->ctx = ctx;
+    th->handle.data = th;
+    uv_timer_init(&quv_state->uvloop, &th->handle);
+    uv_timer_start(&th->handle, uv__timer_cb, delay, 0);
     th->func = JS_DupValue(ctx, func);
-    list_add_tail(&th->link, &os_timers);
+    th->obj = JS_DupValue(ctx, obj);  // incref
     JS_SetOpaque(obj, th);
     return obj;
 }
@@ -1436,7 +1448,12 @@ static JSValue js_os_clearTimeout(JSContext *ctx, JSValueConst this_val,
     JSOSTimer *th = JS_GetOpaque2(ctx, argv[0], js_os_timer_class_id);
     if (!th)
         return JS_EXCEPTION;
-    unlink_timer(JS_GetRuntime(ctx), th);
+    uv_timer_stop(&th->handle);
+    JSValue obj = th->obj;
+    if (!JS_IsUndefined(obj)) {
+        th->obj = JS_UNDEFINED;
+        JS_FreeValue(ctx, obj);  // decref
+    }
     return JS_UNDEFINED;
 }
 
@@ -1446,13 +1463,13 @@ static JSClassDef js_os_timer_class = {
     .gc_mark = js_os_timer_mark,
 }; 
 
-static void call_handler(JSContext *ctx, JSValueConst func)
-{
-    JSValue ret;
-    ret = JS_Call(ctx, func, JS_UNDEFINED, 0, NULL);
-    if (JS_IsException(ret))
-        js_std_dump_error(ctx);
-    JS_FreeValue(ctx, ret);
+static int js_uv_poll(JSContext *ctx) {
+    quv_state_t *quv_state = JS_GetContextOpaque(ctx);
+    if (!quv_state) {
+        abort();
+    }
+
+    return uv_run(&quv_state->uvloop, UV_RUN_ONCE);
 }
 
 #if defined(_WIN32)
@@ -1553,36 +1570,10 @@ static int js_os_poll(JSContext *ctx)
         }
     }
     
-    if (list_empty(&os_rw_handlers) && list_empty(&os_timers))
+    if (list_empty(&os_rw_handlers))
         return -1; /* no more events */
     
-    if (!list_empty(&os_timers)) {
-        cur_time = get_time_ms();
-        min_delay = 10000;
-        list_for_each(el, &os_timers) {
-            JSOSTimer *th = list_entry(el, JSOSTimer, link);
-            delay = th->timeout - cur_time;
-            if (delay <= 0) {
-                JSValue func;
-                /* the timer expired */
-                func = th->func;
-                th->func = JS_UNDEFINED;
-                unlink_timer(JS_GetRuntime(ctx), th);
-                if (!th->has_object)
-                    free_timer(JS_GetRuntime(ctx), th);
-                call_handler(ctx, func);
-                JS_FreeValue(ctx, func);
-                return 0;
-            } else if (delay < min_delay) {
-                min_delay = delay;
-            }
-        }
-        tv.tv_sec = min_delay / 1000;
-        tv.tv_usec = (min_delay % 1000) * 1000;
-        tvp = &tv;
-    } else {
-        tvp = NULL;
-    }
+    tvp = NULL;
     
     FD_ZERO(&rfds);
     FD_ZERO(&wfds);
@@ -1740,7 +1731,6 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv)
     /* XXX: not multi-context */
     init_list_head(&os_rw_handlers);
     init_list_head(&os_signal_handlers);
-    init_list_head(&os_timers);
     os_pending_signals = 0;
 }
 
@@ -1756,13 +1746,6 @@ void js_std_free_handlers(JSRuntime *rt)
     list_for_each_safe(el, el1, &os_signal_handlers) {
         JSOSSignalHandler *sh = list_entry(el, JSOSSignalHandler, link);
         free_sh(rt, sh);
-    }
-    
-    list_for_each_safe(el, el1, &os_timers) {
-        JSOSTimer *th = list_entry(el, JSOSTimer, link);
-        unlink_timer(rt, th);
-        if (!th->has_object)
-            free_timer(rt, th);
     }
 }
 
@@ -1807,7 +1790,7 @@ void js_std_loop(JSContext *ctx)
             }
         }
 
-        if (!os_poll_func || os_poll_func(ctx))
+        if (js_uv_poll(ctx) == 0)
             break;
     }
 }

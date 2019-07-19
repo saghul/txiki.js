@@ -29,3 +29,9 @@ add_executable(qjs
     src/repl.c
 )
 
+include_directories(deps/libuv/include)
+option(libuv_buildtests "" OFF)
+add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
+
+target_link_libraries(qjs uv_a)
+

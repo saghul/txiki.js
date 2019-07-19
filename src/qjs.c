@@ -40,6 +40,7 @@
 
 #include "cutils.h"
 #include "quickjs-libc.h"
+#include "quv.h"
 
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
@@ -257,6 +258,7 @@ int main(int argc, char **argv)
 {
     JSRuntime *rt;
     JSContext *ctx;
+    quv_state_t quv_state;
     struct trace_malloc_data trace_data = { NULL };
     int optind;
     char *expr = NULL;
@@ -374,6 +376,14 @@ int main(int argc, char **argv)
         exit(2);
     }
 
+    /* Initialize libuv loop */
+    memset(&quv_state, 0, sizeof(quv_state_t));
+    if (uv_loop_init(&quv_state.uvloop) != 0) {
+        fprintf(stderr, "qjs: cannot initialize uv loop\n");
+        exit(2);
+    }
+    JS_SetContextOpaque(ctx, &quv_state);
+
     /* loader for ES6 modules */
     JS_SetModuleLoaderFunc(rt, NULL, js_module_loader, NULL);
                            
@@ -394,7 +404,9 @@ int main(int argc, char **argv)
             const char *str = "import * as std from 'std';\n"
                 "import * as os from 'os';\n"
                 "std.global.std = std;\n"
-                "std.global.os = os;\n";
+                "std.global.os = os;\n"
+                "std.global.setTimeout = os.setTimeout;\n"
+                "std.global.clearTimeout = os.clearTimeout;\n";
             eval_buf(ctx, str, strlen(str), "<input>", JS_EVAL_TYPE_MODULE);
         }
 
