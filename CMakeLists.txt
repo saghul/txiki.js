@@ -16,11 +16,13 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -DNDEBUG -O2 -g")
 
 add_definitions(
     -D_GNU_SOURCE
+    -DCONFIG_BIGNUM
     -DCONFIG_VERSION="2019-07-21"
 )
 
 add_executable(qjs
     src/cutils.c
+    src/libbf.c
     src/libregexp.c
     src/libunicode.c
     src/qjs.c

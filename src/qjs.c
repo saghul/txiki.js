@@ -44,10 +44,7 @@
 
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
-#ifdef CONFIG_BIGNUM
-extern const uint8_t qjscalc[];
-extern const uint32_t qjscalc_size;
-#endif
+
 
 static int eval_buf(JSContext *ctx, const void *buf, int buf_len,
                     const char *filename, int eval_flags)
@@ -245,9 +242,6 @@ void help(void)
            "-e  --eval EXPR    evaluate EXPR\n"
            "-i  --interactive  go to interactive mode\n"
            "-m  --module       load as ES6 module (default if .mjs file extension)\n"
-#ifdef CONFIG_BIGNUM
-           "    --qjscalc      load the QJSCalc runtime (default if invoked as qjscalc)\n"
-#endif
            "-T  --trace        trace memory allocation\n"
            "-d  --dump         dump the memory usage stats\n"
            "-q  --quit         just instantiate the interpreter and quit\n");
@@ -268,21 +262,6 @@ int main(int argc, char **argv)
     int empty_run = 0;
     int module = 0;
     int load_std = 1;
-#ifdef CONFIG_BIGNUM
-    int load_jscalc;
-#endif
-
-#ifdef CONFIG_BIGNUM
-    /* load jscalc runtime if invoked as 'qjscalc' */
-    {
-        const char *p, *exename;
-        exename = argv[0];
-        p = strrchr(exename, '/');
-        if (p)
-            exename = p + 1;
-        load_jscalc = !strcmp(exename, "qjscalc");
-    }
-#endif
     
     /* cannot use getopt because we want to pass the command line to
        the script */
@@ -341,12 +320,6 @@ int main(int argc, char **argv)
                 load_std = 0;
                 continue;
             }
-#ifdef CONFIG_BIGNUM
-            if (!strcmp(longopt, "qjscalc")) {
-                load_jscalc = 1;
-                continue;
-            }
-#endif
             if (opt == 'q' || !strcmp(longopt, "quit")) {
                 empty_run++;
                 continue;
@@ -388,11 +361,6 @@ int main(int argc, char **argv)
     JS_SetModuleLoaderFunc(rt, NULL, js_module_loader, NULL);
                            
     if (!empty_run) {
-#ifdef CONFIG_BIGNUM
-        if (load_jscalc) {
-            js_std_eval_binary(ctx, qjscalc, qjscalc_size, 0);
-        }
-#endif
         js_std_add_helpers(ctx, argc - optind, argv + optind);
 
         /* system modules */
