@@ -17,7 +17,9 @@ More things may be coming!
 CMake is necessary. This has been mostly tested on macOS, YMLMV.
 
 ```bash
+# Compile it!
 make
+# Run the REPL
 ./build/qjs
 ```
 
