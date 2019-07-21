@@ -477,6 +477,7 @@ static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val,
         /* TODO: install the interrupt handler */
     }
     ret = JS_Eval(ctx, str, len, "<evalScript>", JS_EVAL_TYPE_GLOBAL);
+    JS_FreeCString(ctx, str);
     if (--eval_script_recurse == 0) {
         /* TODO: remove the interrupt handler */
         /* convert the uncatchable "interrupted" error into a normal error
@@ -1207,8 +1208,12 @@ static JSValue js_os_rename(JSContext *ctx, JSValueConst this_val,
 
 static void call_handler(JSContext *ctx, JSValueConst func)
 {
-    JSValue ret;
-    ret = JS_Call(ctx, func, JS_UNDEFINED, 0, NULL);
+    JSValue ret, func1;
+    /* 'func' might be destroyed when calling itself (if it frees the
+       handler), so must take extra care */
+    func1 = JS_DupValue(ctx, func);
+    ret = JS_Call(ctx, func1, JS_UNDEFINED, 0, NULL);
+    JS_FreeValue(ctx, func1);
     if (JS_IsException(ret))
         js_std_dump_error(ctx);
     JS_FreeValue(ctx, ret);
