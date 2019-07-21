@@ -70,8 +70,10 @@ typedef struct {
 
 typedef struct {
     struct list_head link;
+    uv_signal_t handle;
     int sig_num;
     JSValue func;
+    JSContext *ctx;
 } JSOSSignalHandler;
 
 typedef struct {
@@ -84,7 +86,6 @@ typedef struct {
 /* initialize the lists so js_std_free_handlers() can always be called */
 static struct list_head os_rw_handlers = LIST_HEAD_INIT(os_rw_handlers);
 static struct list_head os_signal_handlers = LIST_HEAD_INIT(os_signal_handlers);
-static uint64_t os_pending_signals;
 static int eval_script_recurse;
 static int (*os_poll_func)(JSContext *ctx);
 
@@ -468,11 +469,6 @@ static JSValue js_std_gc(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-static int interrupt_handler(JSRuntime *rt, void *opaque)
-{
-    return (os_pending_signals >> SIGINT) & 1;
-}
-
 static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val,
                              int argc, JSValueConst *argv)
 {
@@ -483,14 +479,11 @@ static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val,
     if (!str)
         return JS_EXCEPTION;
     if (++eval_script_recurse == 1) {
-        /* install the interrupt handler */
-        JS_SetInterruptHandler(JS_GetRuntime(ctx), interrupt_handler, NULL);
+        /* TODO: install the interrupt handler */
     }
     ret = JS_Eval(ctx, str, len, "<evalScript>", JS_EVAL_TYPE_GLOBAL);
     if (--eval_script_recurse == 0) {
-        /* remove the interrupt handler */
-        JS_SetInterruptHandler(JS_GetRuntime(ctx), NULL, NULL);
-        os_pending_signals &= ~((uint64_t)1 << SIGINT);
+        /* TODO: remove the interrupt handler */
         /* convert the uncatchable "interrupted" error into a normal error
            so that it can be caught by the REPL */
         if (JS_IsException(ret))
@@ -1279,6 +1272,15 @@ static JSValue js_os_setReadHandler(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
+static void call_handler(JSContext *ctx, JSValueConst func)
+{
+    JSValue ret;
+    ret = JS_Call(ctx, func, JS_UNDEFINED, 0, NULL);
+    if (JS_IsException(ret))
+        js_std_dump_error(ctx);
+    JS_FreeValue(ctx, ret);
+}
+
 static JSOSSignalHandler *find_sh(int sig_num)
 {
     JSOSSignalHandler *sh;
@@ -1293,19 +1295,25 @@ static JSOSSignalHandler *find_sh(int sig_num)
 
 static void free_sh(JSRuntime *rt, JSOSSignalHandler *sh)
 {
-    list_del(&sh->link);
     JS_FreeValueRT(rt, sh->func);
     js_free_rt(rt, sh);
 }
 
-static void os_signal_handler(int sig_num)
-{
-    os_pending_signals |= ((uint64_t)1 << sig_num);
+static void uv__signal_close(uv_handle_t *handle) {
+    JSOSSignalHandler *sh = handle->data;
+    if (sh) {
+        JSRuntime *rt = JS_GetRuntime(sh->ctx);
+        free_sh(rt, sh);
+    }
 }
 
-#if defined(_WIN32)
-typedef void (*sighandler_t)(int sig_num);
-#endif
+static void uv__signal_cb(uv_signal_t *handle, int sig_num) {
+    JSOSSignalHandler *sh = handle->data;
+    if (sh) {
+        JSContext *ctx = sh->ctx;
+        call_handler(ctx, sh->func);
+    }
+}
 
 static JSValue js_os_signal(JSContext *ctx, JSValueConst this_val,
                             int argc, JSValueConst *argv)
@@ -1313,24 +1321,24 @@ static JSValue js_os_signal(JSContext *ctx, JSValueConst this_val,
     JSOSSignalHandler *sh;
     uint32_t sig_num;
     JSValueConst func;
-    sighandler_t handler;
-    
+    quv_state_t *quv_state;
+
+    quv_state = JS_GetContextOpaque(ctx);
+    if (!quv_state) {
+        return JS_ThrowInternalError(ctx, "couldn't find uv state");
+    }
+
     if (JS_ToUint32(ctx, &sig_num, argv[0]))
         return JS_EXCEPTION;
     if (sig_num >= 64)
         return JS_ThrowRangeError(ctx, "invalid signal number");
     func = argv[1];
-    /* func = null: SIG_DFL, func = undefined, SIG_IGN */
     if (JS_IsNull(func) || JS_IsUndefined(func)) {
         sh = find_sh(sig_num);
         if (sh) {
-            free_sh(JS_GetRuntime(ctx), sh);
+            list_del(&sh->link);
+            uv_close((uv_handle_t*)&sh->handle, uv__signal_close);
         }
-        if (JS_IsNull(func))
-            handler = SIG_DFL;
-        else
-            handler = SIG_IGN;
-        signal(sig_num, handler);
     } else {
         if (!JS_IsFunction(ctx, func))
             return JS_ThrowTypeError(ctx, "not a function");
@@ -1339,12 +1347,16 @@ static JSValue js_os_signal(JSContext *ctx, JSValueConst this_val,
             sh = js_mallocz(ctx, sizeof(*sh));
             if (!sh)
                 return JS_EXCEPTION;
+            sh->ctx = ctx;
+            uv_signal_init(&quv_state->uvloop, &sh->handle);
+            sh->handle.data = sh;
             sh->sig_num = sig_num;
             list_add_tail(&sh->link, &os_signal_handlers);
         }
         JS_FreeValue(ctx, sh->func);
         sh->func = JS_DupValue(ctx, func);
-        signal(sig_num, os_signal_handler);
+        uv_signal_start(&sh->handle, uv__signal_cb, sig_num);
+        uv_unref((uv_handle_t*)&sh->handle);
     }
     return JS_UNDEFINED;
 }
@@ -1353,15 +1365,6 @@ static void free_timer(JSRuntime *rt, JSOSTimer *th)
 {
     JS_FreeValueRT(rt, th->func);
     js_free_rt(rt, th);
-}
-
-static void call_handler(JSContext *ctx, JSValueConst func)
-{
-    JSValue ret;
-    ret = JS_Call(ctx, func, JS_UNDEFINED, 0, NULL);
-    if (JS_IsException(ret))
-        js_std_dump_error(ctx);
-    JS_FreeValue(ctx, ret);
 }
 
 static void uv__timer_close(uv_handle_t *handle) {
@@ -1433,8 +1436,8 @@ static JSValue js_os_setTimeout(JSContext *ctx, JSValueConst this_val,
         return JS_EXCEPTION;
     }
     th->ctx = ctx;
-    th->handle.data = th;
     uv_timer_init(&quv_state->uvloop, &th->handle);
+    th->handle.data = th;
     uv_timer_start(&th->handle, uv__timer_cb, delay, 0);
     th->func = JS_DupValue(ctx, func);
     th->obj = JS_DupValue(ctx, obj);  // incref
@@ -1554,21 +1557,6 @@ static int js_os_poll(JSContext *ctx)
     JSOSRWHandler *rh;
     struct list_head *el;
     struct timeval tv, *tvp;
-
-    if (unlikely(os_pending_signals != 0)) {
-        JSOSSignalHandler *sh;
-        uint64_t mask;
-        
-        list_for_each(el, &os_signal_handlers) {
-            sh = list_entry(el, JSOSSignalHandler, link);
-            mask = (uint64_t)1 << sh->sig_num;
-            if (os_pending_signals & mask) {
-                os_pending_signals &= ~mask;
-                call_handler(ctx, sh->func);
-                return 0;
-            }
-        }
-    }
     
     if (list_empty(&os_rw_handlers))
         return -1; /* no more events */
@@ -1731,7 +1719,6 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv)
     /* XXX: not multi-context */
     init_list_head(&os_rw_handlers);
     init_list_head(&os_signal_handlers);
-    os_pending_signals = 0;
 }
 
 void js_std_free_handlers(JSRuntime *rt)
@@ -1741,11 +1728,6 @@ void js_std_free_handlers(JSRuntime *rt)
     list_for_each_safe(el, el1, &os_rw_handlers) {
         JSOSRWHandler *rh = list_entry(el, JSOSRWHandler, link);
         free_rw_handler(rt, rh);
-    }
-
-    list_for_each_safe(el, el1, &os_signal_handlers) {
-        JSOSSignalHandler *sh = list_entry(el, JSOSSignalHandler, link);
-        free_sh(rt, sh);
     }
 }
 
