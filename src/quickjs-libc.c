@@ -31,9 +31,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/time.h>
-#include <time.h>
-#include <signal.h>
 #if defined(_WIN32)
 #include <windows.h>
 #include <conio.h>
@@ -41,9 +38,6 @@
 #include <dlfcn.h>
 #include <termios.h>
 #include <sys/ioctl.h>
-#if defined(__APPLE__)
-typedef sig_t sighandler_t;
-#endif
 #endif
 
 #include "cutils.h"
