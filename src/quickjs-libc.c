@@ -64,8 +64,10 @@ static void js_std_dbuf_init(JSContext *ctx, DynBuf *s)
 
 typedef struct {
     struct list_head link;
+    uv_poll_t handle;
     int fd;
     JSValue rw_func[2];
+    JSContext *ctx;
 } JSOSRWHandler;
 
 typedef struct {
@@ -87,7 +89,6 @@ typedef struct {
 static struct list_head os_rw_handlers = LIST_HEAD_INIT(os_rw_handlers);
 static struct list_head os_signal_handlers = LIST_HEAD_INIT(os_signal_handlers);
 static int eval_script_recurse;
-static int (*os_poll_func)(JSContext *ctx);
 
 static JSValue js_printf_internal(JSContext *ctx,
                                   int argc, JSValueConst *argv, FILE *fp)
@@ -1210,6 +1211,15 @@ static JSValue js_os_rename(JSContext *ctx, JSValueConst this_val,
     return js_os_return(ctx, ret);
 }
 
+static void call_handler(JSContext *ctx, JSValueConst func)
+{
+    JSValue ret;
+    ret = JS_Call(ctx, func, JS_UNDEFINED, 0, NULL);
+    if (JS_IsException(ret))
+        js_std_dump_error(ctx);
+    JS_FreeValue(ctx, ret);
+}
+
 static JSOSRWHandler *find_rh(int fd)
 {
     JSOSRWHandler *rh;
@@ -1224,12 +1234,31 @@ static JSOSRWHandler *find_rh(int fd)
 
 static void free_rw_handler(JSRuntime *rt, JSOSRWHandler *rh)
 {
-    int i;
-    list_del(&rh->link);
-    for(i = 0; i < 2; i++) {
+    for(int i = 0; i < 2; i++) {
         JS_FreeValueRT(rt, rh->rw_func[i]);
     }
     js_free_rt(rt, rh);
+}
+
+static void uv__poll_close(uv_handle_t *handle) {
+    JSOSRWHandler *rh = handle->data;
+    if (rh) {
+        JSRuntime *rt = JS_GetRuntime(rh->ctx);
+        free_rw_handler(rt, rh);
+    }
+}
+
+static void uv__poll_cb(uv_poll_t* handle, int status, int events) {
+    JSOSRWHandler *rh = handle->data;
+    if (rh) {
+        JSContext *ctx = rh->ctx;
+        if (!JS_IsNull(rh->rw_func[0]) && (events & UV_READABLE)) {
+            call_handler(ctx, rh->rw_func[0]);
+        }
+        if (!JS_IsNull(rh->rw_func[1]) && (events & UV_WRITABLE)) {
+            call_handler(ctx, rh->rw_func[1]);
+        }
+    }
 }
 
 static JSValue js_os_setReadHandler(JSContext *ctx, JSValueConst this_val,
@@ -1238,6 +1267,12 @@ static JSValue js_os_setReadHandler(JSContext *ctx, JSValueConst this_val,
     JSOSRWHandler *rh;
     int fd;
     JSValueConst func;
+    quv_state_t *quv_state;
+
+    quv_state = JS_GetContextOpaque(ctx);
+    if (!quv_state) {
+        return JS_ThrowInternalError(ctx, "couldn't find uv state");
+    }
     
     if (JS_ToInt32(ctx, &fd, argv[0]))
         return JS_EXCEPTION;
@@ -1247,10 +1282,10 @@ static JSValue js_os_setReadHandler(JSContext *ctx, JSValueConst this_val,
         if (rh) {
             JS_FreeValue(ctx, rh->rw_func[magic]);
             rh->rw_func[magic] = JS_NULL;
-            if (JS_IsNull(rh->rw_func[0]) &&
-                JS_IsNull(rh->rw_func[1])) {
+            if (JS_IsNull(rh->rw_func[0]) && JS_IsNull(rh->rw_func[1])) {
                 /* remove the entry */
-                free_rw_handler(JS_GetRuntime(ctx), rh);
+                list_del(&rh->link);
+                uv_close((uv_handle_t*)&rh->handle, uv__poll_close);
             }
         }
     } else {
@@ -1261,6 +1296,9 @@ static JSValue js_os_setReadHandler(JSContext *ctx, JSValueConst this_val,
             rh = js_mallocz(ctx, sizeof(*rh));
             if (!rh)
                 return JS_EXCEPTION;
+            rh->ctx = ctx;
+            uv_poll_init(&quv_state->uvloop, &rh->handle, fd);
+            rh->handle.data = rh;
             rh->fd = fd;
             rh->rw_func[0] = JS_NULL;
             rh->rw_func[1] = JS_NULL;
@@ -1268,17 +1306,15 @@ static JSValue js_os_setReadHandler(JSContext *ctx, JSValueConst this_val,
         }
         JS_FreeValue(ctx, rh->rw_func[magic]);
         rh->rw_func[magic] = JS_DupValue(ctx, func);
+        int events = 0;
+        if (!JS_IsNull(rh->rw_func[0]))
+            events |= UV_READABLE;
+        if (!JS_IsNull(rh->rw_func[1]))
+            events |= UV_WRITABLE;
+        uv_poll_start(&rh->handle, events, uv__poll_cb);
     }
-    return JS_UNDEFINED;
-}
 
-static void call_handler(JSContext *ctx, JSValueConst func)
-{
-    JSValue ret;
-    ret = JS_Call(ctx, func, JS_UNDEFINED, 0, NULL);
-    if (JS_IsException(ret))
-        js_std_dump_error(ctx);
-    JS_FreeValue(ctx, ret);
+    return JS_UNDEFINED;
 }
 
 static JSOSSignalHandler *find_sh(int sig_num)
@@ -1476,128 +1512,6 @@ static int js_uv_poll(JSContext *ctx) {
 }
 
 #if defined(_WIN32)
-
-static int js_os_poll(JSContext *ctx)
-{
-    int min_delay, console_fd;
-    int64_t cur_time, delay;
-    JSOSRWHandler *rh;
-    struct list_head *el;
-    
-    /* XXX: handle signals if useful */
-
-    if (list_empty(&os_rw_handlers) && list_empty(&os_timers))
-        return -1; /* no more events */
-    
-    /* XXX: only timers and basic console input are supported */
-    if (!list_empty(&os_timers)) {
-        cur_time = get_time_ms();
-        min_delay = 10000;
-        list_for_each(el, &os_timers) {
-            JSOSTimer *th = list_entry(el, JSOSTimer, link);
-            delay = th->timeout - cur_time;
-            if (delay <= 0) {
-                JSValue func;
-                /* the timer expired */
-                func = th->func;
-                th->func = JS_UNDEFINED;
-                unlink_timer(JS_GetRuntime(ctx), th);
-                if (!th->has_object)
-                    free_timer(JS_GetRuntime(ctx), th);
-                call_handler(ctx, func);
-                JS_FreeValue(ctx, func);
-                return 0;
-            } else if (delay < min_delay) {
-                min_delay = delay;
-            }
-        }
-    } else {
-        min_delay = -1;
-    }
-
-    console_fd = -1;
-    list_for_each(el, &os_rw_handlers) {
-        rh = list_entry(el, JSOSRWHandler, link);
-        if (rh->fd == 0 && !JS_IsNull(rh->rw_func[0])) {
-            console_fd = rh->fd;
-            break;
-        }
-    }
-
-    if (console_fd >= 0) {
-        DWORD ti, ret;
-        HANDLE handle;
-        if (min_delay == -1)
-            ti = INFINITE;
-        else
-            ti = min_delay;
-        handle = (HANDLE)_get_osfhandle(console_fd);
-        ret = WaitForSingleObject(handle, ti);
-        if (ret == WAIT_OBJECT_0) {
-            list_for_each(el, &os_rw_handlers) {
-                rh = list_entry(el, JSOSRWHandler, link);
-                if (rh->fd == console_fd && !JS_IsNull(rh->rw_func[0])) {
-                    call_handler(ctx, rh->rw_func[0]);
-                    /* must stop because the list may have been modified */
-                    break;
-                }
-            }
-        }
-    } else {
-        Sleep(min_delay);
-    }
-    return 0;
-}
-#else
-static int js_os_poll(JSContext *ctx)
-{
-    int ret, fd_max, min_delay;
-    int64_t cur_time, delay;
-    fd_set rfds, wfds;
-    JSOSRWHandler *rh;
-    struct list_head *el;
-    struct timeval tv, *tvp;
-    
-    if (list_empty(&os_rw_handlers))
-        return -1; /* no more events */
-    
-    tvp = NULL;
-    
-    FD_ZERO(&rfds);
-    FD_ZERO(&wfds);
-    fd_max = -1;
-    list_for_each(el, &os_rw_handlers) {
-        rh = list_entry(el, JSOSRWHandler, link);
-        fd_max = max_int(fd_max, rh->fd);
-        if (!JS_IsNull(rh->rw_func[0]))
-            FD_SET(rh->fd, &rfds);
-        if (!JS_IsNull(rh->rw_func[1]))
-            FD_SET(rh->fd, &wfds);
-    }
-    
-    ret = select(fd_max + 1, &rfds, &wfds, NULL, tvp);
-    if (ret > 0) {
-        list_for_each(el, &os_rw_handlers) {
-            rh = list_entry(el, JSOSRWHandler, link);
-            if (!JS_IsNull(rh->rw_func[0]) &&
-                FD_ISSET(rh->fd, &rfds)) {
-                call_handler(ctx, rh->rw_func[0]);
-                /* must stop because the list may have been modified */
-                break;
-            }
-            if (!JS_IsNull(rh->rw_func[1])) {
-                FD_SET(rh->fd, &wfds);
-                call_handler(ctx, rh->rw_func[1]);
-                /* must stop because the list may have been modified */
-                break;
-            }
-        }
-    }
-    return 0;
-}
-#endif /* !_WIN32 */
-
-#if defined(_WIN32)
 #define OS_PLATFORM "win32"
 #elif defined(__APPLE__)
 #define OS_PLATFORM "darwin"
@@ -1648,8 +1562,6 @@ static const JSCFunctionListEntry js_os_funcs[] = {
 
 static int js_os_init(JSContext *ctx, JSModuleDef *m)
 {
-    os_poll_func = js_os_poll;
-    
     /* OSTimer class */
     JS_NewClassID(&js_os_timer_class_id);
     JS_NewClass(JS_GetRuntime(ctx), js_os_timer_class_id, &js_os_timer_class);
@@ -1723,12 +1635,7 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv)
 
 void js_std_free_handlers(JSRuntime *rt)
 {
-    struct list_head *el, *el1;
 
-    list_for_each_safe(el, el1, &os_rw_handlers) {
-        JSOSRWHandler *rh = list_entry(el, JSOSRWHandler, link);
-        free_rw_handler(rt, rh);
-    }
 }
 
 void js_std_dump_error(JSContext *ctx)
