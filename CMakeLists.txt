@@ -26,8 +26,9 @@ add_executable(qjs
     src/libregexp.c
     src/libunicode.c
     src/qjs.c
-    src/quickjs-libc.c
     src/quickjs.c
+    src/quickjs-libc.c
+    src/quickjs-libuv.c
     src/repl.c
 )
 
