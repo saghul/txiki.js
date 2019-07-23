@@ -874,4 +874,7 @@ int JS_SetModuleExportList(JSContext *ctx, JSModuleDef *m,
 #undef js_unlikely
 #undef js_force_inline
 
+/* Extras */
+JSValue JS_NewPromise(JSContext *ctx, JSValue *resolving_funcs);
+
 #endif /* QUICKJS_H */
