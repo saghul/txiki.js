@@ -1663,13 +1663,14 @@ void js_std_dump_error(JSContext *ctx)
 /* main loop which calls the user JS callbacks */
 void js_std_loop(JSContext *ctx)
 {
+    JSRuntime *rt = JS_GetRuntime(ctx);
     JSContext *ctx1;
     int err;
 
     for(;;) {
         /* execute the pending jobs */
         for(;;) {
-            err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
+            err = JS_ExecutePendingJob(rt, &ctx1);
             if (err <= 0) {
                 if (err < 0) {
                     js_std_dump_error(ctx1);
@@ -1678,7 +1679,7 @@ void js_std_loop(JSContext *ctx)
             }
         }
 
-        if (js_uv_poll(ctx) == 0)
+        if (js_uv_poll(ctx) == 0 && !JS_IsJobPending(rt))
             break;
     }
 }
