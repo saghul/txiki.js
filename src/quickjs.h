@@ -876,5 +876,8 @@ int JS_SetModuleExportList(JSContext *ctx, JSModuleDef *m,
 
 /* Extras */
 JSValue JS_NewPromise(JSContext *ctx, JSValue *resolving_funcs);
+#ifdef CONFIG_BIGNUM
+JSValue JS_NewBigUint64(JSContext *ctx, uint64_t v);
+#endif
 
 #endif /* QUICKJS_H */

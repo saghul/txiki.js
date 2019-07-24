@@ -887,7 +887,7 @@ static JSProperty *add_property(JSContext *ctx,
 #ifdef CONFIG_BIGNUM
 static void js_float_env_finalizer(JSRuntime *rt, JSValue val);
 static JSValue JS_NewBigInt64(JSContext *ctx, int64_t v);
-static JSValue JS_NewBigUint64(JSContext *ctx, uint64_t v);
+JSValue JS_NewBigUint64(JSContext *ctx, uint64_t v);
 static JSValue JS_NewBigFloat(JSContext *ctx, bf_t *a);
 static JSValue JS_NewBigInt2(JSContext *ctx, bf_t *a, BOOL force_bigint);
 static JSValue JS_NewBigInt(JSContext *ctx, bf_t *a);
@@ -10655,7 +10655,7 @@ static JSValue JS_NewBigInt64(JSContext *ctx, int64_t v)
     }
 }
 
-static JSValue JS_NewBigUint64(JSContext *ctx, uint64_t v)
+JSValue JS_NewBigUint64(JSContext *ctx, uint64_t v)
 {
     BOOL is_bignum = is_bignum_mode(ctx);
     if (is_bignum && v == (int32_t)v) {
