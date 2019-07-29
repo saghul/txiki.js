@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 #include "cutils.h"
+#include "quickjs-libc.h"
 #include "quickjs-libuv.h"
 
 
@@ -756,4 +757,29 @@ int JSUV_InitCtxOpaque(JSContext *ctx) {
     }
     JS_SetContextOpaque(ctx, quv_state);
     return 0;
+}
+
+/* main loop which calls the user JS callbacks */
+void js_uv_loop(JSContext *ctx)
+{
+    JSRuntime *rt = JS_GetRuntime(ctx);
+    quv_state_t *quv_state = JS_GetContextOpaque(ctx);
+    JSContext *ctx1;
+    int err;
+
+    for(;;) {
+        /* execute the pending jobs */
+        for(;;) {
+            err = JS_ExecutePendingJob(rt, &ctx1);
+            if (err <= 0) {
+                if (err < 0) {
+                    js_std_dump_error(ctx1);
+                }
+                break;
+            }
+        }
+
+        if (uv_run(&quv_state->uvloop, UV_RUN_ONCE) == 0 && !JS_IsJobPending(rt))
+            break;
+    }
 }

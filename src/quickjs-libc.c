@@ -1501,15 +1501,6 @@ static JSClassDef js_os_timer_class = {
     .gc_mark = js_os_timer_mark,
 }; 
 
-static int js_uv_poll(JSContext *ctx) {
-    quv_state_t *quv_state = JS_GetContextOpaque(ctx);
-    if (!quv_state) {
-        abort();
-    }
-
-    return uv_run(&quv_state->uvloop, UV_RUN_ONCE);
-}
-
 #if defined(_WIN32)
 #define OS_PLATFORM "win32"
 #elif defined(__APPLE__)
@@ -1658,30 +1649,6 @@ void js_std_dump_error(JSContext *ctx)
         JS_FreeValue(ctx, val);
     }
     JS_FreeValue(ctx, exception_val);
-}
-
-/* main loop which calls the user JS callbacks */
-void js_std_loop(JSContext *ctx)
-{
-    JSRuntime *rt = JS_GetRuntime(ctx);
-    JSContext *ctx1;
-    int err;
-
-    for(;;) {
-        /* execute the pending jobs */
-        for(;;) {
-            err = JS_ExecutePendingJob(rt, &ctx1);
-            if (err <= 0) {
-                if (err < 0) {
-                    js_std_dump_error(ctx1);
-                }
-                break;
-            }
-        }
-
-        if (js_uv_poll(ctx) == 0 && !JS_IsJobPending(rt))
-            break;
-    }
 }
 
 void js_std_eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len,

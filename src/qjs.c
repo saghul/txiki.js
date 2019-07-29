@@ -402,7 +402,7 @@ int main(int argc, char **argv)
         if (interactive) {
             js_std_eval_binary(ctx, repl, repl_size, 0);
         }
-        js_std_loop(ctx);
+        js_uv_loop(ctx);
     }
     
     if (dump_memory) {
