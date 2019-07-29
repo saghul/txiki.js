@@ -5,10 +5,12 @@ This is an experiment in porting the [QuickJS] platform layer to use [libuv].
 
 Currently the following is already implemented in the `qjs` interpreter, using libuv:
 
+- TCP sockets
 - Timers
 - I/O: file descriptor readyness
 - Signals
 - Event loop
+- High-resolution time
 
 More things may be coming!
 
