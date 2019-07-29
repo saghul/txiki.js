@@ -43,7 +43,7 @@
 #include "cutils.h"
 #include "list.h"
 #include "quickjs-libc.h"
-#include "quv.h"
+#include "quickjs-libuv.h"
 
 static void js_std_dbuf_init(JSContext *ctx, DynBuf *s)
 {

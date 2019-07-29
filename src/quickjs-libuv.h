@@ -24,8 +24,16 @@
 #ifndef QUICKJS_LIBUV_H
 #define QUICKJS_LIBUV_H
 
+#include <uv.h>
+
 #include "quickjs.h"
 
+
+typedef struct quv_state_s {
+    uv_loop_t uvloop;
+} quv_state_t;
+
+int JSUV_InitCtxOpaque(JSContext *ctx);
 JSModuleDef *js_init_module_uv(JSContext *ctx);
 
 #endif /* QUICKJS_LIBUV_H */

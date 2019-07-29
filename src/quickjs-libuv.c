@@ -23,9 +23,6 @@
  */
 #include "cutils.h"
 #include "quickjs-libuv.h"
-#include "quv.h"
-
-#include <uv.h>
 
 
 /* Forward declarations */
@@ -747,4 +744,16 @@ JSModuleDef *js_init_module_uv(JSContext *ctx)
     JS_AddModuleExport(ctx, m, "TCP");
     JS_AddModuleExport(ctx, m, "Error");
     return m;
+}
+
+int JSUV_InitCtxOpaque(JSContext *ctx) {
+    quv_state_t *quv_state = js_mallocz(ctx, sizeof(*quv_state));
+    if (!quv_state)
+        return -1;
+    if (uv_loop_init(&quv_state->uvloop) != 0) {
+        js_free(ctx, quv_state);
+        return -1;
+    }
+    JS_SetContextOpaque(ctx, quv_state);
+    return 0;
 }
