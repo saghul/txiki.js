@@ -243,7 +243,7 @@ static JSClassDef js_uv_tcp_class = {
     .gc_mark = js_uv_tcp_mark,
 }; 
 
-static JSValue js_new_uv_tcp(JSContext *ctx)
+static JSValue js_new_uv_tcp(JSContext *ctx, int af)
 {
     JSUVTcp *h;
     JSValue obj;
@@ -265,7 +265,7 @@ static JSValue js_new_uv_tcp(JSContext *ctx)
         return JS_EXCEPTION;
     }
 
-    r = uv_tcp_init(loop, &h->h.tcp);
+    r = uv_tcp_init_ex(loop, &h->h.tcp, af);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         js_free(ctx, h);
@@ -301,7 +301,10 @@ static JSValue js_new_uv_tcp(JSContext *ctx)
 static JSValue js_uv_tcp_constructor(JSContext *ctx, JSValueConst new_target,
                                      int argc, JSValueConst *argv)
 {
-    return js_new_uv_tcp(ctx);
+    int af = AF_UNSPEC;
+    if (!JS_IsUndefined(argv[0]) && JS_ToInt32(ctx, &af, argv[0]))
+        return JS_EXCEPTION;
+    return js_new_uv_tcp(ctx, af);
 }
 
 static JSUVTcp *js_uv_tcp_get(JSContext *ctx, JSValueConst obj)
@@ -618,7 +621,7 @@ static void uv__tcp_connection_cb(uv_stream_t* handle, int status) {
         JSValue ret;
         int is_error = 0;
         if (status == 0) {
-            arg = js_new_uv_tcp(ctx);
+            arg = js_new_uv_tcp(ctx, AF_UNSPEC);
             JSUVTcp *t2 = js_uv_tcp_get(ctx, arg);
             int r = uv_accept(handle, &t2->h.stream);
             if (r != 0) {
@@ -681,7 +684,12 @@ static JSValue js_uv_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_NewBigUint64(ctx, uv_hrtime());
 }
 
+#define JSUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE )
+
 static const JSCFunctionListEntry js_uv_funcs[] = {
+    JSUV_CONST(AF_INET),
+    JSUV_CONST(AF_INET6),
+    JSUV_CONST(AF_UNSPEC),
     JS_CFUNC_DEF("hrtime", 0, js_uv_hrtime ),
 };
 
@@ -724,7 +732,7 @@ static int js_uv_init(JSContext *ctx, JSModuleDef *m)
     JS_SetModuleExportList(ctx, m, js_uv_funcs, countof(js_uv_funcs));
 
     /* TCP object */
-    obj = JS_NewCFunction2(ctx, js_uv_tcp_constructor, "TCP", 0, JS_CFUNC_constructor, 0);
+    obj = JS_NewCFunction2(ctx, js_uv_tcp_constructor, "TCP", 1, JS_CFUNC_constructor, 0);
     JS_SetModuleExport(ctx, m, "TCP", obj);
 
     /* Error object */    
