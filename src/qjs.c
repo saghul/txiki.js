@@ -371,6 +371,7 @@ int main(int argc, char **argv)
                 "import * as std from 'std';\n"
                 "import * as os from 'os';\n"
                 "import * as uv from 'uv';\n"
+                "std.global.global = std.global;\n"
                 "std.global.std = std;\n"
                 "std.global.os = os;\n"
                 "std.global.uv = uv;\n"
