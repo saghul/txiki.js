@@ -349,10 +349,7 @@ int main(int argc, char **argv)
     }
 
     /* Initialize libuv stuff */
-    if (JSUV_InitCtxOpaque(ctx)) {
-        fprintf(stderr, "qjs: cannot initialize uv loop\n");
-        exit(2);
-    }
+    JSUV_InitCtxOpaque(ctx);
 
     /* loader for ES6 modules */
     JS_SetModuleLoaderFunc(rt, NULL, js_module_loader, NULL);

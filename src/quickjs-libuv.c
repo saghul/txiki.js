@@ -755,39 +755,66 @@ JSModuleDef *js_init_module_uv(JSContext *ctx)
     return m;
 }
 
-int JSUV_InitCtxOpaque(JSContext *ctx) {
-    quv_state_t *quv_state = js_mallocz(ctx, sizeof(*quv_state));
-    if (!quv_state)
-        return -1;
-    if (uv_loop_init(&quv_state->uvloop) != 0) {
-        js_free(ctx, quv_state);
-        return -1;
-    }
-    JS_SetContextOpaque(ctx, quv_state);
-    return 0;
+void JSUV_InitCtxOpaque(JSContext *ctx) {
+    quv_state_t *state = js_mallocz(ctx, sizeof(*state));
+    if (!state)
+        abort();
+
+    uv_loop_init(&state->uvloop);
+
+    state->ctx = ctx;
+
+    /* handle to prevent the loop from blocking for i/o when there are pending jobs */
+    uv_idle_init(&state->uvloop, &state->jobs.idle);
+    state->jobs.idle.data = state;
+
+    /* handle which runs the job queue */
+    uv_check_init(&state->uvloop, &state->jobs.check);
+    state->jobs.check.data = state;
+
+    JS_SetContextOpaque(ctx, state);
 }
 
-/* main loop which calls the user JS callbacks */
-void js_uv_loop(JSContext *ctx)
-{
+static void uv__idle_cb(uv_idle_t *handle) {
+    // Noop
+}
+
+static void uv__check_cb(uv_check_t *handle) {
+    quv_state_t *state = handle->data;
+
+    if (!state)
+        abort();
+
+    JSContext *ctx = state->ctx;
     JSRuntime *rt = JS_GetRuntime(ctx);
-    quv_state_t *quv_state = JS_GetContextOpaque(ctx);
     JSContext *ctx1;
     int err;
 
+    /* execute the pending jobs */
     for(;;) {
-        /* execute the pending jobs */
-        for(;;) {
-            err = JS_ExecutePendingJob(rt, &ctx1);
-            if (err <= 0) {
-                if (err < 0) {
-                    js_std_dump_error(ctx1);
-                }
-                break;
+        err = JS_ExecutePendingJob(rt, &ctx1);
+        if (err <= 0) {
+            if (err < 0) {
+                js_std_dump_error(ctx1);
             }
-        }
-
-        if (uv_run(&quv_state->uvloop, UV_RUN_ONCE) == 0 && !JS_IsJobPending(rt))
             break;
+        }
     }
+
+    if (JS_IsJobPending(rt))
+        uv_idle_start(&state->jobs.idle, uv__idle_cb);
+    else
+        uv_idle_stop(&state->jobs.idle);
+}
+
+/* main loop which calls the user JS callbacks */
+void js_uv_loop(JSContext *ctx) {
+    quv_state_t *state = JS_GetContextOpaque(ctx);
+
+    uv_check_start(&state->jobs.check, uv__check_cb);
+    uv_unref((uv_handle_t*) &state->jobs.check);
+
+    uv_run(&state->uvloop, UV_RUN_DEFAULT);
+
+    // TODO: cleanup.
 }

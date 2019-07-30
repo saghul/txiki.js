@@ -30,10 +30,15 @@
 
 
 typedef struct quv_state_s {
+    JSContext *ctx;
     uv_loop_t uvloop;
+    struct {
+        uv_check_t check;
+        uv_idle_t idle;
+    } jobs;
 } quv_state_t;
 
-int JSUV_InitCtxOpaque(JSContext *ctx);
+void JSUV_InitCtxOpaque(JSContext *ctx);
 JSModuleDef *js_init_module_uv(JSContext *ctx);
 void js_uv_loop(JSContext *ctx);
 
