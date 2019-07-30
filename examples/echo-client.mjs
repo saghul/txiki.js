@@ -1,13 +1,10 @@
+// Sample TCP echo client.
+//
+
 'use strict';
 
-function addr(obj) {
-    return `${obj.ip}:${obj.port}`;
-}
+import { addr, logError } from './utils.js';
 
-function logError(e) {
-    console.log(`Oops! ${e}`);
-    console.log(e.stack);
-}
 
 (async () => {
     const t = new uv.TCP();

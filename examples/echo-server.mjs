@@ -1,13 +1,10 @@
+// Sample TCP echo server.
+//
+
 'use strict';
 
-function addr(obj) {
-    return `${obj.ip}:${obj.port}`;
-}
+import { addr, logError } from './utils.js';
 
-function logError(e) {
-    console.log(`Oops! ${e}`);
-    console.log(e.stack);
-}
 
 async function handleConnection(conn) {
     console.log(`Accepted connection! ${addr(conn.getpeername())} <-> ${addr(conn.getsockname())}`);
