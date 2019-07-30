@@ -395,7 +395,7 @@ static JSValue js_uv_tcp_read(JSContext *ctx, JSValueConst this_val,
     if (r != 0) {
         return js_uv_throw_errno(ctx, r);
     }
-    JSValue promise = JS_NewPromise(ctx, t->read.resolving_funcs);
+    JSValue promise = JS_NewPromiseCapability(ctx, t->read.resolving_funcs);
     t->read.promise = JS_DupValue(ctx, promise);
     return promise;
 }
@@ -458,7 +458,7 @@ static JSValue js_uv_tcp_write(JSContext *ctx, JSValueConst this_val,
     }
 
     t->write.data = data;
-    JSValue promise = JS_NewPromise(ctx, t->write.resolving_funcs);
+    JSValue promise = JS_NewPromiseCapability(ctx, t->write.resolving_funcs);
     t->write.promise = JS_DupValue(ctx, promise);
     return promise;
 }
@@ -500,7 +500,7 @@ static JSValue js_uv_tcp_shutdown(JSContext *ctx, JSValueConst this_val,
     if (r != 0) {
         return js_uv_throw_errno(ctx, r);
     }
-    JSValue promise = JS_NewPromise(ctx, t->shutdown.resolving_funcs);
+    JSValue promise = JS_NewPromiseCapability(ctx, t->shutdown.resolving_funcs);
     t->shutdown.promise = JS_DupValue(ctx, promise);
     return promise;
 }
@@ -585,7 +585,7 @@ static JSValue js_uv_tcp_connect(JSContext *ctx, JSValueConst this_val,
     if (r != 0) {
         return js_uv_throw_errno(ctx, r);
     }
-    JSValue promise = JS_NewPromise(ctx, t->connect.resolving_funcs);
+    JSValue promise = JS_NewPromiseCapability(ctx, t->connect.resolving_funcs);
     t->connect.promise = JS_DupValue(ctx, promise);
     return promise;
 }
@@ -674,7 +674,7 @@ static JSValue js_uv_tcp_accept(JSContext *ctx, JSValueConst this_val,
         return JS_EXCEPTION;
     if (!JS_IsUndefined(t->accept.promise))
         return js_uv_throw_errno(ctx, UV_EBUSY);
-    JSValue promise = JS_NewPromise(ctx, t->accept.resolving_funcs);
+    JSValue promise = JS_NewPromiseCapability(ctx, t->accept.resolving_funcs);
     t->accept.promise = JS_DupValue(ctx, promise);
     return promise;
 }
