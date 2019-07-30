@@ -25,5 +25,5 @@ make
 ./build/qjs
 ```
 
-[QquickJS]: https://bellard.org/quickjs/
+[QuickJS]: https://bellard.org/quickjs/
 [libuv]: https://libuv.org/
