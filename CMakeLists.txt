@@ -20,16 +20,42 @@ add_definitions(
     -DCONFIG_VERSION="2019-07-28"
 )
 
-add_executable(qjs
+add_library(qjs_obj OBJECT
     src/cutils.c
     src/libbf.c
     src/libregexp.c
     src/libunicode.c
-    src/qjs.c
     src/quickjs.c
+)
+
+add_executable(qjsc
+    src/qjsc.c
+    $<TARGET_OBJECTS:qjs_obj>
+)
+
+target_include_directories(qjsc PRIVATE
+    src
+)
+
+add_custom_command(
+    COMMAND
+        ${CMAKE_CURRENT_BINARY_DIR}/qjsc
+        -c
+        -o ${CMAKE_CURRENT_BINARY_DIR}/repl.c
+        -m ${CMAKE_SOURCE_DIR}/src/repl.js
+    DEPENDS
+        ${CMAKE_CURRENT_BINARY_DIR}/qjsc
+        ${CMAKE_SOURCE_DIR}/src/repl.js
+    OUTPUT
+        ${CMAKE_CURRENT_BINARY_DIR}/repl.c
+)
+
+add_executable(qjs
+    src/qjs.c
     src/quickjs-libc.c
     src/quickjs-libuv.c
-    src/repl.c
+    ${CMAKE_CURRENT_BINARY_DIR}/repl.c
+    $<TARGET_OBJECTS:qjs_obj>
 )
 
 include_directories(deps/libuv/include)
@@ -37,4 +63,3 @@ option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 
 target_link_libraries(qjs uv_a)
-
