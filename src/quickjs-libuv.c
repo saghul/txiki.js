@@ -684,6 +684,25 @@ static JSValue js_uv_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_NewBigUint64(ctx, uv_hrtime());
 }
 
+static JSValue js_uv_uname(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+    JSValue obj;
+    int r;
+    uv_utsname_t utsname;
+
+    r = uv_os_uname(&utsname);
+    if (r != 0)
+        return js_uv_throw_errno(ctx, r);
+
+    obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, obj, "sysname", JS_NewString(ctx, utsname.sysname));
+    JS_SetPropertyStr(ctx, obj, "release", JS_NewString(ctx, utsname.release));
+    JS_SetPropertyStr(ctx, obj, "version", JS_NewString(ctx, utsname.version));
+    JS_SetPropertyStr(ctx, obj, "machine", JS_NewString(ctx, utsname.machine));
+
+    return obj;
+}
+
 #define JSUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE )
 
 static const JSCFunctionListEntry js_uv_funcs[] = {
@@ -691,6 +710,7 @@ static const JSCFunctionListEntry js_uv_funcs[] = {
     JSUV_CONST(AF_INET6),
     JSUV_CONST(AF_UNSPEC),
     JS_CFUNC_DEF("hrtime", 0, js_uv_hrtime ),
+    JS_CFUNC_DEF("uname", 0, js_uv_uname ),
 };
 
 static const JSCFunctionListEntry js_uv_tcp_proto_funcs[] = {
