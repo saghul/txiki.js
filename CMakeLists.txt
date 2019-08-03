@@ -37,6 +37,10 @@ target_include_directories(qjsc PRIVATE
     src
 )
 
+target_link_libraries(qjsc PUBLIC
+    m
+)
+
 add_custom_command(
     COMMAND
         ${CMAKE_CURRENT_BINARY_DIR}/qjsc
@@ -62,4 +66,4 @@ include_directories(deps/libuv/include)
 option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 
-target_link_libraries(qjs uv_a)
+target_link_libraries(qjs uv_a m)
