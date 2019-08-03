@@ -64,17 +64,8 @@ typedef struct {
     JSContext *ctx;
 } JSOSRWHandler;
 
-typedef struct {
-    struct list_head link;
-    uv_signal_t handle;
-    int sig_num;
-    JSValue func;
-    JSContext *ctx;
-} JSOSSignalHandler;
-
 /* initialize the lists so js_std_free_handlers() can always be called */
 static struct list_head os_rw_handlers = LIST_HEAD_INIT(os_rw_handlers);
-static struct list_head os_signal_handlers = LIST_HEAD_INIT(os_signal_handlers);
 static int eval_script_recurse;
 
 static JSValue js_printf_internal(JSContext *ctx,
@@ -1309,86 +1300,6 @@ static JSValue js_os_setReadHandler(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-static JSOSSignalHandler *find_sh(int sig_num)
-{
-    JSOSSignalHandler *sh;
-    struct list_head *el;
-    list_for_each(el, &os_signal_handlers) {
-        sh = list_entry(el, JSOSSignalHandler, link);
-        if (sh->sig_num == sig_num)
-            return sh;
-    }
-    return NULL;
-}
-
-static void free_sh(JSRuntime *rt, JSOSSignalHandler *sh)
-{
-    JS_FreeValueRT(rt, sh->func);
-    js_free_rt(rt, sh);
-}
-
-static void uv__signal_close(uv_handle_t *handle) {
-    JSOSSignalHandler *sh = handle->data;
-    if (sh) {
-        JSRuntime *rt = JS_GetRuntime(sh->ctx);
-        free_sh(rt, sh);
-    }
-}
-
-static void uv__signal_cb(uv_signal_t *handle, int sig_num) {
-    JSOSSignalHandler *sh = handle->data;
-    if (sh) {
-        JSContext *ctx = sh->ctx;
-        call_handler(ctx, sh->func);
-    }
-}
-
-static JSValue js_os_signal(JSContext *ctx, JSValueConst this_val,
-                            int argc, JSValueConst *argv)
-{
-    JSOSSignalHandler *sh;
-    uint32_t sig_num;
-    JSValueConst func;
-    quv_state_t *quv_state;
-
-    quv_state = JS_GetContextOpaque(ctx);
-    if (!quv_state) {
-        return JS_ThrowInternalError(ctx, "couldn't find uv state");
-    }
-
-    if (JS_ToUint32(ctx, &sig_num, argv[0]))
-        return JS_EXCEPTION;
-    if (sig_num >= 64)
-        return JS_ThrowRangeError(ctx, "invalid signal number");
-    func = argv[1];
-    if (JS_IsNull(func) || JS_IsUndefined(func)) {
-        sh = find_sh(sig_num);
-        if (sh) {
-            list_del(&sh->link);
-            uv_close((uv_handle_t*)&sh->handle, uv__signal_close);
-        }
-    } else {
-        if (!JS_IsFunction(ctx, func))
-            return JS_ThrowTypeError(ctx, "not a function");
-        sh = find_sh(sig_num);
-        if (!sh) {
-            sh = js_mallocz(ctx, sizeof(*sh));
-            if (!sh)
-                return JS_EXCEPTION;
-            sh->ctx = ctx;
-            uv_signal_init(&quv_state->uvloop, &sh->handle);
-            sh->handle.data = sh;
-            sh->sig_num = sig_num;
-            list_add_tail(&sh->link, &os_signal_handlers);
-        }
-        JS_FreeValue(ctx, sh->func);
-        sh->func = JS_DupValue(ctx, func);
-        uv_signal_start(&sh->handle, uv__signal_cb, sig_num);
-        uv_unref((uv_handle_t*)&sh->handle);
-    }
-    return JS_UNDEFINED;
-}
-
 #if defined(_WIN32)
 #define OS_PLATFORM "win32"
 #elif defined(__APPLE__)
@@ -1425,7 +1336,6 @@ static const JSCFunctionListEntry js_os_funcs[] = {
     JS_CFUNC_DEF("rename", 2, js_os_rename ),
     JS_CFUNC_MAGIC_DEF("setReadHandler", 2, js_os_setReadHandler, 0 ),
     JS_CFUNC_MAGIC_DEF("setWriteHandler", 2, js_os_setReadHandler, 1 ),
-    JS_CFUNC_DEF("signal", 2, js_os_signal ),
     OS_FLAG(SIGINT),
     OS_FLAG(SIGABRT),
     OS_FLAG(SIGFPE),
@@ -1501,7 +1411,6 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv)
 
     /* XXX: not multi-context */
     init_list_head(&os_rw_handlers);
-    init_list_head(&os_signal_handlers);
 }
 
 void js_std_free_handlers(JSRuntime *rt)

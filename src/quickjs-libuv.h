@@ -26,6 +26,7 @@
 
 #include <uv.h>
 
+#include "list.h"
 #include "quickjs.h"
 
 
@@ -36,6 +37,7 @@ typedef struct quv_state_s {
         uv_check_t check;
         uv_idle_t idle;
     } jobs;
+    struct list_head signal_handlers;
 } quv_state_t;
 
 void JSUV_InitCtxOpaque(JSContext *ctx);

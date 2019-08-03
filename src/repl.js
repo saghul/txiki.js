@@ -157,7 +157,7 @@ import * as os from "os";
         }
 
         /* install a Ctrl-C signal handler */
-        os.signal(os.SIGINT, sigint_handler);
+        uv.signal(os.SIGINT, sigint_handler);
 
         /* install a handler to read stdin */
         term_read_buf = new Uint8Array(64);
@@ -836,7 +836,7 @@ import * as os from "os";
                 return;
             case -3:
                 /* uninstall a Ctrl-C signal handler */
-                os.signal(os.SIGINT, null);
+                uv.signal(os.SIGINT, null);
                 /* uninstall the stdin read handler */
                 os.setReadHandler(term_fd, null);
                 return;
