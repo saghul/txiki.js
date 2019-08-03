@@ -373,7 +373,9 @@ int main(int argc, char **argv)
                 "std.global.os = os;\n"
                 "std.global.uv = uv;\n"
                 "std.global.setTimeout = uv.setTimeout;\n"
-                "std.global.clearTimeout = uv.clearTimeout;\n";
+                "std.global.clearTimeout = uv.clearTimeout;\n"
+                "std.global.setInterval = uv.setInterval;\n"
+                "std.global.clearInterval = uv.clearInterval;\n";
             eval_buf(ctx, str, strlen(str), "<input>", JS_EVAL_TYPE_MODULE);
         }
 

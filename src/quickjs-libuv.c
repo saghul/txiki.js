@@ -698,6 +698,7 @@ typedef struct {
     JSValue func;
     JSValue obj;
     JSContext *ctx;
+    int interval;
 } JSUVTimer;
 
 static void uv__timer_close(uv_handle_t *handle) {
@@ -713,12 +714,14 @@ static void uv__timer_cb(uv_timer_t *handle) {
     if (th) {
         JSContext *ctx = th->ctx;
         JSValue func = th->func;
-        th->func = JS_UNDEFINED;
         js_uv_call_handler(ctx, func);
-        JS_FreeValue(ctx, func);
-        JSValue obj = th->obj;
-        th->obj = JS_UNDEFINED;
-        JS_FreeValue(ctx, obj);  // decref
+        if (!th->interval) {
+            th->func = JS_UNDEFINED;
+            JS_FreeValue(ctx, func);
+            JSValue obj = th->obj;
+            th->obj = JS_UNDEFINED;
+            JS_FreeValue(ctx, obj);  // decref
+        }
     }
 }
 
@@ -748,7 +751,7 @@ static JSClassDef js_uv_timer_class = {
 }; 
 
 static JSValue js_uv_setTimeout(JSContext *ctx, JSValueConst this_val,
-                                int argc, JSValueConst *argv)
+                                int argc, JSValueConst *argv, int magic)
 {
     int64_t delay;
     JSValueConst func;
@@ -777,7 +780,8 @@ static JSValue js_uv_setTimeout(JSContext *ctx, JSValueConst this_val,
     th->ctx = ctx;
     uv_timer_init(&quv_state->uvloop, &th->handle);
     th->handle.data = th;
-    uv_timer_start(&th->handle, uv__timer_cb, delay, 0);
+    uv_timer_start(&th->handle, uv__timer_cb, delay, magic ? delay : 0 /* repeat */);
+    th->interval = magic;
     th->func = JS_DupValue(ctx, func);
     th->obj = JS_DupValue(ctx, obj);  // incref
     JS_SetOpaque(obj, th);
@@ -791,6 +795,11 @@ static JSValue js_uv_clearTimeout(JSContext *ctx, JSValueConst this_val,
     if (!th)
         return JS_EXCEPTION;
     uv_timer_stop(&th->handle);
+    JSValue func = th->func;
+    if (!JS_IsUndefined(func)) {
+        th->func = JS_UNDEFINED;
+        JS_FreeValue(ctx, func);
+    }
     JSValue obj = th->obj;
     if (!JS_IsUndefined(obj)) {
         th->obj = JS_UNDEFINED;
@@ -834,8 +843,10 @@ static const JSCFunctionListEntry js_uv_funcs[] = {
     JSUV_CONST(AF_UNSPEC),
     JS_CFUNC_DEF("hrtime", 0, js_uv_hrtime ),
     JS_CFUNC_DEF("uname", 0, js_uv_uname ),
-    JS_CFUNC_DEF("setTimeout", 2, js_uv_setTimeout ),
+    JS_CFUNC_MAGIC_DEF("setTimeout", 2, js_uv_setTimeout, 0 ),
     JS_CFUNC_DEF("clearTimeout", 1, js_uv_clearTimeout ),
+    JS_CFUNC_MAGIC_DEF("setInterval", 2, js_uv_setTimeout, 1 ),
+    JS_CFUNC_DEF("clearInterval", 1, js_uv_clearTimeout ),
 };
 
 static const JSCFunctionListEntry js_uv_tcp_proto_funcs[] = {
