@@ -72,13 +72,6 @@ typedef struct {
     JSContext *ctx;
 } JSOSSignalHandler;
 
-typedef struct {
-    uv_timer_t handle;
-    JSValue func;
-    JSValue obj;
-    JSContext *ctx;
-} JSOSTimer;
-
 /* initialize the lists so js_std_free_handlers() can always be called */
 static struct list_head os_rw_handlers = LIST_HEAD_INIT(os_rw_handlers);
 static struct list_head os_signal_handlers = LIST_HEAD_INIT(os_signal_handlers);
@@ -1396,111 +1389,6 @@ static JSValue js_os_signal(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-static void free_timer(JSRuntime *rt, JSOSTimer *th)
-{
-    JS_FreeValueRT(rt, th->func);
-    js_free_rt(rt, th);
-}
-
-static void uv__timer_close(uv_handle_t *handle) {
-    JSOSTimer *th = handle->data;
-    if (th) {
-        JSRuntime *rt = JS_GetRuntime(th->ctx);
-        free_timer(rt, th);
-    }
-}
-
-static void uv__timer_cb(uv_timer_t *handle) {
-    JSOSTimer *th = handle->data;
-    if (th) {
-        JSContext *ctx = th->ctx;
-        JSValue func = th->func;
-        th->func = JS_UNDEFINED;
-        call_handler(ctx, func);
-        JS_FreeValue(ctx, func);
-        JSValue obj = th->obj;
-        th->obj = JS_UNDEFINED;
-        JS_FreeValue(ctx, obj);  // decref
-    }
-}
-
-static JSClassID js_os_timer_class_id;
-
-static void js_os_timer_finalizer(JSRuntime *rt, JSValue val)
-{
-    JSOSTimer *th = JS_GetOpaque(val, js_os_timer_class_id);
-    if (th) {
-        uv_close((uv_handle_t*)&th->handle, uv__timer_close);
-    }
-}
-
-static void js_os_timer_mark(JSRuntime *rt, JSValueConst val,
-                             JS_MarkFunc *mark_func)
-{
-    JSOSTimer *th = JS_GetOpaque(val, js_os_timer_class_id);
-    if (th) {
-        JS_MarkValue(rt, th->func, mark_func);
-    }
-}
-
-static JSValue js_os_setTimeout(JSContext *ctx, JSValueConst this_val,
-                                int argc, JSValueConst *argv)
-{
-    int64_t delay;
-    JSValueConst func;
-    JSOSTimer *th;
-    JSValue obj;
-    quv_state_t *quv_state;
-
-    quv_state = JS_GetContextOpaque(ctx);
-    if (!quv_state) {
-        return JS_ThrowInternalError(ctx, "couldn't find uv state");
-    }
-
-    func = argv[0];
-    if (!JS_IsFunction(ctx, func))
-        return JS_ThrowTypeError(ctx, "not a function");
-    if (JS_ToInt64(ctx, &delay, argv[1]))
-        return JS_EXCEPTION;
-    obj = JS_NewObjectClass(ctx, js_os_timer_class_id);
-    if (JS_IsException(obj))
-        return obj;
-    th = js_mallocz(ctx, sizeof(*th));
-    if (!th) {
-        JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
-    }
-    th->ctx = ctx;
-    uv_timer_init(&quv_state->uvloop, &th->handle);
-    th->handle.data = th;
-    uv_timer_start(&th->handle, uv__timer_cb, delay, 0);
-    th->func = JS_DupValue(ctx, func);
-    th->obj = JS_DupValue(ctx, obj);  // incref
-    JS_SetOpaque(obj, th);
-    return obj;
-}
-
-static JSValue js_os_clearTimeout(JSContext *ctx, JSValueConst this_val,
-                                  int argc, JSValueConst *argv)
-{
-    JSOSTimer *th = JS_GetOpaque2(ctx, argv[0], js_os_timer_class_id);
-    if (!th)
-        return JS_EXCEPTION;
-    uv_timer_stop(&th->handle);
-    JSValue obj = th->obj;
-    if (!JS_IsUndefined(obj)) {
-        th->obj = JS_UNDEFINED;
-        JS_FreeValue(ctx, obj);  // decref
-    }
-    return JS_UNDEFINED;
-}
-
-static JSClassDef js_os_timer_class = {
-    "OSTimer",
-    .finalizer = js_os_timer_finalizer,
-    .gc_mark = js_os_timer_mark,
-}; 
-
 #if defined(_WIN32)
 #define OS_PLATFORM "win32"
 #elif defined(__APPLE__)
@@ -1544,20 +1432,13 @@ static const JSCFunctionListEntry js_os_funcs[] = {
     OS_FLAG(SIGILL),
     OS_FLAG(SIGSEGV),
     OS_FLAG(SIGTERM),
-    JS_CFUNC_DEF("setTimeout", 2, js_os_setTimeout ),
-    JS_CFUNC_DEF("clearTimeout", 1, js_os_clearTimeout ),
     JS_PROP_STRING_DEF("platform", OS_PLATFORM, 0 ),
     /* stat, readlink, opendir, closedir, ... */
 };
 
 static int js_os_init(JSContext *ctx, JSModuleDef *m)
 {
-    /* OSTimer class */
-    JS_NewClassID(&js_os_timer_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), js_os_timer_class_id, &js_os_timer_class);
-    
-    return JS_SetModuleExportList(ctx, m, js_os_funcs,
-                                  countof(js_os_funcs));
+    return JS_SetModuleExportList(ctx, m, js_os_funcs, countof(js_os_funcs));
 }
 
 JSModuleDef *js_init_module_os(JSContext *ctx, const char *module_name)

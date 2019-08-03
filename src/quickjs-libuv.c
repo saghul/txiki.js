@@ -118,6 +118,17 @@ static JSValue js_uv_addr2obj(JSContext *ctx, struct sockaddr *sa) {
     }
 }
 
+static void js_uv_call_handler(JSContext *ctx, JSValueConst func) {
+    JSValue ret, func1;
+    /* 'func' might be destroyed when calling itself (if it frees the
+       handler), so must take extra care */
+    func1 = JS_DupValue(ctx, func);
+    ret = JS_Call(ctx, func1, JS_UNDEFINED, 0, NULL);
+    JS_FreeValue(ctx, func1);
+    if (JS_IsException(ret))
+        js_std_dump_error(ctx);
+    JS_FreeValue(ctx, ret);
+}
 
 /* Error object */
 
@@ -679,6 +690,118 @@ static JSValue js_uv_tcp_accept(JSContext *ctx, JSValueConst this_val,
     return promise;
 }
 
+
+/* Timers */
+
+typedef struct {
+    uv_timer_t handle;
+    JSValue func;
+    JSValue obj;
+    JSContext *ctx;
+} JSUVTimer;
+
+static void uv__timer_close(uv_handle_t *handle) {
+    JSUVTimer *th = handle->data;
+    if (th) {
+        JSContext *ctx = th->ctx;
+        js_free(ctx, th);
+    }
+}
+
+static void uv__timer_cb(uv_timer_t *handle) {
+    JSUVTimer *th = handle->data;
+    if (th) {
+        JSContext *ctx = th->ctx;
+        JSValue func = th->func;
+        th->func = JS_UNDEFINED;
+        js_uv_call_handler(ctx, func);
+        JS_FreeValue(ctx, func);
+        JSValue obj = th->obj;
+        th->obj = JS_UNDEFINED;
+        JS_FreeValue(ctx, obj);  // decref
+    }
+}
+
+static JSClassID js_uv_timer_class_id;
+
+static void js_uv_timer_finalizer(JSRuntime *rt, JSValue val)
+{
+    JSUVTimer *th = JS_GetOpaque(val, js_uv_timer_class_id);
+    if (th) {
+        uv_close((uv_handle_t*)&th->handle, uv__timer_close);
+    }
+}
+
+static void js_uv_timer_mark(JSRuntime *rt, JSValueConst val,
+                             JS_MarkFunc *mark_func)
+{
+    JSUVTimer *th = JS_GetOpaque(val, js_uv_timer_class_id);
+    if (th) {
+        JS_MarkValue(rt, th->func, mark_func);
+    }
+}
+
+static JSClassDef js_uv_timer_class = {
+    "UVTimer",
+    .finalizer = js_uv_timer_finalizer,
+    .gc_mark = js_uv_timer_mark,
+}; 
+
+static JSValue js_uv_setTimeout(JSContext *ctx, JSValueConst this_val,
+                                int argc, JSValueConst *argv)
+{
+    int64_t delay;
+    JSValueConst func;
+    JSUVTimer *th;
+    JSValue obj;
+    quv_state_t *quv_state;
+
+    quv_state = JS_GetContextOpaque(ctx);
+    if (!quv_state) {
+        return JS_ThrowInternalError(ctx, "couldn't find uv state");
+    }
+
+    func = argv[0];
+    if (!JS_IsFunction(ctx, func))
+        return JS_ThrowTypeError(ctx, "not a function");
+    if (JS_ToInt64(ctx, &delay, argv[1]))
+        return JS_EXCEPTION;
+    obj = JS_NewObjectClass(ctx, js_uv_timer_class_id);
+    if (JS_IsException(obj))
+        return obj;
+    th = js_mallocz(ctx, sizeof(*th));
+    if (!th) {
+        JS_FreeValue(ctx, obj);
+        return JS_EXCEPTION;
+    }
+    th->ctx = ctx;
+    uv_timer_init(&quv_state->uvloop, &th->handle);
+    th->handle.data = th;
+    uv_timer_start(&th->handle, uv__timer_cb, delay, 0);
+    th->func = JS_DupValue(ctx, func);
+    th->obj = JS_DupValue(ctx, obj);  // incref
+    JS_SetOpaque(obj, th);
+    return obj;
+}
+
+static JSValue js_uv_clearTimeout(JSContext *ctx, JSValueConst this_val,
+                                  int argc, JSValueConst *argv)
+{
+    JSUVTimer *th = JS_GetOpaque2(ctx, argv[0], js_uv_timer_class_id);
+    if (!th)
+        return JS_EXCEPTION;
+    uv_timer_stop(&th->handle);
+    JSValue obj = th->obj;
+    if (!JS_IsUndefined(obj)) {
+        th->obj = JS_UNDEFINED;
+        JS_FreeValue(ctx, obj);  // decref
+    }
+    return JS_UNDEFINED;
+}
+
+
+/* Misc functions */
+
 static JSValue js_uv_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
     return JS_NewBigUint64(ctx, uv_hrtime());
@@ -711,6 +834,8 @@ static const JSCFunctionListEntry js_uv_funcs[] = {
     JSUV_CONST(AF_UNSPEC),
     JS_CFUNC_DEF("hrtime", 0, js_uv_hrtime ),
     JS_CFUNC_DEF("uname", 0, js_uv_uname ),
+    JS_CFUNC_DEF("setTimeout", 2, js_uv_setTimeout ),
+    JS_CFUNC_DEF("clearTimeout", 1, js_uv_clearTimeout ),
 };
 
 static const JSCFunctionListEntry js_uv_tcp_proto_funcs[] = {
@@ -739,17 +864,12 @@ static int js_uv_init(JSContext *ctx, JSModuleDef *m)
 {
     JSValue proto, obj;
     
-    /* Tcp class */
-    /* the class ID is created once */
+    /* TCP class */
     JS_NewClassID(&js_uv_tcp_class_id);
-    /* the class is created once per runtime */
     JS_NewClass(JS_GetRuntime(ctx), js_uv_tcp_class_id, &js_uv_tcp_class);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, js_uv_tcp_proto_funcs, countof(js_uv_tcp_proto_funcs));
     JS_SetClassProto(ctx, js_uv_tcp_class_id, proto);
-
-    /* Module functions */
-    JS_SetModuleExportList(ctx, m, js_uv_funcs, countof(js_uv_funcs));
 
     /* TCP object */
     obj = JS_NewCFunction2(ctx, js_uv_tcp_constructor, "TCP", 1, JS_CFUNC_constructor, 0);
@@ -759,6 +879,13 @@ static int js_uv_init(JSContext *ctx, JSModuleDef *m)
     obj = JS_NewCFunction2(ctx, js_uv_error_constructor, "Error", 1, JS_CFUNC_constructor, 0);
     JS_SetPropertyFunctionList(ctx, obj, js_uv_error_funcs, countof(js_uv_error_funcs));
     JS_SetModuleExport(ctx, m, "Error", obj);
+
+    /* OSTimer class */
+    JS_NewClassID(&js_uv_timer_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), js_uv_timer_class_id, &js_uv_timer_class);
+
+    /* Module functions */
+    JS_SetModuleExportList(ctx, m, js_uv_funcs, countof(js_uv_funcs));
 
     return 0;
 }
