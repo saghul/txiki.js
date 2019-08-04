@@ -328,8 +328,19 @@ static JSValue js_uv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSVal
     if (!JS_IsUndefined(s->write.promise))
         return js_uv_throw_errno(ctx, UV_EBUSY);
 
+    JSValue jsData = argv[0];
+
     size_t size;
-    uint8_t *tmp = JS_GetArrayBuffer(ctx, &size, argv[0]);
+    uint8_t *tmp;
+
+    if (JS_IsString(jsData)) {
+        int len;
+        tmp = (uint8_t*) JS_ToCStringLen(ctx, &len, jsData, 0);
+        size = len;
+    } else {
+        tmp = JS_GetArrayBuffer(ctx, &size, jsData);
+    }
+
     if (!tmp) {
         return JS_EXCEPTION;
     }
