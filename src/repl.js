@@ -101,48 +101,52 @@ import * as os from "os";
     var utf8_state = 0;
     var utf8_val = 0;
 
-    var term_fd;
-    var term_read_buf;
+    var stdin;
+    var stdout;
     var term_width;
     /* current X position of the cursor in the terminal */
     var term_cursor_x = 0; 
     
     function termInit() {
-        var tab;
-        term_fd = std.in.fileno();
+        if (!uv.isatty(uv.STDIN_FILENO))
+            throw new Error('stdin is not a TTY');
+
+        stdin = new uv.TTY(uv.STDIN_FILENO, true);
+        stdout = new uv.TTY(uv.STDOUT_FILENO, false);
         
         /* get the terminal size */
-        term_width = 80;
-        if (os.isatty(term_fd)) {
-            if (os.ttyGetWinSize) {
-                tab = os.ttyGetWinSize(term_fd);
-                if (tab)
-                    term_width = tab[0];
-            }
-            if (os.ttySetRaw) {
-                /* set the TTY to raw mode */
-                os.ttySetRaw(term_fd);
-            }
-        }
+        var size = stdin.getWinSize();
+        term_width = size.width;
+
+        /* set the TTY to raw mode */
+        stdin.setMode(uv.UV_TTY_MODE_RAW);
 
         /* install a Ctrl-C signal handler */
         uv.signal(os.SIGINT, sigint_handler);
 
-        /* install a handler to read stdin */
-        term_read_buf = new Uint8Array(64);
-        os.setReadHandler(term_fd, term_read_handler);
+        /* handler to read stdin */
+        term_read_handler();
+    }
+
+    function exit(code) {
+        stdin.setMode(uv.UV_TTY_MODE_NORMAL);
+        std.exit(code);
     }
 
     function sigint_handler() {
         /* send Ctrl-C to readline */
         handle_byte(3);
     }
-    
-    function term_read_handler() {
-        var l, i;
-        l = os.read(term_fd, term_read_buf.buffer, 0, term_read_buf.length);
-        for(i = 0; i < l; i++)
-            handle_byte(term_read_buf[i]);
+
+    async function term_read_handler() {
+        var data;
+        var dataBuf;
+        while (true) {
+            data = await stdin.read();
+            dataBuf = new Uint8Array(data);
+            for(var i = 0; i < dataBuf.length; i++)
+                handle_byte(dataBuf[i]);
+        }
     }
     
     function handle_byte(c) {
@@ -193,14 +197,14 @@ import * as os from "os";
             var style = style_names[i = j];
             while (++j < str.length && style_names[j] == style)
                 continue;
-            std.puts(colors[styles[style] || 'default']);
-            std.puts(str.substring(i, j));
-            std.puts(colors['none']);
+            stdout.write(colors[styles[style] || 'default']);
+            stdout.write(str.substring(i, j));
+            stdout.write(colors['none']);
         }
     }
 
     function print_csi(n, code) {
-        std.puts("\x1b[" + ((n != 1) ? n : "") + code);
+        stdout.write("\x1b[" + ((n != 1) ? n : "") + code);
     }
 
     function move_cursor(delta) {
@@ -208,7 +212,7 @@ import * as os from "os";
         if (delta > 0) {
             while (delta != 0) {
                 if (term_cursor_x == (term_width - 1)) {
-                    std.puts("\n"); /* translated to CRLF */
+                    stdout.write("\n"); /* translated to CRLF */
                     term_cursor_x = 0;
                     delta--;
                 } else {
@@ -242,7 +246,7 @@ import * as os from "os";
         if (cmd != last_cmd) {
             if (!show_colors && last_cmd.substring(0, last_cursor_pos) == cmd.substring(0, last_cursor_pos)) {
                 /* optimize common case */
-                std.puts(cmd.substring(last_cursor_pos));
+                stdout.write(cmd.substring(last_cursor_pos));
             } else {
                 /* goto the start of the line */
                 move_cursor(-last_cursor_pos);
@@ -252,23 +256,23 @@ import * as os from "os";
                     var colorstate = colorize_js(str);
                     print_color_text(str, start, colorstate[2]);
                 } else {
-                    std.puts(cmd);
+                    stdout.write(cmd);
                 }
             }
             /* Note: assuming no surrogate pairs */
             term_cursor_x = (term_cursor_x + cmd.length) % term_width;
             if (term_cursor_x == 0) {
                 /* show the cursor on the next line */
-                std.puts(" \x08");
+                stdout.write(" \x08");
             }
             /* remove the trailing characters */
-            std.puts("\x1b[J");
+            stdout.write("\x1b[J");
             last_cmd = cmd;
             last_cursor_pos = cmd.length;
         }
         move_cursor(cursor_pos - last_cursor_pos);
         last_cursor_pos = cursor_pos;
-        std.out.flush();
+        //std.out.flush();
     }
 
     /* editing commands */
@@ -335,7 +339,7 @@ import * as os from "os";
     }        
 
     function accept_line() {
-        std.puts("\n");
+        stdout.write("\n");
         history_add(cmd);
         return -1;
     }
@@ -405,7 +409,7 @@ import * as os from "os";
 
     function control_d() {
         if (cmd.length == 0) {
-            std.puts("\n");
+            stdout.write("\n");
             return -3; /* exit read eval print loop */
         } else {
             delete_char_dir(1);
@@ -493,10 +497,10 @@ import * as os from "os";
 
     function control_c() {
         if (last_fun === control_c) {
-            std.puts("\n");
-            std.exit(0);
+            stdout.write("\n");
+            exit(0);
         } else {
-            std.puts("\n(Press Ctrl-C again to quit)\n");
+            stdout.write("\n(Press Ctrl-C again to quit)\n");
             readline_print_prompt();
         }
     }
@@ -634,7 +638,7 @@ import * as os from "os";
             max_width += 2;
             n_cols = Math.max(1, Math.floor((term_width + 1) / max_width));
             n_rows = Math.ceil(tab.length / n_cols);
-            std.puts("\n");
+            stdout.write("\n");
             /* display the sorted list column-wise */
             for (row = 0; row < n_rows; row++) {
                 for (col = 0; col < n_cols; col++) {
@@ -644,9 +648,9 @@ import * as os from "os";
                     s = tab[i];
                     if (col != n_cols - 1)
                         s = s.padEnd(max_width);
-                    std.puts(s);
+                    stdout.write(s);
                 }
-                std.puts("\n");
+                stdout.write("\n");
             }
             /* show a new prompt */
             readline_print_prompt();
@@ -717,7 +721,7 @@ import * as os from "os";
 
     function readline_print_prompt()
     {
-        std.puts(prompt);
+        stdout.write(prompt);
         term_cursor_x = prompt.length % term_width;
         last_cmd = "";
         last_cursor_pos = 0;
@@ -886,42 +890,42 @@ import * as os from "os";
             type = typeof a;
             if (type === "object") {
                 if (a === null) {
-                    std.puts(a);
+                    stdout.write(a);
                 } else if (stack.indexOf(a) >= 0) {
-                    std.puts("[circular]");
+                    stdout.write("[circular]");
                 } else {
                     stack.push(a);
                     if (Array.isArray(a)) {
                         n = a.length;
-                        std.puts("[ ");
+                        stdout.write("[ ");
                         for(i = 0; i < n; i++) {
                             if (i !== 0)
-                                std.puts(", ");
+                                stdout.write(", ");
                             if (i in a) {
                                 print_rec(a[i]);
                             } else {
-                                std.puts("<empty>");
+                                stdout.write("<empty>");
                             }
                             if (i > 20) {
-                                std.puts("...");
+                                stdout.write("...");
                                 break;
                             }
                         }
-                        std.puts(" ]");
+                        stdout.write(" ]");
                     } else if (Object.__getClass(a) === "RegExp") {
-                        std.puts(a.toString());
+                        stdout.write(a.toString());
                     } else {
                         keys = Object.keys(a);
                         n = keys.length;
-                        std.puts("{ ");
+                        stdout.write("{ ");
                         for(i = 0; i < n; i++) {
                             if (i !== 0)
-                                std.puts(", ");
+                                stdout.write(", ");
                             key = keys[i];
-                            std.puts(key, ": ");
+                            stdout.write(key, ": ");
                             print_rec(a[key]);
                         }
-                        std.puts(" }");
+                        stdout.write(" }");
                     }
                     stack.pop(a);
                 }
@@ -929,17 +933,17 @@ import * as os from "os";
                 s = a.__quote();
                 if (s.length > 79)
                     s = s.substring(0, 75) + "...\"";
-                std.puts(s);
+                stdout.write(s);
             } else if (type === "number" || type === "bigfloat") {
-                std.puts(number_to_string(a, 10));
+                stdout.write(number_to_string(a, 10));
             } else if (type === "bigint") {
-                std.puts(bigint_to_string(a, 10));
+                stdout.write(bigint_to_string(a, 10));
             } else if (type === "symbol") {
-                std.puts(String(a));
+                stdout.write(String(a));
             } else if (type === "function") {
-                std.puts("function " + a.name + "()");
+                stdout.write("function " + a.name + "()");
             } else {
-                std.puts(a);
+                stdout.write(a);
             }
         }
         print_rec(a);
@@ -969,11 +973,11 @@ import * as os from "os";
         } else if (cmd === "t") {
             show_time = !show_time;
         } else if (cmd === "clear") {
-            std.puts("\x1b[H\x1b[J");
+            stdout.write("\x1b[H\x1b[J");
         } else if (cmd === "q") {
-            std.exit(0);
+            exit(0);
         } else {
-            std.puts("Unknown directive: " + cmd + "\n");
+            stdout.write("Unknown directive: " + cmd + "\n");
             return false;
         }
         return true;
@@ -983,10 +987,10 @@ import * as os from "os";
         function sel(n) {
             return n ? "*": " ";
         }
-        std.puts("\\h          this help\n" +
+        stdout.write("\\h          this help\n" +
                  "\\t         " + sel(show_time) + "toggle timing display\n" +
                   "\\clear      clear the terminal\n");
-        std.puts("\\q          exit\n");
+        stdout.write("\\q          exit\n");
     }
 
     function eval_and_print(expr) {
@@ -997,29 +1001,29 @@ import * as os from "os";
             /* eval as a script */
             result = std.evalScript(expr);
             eval_time = (new Date).getTime() - now;
-            std.puts(colors[styles.result]);
+            stdout.write(colors[styles.result]);
             print(result);
-            std.puts("\n");
-            std.puts(colors.none);
+            stdout.write("\n");
+            stdout.write(colors.none);
             /* set the last result */
             g._ = result;
         } catch (error) {
-            std.puts(colors[styles.error_msg]);
+            stdout.write(colors[styles.error_msg]);
             if (error instanceof Error) {
                 console.log(error);
                 if (error.stack) {
-                    std.puts(error.stack);
+                    stdout.write(error.stack);
                 }
             } else {
-                std.puts("Throw: ");
+                stdout.write("Throw: ");
                 console.log(error);
             }
-            std.puts(colors.none);
+            stdout.write(colors.none);
         }
     }
 
     function cmd_start() {
-        std.puts('QuickJS - Type "\\h" for help\n');
+        stdout.write('QuickJS - Type "\\h" for help\n');
         cmd_readline_start();
     }
 
