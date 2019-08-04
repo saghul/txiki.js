@@ -831,7 +831,7 @@ import * as os from "os";
         var s;
         if (!isFinite(a)) {
             /* NaN, Infinite */
-            if (typeof a === "bigfloat" && eval_mode !== "math") {
+            if (typeof a === "bigfloat") {
                 return "BigFloat(" + a.toString() + ")";
             } else {
                 return a.toString();
@@ -856,14 +856,8 @@ import * as os from "os";
                     s = a.toString();
                 }
             }
-            if (typeof a === "bigfloat" && eval_mode !== "math") {
+            if (typeof a === "bigfloat") {
                 s += "l";
-            } else if (eval_mode !== "std" && s.indexOf(".") < 0 &&
-                ((radix == 16 && s.indexOf("p") < 0) ||
-                 (radix == 10 && s.indexOf("e") < 0))) {
-                /* add a decimal point so that the floating point type
-                   is visible */
-                s += ".0";
             }
             return s;
         }
