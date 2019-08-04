@@ -38,10 +38,6 @@ import * as os from "os";
     var Date = g.Date;
     var Math = g.Math;
     var isFinite = g.isFinite;
-    var parseFloat = g.parseFloat;
-
-    /* XXX: use preprocessor ? */
-    var has_bignum = (typeof BigFloat === "function");
     
     var colors = {
         none:    "\x1b[0m",
