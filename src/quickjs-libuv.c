@@ -923,36 +923,38 @@ static JSValue js_uv_uname(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 }
 
 #define JSUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE )
+#define JSUV_CFUNC_DEF(name, length, func1) { name, JS_PROP_ENUMERABLE, JS_DEF_CFUNC, 0, .u.func = { length, JS_CFUNC_generic, { .generic = func1 } } }
+#define JSUV_CFUNC_MAGIC_DEF(name, length, func1, magic) { name, JS_PROP_ENUMERABLE, JS_DEF_CFUNC, magic, .u.func = { length, JS_CFUNC_generic_magic, { .generic_magic = func1 } } }
 
 static const JSCFunctionListEntry js_uv_funcs[] = {
     JSUV_CONST(AF_INET),
     JSUV_CONST(AF_INET6),
     JSUV_CONST(AF_UNSPEC),
-    JS_CFUNC_DEF("hrtime", 0, js_uv_hrtime ),
-    JS_CFUNC_DEF("uname", 0, js_uv_uname ),
-    JS_CFUNC_MAGIC_DEF("setTimeout", 2, js_uv_setTimeout, 0 ),
-    JS_CFUNC_DEF("clearTimeout", 1, js_uv_clearTimeout ),
-    JS_CFUNC_MAGIC_DEF("setInterval", 2, js_uv_setTimeout, 1 ),
-    JS_CFUNC_DEF("clearInterval", 1, js_uv_clearTimeout ),
-    JS_CFUNC_DEF("signal", 2, js_uv_signal ),
+    JSUV_CFUNC_DEF("hrtime", 0, js_uv_hrtime ),
+    JSUV_CFUNC_DEF("uname", 0, js_uv_uname ),
+    JSUV_CFUNC_MAGIC_DEF("setTimeout", 2, js_uv_setTimeout, 0 ),
+    JSUV_CFUNC_DEF("clearTimeout", 1, js_uv_clearTimeout ),
+    JSUV_CFUNC_MAGIC_DEF("setInterval", 2, js_uv_setTimeout, 1 ),
+    JSUV_CFUNC_DEF("clearInterval", 1, js_uv_clearTimeout ),
+    JSUV_CFUNC_DEF("signal", 2, js_uv_signal ),
 };
 
 static const JSCFunctionListEntry js_uv_tcp_proto_funcs[] = {
-    JS_CFUNC_DEF("close", 0, js_uv_tcp_close ),
-    JS_CFUNC_DEF("read", 0, js_uv_tcp_read ),
-    JS_CFUNC_DEF("write", 1, js_uv_tcp_write ),
-    JS_CFUNC_DEF("shutdown", 0, js_uv_tcp_shutdown ),
-    JS_CFUNC_MAGIC_DEF("getsockname", 0, js_uv_tcp_getsockpeername, 0 ),
-    JS_CFUNC_MAGIC_DEF("getpeername", 0, js_uv_tcp_getsockpeername, 1 ),
-    JS_CFUNC_DEF("fileno", 0, js_uv_tcp_fileno ),
-    JS_CFUNC_DEF("connect", 1, js_uv_tcp_connect ),
-    JS_CFUNC_DEF("bind", 1, js_uv_tcp_bind ),
-    JS_CFUNC_DEF("listen", 1, js_uv_tcp_listen ),
-    JS_CFUNC_DEF("accept", 0, js_uv_tcp_accept ),
+    JSUV_CFUNC_DEF("close", 0, js_uv_tcp_close ),
+    JSUV_CFUNC_DEF("read", 0, js_uv_tcp_read ),
+    JSUV_CFUNC_DEF("write", 1, js_uv_tcp_write ),
+    JSUV_CFUNC_DEF("shutdown", 0, js_uv_tcp_shutdown ),
+    JSUV_CFUNC_MAGIC_DEF("getsockname", 0, js_uv_tcp_getsockpeername, 0 ),
+    JSUV_CFUNC_MAGIC_DEF("getpeername", 0, js_uv_tcp_getsockpeername, 1 ),
+    JSUV_CFUNC_DEF("fileno", 0, js_uv_tcp_fileno ),
+    JSUV_CFUNC_DEF("connect", 1, js_uv_tcp_connect ),
+    JSUV_CFUNC_DEF("bind", 1, js_uv_tcp_bind ),
+    JSUV_CFUNC_DEF("listen", 1, js_uv_tcp_listen ),
+    JSUV_CFUNC_DEF("accept", 0, js_uv_tcp_accept ),
 };
 
 static const JSCFunctionListEntry js_uv_error_funcs[] = {
-    JS_CFUNC_DEF("strerror", 1, js_uv_error_strerror ),
+    JSUV_CFUNC_DEF("strerror", 1, js_uv_error_strerror ),
     /* various errno values */
 #define DEF(x, s) JS_PROP_INT32_DEF(stringify(UV_##x), UV_##x, JS_PROP_CONFIGURABLE ),
     UV_ERRNO_MAP(DEF)
