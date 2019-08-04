@@ -1261,6 +1261,16 @@ static void uv__idle_cb(uv_idle_t *handle) {
     // Noop
 }
 
+static void uv__maybe_idle(JSContext *ctx) {
+    quv_state_t *state = JS_GetContextOpaque(ctx);
+    JSRuntime *rt = JS_GetRuntime(ctx);
+
+    if (JS_IsJobPending(rt))
+        uv_idle_start(&state->jobs.idle, uv__idle_cb);
+    else
+        uv_idle_stop(&state->jobs.idle);
+}
+
 static void uv__check_cb(uv_check_t *handle) {
     quv_state_t *state = handle->data;
 
@@ -1283,10 +1293,7 @@ static void uv__check_cb(uv_check_t *handle) {
         }
     }
 
-    if (JS_IsJobPending(rt))
-        uv_idle_start(&state->jobs.idle, uv__idle_cb);
-    else
-        uv_idle_stop(&state->jobs.idle);
+    uv__maybe_idle(ctx);
 }
 
 /* main loop which calls the user JS callbacks */
@@ -1295,6 +1302,8 @@ void js_uv_loop(JSContext *ctx) {
 
     uv_check_start(&state->jobs.check, uv__check_cb);
     uv_unref((uv_handle_t*) &state->jobs.check);
+
+    uv__maybe_idle(ctx);
 
     uv_run(&state->uvloop, UV_RUN_DEFAULT);
 
