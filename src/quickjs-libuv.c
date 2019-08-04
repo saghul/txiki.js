@@ -21,6 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#include <unistd.h>
+
 #include "cutils.h"
 #include "quickjs-libc.h"
 #include "quickjs-libuv.h"
@@ -183,6 +186,7 @@ typedef struct {
         uv_handle_t handle;
         uv_stream_t stream;
         uv_tcp_t tcp;
+        uv_tty_t tty;
     } h;
     struct {
         uv_connect_t req;
@@ -747,6 +751,135 @@ static JSValue js_uv_tcp_accept(JSContext *ctx, JSValueConst this_val,
 }
 
 
+/* TTY */
+
+static JSClassID js_uv_tty_class_id;
+
+static void js_uv_tty_finalizer(JSRuntime *rt, JSValue val) {
+    JSUVStream *t = JS_GetOpaque(val, js_uv_tty_class_id);
+    js_uv_stream_finalizer(t);
+}
+
+static void js_uv_tty_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+    JSUVStream *t = JS_GetOpaque(val, js_uv_tty_class_id);
+    js_uv_stream_mark(rt, t, mark_func);
+}
+
+static JSClassDef js_uv_tty_class = {
+    "TTY",
+    .finalizer = js_uv_tty_finalizer,
+    .gc_mark = js_uv_tty_mark,
+};
+
+static JSValue js_uv_tty_constructor(JSContext *ctx, JSValueConst new_target,
+                                     int argc, JSValueConst *argv)
+{
+    JSUVStream *s;
+    JSValue obj;
+    uv_loop_t *loop;
+    int fd, r, readable;
+
+    if (JS_ToInt32(ctx, &fd, argv[0]))
+        return JS_EXCEPTION;
+
+    if ((readable = JS_ToBool(ctx, argv[1])) == -1)
+        return JS_EXCEPTION;
+
+    loop = js_uv_get_loop(ctx);
+    if (!loop) {
+        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
+    }
+
+    obj = JS_NewObjectClass(ctx, js_uv_tty_class_id);
+    if (JS_IsException(obj))
+        return obj;
+
+    s = js_mallocz(ctx, sizeof(*s));
+    if (!s) {
+        JS_FreeValue(ctx, obj);
+        return JS_EXCEPTION;
+    }
+
+    r = uv_tty_init(loop, &s->h.tty, fd, readable);
+    if (r != 0) {
+        JS_FreeValue(ctx, obj);
+        js_free(ctx, s);
+        return JS_ThrowInternalError(ctx, "couldn't initialize TTY handle");
+    }
+
+    return js_uv_init_stream(ctx, obj, s);
+}
+
+static JSUVStream *js_uv_tty_get(JSContext *ctx, JSValueConst obj)
+{
+    return JS_GetOpaque2(ctx, obj, js_uv_tty_class_id);
+}
+
+static JSValue js_uv_tty_setMode(JSContext *ctx, JSValueConst this_val,
+                                 int argc, JSValueConst *argv)
+{
+    JSUVStream *s = js_uv_tty_get(ctx, this_val);
+    if (!s)
+        return JS_EXCEPTION;
+
+    int mode;
+    if (JS_ToInt32(ctx, &mode, argv[0]))
+        return JS_EXCEPTION;
+
+    int r = uv_tty_set_mode(&s->h.tty, mode);
+    if (r != 0)
+        return js_uv_throw_errno(ctx, r);
+
+    return JS_UNDEFINED;
+}
+
+static JSValue js_uv_tty_getWinSize(JSContext *ctx, JSValueConst this_val,
+                                    int argc, JSValueConst *argv)
+{
+    JSUVStream *s = js_uv_tty_get(ctx, this_val);
+    if (!s)
+        return JS_EXCEPTION;
+
+    int r, width, height;
+    r = uv_tty_get_winsize(&s->h.tty, &width, &height);
+    if (r != 0)
+        return js_uv_throw_errno(ctx, r);
+
+    JSValue obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, obj, "width", JS_NewInt32(ctx, width));
+    JS_SetPropertyStr(ctx, obj, "height", JS_NewInt32(ctx, height));
+    return obj;
+}
+
+static JSValue js_uv_tty_close(JSContext *ctx, JSValueConst this_val,
+                               int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_tty_get(ctx, this_val);
+    return js_uv_stream_close(ctx, t, argc, argv);
+}
+
+static JSValue js_uv_tty_read(JSContext *ctx, JSValueConst this_val,
+                              int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_tty_get(ctx, this_val);
+    return js_uv_stream_read(ctx, t, argc, argv);
+}
+
+static JSValue js_uv_tty_write(JSContext *ctx, JSValueConst this_val,
+                               int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_tty_get(ctx, this_val);
+    return js_uv_stream_write(ctx, t, argc, argv);
+}
+
+static JSValue js_uv_tty_fileno(JSContext *ctx, JSValueConst this_val,
+                                int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_tty_get(ctx, this_val);
+    return js_uv_stream_fileno(ctx, t, argc, argv);
+}
+
+
 /* Timers */
 
 typedef struct {
@@ -978,6 +1111,16 @@ static JSValue js_uv_uname(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return obj;
 }
 
+static JSValue js_uv_isatty(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+    int fd, type;
+    if (JS_ToInt32(ctx, &fd, argv[0]))
+        return JS_EXCEPTION;
+
+    type = uv_guess_handle(fd);
+    return JS_NewBool(ctx, type == UV_TTY);
+}
+
 #define JSUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE )
 #define JSUV_CFUNC_DEF(name, length, func1) { name, JS_PROP_ENUMERABLE, JS_DEF_CFUNC, 0, .u.func = { length, JS_CFUNC_generic, { .generic = func1 } } }
 #define JSUV_CFUNC_MAGIC_DEF(name, length, func1, magic) { name, JS_PROP_ENUMERABLE, JS_DEF_CFUNC, magic, .u.func = { length, JS_CFUNC_generic_magic, { .generic_magic = func1 } } }
@@ -986,6 +1129,12 @@ static const JSCFunctionListEntry js_uv_funcs[] = {
     JSUV_CONST(AF_INET),
     JSUV_CONST(AF_INET6),
     JSUV_CONST(AF_UNSPEC),
+    JSUV_CONST(STDIN_FILENO),
+    JSUV_CONST(STDOUT_FILENO),
+    JSUV_CONST(STDERR_FILENO),
+    JSUV_CONST(UV_TTY_MODE_NORMAL),
+    JSUV_CONST(UV_TTY_MODE_RAW),
+    JSUV_CONST(UV_TTY_MODE_IO),
     JSUV_CFUNC_DEF("hrtime", 0, js_uv_hrtime ),
     JSUV_CFUNC_DEF("uname", 0, js_uv_uname ),
     JSUV_CFUNC_MAGIC_DEF("setTimeout", 2, js_uv_setTimeout, 0 ),
@@ -993,6 +1142,7 @@ static const JSCFunctionListEntry js_uv_funcs[] = {
     JSUV_CFUNC_MAGIC_DEF("setInterval", 2, js_uv_setTimeout, 1 ),
     JSUV_CFUNC_DEF("clearInterval", 1, js_uv_clearTimeout ),
     JSUV_CFUNC_DEF("signal", 2, js_uv_signal ),
+    JSUV_CFUNC_DEF("isatty", 1, js_uv_isatty ),
 };
 
 static const JSCFunctionListEntry js_uv_tcp_proto_funcs[] = {
@@ -1009,6 +1159,17 @@ static const JSCFunctionListEntry js_uv_tcp_proto_funcs[] = {
     JSUV_CFUNC_MAGIC_DEF("getpeername", 0, js_uv_tcp_getsockpeername, 1 ),
     JSUV_CFUNC_DEF("connect", 1, js_uv_tcp_connect ),
     JSUV_CFUNC_DEF("bind", 1, js_uv_tcp_bind ),
+};
+
+static const JSCFunctionListEntry js_uv_tty_proto_funcs[] = {
+    /* Stream functions */
+    JSUV_CFUNC_DEF("close", 0, js_uv_tty_close ),
+    JSUV_CFUNC_DEF("read", 0, js_uv_tty_read ),
+    JSUV_CFUNC_DEF("write", 1, js_uv_tty_write ),
+    JSUV_CFUNC_DEF("fileno", 0, js_uv_tty_fileno ),
+    /* TTY functions */
+    JSUV_CFUNC_DEF("setMode", 0, js_uv_tty_setMode ),
+    JSUV_CFUNC_DEF("getWinSize", 0, js_uv_tty_getWinSize ),
 };
 
 static const JSCFunctionListEntry js_uv_error_funcs[] = {
@@ -1034,6 +1195,17 @@ static int js_uv_init(JSContext *ctx, JSModuleDef *m)
     obj = JS_NewCFunction2(ctx, js_uv_tcp_constructor, "TCP", 1, JS_CFUNC_constructor, 0);
     JS_SetModuleExport(ctx, m, "TCP", obj);
 
+    /* TTY class */
+    JS_NewClassID(&js_uv_tty_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), js_uv_tty_class_id, &js_uv_tty_class);
+    proto = JS_NewObject(ctx);
+    JS_SetPropertyFunctionList(ctx, proto, js_uv_tty_proto_funcs, countof(js_uv_tty_proto_funcs));
+    JS_SetClassProto(ctx, js_uv_tty_class_id, proto);
+
+    /* TTY object */
+    obj = JS_NewCFunction2(ctx, js_uv_tty_constructor, "TTY", 1, JS_CFUNC_constructor, 0);
+    JS_SetModuleExport(ctx, m, "TTY", obj);
+
     /* Error object */    
     obj = JS_NewCFunction2(ctx, js_uv_error_constructor, "Error", 1, JS_CFUNC_constructor, 0);
     JS_SetPropertyFunctionList(ctx, obj, js_uv_error_funcs, countof(js_uv_error_funcs));
@@ -1057,6 +1229,7 @@ JSModuleDef *js_init_module_uv(JSContext *ctx)
         return NULL;
     JS_AddModuleExportList(ctx, m, js_uv_funcs, countof(js_uv_funcs));
     JS_AddModuleExport(ctx, m, "TCP");
+    JS_AddModuleExport(ctx, m, "TTY");
     JS_AddModuleExport(ctx, m, "Error");
     return m;
 }
