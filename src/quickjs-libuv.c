@@ -28,7 +28,7 @@
 
 /* Forward declarations */
 static JSValue js_uv_throw_errno(JSContext *ctx, int err);
-static void uv__tcp_close_cb(uv_handle_t* handle);
+static JSValue js_new_uv_tcp(JSContext *ctx, int af);
 
 
 /* Utility functions  */
@@ -173,9 +173,7 @@ static JSValue js_uv_throw_errno(JSContext *ctx, int err)
 }
 
 
-/* TCP object  */
-
-static JSClassID js_uv_tcp_class_id;
+/* Stream */
 
 typedef struct {
     JSContext *ctx;
@@ -210,146 +208,34 @@ typedef struct {
         JSValue promise;
         JSValue resolving_funcs[2];
     } accept;
-} JSUVTcp;
+} JSUVStream;
 
-static void js_uv_tcp_finalizer(JSRuntime *rt, JSValue val)
-{
-    JSUVTcp *t = JS_GetOpaque(val, js_uv_tcp_class_id);
-    if (t) {
-        t->finalized = 1;
-        if (t->closed) {
-            JSContext *ctx = t->ctx;
-            js_free(ctx, t);
-        } else if (!uv_is_closing(&t->h.handle)) {
-            uv_close(&t->h.handle, uv__tcp_close_cb);
+static JSUVStream *js_uv_tcp_get(JSContext *ctx, JSValueConst obj);
+
+static void uv__stream_close_cb(uv_handle_t* handle) {
+    JSUVStream *s = handle->data;
+    if (s) {
+        s->closed = 1;
+        if (s->finalized) {
+            JSContext *ctx = s->ctx;
+            js_free(ctx, s);
         }
     }
 }
 
-static void js_uv_tcp_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func)
-{
-    JSUVTcp *t = JS_GetOpaque(val, js_uv_tcp_class_id);
-    if (t) {
-        JS_MarkValue(rt, t->connect.promise, mark_func);
-        JS_MarkValue(rt, t->connect.resolving_funcs[0], mark_func);
-        JS_MarkValue(rt, t->connect.resolving_funcs[1], mark_func);
-        JS_MarkValue(rt, t->read.promise, mark_func);
-        JS_MarkValue(rt, t->read.resolving_funcs[0], mark_func);
-        JS_MarkValue(rt, t->read.resolving_funcs[1], mark_func);
-        JS_MarkValue(rt, t->write.promise, mark_func);
-        JS_MarkValue(rt, t->write.resolving_funcs[0], mark_func);
-        JS_MarkValue(rt, t->write.resolving_funcs[1], mark_func);
-        JS_MarkValue(rt, t->shutdown.promise, mark_func);
-        JS_MarkValue(rt, t->shutdown.resolving_funcs[0], mark_func);
-        JS_MarkValue(rt, t->shutdown.resolving_funcs[1], mark_func);
-        JS_MarkValue(rt, t->accept.promise, mark_func);
-        JS_MarkValue(rt, t->accept.resolving_funcs[0], mark_func);
-        JS_MarkValue(rt, t->accept.resolving_funcs[1], mark_func);
-    }
-}
-
-static JSClassDef js_uv_tcp_class = {
-    "TCP",
-    .finalizer = js_uv_tcp_finalizer,
-    .gc_mark = js_uv_tcp_mark,
-}; 
-
-static JSValue js_new_uv_tcp(JSContext *ctx, int af)
-{
-    JSUVTcp *h;
-    JSValue obj;
-    uv_loop_t *loop;
-    int r;
-
-    loop = js_uv_get_loop(ctx);
-    if (!loop) {
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-    }
-
-    obj = JS_NewObjectClass(ctx, js_uv_tcp_class_id);
-    if (JS_IsException(obj))
-        return obj;
-
-    h = js_mallocz(ctx, sizeof(*h));
-    if (!h) {
-        JS_FreeValue(ctx, obj);
+static JSValue js_uv_stream_close(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+    if (!s)
         return JS_EXCEPTION;
-    }
-
-    r = uv_tcp_init_ex(loop, &h->h.tcp, af);
-    if (r != 0) {
-        JS_FreeValue(ctx, obj);
-        js_free(ctx, h);
-        return JS_ThrowInternalError(ctx, "couldn't initialize TCP handle");
-    }
-
-    h->ctx = ctx;
-    h->closed = 0;
-    h->finalized = 0;
-
-    h->h.handle.data = h;
-
-    h->connect.promise = JS_UNDEFINED;
-    h->connect.resolving_funcs[0] = JS_UNDEFINED;
-    h->connect.resolving_funcs[1] = JS_UNDEFINED;
-    h->read.promise = JS_UNDEFINED;
-    h->read.resolving_funcs[0] = JS_UNDEFINED;
-    h->read.resolving_funcs[1] = JS_UNDEFINED;
-    h->write.promise = JS_UNDEFINED;
-    h->write.resolving_funcs[0] = JS_UNDEFINED;
-    h->write.resolving_funcs[1] = JS_UNDEFINED;
-    h->shutdown.promise = JS_UNDEFINED;
-    h->shutdown.resolving_funcs[0] = JS_UNDEFINED;
-    h->shutdown.resolving_funcs[1] = JS_UNDEFINED;
-    h->accept.promise = JS_UNDEFINED;
-    h->accept.resolving_funcs[0] = JS_UNDEFINED;
-    h->accept.resolving_funcs[1] = JS_UNDEFINED;
-
-    JS_SetOpaque(obj, h);
-    return obj;
-}
-
-static JSValue js_uv_tcp_constructor(JSContext *ctx, JSValueConst new_target,
-                                     int argc, JSValueConst *argv)
-{
-    int af = AF_UNSPEC;
-    if (!JS_IsUndefined(argv[0]) && JS_ToInt32(ctx, &af, argv[0]))
-        return JS_EXCEPTION;
-    return js_new_uv_tcp(ctx, af);
-}
-
-static JSUVTcp *js_uv_tcp_get(JSContext *ctx, JSValueConst obj)
-{
-    return JS_GetOpaque2(ctx, obj, js_uv_tcp_class_id);
-}
-
-static void uv__tcp_close_cb(uv_handle_t* handle) {
-    JSUVTcp *t = handle->data;
-    if (t) {
-        t->closed = 1;
-        if (t->finalized) {
-            JSContext *ctx = t->ctx;
-            js_free(ctx, t);
-        }
-    }
-}
-
-static JSValue js_uv_tcp_close(JSContext *ctx, JSValueConst this_val,
-                                 int argc, JSValueConst *argv)
-{
-    JSUVTcp *t = js_uv_tcp_get(ctx, this_val);
-    if (!t)
-        return JS_EXCEPTION;
-    if (!uv_is_closing(&t->h.handle)) {
-        uv_close(&t->h.handle, uv__tcp_close_cb);
+    if (!uv_is_closing(&s->h.handle)) {
+        uv_close(&s->h.handle, uv__stream_close_cb);
     }
     return JS_UNDEFINED;
 }
 
-static void uv__tcp_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
-    JSUVTcp *t = handle->data;
-    if (t) {
-        buf->base = js_mallocz(t->ctx, suggested_size);
+static void uv__stream_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
+    JSUVStream *s = handle->data;
+    if (s) {
+        buf->base = js_mallocz(s->ctx, suggested_size);
         buf->len = suggested_size;
         return;
     }
@@ -358,12 +244,12 @@ static void uv__tcp_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_
     buf->len = 0;
 }
 
-static void uv__tcp_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
-    JSUVTcp *t = handle->data;
-    if (t) {
+static void uv__stream_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
+    JSUVStream *s = handle->data;
+    if (s) {
         uv_read_stop(handle);
 
-        JSContext *ctx = t->ctx;
+        JSContext *ctx = s->ctx;
         JSValue arg;
         JSValue ret;
         int is_reject = 0;
@@ -378,74 +264,68 @@ static void uv__tcp_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* 
             arg = JS_NewArrayBufferCopy(ctx, (const uint8_t *)buf->base, buf->len);
         }
 
-        ret = JS_Call(ctx, t->read.resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
+        ret = JS_Call(ctx, s->read.resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
         JS_FreeValue(ctx, arg);
         JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
 
         js_free(ctx, buf->base);
 
-        JS_FreeValue(ctx, t->read.promise);
-        JS_FreeValue(ctx, t->read.resolving_funcs[0]);
-        JS_FreeValue(ctx, t->read.resolving_funcs[1]);
+        JS_FreeValue(ctx, s->read.promise);
+        JS_FreeValue(ctx, s->read.resolving_funcs[0]);
+        JS_FreeValue(ctx, s->read.resolving_funcs[1]);
 
-        t->read.promise = JS_UNDEFINED;
-        t->read.resolving_funcs[0] = JS_UNDEFINED;
-        t->read.resolving_funcs[1] = JS_UNDEFINED;
+        s->read.promise = JS_UNDEFINED;
+        s->read.resolving_funcs[0] = JS_UNDEFINED;
+        s->read.resolving_funcs[1] = JS_UNDEFINED;
     }
 }
 
-static JSValue js_uv_tcp_read(JSContext *ctx, JSValueConst this_val,
-                                 int argc, JSValueConst *argv)
-{
-    JSUVTcp *t = js_uv_tcp_get(ctx, this_val);
-    if (!t)
+static JSValue js_uv_stream_read(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+    if (!s)
         return JS_EXCEPTION;
-    if (!JS_IsUndefined(t->read.promise))
+    if (!JS_IsUndefined(s->read.promise))
         return js_uv_throw_errno(ctx, UV_EBUSY);
-    int r = uv_read_start(&t->h.stream, uv__tcp_alloc_cb, uv__tcp_read_cb);
+    int r = uv_read_start(&s->h.stream, uv__stream_alloc_cb, uv__stream_read_cb);
     if (r != 0) {
         return js_uv_throw_errno(ctx, r);
     }
-    JSValue promise = JS_NewPromiseCapability(ctx, t->read.resolving_funcs);
-    t->read.promise = JS_DupValue(ctx, promise);
+    JSValue promise = JS_NewPromiseCapability(ctx, s->read.resolving_funcs);
+    s->read.promise = JS_DupValue(ctx, promise);
     return promise;
 }
 
-static void uv__tcp_write_cb(uv_write_t* req, int status) {
-    JSUVTcp *t = req->handle->data;
-    if (t) {
-        JSContext *ctx = t->ctx;
+static void uv__stream_write_cb(uv_write_t* req, int status) {
+    JSUVStream *s = req->handle->data;
+    if (s) {
+        JSContext *ctx = s->ctx;
         JSValue ret;
         if (status == 0) {
-            ret = JS_Call(ctx, t->write.resolving_funcs[0], JS_UNDEFINED, 0, NULL);
+            ret = JS_Call(ctx, s->write.resolving_funcs[0], JS_UNDEFINED, 0, NULL);
         } else {
             JSValue error = js_new_uv_error(ctx, status);
-            ret = JS_Call(ctx, t->write.resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
+            ret = JS_Call(ctx, s->write.resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
             JS_FreeValue(ctx, error);
         }
 
-        js_free(ctx, t->write.data);
-        t->write.data = NULL;
+        js_free(ctx, s->write.data);
+        s->write.data = NULL;
 
         JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
 
-        JS_FreeValue(ctx, t->write.promise);
-        JS_FreeValue(ctx, t->write.resolving_funcs[0]);
-        JS_FreeValue(ctx, t->write.resolving_funcs[1]);
+        JS_FreeValue(ctx, s->write.promise);
+        JS_FreeValue(ctx, s->write.resolving_funcs[0]);
+        JS_FreeValue(ctx, s->write.resolving_funcs[1]);
 
-        t->write.promise = JS_UNDEFINED;
-        t->write.resolving_funcs[0] = JS_UNDEFINED;
-        t->write.resolving_funcs[1] = JS_UNDEFINED;
+        s->write.promise = JS_UNDEFINED;
+        s->write.resolving_funcs[0] = JS_UNDEFINED;
+        s->write.resolving_funcs[1] = JS_UNDEFINED;
     }
 }
 
-static JSValue js_uv_tcp_write(JSContext *ctx, JSValueConst this_val,
-                                 int argc, JSValueConst *argv)
-{
-    JSUVTcp *t = js_uv_tcp_get(ctx, this_val);
-    if (!t)
+static JSValue js_uv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+    if (!s)
         return JS_EXCEPTION;
-    if (!JS_IsUndefined(t->write.promise))
+    if (!JS_IsUndefined(s->write.promise))
         return js_uv_throw_errno(ctx, UV_EBUSY);
 
     size_t size;
@@ -462,64 +342,265 @@ static JSValue js_uv_tcp_write(JSContext *ctx, JSValueConst this_val,
 
     uv_buf_t buf = uv_buf_init((char*) data, size);
     // TODO: use uv_try_write first.
-    int r = uv_write(&t->write.req, &t->h.stream, &buf, 1, uv__tcp_write_cb);
+    int r = uv_write(&s->write.req, &s->h.stream, &buf, 1, uv__stream_write_cb);
     if (r != 0) {
         js_free(ctx, data);
         return js_uv_throw_errno(ctx, r);
     }
 
-    t->write.data = data;
-    JSValue promise = JS_NewPromiseCapability(ctx, t->write.resolving_funcs);
-    t->write.promise = JS_DupValue(ctx, promise);
+    s->write.data = data;
+    JSValue promise = JS_NewPromiseCapability(ctx, s->write.resolving_funcs);
+    s->write.promise = JS_DupValue(ctx, promise);
     return promise;
 }
 
-static void uv__tcp_shutdown_cb(uv_shutdown_t* req, int status) {
-    JSUVTcp *t = req->handle->data;
-    if (t) {
-        JSContext *ctx = t->ctx;
+static void uv__stream_shutdown_cb(uv_shutdown_t* req, int status) {
+    JSUVStream *s = req->handle->data;
+    if (s) {
+        JSContext *ctx = s->ctx;
         JSValue ret;
         if (status == 0) {
-            ret = JS_Call(ctx, t->shutdown.resolving_funcs[0], JS_UNDEFINED, 0, NULL);
+            ret = JS_Call(ctx, s->shutdown.resolving_funcs[0], JS_UNDEFINED, 0, NULL);
         } else {
             JSValue error = js_new_uv_error(ctx, status);
-            ret = JS_Call(ctx, t->shutdown.resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
+            ret = JS_Call(ctx, s->shutdown.resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
             JS_FreeValue(ctx, error);
         }
 
         JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
 
-        JS_FreeValue(ctx, t->shutdown.promise);
-        JS_FreeValue(ctx, t->shutdown.resolving_funcs[0]);
-        JS_FreeValue(ctx, t->shutdown.resolving_funcs[1]);
+        JS_FreeValue(ctx, s->shutdown.promise);
+        JS_FreeValue(ctx, s->shutdown.resolving_funcs[0]);
+        JS_FreeValue(ctx, s->shutdown.resolving_funcs[1]);
 
-        t->shutdown.promise = JS_UNDEFINED;
-        t->shutdown.resolving_funcs[0] = JS_UNDEFINED;
-        t->shutdown.resolving_funcs[1] = JS_UNDEFINED;
+        s->shutdown.promise = JS_UNDEFINED;
+        s->shutdown.resolving_funcs[0] = JS_UNDEFINED;
+        s->shutdown.resolving_funcs[1] = JS_UNDEFINED;
     }
 }
 
-static JSValue js_uv_tcp_shutdown(JSContext *ctx, JSValueConst this_val,
-                                 int argc, JSValueConst *argv)
-{
-    JSUVTcp *t = js_uv_tcp_get(ctx, this_val);
-    if (!t)
+static JSValue js_uv_stream_shutdown(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+    if (!s)
         return JS_EXCEPTION;
-    if (!JS_IsUndefined(t->shutdown.promise))
+    if (!JS_IsUndefined(s->shutdown.promise))
         return js_uv_throw_errno(ctx, UV_EBUSY);
-    int r = uv_shutdown(&t->shutdown.req, &t->h.stream, uv__tcp_shutdown_cb);
+    int r = uv_shutdown(&s->shutdown.req, &s->h.stream, uv__stream_shutdown_cb);
     if (r != 0) {
         return js_uv_throw_errno(ctx, r);
     }
-    JSValue promise = JS_NewPromiseCapability(ctx, t->shutdown.resolving_funcs);
-    t->shutdown.promise = JS_DupValue(ctx, promise);
+    JSValue promise = JS_NewPromiseCapability(ctx, s->shutdown.resolving_funcs);
+    s->shutdown.promise = JS_DupValue(ctx, promise);
     return promise;
+}
+
+static JSValue js_uv_stream_fileno(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+    if (!s)
+        return JS_EXCEPTION;
+    int r;
+    uv_os_fd_t fd;
+    r = uv_fileno(&s->h.handle, &fd);
+    if (r != 0) {
+        return js_uv_throw_errno(ctx, r);
+    }
+    return JS_NewInt32(ctx, fd);
+}
+
+static void uv__stream_connection_cb(uv_stream_t* handle, int status) {
+    JSUVStream *s = handle->data;
+    if (s) {
+        if (JS_IsUndefined(s->accept.promise)) {
+            // TODO - handle this.
+            return;
+        }
+        JSContext *ctx = s->ctx;
+        JSValue arg;
+        JSValue ret;
+        int is_error = 0;
+        if (status == 0) {
+            // TODO - adjust when support for pipes is added.
+            arg = js_new_uv_tcp(ctx, AF_UNSPEC);
+            JSUVStream *t2 = js_uv_tcp_get(ctx, arg);
+            int r = uv_accept(handle, &t2->h.stream);
+            if (r != 0) {
+                JS_FreeValue(ctx, arg);
+                arg = js_new_uv_error(ctx, r);
+                is_error = 1;
+            }
+        } else {
+            arg = js_new_uv_error(ctx, status);
+            is_error = 1;
+        }
+
+        ret = JS_Call(ctx, s->accept.resolving_funcs[is_error], JS_UNDEFINED, 1, (JSValueConst *)&arg);
+        JS_FreeValue(ctx, arg);
+        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
+
+        JS_FreeValue(ctx, s->accept.promise);
+        JS_FreeValue(ctx, s->accept.resolving_funcs[0]);
+        JS_FreeValue(ctx, s->accept.resolving_funcs[1]);
+
+        s->accept.promise = JS_UNDEFINED;
+        s->accept.resolving_funcs[0] = JS_UNDEFINED;
+        s->accept.resolving_funcs[1] = JS_UNDEFINED;
+    }
+}
+
+static JSValue js_uv_stream_listen(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+    if (!s)
+        return JS_EXCEPTION;
+    uint32_t backlog = 511;
+    if (!JS_IsUndefined(argv[0])) {
+        if (JS_ToUint32(ctx, &backlog, argv[0]))
+            return JS_EXCEPTION;
+    }
+    int r = uv_listen(&s->h.stream, (int) backlog, uv__stream_connection_cb);
+    if (r != 0) {
+        return js_uv_throw_errno(ctx, r);
+    }
+    return JS_UNDEFINED;
+}
+
+static JSValue js_uv_stream_accept(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+    if (!s)
+        return JS_EXCEPTION;
+    if (!JS_IsUndefined(s->accept.promise))
+        return js_uv_throw_errno(ctx, UV_EBUSY);
+    JSValue promise = JS_NewPromiseCapability(ctx, s->accept.resolving_funcs);
+    s->accept.promise = JS_DupValue(ctx, promise);
+    return promise;
+}
+
+static JSValue js_uv_init_stream(JSContext *ctx, JSValue obj, JSUVStream *s) {
+    s->ctx = ctx;
+    s->closed = 0;
+    s->finalized = 0;
+
+    s->h.handle.data = s;
+
+    s->connect.promise = JS_UNDEFINED;
+    s->connect.resolving_funcs[0] = JS_UNDEFINED;
+    s->connect.resolving_funcs[1] = JS_UNDEFINED;
+    s->read.promise = JS_UNDEFINED;
+    s->read.resolving_funcs[0] = JS_UNDEFINED;
+    s->read.resolving_funcs[1] = JS_UNDEFINED;
+    s->write.promise = JS_UNDEFINED;
+    s->write.resolving_funcs[0] = JS_UNDEFINED;
+    s->write.resolving_funcs[1] = JS_UNDEFINED;
+    s->shutdown.promise = JS_UNDEFINED;
+    s->shutdown.resolving_funcs[0] = JS_UNDEFINED;
+    s->shutdown.resolving_funcs[1] = JS_UNDEFINED;
+    s->accept.promise = JS_UNDEFINED;
+    s->accept.resolving_funcs[0] = JS_UNDEFINED;
+    s->accept.resolving_funcs[1] = JS_UNDEFINED;
+
+    JS_SetOpaque(obj, s);
+
+    return obj;
+}
+
+static void js_uv_stream_finalizer(JSUVStream *s) {
+    if (s) {
+        s->finalized = 1;
+        if (s->closed) {
+            JSContext *ctx = s->ctx;
+            js_free(ctx, s);
+        } else if (!uv_is_closing(&s->h.handle)) {
+            uv_close(&s->h.handle, uv__stream_close_cb);
+        }
+    }
+}
+
+static void js_uv_stream_mark(JSRuntime *rt, JSUVStream *s, JS_MarkFunc *mark_func) {
+    if (s) {
+        JS_MarkValue(rt, s->connect.promise, mark_func);
+        JS_MarkValue(rt, s->connect.resolving_funcs[0], mark_func);
+        JS_MarkValue(rt, s->connect.resolving_funcs[1], mark_func);
+        JS_MarkValue(rt, s->read.promise, mark_func);
+        JS_MarkValue(rt, s->read.resolving_funcs[0], mark_func);
+        JS_MarkValue(rt, s->read.resolving_funcs[1], mark_func);
+        JS_MarkValue(rt, s->write.promise, mark_func);
+        JS_MarkValue(rt, s->write.resolving_funcs[0], mark_func);
+        JS_MarkValue(rt, s->write.resolving_funcs[1], mark_func);
+        JS_MarkValue(rt, s->shutdown.promise, mark_func);
+        JS_MarkValue(rt, s->shutdown.resolving_funcs[0], mark_func);
+        JS_MarkValue(rt, s->shutdown.resolving_funcs[1], mark_func);
+        JS_MarkValue(rt, s->accept.promise, mark_func);
+        JS_MarkValue(rt, s->accept.resolving_funcs[0], mark_func);
+        JS_MarkValue(rt, s->accept.resolving_funcs[1], mark_func);
+    }
+}
+
+
+/* TCP object  */
+
+static JSClassID js_uv_tcp_class_id;
+
+static void js_uv_tcp_finalizer(JSRuntime *rt, JSValue val) {
+    JSUVStream *t = JS_GetOpaque(val, js_uv_tcp_class_id);
+    js_uv_stream_finalizer(t);
+}
+
+static void js_uv_tcp_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+    JSUVStream *t = JS_GetOpaque(val, js_uv_tcp_class_id);
+    js_uv_stream_mark(rt, t, mark_func);
+}
+
+static JSClassDef js_uv_tcp_class = {
+    "TCP",
+    .finalizer = js_uv_tcp_finalizer,
+    .gc_mark = js_uv_tcp_mark,
+};
+
+static JSValue js_new_uv_tcp(JSContext *ctx, int af)
+{
+    JSUVStream *s;
+    JSValue obj;
+    uv_loop_t *loop;
+    int r;
+
+    loop = js_uv_get_loop(ctx);
+    if (!loop) {
+        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
+    }
+
+    obj = JS_NewObjectClass(ctx, js_uv_tcp_class_id);
+    if (JS_IsException(obj))
+        return obj;
+
+    s = js_mallocz(ctx, sizeof(*s));
+    if (!s) {
+        JS_FreeValue(ctx, obj);
+        return JS_EXCEPTION;
+    }
+
+    r = uv_tcp_init_ex(loop, &s->h.tcp, af);
+    if (r != 0) {
+        JS_FreeValue(ctx, obj);
+        js_free(ctx, s);
+        return JS_ThrowInternalError(ctx, "couldn't initialize TCP handle");
+    }
+
+    return js_uv_init_stream(ctx, obj, s);
+}
+
+static JSValue js_uv_tcp_constructor(JSContext *ctx, JSValueConst new_target,
+                                     int argc, JSValueConst *argv)
+{
+    int af = AF_UNSPEC;
+    if (!JS_IsUndefined(argv[0]) && JS_ToInt32(ctx, &af, argv[0]))
+        return JS_EXCEPTION;
+    return js_new_uv_tcp(ctx, af);
+}
+
+static JSUVStream *js_uv_tcp_get(JSContext *ctx, JSValueConst obj)
+{
+    return JS_GetOpaque2(ctx, obj, js_uv_tcp_class_id);
 }
 
 static JSValue js_uv_tcp_getsockpeername(JSContext *ctx, JSValueConst this_val,
                                          int argc, JSValueConst *argv, int magic)
 {
-    JSUVTcp *t = js_uv_tcp_get(ctx, this_val);
+    JSUVStream *t = js_uv_tcp_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
     int r;
@@ -538,23 +619,8 @@ static JSValue js_uv_tcp_getsockpeername(JSContext *ctx, JSValueConst this_val,
     return js_uv_addr2obj(ctx, (struct sockaddr*)&addr);
 }
 
-static JSValue js_uv_tcp_fileno(JSContext *ctx, JSValueConst this_val,
-                                 int argc, JSValueConst *argv)
-{
-    JSUVTcp *t = js_uv_tcp_get(ctx, this_val);
-    if (!t)
-        return JS_EXCEPTION;
-    int r;
-    uv_os_fd_t fd;
-    r = uv_fileno(&t->h.handle, &fd);
-    if (r != 0) {
-        return js_uv_throw_errno(ctx, r);
-    }
-    return JS_NewInt32(ctx, fd);
-}
-
 static void uv__tcp_connect_cb(uv_connect_t* req, int status) {
-    JSUVTcp *t = req->handle->data;
+    JSUVStream *t = req->handle->data;
     if (t) {
         JSContext *ctx = t->ctx;
         JSValue ret;
@@ -581,7 +647,7 @@ static void uv__tcp_connect_cb(uv_connect_t* req, int status) {
 static JSValue js_uv_tcp_connect(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv)
 {
-    JSUVTcp *t = js_uv_tcp_get(ctx, this_val);
+    JSUVStream *t = js_uv_tcp_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
     if (!JS_IsUndefined(t->connect.promise))
@@ -604,7 +670,7 @@ static JSValue js_uv_tcp_connect(JSContext *ctx, JSValueConst this_val,
 static JSValue js_uv_tcp_bind(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv)
 {
-    JSUVTcp *t = js_uv_tcp_get(ctx, this_val);
+    JSUVStream *t = js_uv_tcp_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
     struct sockaddr_storage ss;
@@ -620,74 +686,53 @@ static JSValue js_uv_tcp_bind(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-static void uv__tcp_connection_cb(uv_stream_t* handle, int status) {
-    JSUVTcp *t = handle->data;
-    if (t) {
-        if (JS_IsUndefined(t->accept.promise)) {
-            // TODO - handle this.
-            return;
-        }
-        JSContext *ctx = t->ctx;
-        JSValue arg;
-        JSValue ret;
-        int is_error = 0;
-        if (status == 0) {
-            arg = js_new_uv_tcp(ctx, AF_UNSPEC);
-            JSUVTcp *t2 = js_uv_tcp_get(ctx, arg);
-            int r = uv_accept(handle, &t2->h.stream);
-            if (r != 0) {
-                JS_FreeValue(ctx, arg);
-                arg = js_new_uv_error(ctx, r);
-                is_error = 1;
-            }
-        } else {
-            arg = js_new_uv_error(ctx, status);
-            is_error = 1;
-        }
+static JSValue js_uv_tcp_close(JSContext *ctx, JSValueConst this_val,
+                               int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_tcp_get(ctx, this_val);
+    return js_uv_stream_close(ctx, t, argc, argv);
+}
 
-        ret = JS_Call(ctx, t->accept.resolving_funcs[is_error], JS_UNDEFINED, 1, (JSValueConst *)&arg);
-        JS_FreeValue(ctx, arg);
-        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
+static JSValue js_uv_tcp_read(JSContext *ctx, JSValueConst this_val,
+                              int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_tcp_get(ctx, this_val);
+    return js_uv_stream_read(ctx, t, argc, argv);
+}
 
-        JS_FreeValue(ctx, t->accept.promise);
-        JS_FreeValue(ctx, t->accept.resolving_funcs[0]);
-        JS_FreeValue(ctx, t->accept.resolving_funcs[1]);
+static JSValue js_uv_tcp_write(JSContext *ctx, JSValueConst this_val,
+                               int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_tcp_get(ctx, this_val);
+    return js_uv_stream_write(ctx, t, argc, argv);
+}
 
-        t->accept.promise = JS_UNDEFINED;
-        t->accept.resolving_funcs[0] = JS_UNDEFINED;
-        t->accept.resolving_funcs[1] = JS_UNDEFINED;
-    }
+static JSValue js_uv_tcp_shutdown(JSContext *ctx, JSValueConst this_val,
+                                  int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_tcp_get(ctx, this_val);
+    return js_uv_stream_shutdown(ctx, t, argc, argv);
+}
+
+static JSValue js_uv_tcp_fileno(JSContext *ctx, JSValueConst this_val,
+                                int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_tcp_get(ctx, this_val);
+    return js_uv_stream_fileno(ctx, t, argc, argv);
 }
 
 static JSValue js_uv_tcp_listen(JSContext *ctx, JSValueConst this_val,
-                                 int argc, JSValueConst *argv)
+                                int argc, JSValueConst *argv)
 {
-    JSUVTcp *t = js_uv_tcp_get(ctx, this_val);
-    if (!t)
-        return JS_EXCEPTION;
-    uint32_t backlog = 511;
-    if (!JS_IsUndefined(argv[0])) {
-        if (JS_ToUint32(ctx, &backlog, argv[0]))
-            return JS_EXCEPTION;
-    }
-    int r = uv_listen(&t->h.stream, (int) backlog, uv__tcp_connection_cb);
-    if (r != 0) {
-        return js_uv_throw_errno(ctx, r);
-    }
-    return JS_UNDEFINED;
+    JSUVStream *t = js_uv_tcp_get(ctx, this_val);
+    return js_uv_stream_listen(ctx, t, argc, argv);
 }
 
 static JSValue js_uv_tcp_accept(JSContext *ctx, JSValueConst this_val,
-                                 int argc, JSValueConst *argv)
+                                int argc, JSValueConst *argv)
 {
-    JSUVTcp *t = js_uv_tcp_get(ctx, this_val);
-    if (!t)
-        return JS_EXCEPTION;
-    if (!JS_IsUndefined(t->accept.promise))
-        return js_uv_throw_errno(ctx, UV_EBUSY);
-    JSValue promise = JS_NewPromiseCapability(ctx, t->accept.resolving_funcs);
-    t->accept.promise = JS_DupValue(ctx, promise);
-    return promise;
+    JSUVStream *t = js_uv_tcp_get(ctx, this_val);
+    return js_uv_stream_accept(ctx, t, argc, argv);
 }
 
 
@@ -940,17 +985,19 @@ static const JSCFunctionListEntry js_uv_funcs[] = {
 };
 
 static const JSCFunctionListEntry js_uv_tcp_proto_funcs[] = {
+    /* Stream functions */
     JSUV_CFUNC_DEF("close", 0, js_uv_tcp_close ),
     JSUV_CFUNC_DEF("read", 0, js_uv_tcp_read ),
     JSUV_CFUNC_DEF("write", 1, js_uv_tcp_write ),
     JSUV_CFUNC_DEF("shutdown", 0, js_uv_tcp_shutdown ),
-    JSUV_CFUNC_MAGIC_DEF("getsockname", 0, js_uv_tcp_getsockpeername, 0 ),
-    JSUV_CFUNC_MAGIC_DEF("getpeername", 0, js_uv_tcp_getsockpeername, 1 ),
     JSUV_CFUNC_DEF("fileno", 0, js_uv_tcp_fileno ),
-    JSUV_CFUNC_DEF("connect", 1, js_uv_tcp_connect ),
-    JSUV_CFUNC_DEF("bind", 1, js_uv_tcp_bind ),
     JSUV_CFUNC_DEF("listen", 1, js_uv_tcp_listen ),
     JSUV_CFUNC_DEF("accept", 0, js_uv_tcp_accept ),
+    /* TCP functions */
+    JSUV_CFUNC_MAGIC_DEF("getsockname", 0, js_uv_tcp_getsockpeername, 0 ),
+    JSUV_CFUNC_MAGIC_DEF("getpeername", 0, js_uv_tcp_getsockpeername, 1 ),
+    JSUV_CFUNC_DEF("connect", 1, js_uv_tcp_connect ),
+    JSUV_CFUNC_DEF("bind", 1, js_uv_tcp_bind ),
 };
 
 static const JSCFunctionListEntry js_uv_error_funcs[] = {
@@ -964,7 +1011,7 @@ static const JSCFunctionListEntry js_uv_error_funcs[] = {
 static int js_uv_init(JSContext *ctx, JSModuleDef *m)
 {
     JSValue proto, obj;
-    
+
     /* TCP class */
     JS_NewClassID(&js_uv_tcp_class_id);
     JS_NewClass(JS_GetRuntime(ctx), js_uv_tcp_class_id, &js_uv_tcp_class);
