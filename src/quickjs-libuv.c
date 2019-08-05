@@ -198,12 +198,6 @@ typedef struct {
         JSValue resolving_funcs[2];
     } read;
     struct {
-        uv_write_t req;
-        uint8_t *data;
-        JSValue promise;
-        JSValue resolving_funcs[2];
-    } write;
-    struct {
         uv_shutdown_t req;
         JSValue promise;
         JSValue resolving_funcs[2];
@@ -213,6 +207,11 @@ typedef struct {
         JSValue resolving_funcs[2];
     } accept;
 } JSUVStream;
+
+typedef struct {
+    uv_write_t req;
+    char data[];
+} JSUVWriteReq;
 
 static JSUVStream *js_uv_tcp_get(JSContext *ctx, JSValueConst obj);
 
@@ -302,35 +301,14 @@ static void uv__stream_write_cb(uv_write_t* req, int status) {
     JSUVStream *s = req->handle->data;
     if (s) {
         JSContext *ctx = s->ctx;
-        JSValue ret;
-        if (status == 0) {
-            ret = JS_Call(ctx, s->write.resolving_funcs[0], JS_UNDEFINED, 0, NULL);
-        } else {
-            JSValue error = js_new_uv_error(ctx, status);
-            ret = JS_Call(ctx, s->write.resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
-            JS_FreeValue(ctx, error);
-        }
-
-        js_free(ctx, s->write.data);
-        s->write.data = NULL;
-
-        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
-
-        JS_FreeValue(ctx, s->write.promise);
-        JS_FreeValue(ctx, s->write.resolving_funcs[0]);
-        JS_FreeValue(ctx, s->write.resolving_funcs[1]);
-
-        s->write.promise = JS_UNDEFINED;
-        s->write.resolving_funcs[0] = JS_UNDEFINED;
-        s->write.resolving_funcs[1] = JS_UNDEFINED;
+        JSUVWriteReq *wr = req->data;
+        js_free(ctx, wr);
     }
 }
 
 static JSValue js_uv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
-    if (!JS_IsUndefined(s->write.promise))
-        return js_uv_throw_errno(ctx, UV_EBUSY);
 
     JSValue jsData = argv[0];
 
@@ -345,28 +323,41 @@ static JSValue js_uv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSVal
         tmp = JS_GetArrayBuffer(ctx, &size, jsData);
     }
 
-    if (!tmp) {
+    if (!tmp)
         return JS_EXCEPTION;
+
+    int r;
+    uv_buf_t buf;
+
+    /* First try to do the write inline */
+    buf = uv_buf_init((char*) tmp, size);
+    r = uv_try_write(&s->h.stream, &buf, 1);
+
+    if (r == size)
+        return JS_UNDEFINED;
+
+    /* Do an async write, copy the data. */
+    if (r >= 0) {
+        tmp += r;
+        size -= r;
     }
 
-    uint8_t *data = js_malloc(ctx, size);
-    if (!data) {
+    JSUVWriteReq *wr = js_malloc(ctx, sizeof(*wr) + size);
+    if (!wr)
         return JS_EXCEPTION;
-    }
-    memcpy(data, tmp, size);
 
-    uv_buf_t buf = uv_buf_init((char*) data, size);
-    // TODO: use uv_try_write first.
-    int r = uv_write(&s->write.req, &s->h.stream, &buf, 1, uv__stream_write_cb);
+    wr->req.data = wr;
+
+    memcpy(wr->data, tmp, size);
+    buf = uv_buf_init(wr->data, size);
+
+    r = uv_write(&wr->req, &s->h.stream, &buf, 1, uv__stream_write_cb);
     if (r != 0) {
-        js_free(ctx, data);
+        js_free(ctx, wr);
         return js_uv_throw_errno(ctx, r);
     }
 
-    s->write.data = data;
-    JSValue promise = JS_NewPromiseCapability(ctx, s->write.resolving_funcs);
-    s->write.promise = JS_DupValue(ctx, promise);
-    return promise;
+    return JS_UNDEFINED;
 }
 
 static void uv__stream_shutdown_cb(uv_shutdown_t* req, int status) {
@@ -498,9 +489,6 @@ static JSValue js_uv_init_stream(JSContext *ctx, JSValue obj, JSUVStream *s) {
     s->read.promise = JS_UNDEFINED;
     s->read.resolving_funcs[0] = JS_UNDEFINED;
     s->read.resolving_funcs[1] = JS_UNDEFINED;
-    s->write.promise = JS_UNDEFINED;
-    s->write.resolving_funcs[0] = JS_UNDEFINED;
-    s->write.resolving_funcs[1] = JS_UNDEFINED;
     s->shutdown.promise = JS_UNDEFINED;
     s->shutdown.resolving_funcs[0] = JS_UNDEFINED;
     s->shutdown.resolving_funcs[1] = JS_UNDEFINED;
@@ -533,9 +521,6 @@ static void js_uv_stream_mark(JSRuntime *rt, JSUVStream *s, JS_MarkFunc *mark_fu
         JS_MarkValue(rt, s->read.promise, mark_func);
         JS_MarkValue(rt, s->read.resolving_funcs[0], mark_func);
         JS_MarkValue(rt, s->read.resolving_funcs[1], mark_func);
-        JS_MarkValue(rt, s->write.promise, mark_func);
-        JS_MarkValue(rt, s->write.resolving_funcs[0], mark_func);
-        JS_MarkValue(rt, s->write.resolving_funcs[1], mark_func);
         JS_MarkValue(rt, s->shutdown.promise, mark_func);
         JS_MarkValue(rt, s->shutdown.resolving_funcs[0], mark_func);
         JS_MarkValue(rt, s->shutdown.resolving_funcs[1], mark_func);
