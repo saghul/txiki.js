@@ -1153,7 +1153,7 @@ static const JSCFunctionListEntry js_uv_tty_proto_funcs[] = {
     JSUV_CFUNC_DEF("write", 1, js_uv_tty_write ),
     JSUV_CFUNC_DEF("fileno", 0, js_uv_tty_fileno ),
     /* TTY functions */
-    JSUV_CFUNC_DEF("setMode", 0, js_uv_tty_setMode ),
+    JSUV_CFUNC_DEF("setMode", 1, js_uv_tty_setMode ),
     JSUV_CFUNC_DEF("getWinSize", 0, js_uv_tty_getWinSize ),
 };
 
