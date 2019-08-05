@@ -21,7 +21,7 @@ import { addr, logError } from './utils.js';
             console.log('connection closed!');
             break;
         }
-        await t.write(data);
+        t.write(data);
     }
 
 })().catch(logError);

@@ -17,7 +17,7 @@ async function handleConnection(conn) {
             console.log('connection closed!');
             break;
         }
-        await conn.write(data);
+        conn.write(data);
     }
 }
 
