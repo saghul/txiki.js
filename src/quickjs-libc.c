@@ -38,9 +38,7 @@
 #endif
 
 #include "cutils.h"
-#include "list.h"
 #include "quickjs-libc.h"
-#include "quickjs-libuv.h"
 
 static void js_std_dbuf_init(JSContext *ctx, DynBuf *s)
 {
@@ -53,16 +51,6 @@ static void js_std_dbuf_init(JSContext *ctx, DynBuf *s)
    - add socket calls
 */
 
-typedef struct {
-    struct list_head link;
-    uv_poll_t handle;
-    int fd;
-    JSValue rw_func[2];
-    JSContext *ctx;
-} JSOSRWHandler;
-
-/* initialize the lists so js_std_free_handlers() can always be called */
-static struct list_head os_rw_handlers = LIST_HEAD_INIT(os_rw_handlers);
 static int eval_script_recurse;
 
 static JSValue js_printf_internal(JSContext *ctx,
@@ -1081,116 +1069,6 @@ static JSValue js_os_rename(JSContext *ctx, JSValueConst this_val,
     return js_os_return(ctx, ret);
 }
 
-static void call_handler(JSContext *ctx, JSValueConst func)
-{
-    JSValue ret, func1;
-    /* 'func' might be destroyed when calling itself (if it frees the
-       handler), so must take extra care */
-    func1 = JS_DupValue(ctx, func);
-    ret = JS_Call(ctx, func1, JS_UNDEFINED, 0, NULL);
-    JS_FreeValue(ctx, func1);
-    if (JS_IsException(ret))
-        js_std_dump_error(ctx);
-    JS_FreeValue(ctx, ret);
-}
-
-static JSOSRWHandler *find_rh(int fd)
-{
-    JSOSRWHandler *rh;
-    struct list_head *el;
-    list_for_each(el, &os_rw_handlers) {
-        rh = list_entry(el, JSOSRWHandler, link);
-        if (rh->fd == fd)
-            return rh;
-    }
-    return NULL;
-}
-
-static void free_rw_handler(JSRuntime *rt, JSOSRWHandler *rh)
-{
-    for(int i = 0; i < 2; i++) {
-        JS_FreeValueRT(rt, rh->rw_func[i]);
-    }
-    js_free_rt(rt, rh);
-}
-
-static void uv__poll_close(uv_handle_t *handle) {
-    JSOSRWHandler *rh = handle->data;
-    if (rh) {
-        JSRuntime *rt = JS_GetRuntime(rh->ctx);
-        free_rw_handler(rt, rh);
-    }
-}
-
-static void uv__poll_cb(uv_poll_t* handle, int status, int events) {
-    JSOSRWHandler *rh = handle->data;
-    if (rh) {
-        JSContext *ctx = rh->ctx;
-        if (!JS_IsNull(rh->rw_func[0]) && (events & UV_READABLE)) {
-            call_handler(ctx, rh->rw_func[0]);
-        }
-        if (!JS_IsNull(rh->rw_func[1]) && (events & UV_WRITABLE)) {
-            call_handler(ctx, rh->rw_func[1]);
-        }
-    }
-}
-
-static JSValue js_os_setReadHandler(JSContext *ctx, JSValueConst this_val,
-                                    int argc, JSValueConst *argv, int magic)
-{
-    JSOSRWHandler *rh;
-    int fd;
-    JSValueConst func;
-    quv_state_t *quv_state;
-
-    quv_state = JS_GetContextOpaque(ctx);
-    if (!quv_state) {
-        return JS_ThrowInternalError(ctx, "couldn't find uv state");
-    }
-    
-    if (JS_ToInt32(ctx, &fd, argv[0]))
-        return JS_EXCEPTION;
-    func = argv[1];
-    if (JS_IsNull(func)) {
-        rh = find_rh(fd);
-        if (rh) {
-            JS_FreeValue(ctx, rh->rw_func[magic]);
-            rh->rw_func[magic] = JS_NULL;
-            if (JS_IsNull(rh->rw_func[0]) && JS_IsNull(rh->rw_func[1])) {
-                /* remove the entry */
-                list_del(&rh->link);
-                uv_close((uv_handle_t*)&rh->handle, uv__poll_close);
-            }
-        }
-    } else {
-        if (!JS_IsFunction(ctx, func))
-            return JS_ThrowTypeError(ctx, "not a function");
-        rh = find_rh(fd);
-        if (!rh) {
-            rh = js_mallocz(ctx, sizeof(*rh));
-            if (!rh)
-                return JS_EXCEPTION;
-            rh->ctx = ctx;
-            uv_poll_init(&quv_state->uvloop, &rh->handle, fd);
-            rh->handle.data = rh;
-            rh->fd = fd;
-            rh->rw_func[0] = JS_NULL;
-            rh->rw_func[1] = JS_NULL;
-            list_add_tail(&rh->link, &os_rw_handlers);
-        }
-        JS_FreeValue(ctx, rh->rw_func[magic]);
-        rh->rw_func[magic] = JS_DupValue(ctx, func);
-        int events = 0;
-        if (!JS_IsNull(rh->rw_func[0]))
-            events |= UV_READABLE;
-        if (!JS_IsNull(rh->rw_func[1]))
-            events |= UV_WRITABLE;
-        uv_poll_start(&rh->handle, events, uv__poll_cb);
-    }
-
-    return JS_UNDEFINED;
-}
-
 #if defined(_WIN32)
 #define OS_PLATFORM "win32"
 #elif defined(__APPLE__)
@@ -1222,8 +1100,6 @@ static const JSCFunctionListEntry js_os_funcs[] = {
     JS_CFUNC_MAGIC_DEF("write", 4, js_os_read_write, 1 ),
     JS_CFUNC_DEF("remove", 1, js_os_remove ),
     JS_CFUNC_DEF("rename", 2, js_os_rename ),
-    JS_CFUNC_MAGIC_DEF("setReadHandler", 2, js_os_setReadHandler, 0 ),
-    JS_CFUNC_MAGIC_DEF("setWriteHandler", 2, js_os_setReadHandler, 1 ),
     OS_FLAG(SIGINT),
     OS_FLAG(SIGABRT),
     OS_FLAG(SIGFPE),
@@ -1296,14 +1172,6 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv)
                       JS_NewCFunction(ctx, js_loadScript, "__loadScript", 1));
     
     JS_FreeValue(ctx, global_obj);
-
-    /* XXX: not multi-context */
-    init_list_head(&os_rw_handlers);
-}
-
-void js_std_free_handlers(JSRuntime *rt)
-{
-
 }
 
 void js_std_dump_error(JSContext *ctx)

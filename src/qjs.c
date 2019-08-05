@@ -409,7 +409,7 @@ int main(int argc, char **argv)
         JS_ComputeMemoryUsage(rt, &stats);
         JS_DumpMemoryUsage(stdout, &stats, rt);
     }
-    js_std_free_handlers(rt);
+
     JS_FreeContext(ctx);
     JS_FreeRuntime(rt);
 
@@ -439,7 +439,6 @@ int main(int argc, char **argv)
     }
     return 0;
  fail:
-    js_std_free_handlers(rt);
     JS_FreeContext(ctx);
     JS_FreeRuntime(rt);
     return 1;
