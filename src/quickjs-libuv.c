@@ -32,10 +32,10 @@
 /* Forward declarations */
 static JSValue js_uv_throw_errno(JSContext *ctx, int err);
 static JSValue js_new_uv_tcp(JSContext *ctx, int af);
+static JSValue js_new_uv_pipe(JSContext *ctx);
 
 
 /* Utility functions  */
-
 static uv_loop_t *js_uv_get_loop(JSContext *ctx) {
     quv_state_t *quv_state;
     quv_state = JS_GetContextOpaque(ctx);
@@ -187,6 +187,7 @@ typedef struct {
         uv_stream_t stream;
         uv_tcp_t tcp;
         uv_tty_t tty;
+        uv_pipe_t pipe;
     } h;
     struct {
         uv_connect_t req;
@@ -214,6 +215,7 @@ typedef struct {
 } JSUVWriteReq;
 
 static JSUVStream *js_uv_tcp_get(JSContext *ctx, JSValueConst obj);
+static JSUVStream *js_uv_pipe_get(JSContext *ctx, JSValueConst obj);
 
 static void uv__stream_close_cb(uv_handle_t* handle) {
     JSUVStream *s = handle->data;
@@ -411,6 +413,31 @@ static JSValue js_uv_stream_fileno(JSContext *ctx, JSUVStream *s, int argc, JSVa
     return JS_NewInt32(ctx, fd);
 }
 
+static void uv__stream_connect_cb(uv_connect_t* req, int status) {
+    JSUVStream *t = req->handle->data;
+    if (t) {
+        JSContext *ctx = t->ctx;
+        JSValue ret;
+        if (status == 0) {
+            ret = JS_Call(ctx, t->connect.resolving_funcs[0], JS_UNDEFINED, 0, NULL);
+        } else {
+            JSValue error = js_new_uv_error(ctx, status);
+            ret = JS_Call(ctx, t->connect.resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
+            JS_FreeValue(ctx, error);
+        }
+
+        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
+
+        JS_FreeValue(ctx, t->connect.promise);
+        JS_FreeValue(ctx, t->connect.resolving_funcs[0]);
+        JS_FreeValue(ctx, t->connect.resolving_funcs[1]);
+
+        t->connect.promise = JS_UNDEFINED;
+        t->connect.resolving_funcs[0] = JS_UNDEFINED;
+        t->connect.resolving_funcs[1] = JS_UNDEFINED;
+    }
+}
+
 static void uv__stream_connection_cb(uv_stream_t* handle, int status) {
     JSUVStream *s = handle->data;
     if (s) {
@@ -423,9 +450,20 @@ static void uv__stream_connection_cb(uv_stream_t* handle, int status) {
         JSValue ret;
         int is_error = 0;
         if (status == 0) {
-            // TODO - adjust when support for pipes is added.
-            arg = js_new_uv_tcp(ctx, AF_UNSPEC);
-            JSUVStream *t2 = js_uv_tcp_get(ctx, arg);
+            JSUVStream *t2;
+            switch (handle->type) {
+                case UV_TCP:
+                    arg = js_new_uv_tcp(ctx, AF_UNSPEC);
+                    t2 = js_uv_tcp_get(ctx, arg);
+                    break;
+                case UV_NAMED_PIPE:
+                    arg = js_new_uv_pipe(ctx);
+                    t2 = js_uv_pipe_get(ctx, arg);
+                    break;
+                default:
+                    abort();
+            }
+
             int r = uv_accept(handle, &t2->h.stream);
             if (r != 0) {
                 JS_FreeValue(ctx, arg);
@@ -619,31 +657,6 @@ static JSValue js_uv_tcp_getsockpeername(JSContext *ctx, JSValueConst this_val,
     return js_uv_addr2obj(ctx, (struct sockaddr*)&addr);
 }
 
-static void uv__tcp_connect_cb(uv_connect_t* req, int status) {
-    JSUVStream *t = req->handle->data;
-    if (t) {
-        JSContext *ctx = t->ctx;
-        JSValue ret;
-        if (status == 0) {
-            ret = JS_Call(ctx, t->connect.resolving_funcs[0], JS_UNDEFINED, 0, NULL);
-        } else {
-            JSValue error = js_new_uv_error(ctx, status);
-            ret = JS_Call(ctx, t->connect.resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
-            JS_FreeValue(ctx, error);
-        }
-
-        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
-
-        JS_FreeValue(ctx, t->connect.promise);
-        JS_FreeValue(ctx, t->connect.resolving_funcs[0]);
-        JS_FreeValue(ctx, t->connect.resolving_funcs[1]);
-
-        t->connect.promise = JS_UNDEFINED;
-        t->connect.resolving_funcs[0] = JS_UNDEFINED;
-        t->connect.resolving_funcs[1] = JS_UNDEFINED;
-    }
-}
-
 static JSValue js_uv_tcp_connect(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv)
 {
@@ -658,7 +671,7 @@ static JSValue js_uv_tcp_connect(JSContext *ctx, JSValueConst this_val,
     if (r != 0) {
         return JS_EXCEPTION;
     }
-    r = uv_tcp_connect(&t->connect.req, &t->h.tcp, (struct sockaddr *)&ss, uv__tcp_connect_cb);
+    r = uv_tcp_connect(&t->connect.req, &t->h.tcp, (struct sockaddr *)&ss, uv__stream_connect_cb);
     if (r != 0) {
         return js_uv_throw_errno(ctx, r);
     }
@@ -862,6 +875,170 @@ static JSValue js_uv_tty_fileno(JSContext *ctx, JSValueConst this_val,
 {
     JSUVStream *t = js_uv_tty_get(ctx, this_val);
     return js_uv_stream_fileno(ctx, t, argc, argv);
+}
+
+
+/* Pipe */
+
+static JSClassID js_uv_pipe_class_id;
+
+static void js_uv_pipe_finalizer(JSRuntime *rt, JSValue val) {
+    JSUVStream *t = JS_GetOpaque(val, js_uv_pipe_class_id);
+    js_uv_stream_finalizer(t);
+}
+
+static void js_uv_pipe_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+    JSUVStream *t = JS_GetOpaque(val, js_uv_pipe_class_id);
+    js_uv_stream_mark(rt, t, mark_func);
+}
+
+static JSClassDef js_uv_pipe_class = {
+    "Pipe",
+    .finalizer = js_uv_pipe_finalizer,
+    .gc_mark = js_uv_pipe_mark,
+};
+
+static JSValue js_new_uv_pipe(JSContext *ctx)
+{
+    JSUVStream *s;
+    JSValue obj;
+    uv_loop_t *loop;
+    int r;
+
+    loop = js_uv_get_loop(ctx);
+    if (!loop) {
+        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
+    }
+
+    obj = JS_NewObjectClass(ctx, js_uv_pipe_class_id);
+    if (JS_IsException(obj))
+        return obj;
+
+    s = js_mallocz(ctx, sizeof(*s));
+    if (!s) {
+        JS_FreeValue(ctx, obj);
+        return JS_EXCEPTION;
+    }
+
+    r = uv_pipe_init(loop, &s->h.pipe, 0);
+    if (r != 0) {
+        JS_FreeValue(ctx, obj);
+        js_free(ctx, s);
+        return JS_ThrowInternalError(ctx, "couldn't initialize TTY handle");
+    }
+
+    return js_uv_init_stream(ctx, obj, s);
+}
+
+static JSValue js_uv_pipe_constructor(JSContext *ctx, JSValueConst new_target,
+                                      int argc, JSValueConst *argv)
+{
+    return js_new_uv_pipe(ctx);
+}
+
+static JSUVStream *js_uv_pipe_get(JSContext *ctx, JSValueConst obj)
+{
+    return JS_GetOpaque2(ctx, obj, js_uv_pipe_class_id);
+}
+
+static JSValue js_uv_pipe_getsockpeername(JSContext *ctx, JSValueConst this_val,
+                                          int argc, JSValueConst *argv, int magic)
+{
+    JSUVStream *t = js_uv_pipe_get(ctx, this_val);
+    if (!t)
+        return JS_EXCEPTION;
+
+    char buf[1024];
+    size_t len = sizeof(buf);
+    int r;
+
+    if (magic == 0) {
+        r = uv_pipe_getsockname(&t->h.pipe, buf, &len);
+    } else {
+        r = uv_pipe_getpeername(&t->h.pipe, buf, &len);
+    }
+    if (r != 0)
+        return js_uv_throw_errno(ctx, r);
+
+    return JS_NewStringLen(ctx, buf, len);
+}
+
+static JSValue js_uv_pipe_connect(JSContext *ctx, JSValueConst this_val,
+                                  int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_pipe_get(ctx, this_val);
+    if (!t)
+        return JS_EXCEPTION;
+
+    const char *name = JS_ToCString(ctx, argv[0]);
+    if (!name)
+        return JS_EXCEPTION;
+
+    uv_pipe_connect(&t->connect.req, &t->h.pipe, name, uv__stream_connect_cb);
+
+    JSValue promise = JS_NewPromiseCapability(ctx, t->connect.resolving_funcs);
+    t->connect.promise = JS_DupValue(ctx, promise);
+    return promise;
+}
+
+static JSValue js_uv_pipe_bind(JSContext *ctx, JSValueConst this_val,
+                               int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_pipe_get(ctx, this_val);
+    if (!t)
+        return JS_EXCEPTION;
+
+    const char *name = JS_ToCString(ctx, argv[0]);
+    if (!name)
+        return JS_EXCEPTION;
+
+    int r = uv_pipe_bind(&t->h.pipe, name);
+    if (r != 0)
+        return js_uv_throw_errno(ctx, r);
+
+    return JS_UNDEFINED;
+}
+
+static JSValue js_uv_pipe_close(JSContext *ctx, JSValueConst this_val,
+                                int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_pipe_get(ctx, this_val);
+    return js_uv_stream_close(ctx, t, argc, argv);
+}
+
+static JSValue js_uv_pipe_read(JSContext *ctx, JSValueConst this_val,
+                               int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_pipe_get(ctx, this_val);
+    return js_uv_stream_read(ctx, t, argc, argv);
+}
+
+static JSValue js_uv_pipe_write(JSContext *ctx, JSValueConst this_val,
+                                int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_pipe_get(ctx, this_val);
+    return js_uv_stream_write(ctx, t, argc, argv);
+}
+
+static JSValue js_uv_pipe_fileno(JSContext *ctx, JSValueConst this_val,
+                                 int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_pipe_get(ctx, this_val);
+    return js_uv_stream_fileno(ctx, t, argc, argv);
+}
+
+static JSValue js_uv_pipe_listen(JSContext *ctx, JSValueConst this_val,
+                                int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_pipe_get(ctx, this_val);
+    return js_uv_stream_listen(ctx, t, argc, argv);
+}
+
+static JSValue js_uv_pipe_accept(JSContext *ctx, JSValueConst this_val,
+                                int argc, JSValueConst *argv)
+{
+    JSUVStream *t = js_uv_pipe_get(ctx, this_val);
+    return js_uv_stream_accept(ctx, t, argc, argv);
 }
 
 
@@ -1178,6 +1355,21 @@ static const JSCFunctionListEntry js_uv_tty_proto_funcs[] = {
     JSUV_CFUNC_DEF("getWinSize", 0, js_uv_tty_getWinSize ),
 };
 
+static const JSCFunctionListEntry js_uv_pipe_proto_funcs[] = {
+    /* Stream functions */
+    JSUV_CFUNC_DEF("close", 0, js_uv_pipe_close ),
+    JSUV_CFUNC_DEF("read", 0, js_uv_pipe_read ),
+    JSUV_CFUNC_DEF("write", 1, js_uv_pipe_write ),
+    JSUV_CFUNC_DEF("fileno", 0, js_uv_pipe_fileno ),
+    JSUV_CFUNC_DEF("listen", 1, js_uv_pipe_listen ),
+    JSUV_CFUNC_DEF("accept", 0, js_uv_pipe_accept ),
+    /* Pipe functions */
+    JSUV_CFUNC_MAGIC_DEF("getsockname", 0, js_uv_pipe_getsockpeername, 0 ),
+    JSUV_CFUNC_MAGIC_DEF("getpeername", 0, js_uv_pipe_getsockpeername, 1 ),
+    JSUV_CFUNC_DEF("connect", 1, js_uv_pipe_connect ),
+    JSUV_CFUNC_DEF("bind", 1, js_uv_pipe_bind ),
+};
+
 static const JSCFunctionListEntry js_uv_error_funcs[] = {
     JSUV_CFUNC_DEF("strerror", 1, js_uv_error_strerror ),
     /* various errno values */
@@ -1212,12 +1404,23 @@ static int js_uv_init(JSContext *ctx, JSModuleDef *m)
     obj = JS_NewCFunction2(ctx, js_uv_tty_constructor, "TTY", 1, JS_CFUNC_constructor, 0);
     JS_SetModuleExport(ctx, m, "TTY", obj);
 
+    /* Pipe class */
+    JS_NewClassID(&js_uv_pipe_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), js_uv_pipe_class_id, &js_uv_pipe_class);
+    proto = JS_NewObject(ctx);
+    JS_SetPropertyFunctionList(ctx, proto, js_uv_pipe_proto_funcs, countof(js_uv_pipe_proto_funcs));
+    JS_SetClassProto(ctx, js_uv_pipe_class_id, proto);
+
+    /* Pipe object */
+    obj = JS_NewCFunction2(ctx, js_uv_pipe_constructor, "Pipe", 1, JS_CFUNC_constructor, 0);
+    JS_SetModuleExport(ctx, m, "Pipe", obj);
+
     /* Error object */    
     obj = JS_NewCFunction2(ctx, js_uv_error_constructor, "Error", 1, JS_CFUNC_constructor, 0);
     JS_SetPropertyFunctionList(ctx, obj, js_uv_error_funcs, countof(js_uv_error_funcs));
     JS_SetModuleExport(ctx, m, "Error", obj);
 
-    /* OSTimer class */
+    /* Timer class */
     JS_NewClassID(&js_uv_timer_class_id);
     JS_NewClass(JS_GetRuntime(ctx), js_uv_timer_class_id, &js_uv_timer_class);
 
@@ -1236,6 +1439,7 @@ JSModuleDef *js_init_module_uv(JSContext *ctx)
     JS_AddModuleExportList(ctx, m, js_uv_funcs, countof(js_uv_funcs));
     JS_AddModuleExport(ctx, m, "TCP");
     JS_AddModuleExport(ctx, m, "TTY");
+    JS_AddModuleExport(ctx, m, "Pipe");
     JS_AddModuleExport(ctx, m, "Error");
     return m;
 }
