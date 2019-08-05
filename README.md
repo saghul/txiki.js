@@ -7,11 +7,12 @@ Currently the following is already implemented in the `qjs` interpreter, using l
 
 - TCP sockets
 - TTY handles
+- Unix sockets / named pipes
 - Timers
-- I/O: file descriptor readyness
 - Signals
 - Event loop
 - High-resolution time
+- Miscellaneous utility functions
 
 More things may be coming!
 
