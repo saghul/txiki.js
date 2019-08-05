@@ -1106,6 +1106,26 @@ static JSValue js_uv_isatty(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_NewBool(ctx, type == UV_TTY);
 }
 
+static JSValue js_uv_environ(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+    uv_env_item_t *env;
+    int envcount, r;
+
+    r = uv_os_environ(&env, &envcount);
+    if (r != 0)
+        return js_uv_throw_errno(ctx, r);
+
+    JSValue obj = JS_NewObject(ctx);
+
+    for (int i = 0; i < envcount; i++) {
+        JS_SetPropertyStr(ctx, obj, env[i].name, JS_NewString(ctx, env[i].value));
+    }
+
+    uv_os_free_environ(env, envcount);
+
+    return obj;
+}
+
 #define JSUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE )
 #define JSUV_CFUNC_DEF(name, length, func1) { name, JS_PROP_ENUMERABLE, JS_DEF_CFUNC, 0, .u.func = { length, JS_CFUNC_generic, { .generic = func1 } } }
 #define JSUV_CFUNC_MAGIC_DEF(name, length, func1, magic) { name, JS_PROP_ENUMERABLE, JS_DEF_CFUNC, magic, .u.func = { length, JS_CFUNC_generic_magic, { .generic_magic = func1 } } }
@@ -1128,6 +1148,7 @@ static const JSCFunctionListEntry js_uv_funcs[] = {
     JSUV_CFUNC_DEF("clearInterval", 1, js_uv_clearTimeout ),
     JSUV_CFUNC_DEF("signal", 2, js_uv_signal ),
     JSUV_CFUNC_DEF("isatty", 1, js_uv_isatty ),
+    JSUV_CFUNC_DEF("environ", 0, js_uv_environ ),
 };
 
 static const JSCFunctionListEntry js_uv_tcp_proto_funcs[] = {
