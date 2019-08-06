@@ -237,6 +237,10 @@ static JSValue js_uv_stream_close(JSContext *ctx, JSUVStream *s, int argc, JSVal
     return JS_UNDEFINED;
 }
 
+static void uv__stream_free_read_buf(JSRuntime *rt, void *opaque, void *ptr) {
+    js_free_rt(rt, ptr);
+}
+
 static void uv__stream_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
     JSUVStream *s = handle->data;
     if (s) {
@@ -265,15 +269,14 @@ static void uv__stream_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_
                 arg = js_new_uv_error(ctx, nread);
                 is_reject = 1;
             }
+            js_free(ctx, buf->base);
         } else {
-            arg = JS_NewArrayBufferCopy(ctx, (const uint8_t *)buf->base, buf->len);
+            arg = JS_NewArrayBuffer(ctx, (uint8_t *)buf->base, buf->len, uv__stream_free_read_buf, NULL, 0);
         }
 
         ret = JS_Call(ctx, s->read.resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
         JS_FreeValue(ctx, arg);
         JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
-
-        js_free(ctx, buf->base);
 
         JS_FreeValue(ctx, s->read.promise);
         JS_FreeValue(ctx, s->read.resolving_funcs[0]);
