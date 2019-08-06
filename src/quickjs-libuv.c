@@ -1306,9 +1306,7 @@ static JSValue js_uv_environ(JSContext *ctx, JSValueConst this_val, int argc, JS
     return obj;
 }
 
-#define JSUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE )
-#define JSUV_CFUNC_DEF(name, length, func1) { name, JS_PROP_ENUMERABLE, JS_DEF_CFUNC, 0, .u.func = { length, JS_CFUNC_generic, { .generic = func1 } } }
-#define JSUV_CFUNC_MAGIC_DEF(name, length, func1, magic) { name, JS_PROP_ENUMERABLE, JS_DEF_CFUNC, magic, .u.func = { length, JS_CFUNC_generic_magic, { .generic_magic = func1 } } }
+#define JSUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_CONFIGURABLE )
 
 static const JSCFunctionListEntry js_uv_funcs[] = {
     JSUV_CONST(AF_INET),
@@ -1333,44 +1331,44 @@ static const JSCFunctionListEntry js_uv_funcs[] = {
 
 static const JSCFunctionListEntry js_uv_tcp_proto_funcs[] = {
     /* Stream functions */
-    JSUV_CFUNC_DEF("close", 0, js_uv_tcp_close ),
-    JSUV_CFUNC_DEF("read", 0, js_uv_tcp_read ),
-    JSUV_CFUNC_DEF("write", 1, js_uv_tcp_write ),
-    JSUV_CFUNC_DEF("shutdown", 0, js_uv_tcp_shutdown ),
-    JSUV_CFUNC_DEF("fileno", 0, js_uv_tcp_fileno ),
-    JSUV_CFUNC_DEF("listen", 1, js_uv_tcp_listen ),
-    JSUV_CFUNC_DEF("accept", 0, js_uv_tcp_accept ),
+    JS_CFUNC_DEF("close", 0, js_uv_tcp_close ),
+    JS_CFUNC_DEF("read", 0, js_uv_tcp_read ),
+    JS_CFUNC_DEF("write", 1, js_uv_tcp_write ),
+    JS_CFUNC_DEF("shutdown", 0, js_uv_tcp_shutdown ),
+    JS_CFUNC_DEF("fileno", 0, js_uv_tcp_fileno ),
+    JS_CFUNC_DEF("listen", 1, js_uv_tcp_listen ),
+    JS_CFUNC_DEF("accept", 0, js_uv_tcp_accept ),
     /* TCP functions */
-    JSUV_CFUNC_MAGIC_DEF("getsockname", 0, js_uv_tcp_getsockpeername, 0 ),
-    JSUV_CFUNC_MAGIC_DEF("getpeername", 0, js_uv_tcp_getsockpeername, 1 ),
-    JSUV_CFUNC_DEF("connect", 1, js_uv_tcp_connect ),
-    JSUV_CFUNC_DEF("bind", 1, js_uv_tcp_bind ),
+    JS_CFUNC_MAGIC_DEF("getsockname", 0, js_uv_tcp_getsockpeername, 0 ),
+    JS_CFUNC_MAGIC_DEF("getpeername", 0, js_uv_tcp_getsockpeername, 1 ),
+    JS_CFUNC_DEF("connect", 1, js_uv_tcp_connect ),
+    JS_CFUNC_DEF("bind", 1, js_uv_tcp_bind ),
 };
 
 static const JSCFunctionListEntry js_uv_tty_proto_funcs[] = {
     /* Stream functions */
-    JSUV_CFUNC_DEF("close", 0, js_uv_tty_close ),
-    JSUV_CFUNC_DEF("read", 0, js_uv_tty_read ),
-    JSUV_CFUNC_DEF("write", 1, js_uv_tty_write ),
-    JSUV_CFUNC_DEF("fileno", 0, js_uv_tty_fileno ),
+    JS_CFUNC_DEF("close", 0, js_uv_tty_close ),
+    JS_CFUNC_DEF("read", 0, js_uv_tty_read ),
+    JS_CFUNC_DEF("write", 1, js_uv_tty_write ),
+    JS_CFUNC_DEF("fileno", 0, js_uv_tty_fileno ),
     /* TTY functions */
-    JSUV_CFUNC_DEF("setMode", 1, js_uv_tty_setMode ),
-    JSUV_CFUNC_DEF("getWinSize", 0, js_uv_tty_getWinSize ),
+    JS_CFUNC_DEF("setMode", 1, js_uv_tty_setMode ),
+    JS_CFUNC_DEF("getWinSize", 0, js_uv_tty_getWinSize ),
 };
 
 static const JSCFunctionListEntry js_uv_pipe_proto_funcs[] = {
     /* Stream functions */
-    JSUV_CFUNC_DEF("close", 0, js_uv_pipe_close ),
-    JSUV_CFUNC_DEF("read", 0, js_uv_pipe_read ),
-    JSUV_CFUNC_DEF("write", 1, js_uv_pipe_write ),
-    JSUV_CFUNC_DEF("fileno", 0, js_uv_pipe_fileno ),
-    JSUV_CFUNC_DEF("listen", 1, js_uv_pipe_listen ),
-    JSUV_CFUNC_DEF("accept", 0, js_uv_pipe_accept ),
+    JS_CFUNC_DEF("close", 0, js_uv_pipe_close ),
+    JS_CFUNC_DEF("read", 0, js_uv_pipe_read ),
+    JS_CFUNC_DEF("write", 1, js_uv_pipe_write ),
+    JS_CFUNC_DEF("fileno", 0, js_uv_pipe_fileno ),
+    JS_CFUNC_DEF("listen", 1, js_uv_pipe_listen ),
+    JS_CFUNC_DEF("accept", 0, js_uv_pipe_accept ),
     /* Pipe functions */
-    JSUV_CFUNC_MAGIC_DEF("getsockname", 0, js_uv_pipe_getsockpeername, 0 ),
-    JSUV_CFUNC_MAGIC_DEF("getpeername", 0, js_uv_pipe_getsockpeername, 1 ),
-    JSUV_CFUNC_DEF("connect", 1, js_uv_pipe_connect ),
-    JSUV_CFUNC_DEF("bind", 1, js_uv_pipe_bind ),
+    JS_CFUNC_MAGIC_DEF("getsockname", 0, js_uv_pipe_getsockpeername, 0 ),
+    JS_CFUNC_MAGIC_DEF("getpeername", 0, js_uv_pipe_getsockpeername, 1 ),
+    JS_CFUNC_DEF("connect", 1, js_uv_pipe_connect ),
+    JS_CFUNC_DEF("bind", 1, js_uv_pipe_bind ),
 };
 
 static const JSCFunctionListEntry js_uv_error_funcs[] = {
