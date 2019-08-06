@@ -318,14 +318,14 @@ static JSValue js_uv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSVal
     JSValue jsData = argv[0];
 
     size_t size;
-    uint8_t *tmp;
+    char *tmp;
 
     if (JS_IsString(jsData)) {
         int len;
-        tmp = (uint8_t*) JS_ToCStringLen(ctx, &len, jsData, 0);
+        tmp = JS_ToCStringLen(ctx, &len, jsData, 0);
         size = len;
     } else {
-        tmp = JS_GetArrayBuffer(ctx, &size, jsData);
+        tmp = (char*) JS_GetArrayBuffer(ctx, &size, jsData);
     }
 
     if (!tmp)
@@ -335,7 +335,7 @@ static JSValue js_uv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSVal
     uv_buf_t buf;
 
     /* First try to do the write inline */
-    buf = uv_buf_init((char*) tmp, size);
+    buf = uv_buf_init(tmp, size);
     r = uv_try_write(&s->h.stream, &buf, 1);
 
     if (r == size)
