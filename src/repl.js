@@ -890,7 +890,7 @@ import * as os from "os";
             type = typeof a;
             if (type === "object") {
                 if (a === null) {
-                    stdout.write(a);
+                    stdout.write(String(a));
                 } else if (stack.indexOf(a) >= 0) {
                     stdout.write("[circular]");
                 } else {
@@ -922,7 +922,7 @@ import * as os from "os";
                             if (i !== 0)
                                 stdout.write(", ");
                             key = keys[i];
-                            stdout.write(key, ": ");
+                            stdout.write(key + ": ");
                             print_rec(a[key]);
                         }
                         stdout.write(" }");
@@ -943,7 +943,7 @@ import * as os from "os";
             } else if (type === "function") {
                 stdout.write("function " + a.name + "()");
             } else {
-                stdout.write(a);
+                stdout.write(String(a));
             }
         }
         print_rec(a);
