@@ -1320,15 +1320,15 @@ static const JSCFunctionListEntry js_uv_funcs[] = {
     JSUV_CONST(UV_TTY_MODE_NORMAL),
     JSUV_CONST(UV_TTY_MODE_RAW),
     JSUV_CONST(UV_TTY_MODE_IO),
-    JSUV_CFUNC_DEF("hrtime", 0, js_uv_hrtime ),
-    JSUV_CFUNC_DEF("uname", 0, js_uv_uname ),
-    JSUV_CFUNC_MAGIC_DEF("setTimeout", 2, js_uv_setTimeout, 0 ),
-    JSUV_CFUNC_DEF("clearTimeout", 1, js_uv_clearTimeout ),
-    JSUV_CFUNC_MAGIC_DEF("setInterval", 2, js_uv_setTimeout, 1 ),
-    JSUV_CFUNC_DEF("clearInterval", 1, js_uv_clearTimeout ),
-    JSUV_CFUNC_DEF("signal", 2, js_uv_signal ),
-    JSUV_CFUNC_DEF("isatty", 1, js_uv_isatty ),
-    JSUV_CFUNC_DEF("environ", 0, js_uv_environ ),
+    JS_CFUNC_DEF("hrtime", 0, js_uv_hrtime ),
+    JS_CFUNC_DEF("uname", 0, js_uv_uname ),
+    JS_CFUNC_MAGIC_DEF("setTimeout", 2, js_uv_setTimeout, 0 ),
+    JS_CFUNC_DEF("clearTimeout", 1, js_uv_clearTimeout ),
+    JS_CFUNC_MAGIC_DEF("setInterval", 2, js_uv_setTimeout, 1 ),
+    JS_CFUNC_DEF("clearInterval", 1, js_uv_clearTimeout ),
+    JS_CFUNC_DEF("signal", 2, js_uv_signal ),
+    JS_CFUNC_DEF("isatty", 1, js_uv_isatty ),
+    JS_CFUNC_DEF("environ", 0, js_uv_environ ),
 };
 
 static const JSCFunctionListEntry js_uv_tcp_proto_funcs[] = {
@@ -1374,7 +1374,7 @@ static const JSCFunctionListEntry js_uv_pipe_proto_funcs[] = {
 };
 
 static const JSCFunctionListEntry js_uv_error_funcs[] = {
-    JSUV_CFUNC_DEF("strerror", 1, js_uv_error_strerror ),
+    JS_CFUNC_DEF("strerror", 1, js_uv_error_strerror ),
     /* various errno values */
 #define DEF(x, s) JS_PROP_INT32_DEF(stringify(UV_##x), UV_##x, JS_PROP_CONFIGURABLE ),
     UV_ERRNO_MAP(DEF)
