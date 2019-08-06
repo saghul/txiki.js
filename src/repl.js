@@ -272,7 +272,6 @@ import * as os from "os";
         }
         move_cursor(cursor_pos - last_cursor_pos);
         last_cursor_pos = cursor_pos;
-        //std.out.flush();
     }
 
     /* editing commands */
@@ -810,8 +809,6 @@ import * as os from "os";
             case -3:
                 /* uninstall a Ctrl-C signal handler */
                 uv.signal(os.SIGINT, null);
-                /* uninstall the stdin read handler */
-                os.setReadHandler(term_fd, null);
                 return;
             }
             last_fun = this_fun;
