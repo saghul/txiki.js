@@ -1306,6 +1306,70 @@ static JSValue js_uv_environ(JSContext *ctx, JSValueConst this_val, int argc, JS
     return obj;
 }
 
+static JSValue js_uv_getenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+    const char *name = JS_ToCString(ctx, argv[0]);
+    if (!name)
+        return JS_EXCEPTION;
+
+    char buf[1024];
+    size_t size = sizeof(buf);
+    char *dbuf = buf;
+    int r;
+
+    r = uv_os_getenv(name, dbuf, &size);
+    if (r != 0) {
+        if (r != UV_ENOBUFS)
+            return js_uv_throw_errno(ctx, r);
+        dbuf = js_malloc(ctx, size);
+        if (!dbuf)
+            return JS_EXCEPTION;
+        r = uv_os_getenv(name, dbuf, &size);
+        if (r != 0) {
+            js_free(ctx, dbuf);
+            return js_uv_throw_errno(ctx, r);
+        }
+    }
+
+    JSValue ret = JS_NewStringLen(ctx, dbuf, size);
+
+    if (dbuf != buf)
+        js_free(ctx, dbuf);
+
+    return ret;
+}
+
+static JSValue js_uv_setenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+    const char *name = JS_ToCString(ctx, argv[0]);
+    if (!name)
+        return JS_EXCEPTION;
+
+    const char *value = JS_ToCString(ctx, argv[1]);
+    if (!value)
+        return JS_EXCEPTION;
+
+    int r = uv_os_setenv(name, value);
+    if (r != 0)
+        return js_uv_throw_errno(ctx, r);
+
+    return JS_UNDEFINED;
+}
+
+static JSValue js_uv_unsetenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+    const char *name = JS_ToCString(ctx, argv[0]);
+    if (!name)
+        return JS_EXCEPTION;
+
+    int r = uv_os_unsetenv(name);
+    if (r != 0)
+        return js_uv_throw_errno(ctx, r);
+
+    return JS_UNDEFINED;
+}
+
+
 #define JSUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_CONFIGURABLE )
 
 static const JSCFunctionListEntry js_uv_funcs[] = {
@@ -1327,6 +1391,9 @@ static const JSCFunctionListEntry js_uv_funcs[] = {
     JS_CFUNC_DEF("signal", 2, js_uv_signal ),
     JS_CFUNC_DEF("isatty", 1, js_uv_isatty ),
     JS_CFUNC_DEF("environ", 0, js_uv_environ ),
+    JS_CFUNC_DEF("getenv", 0, js_uv_getenv ),
+    JS_CFUNC_DEF("setenv", 2, js_uv_setenv ),
+    JS_CFUNC_DEF("unsetenv", 1, js_uv_unsetenv ),
 };
 
 static const JSCFunctionListEntry js_uv_tcp_proto_funcs[] = {
