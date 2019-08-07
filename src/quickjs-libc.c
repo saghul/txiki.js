@@ -411,21 +411,6 @@ static JSValue js_std_exit(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-static JSValue js_std_getenv(JSContext *ctx, JSValueConst this_val,
-                           int argc, JSValueConst *argv)
-{
-    const char *name, *str;
-    name = JS_ToCString(ctx, argv[0]);
-    if (!name)
-        return JS_EXCEPTION;
-    str = getenv(name);
-    JS_FreeCString(ctx, name);
-    if (!str)
-        return JS_UNDEFINED;
-    else
-        return JS_NewString(ctx, str);
-}
-
 static JSValue js_std_gc(JSContext *ctx, JSValueConst this_val,
                          int argc, JSValueConst *argv)
 {
@@ -845,7 +830,6 @@ static const JSCFunctionListEntry js_std_funcs[] = {
     JS_CFUNC_DEF("gc", 0, js_std_gc ),
     JS_CFUNC_DEF("evalScript", 1, js_evalScript ),
     JS_CFUNC_DEF("loadScript", 1, js_loadScript ),
-    JS_CFUNC_DEF("getenv", 1, js_std_getenv ),
 
     /* FILE I/O */
     JS_CFUNC_DEF("open", 2, js_std_open ),
