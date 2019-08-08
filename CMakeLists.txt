@@ -71,6 +71,13 @@ add_executable(qjs
     src/qjs.c
     src/quickjs-libc.c
     src/quickjs-libuv.c
+    src/quv/error.c
+    src/quv/fs.c
+    src/quv/misc.c
+    src/quv/streams.c
+    src/quv/signals.c
+    src/quv/timers.c
+    src/quv/utils.c
     ${CMAKE_CURRENT_BINARY_DIR}/repl.c
     ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
     $<TARGET_OBJECTS:qjs_obj>
