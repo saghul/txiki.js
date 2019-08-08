@@ -10,11 +10,15 @@ Currently the following is already implemented in the `qjs` interpreter, using l
 - Unix sockets / named pipes
 - Timers
 - Signals
+- Basic file operations
 - Event loop
 - High-resolution time
 - Miscellaneous utility functions
 
-More things may be coming!
+Other extras:
+
+- TextEncoder / TextDecoder APIs
+
 
 ## Building
 
