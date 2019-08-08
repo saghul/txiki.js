@@ -44,6 +44,8 @@
 
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
+extern const uint8_t encoding[];
+extern const uint32_t encoding_size;
 
 
 static int eval_buf(JSContext *ctx, const void *buf, int buf_len,
@@ -260,7 +262,6 @@ int main(int argc, char **argv)
     int trace_memory = 0;
     int empty_run = 0;
     int module = 0;
-    int load_std = 1;
     
     /* cannot use getopt because we want to pass the command line to
        the script */
@@ -315,10 +316,6 @@ int main(int argc, char **argv)
                 trace_memory++;
                 continue;
             }
-            if (!strcmp(longopt, "nostd")) {
-                load_std = 0;
-                continue;
-            }
             if (opt == 'q' || !strcmp(longopt, "quit")) {
                 empty_run++;
                 continue;
@@ -363,21 +360,22 @@ int main(int argc, char **argv)
         js_init_module_uv(ctx);
 
         /* make 'std' and 'os' visible to non module code */
-        if (load_std) {
-            const char *str =
-                "import * as std from 'std';\n"
-                "import * as os from 'os';\n"
-                "import * as uv from 'uv';\n"
-                "std.global.global = std.global;\n"
-                "std.global.std = std;\n"
-                "std.global.os = os;\n"
-                "std.global.uv = uv;\n"
-                "std.global.setTimeout = uv.setTimeout;\n"
-                "std.global.clearTimeout = uv.clearTimeout;\n"
-                "std.global.setInterval = uv.setInterval;\n"
-                "std.global.clearInterval = uv.clearInterval;\n";
-            eval_buf(ctx, str, strlen(str), "<input>", JS_EVAL_TYPE_MODULE);
-        }
+        const char *str =
+            "import * as std from 'std';\n"
+            "import * as os from 'os';\n"
+            "import * as uv from 'uv';\n"
+            "std.global.global = std.global;\n"
+            "std.global.std = std;\n"
+            "std.global.os = os;\n"
+            "std.global.uv = uv;\n"
+            "std.global.setTimeout = uv.setTimeout;\n"
+            "std.global.clearTimeout = uv.clearTimeout;\n"
+            "std.global.setInterval = uv.setInterval;\n"
+            "std.global.clearInterval = uv.clearInterval;\n";
+        eval_buf(ctx, str, strlen(str), "<input>", JS_EVAL_TYPE_MODULE);
+
+        /* Load TextEncoder / TextDecoder */
+        js_std_eval_binary(ctx, encoding, encoding_size, 0);
 
         if (expr) {
             if (eval_buf(ctx, expr, strlen(expr), "<cmdline>", 0))

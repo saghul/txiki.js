@@ -54,11 +54,25 @@ add_custom_command(
         ${CMAKE_CURRENT_BINARY_DIR}/repl.c
 )
 
+add_custom_command(
+    COMMAND
+        ${CMAKE_CURRENT_BINARY_DIR}/qjsc
+        -c
+        -o ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
+        -m ${CMAKE_SOURCE_DIR}/src/encoding.js
+    DEPENDS
+        ${CMAKE_CURRENT_BINARY_DIR}/qjsc
+        ${CMAKE_SOURCE_DIR}/src/encoding.js
+    OUTPUT
+        ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
+)
+
 add_executable(qjs
     src/qjs.c
     src/quickjs-libc.c
     src/quickjs-libuv.c
     ${CMAKE_CURRENT_BINARY_DIR}/repl.c
+    ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
     $<TARGET_OBJECTS:qjs_obj>
 )
 
