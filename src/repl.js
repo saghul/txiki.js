@@ -122,7 +122,7 @@ import * as os from "os";
         stdin.setMode(uv.UV_TTY_MODE_RAW);
 
         /* install a Ctrl-C signal handler */
-        uv.signal(os.SIGINT, sigint_handler);
+        uv.signal(uv.SIGINT, sigint_handler);
 
         /* handler to read stdin */
         term_read_handler();
@@ -810,7 +810,7 @@ import * as os from "os";
                 return;
             case -3:
                 /* uninstall a Ctrl-C signal handler */
-                uv.signal(os.SIGINT, null);
+                uv.signal(uv.SIGINT, null);
                 return;
             }
             last_fun = this_fun;

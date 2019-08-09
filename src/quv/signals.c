@@ -114,6 +114,115 @@ static JSValue js_uv_signal(JSContext *ctx, JSValueConst this_val,
 }
 
 static const JSCFunctionListEntry js_uv_signal_funcs[] = {
+#ifdef SIGHUP
+    JSUV_CONST(SIGHUP),
+#endif
+#ifdef SIGINT
+    JSUV_CONST(SIGINT),
+#endif
+#ifdef SIGQUIT
+    JSUV_CONST(SIGQUIT),
+#endif
+#ifdef SIGILL
+    JSUV_CONST(SIGILL),
+#endif
+#ifdef SIGTRAP
+    JSUV_CONST(SIGTRAP),
+#endif
+#ifdef SIGABRT
+    JSUV_CONST(SIGABRT),
+#endif
+#ifdef SIGIOT
+    JSUV_CONST(SIGIOT),
+#endif
+#ifdef SIGBUS
+    JSUV_CONST(SIGBUS),
+#endif
+#ifdef SIGFPE
+    JSUV_CONST(SIGFPE),
+#endif
+#ifdef SIGKILL
+    JSUV_CONST(SIGKILL),
+#endif
+#ifdef SIGUSR1
+    JSUV_CONST(SIGUSR1),
+#endif
+#ifdef SIGSEGV
+    JSUV_CONST(SIGSEGV),
+#endif
+#ifdef SIGUSR2
+    JSUV_CONST(SIGUSR2),
+#endif
+#ifdef SIGPIPE
+    JSUV_CONST(SIGPIPE),
+#endif
+#ifdef SIGALRM
+    JSUV_CONST(SIGALRM),
+#endif
+    JSUV_CONST(SIGTERM),
+#ifdef SIGCHLD
+    JSUV_CONST(SIGCHLD),
+#endif
+#ifdef SIGSTKFLT
+    JSUV_CONST(SIGSTKFLT),
+#endif
+#ifdef SIGCONT
+    JSUV_CONST(SIGCONT),
+#endif
+#ifdef SIGSTOP
+    JSUV_CONST(SIGSTOP),
+#endif
+#ifdef SIGTSTP
+    JSUV_CONST(SIGTSTP),
+#endif
+#ifdef SIGBREAK
+    JSUV_CONST(SIGBREAK),
+#endif
+#ifdef SIGTTIN
+    JSUV_CONST(SIGTTIN),
+#endif
+#ifdef SIGTTOU
+    JSUV_CONST(SIGTTOU),
+#endif
+#ifdef SIGURG
+    JSUV_CONST(SIGURG),
+#endif
+#ifdef SIGXCPU
+    JSUV_CONST(SIGXCPU),
+#endif
+#ifdef SIGXFSZ
+    JSUV_CONST(SIGXFSZ),
+#endif
+#ifdef SIGVTALRM
+    JSUV_CONST(SIGVTALRM),
+#endif
+#ifdef SIGPROF
+    JSUV_CONST(SIGPROF),
+#endif
+#ifdef SIGWINCH
+    JSUV_CONST(SIGWINCH),
+#endif
+#ifdef SIGIO
+    JSUV_CONST(SIGIO),
+#endif
+#ifdef SIGPOLL
+    JSUV_CONST(SIGPOLL),
+#endif
+#ifdef SIGLOST
+    JSUV_CONST(SIGLOST),
+#endif
+#ifdef SIGPWR
+    JSUV_CONST(SIGPWR),
+#endif
+#ifdef SIGINFO
+    JSUV_CONST(SIGINFO),
+#endif
+#ifdef SIGSYS
+    JSUV_CONST(SIGSYS),
+#endif
+#ifdef SIGUNUSED
+    JSUV_CONST(SIGUNUSED),
+#endif
     JS_CFUNC_DEF("signal", 2, js_uv_signal ),
 };
 
