@@ -33,6 +33,7 @@ static JSClassID js_uv_file_class_id;
 typedef struct {
     JSContext *ctx;
     uv_file fd;
+    char *path;
 } JSUVFile;
 
 static void js_uv_file_finalizer(JSRuntime *rt, JSValue val) {
@@ -44,6 +45,7 @@ static void js_uv_file_finalizer(JSRuntime *rt, JSValue val) {
             uv_fs_req_cleanup(&req);
         }
         JSContext *ctx = f->ctx;
+        js_free(ctx, f->path);
         js_free(ctx, f);
     }
 }
@@ -66,7 +68,7 @@ typedef struct {
     } rw;
 } JSUVFsReq;
 
-static JSValue js_new_uv_file(JSContext *ctx, uv_file fd) {
+static JSValue js_new_uv_file(JSContext *ctx, uv_file fd, const char *path) {
     JSUVFile *f;
     JSValue obj;
 
@@ -76,6 +78,13 @@ static JSValue js_new_uv_file(JSContext *ctx, uv_file fd) {
 
     f = js_malloc(ctx, sizeof(*f));
     if (!f) {
+        JS_FreeValue(ctx, obj);
+        return JS_EXCEPTION;
+    }
+
+    f->path = js_strdup(ctx, path);
+    if (!f->path) {
+        js_free(ctx, f);
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
     }
@@ -128,13 +137,16 @@ static void uv__fs_req_cb(uv_fs_t* req) {
 
     switch (fr->req.fs_type) {
     case UV_FS_OPEN:
-        arg = js_new_uv_file(ctx, fr->req.result);
+        arg = js_new_uv_file(ctx, fr->req.result, fr->req.path);
         break;
     case UV_FS_CLOSE:
         arg = JS_UNDEFINED;
         f = js_uv_file_get(ctx, fr->obj);
-        if (f)
+        if (f) {
             f->fd = -1;
+            js_free(ctx, f->path);
+            f->path = NULL;
+        }
         break;
     case UV_FS_READ:
     case UV_FS_WRITE:
@@ -259,6 +271,15 @@ static JSValue js_uv_file_fileno(JSContext *ctx, JSValueConst this_val, int argc
     return JS_NewInt32(ctx, f->fd);
 }
 
+static JSValue js_uv_file_path_get(JSContext *ctx, JSValueConst this_val) {
+    JSUVFile *f = js_uv_file_get(ctx, this_val);
+    if (!f)
+        return JS_EXCEPTION;
+    if (!f->path)
+        return JS_UNDEFINED;
+    return JS_NewString(ctx, f->path);
+}
+
 static int js__uv_open_flags(const char *strflags, int len) {
     int flags = 0, read = 0, write = 0;
 
@@ -332,6 +353,7 @@ static const JSCFunctionListEntry js_uv_file_proto_funcs[] = {
     JS_CFUNC_MAGIC_DEF("write", 4, js_uv_file_rw, 1 ),
     JS_CFUNC_DEF("close", 0, js_uv_file_close ),
     JS_CFUNC_DEF("fileno", 0, js_uv_file_fileno ),
+    JS_CGETSET_DEF("path", js_uv_file_path_get, NULL ),
 };
 
 static const JSCFunctionListEntry js_uv_fs_funcs[] = {
