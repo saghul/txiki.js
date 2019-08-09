@@ -122,6 +122,7 @@ static void uv__fs_req_cb(uv_fs_t* req) {
     }
 
     JSValue arg;
+    JSUVFile *f;
 
     switch (fr->req.fs_type) {
     case UV_FS_OPEN:
@@ -129,6 +130,9 @@ static void uv__fs_req_cb(uv_fs_t* req) {
         break;
     case UV_FS_CLOSE:
         arg = JS_UNDEFINED;
+        f = js_uv_file_get(ctx, fr->obj);
+        if (f)
+            f->fd = -1;
         break;
     case UV_FS_READ:
     case UV_FS_WRITE:
