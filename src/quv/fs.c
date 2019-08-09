@@ -37,18 +37,20 @@ typedef struct {
 
 static void js_uv_file_finalizer(JSRuntime *rt, JSValue val) {
     JSUVFile *f = JS_GetOpaque(val, js_uv_file_class_id);
-    // TODO
-}
-
-static void js_uv_file_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
-    JSUVFile *f = JS_GetOpaque(val, js_uv_file_class_id);
-    // TODO
+    if (f) {
+        if (f->fd != -1) {
+            uv_fs_t req;
+            uv_fs_close(NULL, &req, f->fd, NULL);
+            uv_fs_req_cleanup(&req);
+        }
+        JSContext *ctx = f->ctx;
+        js_free(ctx, f);
+    }
 }
 
 static JSClassDef js_uv_file_class = {
     "File",
     .finalizer = js_uv_file_finalizer,
-    .gc_mark = js_uv_file_mark,
 };
 
 typedef struct {
@@ -72,7 +74,7 @@ static JSValue js_new_uv_file(JSContext *ctx, uv_file fd) {
     if (JS_IsException(obj))
         return obj;
 
-    f = js_mallocz(ctx, sizeof(*f));
+    f = js_malloc(ctx, sizeof(*f));
     if (!f) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -142,6 +144,8 @@ static void uv__fs_req_cb(uv_fs_t* req) {
     default:
         abort();
     }
+
+    uv_fs_req_cleanup(&fr->req);
 
     ret = JS_Call(ctx, fr->result.resolving_funcs[0], JS_UNDEFINED, 1, (JSValueConst *)&arg);
 
