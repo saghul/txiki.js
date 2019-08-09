@@ -85,7 +85,7 @@ JSValue js_uv_addr2obj(JSContext *ctx, struct sockaddr *sa) {
         struct sockaddr_in *addr4 = (struct sockaddr_in*)sa;
         uv_ip4_name(addr4, buf, sizeof(buf));
 
-        obj = JS_NewObject(ctx);
+        obj = JS_NewObjectProto(ctx, JS_NULL);
         JS_SetPropertyStr(ctx, obj, "ip", JS_NewString(ctx, buf));
         JS_SetPropertyStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr4->sin_port)));
         
@@ -97,7 +97,7 @@ JSValue js_uv_addr2obj(JSContext *ctx, struct sockaddr *sa) {
         struct sockaddr_in6 *addr6 = (struct sockaddr_in6*)sa;
         uv_ip6_name(addr6, buf, sizeof(buf));
 
-        obj = JS_NewObject(ctx);
+        obj = JS_NewObjectProto(ctx, JS_NULL);
         JS_SetPropertyStr(ctx, obj, "ip", JS_NewString(ctx, buf));
         JS_SetPropertyStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr6->sin6_port)));
         JS_SetPropertyStr(ctx, obj, "flowinfo", JS_NewInt32(ctx, ntohl(addr6->sin6_flowinfo)));

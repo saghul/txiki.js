@@ -704,7 +704,7 @@ static JSValue js_uv_tty_getWinSize(JSContext *ctx, JSValueConst this_val,
     if (r != 0)
         return js_uv_throw_errno(ctx, r);
 
-    JSValue obj = JS_NewObject(ctx);
+    JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyStr(ctx, obj, "width", JS_NewInt32(ctx, width));
     JS_SetPropertyStr(ctx, obj, "height", JS_NewInt32(ctx, height));
     return obj;

@@ -45,7 +45,7 @@ static JSValue js_uv_uname(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     if (r != 0)
         return js_uv_throw_errno(ctx, r);
 
-    obj = JS_NewObject(ctx);
+    obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyStr(ctx, obj, "sysname", JS_NewString(ctx, utsname.sysname));
     JS_SetPropertyStr(ctx, obj, "release", JS_NewString(ctx, utsname.release));
     JS_SetPropertyStr(ctx, obj, "version", JS_NewString(ctx, utsname.version));
@@ -73,7 +73,7 @@ static JSValue js_uv_environ(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (r != 0)
         return js_uv_throw_errno(ctx, r);
 
-    JSValue obj = JS_NewObject(ctx);
+    JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
 
     for (int i = 0; i < envcount; i++) {
         JS_SetPropertyStr(ctx, obj, env[i].name, JS_NewString(ctx, env[i].value));
