@@ -936,89 +936,6 @@ static JSValue js_os_return(JSContext *ctx, ssize_t ret)
     return JS_NewInt64(ctx, ret);
 }
 
-static JSValue js_os_open(JSContext *ctx, JSValueConst this_val,
-                          int argc, JSValueConst *argv)
-{
-    const char *filename;
-    int flags, mode, ret;
-
-    filename = JS_ToCString(ctx, argv[0]);
-    if (!filename)
-        return JS_EXCEPTION;
-    if (JS_ToInt32(ctx, &flags, argv[1]))
-        goto fail;
-    if (argc >= 3 && !JS_IsUndefined(argv[2])) {
-        if (JS_ToInt32(ctx, &mode, argv[2])) {
-        fail:
-            JS_FreeCString(ctx, filename);
-            return JS_EXCEPTION;
-        }
-    } else {
-        mode = 0666;
-    }
-#if defined(_WIN32)
-    /* force binary mode by default */
-    if (!(flags & O_TEXT))
-        flags |= O_BINARY;
-#endif
-    ret = open(filename, flags, mode);
-    JS_FreeCString(ctx, filename);
-    return js_os_return(ctx, ret);
-}
-
-static JSValue js_os_close(JSContext *ctx, JSValueConst this_val,
-                           int argc, JSValueConst *argv)
-{
-    int fd, ret;
-    if (JS_ToInt32(ctx, &fd, argv[0]))
-        return JS_EXCEPTION;
-    ret = close(fd);
-    return js_os_return(ctx, ret);
-}
-
-static JSValue js_os_seek(JSContext *ctx, JSValueConst this_val,
-                          int argc, JSValueConst *argv)
-{
-    int fd, whence, ret;
-    int64_t pos;
-    
-    if (JS_ToInt32(ctx, &fd, argv[0]))
-        return JS_EXCEPTION;
-    if (JS_ToInt64(ctx, &pos, argv[1]))
-        return JS_EXCEPTION;
-    if (JS_ToInt32(ctx, &whence, argv[2]))
-        return JS_EXCEPTION;
-    ret = lseek(fd, pos, whence);
-    return js_os_return(ctx, ret);
-}
-
-static JSValue js_os_read_write(JSContext *ctx, JSValueConst this_val,
-                                      int argc, JSValueConst *argv, int magic)
-{
-    int fd;
-    uint64_t pos, len;
-    size_t size;
-    ssize_t ret;
-    uint8_t *buf;
-    
-    if (JS_ToInt32(ctx, &fd, argv[0]))
-        return JS_EXCEPTION;
-    if (JS_ToIndex(ctx, &pos, argv[2]))
-        return JS_EXCEPTION;
-    if (JS_ToIndex(ctx, &len, argv[3]))
-        return JS_EXCEPTION;
-    buf = JS_GetArrayBuffer(ctx, &size, argv[1]);
-    if (!buf)
-        return JS_EXCEPTION;
-    if (pos + len > size)
-        return JS_ThrowRangeError(ctx, "read/write array buffer overflow");
-    if (magic)
-        ret = write(fd, buf + pos, len);
-    else
-        ret = read(fd, buf + pos, len);
-    return js_os_return(ctx, ret);
-}
-
 static JSValue js_os_remove(JSContext *ctx, JSValueConst this_val,
                              int argc, JSValueConst *argv)
 {
@@ -1063,33 +980,10 @@ static JSValue js_os_rename(JSContext *ctx, JSValueConst this_val,
 #define OS_PLATFORM "linux"
 #endif
 
-#define OS_FLAG(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_CONFIGURABLE )
 
 static const JSCFunctionListEntry js_os_funcs[] = {
-    JS_CFUNC_DEF("open", 2, js_os_open ),
-    OS_FLAG(O_RDONLY),
-    OS_FLAG(O_WRONLY),
-    OS_FLAG(O_RDWR),
-    OS_FLAG(O_APPEND),
-    OS_FLAG(O_CREAT),
-    OS_FLAG(O_EXCL),
-    OS_FLAG(O_TRUNC),
-#if defined(_WIN32)
-    OS_FLAG(O_BINARY),
-    OS_FLAG(O_TEXT),
-#endif
-    JS_CFUNC_DEF("close", 1, js_os_close ),
-    JS_CFUNC_DEF("seek", 3, js_os_seek ),
-    JS_CFUNC_MAGIC_DEF("read", 4, js_os_read_write, 0 ),
-    JS_CFUNC_MAGIC_DEF("write", 4, js_os_read_write, 1 ),
     JS_CFUNC_DEF("remove", 1, js_os_remove ),
     JS_CFUNC_DEF("rename", 2, js_os_rename ),
-    OS_FLAG(SIGINT),
-    OS_FLAG(SIGABRT),
-    OS_FLAG(SIGFPE),
-    OS_FLAG(SIGILL),
-    OS_FLAG(SIGSEGV),
-    OS_FLAG(SIGTERM),
     JS_PROP_STRING_DEF("platform", OS_PLATFORM, 0 ),
     /* stat, readlink, opendir, closedir, ... */
 };
