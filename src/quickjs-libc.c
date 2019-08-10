@@ -906,8 +906,6 @@ static int js_std_init(JSContext *ctx, JSModuleDef *m)
                                countof(js_std_error_funcs));
     JS_SetModuleExport(ctx, m, "Error", obj);
 
-    /* global object */
-    JS_SetModuleExport(ctx, m, "global", JS_GetGlobalObject(ctx));
     return 0;
 }
 
@@ -1031,6 +1029,9 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv)
 
     /* XXX: should these global definitions be enumerable? */
     global_obj = JS_GetGlobalObject(ctx);
+
+    JS_SetPropertyStr(ctx, global_obj, "global", global_obj);
+    JS_SetPropertyStr(ctx, global_obj, "globalThis", global_obj);
 
     console = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, console, "log",

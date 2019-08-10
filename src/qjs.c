@@ -359,19 +359,16 @@ int main(int argc, char **argv)
         js_init_module_os(ctx, "os");
         js_init_module_uv(ctx);
 
-        /* make 'std' and 'os' visible to non module code */
+        /* load globals */
         const char *str =
             "import * as std from 'std';\n"
-            "import * as os from 'os';\n"
             "import * as uv from 'uv';\n"
-            "std.global.global = std.global;\n"
-            "std.global.std = std;\n"
-            "std.global.os = os;\n"
-            "std.global.uv = uv;\n"
-            "std.global.setTimeout = uv.setTimeout;\n"
-            "std.global.clearTimeout = uv.clearTimeout;\n"
-            "std.global.setInterval = uv.setInterval;\n"
-            "std.global.clearInterval = uv.clearInterval;\n";
+            "global.std = std;\n"
+            "global.uv = uv;\n"
+            "global.setTimeout = uv.setTimeout;\n"
+            "global.clearTimeout = uv.clearTimeout;\n"
+            "global.setInterval = uv.setInterval;\n"
+            "global.clearInterval = uv.clearInterval;\n";
         eval_buf(ctx, str, strlen(str), "<input>", JS_EVAL_TYPE_MODULE);
 
         /* Load TextEncoder / TextDecoder */

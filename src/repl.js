@@ -28,9 +28,6 @@ import * as std from "std";
 import * as uv from "uv";
 
 (function(g) {
-    /* add a 'global' binding */
-    g.global = std.global;
-    
     /* close global objects */
     var Object = g.Object;
     var String = g.String;
@@ -1309,4 +1306,4 @@ import * as uv from "uv";
     
     cmd_start();
 
-})(std.global);
+})(global);
