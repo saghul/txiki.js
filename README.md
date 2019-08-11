@@ -19,6 +19,7 @@ Other extras:
 
 - TextEncoder / TextDecoder APIs
 
+See the [full API].
 
 ## Building
 
@@ -33,3 +34,4 @@ make
 
 [QuickJS]: https://bellard.org/quickjs/
 [libuv]: https://libuv.org/
+[full API]: API.md
