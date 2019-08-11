@@ -100,6 +100,12 @@ All synchronous APIs return a Promise, there are no callbacks.
 
 #### File
 
+- `close()`
+- `fileno()`
+- `path`
+- `read(buffer, [offset, [length, [position]]])`
+- `stat()`
+- `write(buffer, [offset, [length, [position]]])`
 
 #### Constants
 
