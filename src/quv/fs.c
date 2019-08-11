@@ -193,6 +193,10 @@ static void uv__fs_req_cb(uv_fs_t* req) {
         arg = JS_UNDEFINED;
         break;
 
+    case UV_FS_MKDTEMP:
+        arg = JS_NewString(ctx, fr->req.path);
+        break;
+
     default:
         abort();
     }
@@ -511,6 +515,29 @@ static JSValue js_uv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, 
     return fr->result.promise;
 }
 
+static JSValue js_uv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uv_loop_t *loop = js_uv_get_loop(ctx);
+    if (!loop)
+        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
+
+    const char *tpl = JS_ToCString(ctx, argv[0]);
+    if (!tpl)
+        return JS_EXCEPTION;
+
+    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
+        return JS_EXCEPTION;
+
+    int r = uv_fs_mkdtemp(loop, &fr->req, tpl, uv__fs_req_cb);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return js_uv_throw_errno(ctx, r);
+    }
+
+    js_uv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return fr->result.promise;
+}
+
 static const JSCFunctionListEntry js_uv_file_proto_funcs[] = {
     JS_CFUNC_MAGIC_DEF("read", 4, js_uv_file_rw, 0 ),
     JS_CFUNC_MAGIC_DEF("write", 4, js_uv_file_rw, 1 ),
@@ -527,6 +554,7 @@ static const JSCFunctionListEntry js_uv_fs_funcs[] = {
     JS_CFUNC_DEF("realpath", 1, js_uv_fs_realpath ),
     JS_CFUNC_DEF("unlink", 1, js_uv_fs_unlink ),
     JS_CFUNC_DEF("rename", 2, js_uv_fs_rename ),
+    JS_CFUNC_DEF("mkdtemp", 1, js_uv_fs_mkdtemp ),
 };
 
 void js_uv_mod_fs_init(JSContext *ctx, JSModuleDef *m) {
