@@ -175,6 +175,62 @@ static JSValue js_uv_cwd(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return ret;
 }
 
+static JSValue js_uv_homedir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    char buf[1024];
+    size_t size = sizeof(buf);
+    char *dbuf = buf;
+    int r;
+
+    r = uv_os_homedir(dbuf, &size);
+    if (r != 0) {
+        if (r != UV_ENOBUFS)
+            return js_uv_throw_errno(ctx, r);
+        dbuf = js_malloc(ctx, size);
+        if (!dbuf)
+            return JS_EXCEPTION;
+        r = uv_os_homedir(dbuf, &size);
+        if (r != 0) {
+            js_free(ctx, dbuf);
+            return js_uv_throw_errno(ctx, r);
+        }
+    }
+
+    JSValue ret = JS_NewStringLen(ctx, dbuf, size);
+
+    if (dbuf != buf)
+        js_free(ctx, dbuf);
+
+    return ret;
+}
+
+static JSValue js_uv_tmpdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    char buf[1024];
+    size_t size = sizeof(buf);
+    char *dbuf = buf;
+    int r;
+
+    r = uv_os_tmpdir(dbuf, &size);
+    if (r != 0) {
+        if (r != UV_ENOBUFS)
+            return js_uv_throw_errno(ctx, r);
+        dbuf = js_malloc(ctx, size);
+        if (!dbuf)
+            return JS_EXCEPTION;
+        r = uv_os_tmpdir(dbuf, &size);
+        if (r != 0) {
+            js_free(ctx, dbuf);
+            return js_uv_throw_errno(ctx, r);
+        }
+    }
+
+    JSValue ret = JS_NewStringLen(ctx, dbuf, size);
+
+    if (dbuf != buf)
+        js_free(ctx, dbuf);
+
+    return ret;
+}
+
 static const JSCFunctionListEntry js_uv_misc_funcs[] = {
     JSUV_CONST(AF_INET),
     JSUV_CONST(AF_INET6),
@@ -193,6 +249,8 @@ static const JSCFunctionListEntry js_uv_misc_funcs[] = {
     JS_CFUNC_DEF("setenv", 2, js_uv_setenv ),
     JS_CFUNC_DEF("unsetenv", 1, js_uv_unsetenv ),
     JS_CFUNC_DEF("cwd", 0, js_uv_cwd ),
+    JS_CFUNC_DEF("homedir", 0, js_uv_homedir ),
+    JS_CFUNC_DEF("tmpdir", 0, js_uv_tmpdir ),
 };
 
 void js_uv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
