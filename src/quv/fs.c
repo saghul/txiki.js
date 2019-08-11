@@ -190,6 +190,7 @@ static void uv__fs_req_cb(uv_fs_t* req) {
 
     case UV_FS_COPYFILE:
     case UV_FS_RENAME:
+    case UV_FS_RMDIR:
     case UV_FS_UNLINK:
         arg = JS_UNDEFINED;
         break;
@@ -541,6 +542,29 @@ static JSValue js_uv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc,
     return fr->result.promise;
 }
 
+static JSValue js_uv_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uv_loop_t *loop = js_uv_get_loop(ctx);
+    if (!loop)
+        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
+
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
+        return JS_EXCEPTION;
+
+    int r = uv_fs_rmdir(loop, &fr->req, path, uv__fs_req_cb);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return js_uv_throw_errno(ctx, r);
+    }
+
+    js_uv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return fr->result.promise;
+}
+
 static JSValue js_uv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     uv_loop_t *loop = js_uv_get_loop(ctx);
     if (!loop)
@@ -592,6 +616,7 @@ static const JSCFunctionListEntry js_uv_fs_funcs[] = {
     JS_CFUNC_DEF("unlink", 1, js_uv_fs_unlink ),
     JS_CFUNC_DEF("rename", 2, js_uv_fs_rename ),
     JS_CFUNC_DEF("mkdtemp", 1, js_uv_fs_mkdtemp ),
+    JS_CFUNC_DEF("rmdir", 1, js_uv_fs_rmdir ),
     JS_CFUNC_DEF("copyfile", 3, js_uv_fs_copyfile ),
 };
 
