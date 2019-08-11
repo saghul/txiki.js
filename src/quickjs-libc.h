@@ -30,13 +30,10 @@
 #include "quickjs.h"
 
 JSModuleDef *js_init_module_std(JSContext *ctx, const char *module_name);
-JSModuleDef *js_init_module_os(JSContext *ctx, const char *module_name);
 void js_std_add_helpers(JSContext *ctx, int argc, char **argv);
 void js_std_dump_error(JSContext *ctx);
 uint8_t *js_load_file(JSContext *ctx, size_t *pbuf_len, const char *filename);
-JSModuleDef *js_module_loader(JSContext *ctx,
-                              const char *module_name, void *opaque);
-void js_std_eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len,
-                        int flags);
+JSModuleDef *js_module_loader(JSContext *ctx, const char *module_name, void *opaque);
+void js_std_eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len, int flags);
 
 #endif /* QUICKJS_LIBC_H */
