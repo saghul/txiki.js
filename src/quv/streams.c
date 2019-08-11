@@ -179,9 +179,7 @@ static JSValue js_uv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSVal
     char *tmp;
 
     if (JS_IsString(jsData)) {
-        int len;
-        tmp = (char*) JS_ToCStringLen(ctx, &len, jsData, 0);
-        size = len;
+        tmp = (char*) JS_ToCStringLen(ctx, &size, jsData);
     } else {
         tmp = (char*) JS_GetArrayBuffer(ctx, &size, jsData);
     }

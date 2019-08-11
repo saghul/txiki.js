@@ -199,9 +199,9 @@ static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val,
                              int argc, JSValueConst *argv)
 {
     const char *str;
-    int len;
+    size_t len;
     JSValue ret;
-    str = JS_ToCStringLen(ctx, &len, argv[0], FALSE);
+    str = JS_ToCStringLen(ctx, &len, argv[0]);
     if (!str)
         return JS_EXCEPTION;
     if (++eval_script_recurse == 1) {

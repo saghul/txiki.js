@@ -348,7 +348,7 @@ static JSValue js_uv_file_path_get(JSContext *ctx, JSValueConst this_val) {
     return JS_NewString(ctx, f->path);
 }
 
-static int js__uv_open_flags(const char *strflags, int len) {
+static int js__uv_open_flags(const char *strflags, size_t len) {
     int flags = 0, read = 0, write = 0;
 
     for (int i = 0; i < len; i++) {
@@ -384,7 +384,8 @@ static int js__uv_open_flags(const char *strflags, int len) {
 static JSValue js_uv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path;
     const char *strflags;
-    int flags, len;
+    size_t len;
+    int flags;
     int32_t mode;
     uv_loop_t *loop;
 
@@ -395,9 +396,10 @@ static JSValue js_uv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JS
     path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
-    strflags = JS_ToCStringLen(ctx, &len, argv[1], 0);
+    strflags = JS_ToCStringLen(ctx, &len, argv[1]);
     if (!strflags)
         return JS_EXCEPTION;
+
     flags = js__uv_open_flags(strflags, len);
     if (JS_ToInt32(ctx, &mode, argv[2]))
         return JS_EXCEPTION;
