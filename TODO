@@ -1,0 +1,6 @@
+
+- UDP
+- refactor signals
+    - return a "Handler" with a remove() function
+- read into a buffer
+- process spawning
