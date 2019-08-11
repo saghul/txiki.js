@@ -34,6 +34,8 @@
 #include "quickjs-libc.h"
 
 
+static int eval_script_recurse;
+
 uint8_t *js_load_file(JSContext *ctx, size_t *pbuf_len, const char *filename)
 {
     FILE *f;
@@ -192,9 +194,34 @@ static JSValue js_std_gc(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
+static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val,
+                             int argc, JSValueConst *argv)
+{
+    const char *str;
+    size_t len;
+    JSValue ret;
+    str = JS_ToCStringLen(ctx, &len, argv[0]);
+    if (!str)
+        return JS_EXCEPTION;
+    if (++eval_script_recurse == 1) {
+        /* TODO: install the interrupt handler */
+    }
+    ret = JS_Eval(ctx, str, len, "<evalScript>", JS_EVAL_TYPE_GLOBAL);
+    JS_FreeCString(ctx, str);
+    if (--eval_script_recurse == 0) {
+        /* TODO: remove the interrupt handler */
+        /* convert the uncatchable "interrupted" error into a normal error
+           so that it can be caught by the REPL */
+        if (JS_IsException(ret))
+            JS_ResetUncatchableError(ctx);
+    }
+    return ret;
+}
+
 static const JSCFunctionListEntry js_std_funcs[] = {
     JS_CFUNC_DEF("exit", 1, js_std_exit ),
     JS_CFUNC_DEF("gc", 0, js_std_gc ),
+    JS_CFUNC_DEF("evalScript", 1, js_evalScript ),
     JS_CFUNC_DEF("loadScript", 1, js_loadScript ),
 };
 
@@ -213,6 +240,8 @@ JSModuleDef *js_init_module_std(JSContext *ctx, const char *module_name)
     JS_AddModuleExportList(ctx, m, js_std_funcs, countof(js_std_funcs));
     return m;
 }
+
+/**********************************************************/
 
 static JSValue js_print(JSContext *ctx, JSValueConst this_val,
                               int argc, JSValueConst *argv)
@@ -245,9 +274,11 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv)
     JS_SetPropertyStr(ctx, global_obj, "globalThis", global_obj);
 
     console = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, console, "log", JS_NewCFunction(ctx, js_print, "log", 1));
+    JS_SetPropertyStr(ctx, console, "log",
+                      JS_NewCFunction(ctx, js_print, "log", 1));
     JS_SetPropertyStr(ctx, global_obj, "console", console);
 
+    /* same methods as the mozilla JS shell */
     args = JS_NewArray(ctx);
     for(i = 0; i < argc; i++) {
         JS_SetPropertyUint32(ctx, args, i, JS_NewString(ctx, argv[i]));
