@@ -285,11 +285,6 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv)
         JS_SetPropertyUint32(ctx, args, i, JS_NewString(ctx, argv[i]));
     }
     JS_SetPropertyStr(ctx, global_obj, "scriptArgs", args);
-
-    JS_SetPropertyStr(ctx, global_obj, "print",
-                      JS_NewCFunction(ctx, js_print, "print", 1));
-    JS_SetPropertyStr(ctx, global_obj, "__loadScript",
-                      JS_NewCFunction(ctx, js_loadScript, "__loadScript", 1));
     
     JS_FreeValue(ctx, global_obj);
 }
