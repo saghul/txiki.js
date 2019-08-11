@@ -28,7 +28,7 @@
 #include "utils.h"
 
 
-static JSClassID js_uv_file_class_id;
+static JSClassID quv_file_class_id;
 
 typedef struct {
     JSContext *ctx;
@@ -36,8 +36,8 @@ typedef struct {
     char *path;
 } JSUVFile;
 
-static void js_uv_file_finalizer(JSRuntime *rt, JSValue val) {
-    JSUVFile *f = JS_GetOpaque(val, js_uv_file_class_id);
+static void quv_file_finalizer(JSRuntime *rt, JSValue val) {
+    JSUVFile *f = JS_GetOpaque(val, quv_file_class_id);
     if (f) {
         if (f->fd != -1) {
             uv_fs_t req;
@@ -50,9 +50,9 @@ static void js_uv_file_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static JSClassDef js_uv_file_class = {
+static JSClassDef quv_file_class = {
     "File",
-    .finalizer = js_uv_file_finalizer,
+    .finalizer = quv_file_finalizer,
 };
 
 typedef struct {
@@ -97,7 +97,7 @@ static JSValue js_new_uv_file(JSContext *ctx, uv_file fd, const char *path) {
     JSUVFile *f;
     JSValue obj;
 
-    obj = JS_NewObjectClass(ctx, js_uv_file_class_id);
+    obj = JS_NewObjectClass(ctx, quv_file_class_id);
     if (JS_IsException(obj))
         return obj;
 
@@ -122,11 +122,11 @@ static JSValue js_new_uv_file(JSContext *ctx, uv_file fd, const char *path) {
     return obj;
 }
 
-static JSUVFile *js_uv_file_get(JSContext *ctx, JSValueConst obj) {
-    return JS_GetOpaque2(ctx, obj, js_uv_file_class_id);
+static JSUVFile *quv_file_get(JSContext *ctx, JSValueConst obj) {
+    return JS_GetOpaque2(ctx, obj, quv_file_class_id);
 }
 
-static void js_uv_fsreq_init(JSContext *ctx, JSUVFsReq *fr, JSValue obj) {
+static void quv_fsreq_init(JSContext *ctx, JSUVFsReq *fr, JSValue obj) {
     fr->ctx = ctx;
     fr->req.data = fr;
 
@@ -166,7 +166,7 @@ static void uv__fs_req_cb(uv_fs_t* req) {
         break;
     case UV_FS_CLOSE:
         arg = JS_UNDEFINED;
-        f = js_uv_file_get(ctx, fr->obj);
+        f = quv_file_get(ctx, fr->obj);
         if (f) {
             f->fd = -1;
             js_free(ctx, f->path);
@@ -219,12 +219,12 @@ end:
     js_free(ctx, fr);
 }
 
-static JSValue js_uv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
-    JSUVFile *f = js_uv_file_get(ctx, this_val);
+static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
+    JSUVFile *f = quv_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
-    uv_loop_t *loop = js_uv_get_loop(ctx);
+    uv_loop_t *loop = quv_get_loop(ctx);
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
@@ -278,20 +278,20 @@ static JSValue js_uv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JS
         r = uv_fs_read(loop, &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return js_uv_throw_errno(ctx, r);
+        return quv_throw_errno(ctx, r);
     }
 
-    js_uv_fsreq_init(ctx, fr, this_val);
+    quv_fsreq_init(ctx, fr, this_val);
     fr->rw.buf = JS_DupValue(ctx, argv[0]);
     return fr->result.promise;
 }
 
-static JSValue js_uv_file_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVFile *f = js_uv_file_get(ctx, this_val);
+static JSValue quv_file_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSUVFile *f = quv_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
-    uv_loop_t *loop = js_uv_get_loop(ctx);
+    uv_loop_t *loop = quv_get_loop(ctx);
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
@@ -302,19 +302,19 @@ static JSValue js_uv_file_close(JSContext *ctx, JSValueConst this_val, int argc,
     int r = uv_fs_close(loop, &fr->req, f->fd, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return js_uv_throw_errno(ctx, r);
+        return quv_throw_errno(ctx, r);
     }
 
-    js_uv_fsreq_init(ctx, fr, this_val);
+    quv_fsreq_init(ctx, fr, this_val);
     return fr->result.promise;
 }
 
-static JSValue js_uv_file_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVFile *f = js_uv_file_get(ctx, this_val);
+static JSValue quv_file_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSUVFile *f = quv_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
-    uv_loop_t *loop = js_uv_get_loop(ctx);
+    uv_loop_t *loop = quv_get_loop(ctx);
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
@@ -325,23 +325,23 @@ static JSValue js_uv_file_stat(JSContext *ctx, JSValueConst this_val, int argc, 
     int r = uv_fs_fstat(loop, &fr->req, f->fd, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return js_uv_throw_errno(ctx, r);
+        return quv_throw_errno(ctx, r);
     }
 
-    js_uv_fsreq_init(ctx, fr, this_val);
+    quv_fsreq_init(ctx, fr, this_val);
     return fr->result.promise;
 }
 
-static JSValue js_uv_file_fileno(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVFile *f = js_uv_file_get(ctx, this_val);
+static JSValue quv_file_fileno(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSUVFile *f = quv_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
     return JS_NewInt32(ctx, f->fd);
 }
 
-static JSValue js_uv_file_path_get(JSContext *ctx, JSValueConst this_val) {
-    JSUVFile *f = js_uv_file_get(ctx, this_val);
+static JSValue quv_file_path_get(JSContext *ctx, JSValueConst this_val) {
+    JSUVFile *f = quv_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
     if (!f->path)
@@ -382,7 +382,7 @@ static int js__uv_open_flags(const char *strflags, size_t len) {
     return flags;
 }
 
-static JSValue js_uv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue quv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path;
     const char *strflags;
     size_t len;
@@ -390,7 +390,7 @@ static JSValue js_uv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JS
     int32_t mode;
     uv_loop_t *loop;
 
-    loop = js_uv_get_loop(ctx);
+    loop = quv_get_loop(ctx);
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
@@ -412,15 +412,15 @@ static JSValue js_uv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JS
     int r = uv_fs_open(loop, &fr->req, path, flags, mode, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return js_uv_throw_errno(ctx, r);
+        return quv_throw_errno(ctx, r);
     }
 
-    js_uv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
     return fr->result.promise;
 }
 
-static JSValue js_uv_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
-    uv_loop_t *loop = js_uv_get_loop(ctx);
+static JSValue quv_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
+    uv_loop_t *loop = quv_get_loop(ctx);
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
@@ -439,15 +439,15 @@ static JSValue js_uv_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JS
         r = uv_fs_stat(loop, &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return js_uv_throw_errno(ctx, r);
+        return quv_throw_errno(ctx, r);
     }
 
-    js_uv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
     return fr->result.promise;
 }
 
-static JSValue js_uv_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = js_uv_get_loop(ctx);
+static JSValue quv_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uv_loop_t *loop = quv_get_loop(ctx);
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
@@ -462,15 +462,15 @@ static JSValue js_uv_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc
     int r = uv_fs_realpath(loop, &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return js_uv_throw_errno(ctx, r);
+        return quv_throw_errno(ctx, r);
     }
 
-    js_uv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
     return fr->result.promise;
 }
 
-static JSValue js_uv_fs_unlink(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = js_uv_get_loop(ctx);
+static JSValue quv_fs_unlink(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uv_loop_t *loop = quv_get_loop(ctx);
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
@@ -485,15 +485,15 @@ static JSValue js_uv_fs_unlink(JSContext *ctx, JSValueConst this_val, int argc, 
     int r = uv_fs_unlink(loop, &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return js_uv_throw_errno(ctx, r);
+        return quv_throw_errno(ctx, r);
     }
 
-    js_uv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
     return fr->result.promise;
 }
 
-static JSValue js_uv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = js_uv_get_loop(ctx);
+static JSValue quv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uv_loop_t *loop = quv_get_loop(ctx);
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
@@ -512,15 +512,15 @@ static JSValue js_uv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, 
     int r = uv_fs_rename(loop, &fr->req, path, new_path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return js_uv_throw_errno(ctx, r);
+        return quv_throw_errno(ctx, r);
     }
 
-    js_uv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
     return fr->result.promise;
 }
 
-static JSValue js_uv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = js_uv_get_loop(ctx);
+static JSValue quv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uv_loop_t *loop = quv_get_loop(ctx);
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
@@ -535,15 +535,15 @@ static JSValue js_uv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc,
     int r = uv_fs_mkdtemp(loop, &fr->req, tpl, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return js_uv_throw_errno(ctx, r);
+        return quv_throw_errno(ctx, r);
     }
 
-    js_uv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
     return fr->result.promise;
 }
 
-static JSValue js_uv_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = js_uv_get_loop(ctx);
+static JSValue quv_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uv_loop_t *loop = quv_get_loop(ctx);
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
@@ -558,15 +558,15 @@ static JSValue js_uv_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, J
     int r = uv_fs_rmdir(loop, &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return js_uv_throw_errno(ctx, r);
+        return quv_throw_errno(ctx, r);
     }
 
-    js_uv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
     return fr->result.promise;
 }
 
-static JSValue js_uv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = js_uv_get_loop(ctx);
+static JSValue quv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uv_loop_t *loop = quv_get_loop(ctx);
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
@@ -589,50 +589,50 @@ static JSValue js_uv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc
     int r = uv_fs_copyfile(loop, &fr->req, path, new_path, flags, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return js_uv_throw_errno(ctx, r);
+        return quv_throw_errno(ctx, r);
     }
 
-    js_uv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
     return fr->result.promise;
 }
 
-static const JSCFunctionListEntry js_uv_file_proto_funcs[] = {
-    JS_CFUNC_MAGIC_DEF("read", 4, js_uv_file_rw, 0 ),
-    JS_CFUNC_MAGIC_DEF("write", 4, js_uv_file_rw, 1 ),
-    JS_CFUNC_DEF("close", 0, js_uv_file_close ),
-    JS_CFUNC_DEF("fileno", 0, js_uv_file_fileno ),
-    JS_CFUNC_DEF("stat", 0, js_uv_file_stat ),
-    JS_CGETSET_DEF("path", js_uv_file_path_get, NULL ),
+static const JSCFunctionListEntry quv_file_proto_funcs[] = {
+    JS_CFUNC_MAGIC_DEF("read", 4, quv_file_rw, 0 ),
+    JS_CFUNC_MAGIC_DEF("write", 4, quv_file_rw, 1 ),
+    JS_CFUNC_DEF("close", 0, quv_file_close ),
+    JS_CFUNC_DEF("fileno", 0, quv_file_fileno ),
+    JS_CFUNC_DEF("stat", 0, quv_file_stat ),
+    JS_CGETSET_DEF("path", quv_file_path_get, NULL ),
 };
 
-static const JSCFunctionListEntry js_uv_fs_funcs[] = {
+static const JSCFunctionListEntry quv_fs_funcs[] = {
     JSUV_CONST(UV_FS_COPYFILE_EXCL),
     JSUV_CONST(UV_FS_COPYFILE_FICLONE),
     JSUV_CONST(UV_FS_COPYFILE_FICLONE_FORCE),
-    JS_CFUNC_DEF("open", 3, js_uv_fs_open ),
-    JS_CFUNC_MAGIC_DEF("stat", 1, js_uv_fs_stat, 0 ),
-    JS_CFUNC_MAGIC_DEF("lstat", 1, js_uv_fs_stat, 1 ),
-    JS_CFUNC_DEF("realpath", 1, js_uv_fs_realpath ),
-    JS_CFUNC_DEF("unlink", 1, js_uv_fs_unlink ),
-    JS_CFUNC_DEF("rename", 2, js_uv_fs_rename ),
-    JS_CFUNC_DEF("mkdtemp", 1, js_uv_fs_mkdtemp ),
-    JS_CFUNC_DEF("rmdir", 1, js_uv_fs_rmdir ),
-    JS_CFUNC_DEF("copyfile", 3, js_uv_fs_copyfile ),
+    JS_CFUNC_DEF("open", 3, quv_fs_open ),
+    JS_CFUNC_MAGIC_DEF("stat", 1, quv_fs_stat, 0 ),
+    JS_CFUNC_MAGIC_DEF("lstat", 1, quv_fs_stat, 1 ),
+    JS_CFUNC_DEF("realpath", 1, quv_fs_realpath ),
+    JS_CFUNC_DEF("unlink", 1, quv_fs_unlink ),
+    JS_CFUNC_DEF("rename", 2, quv_fs_rename ),
+    JS_CFUNC_DEF("mkdtemp", 1, quv_fs_mkdtemp ),
+    JS_CFUNC_DEF("rmdir", 1, quv_fs_rmdir ),
+    JS_CFUNC_DEF("copyfile", 3, quv_fs_copyfile ),
 };
 
-void js_uv_mod_fs_init(JSContext *ctx, JSModuleDef *m) {
+void quv_mod_fs_init(JSContext *ctx, JSModuleDef *m) {
     JSValue proto, obj;
 
-    JS_NewClassID(&js_uv_file_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), js_uv_file_class_id, &js_uv_file_class);
+    JS_NewClassID(&quv_file_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), quv_file_class_id, &quv_file_class);
     proto = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, proto, js_uv_file_proto_funcs, countof(js_uv_file_proto_funcs));
-    JS_SetClassProto(ctx, js_uv_file_class_id, proto);
+    JS_SetPropertyFunctionList(ctx, proto, quv_file_proto_funcs, countof(quv_file_proto_funcs));
+    JS_SetClassProto(ctx, quv_file_class_id, proto);
     obj = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, obj, js_uv_fs_funcs, countof(js_uv_fs_funcs));
+    JS_SetPropertyFunctionList(ctx, obj, quv_fs_funcs, countof(quv_fs_funcs));
     JS_SetModuleExport(ctx, m, "fs", obj);
 }
 
-void js_uv_mod_fs_export(JSContext *ctx, JSModuleDef *m) {
+void quv_mod_fs_export(JSContext *ctx, JSModuleDef *m) {
     JS_AddModuleExport(ctx, m, "fs");
 }

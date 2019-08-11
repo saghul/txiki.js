@@ -30,10 +30,10 @@
 
 #define JSUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_CONFIGURABLE )
 
-uv_loop_t *js_uv_get_loop(JSContext *ctx);
-int js_uv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);
-JSValue js_uv_addr2obj(JSContext *ctx, struct sockaddr *sa);
-void js_uv_call_handler(JSContext *ctx, JSValueConst func);
-void js_uv_dump_error(JSContext *ctx);
+uv_loop_t *quv_get_loop(JSContext *ctx);
+int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);
+JSValue quv_addr2obj(JSContext *ctx, struct sockaddr *sa);
+void quv_call_handler(JSContext *ctx, JSValueConst func);
+void quv_dump_error(JSContext *ctx);
 
 #endif

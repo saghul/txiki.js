@@ -29,8 +29,8 @@
 
 
 JSValue js_new_uv_error(JSContext *ctx, int err);
-JSValue js_uv_throw_errno(JSContext *ctx, int err);
-void js_uv_mod_error_init(JSContext *ctx, JSModuleDef *m);
-void js_uv_mod_error_export(JSContext *ctx, JSModuleDef *m);
+JSValue quv_throw_errno(JSContext *ctx, int err);
+void quv_mod_error_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_error_export(JSContext *ctx, JSModuleDef *m);
 
 #endif

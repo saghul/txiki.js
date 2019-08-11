@@ -28,7 +28,7 @@
 #include "../quickjs-libuv.h"
 
 
-void js_uv_mod_streams_init(JSContext *ctx, JSModuleDef *m);
-void js_uv_mod_streams_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_streams_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_streams_export(JSContext *ctx, JSModuleDef *m);
 
 #endif

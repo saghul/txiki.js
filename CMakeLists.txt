@@ -67,7 +67,7 @@ add_custom_command(
         ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
 )
 
-add_executable(qjs
+add_executable(quv
     src/qjs.c
     src/quickjs-libc.c
     src/quickjs-libuv.c
@@ -87,4 +87,4 @@ include_directories(deps/libuv/include)
 option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 
-target_link_libraries(qjs uv_a m)
+target_link_libraries(quv uv_a m)

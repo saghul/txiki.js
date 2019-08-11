@@ -33,25 +33,25 @@
 #include "quv/utils.h"
 
 
-static int js_uv_init(JSContext *ctx, JSModuleDef *m)
+static int quv_init(JSContext *ctx, JSModuleDef *m)
 {
     /* Streams */
-    js_uv_mod_streams_init(ctx, m);
+    quv_mod_streams_init(ctx, m);
 
     /* Error */    
-    js_uv_mod_error_init(ctx, m);
+    quv_mod_error_init(ctx, m);
 
     /* Timers */
-    js_uv_mod_timers_init(ctx, m);
+    quv_mod_timers_init(ctx, m);
 
     /* Signals */
-    js_uv_mod_signals_init(ctx, m);
+    quv_mod_signals_init(ctx, m);
 
     /* FS */
-    js_uv_mod_fs_init(ctx, m);
+    quv_mod_fs_init(ctx, m);
 
     /* Misc functions */
-    js_uv_mod_misc_init(ctx, m);
+    quv_mod_misc_init(ctx, m);
 
     return 0;
 }
@@ -59,16 +59,16 @@ static int js_uv_init(JSContext *ctx, JSModuleDef *m)
 JSModuleDef *js_init_module_uv(JSContext *ctx)
 {
     JSModuleDef *m;
-    m = JS_NewCModule(ctx, "uv", js_uv_init);
+    m = JS_NewCModule(ctx, "uv", quv_init);
     if (!m)
         return NULL;
 
-    js_uv_mod_error_export(ctx, m);
-    js_uv_mod_fs_export(ctx, m);
-    js_uv_mod_misc_export(ctx, m);
-    js_uv_mod_streams_export(ctx, m);
-    js_uv_mod_signals_export(ctx, m);
-    js_uv_mod_timers_export(ctx, m);
+    quv_mod_error_export(ctx, m);
+    quv_mod_fs_export(ctx, m);
+    quv_mod_misc_export(ctx, m);
+    quv_mod_streams_export(ctx, m);
+    quv_mod_signals_export(ctx, m);
+    quv_mod_timers_export(ctx, m);
 
     return m;
 }
@@ -126,7 +126,7 @@ static void uv__check_cb(uv_check_t *handle) {
         err = JS_ExecutePendingJob(rt, &ctx1);
         if (err <= 0) {
             if (err < 0) {
-                js_uv_dump_error(ctx1);
+                quv_dump_error(ctx1);
             }
             break;
         }
@@ -136,7 +136,7 @@ static void uv__check_cb(uv_check_t *handle) {
 }
 
 /* main loop which calls the user JS callbacks */
-void js_uv_loop(JSContext *ctx) {
+void quv_loop(JSContext *ctx) {
     quv_state_t *state = JS_GetContextOpaque(ctx);
 
     uv_check_start(&state->jobs.check, uv__check_cb);

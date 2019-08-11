@@ -39,7 +39,7 @@ JSValue js_new_uv_error(JSContext *ctx, int err)
     return obj;
 }
 
-static JSValue js_uv_error_constructor(JSContext *ctx, JSValueConst new_target,
+static JSValue quv_error_constructor(JSContext *ctx, JSValueConst new_target,
                                         int argc, JSValueConst *argv)
 {
     int err;
@@ -48,7 +48,7 @@ static JSValue js_uv_error_constructor(JSContext *ctx, JSValueConst new_target,
     return js_new_uv_error(ctx, err);
 }
 
-static JSValue js_uv_error_strerror(JSContext *ctx, JSValueConst this_val,
+static JSValue quv_error_strerror(JSContext *ctx, JSValueConst this_val,
                                     int argc, JSValueConst *argv)
 {
     int err;
@@ -57,7 +57,7 @@ static JSValue js_uv_error_strerror(JSContext *ctx, JSValueConst this_val,
     return JS_NewString(ctx, uv_strerror(err));
 }
 
-JSValue js_uv_throw_errno(JSContext *ctx, int err)
+JSValue quv_throw_errno(JSContext *ctx, int err)
 {
     JSValue obj;
     obj = js_new_uv_error(ctx, err);
@@ -66,20 +66,20 @@ JSValue js_uv_throw_errno(JSContext *ctx, int err)
     return JS_Throw(ctx, obj);
 }
 
-static const JSCFunctionListEntry js_uv_error_funcs[] = {
-    JS_CFUNC_DEF("strerror", 1, js_uv_error_strerror ),
+static const JSCFunctionListEntry quv_error_funcs[] = {
+    JS_CFUNC_DEF("strerror", 1, quv_error_strerror ),
     /* various errno values */
 #define DEF(x, s) JS_PROP_INT32_DEF(stringify(UV_##x), UV_##x, JS_PROP_CONFIGURABLE ),
     UV_ERRNO_MAP(DEF)
 #undef DEF
 };
 
-void js_uv_mod_error_init(JSContext *ctx, JSModuleDef *m) {
-    JSValue obj = JS_NewCFunction2(ctx, js_uv_error_constructor, "Error", 1, JS_CFUNC_constructor, 0);
-    JS_SetPropertyFunctionList(ctx, obj, js_uv_error_funcs, countof(js_uv_error_funcs));
+void quv_mod_error_init(JSContext *ctx, JSModuleDef *m) {
+    JSValue obj = JS_NewCFunction2(ctx, quv_error_constructor, "Error", 1, JS_CFUNC_constructor, 0);
+    JS_SetPropertyFunctionList(ctx, obj, quv_error_funcs, countof(quv_error_funcs));
     JS_SetModuleExport(ctx, m, "Error", obj);
 }
 
-void js_uv_mod_error_export(JSContext *ctx, JSModuleDef *m) {
+void quv_mod_error_export(JSContext *ctx, JSModuleDef *m) {
     JS_AddModuleExport(ctx, m, "Error");
 }

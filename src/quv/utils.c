@@ -27,7 +27,7 @@
 #include "utils.h"
 
 
-uv_loop_t *js_uv_get_loop(JSContext *ctx) {
+uv_loop_t *quv_get_loop(JSContext *ctx) {
     quv_state_t *quv_state;
     quv_state = JS_GetContextOpaque(ctx);
     if (!quv_state) {
@@ -36,7 +36,7 @@ uv_loop_t *js_uv_get_loop(JSContext *ctx) {
     return &quv_state->uvloop;
 }
 
-int js_uv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) {
+int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) {
     JSValue js_ip;
     JSValue js_port;
     const char *ip;
@@ -66,7 +66,7 @@ int js_uv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss
         ss->ss_family = AF_INET6;
         ((struct sockaddr_in6 *)ss)->sin6_port = htons(port);
     } else {
-        js_uv_throw_errno(ctx, UV_EAFNOSUPPORT);
+        quv_throw_errno(ctx, UV_EAFNOSUPPORT);
         JS_FreeCString(ctx, ip);
         return -1;
     }
@@ -75,7 +75,7 @@ int js_uv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss
     return 0;
 }
 
-JSValue js_uv_addr2obj(JSContext *ctx, struct sockaddr *sa) {
+JSValue quv_addr2obj(JSContext *ctx, struct sockaddr *sa) {
     char buf[INET6_ADDRSTRLEN+1];
     JSValue obj;
 
@@ -130,7 +130,7 @@ static void js__print(JSContext *ctx, JSValueConst this_val,
     putchar('\n');
 }
 
-void js_uv_dump_error(JSContext *ctx)
+void quv_dump_error(JSContext *ctx)
 {
     JSValue exception_val, val;
     const char *stack;
@@ -153,7 +153,7 @@ void js_uv_dump_error(JSContext *ctx)
     JS_FreeValue(ctx, exception_val);
 }
 
-void js_uv_call_handler(JSContext *ctx, JSValueConst func) {
+void quv_call_handler(JSContext *ctx, JSValueConst func) {
     JSValue ret, func1;
     /* 'func' might be destroyed when calling itself (if it frees the
        handler), so must take extra care */
@@ -161,6 +161,6 @@ void js_uv_call_handler(JSContext *ctx, JSValueConst func) {
     ret = JS_Call(ctx, func1, JS_UNDEFINED, 0, NULL);
     JS_FreeValue(ctx, func1);
     if (JS_IsException(ret))
-        js_uv_dump_error(ctx);
+        quv_dump_error(ctx);
     JS_FreeValue(ctx, ret);
 }

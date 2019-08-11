@@ -63,11 +63,11 @@ static void uv__signal_cb(uv_signal_t *handle, int sig_num) {
     JSUVSignalHandler *sh = handle->data;
     if (sh) {
         JSContext *ctx = sh->ctx;
-        js_uv_call_handler(ctx, sh->func);
+        quv_call_handler(ctx, sh->func);
     }
 }
 
-static JSValue js_uv_signal(JSContext *ctx, JSValueConst this_val,
+static JSValue quv_signal(JSContext *ctx, JSValueConst this_val,
                             int argc, JSValueConst *argv)
 {
     JSUVSignalHandler *sh;
@@ -113,7 +113,7 @@ static JSValue js_uv_signal(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-static const JSCFunctionListEntry js_uv_signal_funcs[] = {
+static const JSCFunctionListEntry quv_signal_funcs[] = {
 #ifdef SIGHUP
     JSUV_CONST(SIGHUP),
 #endif
@@ -223,13 +223,13 @@ static const JSCFunctionListEntry js_uv_signal_funcs[] = {
 #ifdef SIGUNUSED
     JSUV_CONST(SIGUNUSED),
 #endif
-    JS_CFUNC_DEF("signal", 2, js_uv_signal ),
+    JS_CFUNC_DEF("signal", 2, quv_signal ),
 };
 
-void js_uv_mod_signals_init(JSContext *ctx, JSModuleDef *m) {
-    JS_SetModuleExportList(ctx, m, js_uv_signal_funcs, countof(js_uv_signal_funcs));
+void quv_mod_signals_init(JSContext *ctx, JSModuleDef *m) {
+    JS_SetModuleExportList(ctx, m, quv_signal_funcs, countof(quv_signal_funcs));
 }
 
-void js_uv_mod_signals_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExportList(ctx, m, js_uv_signal_funcs, countof(js_uv_signal_funcs));
+void quv_mod_signals_export(JSContext *ctx, JSModuleDef *m) {
+    JS_AddModuleExportList(ctx, m, quv_signal_funcs, countof(quv_signal_funcs));
 }

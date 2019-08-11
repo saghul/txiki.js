@@ -49,7 +49,7 @@ static void uv__timer_cb(uv_timer_t *handle) {
     if (th) {
         JSContext *ctx = th->ctx;
         JSValue func = th->func;
-        js_uv_call_handler(ctx, func);
+        quv_call_handler(ctx, func);
         if (!th->interval) {
             th->func = JS_UNDEFINED;
             JS_FreeValue(ctx, func);
@@ -60,32 +60,32 @@ static void uv__timer_cb(uv_timer_t *handle) {
     }
 }
 
-static JSClassID js_uv_timer_class_id;
+static JSClassID quv_timer_class_id;
 
-static void js_uv_timer_finalizer(JSRuntime *rt, JSValue val)
+static void quv_timer_finalizer(JSRuntime *rt, JSValue val)
 {
-    JSUVTimer *th = JS_GetOpaque(val, js_uv_timer_class_id);
+    JSUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
     if (th) {
         uv_close((uv_handle_t*)&th->handle, uv__timer_close);
     }
 }
 
-static void js_uv_timer_mark(JSRuntime *rt, JSValueConst val,
+static void quv_timer_mark(JSRuntime *rt, JSValueConst val,
                              JS_MarkFunc *mark_func)
 {
-    JSUVTimer *th = JS_GetOpaque(val, js_uv_timer_class_id);
+    JSUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
     if (th) {
         JS_MarkValue(rt, th->func, mark_func);
     }
 }
 
-static JSClassDef js_uv_timer_class = {
+static JSClassDef quv_timer_class = {
     "UVTimer",
-    .finalizer = js_uv_timer_finalizer,
-    .gc_mark = js_uv_timer_mark,
+    .finalizer = quv_timer_finalizer,
+    .gc_mark = quv_timer_mark,
 }; 
 
-static JSValue js_uv_setTimeout(JSContext *ctx, JSValueConst this_val,
+static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv, int magic)
 {
     int64_t delay;
@@ -104,7 +104,7 @@ static JSValue js_uv_setTimeout(JSContext *ctx, JSValueConst this_val,
         return JS_ThrowTypeError(ctx, "not a function");
     if (JS_ToInt64(ctx, &delay, argv[1]))
         return JS_EXCEPTION;
-    obj = JS_NewObjectClass(ctx, js_uv_timer_class_id);
+    obj = JS_NewObjectClass(ctx, quv_timer_class_id);
     if (JS_IsException(obj))
         return obj;
     th = js_mallocz(ctx, sizeof(*th));
@@ -123,10 +123,10 @@ static JSValue js_uv_setTimeout(JSContext *ctx, JSValueConst this_val,
     return obj;
 }
 
-static JSValue js_uv_clearTimeout(JSContext *ctx, JSValueConst this_val,
+static JSValue quv_clearTimeout(JSContext *ctx, JSValueConst this_val,
                                   int argc, JSValueConst *argv)
 {
-    JSUVTimer *th = JS_GetOpaque2(ctx, argv[0], js_uv_timer_class_id);
+    JSUVTimer *th = JS_GetOpaque2(ctx, argv[0], quv_timer_class_id);
     if (!th)
         return JS_EXCEPTION;
     uv_timer_stop(&th->handle);
@@ -143,19 +143,19 @@ static JSValue js_uv_clearTimeout(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-static const JSCFunctionListEntry js_uv_timer_funcs[] = {
-    JS_CFUNC_MAGIC_DEF("setTimeout", 2, js_uv_setTimeout, 0 ),
-    JS_CFUNC_DEF("clearTimeout", 1, js_uv_clearTimeout ),
-    JS_CFUNC_MAGIC_DEF("setInterval", 2, js_uv_setTimeout, 1 ),
-    JS_CFUNC_DEF("clearInterval", 1, js_uv_clearTimeout ),
+static const JSCFunctionListEntry quv_timer_funcs[] = {
+    JS_CFUNC_MAGIC_DEF("setTimeout", 2, quv_setTimeout, 0 ),
+    JS_CFUNC_DEF("clearTimeout", 1, quv_clearTimeout ),
+    JS_CFUNC_MAGIC_DEF("setInterval", 2, quv_setTimeout, 1 ),
+    JS_CFUNC_DEF("clearInterval", 1, quv_clearTimeout ),
 };
 
-void js_uv_mod_timers_init(JSContext *ctx, JSModuleDef *m) {
-    JS_NewClassID(&js_uv_timer_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), js_uv_timer_class_id, &js_uv_timer_class);
-    JS_SetModuleExportList(ctx, m, js_uv_timer_funcs, countof(js_uv_timer_funcs));
+void quv_mod_timers_init(JSContext *ctx, JSModuleDef *m) {
+    JS_NewClassID(&quv_timer_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), quv_timer_class_id, &quv_timer_class);
+    JS_SetModuleExportList(ctx, m, quv_timer_funcs, countof(quv_timer_funcs));
 }
 
-void js_uv_mod_timers_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExportList(ctx, m, js_uv_timer_funcs, countof(js_uv_timer_funcs));
+void quv_mod_timers_export(JSContext *ctx, JSModuleDef *m) {
+    JS_AddModuleExportList(ctx, m, quv_timer_funcs, countof(quv_timer_funcs));
 }

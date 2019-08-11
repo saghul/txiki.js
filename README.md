@@ -1,5 +1,5 @@
 
-# QuickJS ❤️ libuv
+# quv — QuickJS ❤️ libuv
 
 This is an experiment in porting the [QuickJS] platform layer to use [libuv].
 

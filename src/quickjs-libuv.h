@@ -42,6 +42,6 @@ typedef struct quv_state_s {
 
 void JSUV_InitCtxOpaque(JSContext *ctx);
 JSModuleDef *js_init_module_uv(JSContext *ctx);
-void js_uv_loop(JSContext *ctx);
+void quv_loop(JSContext *ctx);
 
 #endif /* QUICKJS_LIBUV_H */
