@@ -46,10 +46,9 @@ uint8_t *js_load_file(JSContext *ctx, size_t *pbuf_len, const char *filename)
     fseek(f, 0, SEEK_END);
     buf_len = ftell(f);
     fseek(f, 0, SEEK_SET);
-    if (ctx)
-        buf = js_malloc(ctx, buf_len + 1);
-    else
-        buf = malloc(buf_len + 1);
+    buf = js_malloc(ctx, buf_len + 1);
+    if (!buf)
+        return NULL;
     fread(buf, 1, buf_len, f);
     buf[buf_len] = '\0';
     fclose(f);
