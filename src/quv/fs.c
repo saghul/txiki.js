@@ -202,20 +202,20 @@ static void uv__fs_req_cb(uv_fs_t* req) {
         abort();
     }
 
-    uv_fs_req_cleanup(&fr->req);
-
     ret = JS_Call(ctx, fr->result.resolving_funcs[0], JS_UNDEFINED, 1, (JSValueConst *)&arg);
 
 end:
-        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
+    uv_fs_req_cleanup(&fr->req);
 
-        JS_FreeValue(ctx, fr->result.promise);
-        JS_FreeValue(ctx, fr->result.resolving_funcs[0]);
-        JS_FreeValue(ctx, fr->result.resolving_funcs[1]);
-        JS_FreeValue(ctx, fr->obj);
-        JS_FreeValue(ctx, fr->rw.buf);
+    JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
 
-        js_free(ctx, fr);
+    JS_FreeValue(ctx, fr->result.promise);
+    JS_FreeValue(ctx, fr->result.resolving_funcs[0]);
+    JS_FreeValue(ctx, fr->result.resolving_funcs[1]);
+    JS_FreeValue(ctx, fr->obj);
+    JS_FreeValue(ctx, fr->rw.buf);
+
+    js_free(ctx, fr);
 }
 
 static JSValue js_uv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
