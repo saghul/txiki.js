@@ -39,7 +39,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 ### TCP([family])
 
 - `accept()`
-- `bind({ ip, port })`
+- `bind({ ip, port }, [flags])`
 - `close()`
 - `connect({ ip, port })`
 - `fileno()`
@@ -50,7 +50,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `shutdown()`
 - `write(data)`
 
-### UDP([family, [flags]])
+### UDP([family])
 
 - `bind({ ip, port }, [flags])`
 - `close()`

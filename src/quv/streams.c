@@ -545,16 +545,21 @@ static JSValue quv_tcp_bind(JSContext *ctx, JSValueConst this_val,
     JSUVStream *t = quv_tcp_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
+
     struct sockaddr_storage ss;
     int r;
     r = quv_obj2addr(ctx, argv[0], &ss);
-    if (r != 0) {
+    if (r != 0)
         return JS_EXCEPTION;
-    }
-    r = uv_tcp_bind(&t->h.tcp, (struct sockaddr *)&ss, 0);
-    if (r != 0) {
+
+    int flags = 0;
+    if (!JS_IsUndefined(argv[1]) && JS_ToInt32(ctx, &flags, argv[1]))
+        return JS_EXCEPTION;
+
+    r = uv_tcp_bind(&t->h.tcp, (struct sockaddr *)&ss, flags);
+    if (r != 0)
         return quv_throw_errno(ctx, r);
-    }
+
     return JS_UNDEFINED;
 }
 
