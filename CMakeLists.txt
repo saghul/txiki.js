@@ -77,6 +77,7 @@ add_executable(quv
     src/quv/streams.c
     src/quv/signals.c
     src/quv/timers.c
+    src/quv/udp.c
     src/quv/utils.c
     ${CMAKE_CURRENT_BINARY_DIR}/repl.c
     ${CMAKE_CURRENT_BINARY_DIR}/encoding.c

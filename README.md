@@ -5,7 +5,7 @@ This is an experiment in porting the [QuickJS] platform layer to use [libuv].
 
 Currently the following is already implemented in the `qjs` interpreter, using libuv:
 
-- TCP sockets
+- TCP and UDP sockets
 - TTY handles
 - Unix sockets / named pipes
 - Timers

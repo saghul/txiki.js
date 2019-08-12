@@ -30,28 +30,18 @@
 #include "quv/signals.h"
 #include "quv/streams.h"
 #include "quv/timers.h"
+#include "quv/udp.h"
 #include "quv/utils.h"
 
 
-static int quv_init(JSContext *ctx, JSModuleDef *m)
-{
-    /* Streams */
-    quv_mod_streams_init(ctx, m);
-
-    /* Error */    
+static int quv_init(JSContext *ctx, JSModuleDef *m) {
     quv_mod_error_init(ctx, m);
-
-    /* Timers */
-    quv_mod_timers_init(ctx, m);
-
-    /* Signals */
-    quv_mod_signals_init(ctx, m);
-
-    /* FS */
     quv_mod_fs_init(ctx, m);
-
-    /* Misc functions */
     quv_mod_misc_init(ctx, m);
+    quv_mod_signals_init(ctx, m);
+    quv_mod_streams_init(ctx, m);
+    quv_mod_timers_init(ctx, m);
+    quv_mod_udp_init(ctx, m);
 
     return 0;
 }
@@ -69,6 +59,7 @@ JSModuleDef *js_init_module_uv(JSContext *ctx)
     quv_mod_streams_export(ctx, m);
     quv_mod_signals_export(ctx, m);
     quv_mod_timers_export(ctx, m);
+    quv_mod_udp_export(ctx, m);
 
     return m;
 }

@@ -50,6 +50,17 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `shutdown()`
 - `write(data)`
 
+### UDP([family, [flags]])
+
+- `bind({ ip, port }, [flags])`
+- `close()`
+- `connect({ ip, port })`
+- `fileno()`
+- `getpeername()`
+- `getsockname()`
+- `recv(buffer, [offset, [length]])`
+- `send(buffer, [offset, [length, [addr]]])`
+
 ### Pipe()
 
 - `accept()`

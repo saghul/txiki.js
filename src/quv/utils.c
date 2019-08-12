@@ -75,7 +75,7 @@ int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) 
     return 0;
 }
 
-JSValue quv_addr2obj(JSContext *ctx, struct sockaddr *sa) {
+JSValue quv_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
     char buf[INET6_ADDRSTRLEN+1];
     JSValue obj;
 
