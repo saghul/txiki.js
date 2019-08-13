@@ -228,50 +228,43 @@ static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
-    if (!fr)
-        return JS_EXCEPTION;
-
     /* arg 0: buffer */
+    JSValue jsData = argv[0];
     size_t size;
-    uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
+    char *buf;
+    if (magic && JS_IsString(jsData))
+        buf = (char*) JS_ToCStringLen(ctx, &size, jsData);
+    else
+        buf = (char*) JS_GetArrayBuffer(ctx, &size, jsData);
+
     if (!buf)
         return JS_EXCEPTION;
     
     /* arg 1: offset (within the buffer) */
-    uint64_t off;
-    if (JS_IsUndefined(argv[1]))
-        off = 0;
-    else if (JS_ToIndex(ctx, &off, argv[1]))
+    uint64_t off = 0;
+    if (!JS_IsUndefined(argv[1]) && JS_ToIndex(ctx, &off, argv[1]))
         return JS_EXCEPTION;
 
     /* arg 2: buffer length */
-    uint64_t len;
-    if (JS_IsUndefined(argv[2]))
-        len = size;
-    else if (JS_ToIndex(ctx, &len, argv[2]))
+    uint64_t len = size;
+    if (!JS_IsUndefined(argv[2]) && JS_ToIndex(ctx, &len, argv[2]))
        return JS_EXCEPTION;
 
     if (off + len > size)
         return JS_ThrowRangeError(ctx, "read/write array buffer overflow");
 
     /* arg 3: position (on the file) */
-    uint64_t pos;
-    if (JS_IsUndefined(argv[3]))
-        pos = 0;
-    else if (JS_ToIndex(ctx, &pos, argv[3]))
+    uint64_t pos = 0;
+    if (!JS_IsUndefined(argv[3]) && JS_ToIndex(ctx, &pos, argv[3]))
         return JS_EXCEPTION;
 
-    uv_buf_t b = uv_buf_init((char*) buf + off, len);
+    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
+        return JS_EXCEPTION;
+
+    uv_buf_t b = uv_buf_init(buf + off, len);
 
     int r;
-    UV_EXTERN int uv_fs_read(uv_loop_t* loop,
-                         uv_fs_t* req,
-                         uv_file file,
-                         const uv_buf_t bufs[],
-                         unsigned int nbufs,
-                         int64_t offset,
-                         uv_fs_cb cb);
     if (magic)
         r = uv_fs_write(loop, &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
     else
