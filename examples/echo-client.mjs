@@ -13,15 +13,16 @@ import { addr, logError } from './utils.js';
     
     console.log(`Connected to ${addr(t.getpeername())}`);
 
-    let data;
+    const buf = new ArrayBuffer(4096);
+    let nread;
     while (true) {
-        data = await t.read();
-        //console.log(String.fromCharCode.apply(null, new Uint8Array(data)))
-        if (!data) {
+        nread = await t.read(buf);
+        //console.log(String.fromCharCode.apply(null, new Uint8Array(buf, 0, nread)));
+        if (!nread) {
             console.log('connection closed!');
             break;
         }
-        t.write(data);
+        t.write(buf.slice(0, nread));
     }
 
 })().catch(logError);

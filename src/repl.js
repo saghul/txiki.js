@@ -136,13 +136,12 @@ import * as uv from "uv";
     }
 
     async function term_read_handler() {
-        var data;
-        var dataBuf;
+        var buf = new Uint8Array(4096);
+        var n;
         while (true) {
-            data = await stdin.read();
-            dataBuf = new Uint8Array(data);
-            for(var i = 0; i < dataBuf.length; i++)
-                handle_byte(dataBuf[i]);
+            n = await stdin.read(buf.buffer);
+            for(var i = 0; i < n; i++)
+                handle_byte(buf[i]);
         }
     }
     

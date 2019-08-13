@@ -53,6 +53,11 @@ typedef struct {
         JSValue resolving_funcs[2];
     } connect;
     struct {
+        struct {
+            JSValue buffer;
+            uint8_t *data;
+            size_t len;
+        } b;
         JSValue promise;
         JSValue resolving_funcs[2];
     } read;
@@ -95,15 +100,11 @@ static JSValue quv_stream_close(JSContext *ctx, JSUVStream *s, int argc, JSValue
     return JS_UNDEFINED;
 }
 
-static void uv__stream_free_read_buf(JSRuntime *rt, void *opaque, void *ptr) {
-    js_free_rt(rt, ptr);
-}
-
 static void uv__stream_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
     JSUVStream *s = handle->data;
     if (s) {
-        buf->base = js_mallocz(s->ctx, suggested_size);
-        buf->len = suggested_size;
+        buf->base = (char*) s->read.b.data;
+        buf->len = s->read.b.len;;
         return;
     }
 
@@ -127,9 +128,8 @@ static void uv__stream_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_
                 arg = js_new_uv_error(ctx, nread);
                 is_reject = 1;
             }
-            js_free(ctx, buf->base);
         } else {
-            arg = JS_NewArrayBuffer(ctx, (uint8_t *)buf->base, buf->len, uv__stream_free_read_buf, NULL, 0);
+            arg = JS_NewInt32(ctx, nread);
         }
 
         ret = JS_Call(ctx, s->read.resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
@@ -143,6 +143,11 @@ static void uv__stream_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_
         s->read.promise = JS_UNDEFINED;
         s->read.resolving_funcs[0] = JS_UNDEFINED;
         s->read.resolving_funcs[1] = JS_UNDEFINED;
+
+        JS_FreeValue(ctx, s->read.b.buffer);
+        s->read.b.buffer = JS_UNDEFINED;
+        s->read.b.data = NULL;
+        s->read.b.len = 0;
     }
 }
 
@@ -151,10 +156,31 @@ static JSValue quv_stream_read(JSContext *ctx, JSUVStream *s, int argc, JSValueC
         return JS_EXCEPTION;
     if (!JS_IsUndefined(s->read.promise))
         return quv_throw_errno(ctx, UV_EBUSY);
+
+    size_t size;
+    uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
+    if (!buf)
+        return JS_EXCEPTION;
+
+    uint64_t off = 0;
+    if (!JS_IsUndefined(argv[1]) && JS_ToIndex(ctx, &off, argv[1]))
+        return JS_EXCEPTION;
+
+    uint64_t len = size;
+    if (!JS_IsUndefined(argv[2]) && JS_ToIndex(ctx, &len, argv[2]))
+        return JS_EXCEPTION;
+
+    if (off + len > size)
+        return JS_ThrowRangeError(ctx, "array buffer overflow");
+
+    s->read.b.buffer = JS_DupValue(ctx, argv[0]);
+    s->read.b.data = buf + off;
+    s->read.b.len = len;
+
     int r = uv_read_start(&s->h.stream, uv__stream_alloc_cb, uv__stream_read_cb);
-    if (r != 0) {
+    if (r != 0)
         return quv_throw_errno(ctx, r);
-    }
+
     JSValue promise = JS_NewPromiseCapability(ctx, s->read.resolving_funcs);
     s->read.promise = JS_DupValue(ctx, promise);
     return promise;
@@ -383,12 +409,18 @@ static JSValue quv_init_stream(JSContext *ctx, JSValue obj, JSUVStream *s) {
     s->connect.promise = JS_UNDEFINED;
     s->connect.resolving_funcs[0] = JS_UNDEFINED;
     s->connect.resolving_funcs[1] = JS_UNDEFINED;
+
+    s->read.b.buffer = JS_UNDEFINED;
+    s->read.b.data = NULL;
+    s->read.b.len = 0;
     s->read.promise = JS_UNDEFINED;
     s->read.resolving_funcs[0] = JS_UNDEFINED;
     s->read.resolving_funcs[1] = JS_UNDEFINED;
+
     s->shutdown.promise = JS_UNDEFINED;
     s->shutdown.resolving_funcs[0] = JS_UNDEFINED;
     s->shutdown.resolving_funcs[1] = JS_UNDEFINED;
+
     s->accept.promise = JS_UNDEFINED;
     s->accept.resolving_funcs[0] = JS_UNDEFINED;
     s->accept.resolving_funcs[1] = JS_UNDEFINED;
@@ -908,7 +940,7 @@ static JSValue quv_pipe_accept(JSContext *ctx, JSValueConst this_val,
 static const JSCFunctionListEntry quv_tcp_proto_funcs[] = {
     /* Stream functions */
     JS_CFUNC_DEF("close", 0, quv_tcp_close ),
-    JS_CFUNC_DEF("read", 0, quv_tcp_read ),
+    JS_CFUNC_DEF("read", 3, quv_tcp_read ),
     JS_CFUNC_DEF("write", 1, quv_tcp_write ),
     JS_CFUNC_DEF("shutdown", 0, quv_tcp_shutdown ),
     JS_CFUNC_DEF("fileno", 0, quv_tcp_fileno ),
@@ -924,7 +956,7 @@ static const JSCFunctionListEntry quv_tcp_proto_funcs[] = {
 static const JSCFunctionListEntry quv_tty_proto_funcs[] = {
     /* Stream functions */
     JS_CFUNC_DEF("close", 0, quv_tty_close ),
-    JS_CFUNC_DEF("read", 0, quv_tty_read ),
+    JS_CFUNC_DEF("read", 3, quv_tty_read ),
     JS_CFUNC_DEF("write", 1, quv_tty_write ),
     JS_CFUNC_DEF("fileno", 0, quv_tty_fileno ),
     /* TTY functions */
@@ -935,7 +967,7 @@ static const JSCFunctionListEntry quv_tty_proto_funcs[] = {
 static const JSCFunctionListEntry quv_pipe_proto_funcs[] = {
     /* Stream functions */
     JS_CFUNC_DEF("close", 0, quv_pipe_close ),
-    JS_CFUNC_DEF("read", 0, quv_pipe_read ),
+    JS_CFUNC_DEF("read", 3, quv_pipe_read ),
     JS_CFUNC_DEF("write", 1, quv_pipe_write ),
     JS_CFUNC_DEF("fileno", 0, quv_pipe_fileno ),
     JS_CFUNC_DEF("listen", 1, quv_pipe_listen ),

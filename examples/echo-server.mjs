@@ -9,15 +9,16 @@ import { addr, logError } from './utils.js';
 async function handleConnection(conn) {
     console.log(`Accepted connection! ${addr(conn.getpeername())} <-> ${addr(conn.getsockname())}`);
 
-    let data;
+    const buf = new ArrayBuffer(4096);
+    let nread;
     while (true) {
-        data = await conn.read();
-        //console.log(String.fromCharCode.apply(null, new Uint8Array(data)))
-        if (!data) {
+        nread = await conn.read(buf);
+        //console.log(String.fromCharCode.apply(null, new Uint8Array(buf, 0, nread)));
+        if (!nread) {
             console.log('connection closed!');
             break;
         }
-        conn.write(data);
+        conn.write(buf.slice(0, nread));
     }
 }
 
