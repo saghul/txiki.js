@@ -74,7 +74,7 @@ typedef struct {
 
 typedef struct {
     uv_write_t req;
-    char data[];
+    JSValue data;
 } JSUVWriteReq;
 
 static JSUVStream *quv_tcp_get(JSContext *ctx, JSValueConst obj);
@@ -191,6 +191,7 @@ static void uv__stream_write_cb(uv_write_t* req, int status) {
     if (s) {
         JSContext *ctx = s->ctx;
         JSUVWriteReq *wr = req->data;
+        JS_FreeValue(ctx, wr->data);
         js_free(ctx, wr);
     }
 }
@@ -202,44 +203,58 @@ static JSValue quv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSValue
     JSValue jsData = argv[0];
 
     size_t size;
-    char *tmp;
+    char *buf;
 
+    /* arg 0: buffer */
     if (JS_IsString(jsData)) {
-        tmp = (char*) JS_ToCStringLen(ctx, &size, jsData);
+        buf = (char*) JS_ToCStringLen(ctx, &size, jsData);
     } else {
-        tmp = (char*) JS_GetArrayBuffer(ctx, &size, jsData);
+        buf = (char*) JS_GetArrayBuffer(ctx, &size, jsData);
     }
 
-    if (!tmp)
+    if (!buf)
         return JS_EXCEPTION;
 
+    /* arg 1: offset (within the buffer) */
+    uint64_t off = 0;
+    if (!JS_IsUndefined(argv[1]) && JS_ToIndex(ctx, &off, argv[1]))
+        return JS_EXCEPTION;
+
+    /* arg 2: buffer length */
+    uint64_t len = size;
+    if (!JS_IsUndefined(argv[2]) && JS_ToIndex(ctx, &len, argv[2]))
+       return JS_EXCEPTION;
+
+    if (off + len > size)
+        return JS_ThrowRangeError(ctx, "write buffer overflow");
+
     int r;
-    uv_buf_t buf;
+    uv_buf_t b;
 
     /* First try to do the write inline */
-    buf = uv_buf_init(tmp, size);
-    r = uv_try_write(&s->h.stream, &buf, 1);
+    b = uv_buf_init(buf, len);
+    r = uv_try_write(&s->h.stream, &b, 1);
 
-    if (r == size)
+    if (r == len)
         return JS_UNDEFINED;
 
     /* Do an async write, copy the data. */
     if (r >= 0) {
-        tmp += r;
-        size -= r;
+        buf += r;
+        len -= r;
     }
 
-    JSUVWriteReq *wr = js_malloc(ctx, sizeof(*wr) + size);
+    JSUVWriteReq *wr = js_malloc(ctx, sizeof(*wr));
     if (!wr)
         return JS_EXCEPTION;
 
     wr->req.data = wr;
+    wr->data = JS_DupValue(ctx, jsData);
 
-    memcpy(wr->data, tmp, size);
-    buf = uv_buf_init(wr->data, size);
-
-    r = uv_write(&wr->req, &s->h.stream, &buf, 1, uv__stream_write_cb);
+    b = uv_buf_init(buf, len);
+    r = uv_write(&wr->req, &s->h.stream, &b, 1, uv__stream_write_cb);
     if (r != 0) {
+        JS_FreeValue(ctx, jsData);
         js_free(ctx, wr);
         return quv_throw_errno(ctx, r);
     }
@@ -941,7 +956,7 @@ static const JSCFunctionListEntry quv_tcp_proto_funcs[] = {
     /* Stream functions */
     JS_CFUNC_DEF("close", 0, quv_tcp_close ),
     JS_CFUNC_DEF("read", 3, quv_tcp_read ),
-    JS_CFUNC_DEF("write", 1, quv_tcp_write ),
+    JS_CFUNC_DEF("write", 3, quv_tcp_write ),
     JS_CFUNC_DEF("shutdown", 0, quv_tcp_shutdown ),
     JS_CFUNC_DEF("fileno", 0, quv_tcp_fileno ),
     JS_CFUNC_DEF("listen", 1, quv_tcp_listen ),
@@ -957,7 +972,7 @@ static const JSCFunctionListEntry quv_tty_proto_funcs[] = {
     /* Stream functions */
     JS_CFUNC_DEF("close", 0, quv_tty_close ),
     JS_CFUNC_DEF("read", 3, quv_tty_read ),
-    JS_CFUNC_DEF("write", 1, quv_tty_write ),
+    JS_CFUNC_DEF("write", 3, quv_tty_write ),
     JS_CFUNC_DEF("fileno", 0, quv_tty_fileno ),
     /* TTY functions */
     JS_CFUNC_DEF("setMode", 1, quv_tty_setMode ),
@@ -968,7 +983,7 @@ static const JSCFunctionListEntry quv_pipe_proto_funcs[] = {
     /* Stream functions */
     JS_CFUNC_DEF("close", 0, quv_pipe_close ),
     JS_CFUNC_DEF("read", 3, quv_pipe_read ),
-    JS_CFUNC_DEF("write", 1, quv_pipe_write ),
+    JS_CFUNC_DEF("write", 3, quv_pipe_write ),
     JS_CFUNC_DEF("fileno", 0, quv_pipe_fileno ),
     JS_CFUNC_DEF("listen", 1, quv_pipe_listen ),
     JS_CFUNC_DEF("accept", 0, quv_pipe_accept ),
