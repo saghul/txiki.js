@@ -46,7 +46,7 @@ typedef struct {
 
 typedef struct {
     uv_udp_send_t req;
-    char data[];
+    JSValue data;
 } JSUVSendReq;
 
 static JSClassID quv_udp_class_id;
@@ -202,6 +202,7 @@ static void uv__udp_send_cb(uv_udp_send_t* req, int status) {
     if (u) {
         JSContext *ctx = u->ctx;
         JSUVSendReq *sr = req->data;
+        JS_FreeValue(ctx, sr->data);
         js_free(ctx, sr);
     }
 }
@@ -227,17 +228,13 @@ static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
         return JS_EXCEPTION;
 
     /* arg 1: offset (within the buffer) */
-    uint64_t off;
-    if (JS_IsUndefined(argv[1]))
-        off = 0;
-    else if (JS_ToIndex(ctx, &off, argv[1]))
+    uint64_t off = 0;
+    if (!JS_IsUndefined(argv[1]) && JS_ToIndex(ctx, &off, argv[1]))
         return JS_EXCEPTION;
 
     /* arg 2: buffer length */
-    uint64_t len;
-    if (JS_IsUndefined(argv[2]))
-        len = size;
-    else if (JS_ToIndex(ctx, &len, argv[2]))
+    uint64_t len = size;
+    if (!JS_IsUndefined(argv[2]) && JS_ToIndex(ctx, &len, argv[2]))
        return JS_EXCEPTION;
 
     if (off + len > size)
@@ -274,12 +271,13 @@ static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
         return JS_EXCEPTION;
 
     sr->req.data = sr;
+    sr->data = JS_DupValue(ctx, jsData);
 
-    memcpy(sr->data, buf, len);
-    b = uv_buf_init(sr->data, len);
+    b = uv_buf_init(buf, len);
 
     r = uv_udp_send(&sr->req, &u->udp, &b, 1, sa, uv__udp_send_cb);
     if (r != 0) {
+        JS_FreeValue(ctx, jsData);
         js_free(ctx, sr);
         return quv_throw_errno(ctx, r);
     }
