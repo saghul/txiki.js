@@ -57,11 +57,6 @@ typedef struct {
         JSValue resolving_funcs[2];
     } read;
     struct {
-        uv_shutdown_t req;
-        JSValue promise;
-        JSValue resolving_funcs[2];
-    } shutdown;
-    struct {
         JSValue promise;
         JSValue resolving_funcs[2];
     } accept;
@@ -72,6 +67,12 @@ typedef struct {
     JSValue promise;
     JSValue resolving_funcs[2];
 } JSUVConnectReq;
+
+typedef struct {
+    uv_shutdown_t req;
+    JSValue promise;
+    JSValue resolving_funcs[2];
+} JSUVShutdownReq;
 
 typedef struct {
     uv_write_t req;
@@ -267,38 +268,41 @@ static void uv__stream_shutdown_cb(uv_shutdown_t* req, int status) {
     JSUVStream *s = req->handle->data;
     if (s) {
         JSContext *ctx = s->ctx;
+        JSUVShutdownReq *sr = req->data;
         JSValue ret;
         if (status == 0) {
-            ret = JS_Call(ctx, s->shutdown.resolving_funcs[0], JS_UNDEFINED, 0, NULL);
+            ret = JS_Call(ctx, sr->resolving_funcs[0], JS_UNDEFINED, 0, NULL);
         } else {
             JSValue error = js_new_uv_error(ctx, status);
-            ret = JS_Call(ctx, s->shutdown.resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
+            ret = JS_Call(ctx, sr->resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
             JS_FreeValue(ctx, error);
         }
 
         JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
 
-        JS_FreeValue(ctx, s->shutdown.promise);
-        JS_FreeValue(ctx, s->shutdown.resolving_funcs[0]);
-        JS_FreeValue(ctx, s->shutdown.resolving_funcs[1]);
+        JS_FreeValue(ctx, sr->promise);
+        JS_FreeValue(ctx, sr->resolving_funcs[0]);
+        JS_FreeValue(ctx, sr->resolving_funcs[1]);
 
-        s->shutdown.promise = JS_UNDEFINED;
-        s->shutdown.resolving_funcs[0] = JS_UNDEFINED;
-        s->shutdown.resolving_funcs[1] = JS_UNDEFINED;
+        js_free(ctx, sr);
     }
 }
 
 static JSValue quv_stream_shutdown(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
-    if (!JS_IsUndefined(s->shutdown.promise))
-        return quv_throw_errno(ctx, UV_EBUSY);
-    int r = uv_shutdown(&s->shutdown.req, &s->h.stream, uv__stream_shutdown_cb);
-    if (r != 0) {
+
+    JSUVShutdownReq *sr = js_malloc(ctx, sizeof(*sr));
+    if (!sr)
+        return JS_EXCEPTION;
+    sr->req.data = sr;
+
+    int r = uv_shutdown(&sr->req, &s->h.stream, uv__stream_shutdown_cb);
+    if (r != 0)
         return quv_throw_errno(ctx, r);
-    }
-    JSValue promise = JS_NewPromiseCapability(ctx, s->shutdown.resolving_funcs);
-    s->shutdown.promise = JS_DupValue(ctx, promise);
+
+    JSValue promise = JS_NewPromiseCapability(ctx, sr->resolving_funcs);
+    sr->promise = JS_DupValue(ctx, promise);
     return promise;
 }
 
@@ -428,10 +432,6 @@ static JSValue quv_init_stream(JSContext *ctx, JSValue obj, JSUVStream *s) {
     s->read.resolving_funcs[0] = JS_UNDEFINED;
     s->read.resolving_funcs[1] = JS_UNDEFINED;
 
-    s->shutdown.promise = JS_UNDEFINED;
-    s->shutdown.resolving_funcs[0] = JS_UNDEFINED;
-    s->shutdown.resolving_funcs[1] = JS_UNDEFINED;
-
     s->accept.promise = JS_UNDEFINED;
     s->accept.resolving_funcs[0] = JS_UNDEFINED;
     s->accept.resolving_funcs[1] = JS_UNDEFINED;
@@ -458,9 +458,6 @@ static void quv_stream_mark(JSRuntime *rt, JSUVStream *s, JS_MarkFunc *mark_func
         JS_MarkValue(rt, s->read.promise, mark_func);
         JS_MarkValue(rt, s->read.resolving_funcs[0], mark_func);
         JS_MarkValue(rt, s->read.resolving_funcs[1], mark_func);
-        JS_MarkValue(rt, s->shutdown.promise, mark_func);
-        JS_MarkValue(rt, s->shutdown.resolving_funcs[0], mark_func);
-        JS_MarkValue(rt, s->shutdown.resolving_funcs[1], mark_func);
         JS_MarkValue(rt, s->accept.promise, mark_func);
         JS_MarkValue(rt, s->accept.resolving_funcs[0], mark_func);
         JS_MarkValue(rt, s->accept.resolving_funcs[1], mark_func);
