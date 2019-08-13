@@ -332,6 +332,10 @@ static JSValue js_new_uv_udp(JSContext *ctx, int af) {
 
     u->udp.data = u;
 
+    u->read.b.buffer = JS_UNDEFINED;
+    u->read.b.data = NULL;
+    u->read.b.len = 0;
+
     u->read.promise = JS_UNDEFINED;
     u->read.resolving_funcs[0] = JS_UNDEFINED;
     u->read.resolving_funcs[1] = JS_UNDEFINED;
