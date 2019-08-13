@@ -129,12 +129,7 @@ static JSUVFile *quv_file_get(JSContext *ctx, JSValueConst obj) {
 static void quv_fsreq_init(JSContext *ctx, JSUVFsReq *fr, JSValue obj) {
     fr->ctx = ctx;
     fr->req.data = fr;
-
-    if (JS_IsUndefined(obj))
-        fr->obj = JS_UNDEFINED;
-    else
-        fr->obj = JS_DupValue(ctx, obj);
-
+    fr->obj = JS_DupValue(ctx, obj);
     fr->rw.buf = JS_UNDEFINED;
 
     JSValue promise = JS_NewPromiseCapability(ctx, fr->result.resolving_funcs);
