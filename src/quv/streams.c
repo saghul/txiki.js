@@ -77,6 +77,8 @@ typedef struct {
 typedef struct {
     uv_write_t req;
     JSValue data;
+    JSValue promise;
+    JSValue resolving_funcs[2];
 } JSUVWriteReq;
 
 static JSUVStream *quv_tcp_get(JSContext *ctx, JSValueConst obj);
@@ -193,6 +195,24 @@ static void uv__stream_write_cb(uv_write_t* req, int status) {
     if (s) {
         JSContext *ctx = s->ctx;
         JSUVWriteReq *wr = req->data;
+
+        int is_reject = 0;
+        JSValue arg, ret;
+        if (status < 0) {
+            arg = js_new_uv_error(ctx, status);
+            is_reject = 1;
+        } else {
+            arg = JS_UNDEFINED;
+        }
+
+        ret = JS_Call(ctx, wr->resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
+        JS_FreeValue(ctx, arg);
+        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
+
+        JS_FreeValue(ctx, wr->promise);
+        JS_FreeValue(ctx, wr->resolving_funcs[0]);
+        JS_FreeValue(ctx, wr->resolving_funcs[1]);
+
         JS_FreeValue(ctx, wr->data);
         js_free(ctx, wr);
     }
@@ -261,7 +281,9 @@ static JSValue quv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSValue
         return quv_throw_errno(ctx, r);
     }
 
-    return JS_UNDEFINED;
+    JSValue promise = JS_NewPromiseCapability(ctx, wr->resolving_funcs);
+    wr->promise = JS_DupValue(ctx, promise);
+    return promise;
 }
 
 static void uv__stream_shutdown_cb(uv_shutdown_t* req, int status) {
