@@ -266,7 +266,7 @@ static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
         len -= r;
     }
 
-    JSUVSendReq *sr = js_malloc(ctx, sizeof(*sr) + len);
+    JSUVSendReq *sr = js_malloc(ctx, sizeof(*sr));
     if (!sr)
         return JS_EXCEPTION;
 
