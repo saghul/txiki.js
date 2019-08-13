@@ -166,3 +166,27 @@ void quv_call_handler(JSContext *ctx, JSValueConst func) {
         quv_dump_error(ctx);
     JS_FreeValue(ctx, ret);
 }
+
+static inline JSValue quv__completed_promise(JSContext *ctx, JSValueConst arg, int is_reject) {
+    JSValue promise, resolving_funcs[2], ret;
+
+    promise = JS_NewPromiseCapability(ctx, resolving_funcs);
+    if (JS_IsException(promise))
+        return JS_EXCEPTION;
+
+    ret = JS_Call(ctx, resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
+
+    JS_FreeValue(ctx, ret);
+    JS_FreeValue(ctx, resolving_funcs[0]);
+    JS_FreeValue(ctx, resolving_funcs[1]);
+
+    return promise;
+}
+
+JSValue QUV_NewResolvedPromise(JSContext *ctx, JSValueConst arg) {
+    return quv__completed_promise(ctx, arg, 0);
+}
+
+JSValue QUV_NewRejectedPromise(JSContext *ctx, JSValueConst arg) {
+    return quv__completed_promise(ctx, arg, 1);
+}

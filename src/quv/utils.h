@@ -35,5 +35,7 @@ int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);
 JSValue quv_addr2obj(JSContext *ctx, const struct sockaddr *sa);
 void quv_call_handler(JSContext *ctx, JSValueConst func);
 void quv_dump_error(JSContext *ctx);
+JSValue QUV_NewResolvedPromise(JSContext *ctx, JSValueConst arg);
+JSValue QUV_NewRejectedPromise(JSContext *ctx, JSValueConst arg);
 
 #endif
