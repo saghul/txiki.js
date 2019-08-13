@@ -47,6 +47,8 @@ typedef struct {
 typedef struct {
     uv_udp_send_t req;
     JSValue data;
+    JSValue promise;
+    JSValue resolving_funcs[2];
 } JSUVSendReq;
 
 static JSClassID quv_udp_class_id;
@@ -202,6 +204,24 @@ static void uv__udp_send_cb(uv_udp_send_t* req, int status) {
     if (u) {
         JSContext *ctx = u->ctx;
         JSUVSendReq *sr = req->data;
+
+        int is_reject = 0;
+        JSValue arg, ret;
+        if (status < 0) {
+            arg = js_new_uv_error(ctx, status);
+            is_reject = 1;
+        } else {
+            arg = JS_UNDEFINED;
+        }
+
+        ret = JS_Call(ctx, sr->resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
+        JS_FreeValue(ctx, arg);
+        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
+
+        JS_FreeValue(ctx, sr->promise);
+        JS_FreeValue(ctx, sr->resolving_funcs[0]);
+        JS_FreeValue(ctx, sr->resolving_funcs[1]);
+
         JS_FreeValue(ctx, sr->data);
         js_free(ctx, sr);
     }
@@ -238,7 +258,7 @@ static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
        return JS_EXCEPTION;
 
     if (off + len > size)
-        return JS_ThrowRangeError(ctx, "read/write array buffer overflow");
+        return JS_ThrowRangeError(ctx, "write buffer overflow");
 
     /* arg 3: target address */
     struct sockaddr_storage ss;
@@ -282,7 +302,9 @@ static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
         return quv_throw_errno(ctx, r);
     }
 
-    return JS_UNDEFINED;
+    JSValue promise = JS_NewPromiseCapability(ctx, sr->resolving_funcs);
+    sr->promise = JS_DupValue(ctx, promise);
+    return promise;
 }
 
 static JSValue quv_udp_fileno(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {

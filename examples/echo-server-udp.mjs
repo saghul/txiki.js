@@ -17,7 +17,7 @@ import { addr, logError } from './utils.js';
     while (true) {
         rinfo = await u.recv(buf);
         console.log(JSON.stringify(rinfo));
-        u.send(buf.slice(0, rinfo.nread), undefined, undefined, rinfo.addr);
+        await u.send(buf, 0, rinfo.nread, rinfo.addr);
     }
 
 })().catch(logError);
