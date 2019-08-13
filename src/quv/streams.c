@@ -48,11 +48,6 @@ typedef struct {
         uv_pipe_t pipe;
     } h;
     struct {
-        uv_connect_t req;
-        JSValue promise;
-        JSValue resolving_funcs[2];
-    } connect;
-    struct {
         struct {
             JSValue buffer;
             uint8_t *data;
@@ -71,6 +66,12 @@ typedef struct {
         JSValue resolving_funcs[2];
     } accept;
 } JSUVStream;
+
+typedef struct {
+    uv_connect_t req;
+    JSValue promise;
+    JSValue resolving_funcs[2];
+} JSUVConnectReq;
 
 typedef struct {
     uv_write_t req;
@@ -314,27 +315,26 @@ static JSValue quv_stream_fileno(JSContext *ctx, JSUVStream *s, int argc, JSValu
 }
 
 static void uv__stream_connect_cb(uv_connect_t* req, int status) {
-    JSUVStream *t = req->handle->data;
-    if (t) {
-        JSContext *ctx = t->ctx;
+    JSUVStream *s = req->handle->data;
+    if (s) {
+        JSContext *ctx = s->ctx;
+        JSUVConnectReq *cr = req->data;
         JSValue ret;
         if (status == 0) {
-            ret = JS_Call(ctx, t->connect.resolving_funcs[0], JS_UNDEFINED, 0, NULL);
+            ret = JS_Call(ctx, cr->resolving_funcs[0], JS_UNDEFINED, 0, NULL);
         } else {
             JSValue error = js_new_uv_error(ctx, status);
-            ret = JS_Call(ctx, t->connect.resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
+            ret = JS_Call(ctx, cr->resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
             JS_FreeValue(ctx, error);
         }
 
         JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
 
-        JS_FreeValue(ctx, t->connect.promise);
-        JS_FreeValue(ctx, t->connect.resolving_funcs[0]);
-        JS_FreeValue(ctx, t->connect.resolving_funcs[1]);
+        JS_FreeValue(ctx, cr->promise);
+        JS_FreeValue(ctx, cr->resolving_funcs[0]);
+        JS_FreeValue(ctx, cr->resolving_funcs[1]);
 
-        t->connect.promise = JS_UNDEFINED;
-        t->connect.resolving_funcs[0] = JS_UNDEFINED;
-        t->connect.resolving_funcs[1] = JS_UNDEFINED;
+        js_free(ctx, cr);
     }
 }
 
@@ -421,10 +421,6 @@ static JSValue quv_init_stream(JSContext *ctx, JSValue obj, JSUVStream *s) {
 
     s->h.handle.data = s;
 
-    s->connect.promise = JS_UNDEFINED;
-    s->connect.resolving_funcs[0] = JS_UNDEFINED;
-    s->connect.resolving_funcs[1] = JS_UNDEFINED;
-
     s->read.b.buffer = JS_UNDEFINED;
     s->read.b.data = NULL;
     s->read.b.len = 0;
@@ -459,9 +455,6 @@ static void quv_stream_finalizer(JSUVStream *s) {
 
 static void quv_stream_mark(JSRuntime *rt, JSUVStream *s, JS_MarkFunc *mark_func) {
     if (s) {
-        JS_MarkValue(rt, s->connect.promise, mark_func);
-        JS_MarkValue(rt, s->connect.resolving_funcs[0], mark_func);
-        JS_MarkValue(rt, s->connect.resolving_funcs[1], mark_func);
         JS_MarkValue(rt, s->read.promise, mark_func);
         JS_MarkValue(rt, s->read.resolving_funcs[0], mark_func);
         JS_MarkValue(rt, s->read.resolving_funcs[1], mark_func);
@@ -569,20 +562,24 @@ static JSValue quv_tcp_connect(JSContext *ctx, JSValueConst this_val,
     JSUVStream *t = quv_tcp_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
-    if (!JS_IsUndefined(t->connect.promise))
-        return quv_throw_errno(ctx, UV_EALREADY);
+
     struct sockaddr_storage ss;
     int r;
     r = quv_obj2addr(ctx, argv[0], &ss);
-    if (r != 0) {
+    if (r != 0)
         return JS_EXCEPTION;
-    }
-    r = uv_tcp_connect(&t->connect.req, &t->h.tcp, (struct sockaddr *)&ss, uv__stream_connect_cb);
-    if (r != 0) {
+
+    JSUVConnectReq *cr = js_malloc(ctx, sizeof(*cr));
+    if (!cr)
+        return JS_EXCEPTION;
+    cr->req.data = cr;
+
+    r = uv_tcp_connect(&cr->req, &t->h.tcp, (struct sockaddr *)&ss, uv__stream_connect_cb);
+    if (r != 0)
         return quv_throw_errno(ctx, r);
-    }
-    JSValue promise = JS_NewPromiseCapability(ctx, t->connect.resolving_funcs);
-    t->connect.promise = JS_DupValue(ctx, promise);
+
+    JSValue promise = JS_NewPromiseCapability(ctx, cr->resolving_funcs);
+    cr->promise = JS_DupValue(ctx, promise);
     return promise;
 }
 
@@ -885,10 +882,15 @@ static JSValue quv_pipe_connect(JSContext *ctx, JSValueConst this_val,
     if (!name)
         return JS_EXCEPTION;
 
-    uv_pipe_connect(&t->connect.req, &t->h.pipe, name, uv__stream_connect_cb);
+    JSUVConnectReq *cr = js_malloc(ctx, sizeof(*cr));
+    if (!cr)
+        return JS_EXCEPTION;
+    cr->req.data = cr;
 
-    JSValue promise = JS_NewPromiseCapability(ctx, t->connect.resolving_funcs);
-    t->connect.promise = JS_DupValue(ctx, promise);
+    uv_pipe_connect(&cr->req, &t->h.pipe, name, uv__stream_connect_cb);
+
+    JSValue promise = JS_NewPromiseCapability(ctx, cr->resolving_funcs);
+    cr->promise = JS_DupValue(ctx, promise);
     return promise;
 }
 
