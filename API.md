@@ -7,7 +7,7 @@
 - `console`: a minimal JS console object with just the `log` method.
 - `scriptArgs`: array with the arguments passed to the executable.
 - `TextEncoder` / `TextDecoder`: WHATWG [Encoding API].
-- `setTimeout`** / `setInterval` / `clearTimeout` / `clearInterval`: standard timer functions.
+- `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval`: standard timer functions.
 - `std`: reference to the `std` module.
 - `uv`: reference to the `uv` module.
 
@@ -99,15 +99,15 @@ All synchronous APIs return a Promise, there are no callbacks.
 
 ### `uv.fs` module
 
-- `copyfile`
-- `rename`
-- `rmdir`
-- `mkdtemp`
-- `stat`
-- `lstat`
-- `open`
-- `realpath`
-- `unlink`
+- `copyfile(path, newPath)`
+- `rename(path, newPath)`
+- `rmdir(path)`
+- `mkdtemp(name)`
+- `stat(path)`
+- `lstat(path)`
+- `open(path, flagsStr, mode)`
+- `realpath(path)`
+- `unlink(path)`
 
 #### File
 
