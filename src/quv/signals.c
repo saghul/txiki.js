@@ -55,15 +55,20 @@ static void uv__signal_close_cb(uv_handle_t* handle) {
     }
 }
 
+static inline void maybe_close(JSUVSignalHandler *sh) {
+    if (!uv_is_closing((uv_handle_t*) &sh->handle)) {
+        uv_close((uv_handle_t*) &sh->handle, uv__signal_close_cb);
+    }
+}
+
 static void quv_signal_handler_finalizer(JSRuntime *rt, JSValue val) {
     JSUVSignalHandler *sh = JS_GetOpaque(val, quv_signal_handler_class_id);
     if (sh) {
         sh->finalized = 1;
-        if (sh->closed) {
+        if (sh->closed)
             free_sh(sh);
-        } else if (!uv_is_closing((uv_handle_t*) &sh->handle)) {
-            uv_close((uv_handle_t*) &sh->handle, uv__signal_close_cb);
-        }
+        else
+            maybe_close(sh);
     }
 }
 
@@ -143,8 +148,7 @@ static JSValue quv_signal_handler_close(JSContext *ctx, JSValueConst this_val, i
     JSUVSignalHandler *sh = quv_signal_handler_get(ctx, this_val);
     if (!sh)
         return JS_EXCEPTION;
-    if (!uv_is_closing((uv_handle_t*) &sh->handle))
-        uv_close((uv_handle_t*) &sh->handle, uv__signal_close_cb);
+    maybe_close(sh);
     return JS_UNDEFINED;
 }
 
