@@ -53,27 +53,37 @@ typedef struct {
 
 static JSClassID quv_udp_class_id;
 
+static void free_udp(JSUVUdp *u) {
+    JSContext *ctx = u->ctx;
+    JS_FreeValue(ctx, u->read.promise);
+    JS_FreeValue(ctx, u->read.resolving_funcs[0]);
+    JS_FreeValue(ctx, u->read.resolving_funcs[1]);
+    JS_FreeValue(ctx, u->read.b.buffer);
+    js_free(ctx, u);
+}
+
 static void uv__udp_close_cb(uv_handle_t* handle) {
     JSUVUdp *u = handle->data;
     if (u) {
         u->closed = 1;
-        if (u->finalized) {
-            JSContext *ctx = u->ctx;
-            js_free(ctx, u);
-        }
+        if (u->finalized)
+            free_udp(u);
     }
+}
+
+static void maybe_close(JSUVUdp *u) {
+    if (!uv_is_closing((uv_handle_t*) &u->udp))
+        uv_close((uv_handle_t*) &u->udp, uv__udp_close_cb);
 }
 
 static void quv_udp_finalizer(JSRuntime *rt, JSValue val) {
     JSUVUdp *u = JS_GetOpaque(val, quv_udp_class_id);
     if (u) {
         u->finalized = 1;
-        if (u->closed) {
-            JSContext *ctx = u->ctx;
-            js_free(ctx, u);
-        } else if (!uv_is_closing((uv_handle_t*) &u->udp)) {
-            uv_close((uv_handle_t*) &u->udp, uv__udp_close_cb);
-        }
+        if (u->closed)
+            free_udp(u);
+        else
+            maybe_close(u);
     }
 }
 
@@ -102,9 +112,7 @@ static JSValue quv_udp_close(JSContext *ctx, JSValueConst this_val, int argc, JS
     JSUVUdp *u = quv_udp_get(ctx, this_val);
     if (!u)
         return JS_EXCEPTION;
-    if (!uv_is_closing((uv_handle_t*) &u->udp)) {
-        uv_close((uv_handle_t*) &u->udp, uv__udp_close_cb);
-    }
+    maybe_close(u);
     return JS_UNDEFINED;
 }
 
