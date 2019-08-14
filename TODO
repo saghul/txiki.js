@@ -1,5 +1,3 @@
 
-- refactor signals
-    - return a "Handler" with a remove() function
 - threaded Worker
 - process spawning

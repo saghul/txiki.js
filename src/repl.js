@@ -103,6 +103,8 @@ import * as uv from "uv";
     var term_width;
     /* current X position of the cursor in the terminal */
     var term_cursor_x = 0; 
+
+    var sigint_h;
     
     function termInit() {
         if (!uv.isatty(uv.STDIN_FILENO))
@@ -119,7 +121,7 @@ import * as uv from "uv";
         stdin.setMode(uv.UV_TTY_MODE_RAW);
 
         /* install a Ctrl-C signal handler */
-        uv.signal(uv.SIGINT, sigint_handler);
+        sigint_h = uv.signal(uv.SIGINT, sigint_handler);
 
         /* handler to read stdin */
         term_read_handler();
@@ -806,7 +808,8 @@ import * as uv from "uv";
                 return;
             case -3:
                 /* uninstall a Ctrl-C signal handler */
-                uv.signal(uv.SIGINT, null);
+                sigint_h.close();
+                sigint_h = undefined;
                 return;
             }
             last_fun = this_fun;

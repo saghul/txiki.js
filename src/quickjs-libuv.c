@@ -23,6 +23,7 @@
  */
 
 #include <stdlib.h>
+
 #include "quickjs-libuv.h"
 #include "quv/error.h"
 #include "quv/fs.h"
@@ -80,9 +81,6 @@ void JSUV_InitCtxOpaque(JSContext *ctx) {
     /* handle which runs the job queue */
     uv_check_init(&state->uvloop, &state->jobs.check);
     state->jobs.check.data = state;
-
-    /* signal handlers list */
-    init_list_head(&state->signal_handlers);
 
     JS_SetContextOpaque(ctx, state);
 }
