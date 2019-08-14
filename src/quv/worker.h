@@ -21,49 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+ 
+#ifndef QUV_WORKER_H
+#define QUV_WORKER_H
 
-#include <stdlib.h>
-
-#include "quickjs-libuv.h"
-#include "quv/error.h"
-#include "quv/fs.h"
-#include "quv/misc.h"
-#include "quv/signals.h"
-#include "quv/streams.h"
-#include "quv/timers.h"
-#include "quv/udp.h"
-#include "quv/utils.h"
-#include "quv/worker.h"
+#include "../quickjs-libuv.h"
 
 
-static int quv_init(JSContext *ctx, JSModuleDef *m) {
-    quv_mod_error_init(ctx, m);
-    quv_mod_fs_init(ctx, m);
-    quv_mod_misc_init(ctx, m);
-    quv_mod_signals_init(ctx, m);
-    quv_mod_streams_init(ctx, m);
-    quv_mod_timers_init(ctx, m);
-    quv_mod_udp_init(ctx, m);
-    quv_mod_worker_init(ctx, m);
+void quv_mod_worker_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_worker_export(JSContext *ctx, JSModuleDef *m);
 
-    return 0;
-}
-
-JSModuleDef *js_init_module_uv(JSContext *ctx)
-{
-    JSModuleDef *m;
-    m = JS_NewCModule(ctx, "uv", quv_init);
-    if (!m)
-        return NULL;
-
-    quv_mod_error_export(ctx, m);
-    quv_mod_fs_export(ctx, m);
-    quv_mod_misc_export(ctx, m);
-    quv_mod_streams_export(ctx, m);
-    quv_mod_signals_export(ctx, m);
-    quv_mod_timers_export(ctx, m);
-    quv_mod_udp_export(ctx, m);
-    quv_mod_worker_export(ctx, m);
-
-    return m;
-}
+#endif

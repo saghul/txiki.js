@@ -1,3 +1,4 @@
+
 /*
  * QuickJS libuv bindings
  * 
@@ -22,48 +23,24 @@
  * THE SOFTWARE.
  */
 
-#include <stdlib.h>
+#ifndef QUV_VM_H
+#define QUV_VM_H
 
-#include "quickjs-libuv.h"
-#include "quv/error.h"
-#include "quv/fs.h"
-#include "quv/misc.h"
-#include "quv/signals.h"
-#include "quv/streams.h"
-#include "quv/timers.h"
-#include "quv/udp.h"
-#include "quv/utils.h"
-#include "quv/worker.h"
+#include <uv.h>
+#include "../cutils.h"
+#include "../quickjs-libuv.h"
 
 
-static int quv_init(JSContext *ctx, JSModuleDef *m) {
-    quv_mod_error_init(ctx, m);
-    quv_mod_fs_init(ctx, m);
-    quv_mod_misc_init(ctx, m);
-    quv_mod_signals_init(ctx, m);
-    quv_mod_streams_init(ctx, m);
-    quv_mod_timers_init(ctx, m);
-    quv_mod_udp_init(ctx, m);
-    quv_mod_worker_init(ctx, m);
+typedef struct QUVRuntime QUVRuntime;
 
-    return 0;
-}
+QUVRuntime *QUV_NewRuntime(void);
+QUVRuntime *QUV_NewRuntime2(BOOL is_worker);
+void QUV_FreeRuntime(QUVRuntime *qrt);
+void QUV_SetupArgs(int argc, char **argv);
+JSContext *QUV_GetJSContext(QUVRuntime *qrt);
+QUVRuntime *QUV_GetRuntime(JSContext *ctx);
+void QUV_Run(QUVRuntime *qrt);
+void QUV_Stop(QUVRuntime *qrt);
+uv_loop_t *QUV_GetLoop(QUVRuntime *qrt);
 
-JSModuleDef *js_init_module_uv(JSContext *ctx)
-{
-    JSModuleDef *m;
-    m = JS_NewCModule(ctx, "uv", quv_init);
-    if (!m)
-        return NULL;
-
-    quv_mod_error_export(ctx, m);
-    quv_mod_fs_export(ctx, m);
-    quv_mod_misc_export(ctx, m);
-    quv_mod_streams_export(ctx, m);
-    quv_mod_signals_export(ctx, m);
-    quv_mod_timers_export(ctx, m);
-    quv_mod_udp_export(ctx, m);
-    quv_mod_worker_export(ctx, m);
-
-    return m;
-}
+#endif

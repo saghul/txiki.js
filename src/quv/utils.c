@@ -23,17 +23,30 @@
  * THE SOFTWARE.
  */
 
+#include <stdlib.h>
+
 #include "error.h"
 #include "utils.h"
+#include "vm.h"
 
 
+void quv_assert(const struct AssertionInfo info) {
+  fprintf(stderr,
+          "%s:%s%s Assertion `%s' failed.\n",
+          info.file_line,
+          info.function,
+          *info.function ? ":" : "",
+          info.message);
+  fflush(stderr);
+  abort();
+}
+
+// TODO: remove this.
 uv_loop_t *quv_get_loop(JSContext *ctx) {
-    quv_state_t *quv_state;
-    quv_state = JS_GetContextOpaque(ctx);
-    if (!quv_state) {
-        return NULL;
-    }
-    return &quv_state->uvloop;
+    QUVRuntime *qrt = JS_GetContextOpaque(ctx);
+    CHECK_NOT_NULL(qrt);
+
+    return QUV_GetLoop(qrt);
 }
 
 int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) {

@@ -25,8 +25,54 @@
 #ifndef QUV_UTILS_H
 #define QUV_UTILS_H
 
+#include <uv.h>
 #include "../quickjs-libuv.h"
 
+
+struct AssertionInfo {
+  const char* file_line;  // filename:line
+  const char* message;
+  const char* function;
+};
+
+#define ERROR_AND_ABORT(expr)                                                 \
+  do {                                                                        \
+    static const struct AssertionInfo args = {                                 \
+      __FILE__ ":" STRINGIFY(__LINE__), #expr, PRETTY_FUNCTION_NAME           \
+    };                                                                        \
+    quv_assert(args);                                                       \
+  } while (0)
+
+#ifdef __GNUC__
+#define LIKELY(expr) __builtin_expect(!!(expr), 1)
+#define UNLIKELY(expr) __builtin_expect(!!(expr), 0)
+#define PRETTY_FUNCTION_NAME __PRETTY_FUNCTION__
+#else
+#define LIKELY(expr) expr
+#define UNLIKELY(expr) expr
+#define PRETTY_FUNCTION_NAME ""
+#endif
+
+#define STRINGIFY_(x) #x
+#define STRINGIFY(x) STRINGIFY_(x)
+
+#define CHECK(expr)                                                           \
+  do {                                                                        \
+    if (UNLIKELY(!(expr))) {                                                  \
+      ERROR_AND_ABORT(expr);                                                  \
+    }                                                                         \
+  } while (0)
+
+#define CHECK_EQ(a, b) CHECK((a) == (b))
+#define CHECK_GE(a, b) CHECK((a) >= (b))
+#define CHECK_GT(a, b) CHECK((a) > (b))
+#define CHECK_LE(a, b) CHECK((a) <= (b))
+#define CHECK_LT(a, b) CHECK((a) < (b))
+#define CHECK_NE(a, b) CHECK((a) != (b))
+#define CHECK_NULL(val) CHECK((val) == NULL)
+#define CHECK_NOT_NULL(val) CHECK((val) != NULL)
+
+void quv_assert(const struct AssertionInfo info);
 
 #define JSUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_CONFIGURABLE )
 

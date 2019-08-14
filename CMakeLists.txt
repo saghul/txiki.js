@@ -79,6 +79,8 @@ add_executable(quv
     src/quv/timers.c
     src/quv/udp.c
     src/quv/utils.c
+    src/quv/vm.c
+    src/quv/worker.c
     ${CMAKE_CURRENT_BINARY_DIR}/repl.c
     ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
     $<TARGET_OBJECTS:qjs_obj>

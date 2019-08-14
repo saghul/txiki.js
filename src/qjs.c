@@ -44,8 +44,6 @@
 
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
-extern const uint8_t encoding[];
-extern const uint32_t encoding_size;
 
 
 static int eval_buf(JSContext *ctx, const void *buf, int buf_len,
@@ -230,11 +228,8 @@ static const JSMallocFunctions trace_mf = {
 #endif
 };
 
-#ifdef CONFIG_BIGNUM
-#define PROG_NAME "qjsbn"
-#else
-#define PROG_NAME "qjs"
-#endif
+
+#define PROG_NAME "quv"
 
 void help(void)
 {
@@ -252,6 +247,7 @@ void help(void)
 
 int main(int argc, char **argv)
 {
+    QUVRuntime *qrt;
     JSRuntime *rt;
     JSContext *ctx;
     struct trace_malloc_data trace_data = { NULL };
@@ -263,6 +259,8 @@ int main(int argc, char **argv)
     int empty_run = 0;
     int module = 0;
     
+    QUV_SetupArgs(argc, argv);
+
     /* cannot use getopt because we want to pass the command line to
        the script */
     optind = 1;
@@ -329,6 +327,7 @@ int main(int argc, char **argv)
         }
     }
 
+/* 
     if (trace_memory) {
         js_trace_malloc_init(&trace_data);
         rt = JS_NewRuntime2(&trace_mf, &trace_data);
@@ -344,35 +343,11 @@ int main(int argc, char **argv)
         fprintf(stderr, "qjs: cannot allocate JS context\n");
         exit(2);
     }
-
-    /* Initialize libuv stuff */
-    JSUV_InitCtxOpaque(ctx);
-
-    /* loader for ES6 modules */
-    JS_SetModuleLoaderFunc(rt, NULL, js_module_loader, NULL);
+*/
+    qrt = QUV_NewRuntime();
+    ctx = QUV_GetJSContext(qrt);
                            
     if (!empty_run) {
-        js_std_add_helpers(ctx, argc - optind, argv + optind);
-
-        /* system modules */
-        js_init_module_std(ctx, "std");
-        js_init_module_uv(ctx);
-
-        /* load globals */
-        const char *str =
-            "import * as std from 'std';\n"
-            "import * as uv from 'uv';\n"
-            "global.std = std;\n"
-            "global.uv = uv;\n"
-            "global.setTimeout = uv.setTimeout;\n"
-            "global.clearTimeout = uv.clearTimeout;\n"
-            "global.setInterval = uv.setInterval;\n"
-            "global.clearInterval = uv.clearInterval;\n";
-        eval_buf(ctx, str, strlen(str), "<input>", JS_EVAL_TYPE_MODULE);
-
-        /* Load TextEncoder / TextDecoder */
-        js_std_eval_binary(ctx, encoding, encoding_size, 0);
-
         if (expr) {
             if (eval_buf(ctx, expr, strlen(expr), "<cmdline>", 0))
                 goto fail;
@@ -395,45 +370,20 @@ int main(int argc, char **argv)
         if (interactive) {
             js_std_eval_binary(ctx, repl, repl_size, 0);
         }
-        quv_loop(ctx);
+        QUV_Run(qrt);
     }
     
+    /* 
     if (dump_memory) {
         JSMemoryUsage stats;
         JS_ComputeMemoryUsage(rt, &stats);
         JS_DumpMemoryUsage(stdout, &stats, rt);
     }
+    */
 
-    JS_FreeContext(ctx);
-    JS_FreeRuntime(rt);
-
-    if (empty_run && dump_memory) {
-        clock_t t[5];
-        double best[5];
-        int i, j;
-        for (i = 0; i < 100; i++) {
-            t[0] = clock();
-            rt = JS_NewRuntime();
-            t[1] = clock();
-            ctx = JS_NewContext(rt);
-            t[2] = clock();
-            JS_FreeContext(ctx);
-            t[3] = clock();
-            JS_FreeRuntime(rt);
-            t[4] = clock();
-            for (j = 4; j > 0; j--) {
-                double ms = 1000.0 * (t[j] - t[j - 1]) / CLOCKS_PER_SEC;
-                if (i == 0 || best[j] > ms)
-                    best[j] = ms;
-            }
-        }
-        printf("\nInstantiation times (ms): %.3f = %.3f+%.3f+%.3f+%.3f\n",
-               best[1] + best[2] + best[3] + best[4],
-               best[1], best[2], best[3], best[4]);
-    }
+    QUV_FreeRuntime(qrt);
     return 0;
  fail:
-    JS_FreeContext(ctx);
-    JS_FreeRuntime(rt);
+    QUV_FreeRuntime(qrt);
     return 1;
 }
