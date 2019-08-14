@@ -84,23 +84,36 @@ typedef struct {
 static JSUVStream *quv_tcp_get(JSContext *ctx, JSValueConst obj);
 static JSUVStream *quv_pipe_get(JSContext *ctx, JSValueConst obj);
 
+static void free_stream(JSUVStream *s) {
+    JSContext *ctx = s->ctx;
+    JS_FreeValue(ctx, s->accept.promise);
+    JS_FreeValue(ctx, s->accept.resolving_funcs[0]);
+    JS_FreeValue(ctx, s->accept.resolving_funcs[1]);
+    JS_FreeValue(ctx, s->read.promise);
+    JS_FreeValue(ctx, s->read.resolving_funcs[0]);
+    JS_FreeValue(ctx, s->read.resolving_funcs[1]);
+    JS_FreeValue(ctx, s->read.b.buffer);
+    js_free(ctx, s);
+}
+
 static void uv__stream_close_cb(uv_handle_t* handle) {
     JSUVStream *s = handle->data;
     if (s) {
         s->closed = 1;
-        if (s->finalized) {
-            JSContext *ctx = s->ctx;
-            js_free(ctx, s);
-        }
+        if (s->finalized)
+            free_stream(s);
     }
+}
+
+static void maybe_close(JSUVStream *s) {
+    if (!uv_is_closing(&s->h.handle))
+        uv_close(&s->h.handle, uv__stream_close_cb);
 }
 
 static JSValue quv_stream_close(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
-    if (!uv_is_closing(&s->h.handle)) {
-        uv_close(&s->h.handle, uv__stream_close_cb);
-    }
+    maybe_close(s);
     return JS_UNDEFINED;
 }
 
@@ -466,17 +479,16 @@ static JSValue quv_init_stream(JSContext *ctx, JSValue obj, JSUVStream *s) {
 static void quv_stream_finalizer(JSUVStream *s) {
     if (s) {
         s->finalized = 1;
-        if (s->closed) {
-            JSContext *ctx = s->ctx;
-            js_free(ctx, s);
-        } else if (!uv_is_closing(&s->h.handle)) {
-            uv_close(&s->h.handle, uv__stream_close_cb);
-        }
+        if (s->closed)
+            free_stream(s);
+        else
+            maybe_close(s);
     }
 }
 
 static void quv_stream_mark(JSRuntime *rt, JSUVStream *s, JS_MarkFunc *mark_func) {
     if (s) {
+        JS_MarkValue(rt, s->read.b.buffer, mark_func);
         JS_MarkValue(rt, s->read.promise, mark_func);
         JS_MarkValue(rt, s->read.resolving_funcs[0], mark_func);
         JS_MarkValue(rt, s->read.resolving_funcs[1], mark_func);

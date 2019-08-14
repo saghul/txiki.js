@@ -55,10 +55,9 @@ static void uv__signal_close_cb(uv_handle_t* handle) {
     }
 }
 
-static inline void maybe_close(JSUVSignalHandler *sh) {
-    if (!uv_is_closing((uv_handle_t*) &sh->handle)) {
+static void maybe_close(JSUVSignalHandler *sh) {
+    if (!uv_is_closing((uv_handle_t*) &sh->handle))
         uv_close((uv_handle_t*) &sh->handle, uv__signal_close_cb);
-    }
 }
 
 static void quv_signal_handler_finalizer(JSRuntime *rt, JSValue val) {
