@@ -29,12 +29,42 @@
 
 
 typedef struct {
-    uv_timer_t handle;
-    JSValue func;
-    JSValue obj;
     JSContext *ctx;
+    uv_timer_t handle;
     int interval;
+    JSValue obj;
+    JSValue func;
+    int argc;
+    JSValue argv[];
 } JSUVTimer;
+
+static void clear_timer(JSUVTimer *th) {
+    JSContext *ctx = th->ctx;
+
+    JS_FreeValue(ctx, th->func);
+    th->func = JS_UNDEFINED;
+
+    for (int i = 0; i < th->argc; i++) {
+        JS_FreeValue(ctx, th->argv[i]);
+        th->argv[i] = JS_UNDEFINED;
+    }
+    th->argc = 0;
+
+    JS_FreeValue(ctx, th->obj);
+    th->obj = JS_UNDEFINED;
+}
+
+static void call_timer(JSUVTimer *th) {
+    JSContext *ctx = th->ctx;
+    JSValue ret, func1;
+    /* 'func' might be destroyed when calling itself (if it frees the handler), so must take extra care */
+    func1 = JS_DupValue(ctx, th->func);
+    ret = JS_Call(ctx, func1, JS_UNDEFINED, th->argc, (JSValueConst *)th->argv);
+    JS_FreeValue(ctx, func1);
+    if (JS_IsException(ret))
+        quv_dump_error(ctx);
+    JS_FreeValue(ctx, ret);
+}
 
 static void uv__timer_close(uv_handle_t *handle) {
     JSUVTimer *th = handle->data;
@@ -47,16 +77,9 @@ static void uv__timer_close(uv_handle_t *handle) {
 static void uv__timer_cb(uv_timer_t *handle) {
     JSUVTimer *th = handle->data;
     if (th) {
-        JSContext *ctx = th->ctx;
-        JSValue func = th->func;
-        quv_call_handler(ctx, func);
-        if (!th->interval) {
-            th->func = JS_UNDEFINED;
-            JS_FreeValue(ctx, func);
-            JSValue obj = th->obj;
-            th->obj = JS_UNDEFINED;
-            JS_FreeValue(ctx, obj);  // decref
-        }
+        call_timer(th);
+        if (!th->interval)
+            clear_timer(th);
     }
 }
 
@@ -65,16 +88,21 @@ static JSClassID quv_timer_class_id;
 static void quv_timer_finalizer(JSRuntime *rt, JSValue val)
 {
     JSUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
-    if (th)
+    if (th) {
+        clear_timer(th);
         uv_close((uv_handle_t*)&th->handle, uv__timer_close);
+    }
 }
 
 static void quv_timer_mark(JSRuntime *rt, JSValueConst val,
                              JS_MarkFunc *mark_func)
 {
     JSUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
-    if (th)
+    if (th) {
         JS_MarkValue(rt, th->func, mark_func);
+        for (int i = 0; i < th->argc; i++)
+            JS_MarkValue(rt, th->argv[i], mark_func);
+    }
 }
 
 static JSClassDef quv_timer_class = {
@@ -83,9 +111,7 @@ static JSClassDef quv_timer_class = {
     .gc_mark = quv_timer_mark,
 }; 
 
-static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val,
-                                int argc, JSValueConst *argv, int magic)
-{
+static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
     int64_t delay;
     JSValueConst func;
     JSUVTimer *th;
@@ -106,7 +132,9 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val,
     if (JS_IsException(obj))
         return obj;
 
-    th = js_mallocz(ctx, sizeof(*th));
+    int nargs = argc - 2;
+
+    th = js_mallocz(ctx, sizeof(*th) + nargs * sizeof(JSValue));
     if (!th) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -115,10 +143,14 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val,
     th->ctx = ctx;
     uv_timer_init(loop, &th->handle);
     th->handle.data = th;
-    uv_timer_start(&th->handle, uv__timer_cb, delay, magic ? delay : 0 /* repeat */);
     th->interval = magic;
+    th->obj = JS_DupValue(ctx, obj);
     th->func = JS_DupValue(ctx, func);
-    th->obj = JS_DupValue(ctx, obj);  // incref
+    th->argc = nargs;
+    for(int i = 0; i < nargs; i++)
+        th->argv[i] = JS_DupValue(ctx, argv[i+2]);
+
+    uv_timer_start(&th->handle, uv__timer_cb, delay, magic ? delay : 0 /* repeat */);
 
     JS_SetOpaque(obj, th);
     return obj;
@@ -132,12 +164,7 @@ static JSValue quv_clearTimeout(JSContext *ctx, JSValueConst this_val,
         return JS_EXCEPTION;
 
     uv_timer_stop(&th->handle);
-    JSValue func = th->func;
-    th->func = JS_UNDEFINED;
-    JS_FreeValue(ctx, func);
-    JSValue obj = th->obj;
-    th->obj = JS_UNDEFINED;
-    JS_FreeValue(ctx, obj);  // decref
+    clear_timer(th);
 
     return JS_UNDEFINED;
 }
