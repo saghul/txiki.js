@@ -10,6 +10,7 @@
 - `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval`: standard timer functions.
 - `std`: reference to the `std` module.
 - `uv`: reference to the `uv` module.
+- `workerThis`: reference to the worker global state (inside a worker).
 
 ## `std` module
 
@@ -96,6 +97,11 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `UV_TTY_MODE_IO`
 - `UV_TTY_MODE_NORMAL`
 - `UV_TTY_MODE_RAW`
+
+### Worker(path)
+
+- `postMessage(obj)`
+- `terminate()`
 
 ### `uv.fs` module
 

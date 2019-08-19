@@ -1,9 +1,9 @@
 
 # quv — QuickJS ❤️ libuv
 
-This is an experiment in porting the [QuickJS] platform layer to use [libuv].
+This is an experiment in using [libuv] as the platform layer for [QuickJS].
 
-Currently the following is already implemented in the `qjs` interpreter, using libuv:
+Currently the following is already implemented in the `quv` (formerly `qjs`) interpreter, using libuv:
 
 - TCP and UDP sockets
 - TTY handles
@@ -14,6 +14,7 @@ Currently the following is already implemented in the `qjs` interpreter, using l
 - Event loop
 - High-resolution time
 - Miscellaneous utility functions
+- Worker threads
 
 Other extras:
 
@@ -29,7 +30,7 @@ CMake is necessary. This has been mostly tested on macOS, YMLMV.
 # Compile it!
 make
 # Run the REPL
-./build/qjs
+./build/quv
 ```
 
 [QuickJS]: https://bellard.org/quickjs/
