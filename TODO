@@ -1,3 +1,4 @@
 
-- threaded Worker
+- use JS_DefinePropertyValueStr for adding properties to new objects!
+- refactor js_load_file to use libuv
 - process spawning
