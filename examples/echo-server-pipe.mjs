@@ -1,8 +1,6 @@
 // Sample Pipe echo server.
 //
 
-'use strict';
-
 import { logError } from './utils.js';
 
 
@@ -25,7 +23,7 @@ async function handleConnection(conn) {
 (async () => {
     const p = new uv.Pipe();
 
-    p.bind(global.scriptArgs[1] || '/tmp/fooPipe');
+    p.bind(global.scriptArgs[2] || '/tmp/fooPipe');
     p.listen();
 
     console.log(`Listening on ${p.getsockname()}`); 

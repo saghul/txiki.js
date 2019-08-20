@@ -1,15 +1,13 @@
 // Sample Pipe echo client.
 //
 
-'use strict';
-
 import { logError } from './utils.js';
 
 
 (async () => {
     const p = new uv.Pipe();
     
-    await p.connect(global.scriptArgs[1] || '/tmp/fooPipe');
+    await p.connect(global.scriptArgs[2] || '/tmp/fooPipe');
     
     console.log(`Connected to ${p.getpeername()}`);
 

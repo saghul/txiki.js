@@ -1,15 +1,13 @@
 // Sample UDP echo server.
 //
 
-'use strict';
-
 import { addr, logError } from './utils.js';
 
 
 (async () => {
     const u = new uv.UDP();
 
-    u.bind({ip: global.scriptArgs[1] || '127.0.0.1', port: global.scriptArgs[2] || 1234});
+    u.bind({ip: global.scriptArgs[2] || '127.0.0.1', port: global.scriptArgs[3] || 1234});
     console.log(`Listening on ${addr(u.getsockname())}`); 
 
     let buf = new ArrayBuffer(1024);
