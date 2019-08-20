@@ -26,16 +26,17 @@ check the libuv documentation.
 
 All synchronous APIs return a Promise, there are no callbacks.
 
-- `cwd`
-- `environ`
-- `getenv`
-- `homedir`
-- `hrtime`
-- `isatty`
-- `setenv`
-- `signal`
-- `tmpdir`
-- `unsetenv`
+- `cwd()`
+- `environ()`
+- `getenv(name)`
+- `homedir()`
+- `hrtime()`
+- `isatty()`
+- `setenv(name, value)`
+- `signal(signum, cb)`
+- `spawn(args, options)`
+- `tmpdir()`
+- `unsetenv(name)`
 
 ### TCP([family])
 
@@ -102,6 +103,15 @@ All synchronous APIs return a Promise, there are no callbacks.
 
 - `postMessage(obj)`
 - `terminate()`
+
+### Process
+
+- `pid`
+- `stdin`
+- `stdout`
+- `stderr`
+- `kill(signum)`
+- `wait()`
 
 ### `uv.fs` module
 

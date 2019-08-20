@@ -28,6 +28,8 @@
 #include "../quickjs-libuv.h"
 
 
+JSValue js_new_uv_pipe(JSContext *ctx);
+uv_stream_t *quv_pipe_get_stream(JSContext *ctx, JSValueConst obj);
 void quv_mod_streams_init(JSContext *ctx, JSModuleDef *m);
 void quv_mod_streams_export(JSContext *ctx, JSModuleDef *m);
 

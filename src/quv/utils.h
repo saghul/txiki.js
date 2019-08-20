@@ -83,5 +83,6 @@ void quv_call_handler(JSContext *ctx, JSValueConst func);
 void quv_dump_error(JSContext *ctx);
 JSValue QUV_NewResolvedPromise(JSContext *ctx, JSValueConst arg);
 JSValue QUV_NewRejectedPromise(JSContext *ctx, JSValueConst arg);
+void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len);
 
 #endif

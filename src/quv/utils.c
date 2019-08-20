@@ -204,3 +204,12 @@ JSValue QUV_NewResolvedPromise(JSContext *ctx, JSValueConst arg) {
 JSValue QUV_NewRejectedPromise(JSContext *ctx, JSValueConst arg) {
     return quv__completed_promise(ctx, arg, 1);
 }
+
+void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len) {
+    uint32_t i;
+    if (tab) {
+        for(i = 0; i < len; i++)
+            JS_FreeAtom(ctx, tab[i].atom);
+        js_free(ctx, tab);
+    }
+}

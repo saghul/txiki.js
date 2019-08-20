@@ -31,7 +31,6 @@
 
 /* Forward declarations */
 static JSValue js_new_uv_tcp(JSContext *ctx, int af);
-static JSValue js_new_uv_pipe(JSContext *ctx);
 
 
 /* Stream */
@@ -837,8 +836,7 @@ static JSClassDef quv_pipe_class = {
     .gc_mark = quv_pipe_mark,
 };
 
-static JSValue js_new_uv_pipe(JSContext *ctx)
-{
+JSValue js_new_uv_pipe(JSContext *ctx) {
     JSUVStream *s;
     JSValue obj;
     uv_loop_t *loop;
@@ -863,7 +861,7 @@ static JSValue js_new_uv_pipe(JSContext *ctx)
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         js_free(ctx, s);
-        return JS_ThrowInternalError(ctx, "couldn't initialize TTY handle");
+        return JS_ThrowInternalError(ctx, "couldn't initialize Pipe handle");
     }
 
     return quv_init_stream(ctx, obj, s);
@@ -878,6 +876,13 @@ static JSValue quv_pipe_constructor(JSContext *ctx, JSValueConst new_target,
 static JSUVStream *quv_pipe_get(JSContext *ctx, JSValueConst obj)
 {
     return JS_GetOpaque2(ctx, obj, quv_pipe_class_id);
+}
+
+uv_stream_t *quv_pipe_get_stream(JSContext *ctx, JSValueConst obj) {
+    JSUVStream *s = quv_pipe_get(ctx, obj);
+    if (s)
+        return &s->h.stream;
+    return NULL;
 }
 
 static JSValue quv_pipe_getsockpeername(JSContext *ctx, JSValueConst this_val,
