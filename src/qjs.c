@@ -49,10 +49,10 @@ static int eval_buf(JSContext *ctx, const void *buf, int buf_len,
     return ret;
 }
 
-static int eval_file(JSContext *ctx, const char *filename, int eval_flags)
+static int eval_file(JSContext *ctx, const char *filename)
 {
     uint8_t *buf;
-    int ret;
+    int ret, eval_flags;
     size_t buf_len;
     
     buf = js_load_file(ctx, &buf_len, filename);
@@ -60,6 +60,11 @@ static int eval_file(JSContext *ctx, const char *filename, int eval_flags)
         perror(filename);
         exit(1);
     }
+
+    if (JS_DetectModule((const char *)buf, buf_len))
+        eval_flags = JS_EVAL_TYPE_MODULE;
+    else
+        eval_flags = JS_EVAL_TYPE_GLOBAL;
     ret = eval_buf(ctx, buf, buf_len, filename, eval_flags);
     js_free(ctx, buf);
     return ret;
@@ -70,11 +75,10 @@ static int eval_file(JSContext *ctx, const char *filename, int eval_flags)
 void help(void)
 {
     printf("QuickJS version " CONFIG_VERSION "\n"
-           "usage: " PROG_NAME " [options] [files]\n"
+           "usage: " PROG_NAME " [options] [file]\n"
            "-h  --help         list options\n"
            "-e  --eval EXPR    evaluate EXPR\n"
            "-i  --interactive  go to interactive mode\n"
-           "-m  --module       load as ES6 module (default if .mjs file extension)\n"
            "-q  --quit         just instantiate the interpreter and quit\n");
     exit(1);
 }
@@ -87,7 +91,6 @@ int main(int argc, char **argv)
     char *expr = NULL;
     int interactive = 0;
     int empty_run = 0;
-    int module = 0;
     
     QUV_SetupArgs(argc, argv);
 
@@ -132,10 +135,6 @@ int main(int argc, char **argv)
                 interactive++;
                 continue;
             }
-            if (opt == 'm' || !strcmp(longopt, "module")) {
-                module = 1;
-                continue;
-            }
             if (opt == 'q' || !strcmp(longopt, "quit")) {
                 empty_run++;
                 continue;
@@ -161,15 +160,10 @@ int main(int argc, char **argv)
             /* interactive mode */
             interactive = 1;
         } else {
-            int eval_flags;
             const char *filename;
             filename = argv[optind];
 
-            if (module || has_suffix(filename, ".mjs"))
-                eval_flags = JS_EVAL_TYPE_MODULE;
-            else
-                eval_flags = JS_EVAL_TYPE_GLOBAL;
-            if (eval_file(ctx, filename, eval_flags))
+            if (eval_file(ctx, filename))
                 goto fail;
         }
         if (interactive) {
