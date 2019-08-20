@@ -222,6 +222,7 @@ static void uv__read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
     JSValue obj = JS_ReadObject(ctx, (const uint8_t *) buf->base, buf->len, 0);
     maybe_emit_event(w, 0, obj);
     JS_FreeValue(ctx, obj);
+    js_free(ctx, buf->base);
 }
 
 static JSValue quv_new_worker(JSContext *ctx, int channel_fd, BOOL is_main) {
