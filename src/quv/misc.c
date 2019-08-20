@@ -46,10 +46,10 @@ static JSValue quv_uname(JSContext *ctx, JSValueConst this_val, int argc, JSValu
         return quv_throw_errno(ctx, r);
 
     obj = JS_NewObjectProto(ctx, JS_NULL);
-    JS_SetPropertyStr(ctx, obj, "sysname", JS_NewString(ctx, utsname.sysname));
-    JS_SetPropertyStr(ctx, obj, "release", JS_NewString(ctx, utsname.release));
-    JS_SetPropertyStr(ctx, obj, "version", JS_NewString(ctx, utsname.version));
-    JS_SetPropertyStr(ctx, obj, "machine", JS_NewString(ctx, utsname.machine));
+    JS_DefinePropertyValueStr(ctx, obj, "sysname", JS_NewString(ctx, utsname.sysname), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, obj, "release", JS_NewString(ctx, utsname.release), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, obj, "version", JS_NewString(ctx, utsname.version), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, obj, "machine", JS_NewString(ctx, utsname.machine), JS_PROP_C_W_E);
 
     return obj;
 }
@@ -76,7 +76,7 @@ static JSValue quv_environ(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
 
     for (int i = 0; i < envcount; i++) {
-        JS_SetPropertyStr(ctx, obj, env[i].name, JS_NewString(ctx, env[i].value));
+        JS_DefinePropertyValueStr(ctx, obj, env[i].name, JS_NewString(ctx, env[i].value), JS_PROP_C_W_E);
     }
 
     uv_os_free_environ(env, envcount);

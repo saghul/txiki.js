@@ -142,9 +142,9 @@ static void uv__udp_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf
             is_reject = 1;
         } else {
             arg = JS_NewObjectProto(ctx, JS_NULL);
-            JS_SetPropertyStr(ctx, arg, "nread", JS_NewInt32(ctx, nread));
-            JS_SetPropertyStr(ctx, arg, "flags", JS_NewInt32(ctx, flags));
-            JS_SetPropertyStr(ctx, arg, "addr", quv_addr2obj(ctx, addr));
+            JS_DefinePropertyValueStr(ctx, arg, "nread", JS_NewInt32(ctx, nread), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, arg, "flags", JS_NewInt32(ctx, flags), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, arg, "addr", quv_addr2obj(ctx, addr), JS_PROP_C_W_E);
         }
 
         ret = JS_Call(ctx, u->read.resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);

@@ -783,8 +783,8 @@ static JSValue quv_tty_getWinSize(JSContext *ctx, JSValueConst this_val,
         return quv_throw_errno(ctx, r);
 
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
-    JS_SetPropertyStr(ctx, obj, "width", JS_NewInt32(ctx, width));
-    JS_SetPropertyStr(ctx, obj, "height", JS_NewInt32(ctx, height));
+    JS_DefinePropertyValueStr(ctx, obj, "width", JS_NewInt32(ctx, width), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, obj, "height", JS_NewInt32(ctx, height), JS_PROP_C_W_E);
     return obj;
 }
 

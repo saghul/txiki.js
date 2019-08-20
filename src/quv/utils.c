@@ -99,9 +99,9 @@ JSValue quv_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
         uv_ip4_name(addr4, buf, sizeof(buf));
 
         obj = JS_NewObjectProto(ctx, JS_NULL);
-        JS_SetPropertyStr(ctx, obj, "family", JS_NewInt32(ctx, AF_INET));
-        JS_SetPropertyStr(ctx, obj, "ip", JS_NewString(ctx, buf));
-        JS_SetPropertyStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr4->sin_port)));
+        JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, AF_INET), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, obj, "ip", JS_NewString(ctx, buf), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr4->sin_port)), JS_PROP_C_W_E);
         
         return obj;
     }
@@ -112,11 +112,11 @@ JSValue quv_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
         uv_ip6_name(addr6, buf, sizeof(buf));
 
         obj = JS_NewObjectProto(ctx, JS_NULL);
-        JS_SetPropertyStr(ctx, obj, "family", JS_NewInt32(ctx, AF_INET6));
-        JS_SetPropertyStr(ctx, obj, "ip", JS_NewString(ctx, buf));
-        JS_SetPropertyStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr6->sin6_port)));
-        JS_SetPropertyStr(ctx, obj, "flowinfo", JS_NewInt32(ctx, ntohl(addr6->sin6_flowinfo)));
-        JS_SetPropertyStr(ctx, obj, "scopeId", JS_NewInt32(ctx, addr6->sin6_scope_id));
+        JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, AF_INET6), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, obj, "ip", JS_NewString(ctx, buf), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr6->sin6_port)), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, obj, "flowinfo", JS_NewInt32(ctx, ntohl(addr6->sin6_flowinfo)), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, obj, "scopeId", JS_NewInt32(ctx, addr6->sin6_scope_id), JS_PROP_C_W_E);
         
         return obj;
     }
