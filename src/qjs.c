@@ -1,6 +1,7 @@
 /*
- * QuickJS stand alone interpreter
- * 
+ * QuickJS + libuv stand alone interpreter
+ *
+ * Copyright (c) 2019-present Saúl Ibarra Corretgé
  * Copyright (c) 2017-2018 Fabrice Bellard
  * Copyright (c) 2017-2018 Charlie Gordon
  *
@@ -22,21 +23,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <inttypes.h>
-#include <string.h>
-#include <assert.h>
-#include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <time.h>
-#if defined(__APPLE__)
-#include <malloc/malloc.h>
-#elif defined(__linux__)
-#include <malloc.h>
-#endif
 
 #include "cutils.h"
 #include "quickjs-libc.h"
@@ -79,156 +65,6 @@ static int eval_file(JSContext *ctx, const char *filename, int eval_flags)
     return ret;
 }
 
-#if defined(__APPLE__)
-#define MALLOC_OVERHEAD  0
-#else
-#define MALLOC_OVERHEAD  8
-#endif
-
-struct trace_malloc_data {
-    uint8_t *base;
-};
-
-static inline unsigned long long js_trace_malloc_ptr_offset(uint8_t *ptr,
-                                                struct trace_malloc_data *dp)
-{
-    return ptr - dp->base;
-}
-
-/* default memory allocation functions with memory limitation */
-static inline size_t js_trace_malloc_usable_size(void *ptr)
-{
-#if defined(__APPLE__)
-    return malloc_size(ptr);
-#elif defined(_WIN32)
-    return _msize(ptr);
-#elif defined(EMSCRIPTEN)
-    return 0;
-#elif defined(__linux__)
-    return malloc_usable_size(ptr);
-#else
-    /* change this to `return 0;` if compilation fails */
-    return malloc_usable_size(ptr);
-#endif
-}
-
-static void __attribute__((format(printf, 2, 3)))
-    js_trace_malloc_printf(JSMallocState *s, const char *fmt, ...)
-{
-    va_list ap;
-    int c;
-
-    va_start(ap, fmt);
-    while ((c = *fmt++) != '\0') {
-        if (c == '%') {
-            /* only handle %p and %zd */
-            if (*fmt == 'p') {
-                uint8_t *ptr = va_arg(ap, void *);
-                if (ptr == NULL) {
-                    printf("NULL");
-                } else {
-                    printf("H%+06lld.%zd",
-                           js_trace_malloc_ptr_offset(ptr, s->opaque),
-                           js_trace_malloc_usable_size(ptr));
-                }
-                fmt++;
-                continue;
-            }
-            if (fmt[0] == 'z' && fmt[1] == 'd') {
-                size_t sz = va_arg(ap, size_t);
-                printf("%zd", sz);
-                fmt += 2;
-                continue;
-            }
-        }
-        putc(c, stdout);
-    }
-    va_end(ap);
-}
-
-static void js_trace_malloc_init(struct trace_malloc_data *s)
-{
-    free(s->base = malloc(8));
-}
-
-static void *js_trace_malloc(JSMallocState *s, size_t size)
-{
-    void *ptr;
-
-    /* Do not allocate zero bytes: behavior is platform dependent */
-    assert(size != 0);
-
-    if (unlikely(s->malloc_size + size > s->malloc_limit))
-        return NULL;
-    ptr = malloc(size);
-    js_trace_malloc_printf(s, "A %zd -> %p\n", size, ptr);
-    if (ptr) {
-        s->malloc_count++;
-        s->malloc_size += js_trace_malloc_usable_size(ptr) + MALLOC_OVERHEAD;
-    }
-    return ptr;
-}
-
-static void js_trace_free(JSMallocState *s, void *ptr)
-{
-    if (!ptr)
-        return;
-
-    js_trace_malloc_printf(s, "F %p\n", ptr);
-    s->malloc_count--;
-    s->malloc_size -= js_trace_malloc_usable_size(ptr) + MALLOC_OVERHEAD;
-    free(ptr);
-}
-
-static void *js_trace_realloc(JSMallocState *s, void *ptr, size_t size)
-{
-    size_t old_size;
-
-    if (!ptr) {
-        if (size == 0)
-            return NULL;
-        return js_trace_malloc(s, size);
-    }
-    old_size = js_trace_malloc_usable_size(ptr);
-    if (size == 0) {
-        js_trace_malloc_printf(s, "R %zd %p\n", size, ptr);
-        s->malloc_count--;
-        s->malloc_size -= old_size + MALLOC_OVERHEAD;
-        free(ptr);
-        return NULL;
-    }
-    if (s->malloc_size + size - old_size > s->malloc_limit)
-        return NULL;
-
-    js_trace_malloc_printf(s, "R %zd %p", size, ptr);
-
-    ptr = realloc(ptr, size);
-    js_trace_malloc_printf(s, " -> %p\n", ptr);
-    if (ptr) {
-        s->malloc_size += js_trace_malloc_usable_size(ptr) - old_size;
-    }
-    return ptr;
-}
-
-static const JSMallocFunctions trace_mf = {
-    js_trace_malloc,
-    js_trace_free,
-    js_trace_realloc,
-#if defined(__APPLE__)
-    malloc_size,
-#elif defined(_WIN32)
-    (size_t (*)(const void *))_msize,
-#elif defined(EMSCRIPTEN)
-    NULL,
-#elif defined(__linux__)
-    (size_t (*)(const void *))malloc_usable_size,
-#else
-    /* change this to `NULL,` if compilation fails */
-    malloc_usable_size,
-#endif
-};
-
-
 #define PROG_NAME "quv"
 
 void help(void)
@@ -239,8 +75,6 @@ void help(void)
            "-e  --eval EXPR    evaluate EXPR\n"
            "-i  --interactive  go to interactive mode\n"
            "-m  --module       load as ES6 module (default if .mjs file extension)\n"
-           "-T  --trace        trace memory allocation\n"
-           "-d  --dump         dump the memory usage stats\n"
            "-q  --quit         just instantiate the interpreter and quit\n");
     exit(1);
 }
@@ -248,14 +82,10 @@ void help(void)
 int main(int argc, char **argv)
 {
     QUVRuntime *qrt;
-    JSRuntime *rt;
     JSContext *ctx;
-    struct trace_malloc_data trace_data = { NULL };
     int optind;
     char *expr = NULL;
     int interactive = 0;
-    int dump_memory = 0;
-    int trace_memory = 0;
     int empty_run = 0;
     int module = 0;
     
@@ -306,14 +136,6 @@ int main(int argc, char **argv)
                 module = 1;
                 continue;
             }
-            if (opt == 'd' || !strcmp(longopt, "dump")) {
-                dump_memory++;
-                continue;
-            }
-            if (opt == 'T' || !strcmp(longopt, "trace")) {
-                trace_memory++;
-                continue;
-            }
             if (opt == 'q' || !strcmp(longopt, "quit")) {
                 empty_run++;
                 continue;
@@ -327,23 +149,6 @@ int main(int argc, char **argv)
         }
     }
 
-/* 
-    if (trace_memory) {
-        js_trace_malloc_init(&trace_data);
-        rt = JS_NewRuntime2(&trace_mf, &trace_data);
-    } else {
-        rt = JS_NewRuntime();
-    }
-    if (!rt) {
-        fprintf(stderr, "qjs: cannot allocate JS runtime\n");
-        exit(2);
-    }
-    ctx = JS_NewContext(rt);
-    if (!ctx) {
-        fprintf(stderr, "qjs: cannot allocate JS context\n");
-        exit(2);
-    }
-*/
     qrt = QUV_NewRuntime();
     ctx = QUV_GetJSContext(qrt);
                            
@@ -372,14 +177,6 @@ int main(int argc, char **argv)
         }
         QUV_Run(qrt);
     }
-    
-    /* 
-    if (dump_memory) {
-        JSMemoryUsage stats;
-        JS_ComputeMemoryUsage(rt, &stats);
-        JS_DumpMemoryUsage(stdout, &stats, rt);
-    }
-    */
 
     QUV_FreeRuntime(qrt);
     return 0;
