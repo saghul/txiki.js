@@ -97,8 +97,8 @@ static JSValue quv_signal(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
-    uint32_t sig_num;
-    if (JS_ToUint32(ctx, &sig_num, argv[0]))
+    int32_t sig_num;
+    if (JS_ToInt32(ctx, &sig_num, argv[0]))
         return JS_EXCEPTION;
 
     JSValueConst func = argv[1];
