@@ -189,6 +189,7 @@ static inline JSValue quv__completed_promise(JSContext *ctx, JSValueConst arg, i
 
     ret = JS_Call(ctx, resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
 
+    JS_FreeValue(ctx, arg);
     JS_FreeValue(ctx, ret);
     JS_FreeValue(ctx, resolving_funcs[0]);
     JS_FreeValue(ctx, resolving_funcs[1]);
