@@ -30,7 +30,7 @@
 
 
 /* Forward declarations */
-static JSValue js_new_uv_tcp(JSContext *ctx, int af);
+static JSValue quv_new_tcp(JSContext *ctx, int af);
 
 
 /* Stream */
@@ -59,32 +59,32 @@ typedef struct {
         JSValue promise;
         JSValue resolving_funcs[2];
     } accept;
-} JSUVStream;
+} QUVStream;
 
 typedef struct {
     uv_connect_t req;
     JSValue promise;
     JSValue resolving_funcs[2];
-} JSUVConnectReq;
+} QUVConnectReq;
 
 typedef struct {
     uv_shutdown_t req;
     JSValue promise;
     JSValue resolving_funcs[2];
-} JSUVShutdownReq;
+} QUVShutdownReq;
 
 typedef struct {
     uv_write_t req;
     JSValue data;
     JSValue promise;
     JSValue resolving_funcs[2];
-} JSUVWriteReq;
+} QUVWriteReq;
 
-static JSUVStream *quv_tcp_get(JSContext *ctx, JSValueConst obj);
-static JSUVStream *quv_pipe_get(JSContext *ctx, JSValueConst obj);
+static QUVStream *quv_tcp_get(JSContext *ctx, JSValueConst obj);
+static QUVStream *quv_pipe_get(JSContext *ctx, JSValueConst obj);
 
 static void uv__stream_close_cb(uv_handle_t* handle) {
-    JSUVStream *s = handle->data;
+    QUVStream *s = handle->data;
     if (s) {
         s->closed = 1;
         if (s->finalized)
@@ -92,12 +92,12 @@ static void uv__stream_close_cb(uv_handle_t* handle) {
     }
 }
 
-static void maybe_close(JSUVStream *s) {
+static void maybe_close(QUVStream *s) {
     if (!uv_is_closing(&s->h.handle))
         uv_close(&s->h.handle, uv__stream_close_cb);
 }
 
-static JSValue quv_stream_close(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+static JSValue quv_stream_close(JSContext *ctx, QUVStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
     maybe_close(s);
@@ -105,7 +105,7 @@ static JSValue quv_stream_close(JSContext *ctx, JSUVStream *s, int argc, JSValue
 }
 
 static void uv__stream_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
-    JSUVStream *s = handle->data;
+    QUVStream *s = handle->data;
     if (s) {
         buf->base = (char*) s->read.b.data;
         buf->len = s->read.b.len;;
@@ -117,7 +117,7 @@ static void uv__stream_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_b
 }
 
 static void uv__stream_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
-    JSUVStream *s = handle->data;
+    QUVStream *s = handle->data;
     if (s) {
         uv_read_stop(handle);
 
@@ -129,7 +129,7 @@ static void uv__stream_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_
             if (nread == UV_EOF) {
                 arg = JS_UNDEFINED;
             } else {
-                arg = js_new_uv_error(ctx, nread);
+                arg = quv_new_error(ctx, nread);
                 is_reject = 1;
             }
         } else {
@@ -155,7 +155,7 @@ static void uv__stream_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_
     }
 }
 
-static JSValue quv_stream_read(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+static JSValue quv_stream_read(JSContext *ctx, QUVStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
     if (!JS_IsUndefined(s->read.promise))
@@ -191,15 +191,15 @@ static JSValue quv_stream_read(JSContext *ctx, JSUVStream *s, int argc, JSValueC
 }
 
 static void uv__stream_write_cb(uv_write_t* req, int status) {
-    JSUVStream *s = req->handle->data;
+    QUVStream *s = req->handle->data;
     if (s) {
         JSContext *ctx = s->ctx;
-        JSUVWriteReq *wr = req->data;
+        QUVWriteReq *wr = req->data;
 
         int is_reject = 0;
         JSValue arg, ret;
         if (status < 0) {
-            arg = js_new_uv_error(ctx, status);
+            arg = quv_new_error(ctx, status);
             is_reject = 1;
         } else {
             arg = JS_UNDEFINED;
@@ -218,7 +218,7 @@ static void uv__stream_write_cb(uv_write_t* req, int status) {
     }
 }
 
-static JSValue quv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+static JSValue quv_stream_write(JSContext *ctx, QUVStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
 
@@ -266,7 +266,7 @@ static JSValue quv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSValue
         len -= r;
     }
 
-    JSUVWriteReq *wr = js_malloc(ctx, sizeof(*wr));
+    QUVWriteReq *wr = js_malloc(ctx, sizeof(*wr));
     if (!wr)
         return JS_EXCEPTION;
 
@@ -287,15 +287,15 @@ static JSValue quv_stream_write(JSContext *ctx, JSUVStream *s, int argc, JSValue
 }
 
 static void uv__stream_shutdown_cb(uv_shutdown_t* req, int status) {
-    JSUVStream *s = req->handle->data;
+    QUVStream *s = req->handle->data;
     if (s) {
         JSContext *ctx = s->ctx;
-        JSUVShutdownReq *sr = req->data;
+        QUVShutdownReq *sr = req->data;
         JSValue ret;
         if (status == 0) {
             ret = JS_Call(ctx, sr->resolving_funcs[0], JS_UNDEFINED, 0, NULL);
         } else {
-            JSValue error = js_new_uv_error(ctx, status);
+            JSValue error = quv_new_error(ctx, status);
             ret = JS_Call(ctx, sr->resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
             JS_FreeValue(ctx, error);
         }
@@ -310,11 +310,11 @@ static void uv__stream_shutdown_cb(uv_shutdown_t* req, int status) {
     }
 }
 
-static JSValue quv_stream_shutdown(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+static JSValue quv_stream_shutdown(JSContext *ctx, QUVStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
 
-    JSUVShutdownReq *sr = js_malloc(ctx, sizeof(*sr));
+    QUVShutdownReq *sr = js_malloc(ctx, sizeof(*sr));
     if (!sr)
         return JS_EXCEPTION;
     sr->req.data = sr;
@@ -328,7 +328,7 @@ static JSValue quv_stream_shutdown(JSContext *ctx, JSUVStream *s, int argc, JSVa
     return promise;
 }
 
-static JSValue quv_stream_fileno(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+static JSValue quv_stream_fileno(JSContext *ctx, QUVStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
     int r;
@@ -341,15 +341,15 @@ static JSValue quv_stream_fileno(JSContext *ctx, JSUVStream *s, int argc, JSValu
 }
 
 static void uv__stream_connect_cb(uv_connect_t* req, int status) {
-    JSUVStream *s = req->handle->data;
+    QUVStream *s = req->handle->data;
     if (s) {
         JSContext *ctx = s->ctx;
-        JSUVConnectReq *cr = req->data;
+        QUVConnectReq *cr = req->data;
         JSValue ret;
         if (status == 0) {
             ret = JS_Call(ctx, cr->resolving_funcs[0], JS_UNDEFINED, 0, NULL);
         } else {
-            JSValue error = js_new_uv_error(ctx, status);
+            JSValue error = quv_new_error(ctx, status);
             ret = JS_Call(ctx, cr->resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
             JS_FreeValue(ctx, error);
         }
@@ -365,7 +365,7 @@ static void uv__stream_connect_cb(uv_connect_t* req, int status) {
 }
 
 static void uv__stream_connection_cb(uv_stream_t* handle, int status) {
-    JSUVStream *s = handle->data;
+    QUVStream *s = handle->data;
     if (s) {
         if (JS_IsUndefined(s->accept.promise)) {
             // TODO - handle this.
@@ -376,14 +376,14 @@ static void uv__stream_connection_cb(uv_stream_t* handle, int status) {
         JSValue ret;
         int is_error = 0;
         if (status == 0) {
-            JSUVStream *t2;
+            QUVStream *t2;
             switch (handle->type) {
                 case UV_TCP:
-                    arg = js_new_uv_tcp(ctx, AF_UNSPEC);
+                    arg = quv_new_tcp(ctx, AF_UNSPEC);
                     t2 = quv_tcp_get(ctx, arg);
                     break;
                 case UV_NAMED_PIPE:
-                    arg = js_new_uv_pipe(ctx);
+                    arg = quv_new_pipe(ctx);
                     t2 = quv_pipe_get(ctx, arg);
                     break;
                 default:
@@ -393,11 +393,11 @@ static void uv__stream_connection_cb(uv_stream_t* handle, int status) {
             int r = uv_accept(handle, &t2->h.stream);
             if (r != 0) {
                 JS_FreeValue(ctx, arg);
-                arg = js_new_uv_error(ctx, r);
+                arg = quv_new_error(ctx, r);
                 is_error = 1;
             }
         } else {
-            arg = js_new_uv_error(ctx, status);
+            arg = quv_new_error(ctx, status);
             is_error = 1;
         }
 
@@ -415,7 +415,7 @@ static void uv__stream_connection_cb(uv_stream_t* handle, int status) {
     }
 }
 
-static JSValue quv_stream_listen(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+static JSValue quv_stream_listen(JSContext *ctx, QUVStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
     uint32_t backlog = 511;
@@ -430,7 +430,7 @@ static JSValue quv_stream_listen(JSContext *ctx, JSUVStream *s, int argc, JSValu
     return JS_UNDEFINED;
 }
 
-static JSValue quv_stream_accept(JSContext *ctx, JSUVStream *s, int argc, JSValueConst *argv) {
+static JSValue quv_stream_accept(JSContext *ctx, QUVStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
     if (!JS_IsUndefined(s->accept.promise))
@@ -440,7 +440,7 @@ static JSValue quv_stream_accept(JSContext *ctx, JSUVStream *s, int argc, JSValu
     return promise;
 }
 
-static JSValue quv_init_stream(JSContext *ctx, JSValue obj, JSUVStream *s) {
+static JSValue quv_init_stream(JSContext *ctx, JSValue obj, QUVStream *s) {
     s->ctx = ctx;
     s->closed = 0;
     s->finalized = 0;
@@ -463,7 +463,7 @@ static JSValue quv_init_stream(JSContext *ctx, JSValue obj, JSUVStream *s) {
     return obj;
 }
 
-static void quv_stream_finalizer(JSRuntime *rt, JSUVStream *s) {
+static void quv_stream_finalizer(JSRuntime *rt, QUVStream *s) {
     if (s) {
         JS_FreeValueRT(rt, s->accept.promise);
         JS_FreeValueRT(rt, s->accept.resolving_funcs[0]);
@@ -480,7 +480,7 @@ static void quv_stream_finalizer(JSRuntime *rt, JSUVStream *s) {
     }
 }
 
-static void quv_stream_mark(JSRuntime *rt, JSUVStream *s, JS_MarkFunc *mark_func) {
+static void quv_stream_mark(JSRuntime *rt, QUVStream *s, JS_MarkFunc *mark_func) {
     if (s) {
         JS_MarkValue(rt, s->read.b.buffer, mark_func);
         JS_MarkValue(rt, s->read.promise, mark_func);
@@ -498,12 +498,12 @@ static void quv_stream_mark(JSRuntime *rt, JSUVStream *s, JS_MarkFunc *mark_func
 static JSClassID quv_tcp_class_id;
 
 static void quv_tcp_finalizer(JSRuntime *rt, JSValue val) {
-    JSUVStream *t = JS_GetOpaque(val, quv_tcp_class_id);
+    QUVStream *t = JS_GetOpaque(val, quv_tcp_class_id);
     quv_stream_finalizer(rt, t);
 }
 
 static void quv_tcp_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
-    JSUVStream *t = JS_GetOpaque(val, quv_tcp_class_id);
+    QUVStream *t = JS_GetOpaque(val, quv_tcp_class_id);
     quv_stream_mark(rt, t, mark_func);
 }
 
@@ -513,9 +513,9 @@ static JSClassDef quv_tcp_class = {
     .gc_mark = quv_tcp_mark,
 };
 
-static JSValue js_new_uv_tcp(JSContext *ctx, int af)
+static JSValue quv_new_tcp(JSContext *ctx, int af)
 {
-    JSUVStream *s;
+    QUVStream *s;
     JSValue obj;
     uv_loop_t *loop;
     int r;
@@ -551,10 +551,10 @@ static JSValue quv_tcp_constructor(JSContext *ctx, JSValueConst new_target,
     int af = AF_UNSPEC;
     if (!JS_IsUndefined(argv[0]) && JS_ToInt32(ctx, &af, argv[0]))
         return JS_EXCEPTION;
-    return js_new_uv_tcp(ctx, af);
+    return quv_new_tcp(ctx, af);
 }
 
-static JSUVStream *quv_tcp_get(JSContext *ctx, JSValueConst obj)
+static QUVStream *quv_tcp_get(JSContext *ctx, JSValueConst obj)
 {
     return JS_GetOpaque2(ctx, obj, quv_tcp_class_id);
 }
@@ -562,7 +562,7 @@ static JSUVStream *quv_tcp_get(JSContext *ctx, JSValueConst obj)
 static JSValue quv_tcp_getsockpeername(JSContext *ctx, JSValueConst this_val,
                                          int argc, JSValueConst *argv, int magic)
 {
-    JSUVStream *t = quv_tcp_get(ctx, this_val);
+    QUVStream *t = quv_tcp_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
     int r;
@@ -584,7 +584,7 @@ static JSValue quv_tcp_getsockpeername(JSContext *ctx, JSValueConst this_val,
 static JSValue quv_tcp_connect(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tcp_get(ctx, this_val);
+    QUVStream *t = quv_tcp_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
 
@@ -594,7 +594,7 @@ static JSValue quv_tcp_connect(JSContext *ctx, JSValueConst this_val,
     if (r != 0)
         return JS_EXCEPTION;
 
-    JSUVConnectReq *cr = js_malloc(ctx, sizeof(*cr));
+    QUVConnectReq *cr = js_malloc(ctx, sizeof(*cr));
     if (!cr)
         return JS_EXCEPTION;
     cr->req.data = cr;
@@ -611,7 +611,7 @@ static JSValue quv_tcp_connect(JSContext *ctx, JSValueConst this_val,
 static JSValue quv_tcp_bind(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tcp_get(ctx, this_val);
+    QUVStream *t = quv_tcp_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
 
@@ -635,49 +635,49 @@ static JSValue quv_tcp_bind(JSContext *ctx, JSValueConst this_val,
 static JSValue quv_tcp_close(JSContext *ctx, JSValueConst this_val,
                                int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tcp_get(ctx, this_val);
+    QUVStream *t = quv_tcp_get(ctx, this_val);
     return quv_stream_close(ctx, t, argc, argv);
 }
 
 static JSValue quv_tcp_read(JSContext *ctx, JSValueConst this_val,
                               int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tcp_get(ctx, this_val);
+    QUVStream *t = quv_tcp_get(ctx, this_val);
     return quv_stream_read(ctx, t, argc, argv);
 }
 
 static JSValue quv_tcp_write(JSContext *ctx, JSValueConst this_val,
                                int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tcp_get(ctx, this_val);
+    QUVStream *t = quv_tcp_get(ctx, this_val);
     return quv_stream_write(ctx, t, argc, argv);
 }
 
 static JSValue quv_tcp_shutdown(JSContext *ctx, JSValueConst this_val,
                                   int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tcp_get(ctx, this_val);
+    QUVStream *t = quv_tcp_get(ctx, this_val);
     return quv_stream_shutdown(ctx, t, argc, argv);
 }
 
 static JSValue quv_tcp_fileno(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tcp_get(ctx, this_val);
+    QUVStream *t = quv_tcp_get(ctx, this_val);
     return quv_stream_fileno(ctx, t, argc, argv);
 }
 
 static JSValue quv_tcp_listen(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tcp_get(ctx, this_val);
+    QUVStream *t = quv_tcp_get(ctx, this_val);
     return quv_stream_listen(ctx, t, argc, argv);
 }
 
 static JSValue quv_tcp_accept(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tcp_get(ctx, this_val);
+    QUVStream *t = quv_tcp_get(ctx, this_val);
     return quv_stream_accept(ctx, t, argc, argv);
 }
 
@@ -687,12 +687,12 @@ static JSValue quv_tcp_accept(JSContext *ctx, JSValueConst this_val,
 static JSClassID quv_tty_class_id;
 
 static void quv_tty_finalizer(JSRuntime *rt, JSValue val) {
-    JSUVStream *t = JS_GetOpaque(val, quv_tty_class_id);
+    QUVStream *t = JS_GetOpaque(val, quv_tty_class_id);
     quv_stream_finalizer(rt, t);
 }
 
 static void quv_tty_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
-    JSUVStream *t = JS_GetOpaque(val, quv_tty_class_id);
+    QUVStream *t = JS_GetOpaque(val, quv_tty_class_id);
     quv_stream_mark(rt, t, mark_func);
 }
 
@@ -705,7 +705,7 @@ static JSClassDef quv_tty_class = {
 static JSValue quv_tty_constructor(JSContext *ctx, JSValueConst new_target,
                                      int argc, JSValueConst *argv)
 {
-    JSUVStream *s;
+    QUVStream *s;
     JSValue obj;
     uv_loop_t *loop;
     int fd, r, readable;
@@ -741,7 +741,7 @@ static JSValue quv_tty_constructor(JSContext *ctx, JSValueConst new_target,
     return quv_init_stream(ctx, obj, s);
 }
 
-static JSUVStream *quv_tty_get(JSContext *ctx, JSValueConst obj)
+static QUVStream *quv_tty_get(JSContext *ctx, JSValueConst obj)
 {
     return JS_GetOpaque2(ctx, obj, quv_tty_class_id);
 }
@@ -749,7 +749,7 @@ static JSUVStream *quv_tty_get(JSContext *ctx, JSValueConst obj)
 static JSValue quv_tty_setMode(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv)
 {
-    JSUVStream *s = quv_tty_get(ctx, this_val);
+    QUVStream *s = quv_tty_get(ctx, this_val);
     if (!s)
         return JS_EXCEPTION;
 
@@ -767,7 +767,7 @@ static JSValue quv_tty_setMode(JSContext *ctx, JSValueConst this_val,
 static JSValue quv_tty_getWinSize(JSContext *ctx, JSValueConst this_val,
                                     int argc, JSValueConst *argv)
 {
-    JSUVStream *s = quv_tty_get(ctx, this_val);
+    QUVStream *s = quv_tty_get(ctx, this_val);
     if (!s)
         return JS_EXCEPTION;
 
@@ -785,28 +785,28 @@ static JSValue quv_tty_getWinSize(JSContext *ctx, JSValueConst this_val,
 static JSValue quv_tty_close(JSContext *ctx, JSValueConst this_val,
                                int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tty_get(ctx, this_val);
+    QUVStream *t = quv_tty_get(ctx, this_val);
     return quv_stream_close(ctx, t, argc, argv);
 }
 
 static JSValue quv_tty_read(JSContext *ctx, JSValueConst this_val,
                               int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tty_get(ctx, this_val);
+    QUVStream *t = quv_tty_get(ctx, this_val);
     return quv_stream_read(ctx, t, argc, argv);
 }
 
 static JSValue quv_tty_write(JSContext *ctx, JSValueConst this_val,
                                int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tty_get(ctx, this_val);
+    QUVStream *t = quv_tty_get(ctx, this_val);
     return quv_stream_write(ctx, t, argc, argv);
 }
 
 static JSValue quv_tty_fileno(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_tty_get(ctx, this_val);
+    QUVStream *t = quv_tty_get(ctx, this_val);
     return quv_stream_fileno(ctx, t, argc, argv);
 }
 
@@ -816,12 +816,12 @@ static JSValue quv_tty_fileno(JSContext *ctx, JSValueConst this_val,
 static JSClassID quv_pipe_class_id;
 
 static void quv_pipe_finalizer(JSRuntime *rt, JSValue val) {
-    JSUVStream *t = JS_GetOpaque(val, quv_pipe_class_id);
+    QUVStream *t = JS_GetOpaque(val, quv_pipe_class_id);
     quv_stream_finalizer(rt, t);
 }
 
 static void quv_pipe_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
-    JSUVStream *t = JS_GetOpaque(val, quv_pipe_class_id);
+    QUVStream *t = JS_GetOpaque(val, quv_pipe_class_id);
     quv_stream_mark(rt, t, mark_func);
 }
 
@@ -831,8 +831,8 @@ static JSClassDef quv_pipe_class = {
     .gc_mark = quv_pipe_mark,
 };
 
-JSValue js_new_uv_pipe(JSContext *ctx) {
-    JSUVStream *s;
+JSValue quv_new_pipe(JSContext *ctx) {
+    QUVStream *s;
     JSValue obj;
     uv_loop_t *loop;
     int r;
@@ -865,16 +865,16 @@ JSValue js_new_uv_pipe(JSContext *ctx) {
 static JSValue quv_pipe_constructor(JSContext *ctx, JSValueConst new_target,
                                       int argc, JSValueConst *argv)
 {
-    return js_new_uv_pipe(ctx);
+    return quv_new_pipe(ctx);
 }
 
-static JSUVStream *quv_pipe_get(JSContext *ctx, JSValueConst obj)
+static QUVStream *quv_pipe_get(JSContext *ctx, JSValueConst obj)
 {
     return JS_GetOpaque2(ctx, obj, quv_pipe_class_id);
 }
 
 uv_stream_t *quv_pipe_get_stream(JSContext *ctx, JSValueConst obj) {
-    JSUVStream *s = quv_pipe_get(ctx, obj);
+    QUVStream *s = quv_pipe_get(ctx, obj);
     if (s)
         return &s->h.stream;
     return NULL;
@@ -883,7 +883,7 @@ uv_stream_t *quv_pipe_get_stream(JSContext *ctx, JSValueConst obj) {
 static JSValue quv_pipe_getsockpeername(JSContext *ctx, JSValueConst this_val,
                                           int argc, JSValueConst *argv, int magic)
 {
-    JSUVStream *t = quv_pipe_get(ctx, this_val);
+    QUVStream *t = quv_pipe_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
 
@@ -905,7 +905,7 @@ static JSValue quv_pipe_getsockpeername(JSContext *ctx, JSValueConst this_val,
 static JSValue quv_pipe_connect(JSContext *ctx, JSValueConst this_val,
                                   int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_pipe_get(ctx, this_val);
+    QUVStream *t = quv_pipe_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
 
@@ -913,7 +913,7 @@ static JSValue quv_pipe_connect(JSContext *ctx, JSValueConst this_val,
     if (!name)
         return JS_EXCEPTION;
 
-    JSUVConnectReq *cr = js_malloc(ctx, sizeof(*cr));
+    QUVConnectReq *cr = js_malloc(ctx, sizeof(*cr));
     if (!cr)
         return JS_EXCEPTION;
     cr->req.data = cr;
@@ -928,7 +928,7 @@ static JSValue quv_pipe_connect(JSContext *ctx, JSValueConst this_val,
 static JSValue quv_pipe_bind(JSContext *ctx, JSValueConst this_val,
                                int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_pipe_get(ctx, this_val);
+    QUVStream *t = quv_pipe_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
 
@@ -946,42 +946,42 @@ static JSValue quv_pipe_bind(JSContext *ctx, JSValueConst this_val,
 static JSValue quv_pipe_close(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_pipe_get(ctx, this_val);
+    QUVStream *t = quv_pipe_get(ctx, this_val);
     return quv_stream_close(ctx, t, argc, argv);
 }
 
 static JSValue quv_pipe_read(JSContext *ctx, JSValueConst this_val,
                                int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_pipe_get(ctx, this_val);
+    QUVStream *t = quv_pipe_get(ctx, this_val);
     return quv_stream_read(ctx, t, argc, argv);
 }
 
 static JSValue quv_pipe_write(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_pipe_get(ctx, this_val);
+    QUVStream *t = quv_pipe_get(ctx, this_val);
     return quv_stream_write(ctx, t, argc, argv);
 }
 
 static JSValue quv_pipe_fileno(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_pipe_get(ctx, this_val);
+    QUVStream *t = quv_pipe_get(ctx, this_val);
     return quv_stream_fileno(ctx, t, argc, argv);
 }
 
 static JSValue quv_pipe_listen(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_pipe_get(ctx, this_val);
+    QUVStream *t = quv_pipe_get(ctx, this_val);
     return quv_stream_listen(ctx, t, argc, argv);
 }
 
 static JSValue quv_pipe_accept(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
-    JSUVStream *t = quv_pipe_get(ctx, this_val);
+    QUVStream *t = quv_pipe_get(ctx, this_val);
     return quv_stream_accept(ctx, t, argc, argv);
 }
 

@@ -332,7 +332,7 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
                 stdio[0].flags = UV_INHERIT_FD;
                 stdio[0].data.fd = STDIN_FILENO;
             } else if (strcmp(stdin, "pipe") == 0) {
-                JSValue obj = js_new_uv_pipe(ctx);
+                JSValue obj = quv_new_pipe(ctx);
                 if (JS_IsException(obj)) {
                     JS_FreeValue(ctx, js_stdin);
                     goto fail;
@@ -353,7 +353,7 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
                 stdio[1].flags = UV_INHERIT_FD;
                 stdio[1].data.fd = STDOUT_FILENO;
             } else if (strcmp(stdout, "pipe") == 0) {
-                JSValue obj = js_new_uv_pipe(ctx);
+                JSValue obj = quv_new_pipe(ctx);
                 if (JS_IsException(obj)) {
                     JS_FreeValue(ctx, js_stdout);
                     goto fail;
@@ -374,7 +374,7 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
                 stdio[2].flags = UV_INHERIT_FD;
                 stdio[2].data.fd = STDERR_FILENO;
             } else if (strcmp(stderr, "pipe") == 0) {
-                JSValue obj = js_new_uv_pipe(ctx);
+                JSValue obj = quv_new_pipe(ctx);
                 if (JS_IsException(obj)) {
                     JS_FreeValue(ctx, js_stderr);
                     goto fail;

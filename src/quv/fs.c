@@ -34,10 +34,10 @@ typedef struct {
     JSContext *ctx;
     uv_file fd;
     char *path;
-} JSUVFile;
+} QUVFile;
 
 static void quv_file_finalizer(JSRuntime *rt, JSValue val) {
-    JSUVFile *f = JS_GetOpaque(val, quv_file_class_id);
+    QUVFile *f = JS_GetOpaque(val, quv_file_class_id);
     if (f) {
         if (f->fd != -1) {
             uv_fs_t req;
@@ -65,7 +65,7 @@ typedef struct {
     struct {
         JSValue buf;
     } rw;
-} JSUVFsReq;
+} QUVFsReq;
 
 static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
@@ -92,8 +92,8 @@ static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
     return obj;
 }
 
-static JSValue js_new_uv_file(JSContext *ctx, uv_file fd, const char *path) {
-    JSUVFile *f;
+static JSValue quv_new_file(JSContext *ctx, uv_file fd, const char *path) {
+    QUVFile *f;
     JSValue obj;
 
     obj = JS_NewObjectClass(ctx, quv_file_class_id);
@@ -121,11 +121,11 @@ static JSValue js_new_uv_file(JSContext *ctx, uv_file fd, const char *path) {
     return obj;
 }
 
-static JSUVFile *quv_file_get(JSContext *ctx, JSValueConst obj) {
+static QUVFile *quv_file_get(JSContext *ctx, JSValueConst obj) {
     return JS_GetOpaque2(ctx, obj, quv_file_class_id);
 }
 
-static void quv_fsreq_init(JSContext *ctx, JSUVFsReq *fr, JSValue obj) {
+static void quv_fsreq_init(JSContext *ctx, QUVFsReq *fr, JSValue obj) {
     fr->ctx = ctx;
     fr->req.data = fr;
     fr->obj = JS_DupValue(ctx, obj);
@@ -136,7 +136,7 @@ static void quv_fsreq_init(JSContext *ctx, JSUVFsReq *fr, JSValue obj) {
 }
 
 static void uv__fs_req_cb(uv_fs_t* req) {
-    JSUVFsReq *fr = req->data;
+    QUVFsReq *fr = req->data;
     if (!fr)
         return;
 
@@ -144,7 +144,7 @@ static void uv__fs_req_cb(uv_fs_t* req) {
     JSValue ret;
 
     if (fr->req.result < 0) {
-        JSValue error = js_new_uv_error(ctx, fr->req.result);
+        JSValue error = quv_new_error(ctx, fr->req.result);
         ret = JS_Call(ctx, fr->result.resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
         JS_FreeValue(ctx, error);
 
@@ -152,11 +152,11 @@ static void uv__fs_req_cb(uv_fs_t* req) {
     }
 
     JSValue arg;
-    JSUVFile *f;
+    QUVFile *f;
 
     switch (fr->req.fs_type) {
     case UV_FS_OPEN:
-        arg = js_new_uv_file(ctx, fr->req.result, fr->req.path);
+        arg = quv_new_file(ctx, fr->req.result, fr->req.path);
         break;
     case UV_FS_CLOSE:
         arg = JS_UNDEFINED;
@@ -214,7 +214,7 @@ end:
 }
 
 static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
-    JSUVFile *f = quv_file_get(ctx, this_val);
+    QUVFile *f = quv_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
@@ -252,7 +252,7 @@ static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     if (!JS_IsUndefined(argv[3]) && JS_ToIndex(ctx, &pos, argv[3]))
         return JS_EXCEPTION;
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -274,7 +274,7 @@ static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 }
 
 static JSValue quv_file_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVFile *f = quv_file_get(ctx, this_val);
+    QUVFile *f = quv_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
@@ -282,7 +282,7 @@ static JSValue quv_file_close(JSContext *ctx, JSValueConst this_val, int argc, J
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -297,7 +297,7 @@ static JSValue quv_file_close(JSContext *ctx, JSValueConst this_val, int argc, J
 }
 
 static JSValue quv_file_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVFile *f = quv_file_get(ctx, this_val);
+    QUVFile *f = quv_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
@@ -305,7 +305,7 @@ static JSValue quv_file_stat(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (!loop)
         return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -320,7 +320,7 @@ static JSValue quv_file_stat(JSContext *ctx, JSValueConst this_val, int argc, JS
 }
 
 static JSValue quv_file_fileno(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVFile *f = quv_file_get(ctx, this_val);
+    QUVFile *f = quv_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
@@ -328,7 +328,7 @@ static JSValue quv_file_fileno(JSContext *ctx, JSValueConst this_val, int argc, 
 }
 
 static JSValue quv_file_path_get(JSContext *ctx, JSValueConst this_val) {
-    JSUVFile *f = quv_file_get(ctx, this_val);
+    QUVFile *f = quv_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
     if (!f->path)
@@ -392,7 +392,7 @@ static JSValue quv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     if (JS_ToInt32(ctx, &mode, argv[2]))
         return JS_EXCEPTION;
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -415,7 +415,7 @@ static JSValue quv_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     if (!path)
         return JS_EXCEPTION;
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -442,7 +442,7 @@ static JSValue quv_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc, 
     if (!path)
         return JS_EXCEPTION;
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -465,7 +465,7 @@ static JSValue quv_fs_unlink(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (!path)
         return JS_EXCEPTION;
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -492,7 +492,7 @@ static JSValue quv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (!new_path)
         return JS_EXCEPTION;
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -515,7 +515,7 @@ static JSValue quv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, J
     if (!tpl)
         return JS_EXCEPTION;
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -538,7 +538,7 @@ static JSValue quv_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (!path)
         return JS_EXCEPTION;
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -569,7 +569,7 @@ static JSValue quv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, 
     if (JS_ToInt32(ctx, &flags, argv[2]))
         return JS_EXCEPTION;
 
-    JSUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -593,19 +593,19 @@ static const JSCFunctionListEntry quv_file_proto_funcs[] = {
 };
 
 static const JSCFunctionListEntry quv_fs_funcs[] = {
-    JSUV_CONST(UV_FS_COPYFILE_EXCL),
-    JSUV_CONST(UV_FS_COPYFILE_FICLONE),
-    JSUV_CONST(UV_FS_COPYFILE_FICLONE_FORCE),
-    JSUV_CONST(S_IFMT),
-    JSUV_CONST(S_IFIFO),
-    JSUV_CONST(S_IFCHR),
-    JSUV_CONST(S_IFDIR),
-    JSUV_CONST(S_IFBLK),
-    JSUV_CONST(S_IFREG),
-    JSUV_CONST(S_IFSOCK),
-    JSUV_CONST(S_IFLNK),
-    JSUV_CONST(S_ISGID),
-    JSUV_CONST(S_ISUID),
+    QUV_CONST(UV_FS_COPYFILE_EXCL),
+    QUV_CONST(UV_FS_COPYFILE_FICLONE),
+    QUV_CONST(UV_FS_COPYFILE_FICLONE_FORCE),
+    QUV_CONST(S_IFMT),
+    QUV_CONST(S_IFIFO),
+    QUV_CONST(S_IFCHR),
+    QUV_CONST(S_IFDIR),
+    QUV_CONST(S_IFBLK),
+    QUV_CONST(S_IFREG),
+    QUV_CONST(S_IFSOCK),
+    QUV_CONST(S_IFLNK),
+    QUV_CONST(S_ISGID),
+    QUV_CONST(S_ISUID),
     JS_CFUNC_DEF("open", 3, quv_fs_open ),
     JS_CFUNC_MAGIC_DEF("stat", 1, quv_fs_stat, 0 ),
     JS_CFUNC_MAGIC_DEF("lstat", 1, quv_fs_stat, 1 ),

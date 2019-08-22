@@ -28,7 +28,7 @@
 #include "error.h"
 
 
-JSValue js_new_uv_error(JSContext *ctx, int err)
+JSValue quv_new_error(JSContext *ctx, int err)
 {
     JSValue obj;
     obj = JS_NewError(ctx);
@@ -47,7 +47,7 @@ static JSValue quv_error_constructor(JSContext *ctx, JSValueConst new_target,
     int err;
     if (JS_ToInt32(ctx, &err, argv[0]))
         return JS_EXCEPTION;
-    return js_new_uv_error(ctx, err);
+    return quv_new_error(ctx, err);
 }
 
 static JSValue quv_error_strerror(JSContext *ctx, JSValueConst this_val,
@@ -62,7 +62,7 @@ static JSValue quv_error_strerror(JSContext *ctx, JSValueConst this_val,
 JSValue quv_throw_errno(JSContext *ctx, int err)
 {
     JSValue obj;
-    obj = js_new_uv_error(ctx, err);
+    obj = quv_new_error(ctx, err);
     if (JS_IsException(obj))
         obj = JS_NULL;
     return JS_Throw(ctx, obj);

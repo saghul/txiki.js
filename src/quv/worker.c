@@ -202,7 +202,7 @@ static void uv__read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
         uv_read_stop(&w->h.stream);
         js_free(ctx, buf->base);
         if (nread != UV_EOF) {
-            JSValue error = js_new_uv_error(ctx, nread);
+            JSValue error = quv_new_error(ctx, nread);
             maybe_emit_event(w, 1, error);  // onmessageerror vs onerror?
             JS_FreeValue(ctx, error);
         }
@@ -303,7 +303,7 @@ static void uv__write_cb(uv_write_t* req, int status) {
     JSContext *ctx = w->ctx;
 
     if (status < 0) {
-        JSValue error = js_new_uv_error(ctx, status);
+        JSValue error = quv_new_error(ctx, status);
         maybe_emit_event(w, 1, error);
         JS_FreeValue(ctx, error);
     }

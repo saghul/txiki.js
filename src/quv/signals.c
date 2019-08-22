@@ -36,12 +36,12 @@ typedef struct {
     int sig_num;
     JSValue func;
 
-} JSUVSignalHandler;
+} QUVSignalHandler;
 
 static JSClassID quv_signal_handler_class_id;
 
 static void uv__signal_close_cb(uv_handle_t* handle) {
-    JSUVSignalHandler *sh = handle->data;
+    QUVSignalHandler *sh = handle->data;
     if (sh) {
         sh->closed = 1;
         if (sh->finalized)
@@ -49,13 +49,13 @@ static void uv__signal_close_cb(uv_handle_t* handle) {
     }
 }
 
-static void maybe_close(JSUVSignalHandler *sh) {
+static void maybe_close(QUVSignalHandler *sh) {
     if (!uv_is_closing((uv_handle_t*) &sh->handle))
         uv_close((uv_handle_t*) &sh->handle, uv__signal_close_cb);
 }
 
 static void quv_signal_handler_finalizer(JSRuntime *rt, JSValue val) {
-    JSUVSignalHandler *sh = JS_GetOpaque(val, quv_signal_handler_class_id);
+    QUVSignalHandler *sh = JS_GetOpaque(val, quv_signal_handler_class_id);
     if (sh) {
         JS_FreeValueRT(rt, sh->func);
         sh->finalized = 1;
@@ -67,7 +67,7 @@ static void quv_signal_handler_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void quv_signal_handler_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
-    JSUVSignalHandler *sh = JS_GetOpaque(val, quv_signal_handler_class_id);
+    QUVSignalHandler *sh = JS_GetOpaque(val, quv_signal_handler_class_id);
     if (sh) {
         JS_MarkValue(rt, sh->func, mark_func);
     }
@@ -80,7 +80,7 @@ static JSClassDef quv_signal_handler_class = {
 };
 
 static void uv__signal_cb(uv_signal_t *handle, int sig_num) {
-    JSUVSignalHandler *sh = handle->data;
+    QUVSignalHandler *sh = handle->data;
     if (sh) {
         JSContext *ctx = sh->ctx;
         quv_call_handler(ctx, sh->func);
@@ -104,7 +104,7 @@ static JSValue quv_signal(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     if (JS_IsException(obj))
         return obj;
 
-    JSUVSignalHandler *sh = calloc(1, sizeof(*sh));
+    QUVSignalHandler *sh = calloc(1, sizeof(*sh));
     if (!sh) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -134,12 +134,12 @@ static JSValue quv_signal(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return obj;
 }
 
-static JSUVSignalHandler *quv_signal_handler_get(JSContext *ctx, JSValueConst obj) {
+static QUVSignalHandler *quv_signal_handler_get(JSContext *ctx, JSValueConst obj) {
     return JS_GetOpaque2(ctx, obj, quv_signal_handler_class_id);
 }
 
 static JSValue quv_signal_handler_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVSignalHandler *sh = quv_signal_handler_get(ctx, this_val);
+    QUVSignalHandler *sh = quv_signal_handler_get(ctx, this_val);
     if (!sh)
         return JS_EXCEPTION;
     maybe_close(sh);
@@ -147,7 +147,7 @@ static JSValue quv_signal_handler_close(JSContext *ctx, JSValueConst this_val, i
 }
 
 static JSValue quv_signal_handler_signum_get(JSContext *ctx, JSValueConst this_val) {
-    JSUVSignalHandler *sh = quv_signal_handler_get(ctx, this_val);
+    QUVSignalHandler *sh = quv_signal_handler_get(ctx, this_val);
     if (!sh)
         return JS_EXCEPTION;
     return JS_NewInt32(ctx, sh->sig_num);
@@ -160,113 +160,113 @@ static const JSCFunctionListEntry quv_signal_handler_proto_funcs[] = {
 
 static const JSCFunctionListEntry quv_signal_funcs[] = {
 #ifdef SIGHUP
-    JSUV_CONST(SIGHUP),
+    QUV_CONST(SIGHUP),
 #endif
 #ifdef SIGINT
-    JSUV_CONST(SIGINT),
+    QUV_CONST(SIGINT),
 #endif
 #ifdef SIGQUIT
-    JSUV_CONST(SIGQUIT),
+    QUV_CONST(SIGQUIT),
 #endif
 #ifdef SIGILL
-    JSUV_CONST(SIGILL),
+    QUV_CONST(SIGILL),
 #endif
 #ifdef SIGTRAP
-    JSUV_CONST(SIGTRAP),
+    QUV_CONST(SIGTRAP),
 #endif
 #ifdef SIGABRT
-    JSUV_CONST(SIGABRT),
+    QUV_CONST(SIGABRT),
 #endif
 #ifdef SIGIOT
-    JSUV_CONST(SIGIOT),
+    QUV_CONST(SIGIOT),
 #endif
 #ifdef SIGBUS
-    JSUV_CONST(SIGBUS),
+    QUV_CONST(SIGBUS),
 #endif
 #ifdef SIGFPE
-    JSUV_CONST(SIGFPE),
+    QUV_CONST(SIGFPE),
 #endif
 #ifdef SIGKILL
-    JSUV_CONST(SIGKILL),
+    QUV_CONST(SIGKILL),
 #endif
 #ifdef SIGUSR1
-    JSUV_CONST(SIGUSR1),
+    QUV_CONST(SIGUSR1),
 #endif
 #ifdef SIGSEGV
-    JSUV_CONST(SIGSEGV),
+    QUV_CONST(SIGSEGV),
 #endif
 #ifdef SIGUSR2
-    JSUV_CONST(SIGUSR2),
+    QUV_CONST(SIGUSR2),
 #endif
 #ifdef SIGPIPE
-    JSUV_CONST(SIGPIPE),
+    QUV_CONST(SIGPIPE),
 #endif
 #ifdef SIGALRM
-    JSUV_CONST(SIGALRM),
+    QUV_CONST(SIGALRM),
 #endif
-    JSUV_CONST(SIGTERM),
+    QUV_CONST(SIGTERM),
 #ifdef SIGCHLD
-    JSUV_CONST(SIGCHLD),
+    QUV_CONST(SIGCHLD),
 #endif
 #ifdef SIGSTKFLT
-    JSUV_CONST(SIGSTKFLT),
+    QUV_CONST(SIGSTKFLT),
 #endif
 #ifdef SIGCONT
-    JSUV_CONST(SIGCONT),
+    QUV_CONST(SIGCONT),
 #endif
 #ifdef SIGSTOP
-    JSUV_CONST(SIGSTOP),
+    QUV_CONST(SIGSTOP),
 #endif
 #ifdef SIGTSTP
-    JSUV_CONST(SIGTSTP),
+    QUV_CONST(SIGTSTP),
 #endif
 #ifdef SIGBREAK
-    JSUV_CONST(SIGBREAK),
+    QUV_CONST(SIGBREAK),
 #endif
 #ifdef SIGTTIN
-    JSUV_CONST(SIGTTIN),
+    QUV_CONST(SIGTTIN),
 #endif
 #ifdef SIGTTOU
-    JSUV_CONST(SIGTTOU),
+    QUV_CONST(SIGTTOU),
 #endif
 #ifdef SIGURG
-    JSUV_CONST(SIGURG),
+    QUV_CONST(SIGURG),
 #endif
 #ifdef SIGXCPU
-    JSUV_CONST(SIGXCPU),
+    QUV_CONST(SIGXCPU),
 #endif
 #ifdef SIGXFSZ
-    JSUV_CONST(SIGXFSZ),
+    QUV_CONST(SIGXFSZ),
 #endif
 #ifdef SIGVTALRM
-    JSUV_CONST(SIGVTALRM),
+    QUV_CONST(SIGVTALRM),
 #endif
 #ifdef SIGPROF
-    JSUV_CONST(SIGPROF),
+    QUV_CONST(SIGPROF),
 #endif
 #ifdef SIGWINCH
-    JSUV_CONST(SIGWINCH),
+    QUV_CONST(SIGWINCH),
 #endif
 #ifdef SIGIO
-    JSUV_CONST(SIGIO),
+    QUV_CONST(SIGIO),
 #endif
 #ifdef SIGPOLL
-    JSUV_CONST(SIGPOLL),
+    QUV_CONST(SIGPOLL),
 #endif
 #ifdef SIGLOST
-    JSUV_CONST(SIGLOST),
+    QUV_CONST(SIGLOST),
 #endif
 #ifdef SIGPWR
-    JSUV_CONST(SIGPWR),
+    QUV_CONST(SIGPWR),
 #endif
 #ifdef SIGINFO
-    JSUV_CONST(SIGINFO),
+    QUV_CONST(SIGINFO),
 #endif
 #ifdef SIGSYS
-    JSUV_CONST(SIGSYS),
+    QUV_CONST(SIGSYS),
 #endif
 #ifdef SIGUNUSED
-    JSUV_CONST(SIGUNUSED),
+    QUV_CONST(SIGUNUSED),
 #endif
     JS_CFUNC_DEF("signal", 2, quv_signal ),
 };

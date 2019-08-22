@@ -74,7 +74,7 @@ struct AssertionInfo {
 
 void quv_assert(const struct AssertionInfo info);
 
-#define JSUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_CONFIGURABLE )
+#define QUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_CONFIGURABLE )
 
 uv_loop_t *quv_get_loop(JSContext *ctx);
 int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);

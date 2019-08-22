@@ -42,19 +42,19 @@ typedef struct {
         JSValue promise;
         JSValue resolving_funcs[2];
     } read;
-} JSUVUdp;
+} QUVUdp;
 
 typedef struct {
     uv_udp_send_t req;
     JSValue data;
     JSValue promise;
     JSValue resolving_funcs[2];
-} JSUVSendReq;
+} QUVSendReq;
 
 static JSClassID quv_udp_class_id;
 
 static void uv__udp_close_cb(uv_handle_t* handle) {
-    JSUVUdp *u = handle->data;
+    QUVUdp *u = handle->data;
     if (u) {
         u->closed = 1;
         if (u->finalized)
@@ -62,13 +62,13 @@ static void uv__udp_close_cb(uv_handle_t* handle) {
     }
 }
 
-static void maybe_close(JSUVUdp *u) {
+static void maybe_close(QUVUdp *u) {
     if (!uv_is_closing((uv_handle_t*) &u->udp))
         uv_close((uv_handle_t*) &u->udp, uv__udp_close_cb);
 }
 
 static void quv_udp_finalizer(JSRuntime *rt, JSValue val) {
-    JSUVUdp *u = JS_GetOpaque(val, quv_udp_class_id);
+    QUVUdp *u = JS_GetOpaque(val, quv_udp_class_id);
     if (u) {
         JS_FreeValueRT(rt, u->read.promise);
         JS_FreeValueRT(rt, u->read.resolving_funcs[0]);
@@ -83,7 +83,7 @@ static void quv_udp_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void quv_udp_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
-    JSUVUdp *u = JS_GetOpaque(val, quv_udp_class_id);
+    QUVUdp *u = JS_GetOpaque(val, quv_udp_class_id);
     if (u) {
         JS_MarkValue(rt, u->read.b.buffer, mark_func);
         JS_MarkValue(rt, u->read.promise, mark_func);
@@ -98,13 +98,13 @@ static JSClassDef quv_udp_class = {
     .gc_mark = quv_udp_mark,
 };
 
-static JSUVUdp *quv_udp_get(JSContext *ctx, JSValueConst obj)
+static QUVUdp *quv_udp_get(JSContext *ctx, JSValueConst obj)
 {
     return JS_GetOpaque2(ctx, obj, quv_udp_class_id);
 }
 
 static JSValue quv_udp_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVUdp *u = quv_udp_get(ctx, this_val);
+    QUVUdp *u = quv_udp_get(ctx, this_val);
     if (!u)
         return JS_EXCEPTION;
     maybe_close(u);
@@ -112,7 +112,7 @@ static JSValue quv_udp_close(JSContext *ctx, JSValueConst this_val, int argc, JS
 }
 
 static void uv__udp_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
-    JSUVUdp *u = handle->data;
+    QUVUdp *u = handle->data;
     if (u) {
         buf->base = (char*) u->read.b.data;
         buf->len = u->read.b.len;
@@ -124,7 +124,7 @@ static void uv__udp_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_
 }
 
 static void uv__udp_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags) {
-    JSUVUdp *u = handle->data;
+    QUVUdp *u = handle->data;
     if (u) {
         uv_udp_recv_stop(handle);
 
@@ -133,7 +133,7 @@ static void uv__udp_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf
         JSValue ret;
         int is_reject = 0;
         if (nread < 0) {
-            arg = js_new_uv_error(ctx, nread);
+            arg = quv_new_error(ctx, nread);
             is_reject = 1;
         } else {
             arg = JS_NewObjectProto(ctx, JS_NULL);
@@ -162,7 +162,7 @@ static void uv__udp_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf
 }
 
 static JSValue quv_udp_recv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVUdp *u = quv_udp_get(ctx, this_val);
+    QUVUdp *u = quv_udp_get(ctx, this_val);
     if (!u)
         return JS_EXCEPTION;
 
@@ -203,15 +203,15 @@ static JSValue quv_udp_recv(JSContext *ctx, JSValueConst this_val, int argc, JSV
 }
 
 static void uv__udp_send_cb(uv_udp_send_t* req, int status) {
-    JSUVUdp *u = req->handle->data;
+    QUVUdp *u = req->handle->data;
     if (u) {
         JSContext *ctx = u->ctx;
-        JSUVSendReq *sr = req->data;
+        QUVSendReq *sr = req->data;
 
         int is_reject = 0;
         JSValue arg, ret;
         if (status < 0) {
-            arg = js_new_uv_error(ctx, status);
+            arg = quv_new_error(ctx, status);
             is_reject = 1;
         } else {
             arg = JS_UNDEFINED;
@@ -231,7 +231,7 @@ static void uv__udp_send_cb(uv_udp_send_t* req, int status) {
 }
 
 static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVUdp *u = quv_udp_get(ctx, this_val);
+    QUVUdp *u = quv_udp_get(ctx, this_val);
     if (!u)
         return JS_EXCEPTION;
 
@@ -289,7 +289,7 @@ static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
         len -= r;
     }
 
-    JSUVSendReq *sr = js_malloc(ctx, sizeof(*sr));
+    QUVSendReq *sr = js_malloc(ctx, sizeof(*sr));
     if (!sr)
         return JS_EXCEPTION;
 
@@ -311,7 +311,7 @@ static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
 }
 
 static JSValue quv_udp_fileno(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVUdp *u = quv_udp_get(ctx, this_val);
+    QUVUdp *u = quv_udp_get(ctx, this_val);
     if (!u)
         return JS_EXCEPTION;
     int r;
@@ -322,8 +322,8 @@ static JSValue quv_udp_fileno(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_NewInt32(ctx, fd);
 }
 
-static JSValue js_new_uv_udp(JSContext *ctx, int af) {
-    JSUVUdp *u;
+static JSValue quv_new_udp(JSContext *ctx, int af) {
+    QUVUdp *u;
     JSValue obj;
     uv_loop_t *loop;
     int r;
@@ -372,11 +372,11 @@ static JSValue quv_udp_constructor(JSContext *ctx, JSValueConst new_target, int 
     int af = AF_UNSPEC;
     if (!JS_IsUndefined(argv[0]) && JS_ToInt32(ctx, &af, argv[0]))
         return JS_EXCEPTION;
-    return js_new_uv_udp(ctx, af);
+    return quv_new_udp(ctx, af);
 }
 
 static JSValue quv_udp_getsockpeername(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
-    JSUVUdp *u = quv_udp_get(ctx, this_val);
+    QUVUdp *u = quv_udp_get(ctx, this_val);
     if (!u)
         return JS_EXCEPTION;
 
@@ -395,7 +395,7 @@ static JSValue quv_udp_getsockpeername(JSContext *ctx, JSValueConst this_val, in
 }
 
 static JSValue quv_udp_connect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVUdp *u = quv_udp_get(ctx, this_val);
+    QUVUdp *u = quv_udp_get(ctx, this_val);
     if (!u)
         return JS_EXCEPTION;
 
@@ -413,7 +413,7 @@ static JSValue quv_udp_connect(JSContext *ctx, JSValueConst this_val, int argc, 
 }
 
 static JSValue quv_udp_bind(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSUVUdp *u = quv_udp_get(ctx, this_val);
+    QUVUdp *u = quv_udp_get(ctx, this_val);
     if (!u)
         return JS_EXCEPTION;
 

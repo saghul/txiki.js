@@ -36,9 +36,9 @@ typedef struct {
     JSValue func;
     int argc;
     JSValue argv[];
-} JSUVTimer;
+} QUVTimer;
 
-static void clear_timer(JSUVTimer *th) {
+static void clear_timer(QUVTimer *th) {
     JSContext *ctx = th->ctx;
 
     JS_FreeValue(ctx, th->func);
@@ -54,7 +54,7 @@ static void clear_timer(JSUVTimer *th) {
     th->obj = JS_UNDEFINED;
 }
 
-static void call_timer(JSUVTimer *th) {
+static void call_timer(QUVTimer *th) {
     JSContext *ctx = th->ctx;
     JSValue ret, func1;
     /* 'func' might be destroyed when calling itself (if it frees the handler), so must take extra care */
@@ -67,14 +67,14 @@ static void call_timer(JSUVTimer *th) {
 }
 
 static void uv__timer_close(uv_handle_t *handle) {
-    JSUVTimer *th = handle->data;
+    QUVTimer *th = handle->data;
     if (th) {
         free(th);
     }
 }
 
 static void uv__timer_cb(uv_timer_t *handle) {
-    JSUVTimer *th = handle->data;
+    QUVTimer *th = handle->data;
     if (th) {
         call_timer(th);
         if (!th->interval)
@@ -86,7 +86,7 @@ static JSClassID quv_timer_class_id;
 
 static void quv_timer_finalizer(JSRuntime *rt, JSValue val)
 {
-    JSUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
+    QUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
     if (th) {
         clear_timer(th);
         uv_close((uv_handle_t*)&th->handle, uv__timer_close);
@@ -96,7 +96,7 @@ static void quv_timer_finalizer(JSRuntime *rt, JSValue val)
 static void quv_timer_mark(JSRuntime *rt, JSValueConst val,
                              JS_MarkFunc *mark_func)
 {
-    JSUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
+    QUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
     if (th) {
         JS_MarkValue(rt, th->func, mark_func);
         for (int i = 0; i < th->argc; i++)
@@ -113,7 +113,7 @@ static JSClassDef quv_timer_class = {
 static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
     int64_t delay;
     JSValueConst func;
-    JSUVTimer *th;
+    QUVTimer *th;
     JSValue obj;
 
     uv_loop_t *loop = quv_get_loop(ctx);
@@ -158,7 +158,7 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
 static JSValue quv_clearTimeout(JSContext *ctx, JSValueConst this_val,
                                   int argc, JSValueConst *argv)
 {
-    JSUVTimer *th = JS_GetOpaque2(ctx, argv[0], quv_timer_class_id);
+    QUVTimer *th = JS_GetOpaque2(ctx, argv[0], quv_timer_class_id);
     if (!th)
         return JS_EXCEPTION;
 
