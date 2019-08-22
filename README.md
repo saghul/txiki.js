@@ -15,6 +15,7 @@ Currently the following is already implemented in the `quv` (formerly `qjs`) int
 - High-resolution time
 - Miscellaneous utility functions
 - Worker threads
+- Child processes
 
 Other extras:
 
