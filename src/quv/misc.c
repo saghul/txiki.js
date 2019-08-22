@@ -231,6 +231,34 @@ static JSValue quv_tmpdir(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return ret;
 }
 
+static JSValue quv_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    char buf[1024];
+    size_t size = sizeof(buf);
+    char *dbuf = buf;
+    int r;
+
+    r = uv_exepath(dbuf, &size);
+    if (r != 0) {
+        if (r != UV_ENOBUFS)
+            return quv_throw_errno(ctx, r);
+        dbuf = js_malloc(ctx, size);
+        if (!dbuf)
+            return JS_EXCEPTION;
+        r = uv_exepath(dbuf, &size);
+        if (r != 0) {
+            js_free(ctx, dbuf);
+            return quv_throw_errno(ctx, r);
+        }
+    }
+
+    JSValue ret = JS_NewStringLen(ctx, dbuf, size);
+
+    if (dbuf != buf)
+        js_free(ctx, dbuf);
+
+    return ret;
+}
+
 static const JSCFunctionListEntry quv_misc_funcs[] = {
     JSUV_CONST(AF_INET),
     JSUV_CONST(AF_INET6),
@@ -255,6 +283,7 @@ static const JSCFunctionListEntry quv_misc_funcs[] = {
     JS_CFUNC_DEF("cwd", 0, quv_cwd ),
     JS_CFUNC_DEF("homedir", 0, quv_homedir ),
     JS_CFUNC_DEF("tmpdir", 0, quv_tmpdir ),
+    JS_CFUNC_DEF("exepath", 0, quv_exepath ),
 };
 
 void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {

@@ -28,6 +28,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 
 - `cwd()`
 - `environ()`
+- `exepath()`
 - `getenv(name)`
 - `homedir()`
 - `hrtime()`
