@@ -120,24 +120,20 @@ static void worker_entry(void* arg) {
     QUV_FreeRuntime(wrt);
 }
 
-static void free_worker(QUVWorker *w) {
-    free(w);
-}
-
 static void uv__close_cb(uv_handle_t *handle) {
     QUVWorker *w = handle->data;
     CHECK_NOT_NULL(w);
-    free_worker(w);
+    free(w);
 }
 
 static void quv_worker_finalizer(JSRuntime *rt, JSValue val) {
     QUVWorker *w = JS_GetOpaque(val, quv_worker_class_id);
-    CHECK_NOT_NULL(w);
-    JSContext *ctx = w->ctx;
-    JS_FreeValue(ctx, w->events[0]);
-    JS_FreeValue(ctx, w->events[1]);
-    JS_FreeValue(ctx, w->events[2]);
-    uv_close(&w->h.handle, uv__close_cb);
+    if (w) {
+        JS_FreeValueRT(rt, w->events[0]);
+        JS_FreeValueRT(rt, w->events[1]);
+        JS_FreeValueRT(rt, w->events[2]);
+        uv_close(&w->h.handle, uv__close_cb);
+    }
 }
 
 static void quv_worker_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {

@@ -83,16 +83,12 @@ typedef struct {
 static JSUVStream *quv_tcp_get(JSContext *ctx, JSValueConst obj);
 static JSUVStream *quv_pipe_get(JSContext *ctx, JSValueConst obj);
 
-static void free_stream(JSUVStream *s) {
-    free(s);
-}
-
 static void uv__stream_close_cb(uv_handle_t* handle) {
     JSUVStream *s = handle->data;
     if (s) {
         s->closed = 1;
         if (s->finalized)
-            free_stream(s);
+            free(s);
     }
 }
 
@@ -467,19 +463,18 @@ static JSValue quv_init_stream(JSContext *ctx, JSValue obj, JSUVStream *s) {
     return obj;
 }
 
-static void quv_stream_finalizer(JSUVStream *s) {
+static void quv_stream_finalizer(JSRuntime *rt, JSUVStream *s) {
     if (s) {
-        JSContext *ctx = s->ctx;
-        JS_FreeValue(ctx, s->accept.promise);
-        JS_FreeValue(ctx, s->accept.resolving_funcs[0]);
-        JS_FreeValue(ctx, s->accept.resolving_funcs[1]);
-        JS_FreeValue(ctx, s->read.promise);
-        JS_FreeValue(ctx, s->read.resolving_funcs[0]);
-        JS_FreeValue(ctx, s->read.resolving_funcs[1]);
-        JS_FreeValue(ctx, s->read.b.buffer);
+        JS_FreeValueRT(rt, s->accept.promise);
+        JS_FreeValueRT(rt, s->accept.resolving_funcs[0]);
+        JS_FreeValueRT(rt, s->accept.resolving_funcs[1]);
+        JS_FreeValueRT(rt, s->read.promise);
+        JS_FreeValueRT(rt, s->read.resolving_funcs[0]);
+        JS_FreeValueRT(rt, s->read.resolving_funcs[1]);
+        JS_FreeValueRT(rt, s->read.b.buffer);
         s->finalized = 1;
         if (s->closed)
-            free_stream(s);
+            free(s);
         else
             maybe_close(s);
     }
@@ -504,7 +499,7 @@ static JSClassID quv_tcp_class_id;
 
 static void quv_tcp_finalizer(JSRuntime *rt, JSValue val) {
     JSUVStream *t = JS_GetOpaque(val, quv_tcp_class_id);
-    quv_stream_finalizer(t);
+    quv_stream_finalizer(rt, t);
 }
 
 static void quv_tcp_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
@@ -693,7 +688,7 @@ static JSClassID quv_tty_class_id;
 
 static void quv_tty_finalizer(JSRuntime *rt, JSValue val) {
     JSUVStream *t = JS_GetOpaque(val, quv_tty_class_id);
-    quv_stream_finalizer(t);
+    quv_stream_finalizer(rt, t);
 }
 
 static void quv_tty_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
@@ -822,7 +817,7 @@ static JSClassID quv_pipe_class_id;
 
 static void quv_pipe_finalizer(JSRuntime *rt, JSValue val) {
     JSUVStream *t = JS_GetOpaque(val, quv_pipe_class_id);
-    quv_stream_finalizer(t);
+    quv_stream_finalizer(rt, t);
 }
 
 static void quv_pipe_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {

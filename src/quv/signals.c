@@ -40,16 +40,12 @@ typedef struct {
 
 static JSClassID quv_signal_handler_class_id;
 
-static void free_sh(JSUVSignalHandler *sh) {
-    free(sh);
-}
-
 static void uv__signal_close_cb(uv_handle_t* handle) {
     JSUVSignalHandler *sh = handle->data;
     if (sh) {
         sh->closed = 1;
         if (sh->finalized)
-            free_sh(sh);
+            free(sh);
     }
 }
 
@@ -61,11 +57,10 @@ static void maybe_close(JSUVSignalHandler *sh) {
 static void quv_signal_handler_finalizer(JSRuntime *rt, JSValue val) {
     JSUVSignalHandler *sh = JS_GetOpaque(val, quv_signal_handler_class_id);
     if (sh) {
-        JSContext *ctx = sh->ctx;
-        JS_FreeValue(ctx, sh->func);
+        JS_FreeValueRT(rt, sh->func);
         sh->finalized = 1;
         if (sh->closed)
-            free_sh(sh);
+            free(sh);
         else
             maybe_close(sh);
     }

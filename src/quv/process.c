@@ -48,16 +48,12 @@ typedef struct {
     } status;
 } QUVProcess;
 
-static void free_process(QUVProcess *p) {
-    free(p);
-}
-
 static void uv__close_cb(uv_handle_t* handle) {
     QUVProcess *p = handle->data;
     CHECK_NOT_NULL(p);
     p->closed = TRUE;
     if (p->finalized)
-        free_process(p);
+        free(p);
 }
 
 static void maybe_close(QUVProcess *p) {
@@ -68,16 +64,15 @@ static void maybe_close(QUVProcess *p) {
 static void quv_process_finalizer(JSRuntime *rt, JSValue val) {
     QUVProcess *p = JS_GetOpaque(val, quv_process_class_id);
     if (p) {
-        JSContext *ctx = p->ctx;
-        JS_FreeValue(ctx, p->status.promise);
-        JS_FreeValue(ctx, p->status.resolving_funcs[0]);
-        JS_FreeValue(ctx, p->status.resolving_funcs[1]);
-        JS_FreeValue(ctx, p->stdio[0]);
-        JS_FreeValue(ctx, p->stdio[1]);
-        JS_FreeValue(ctx, p->stdio[2]);
+        JS_FreeValueRT(rt, p->status.promise);
+        JS_FreeValueRT(rt, p->status.resolving_funcs[0]);
+        JS_FreeValueRT(rt, p->status.resolving_funcs[1]);
+        JS_FreeValueRT(rt, p->stdio[0]);
+        JS_FreeValueRT(rt, p->stdio[1]);
+        JS_FreeValueRT(rt, p->stdio[2]);
         p->finalized = TRUE;
         if (p->closed)
-            free_process(p);
+            free(p);
         else
             maybe_close(p);
     }

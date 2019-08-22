@@ -44,9 +44,8 @@ static void quv_file_finalizer(JSRuntime *rt, JSValue val) {
             uv_fs_close(NULL, &req, f->fd, NULL);
             uv_fs_req_cleanup(&req);
         }
-        JSContext *ctx = f->ctx;
-        js_free(ctx, f->path);
-        js_free(ctx, f);
+        js_free_rt(rt, f->path);
+        js_free_rt(rt, f);
     }
 }
 

@@ -53,16 +53,12 @@ typedef struct {
 
 static JSClassID quv_udp_class_id;
 
-static void free_udp(JSUVUdp *u) {
-    free(u);
-}
-
 static void uv__udp_close_cb(uv_handle_t* handle) {
     JSUVUdp *u = handle->data;
     if (u) {
         u->closed = 1;
         if (u->finalized)
-            free_udp(u);
+            free(u);
     }
 }
 
@@ -74,14 +70,13 @@ static void maybe_close(JSUVUdp *u) {
 static void quv_udp_finalizer(JSRuntime *rt, JSValue val) {
     JSUVUdp *u = JS_GetOpaque(val, quv_udp_class_id);
     if (u) {
-        JSContext *ctx = u->ctx;
-        JS_FreeValue(ctx, u->read.promise);
-        JS_FreeValue(ctx, u->read.resolving_funcs[0]);
-        JS_FreeValue(ctx, u->read.resolving_funcs[1]);
-        JS_FreeValue(ctx, u->read.b.buffer);
+        JS_FreeValueRT(rt, u->read.promise);
+        JS_FreeValueRT(rt, u->read.resolving_funcs[0]);
+        JS_FreeValueRT(rt, u->read.resolving_funcs[1]);
+        JS_FreeValueRT(rt, u->read.b.buffer);
         u->finalized = 1;
         if (u->closed)
-            free_udp(u);
+            free(u);
         else
             maybe_close(u);
     }
