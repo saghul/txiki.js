@@ -41,9 +41,7 @@ typedef struct {
 static JSClassID quv_signal_handler_class_id;
 
 static void free_sh(JSUVSignalHandler *sh) {
-    JSContext *ctx = sh->ctx;
-    JS_FreeValue(ctx, sh->func);
-    js_free(ctx, sh);
+    free(sh);
 }
 
 static void uv__signal_close_cb(uv_handle_t* handle) {
@@ -63,6 +61,8 @@ static void maybe_close(JSUVSignalHandler *sh) {
 static void quv_signal_handler_finalizer(JSRuntime *rt, JSValue val) {
     JSUVSignalHandler *sh = JS_GetOpaque(val, quv_signal_handler_class_id);
     if (sh) {
+        JSContext *ctx = sh->ctx;
+        JS_FreeValue(ctx, sh->func);
         sh->finalized = 1;
         if (sh->closed)
             free_sh(sh);
@@ -109,7 +109,7 @@ static JSValue quv_signal(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     if (JS_IsException(obj))
         return obj;
 
-    JSUVSignalHandler *sh = js_mallocz(ctx, sizeof(*sh));
+    JSUVSignalHandler *sh = calloc(1, sizeof(*sh));
     if (!sh) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -118,14 +118,14 @@ static JSValue quv_signal(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     int r = uv_signal_init(loop, &sh->handle);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        js_free(ctx, sh);
+        free(sh);
         return JS_ThrowInternalError(ctx, "couldn't initialize Signal handle");
     }
 
     r = uv_signal_start(&sh->handle, uv__signal_cb, sig_num);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        js_free(ctx, sh);
+        free(sh);
         return quv_throw_errno(ctx, r);
     }
     uv_unref((uv_handle_t*)&sh->handle);

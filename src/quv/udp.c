@@ -54,12 +54,7 @@ typedef struct {
 static JSClassID quv_udp_class_id;
 
 static void free_udp(JSUVUdp *u) {
-    JSContext *ctx = u->ctx;
-    JS_FreeValue(ctx, u->read.promise);
-    JS_FreeValue(ctx, u->read.resolving_funcs[0]);
-    JS_FreeValue(ctx, u->read.resolving_funcs[1]);
-    JS_FreeValue(ctx, u->read.b.buffer);
-    js_free(ctx, u);
+    free(u);
 }
 
 static void uv__udp_close_cb(uv_handle_t* handle) {
@@ -79,6 +74,11 @@ static void maybe_close(JSUVUdp *u) {
 static void quv_udp_finalizer(JSRuntime *rt, JSValue val) {
     JSUVUdp *u = JS_GetOpaque(val, quv_udp_class_id);
     if (u) {
+        JSContext *ctx = u->ctx;
+        JS_FreeValue(ctx, u->read.promise);
+        JS_FreeValue(ctx, u->read.resolving_funcs[0]);
+        JS_FreeValue(ctx, u->read.resolving_funcs[1]);
+        JS_FreeValue(ctx, u->read.b.buffer);
         u->finalized = 1;
         if (u->closed)
             free_udp(u);
@@ -341,7 +341,7 @@ static JSValue js_new_uv_udp(JSContext *ctx, int af) {
     if (JS_IsException(obj))
         return obj;
 
-    u = js_mallocz(ctx, sizeof(*u));
+    u = calloc(1, sizeof(*u));
     if (!u) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -350,7 +350,7 @@ static JSValue js_new_uv_udp(JSContext *ctx, int af) {
     r = uv_udp_init_ex(loop, &u->udp, af);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        js_free(ctx, u);
+        free(u);
         return JS_ThrowInternalError(ctx, "couldn't initialize UDP handle");
     }
 

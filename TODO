@@ -1,4 +1,3 @@
 
-- use system allocator for opaque data
 - refactor js_load_file to use libuv
     - create QUV_EvalXXX

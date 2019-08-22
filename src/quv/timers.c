@@ -69,8 +69,7 @@ static void call_timer(JSUVTimer *th) {
 static void uv__timer_close(uv_handle_t *handle) {
     JSUVTimer *th = handle->data;
     if (th) {
-        JSContext *ctx = th->ctx;
-        js_free(ctx, th);
+        free(th);
     }
 }
 
@@ -134,7 +133,7 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
 
     int nargs = argc - 2;
 
-    th = js_mallocz(ctx, sizeof(*th) + nargs * sizeof(JSValue));
+    th = calloc(1, sizeof(*th) + nargs * sizeof(JSValue));
     if (!th) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;

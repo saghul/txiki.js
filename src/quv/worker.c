@@ -126,11 +126,7 @@ static void worker_entry(void* arg) {
 }
 
 static void free_worker(QUVWorker *w) {
-    JSContext *ctx = w->ctx;
-    JS_FreeValue(ctx, w->events[0]);
-    JS_FreeValue(ctx, w->events[1]);
-    JS_FreeValue(ctx, w->events[2]);
-    js_free(ctx, w);
+    free(w);
 }
 
 static void uv__close_cb(uv_handle_t *handle) {
@@ -142,6 +138,10 @@ static void uv__close_cb(uv_handle_t *handle) {
 static void quv_worker_finalizer(JSRuntime *rt, JSValue val) {
     QUVWorker *w = JS_GetOpaque(val, quv_worker_class_id);
     CHECK_NOT_NULL(w);
+    JSContext *ctx = w->ctx;
+    JS_FreeValue(ctx, w->events[0]);
+    JS_FreeValue(ctx, w->events[1]);
+    JS_FreeValue(ctx, w->events[2]);
     uv_close(&w->h.handle, uv__close_cb);
 }
 
@@ -234,7 +234,7 @@ static JSValue quv_new_worker(JSContext *ctx, int channel_fd, BOOL is_main) {
     if (JS_IsException(obj))
         return obj;
 
-    QUVWorker *w = js_mallocz(ctx, sizeof(*w));
+    QUVWorker *w = calloc(1, sizeof(*w));
     if (!w) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
