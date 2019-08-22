@@ -28,21 +28,14 @@
 #include "vm.h"
 
 
+extern const uint8_t bootstrap[];
+extern const uint32_t bootstrap_size;
+
 extern const uint8_t encoding[];
 extern const uint32_t encoding_size;
 
 static int quv__argc = 0;
 static char **quv__argv = NULL;
-
-static const char *quv__globals_bootstrap_code =
-    "import * as std from 'std';\n"
-    "import * as uv from 'uv';\n"
-    "global.std = std;\n"
-    "global.uv = uv;\n"
-    "global.setTimeout = uv.setTimeout;\n"
-    "global.clearTimeout = uv.clearTimeout;\n"
-    "global.setInterval = uv.setInterval;\n"
-    "global.clearInterval = uv.clearInterval;\n";
 
 struct QUVRuntime {
     JSRuntime *rt;
@@ -57,14 +50,8 @@ struct QUVRuntime {
 };
 
 static void quv__bootstrap_globals(JSContext *ctx) {
-    JSValue val = JS_Eval(ctx,
-                          quv__globals_bootstrap_code,
-                          strlen(quv__globals_bootstrap_code),
-                          "<bootstrap>",
-                          JS_EVAL_TYPE_MODULE);
-    if (JS_IsException(val))
-        js_std_dump_error(ctx);
-    JS_FreeValue(ctx, val);
+    /* Load bootstrap */
+    js_std_eval_binary(ctx, bootstrap, bootstrap_size, 0);
 
     /* Load TextEncoder / TextDecoder */
     js_std_eval_binary(ctx, encoding, encoding_size, 0);

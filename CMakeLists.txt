@@ -45,6 +45,19 @@ add_custom_command(
     COMMAND
         ${CMAKE_CURRENT_BINARY_DIR}/qjsc
         -c
+        -o ${CMAKE_CURRENT_BINARY_DIR}/bootstrap.c
+        -m ${CMAKE_SOURCE_DIR}/src/bootstrap.js
+    DEPENDS
+        ${CMAKE_CURRENT_BINARY_DIR}/qjsc
+        ${CMAKE_SOURCE_DIR}/src/bootstrap.js
+    OUTPUT
+        ${CMAKE_CURRENT_BINARY_DIR}/bootstrap.c
+)
+
+add_custom_command(
+    COMMAND
+        ${CMAKE_CURRENT_BINARY_DIR}/qjsc
+        -c
         -o ${CMAKE_CURRENT_BINARY_DIR}/repl.c
         -m ${CMAKE_SOURCE_DIR}/src/repl.js
     DEPENDS
@@ -82,6 +95,7 @@ add_executable(quv
     src/quv/utils.c
     src/quv/vm.c
     src/quv/worker.c
+    ${CMAKE_CURRENT_BINARY_DIR}/bootstrap.c
     ${CMAKE_CURRENT_BINARY_DIR}/repl.c
     ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
     $<TARGET_OBJECTS:qjs_obj>
