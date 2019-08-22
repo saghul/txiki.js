@@ -103,7 +103,6 @@ static void worker_entry(void* arg) {
     /* Set the 'workerThis' global object. */
     JSValue global_obj = JS_GetGlobalObject(ctx);
     JSValue worker_obj = quv_new_worker(ctx, wd->channel_fd, FALSE);
-    JS_DupValue(ctx, worker_obj);
     JS_SetPropertyStr(ctx, global_obj, "workerThis", worker_obj);
 
     /* Load the file and eval the file when the loop runs. */
@@ -117,10 +116,6 @@ static void worker_entry(void* arg) {
     wd = NULL;
 
     QUV_Run(wrt);
-
-    /* Release the global 'workerThis' reference. */
-    JS_SetPropertyStr(ctx, global_obj, "workerThis", JS_UNDEFINED);
-    JS_FreeValue(ctx, worker_obj);
 
     QUV_FreeRuntime(wrt);
 }
