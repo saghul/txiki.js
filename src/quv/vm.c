@@ -126,13 +126,19 @@ void QUV_FreeRuntime(QUVRuntime *qrt) {
     uv_close((uv_handle_t *) &qrt->jobs.check, NULL);
     uv_close((uv_handle_t *) &qrt->stop, NULL);
 
-    /* Run close callbacks. */
-    uv_run(&qrt->loop, UV_RUN_NOWAIT);
-
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
 
-    /* TODO: cleanup loop. */
+    /* Cleanup loop. All handles should be closed. */
+    int closed = 0;
+    for (int i = 0; i < 5; i++) {
+        if (uv_loop_close(&qrt->loop) == 0) {
+            closed = 1;
+            break;
+        }
+        uv_run(&qrt->loop, UV_RUN_NOWAIT);
+    }
+    CHECK_EQ(closed, 1);
 
     free(qrt);
 }
