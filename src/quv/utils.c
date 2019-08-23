@@ -41,7 +41,6 @@ void quv_assert(const struct AssertionInfo info) {
   abort();
 }
 
-// TODO: remove this.
 uv_loop_t *quv_get_loop(JSContext *ctx) {
     QUVRuntime *qrt = JS_GetContextOpaque(ctx);
     CHECK_NOT_NULL(qrt);

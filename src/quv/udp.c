@@ -55,11 +55,10 @@ static JSClassID quv_udp_class_id;
 
 static void uv__udp_close_cb(uv_handle_t* handle) {
     QUVUdp *u = handle->data;
-    if (u) {
-        u->closed = 1;
-        if (u->finalized)
-            free(u);
-    }
+    CHECK_NOT_NULL(u);
+    u->closed = 1;
+    if (u->finalized)
+        free(u);
 }
 
 static void maybe_close(QUVUdp *u) {
@@ -113,52 +112,47 @@ static JSValue quv_udp_close(JSContext *ctx, JSValueConst this_val, int argc, JS
 
 static void uv__udp_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
     QUVUdp *u = handle->data;
-    if (u) {
-        buf->base = (char*) u->read.b.data;
-        buf->len = u->read.b.len;
-        return;
-    }
-
-    buf->base = NULL;
-    buf->len = 0;
+    CHECK_NOT_NULL(u);
+    buf->base = (char*) u->read.b.data;
+    buf->len = u->read.b.len;
 }
 
 static void uv__udp_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags) {
     QUVUdp *u = handle->data;
-    if (u) {
-        uv_udp_recv_stop(handle);
+    CHECK_NOT_NULL(u);
 
-        JSContext *ctx = u->ctx;
-        JSValue arg;
-        JSValue ret;
-        int is_reject = 0;
-        if (nread < 0) {
-            arg = quv_new_error(ctx, nread);
-            is_reject = 1;
-        } else {
-            arg = JS_NewObjectProto(ctx, JS_NULL);
-            JS_DefinePropertyValueStr(ctx, arg, "nread", JS_NewInt32(ctx, nread), JS_PROP_C_W_E);
-            JS_DefinePropertyValueStr(ctx, arg, "flags", JS_NewInt32(ctx, flags), JS_PROP_C_W_E);
-            JS_DefinePropertyValueStr(ctx, arg, "addr", quv_addr2obj(ctx, addr), JS_PROP_C_W_E);
-        }
+    uv_udp_recv_stop(handle);
 
-        ret = JS_Call(ctx, u->read.resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
-        JS_FreeValue(ctx, arg);
-        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
-
-        JS_FreeValue(ctx, u->read.promise);
-        JS_FreeValue(ctx, u->read.resolving_funcs[0]);
-        JS_FreeValue(ctx, u->read.resolving_funcs[1]);
-
-        u->read.promise = JS_UNDEFINED;
-        u->read.resolving_funcs[0] = JS_UNDEFINED;
-        u->read.resolving_funcs[1] = JS_UNDEFINED;
-
-        JS_FreeValue(ctx, u->read.b.buffer);
-        u->read.b.buffer = JS_UNDEFINED;
-        u->read.b.data = NULL;
-        u->read.b.len = 0;
+    JSContext *ctx = u->ctx;
+    JSValue arg;
+    JSValue ret;
+    int is_reject = 0;
+    if (nread < 0) {
+        arg = quv_new_error(ctx, nread);
+        is_reject = 1;
+    } else {
+        arg = JS_NewObjectProto(ctx, JS_NULL);
+        JS_DefinePropertyValueStr(ctx, arg, "nread", JS_NewInt32(ctx, nread), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, arg, "flags", JS_NewInt32(ctx, flags), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, arg, "addr", quv_addr2obj(ctx, addr), JS_PROP_C_W_E);
     }
+
+    ret = JS_Call(ctx, u->read.resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
+    JS_FreeValue(ctx, arg);
+    JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
+
+    JS_FreeValue(ctx, u->read.promise);
+    JS_FreeValue(ctx, u->read.resolving_funcs[0]);
+    JS_FreeValue(ctx, u->read.resolving_funcs[1]);
+
+    u->read.promise = JS_UNDEFINED;
+    u->read.resolving_funcs[0] = JS_UNDEFINED;
+    u->read.resolving_funcs[1] = JS_UNDEFINED;
+
+    JS_FreeValue(ctx, u->read.b.buffer);
+    u->read.b.buffer = JS_UNDEFINED;
+    u->read.b.data = NULL;
+    u->read.b.len = 0;
 }
 
 static JSValue quv_udp_recv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -204,30 +198,30 @@ static JSValue quv_udp_recv(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
 static void uv__udp_send_cb(uv_udp_send_t* req, int status) {
     QUVUdp *u = req->handle->data;
-    if (u) {
-        JSContext *ctx = u->ctx;
-        QUVSendReq *sr = req->data;
+    CHECK_NOT_NULL(u);
 
-        int is_reject = 0;
-        JSValue arg, ret;
-        if (status < 0) {
-            arg = quv_new_error(ctx, status);
-            is_reject = 1;
-        } else {
-            arg = JS_UNDEFINED;
-        }
+    JSContext *ctx = u->ctx;
+    QUVSendReq *sr = req->data;
 
-        ret = JS_Call(ctx, sr->resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
-        JS_FreeValue(ctx, arg);
-        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
-
-        JS_FreeValue(ctx, sr->promise);
-        JS_FreeValue(ctx, sr->resolving_funcs[0]);
-        JS_FreeValue(ctx, sr->resolving_funcs[1]);
-
-        JS_FreeValue(ctx, sr->data);
-        js_free(ctx, sr);
+    int is_reject = 0;
+    JSValue arg, ret;
+    if (status < 0) {
+        arg = quv_new_error(ctx, status);
+        is_reject = 1;
+    } else {
+        arg = JS_UNDEFINED;
     }
+
+    ret = JS_Call(ctx, sr->resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
+    JS_FreeValue(ctx, arg);
+    JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
+
+    JS_FreeValue(ctx, sr->promise);
+    JS_FreeValue(ctx, sr->resolving_funcs[0]);
+    JS_FreeValue(ctx, sr->resolving_funcs[1]);
+
+    JS_FreeValue(ctx, sr->data);
+    js_free(ctx, sr);
 }
 
 static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -325,12 +319,7 @@ static JSValue quv_udp_fileno(JSContext *ctx, JSValueConst this_val, int argc, J
 static JSValue quv_new_udp(JSContext *ctx, int af) {
     QUVUdp *u;
     JSValue obj;
-    uv_loop_t *loop;
     int r;
-
-    loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
     obj = JS_NewObjectClass(ctx, quv_udp_class_id);
     if (JS_IsException(obj))
@@ -342,7 +331,7 @@ static JSValue quv_new_udp(JSContext *ctx, int af) {
         return JS_EXCEPTION;
     }
 
-    r = uv_udp_init_ex(loop, &u->udp, af);
+    r = uv_udp_init_ex(quv_get_loop(ctx), &u->udp, af);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         free(u);
@@ -364,7 +353,6 @@ static JSValue quv_new_udp(JSContext *ctx, int af) {
     u->read.resolving_funcs[1] = JS_UNDEFINED;
 
     JS_SetOpaque(obj, u);
-
     return obj;
 }
 

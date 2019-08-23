@@ -217,10 +217,6 @@ static void uv__read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
 }
 
 static JSValue quv_new_worker(JSContext *ctx, int channel_fd, BOOL is_main) {
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     JSValue obj = JS_NewObjectClass(ctx, quv_worker_class_id);
     if (JS_IsException(obj))
         return obj;
@@ -235,7 +231,7 @@ static JSValue quv_new_worker(JSContext *ctx, int channel_fd, BOOL is_main) {
     w->is_main = is_main;
     w->h.handle.data = w;
 
-    CHECK_EQ(uv_pipe_init(loop, &w->h.pipe, 0), 0);
+    CHECK_EQ(uv_pipe_init(quv_get_loop(ctx), &w->h.pipe, 0), 0);
     CHECK_EQ(uv_pipe_open(&w->h.pipe, channel_fd), 0);
     CHECK_EQ(uv_read_start(&w->h.stream, uv__alloc_cb, uv__read_cb), 0);
 

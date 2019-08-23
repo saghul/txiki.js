@@ -81,17 +81,11 @@ static JSClassDef quv_signal_handler_class = {
 
 static void uv__signal_cb(uv_signal_t *handle, int sig_num) {
     QUVSignalHandler *sh = handle->data;
-    if (sh) {
-        JSContext *ctx = sh->ctx;
-        quv_call_handler(ctx, sh->func);
-    }
+    CHECK_NOT_NULL(sh);
+    quv_call_handler(sh->ctx, sh->func);
 }
 
 static JSValue quv_signal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     int32_t sig_num;
     if (JS_ToInt32(ctx, &sig_num, argv[0]))
         return JS_EXCEPTION;
@@ -110,7 +104,7 @@ static JSValue quv_signal(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         return JS_EXCEPTION;
     }
 
-    int r = uv_signal_init(loop, &sh->handle);
+    int r = uv_signal_init(quv_get_loop(ctx), &sh->handle);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         free(sh);

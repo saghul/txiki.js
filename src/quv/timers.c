@@ -68,18 +68,16 @@ static void call_timer(QUVTimer *th) {
 
 static void uv__timer_close(uv_handle_t *handle) {
     QUVTimer *th = handle->data;
-    if (th) {
-        free(th);
-    }
+    CHECK_NOT_NULL(th);
+    free(th);
 }
 
 static void uv__timer_cb(uv_timer_t *handle) {
     QUVTimer *th = handle->data;
-    if (th) {
-        call_timer(th);
-        if (!th->interval)
-            clear_timer(th);
-    }
+    CHECK_NOT_NULL(th);
+    call_timer(th);
+    if (!th->interval)
+        clear_timer(th);
 }
 
 static JSClassID quv_timer_class_id;
@@ -116,10 +114,6 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
     QUVTimer *th;
     JSValue obj;
 
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     func = argv[0];
     if (!JS_IsFunction(ctx, func))
         return JS_ThrowTypeError(ctx, "not a function");
@@ -140,7 +134,7 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
     }
 
     th->ctx = ctx;
-    uv_timer_init(loop, &th->handle);
+    CHECK_EQ(uv_timer_init(quv_get_loop(ctx), &th->handle), 0);
     th->handle.data = th;
     th->interval = magic;
     th->obj = JS_DupValue(ctx, obj);
@@ -149,7 +143,7 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
     for(int i = 0; i < nargs; i++)
         th->argv[i] = JS_DupValue(ctx, argv[i+2]);
 
-    uv_timer_start(&th->handle, uv__timer_cb, delay, magic ? delay : 0 /* repeat */);
+    CHECK_EQ(uv_timer_start(&th->handle, uv__timer_cb, delay, magic ? delay : 0 /* repeat */), 0);
 
     JS_SetOpaque(obj, th);
     return obj;
@@ -162,7 +156,7 @@ static JSValue quv_clearTimeout(JSContext *ctx, JSValueConst this_val,
     if (!th)
         return JS_EXCEPTION;
 
-    uv_timer_stop(&th->handle);
+    CHECK_EQ(uv_timer_stop(&th->handle), 0);
     clear_timer(th);
 
     return JS_UNDEFINED;

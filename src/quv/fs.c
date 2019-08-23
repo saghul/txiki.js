@@ -218,10 +218,6 @@ static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     if (!f)
         return JS_EXCEPTION;
 
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     /* arg 0: buffer */
     JSValue jsData = argv[0];
     size_t size;
@@ -260,9 +256,9 @@ static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 
     int r;
     if (magic)
-        r = uv_fs_write(loop, &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
+        r = uv_fs_write(quv_get_loop(ctx), &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
     else
-        r = uv_fs_read(loop, &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
+        r = uv_fs_read(quv_get_loop(ctx), &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return quv_throw_errno(ctx, r);
@@ -278,15 +274,11 @@ static JSValue quv_file_close(JSContext *ctx, JSValueConst this_val, int argc, J
     if (!f)
         return JS_EXCEPTION;
 
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_close(loop, &fr->req, f->fd, uv__fs_req_cb);
+    int r = uv_fs_close(quv_get_loop(ctx), &fr->req, f->fd, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return quv_throw_errno(ctx, r);
@@ -301,15 +293,11 @@ static JSValue quv_file_stat(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (!f)
         return JS_EXCEPTION;
 
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_fstat(loop, &fr->req, f->fd, uv__fs_req_cb);
+    int r = uv_fs_fstat(quv_get_loop(ctx), &fr->req, f->fd, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return quv_throw_errno(ctx, r);
@@ -375,11 +363,6 @@ static JSValue quv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     size_t len;
     int flags;
     int32_t mode;
-    uv_loop_t *loop;
-
-    loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
 
     path = JS_ToCString(ctx, argv[0]);
     if (!path)
@@ -396,7 +379,7 @@ static JSValue quv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_open(loop, &fr->req, path, flags, mode, uv__fs_req_cb);
+    int r = uv_fs_open(quv_get_loop(ctx), &fr->req, path, flags, mode, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return quv_throw_errno(ctx, r);
@@ -407,10 +390,6 @@ static JSValue quv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 }
 
 static JSValue quv_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
@@ -421,9 +400,9 @@ static JSValue quv_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 
     int r;
     if (magic)
-        r = uv_fs_lstat(loop, &fr->req, path, uv__fs_req_cb);
+        r = uv_fs_lstat(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
     else
-        r = uv_fs_stat(loop, &fr->req, path, uv__fs_req_cb);
+        r = uv_fs_stat(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return quv_throw_errno(ctx, r);
@@ -434,10 +413,6 @@ static JSValue quv_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 }
 
 static JSValue quv_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
@@ -446,7 +421,7 @@ static JSValue quv_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc, 
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_realpath(loop, &fr->req, path, uv__fs_req_cb);
+    int r = uv_fs_realpath(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return quv_throw_errno(ctx, r);
@@ -457,10 +432,6 @@ static JSValue quv_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc, 
 }
 
 static JSValue quv_fs_unlink(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
@@ -469,7 +440,7 @@ static JSValue quv_fs_unlink(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_unlink(loop, &fr->req, path, uv__fs_req_cb);
+    int r = uv_fs_unlink(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return quv_throw_errno(ctx, r);
@@ -480,10 +451,6 @@ static JSValue quv_fs_unlink(JSContext *ctx, JSValueConst this_val, int argc, JS
 }
 
 static JSValue quv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
@@ -496,7 +463,7 @@ static JSValue quv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_rename(loop, &fr->req, path, new_path, uv__fs_req_cb);
+    int r = uv_fs_rename(quv_get_loop(ctx), &fr->req, path, new_path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return quv_throw_errno(ctx, r);
@@ -507,10 +474,6 @@ static JSValue quv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, JS
 }
 
 static JSValue quv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     const char *tpl = JS_ToCString(ctx, argv[0]);
     if (!tpl)
         return JS_EXCEPTION;
@@ -519,7 +482,7 @@ static JSValue quv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, J
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_mkdtemp(loop, &fr->req, tpl, uv__fs_req_cb);
+    int r = uv_fs_mkdtemp(quv_get_loop(ctx), &fr->req, tpl, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return quv_throw_errno(ctx, r);
@@ -530,10 +493,6 @@ static JSValue quv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, J
 }
 
 static JSValue quv_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
@@ -542,7 +501,7 @@ static JSValue quv_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_rmdir(loop, &fr->req, path, uv__fs_req_cb);
+    int r = uv_fs_rmdir(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return quv_throw_errno(ctx, r);
@@ -553,10 +512,6 @@ static JSValue quv_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSV
 }
 
 static JSValue quv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
@@ -573,7 +528,7 @@ static JSValue quv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, 
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_copyfile(loop, &fr->req, path, new_path, flags, uv__fs_req_cb);
+    int r = uv_fs_copyfile(quv_get_loop(ctx), &fr->req, path, new_path, flags, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return quv_throw_errno(ctx, r);

@@ -181,10 +181,6 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
 static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue ret;
 
-    uv_loop_t *loop = quv_get_loop(ctx);
-    if (!loop)
-        return JS_ThrowInternalError(ctx, "couldn't find libuv loop");
-
     JSValue obj = JS_NewObjectClass(ctx, quv_process_class_id);
     if (JS_IsException(obj))
         return obj;
@@ -391,7 +387,7 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
 
     options.exit_cb = uv__exit_cb;
 
-    int r = uv_spawn(loop, &p->process, &options);
+    int r = uv_spawn(quv_get_loop(ctx), &p->process, &options);
     if (r != 0) {
         quv_throw_errno(ctx, r);
         goto fail;
