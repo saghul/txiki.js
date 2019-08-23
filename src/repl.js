@@ -78,7 +78,7 @@ import * as uv from "uv";
     var pstate = "";
     var prompt = "";
     var plen = 0;
-    var ps1 = "quv > ";
+    var ps1 = "> ";
     var ps2 = "  ... ";
     var utf8 = true;
     var show_time = false;
@@ -1021,7 +1021,7 @@ import * as uv from "uv";
     }
 
     function cmd_start() {
-        stdout.write('quv — QuickJS + libuv - Type "\\h" for help\n');
+        stdout.write('Welcome to quv — QuickJS + libuv\nType "\\h" for help\n');
         cmd_readline_start();
     }
 
