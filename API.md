@@ -118,6 +118,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 ### `uv.fs` module
 
 - `copyfile(path, newPath)`
+- `readdir(path)`
 - `rename(path, newPath)`
 - `rmdir(path)`
 - `mkdtemp(name)`
@@ -135,6 +136,12 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `read(buffer, [offset, [length, [position]]])`
 - `stat()`
 - `write(buffer, [offset, [length, [position]]])`
+
+#### Dir
+
+- `path`
+- `close()`
+- `next()`
 
 #### Constants
 

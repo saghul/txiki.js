@@ -54,6 +54,34 @@ static JSClassDef quv_file_class = {
     .finalizer = quv_file_finalizer,
 };
 
+static JSClassID quv_dir_class_id;
+
+typedef struct {
+    JSContext *ctx;
+    uv_dir_t *dir;
+    uv_dirent_t dirent;
+    char *path;
+    BOOL done;
+} QUVDir;
+
+static void quv_dir_finalizer(JSRuntime *rt, JSValue val) {
+    QUVDir *d = JS_GetOpaque(val, quv_dir_class_id);
+    if (d) {
+        if (d->dir) {
+            uv_fs_t req;
+            uv_fs_closedir(NULL, &req, d->dir, NULL);
+            uv_fs_req_cleanup(&req);
+        }
+        js_free_rt(rt, d->path);
+        js_free_rt(rt, d);
+    }
+}
+
+static JSClassDef quv_dir_class = {
+    "Directory",
+    .finalizer = quv_dir_finalizer
+};
+
 typedef struct {
     uv_fs_t req;
     JSContext *ctx;
@@ -125,6 +153,39 @@ static QUVFile *quv_file_get(JSContext *ctx, JSValueConst obj) {
     return JS_GetOpaque2(ctx, obj, quv_file_class_id);
 }
 
+static JSValue quv_new_dir(JSContext *ctx, uv_dir_t *dir, const char *path) {
+    QUVDir *d;
+    JSValue obj;
+
+    obj = JS_NewObjectClass(ctx, quv_dir_class_id);
+    if (JS_IsException(obj))
+        return obj;
+
+    d = js_malloc(ctx, sizeof(*d));
+    if (!d) {
+        JS_FreeValue(ctx, obj);
+        return JS_EXCEPTION;
+    }
+
+    d->path = js_strdup(ctx, path);
+    if (!d->path) {
+        js_free(ctx, d);
+        JS_FreeValue(ctx, obj);
+        return JS_EXCEPTION;
+    }
+
+    d->ctx = ctx;
+    d->dir = dir;
+    d->done = FALSE;
+
+    JS_SetOpaque(obj, d);
+    return obj;
+}
+
+static QUVDir *quv_dir_get(JSContext *ctx, JSValueConst obj) {
+    return JS_GetOpaque2(ctx, obj, quv_dir_class_id);
+}
+
 static void quv_fsreq_init(JSContext *ctx, QUVFsReq *fr, JSValue obj) {
     fr->ctx = ctx;
     fr->req.data = fr;
@@ -153,6 +214,7 @@ static void uv__fs_req_cb(uv_fs_t* req) {
 
     JSValue arg;
     QUVFile *f;
+    QUVDir *d;
 
     switch (fr->req.fs_type) {
     case UV_FS_OPEN:
@@ -161,11 +223,10 @@ static void uv__fs_req_cb(uv_fs_t* req) {
     case UV_FS_CLOSE:
         arg = JS_UNDEFINED;
         f = quv_file_get(ctx, fr->obj);
-        if (f) {
-            f->fd = -1;
-            js_free(ctx, f->path);
-            f->path = NULL;
-        }
+        CHECK_NOT_NULL(f);
+        f->fd = -1;
+        js_free(ctx, f->path);
+        f->path = NULL;
         break;
     case UV_FS_READ:
     case UV_FS_WRITE:
@@ -193,6 +254,32 @@ static void uv__fs_req_cb(uv_fs_t* req) {
         arg = JS_NewString(ctx, fr->req.path);
         break;
 
+    case UV_FS_OPENDIR:
+        arg = quv_new_dir(ctx, fr->req.ptr, fr->req.path);
+        break;
+
+    case UV_FS_CLOSEDIR:
+        arg = JS_UNDEFINED;
+        d = quv_dir_get(ctx, fr->obj);
+        CHECK_NOT_NULL(d);
+        d->dir = NULL;
+        js_free(ctx, d->path);
+        d->path = NULL;
+        break;
+
+    case UV_FS_READDIR:
+        d = quv_dir_get(ctx, fr->obj);
+        d->done = fr->req.result == 0;
+        arg = JS_NewObjectProto(ctx, JS_NULL);
+        JS_DefinePropertyValueStr(ctx, arg, "done", JS_NewBool(ctx, d->done), JS_PROP_C_W_E);
+        if (fr->req.result != 0) {
+            JSValue item = JS_NewObjectProto(ctx, JS_NULL);
+            JS_DefinePropertyValueStr(ctx, item, "name", JS_NewString(ctx, d->dirent.name), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, item, "type", JS_NewInt32(ctx, d->dirent.type), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, arg, "value", item, JS_PROP_C_W_E);
+        }
+        break;
+
     default:
         abort();
     }
@@ -212,6 +299,8 @@ end:
 
     js_free(ctx, fr);
 }
+
+/* File functions */
 
 static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
     QUVFile *f = quv_file_get(ctx, this_val);
@@ -323,6 +412,67 @@ static JSValue quv_file_path_get(JSContext *ctx, JSValueConst this_val) {
         return JS_UNDEFINED;
     return JS_NewString(ctx, f->path);
 }
+
+/* Dir functions */
+
+static JSValue quv_dir_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    QUVDir *d = quv_dir_get(ctx, this_val);
+    if (!d)
+        return JS_EXCEPTION;
+
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
+        return JS_EXCEPTION;
+
+    int r = uv_fs_closedir(quv_get_loop(ctx), &fr->req, d->dir, uv__fs_req_cb);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return quv_throw_errno(ctx, r);
+    }
+
+    quv_fsreq_init(ctx, fr, this_val);
+    return fr->result.promise;
+}
+
+static JSValue quv_dir_path_get(JSContext *ctx, JSValueConst this_val) {
+    QUVDir *d = quv_dir_get(ctx, this_val);
+    if (!d)
+        return JS_EXCEPTION;
+    if (!d->path)
+        return JS_UNDEFINED;
+    return JS_NewString(ctx, d->path);
+}
+
+static JSValue quv_dir_next(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    QUVDir *d = quv_dir_get(ctx, this_val);
+    if (!d)
+        return JS_EXCEPTION;
+
+    if (d->done)
+        return JS_UNDEFINED;
+
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
+        return JS_EXCEPTION;
+
+    d->dir->dirents = &d->dirent;
+    d->dir->nentries = 1;
+
+    int r = uv_fs_readdir(quv_get_loop(ctx), &fr->req, d->dir, uv__fs_req_cb);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return quv_throw_errno(ctx, r);
+    }
+
+    quv_fsreq_init(ctx, fr, this_val);
+    return fr->result.promise;
+}
+
+static JSValue quv_dir_iterator(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    return JS_DupValue(ctx, this_val);
+}
+
+/* Module functions */
 
 static int js__uv_open_flags(const char *strflags, size_t len) {
     int flags = 0, read = 0, write = 0;
@@ -538,6 +688,25 @@ static JSValue quv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, 
     return fr->result.promise;
 }
 
+static JSValue quv_fs_readdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
+        return JS_EXCEPTION;
+
+    int r = uv_fs_opendir(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return quv_throw_errno(ctx, r);
+    }
+
+    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return fr->result.promise;
+}
+
 static const JSCFunctionListEntry quv_file_proto_funcs[] = {
     JS_CFUNC_MAGIC_DEF("read", 4, quv_file_rw, 0 ),
     JS_CFUNC_MAGIC_DEF("write", 4, quv_file_rw, 1 ),
@@ -547,7 +716,23 @@ static const JSCFunctionListEntry quv_file_proto_funcs[] = {
     JS_CGETSET_DEF("path", quv_file_path_get, NULL ),
 };
 
+static const JSCFunctionListEntry quv_dir_proto_funcs[] = {
+    JS_CFUNC_DEF("close", 0, quv_dir_close ),
+    JS_CGETSET_DEF("path", quv_dir_path_get, NULL ),
+    JS_CFUNC_DEF("next", 0, quv_dir_next ),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Dir Iterator", JS_PROP_CONFIGURABLE ),
+    JS_CFUNC_DEF("[Symbol.asyncIterator]", 0, quv_dir_iterator ),
+};
+
 static const JSCFunctionListEntry quv_fs_funcs[] = {
+    QUV_CONST(UV_DIRENT_UNKNOWN),
+    QUV_CONST(UV_DIRENT_FILE),
+    QUV_CONST(UV_DIRENT_DIR),
+    QUV_CONST(UV_DIRENT_LINK),
+    QUV_CONST(UV_DIRENT_FIFO),
+    QUV_CONST(UV_DIRENT_SOCKET),
+    QUV_CONST(UV_DIRENT_CHAR),
+    QUV_CONST(UV_DIRENT_BLOCK),
     QUV_CONST(UV_FS_COPYFILE_EXCL),
     QUV_CONST(UV_FS_COPYFILE_FICLONE),
     QUV_CONST(UV_FS_COPYFILE_FICLONE_FORCE),
@@ -570,16 +755,26 @@ static const JSCFunctionListEntry quv_fs_funcs[] = {
     JS_CFUNC_DEF("mkdtemp", 1, quv_fs_mkdtemp ),
     JS_CFUNC_DEF("rmdir", 1, quv_fs_rmdir ),
     JS_CFUNC_DEF("copyfile", 3, quv_fs_copyfile ),
+    JS_CFUNC_DEF("readdir", 1, quv_fs_readdir ),
 };
 
 void quv_mod_fs_init(JSContext *ctx, JSModuleDef *m) {
     JSValue proto, obj;
 
+    /* File object */
     JS_NewClassID(&quv_file_class_id);
     JS_NewClass(JS_GetRuntime(ctx), quv_file_class_id, &quv_file_class);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, quv_file_proto_funcs, countof(quv_file_proto_funcs));
     JS_SetClassProto(ctx, quv_file_class_id, proto);
+
+    /* Dir object */
+    JS_NewClassID(&quv_dir_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), quv_dir_class_id, &quv_dir_class);
+    proto = JS_NewObject(ctx);
+    JS_SetPropertyFunctionList(ctx, proto, quv_dir_proto_funcs, countof(quv_dir_proto_funcs));
+    JS_SetClassProto(ctx, quv_dir_class_id, proto);
+
     obj = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, obj, quv_fs_funcs, countof(quv_fs_funcs));
     JS_SetModuleExport(ctx, m, "fs", obj);
