@@ -30,6 +30,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `environ()`
 - `exepath()`
 - `getenv(name)`
+- `gettimeofday()`
 - `homedir()`
 - `hrtime()`
 - `isatty()`

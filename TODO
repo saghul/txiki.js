@@ -1,5 +1,6 @@
 
+- Travis
 - refactor js_load_file to use libuv
     - create QUV_EvalXXX
-- implement fetch using libcurl
+- implement fetch using libcurl / libwebsockets
 - investigate libffi integration

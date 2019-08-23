@@ -35,6 +35,15 @@ static JSValue quv_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return JS_NewBigUint64(ctx, uv_hrtime());
 }
 
+static JSValue quv_gettimeofday(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+    uv_timeval64_t tv;
+    int r = uv_gettimeofday(&tv);
+    if (r != 0)
+        return quv_throw_errno(ctx, r);
+    return JS_NewInt64(ctx, tv.tv_sec * 1000 + (tv.tv_usec / 1000));
+}
+
 static JSValue quv_uname(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
     JSValue obj;
@@ -274,6 +283,7 @@ static const JSCFunctionListEntry quv_misc_funcs[] = {
     QUV_CONST(UV_UDP_PARTIAL),
     QUV_CONST(UV_UDP_REUSEADDR),
     JS_CFUNC_DEF("hrtime", 0, quv_hrtime ),
+    JS_CFUNC_DEF("gettimeofday", 0, quv_gettimeofday ),
     JS_CFUNC_DEF("uname", 0, quv_uname ),
     JS_CFUNC_DEF("isatty", 1, quv_isatty ),
     JS_CFUNC_DEF("environ", 0, quv_environ ),
