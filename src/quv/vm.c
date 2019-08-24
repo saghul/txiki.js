@@ -129,6 +129,10 @@ void QUV_FreeRuntime(QUVRuntime *qrt) {
         }
         uv_run(&qrt->loop, UV_RUN_NOWAIT);
     }
+#if DEBUG
+    if (!closed)
+        uv_print_all_handles(&qrt->loop, stderr);
+#endif
     CHECK_EQ(closed, 1);
 
     free(qrt);
