@@ -104,6 +104,7 @@ static void worker_entry(void* arg) {
     JSValue global_obj = JS_GetGlobalObject(ctx);
     JSValue worker_obj = quv_new_worker(ctx, wd->channel_fd, FALSE);
     JS_SetPropertyStr(ctx, global_obj, "workerThis", worker_obj);
+    JS_FreeValue(ctx, global_obj);
 
     /* Load the file and eval the file when the loop runs. */
     JSValue filename = JS_NewString(ctx, wd->path);
