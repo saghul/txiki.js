@@ -24,6 +24,8 @@
  * THE SOFTWARE.
  */
 
+#include <string.h>
+
 #include "cutils.h"
 #include "quickjs-libc.h"
 #include "quickjs-libuv.h"

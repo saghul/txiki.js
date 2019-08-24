@@ -23,6 +23,8 @@
  * THE SOFTWARE.
  */
 
+#include <string.h>
+
 #include "../quickjs-libc.h"
 #include "utils.h"
 #include "vm.h"
