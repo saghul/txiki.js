@@ -69,13 +69,15 @@ QUVRuntime *QUV_NewRuntime(void) {
 }
 
 QUVRuntime *QUV_NewRuntime2(BOOL is_worker) {
-    QUVRuntime *qrt = malloc(sizeof(*qrt));
+    QUVRuntime *qrt = calloc(1, sizeof(*qrt));
 
     qrt->rt = JS_NewRuntime();
     CHECK_NOT_NULL(qrt->rt);
 
     qrt->ctx = JS_NewContext(qrt->rt);
     CHECK_NOT_NULL(qrt->ctx);
+
+    qrt->is_worker = is_worker;
 
     CHECK_EQ(uv_loop_init(&qrt->loop), 0);
 
