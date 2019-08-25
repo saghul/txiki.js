@@ -149,5 +149,19 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `UV_FS_COPYFILE_FICLONE`
 - `UV_FS_COPYFILE_FICLONE_FORCE`
 
+### `uv.dns` module
+
+- `getaddrinfo(node, [options])`
+
+#### Constants
+
+- `AI_PASSIVE`
+- `AI_CANONNAME`
+- `AI_NUMERICHOST`
+- `AI_V4MAPPED`
+- `AI_ALL`
+- `AI_ADDRCONFIG`
+- `AI_NUMERICSERV`
+
 [Encoding API]: https://encoding.spec.whatwg.org/
 [libuv]: https://github.com/libuv/libuv

@@ -18,6 +18,7 @@ Currently the following is already implemented in the `quv` (formerly `qjs`) int
 - Miscellaneous utility functions
 - Worker threads
 - Child processes
+- DNS (getaddrinfo)
 
 Other extras:
 
