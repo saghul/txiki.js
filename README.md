@@ -1,7 +1,7 @@
 
 # quv — QuickJS ❤️ libuv
 
-![CI](https://travis-ci.org/saghul/quv.svg?branch=master)
+[![Build Status](https://travis-ci.org/saghul/quv.svg?branch=master)](https://travis-ci.org/saghul/quv)
 
 This is an experiment in using [libuv] as the platform layer for [QuickJS].
 
