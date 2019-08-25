@@ -1,0 +1,45 @@
+language: c
+matrix:
+  include:
+    - os: linux
+      dist: xenial
+      sudo: required
+      compiler: gcc
+      env: BUILDTYPE=Debug
+    - os: linux
+      dist: xenial
+      sudo: required
+      compiler: gcc
+      env: BUILDTYPE=Release
+    - os: linux
+      dist: xenial
+      sudo: required
+      compiler: clang
+      env: BUILDTYPE=Debug
+    - os: linux
+      dist: xenial
+      sudo: required
+      compiler: clang
+      env: BUILDTYPE=Release
+    - os: linux
+      dist: xenial
+      sudo: required
+      addons:
+        apt:
+          update: true
+          packages:
+            - musl-tools
+      env: BUILDTYPE=Debug MY_CC=musl-gcc MY_LINK=musl-gcc
+    - os: osx
+      env: BUILDTYPE=Debug
+    - os: osx
+      env: BUILDTYPE=Release
+before_install:
+  - umask 022
+  - test -n $MY_CC  && export CC=$MY_CC
+  - test -n $MY_CXX  && export CXX=$MY_CXX
+  - test -n $MY_LINK  && export LINK=$MY_LINK
+script: make && ./build/quv -e "console.log('hello world');"
+branches:
+  only:
+    - master
