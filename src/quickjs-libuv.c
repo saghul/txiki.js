@@ -25,6 +25,7 @@
 #include <stdlib.h>
 
 #include "quickjs-libuv.h"
+#include "quv/dns.h"
 #include "quv/error.h"
 #include "quv/fs.h"
 #include "quv/misc.h"
@@ -38,6 +39,7 @@
 
 
 static int quv_init(JSContext *ctx, JSModuleDef *m) {
+    quv_mod_dns_init(ctx, m);
     quv_mod_error_init(ctx, m);
     quv_mod_fs_init(ctx, m);
     quv_mod_misc_init(ctx, m);
@@ -58,6 +60,7 @@ JSModuleDef *js_init_module_uv(JSContext *ctx)
     if (!m)
         return NULL;
 
+    quv_mod_dns_export(ctx, m);
     quv_mod_error_export(ctx, m);
     quv_mod_fs_export(ctx, m);
     quv_mod_misc_export(ctx, m);
