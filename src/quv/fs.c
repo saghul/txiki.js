@@ -203,18 +203,16 @@ static void uv__fs_req_cb(uv_fs_t* req) {
 
     JSContext *ctx = fr->ctx;
     JSValue ret;
-
-    if (fr->req.result < 0) {
-        JSValue error = quv_new_error(ctx, fr->req.result);
-        ret = JS_Call(ctx, fr->result.resolving_funcs[1], JS_UNDEFINED, 1, (JSValueConst *)&error);
-        JS_FreeValue(ctx, error);
-
-        goto end;
-    }
-
     JSValue arg;
     QUVFile *f;
     QUVDir *d;
+    BOOL is_reject = FALSE;
+
+    if (fr->req.result < 0) {
+        arg = quv_new_error(ctx, fr->req.result);
+        is_reject = TRUE;
+        goto skip;
+    }
 
     switch (fr->req.fs_type) {
     case UV_FS_OPEN:
@@ -284,11 +282,9 @@ static void uv__fs_req_cb(uv_fs_t* req) {
         abort();
     }
 
-    ret = JS_Call(ctx, fr->result.resolving_funcs[0], JS_UNDEFINED, 1, (JSValueConst *)&arg);
-
-end:
-    uv_fs_req_cleanup(&fr->req);
-
+skip:
+    ret = JS_Call(ctx, fr->result.resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
+    JS_FreeValue(ctx, arg);
     JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
 
     JS_FreeValue(ctx, fr->result.promise);
@@ -297,6 +293,7 @@ end:
     JS_FreeValue(ctx, fr->obj);
     JS_FreeValue(ctx, fr->rw.buf);
 
+    uv_fs_req_cleanup(&fr->req);
     js_free(ctx, fr);
 }
 
