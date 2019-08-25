@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include <string.h>
 #include <unistd.h>
 
 #include "../cutils.h"
@@ -405,14 +406,16 @@ fail:
     JS_FreeValue(ctx, obj);
     ret = JS_EXCEPTION;
 cleanup:
-    if (options.args)
+    if (options.args) {
         for (int i = 0; options.args[i] != NULL; i++)
             js_free(ctx, options.args[i]);
         js_free(ctx, options.args);
-    if (options.env)
+    }
+    if (options.env) {
         for (int i = 0; options.env[i] != NULL; i++)
             js_free(ctx, options.env[i]);
         js_free(ctx, options.env);
+    }
     if (options.cwd)
         js_free(ctx, (void*) options.cwd);
 
