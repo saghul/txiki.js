@@ -974,6 +974,7 @@ static const JSCFunctionListEntry quv_tcp_proto_funcs[] = {
     JS_CFUNC_MAGIC_DEF("getpeername", 0, quv_tcp_getsockpeername, 1 ),
     JS_CFUNC_DEF("connect", 1, quv_tcp_connect ),
     JS_CFUNC_DEF("bind", 1, quv_tcp_bind ),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "TCP", JS_PROP_CONFIGURABLE ),
 };
 
 static const JSCFunctionListEntry quv_tty_proto_funcs[] = {
@@ -985,6 +986,7 @@ static const JSCFunctionListEntry quv_tty_proto_funcs[] = {
     /* TTY functions */
     JS_CFUNC_DEF("setMode", 1, quv_tty_setMode ),
     JS_CFUNC_DEF("getWinSize", 0, quv_tty_getWinSize ),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "TTY", JS_PROP_CONFIGURABLE ),
 };
 
 static const JSCFunctionListEntry quv_pipe_proto_funcs[] = {
@@ -1000,6 +1002,7 @@ static const JSCFunctionListEntry quv_pipe_proto_funcs[] = {
     JS_CFUNC_MAGIC_DEF("getpeername", 0, quv_pipe_getsockpeername, 1 ),
     JS_CFUNC_DEF("connect", 1, quv_pipe_connect ),
     JS_CFUNC_DEF("bind", 1, quv_pipe_bind ),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Pipe", JS_PROP_CONFIGURABLE ),
 };
 
 void quv_mod_streams_init(JSContext *ctx, JSModuleDef *m) {

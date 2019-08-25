@@ -426,6 +426,7 @@ static const JSCFunctionListEntry quv_process_proto_funcs[] = {
     JS_CGETSET_MAGIC_DEF("stdin", quv_process_stdio_get, NULL, 0 ),
     JS_CGETSET_MAGIC_DEF("stdout", quv_process_stdio_get, NULL, 1 ),
     JS_CGETSET_MAGIC_DEF("stderr", quv_process_stdio_get, NULL, 2 ),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Process", JS_PROP_CONFIGURABLE ),
 };
 
 static const JSCFunctionListEntry quv_process_funcs[] = {

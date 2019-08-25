@@ -150,6 +150,7 @@ static JSValue quv_signal_handler_signum_get(JSContext *ctx, JSValueConst this_v
 static const JSCFunctionListEntry quv_signal_handler_proto_funcs[] = {
     JS_CFUNC_DEF("close", 0, quv_signal_handler_close ),
     JS_CGETSET_DEF("signum", quv_signal_handler_signum_get, NULL ),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Signal Handler", JS_PROP_CONFIGURABLE ),
 };
 
 static const JSCFunctionListEntry quv_signal_funcs[] = {

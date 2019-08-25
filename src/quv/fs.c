@@ -711,13 +711,14 @@ static const JSCFunctionListEntry quv_file_proto_funcs[] = {
     JS_CFUNC_DEF("fileno", 0, quv_file_fileno ),
     JS_CFUNC_DEF("stat", 0, quv_file_stat ),
     JS_CGETSET_DEF("path", quv_file_path_get, NULL ),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "File", JS_PROP_CONFIGURABLE ),
 };
 
 static const JSCFunctionListEntry quv_dir_proto_funcs[] = {
     JS_CFUNC_DEF("close", 0, quv_dir_close ),
     JS_CGETSET_DEF("path", quv_dir_path_get, NULL ),
     JS_CFUNC_DEF("next", 0, quv_dir_next ),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Dir Iterator", JS_PROP_CONFIGURABLE ),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Dir", JS_PROP_CONFIGURABLE ),
     JS_CFUNC_DEF("[Symbol.asyncIterator]", 0, quv_dir_iterator ),
 };
 

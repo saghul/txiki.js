@@ -167,6 +167,7 @@ static const JSCFunctionListEntry quv_timer_funcs[] = {
     JS_CFUNC_DEF("clearTimeout", 1, quv_clearTimeout ),
     JS_CFUNC_MAGIC_DEF("setInterval", 2, quv_setTimeout, 1 ),
     JS_CFUNC_DEF("clearInterval", 1, quv_clearTimeout ),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Timer", JS_PROP_CONFIGURABLE ),
 };
 
 void quv_mod_timers_init(JSContext *ctx, JSModuleDef *m) {

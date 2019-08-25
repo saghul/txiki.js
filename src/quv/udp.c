@@ -431,6 +431,7 @@ static const JSCFunctionListEntry quv_udp_proto_funcs[] = {
     JS_CFUNC_MAGIC_DEF("getpeername", 0, quv_udp_getsockpeername, 1 ),
     JS_CFUNC_DEF("connect", 1, quv_udp_connect ),
     JS_CFUNC_DEF("bind", 2, quv_udp_bind ),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "UDP", JS_PROP_CONFIGURABLE ),
 };
 
 void quv_mod_udp_init(JSContext *ctx, JSModuleDef *m) {

@@ -375,6 +375,7 @@ static const JSCFunctionListEntry quv_worker_proto_funcs[] = {
     JS_CGETSET_MAGIC_DEF("onmessage", quv_worker_event_get, quv_worker_event_set, 0 ),
     JS_CGETSET_MAGIC_DEF("onmessageerror", quv_worker_event_get, quv_worker_event_set, 1 ),
     JS_CGETSET_MAGIC_DEF("onerror", quv_worker_event_get, quv_worker_event_set, 2 ),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Worker", JS_PROP_CONFIGURABLE ),
 };
 
 void quv_mod_worker_init(JSContext *ctx, JSModuleDef *m) {
