@@ -1,6 +1,8 @@
 
 # quv — QuickJS ❤️ libuv
 
+![CI](https://travis-ci.org/saghul/quv.svg?branch=master)
+
 This is an experiment in using [libuv] as the platform layer for [QuickJS].
 
 Currently the following is already implemented in the `quv` (formerly `qjs`) interpreter, using libuv:
