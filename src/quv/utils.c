@@ -180,31 +180,6 @@ void quv_call_handler(JSContext *ctx, JSValueConst func) {
     JS_FreeValue(ctx, ret);
 }
 
-static inline JSValue quv__completed_promise(JSContext *ctx, JSValueConst arg, int is_reject) {
-    JSValue promise, resolving_funcs[2], ret;
-
-    promise = JS_NewPromiseCapability(ctx, resolving_funcs);
-    if (JS_IsException(promise))
-        return JS_EXCEPTION;
-
-    ret = JS_Call(ctx, resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
-
-    JS_FreeValue(ctx, arg);
-    JS_FreeValue(ctx, ret);
-    JS_FreeValue(ctx, resolving_funcs[0]);
-    JS_FreeValue(ctx, resolving_funcs[1]);
-
-    return promise;
-}
-
-JSValue QUV_NewResolvedPromise(JSContext *ctx, JSValueConst arg) {
-    return quv__completed_promise(ctx, arg, 0);
-}
-
-JSValue QUV_NewRejectedPromise(JSContext *ctx, JSValueConst arg) {
-    return quv__completed_promise(ctx, arg, 1);
-}
-
 void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len) {
     uint32_t i;
     if (tab) {
@@ -212,4 +187,77 @@ void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len) {
             JS_FreeAtom(ctx, tab[i].atom);
         js_free(ctx, tab);
     }
+}
+
+JSValue QUV_InitPromise(JSContext *ctx, QUVPromise *p) {
+    p->p = JS_NewPromiseCapability(ctx, p->rfuncs);
+    if (JS_IsException(p->p))
+        return JS_EXCEPTION;
+    return JS_DupValue(ctx, p->p);
+}
+
+void QUV_FreePromise(JSContext *ctx, QUVPromise *p) {
+    JS_FreeValue(ctx, p->p);
+    JS_FreeValue(ctx, p->rfuncs[0]);
+    JS_FreeValue(ctx, p->rfuncs[1]);
+}
+
+void QUV_FreePromiseRT(JSRuntime *rt, QUVPromise *p) {
+    JS_FreeValueRT(rt, p->p);
+    JS_FreeValueRT(rt, p->rfuncs[0]);
+    JS_FreeValueRT(rt, p->rfuncs[1]);
+}
+
+void QUV_ClearPromise(JSContext *ctx, QUVPromise *p) {
+    p->p = JS_UNDEFINED;
+    p->rfuncs[0] = JS_UNDEFINED;
+    p->rfuncs[1] = JS_UNDEFINED;
+}
+
+void QUV_MarkPromise(JSRuntime *rt, QUVPromise *p, JS_MarkFunc *mark_func) {
+    JS_MarkValue(rt, p->p, mark_func);
+    JS_MarkValue(rt, p->rfuncs[0], mark_func);
+    JS_MarkValue(rt, p->rfuncs[1], mark_func);
+}
+
+void QUV_SettlePromise(JSContext *ctx, QUVPromise *p, BOOL is_reject, int argc, JSValueConst *argv) {
+    JSValue ret = JS_Call(ctx, p->rfuncs[is_reject], JS_UNDEFINED, argc, argv);
+    for (int i = 0; i < argc; i++)
+        JS_FreeValue(ctx, argv[i]);
+    JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
+    QUV_FreePromise(ctx, p);
+}
+
+void QUV_ResolvePromise(JSContext *ctx, QUVPromise *p, int argc, JSValueConst *argv) {
+    QUV_SettlePromise(ctx, p, FALSE, argc, argv);
+}
+
+void QUV_RejectPromise(JSContext *ctx, QUVPromise *p, int argc, JSValueConst *argv) {
+    QUV_SettlePromise(ctx, p, TRUE, argc, argv);
+}
+
+static inline JSValue quv__settled_promise(JSContext *ctx, BOOL is_reject, int argc, JSValueConst *argv) {
+    JSValue promise, resolving_funcs[2], ret;
+
+    promise = JS_NewPromiseCapability(ctx, resolving_funcs);
+    if (JS_IsException(promise))
+        return JS_EXCEPTION;
+
+    ret = JS_Call(ctx, resolving_funcs[is_reject], JS_UNDEFINED, argc, argv);
+
+    for (int i = 0; i < argc; i++)
+        JS_FreeValue(ctx, argv[i]);
+    JS_FreeValue(ctx, ret);
+    JS_FreeValue(ctx, resolving_funcs[0]);
+    JS_FreeValue(ctx, resolving_funcs[1]);
+
+    return promise;
+}
+
+JSValue QUV_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
+    return quv__settled_promise(ctx, FALSE, argc, argv);
+}
+
+JSValue QUV_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
+    return quv__settled_promise(ctx, TRUE, argc, argv);
 }

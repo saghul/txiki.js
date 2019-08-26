@@ -44,8 +44,7 @@ typedef struct {
         BOOL exited;
         int64_t exit_status;
         int term_signal;
-        JSValue promise;
-        JSValue resolving_funcs[2];
+        QUVPromise result;
     } status;
 } QUVProcess;
 
@@ -65,9 +64,7 @@ static void maybe_close(QUVProcess *p) {
 static void quv_process_finalizer(JSRuntime *rt, JSValue val) {
     QUVProcess *p = JS_GetOpaque(val, quv_process_class_id);
     if (p) {
-        JS_FreeValueRT(rt, p->status.promise);
-        JS_FreeValueRT(rt, p->status.resolving_funcs[0]);
-        JS_FreeValueRT(rt, p->status.resolving_funcs[1]);
+        QUV_FreePromiseRT(rt, &p->status.result);
         JS_FreeValueRT(rt, p->stdio[0]);
         JS_FreeValueRT(rt, p->stdio[1]);
         JS_FreeValueRT(rt, p->stdio[2]);
@@ -82,9 +79,7 @@ static void quv_process_finalizer(JSRuntime *rt, JSValue val) {
 static void quv_process_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
     QUVProcess *p = JS_GetOpaque(val, quv_process_class_id);
     if (p) {
-        JS_MarkValue(rt, p->status.promise, mark_func);
-        JS_MarkValue(rt, p->status.resolving_funcs[0], mark_func);
-        JS_MarkValue(rt, p->status.resolving_funcs[1], mark_func);
+        QUV_MarkPromise(rt, &p->status.result, mark_func);
         JS_MarkValue(rt, p->stdio[0], mark_func);
         JS_MarkValue(rt, p->stdio[1], mark_func);
         JS_MarkValue(rt, p->stdio[2], mark_func);
@@ -126,13 +121,11 @@ static JSValue quv_process_wait(JSContext *ctx, JSValueConst this_val, int argc,
         JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
         JS_DefinePropertyValueStr(ctx, obj, "exit_status", JS_NewInt32(ctx, p->status.exit_status), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, obj, "term_signal", JS_NewInt32(ctx, p->status.term_signal), JS_PROP_C_W_E);
-        return QUV_NewResolvedPromise(ctx, obj);
+        return QUV_NewResolvedPromise(ctx, 1, &obj);
     } else if (p->closed) {
         return JS_UNDEFINED;
     } else {
-        JSValue promise = JS_NewPromiseCapability(ctx, p->status.resolving_funcs);
-        p->status.promise = JS_DupValue(ctx, promise);
-        return promise;
+        return QUV_InitPromise(ctx, &p->status.result);
     }
 }
 
@@ -158,22 +151,14 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
     p->status.exit_status = exit_status;
     p->status.term_signal = term_signal;
 
-    if (!JS_IsUndefined(p->status.promise)) {
+    if (!JS_IsUndefined(p->status.result.p)) {
         JSContext *ctx = p->ctx;
         JSValue arg = JS_NewObjectProto(ctx, JS_NULL);
         JS_DefinePropertyValueStr(ctx, arg, "exit_status", JS_NewInt32(ctx, exit_status), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, arg, "term_signal", JS_NewInt32(ctx, term_signal), JS_PROP_C_W_E);
-        JSValue ret = JS_Call(ctx, p->status.resolving_funcs[0], JS_UNDEFINED, 1, (JSValueConst *)&arg);
-        JS_FreeValue(ctx, arg);
-        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
 
-        JS_FreeValue(ctx, p->status.promise);
-        JS_FreeValue(ctx, p->status.resolving_funcs[0]);
-        JS_FreeValue(ctx, p->status.resolving_funcs[1]);
-
-        p->status.promise = JS_UNDEFINED;
-        p->status.resolving_funcs[0] = JS_UNDEFINED;
-        p->status.resolving_funcs[1] = JS_UNDEFINED;
+        QUV_SettlePromise(ctx, &p->status.result, FALSE, 1, (JSValueConst *)&arg);
+        QUV_ClearPromise(ctx, &p->status.result);
     }
 
     maybe_close(p);
@@ -195,9 +180,7 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     p->ctx = ctx;
     p->process.data = p;
 
-    p->status.promise = JS_UNDEFINED;
-    p->status.resolving_funcs[0] = JS_UNDEFINED;
-    p->status.resolving_funcs[1] = JS_UNDEFINED;
+    QUV_ClearPromise(ctx, &p->status.result);
 
     p->stdio[0] = JS_UNDEFINED;
     p->stdio[1] = JS_UNDEFINED;

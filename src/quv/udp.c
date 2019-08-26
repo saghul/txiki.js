@@ -39,16 +39,14 @@ typedef struct {
             uint8_t *data;
             size_t len;
         } b;
-        JSValue promise;
-        JSValue resolving_funcs[2];
+        QUVPromise result;
     } read;
 } QUVUdp;
 
 typedef struct {
     uv_udp_send_t req;
     JSValue data;
-    JSValue promise;
-    JSValue resolving_funcs[2];
+    QUVPromise result;
 } QUVSendReq;
 
 static JSClassID quv_udp_class_id;
@@ -69,9 +67,7 @@ static void maybe_close(QUVUdp *u) {
 static void quv_udp_finalizer(JSRuntime *rt, JSValue val) {
     QUVUdp *u = JS_GetOpaque(val, quv_udp_class_id);
     if (u) {
-        JS_FreeValueRT(rt, u->read.promise);
-        JS_FreeValueRT(rt, u->read.resolving_funcs[0]);
-        JS_FreeValueRT(rt, u->read.resolving_funcs[1]);
+        QUV_FreePromiseRT(rt, &u->read.result);
         JS_FreeValueRT(rt, u->read.b.buffer);
         u->finalized = 1;
         if (u->closed)
@@ -84,10 +80,8 @@ static void quv_udp_finalizer(JSRuntime *rt, JSValue val) {
 static void quv_udp_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
     QUVUdp *u = JS_GetOpaque(val, quv_udp_class_id);
     if (u) {
+        QUV_MarkPromise(rt, &u->read.result, mark_func);
         JS_MarkValue(rt, u->read.b.buffer, mark_func);
-        JS_MarkValue(rt, u->read.promise, mark_func);
-        JS_MarkValue(rt, u->read.resolving_funcs[0], mark_func);
-        JS_MarkValue(rt, u->read.resolving_funcs[1], mark_func);
     }
 }
 
@@ -125,7 +119,6 @@ static void uv__udp_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf
 
     JSContext *ctx = u->ctx;
     JSValue arg;
-    JSValue ret;
     int is_reject = 0;
     if (nread < 0) {
         arg = quv_new_error(ctx, nread);
@@ -137,17 +130,8 @@ static void uv__udp_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf
         JS_DefinePropertyValueStr(ctx, arg, "addr", quv_addr2obj(ctx, addr), JS_PROP_C_W_E);
     }
 
-    ret = JS_Call(ctx, u->read.resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
-    JS_FreeValue(ctx, arg);
-    JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
-
-    JS_FreeValue(ctx, u->read.promise);
-    JS_FreeValue(ctx, u->read.resolving_funcs[0]);
-    JS_FreeValue(ctx, u->read.resolving_funcs[1]);
-
-    u->read.promise = JS_UNDEFINED;
-    u->read.resolving_funcs[0] = JS_UNDEFINED;
-    u->read.resolving_funcs[1] = JS_UNDEFINED;
+    QUV_SettlePromise(ctx, &u->read.result, is_reject, 1, (JSValueConst *)&arg);
+    QUV_ClearPromise(ctx, &u->read.result);
 
     JS_FreeValue(ctx, u->read.b.buffer);
     u->read.b.buffer = JS_UNDEFINED;
@@ -160,7 +144,7 @@ static JSValue quv_udp_recv(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (!u)
         return JS_EXCEPTION;
 
-    if (!JS_IsUndefined(u->read.promise))
+    if (!JS_IsUndefined(u->read.result.p))
         return quv_throw_errno(ctx, UV_EBUSY);
 
     size_t size;
@@ -191,9 +175,7 @@ static JSValue quv_udp_recv(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (r != 0)
         return quv_throw_errno(ctx, r);
 
-    JSValue promise = JS_NewPromiseCapability(ctx, u->read.resolving_funcs);
-    u->read.promise = JS_DupValue(ctx, promise);
-    return promise;
+    return QUV_InitPromise(ctx, &u->read.result);
 }
 
 static void uv__udp_send_cb(uv_udp_send_t* req, int status) {
@@ -204,7 +186,7 @@ static void uv__udp_send_cb(uv_udp_send_t* req, int status) {
     QUVSendReq *sr = req->data;
 
     int is_reject = 0;
-    JSValue arg, ret;
+    JSValue arg;
     if (status < 0) {
         arg = quv_new_error(ctx, status);
         is_reject = 1;
@@ -212,13 +194,7 @@ static void uv__udp_send_cb(uv_udp_send_t* req, int status) {
         arg = JS_UNDEFINED;
     }
 
-    ret = JS_Call(ctx, sr->resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
-    JS_FreeValue(ctx, arg);
-    JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
-
-    JS_FreeValue(ctx, sr->promise);
-    JS_FreeValue(ctx, sr->resolving_funcs[0]);
-    JS_FreeValue(ctx, sr->resolving_funcs[1]);
+    QUV_SettlePromise(ctx, &sr->result, is_reject, 1, (JSValueConst *)&arg);
 
     JS_FreeValue(ctx, sr->data);
     js_free(ctx, sr);
@@ -299,9 +275,7 @@ static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
         return quv_throw_errno(ctx, r);
     }
 
-    JSValue promise = JS_NewPromiseCapability(ctx, sr->resolving_funcs);
-    sr->promise = JS_DupValue(ctx, promise);
-    return promise;
+    return QUV_InitPromise(ctx, &sr->result);
 }
 
 static JSValue quv_udp_fileno(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -348,9 +322,7 @@ static JSValue quv_new_udp(JSContext *ctx, int af) {
     u->read.b.data = NULL;
     u->read.b.len = 0;
 
-    u->read.promise = JS_UNDEFINED;
-    u->read.resolving_funcs[0] = JS_UNDEFINED;
-    u->read.resolving_funcs[1] = JS_UNDEFINED;
+    QUV_ClearPromise(ctx, &u->read.result);
 
     JS_SetOpaque(obj, u);
     return obj;
