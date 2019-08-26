@@ -81,8 +81,22 @@ int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);
 JSValue quv_addr2obj(JSContext *ctx, const struct sockaddr *sa);
 void quv_call_handler(JSContext *ctx, JSValueConst func);
 void quv_dump_error(JSContext *ctx);
-JSValue QUV_NewResolvedPromise(JSContext *ctx, JSValueConst arg);
-JSValue QUV_NewRejectedPromise(JSContext *ctx, JSValueConst arg);
 void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len);
+
+typedef struct {
+  JSValue p;
+  JSValue rfuncs[2];
+} QUVPromise;
+
+JSValue QUV_InitPromise(JSContext *ctx, QUVPromise *p);
+void QUV_FreePromise(JSContext *ctx, QUVPromise *p);
+void QUV_FreePromiseRT(JSRuntime *rt, QUVPromise *p);
+void QUV_ClearPromise(JSContext *ctx, QUVPromise *p);
+void QUV_MarkPromise(JSRuntime *rt, QUVPromise *p, JS_MarkFunc *mark_func);
+void QUV_SettlePromise(JSContext *ctx, QUVPromise *p, BOOL is_reject, int argc, JSValueConst *argv);
+void QUV_ResolvePromise(JSContext *ctx, QUVPromise *p, int argc, JSValueConst *argv);
+void QUV_RejectPromise(JSContext *ctx, QUVPromise *p, int argc, JSValueConst *argv);
+JSValue QUV_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv);
+JSValue QUV_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 
 #endif

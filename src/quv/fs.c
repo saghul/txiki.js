@@ -86,10 +86,7 @@ typedef struct {
     uv_fs_t req;
     JSContext *ctx;
     JSValue obj;
-    struct {
-        JSValue promise;
-        JSValue resolving_funcs[2];
-    } result;
+    QUVPromise result;
     struct {
         JSValue buf;
     } rw;
@@ -186,14 +183,13 @@ static QUVDir *quv_dir_get(JSContext *ctx, JSValueConst obj) {
     return JS_GetOpaque2(ctx, obj, quv_dir_class_id);
 }
 
-static void quv_fsreq_init(JSContext *ctx, QUVFsReq *fr, JSValue obj) {
+static JSValue quv_fsreq_init(JSContext *ctx, QUVFsReq *fr, JSValue obj) {
     fr->ctx = ctx;
     fr->req.data = fr;
     fr->obj = JS_DupValue(ctx, obj);
     fr->rw.buf = JS_UNDEFINED;
 
-    JSValue promise = JS_NewPromiseCapability(ctx, fr->result.resolving_funcs);
-    fr->result.promise = JS_DupValue(ctx, promise);
+    return QUV_InitPromise(ctx, &fr->result);
 }
 
 static void uv__fs_req_cb(uv_fs_t* req) {
@@ -202,7 +198,6 @@ static void uv__fs_req_cb(uv_fs_t* req) {
         return;
 
     JSContext *ctx = fr->ctx;
-    JSValue ret;
     JSValue arg;
     QUVFile *f;
     QUVDir *d;
@@ -283,13 +278,8 @@ static void uv__fs_req_cb(uv_fs_t* req) {
     }
 
 skip:
-    ret = JS_Call(ctx, fr->result.resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
-    JS_FreeValue(ctx, arg);
-    JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
+    QUV_SettlePromise(ctx, &fr->result, is_reject, 1, (JSValueConst *)&arg);
 
-    JS_FreeValue(ctx, fr->result.promise);
-    JS_FreeValue(ctx, fr->result.resolving_funcs[0]);
-    JS_FreeValue(ctx, fr->result.resolving_funcs[1]);
     JS_FreeValue(ctx, fr->obj);
     JS_FreeValue(ctx, fr->rw.buf);
 
@@ -352,7 +342,7 @@ static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 
     quv_fsreq_init(ctx, fr, this_val);
     fr->rw.buf = JS_DupValue(ctx, argv[0]);
-    return fr->result.promise;
+    return fr->result.p;
 }
 
 static JSValue quv_file_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -370,8 +360,7 @@ static JSValue quv_file_close(JSContext *ctx, JSValueConst this_val, int argc, J
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, this_val);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, this_val);
 }
 
 static JSValue quv_file_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -389,8 +378,7 @@ static JSValue quv_file_stat(JSContext *ctx, JSValueConst this_val, int argc, JS
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, this_val);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, this_val);
 }
 
 static JSValue quv_file_fileno(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -427,8 +415,7 @@ static JSValue quv_dir_close(JSContext *ctx, JSValueConst this_val, int argc, JS
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, this_val);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, this_val);
 }
 
 static JSValue quv_dir_path_get(JSContext *ctx, JSValueConst this_val) {
@@ -461,8 +448,7 @@ static JSValue quv_dir_next(JSContext *ctx, JSValueConst this_val, int argc, JSV
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, this_val);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, this_val);
 }
 
 static JSValue quv_dir_iterator(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -532,8 +518,7 @@ static JSValue quv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSVa
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
 static JSValue quv_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
@@ -555,8 +540,7 @@ static JSValue quv_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSVa
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
 static JSValue quv_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -574,8 +558,7 @@ static JSValue quv_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc, 
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
 static JSValue quv_fs_unlink(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -593,8 +576,7 @@ static JSValue quv_fs_unlink(JSContext *ctx, JSValueConst this_val, int argc, JS
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
 static JSValue quv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -616,8 +598,7 @@ static JSValue quv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, JS
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
 static JSValue quv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -635,8 +616,7 @@ static JSValue quv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, J
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
 static JSValue quv_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -654,8 +634,7 @@ static JSValue quv_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSV
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
 static JSValue quv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -681,8 +660,7 @@ static JSValue quv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, 
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
 static JSValue quv_fs_readdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -700,8 +678,7 @@ static JSValue quv_fs_readdir(JSContext *ctx, JSValueConst this_val, int argc, J
         return quv_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, JS_UNDEFINED);
-    return fr->result.promise;
+    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
 static const JSCFunctionListEntry quv_file_proto_funcs[] = {

@@ -33,10 +33,7 @@
 typedef struct {
     JSContext *ctx;
     uv_getaddrinfo_t req;
-    struct {
-        JSValue promise;
-        JSValue resolving_funcs[2];
-    } result;
+    QUVPromise result;
 } QUVGetAddrInfoReq;
 
 static JSValue quv_addrinfo2obj(JSContext *ctx, struct addrinfo *ai) {
@@ -96,15 +93,10 @@ static void uv__getaddrinfo_cb(uv_getaddrinfo_t* req, int status, struct addrinf
     else
         arg = quv_addrinfo2obj(ctx, res);
 
-    JSValue ret = JS_Call(ctx, gr->result.resolving_funcs[is_reject], JS_UNDEFINED, 1, (JSValueConst *)&arg);
-    JS_FreeValue(ctx, arg);
-    JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
-
-    JS_FreeValue(ctx, gr->result.promise);
-    JS_FreeValue(ctx, gr->result.resolving_funcs[0]);
-    JS_FreeValue(ctx, gr->result.resolving_funcs[1]);
+    QUV_SettlePromise(ctx, &gr->result, is_reject, 1, (JSValueConst *)&arg);
 
     uv_freeaddrinfo(res);
+    js_free(ctx, gr);
 }
 
 static JSValue quv_dns_getaddrinfo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -137,9 +129,7 @@ static JSValue quv_dns_getaddrinfo(JSContext *ctx, JSValueConst this_val, int ar
         return quv_throw_errno(ctx, r);
     }
 
-    JSValue promise = JS_NewPromiseCapability(ctx, gr->result.resolving_funcs);
-    gr->result.promise = JS_DupValue(ctx, promise);
-    return promise;
+    return QUV_InitPromise(ctx, &gr->result);
 }
 
 static const JSCFunctionListEntry quv_dns_funcs[] = {
