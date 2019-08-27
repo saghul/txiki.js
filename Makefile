@@ -26,4 +26,7 @@ clean:
 distclean:
 	@rm -rf build
 
-.PHONY: all build install clean distclean
+format:
+	clang-format -i src/quv/* src/quickjs-libuv.* src/qjs.c
+
+.PHONY: all build install clean distclean format
