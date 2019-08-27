@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.0)
 
-project(qjs)
+project(quv)
 
 if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "No build type selected, default to Release")
@@ -9,51 +9,15 @@ endif()
 message(STATUS "Building in ${CMAKE_BUILD_TYPE} mode")
 message(STATUS "Building with ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION} on ${CMAKE_SYSTEM}")
 
-if(CMAKE_C_COMPILER_ID MATCHES "AppleClang|Clang")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-compare")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-field-initializers")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wundef")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wuninitialized")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wunused")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-parameter")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wwrite-strings")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wchar-subscripts")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -funsigned-char")
-else()
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-array-bounds")
-endif()
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -DDEBUG -O0 -g3")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -DNDEBUG -O2 -g")
 
-
-add_definitions(
-    -DCONFIG_BIGNUM
-    -DCONFIG_VERSION="2019-08-10"
-)
-
-add_library(qjs_obj OBJECT
-    src/cutils.c
-    src/libbf.c
-    src/libregexp.c
-    src/libunicode.c
-    src/quickjs.c
-)
+add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
 add_executable(qjsc
     src/qjsc.c
-    $<TARGET_OBJECTS:qjs_obj>
 )
-
-target_include_directories(qjsc PRIVATE
-    src
-)
-
-target_link_libraries(qjsc PUBLIC
-    m
-)
+target_link_libraries(qjsc qjs m)
 
 add_custom_command(
     COMMAND
@@ -113,11 +77,10 @@ add_executable(quv
     ${CMAKE_CURRENT_BINARY_DIR}/bootstrap.c
     ${CMAKE_CURRENT_BINARY_DIR}/repl.c
     ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
-    $<TARGET_OBJECTS:qjs_obj>
+    ../deps/quickjs/src/cutils.c
 )
 
-include_directories(deps/libuv/include)
 option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 
-target_link_libraries(quv uv_a m)
+target_link_libraries(quv qjs uv_a m)

@@ -24,8 +24,10 @@
 #ifndef QUICKJS_LIBUV_H
 #define QUICKJS_LIBUV_H
 
-#include "quickjs.h"
+#include "quv/utils.h"
 #include "quv/vm.h"
+
+#include <quickjs.h>
 
 
 JSModuleDef *js_init_module_uv(JSContext *ctx);

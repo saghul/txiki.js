@@ -24,7 +24,6 @@
 
 #include "dns.h"
 
-#include "../cutils.h"
 #include "error.h"
 #include "utils.h"
 

@@ -24,8 +24,6 @@
 
 #include "error.h"
 
-#include "../cutils.h"
-
 #include <uv.h>
 
 

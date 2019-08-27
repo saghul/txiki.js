@@ -1,6 +1,6 @@
 /*
  * QuickJS C library
- * 
+ *
  * Copyright (c) 2017-2018 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,10 +24,10 @@
 #ifndef QUICKJS_LIBC_H
 #define QUICKJS_LIBC_H
 
+#include <quickjs.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "quickjs.h"
 
 JSModuleDef *js_init_module_std(JSContext *ctx, const char *module_name);
 void js_std_add_helpers(JSContext *ctx, int argc, char **argv);
