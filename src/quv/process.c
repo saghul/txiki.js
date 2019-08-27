@@ -24,7 +24,6 @@
 
 #include "process.h"
 
-#include "../cutils.h"
 #include "error.h"
 #include "streams.h"
 #include "utils.h"

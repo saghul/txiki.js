@@ -24,7 +24,6 @@
 
 #include "timers.h"
 
-#include "../cutils.h"
 #include "error.h"
 #include "utils.h"
 

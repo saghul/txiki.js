@@ -25,10 +25,26 @@
 #ifndef QUV_UTILS_H
 #define QUV_UTILS_H
 
-#include "../quickjs-libuv.h"
-
+#include <quickjs.h>
+#include <stdlib.h>
 #include <uv.h>
 
+
+#define stringify(s) tostring(s)
+#define tostring(s) #s
+
+#ifndef countof
+#    define countof(x) (sizeof(x) / sizeof((x)[0]))
+#endif
+
+typedef int BOOL;
+
+#ifndef FALSE
+enum {
+    FALSE = 0,
+    TRUE = 1,
+};
+#endif
 
 struct AssertionInfo {
     const char *file_line;  // filename:line

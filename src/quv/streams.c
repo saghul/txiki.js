@@ -24,7 +24,6 @@
 
 #include "streams.h"
 
-#include "../cutils.h"
 #include "error.h"
 #include "timers.h"
 #include "utils.h"

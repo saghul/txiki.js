@@ -24,7 +24,6 @@
 
 #include "worker.h"
 
-#include "../cutils.h"
 #include "../quickjs-libc.h"
 #include "error.h"
 #include "utils.h"
