@@ -30,7 +30,6 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -DNDEBUG -O2 -g")
 
 
 add_definitions(
-    -D_GNU_SOURCE
     -DCONFIG_BIGNUM
     -DCONFIG_VERSION="2019-08-10"
 )
