@@ -1,6 +1,6 @@
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,9 +22,10 @@
  * THE SOFTWARE.
  */
 
+#include "timers.h"
+
 #include "../cutils.h"
 #include "error.h"
-#include "timers.h"
 #include "utils.h"
 
 
@@ -59,7 +60,7 @@ static void call_timer(QUVTimer *th) {
     JSValue ret, func1;
     /* 'func' might be destroyed when calling itself (if it frees the handler), so must take extra care */
     func1 = JS_DupValue(ctx, th->func);
-    ret = JS_Call(ctx, func1, JS_UNDEFINED, th->argc, (JSValueConst *)th->argv);
+    ret = JS_Call(ctx, func1, JS_UNDEFINED, th->argc, (JSValueConst *) th->argv);
     JS_FreeValue(ctx, func1);
     if (JS_IsException(ret))
         quv_dump_error(ctx);
@@ -82,18 +83,15 @@ static void uv__timer_cb(uv_timer_t *handle) {
 
 static JSClassID quv_timer_class_id;
 
-static void quv_timer_finalizer(JSRuntime *rt, JSValue val)
-{
+static void quv_timer_finalizer(JSRuntime *rt, JSValue val) {
     QUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
     if (th) {
         clear_timer(th);
-        uv_close((uv_handle_t*)&th->handle, uv__timer_close);
+        uv_close((uv_handle_t *) &th->handle, uv__timer_close);
     }
 }
 
-static void quv_timer_mark(JSRuntime *rt, JSValueConst val,
-                             JS_MarkFunc *mark_func)
-{
+static void quv_timer_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
     QUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
     if (th) {
         JS_MarkValue(rt, th->func, mark_func);
@@ -106,7 +104,7 @@ static JSClassDef quv_timer_class = {
     "Timer",
     .finalizer = quv_timer_finalizer,
     .gc_mark = quv_timer_mark,
-}; 
+};
 
 static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
     int64_t delay;
@@ -140,8 +138,8 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
     th->obj = JS_DupValue(ctx, obj);
     th->func = JS_DupValue(ctx, func);
     th->argc = nargs;
-    for(int i = 0; i < nargs; i++)
-        th->argv[i] = JS_DupValue(ctx, argv[i+2]);
+    for (int i = 0; i < nargs; i++)
+        th->argv[i] = JS_DupValue(ctx, argv[i + 2]);
 
     CHECK_EQ(uv_timer_start(&th->handle, uv__timer_cb, delay, magic ? delay : 0 /* repeat */), 0);
 
@@ -149,9 +147,7 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
     return obj;
 }
 
-static JSValue quv_clearTimeout(JSContext *ctx, JSValueConst this_val,
-                                  int argc, JSValueConst *argv)
-{
+static JSValue quv_clearTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     QUVTimer *th = JS_GetOpaque2(ctx, argv[0], quv_timer_class_id);
     if (!th)
         return JS_EXCEPTION;
@@ -163,11 +159,11 @@ static JSValue quv_clearTimeout(JSContext *ctx, JSValueConst this_val,
 }
 
 static const JSCFunctionListEntry quv_timer_funcs[] = {
-    JS_CFUNC_MAGIC_DEF("setTimeout", 2, quv_setTimeout, 0 ),
-    JS_CFUNC_DEF("clearTimeout", 1, quv_clearTimeout ),
-    JS_CFUNC_MAGIC_DEF("setInterval", 2, quv_setTimeout, 1 ),
-    JS_CFUNC_DEF("clearInterval", 1, quv_clearTimeout ),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Timer", JS_PROP_CONFIGURABLE ),
+    JS_CFUNC_MAGIC_DEF("setTimeout", 2, quv_setTimeout, 0),
+    JS_CFUNC_DEF("clearTimeout", 1, quv_clearTimeout),
+    JS_CFUNC_MAGIC_DEF("setInterval", 2, quv_setTimeout, 1),
+    JS_CFUNC_DEF("clearInterval", 1, quv_clearTimeout),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Timer", JS_PROP_CONFIGURABLE),
 };
 
 void quv_mod_timers_init(JSContext *ctx, JSModuleDef *m) {

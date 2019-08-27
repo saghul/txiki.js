@@ -1,6 +1,6 @@
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,9 +22,10 @@
  * THE SOFTWARE.
  */
 
+#include "fs.h"
+
 #include "../cutils.h"
 #include "error.h"
-#include "fs.h"
 #include "utils.h"
 
 
@@ -77,10 +78,7 @@ static void quv_dir_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static JSClassDef quv_dir_class = {
-    "Directory",
-    .finalizer = quv_dir_finalizer
-};
+static JSClassDef quv_dir_class = { "Directory", .finalizer = quv_dir_finalizer };
 
 typedef struct {
     uv_fs_t req;
@@ -94,7 +92,8 @@ typedef struct {
 
 static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
-#define SET_UINT64_FIELD(x) JS_DefinePropertyValueStr(ctx, obj, stringify(x), JS_NewBigUint64(ctx, st->x), JS_PROP_C_W_E)
+#define SET_UINT64_FIELD(x)                                                                                            \
+    JS_DefinePropertyValueStr(ctx, obj, stringify(x), JS_NewBigUint64(ctx, st->x), JS_PROP_C_W_E)
     SET_UINT64_FIELD(st_dev);
     SET_UINT64_FIELD(st_mode);
     SET_UINT64_FIELD(st_nlink);
@@ -108,7 +107,9 @@ static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
     SET_UINT64_FIELD(st_flags);
     SET_UINT64_FIELD(st_gen);
 #undef SET_UINT64_FIELD
-#define SET_TIMESPEC_FIELD(x) JS_DefinePropertyValueStr(ctx, obj, stringify(x), JS_NewFloat64(ctx, st->x.tv_sec + 1e-9*st->x.tv_nsec), JS_PROP_C_W_E)
+#define SET_TIMESPEC_FIELD(x)                                                                                          \
+    JS_DefinePropertyValueStr(                                                                                         \
+        ctx, obj, stringify(x), JS_NewFloat64(ctx, st->x.tv_sec + 1e-9 * st->x.tv_nsec), JS_PROP_C_W_E)
     SET_TIMESPEC_FIELD(st_atim);
     SET_TIMESPEC_FIELD(st_mtim);
     SET_TIMESPEC_FIELD(st_ctim);
@@ -192,7 +193,7 @@ static JSValue quv_fsreq_init(JSContext *ctx, QUVFsReq *fr, JSValue obj) {
     return QUV_InitPromise(ctx, &fr->result);
 }
 
-static void uv__fs_req_cb(uv_fs_t* req) {
+static void uv__fs_req_cb(uv_fs_t *req) {
     QUVFsReq *fr = req->data;
     if (!fr)
         return;
@@ -210,75 +211,75 @@ static void uv__fs_req_cb(uv_fs_t* req) {
     }
 
     switch (fr->req.fs_type) {
-    case UV_FS_OPEN:
-        arg = quv_new_file(ctx, fr->req.result, fr->req.path);
-        break;
-    case UV_FS_CLOSE:
-        arg = JS_UNDEFINED;
-        f = quv_file_get(ctx, fr->obj);
-        CHECK_NOT_NULL(f);
-        f->fd = -1;
-        js_free(ctx, f->path);
-        f->path = NULL;
-        break;
-    case UV_FS_READ:
-    case UV_FS_WRITE:
-        arg = JS_NewInt32(ctx, fr->req.result);
-        break;
+        case UV_FS_OPEN:
+            arg = quv_new_file(ctx, fr->req.result, fr->req.path);
+            break;
+        case UV_FS_CLOSE:
+            arg = JS_UNDEFINED;
+            f = quv_file_get(ctx, fr->obj);
+            CHECK_NOT_NULL(f);
+            f->fd = -1;
+            js_free(ctx, f->path);
+            f->path = NULL;
+            break;
+        case UV_FS_READ:
+        case UV_FS_WRITE:
+            arg = JS_NewInt32(ctx, fr->req.result);
+            break;
 
-    case UV_FS_STAT:
-    case UV_FS_LSTAT:
-    case UV_FS_FSTAT:
-        arg = js__stat2obj(ctx, &fr->req.statbuf);
-        break;
+        case UV_FS_STAT:
+        case UV_FS_LSTAT:
+        case UV_FS_FSTAT:
+            arg = js__stat2obj(ctx, &fr->req.statbuf);
+            break;
 
-    case UV_FS_REALPATH:
-        arg = JS_NewString(ctx, fr->req.ptr);
-        break;
+        case UV_FS_REALPATH:
+            arg = JS_NewString(ctx, fr->req.ptr);
+            break;
 
-    case UV_FS_COPYFILE:
-    case UV_FS_RENAME:
-    case UV_FS_RMDIR:
-    case UV_FS_UNLINK:
-        arg = JS_UNDEFINED;
-        break;
+        case UV_FS_COPYFILE:
+        case UV_FS_RENAME:
+        case UV_FS_RMDIR:
+        case UV_FS_UNLINK:
+            arg = JS_UNDEFINED;
+            break;
 
-    case UV_FS_MKDTEMP:
-        arg = JS_NewString(ctx, fr->req.path);
-        break;
+        case UV_FS_MKDTEMP:
+            arg = JS_NewString(ctx, fr->req.path);
+            break;
 
-    case UV_FS_OPENDIR:
-        arg = quv_new_dir(ctx, fr->req.ptr, fr->req.path);
-        break;
+        case UV_FS_OPENDIR:
+            arg = quv_new_dir(ctx, fr->req.ptr, fr->req.path);
+            break;
 
-    case UV_FS_CLOSEDIR:
-        arg = JS_UNDEFINED;
-        d = quv_dir_get(ctx, fr->obj);
-        CHECK_NOT_NULL(d);
-        d->dir = NULL;
-        js_free(ctx, d->path);
-        d->path = NULL;
-        break;
+        case UV_FS_CLOSEDIR:
+            arg = JS_UNDEFINED;
+            d = quv_dir_get(ctx, fr->obj);
+            CHECK_NOT_NULL(d);
+            d->dir = NULL;
+            js_free(ctx, d->path);
+            d->path = NULL;
+            break;
 
-    case UV_FS_READDIR:
-        d = quv_dir_get(ctx, fr->obj);
-        d->done = fr->req.result == 0;
-        arg = JS_NewObjectProto(ctx, JS_NULL);
-        JS_DefinePropertyValueStr(ctx, arg, "done", JS_NewBool(ctx, d->done), JS_PROP_C_W_E);
-        if (fr->req.result != 0) {
-            JSValue item = JS_NewObjectProto(ctx, JS_NULL);
-            JS_DefinePropertyValueStr(ctx, item, "name", JS_NewString(ctx, d->dirent.name), JS_PROP_C_W_E);
-            JS_DefinePropertyValueStr(ctx, item, "type", JS_NewInt32(ctx, d->dirent.type), JS_PROP_C_W_E);
-            JS_DefinePropertyValueStr(ctx, arg, "value", item, JS_PROP_C_W_E);
-        }
-        break;
+        case UV_FS_READDIR:
+            d = quv_dir_get(ctx, fr->obj);
+            d->done = fr->req.result == 0;
+            arg = JS_NewObjectProto(ctx, JS_NULL);
+            JS_DefinePropertyValueStr(ctx, arg, "done", JS_NewBool(ctx, d->done), JS_PROP_C_W_E);
+            if (fr->req.result != 0) {
+                JSValue item = JS_NewObjectProto(ctx, JS_NULL);
+                JS_DefinePropertyValueStr(ctx, item, "name", JS_NewString(ctx, d->dirent.name), JS_PROP_C_W_E);
+                JS_DefinePropertyValueStr(ctx, item, "type", JS_NewInt32(ctx, d->dirent.type), JS_PROP_C_W_E);
+                JS_DefinePropertyValueStr(ctx, arg, "value", item, JS_PROP_C_W_E);
+            }
+            break;
 
-    default:
-        abort();
+        default:
+            abort();
     }
 
 skip:
-    QUV_SettlePromise(ctx, &fr->result, is_reject, 1, (JSValueConst *)&arg);
+    QUV_SettlePromise(ctx, &fr->result, is_reject, 1, (JSValueConst *) &arg);
 
     JS_FreeValue(ctx, fr->obj);
     JS_FreeValue(ctx, fr->rw.buf);
@@ -299,13 +300,13 @@ static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     size_t size;
     char *buf;
     if (magic && JS_IsString(jsData))
-        buf = (char*) JS_ToCStringLen(ctx, &size, jsData);
+        buf = (char *) JS_ToCStringLen(ctx, &size, jsData);
     else
-        buf = (char*) JS_GetArrayBuffer(ctx, &size, jsData);
+        buf = (char *) JS_GetArrayBuffer(ctx, &size, jsData);
 
     if (!buf)
         return JS_EXCEPTION;
-    
+
     /* arg 1: offset (within the buffer) */
     uint64_t off = 0;
     if (!JS_IsUndefined(argv[1]) && JS_ToIndex(ctx, &off, argv[1]))
@@ -314,7 +315,7 @@ static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     /* arg 2: buffer length */
     uint64_t len = size;
     if (!JS_IsUndefined(argv[2]) && JS_ToIndex(ctx, &len, argv[2]))
-       return JS_EXCEPTION;
+        return JS_EXCEPTION;
 
     if (off + len > size)
         return JS_ThrowRangeError(ctx, "read/write array buffer overflow");
@@ -462,26 +463,26 @@ static int js__uv_open_flags(const char *strflags, size_t len) {
 
     for (int i = 0; i < len; i++) {
         switch (strflags[i]) {
-        case 'r':
-            read = 1;
-            break;
-        case 'w':
-            write = 1;
-            flags |= O_TRUNC | O_CREAT;
-            break;
-        case 'a':
-            write = 1;
-            flags |= O_APPEND | O_CREAT;
-            break;
-        case '+':
-            read = 1;
-            write = 1;
-            break;
-        case 'x':
-            flags |= O_EXCL;
-            break;
-        default:
-            break;
+            case 'r':
+                read = 1;
+                break;
+            case 'w':
+                write = 1;
+                flags |= O_TRUNC | O_CREAT;
+                break;
+            case 'a':
+                write = 1;
+                flags |= O_APPEND | O_CREAT;
+                break;
+            case '+':
+                read = 1;
+                write = 1;
+                break;
+            case 'x':
+                flags |= O_EXCL;
+                break;
+            default:
+                break;
         }
     }
 
@@ -682,21 +683,21 @@ static JSValue quv_fs_readdir(JSContext *ctx, JSValueConst this_val, int argc, J
 }
 
 static const JSCFunctionListEntry quv_file_proto_funcs[] = {
-    JS_CFUNC_MAGIC_DEF("read", 4, quv_file_rw, 0 ),
-    JS_CFUNC_MAGIC_DEF("write", 4, quv_file_rw, 1 ),
-    JS_CFUNC_DEF("close", 0, quv_file_close ),
-    JS_CFUNC_DEF("fileno", 0, quv_file_fileno ),
-    JS_CFUNC_DEF("stat", 0, quv_file_stat ),
-    JS_CGETSET_DEF("path", quv_file_path_get, NULL ),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "File", JS_PROP_CONFIGURABLE ),
+    JS_CFUNC_MAGIC_DEF("read", 4, quv_file_rw, 0),
+    JS_CFUNC_MAGIC_DEF("write", 4, quv_file_rw, 1),
+    JS_CFUNC_DEF("close", 0, quv_file_close),
+    JS_CFUNC_DEF("fileno", 0, quv_file_fileno),
+    JS_CFUNC_DEF("stat", 0, quv_file_stat),
+    JS_CGETSET_DEF("path", quv_file_path_get, NULL),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "File", JS_PROP_CONFIGURABLE),
 };
 
 static const JSCFunctionListEntry quv_dir_proto_funcs[] = {
-    JS_CFUNC_DEF("close", 0, quv_dir_close ),
-    JS_CGETSET_DEF("path", quv_dir_path_get, NULL ),
-    JS_CFUNC_DEF("next", 0, quv_dir_next ),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Dir", JS_PROP_CONFIGURABLE ),
-    JS_CFUNC_DEF("[Symbol.asyncIterator]", 0, quv_dir_iterator ),
+    JS_CFUNC_DEF("close", 0, quv_dir_close),
+    JS_CGETSET_DEF("path", quv_dir_path_get, NULL),
+    JS_CFUNC_DEF("next", 0, quv_dir_next),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Dir", JS_PROP_CONFIGURABLE),
+    JS_CFUNC_DEF("[Symbol.asyncIterator]", 0, quv_dir_iterator),
 };
 
 static const JSCFunctionListEntry quv_fs_funcs[] = {
@@ -721,16 +722,16 @@ static const JSCFunctionListEntry quv_fs_funcs[] = {
     QUV_CONST(S_IFLNK),
     QUV_CONST(S_ISGID),
     QUV_CONST(S_ISUID),
-    JS_CFUNC_DEF("open", 3, quv_fs_open ),
-    JS_CFUNC_MAGIC_DEF("stat", 1, quv_fs_stat, 0 ),
-    JS_CFUNC_MAGIC_DEF("lstat", 1, quv_fs_stat, 1 ),
-    JS_CFUNC_DEF("realpath", 1, quv_fs_realpath ),
-    JS_CFUNC_DEF("unlink", 1, quv_fs_unlink ),
-    JS_CFUNC_DEF("rename", 2, quv_fs_rename ),
-    JS_CFUNC_DEF("mkdtemp", 1, quv_fs_mkdtemp ),
-    JS_CFUNC_DEF("rmdir", 1, quv_fs_rmdir ),
-    JS_CFUNC_DEF("copyfile", 3, quv_fs_copyfile ),
-    JS_CFUNC_DEF("readdir", 1, quv_fs_readdir ),
+    JS_CFUNC_DEF("open", 3, quv_fs_open),
+    JS_CFUNC_MAGIC_DEF("stat", 1, quv_fs_stat, 0),
+    JS_CFUNC_MAGIC_DEF("lstat", 1, quv_fs_stat, 1),
+    JS_CFUNC_DEF("realpath", 1, quv_fs_realpath),
+    JS_CFUNC_DEF("unlink", 1, quv_fs_unlink),
+    JS_CFUNC_DEF("rename", 2, quv_fs_rename),
+    JS_CFUNC_DEF("mkdtemp", 1, quv_fs_mkdtemp),
+    JS_CFUNC_DEF("rmdir", 1, quv_fs_rmdir),
+    JS_CFUNC_DEF("copyfile", 3, quv_fs_copyfile),
+    JS_CFUNC_DEF("readdir", 1, quv_fs_readdir),
 };
 
 void quv_mod_fs_init(JSContext *ctx, JSModuleDef *m) {

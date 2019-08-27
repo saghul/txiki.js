@@ -1,6 +1,6 @@
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,12 +22,13 @@
  * THE SOFTWARE.
  */
 
-#include <string.h>
+#include "dns.h"
 
 #include "../cutils.h"
-#include "dns.h"
 #include "error.h"
 #include "utils.h"
+
+#include <string.h>
 
 
 typedef struct {
@@ -49,7 +50,11 @@ static JSValue quv_addrinfo2obj(JSContext *ctx, struct addrinfo *ai) {
         JS_DefinePropertyValueStr(ctx, item, "addr", quv_addr2obj(ctx, ptr->ai_addr), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, item, "socktype", JS_NewInt32(ctx, ptr->ai_socktype), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, item, "protocol", JS_NewInt32(ctx, ptr->ai_protocol), JS_PROP_C_W_E);
-        JS_DefinePropertyValueStr(ctx, item, "canonname", ptr->ai_canonname ? JS_NewString(ctx, ptr->ai_canonname) : JS_UNDEFINED, JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx,
+                                  item,
+                                  "canonname",
+                                  ptr->ai_canonname ? JS_NewString(ctx, ptr->ai_canonname) : JS_UNDEFINED,
+                                  JS_PROP_C_W_E);
 
         JS_DefinePropertyValueUint32(ctx, obj, i, item, JS_PROP_C_W_E);
         i++;
@@ -80,7 +85,7 @@ static void quv_obj2addrinfo(JSContext *ctx, JSValue obj, struct addrinfo *ai) {
     JS_FreeValue(ctx, flags);
 }
 
-static void uv__getaddrinfo_cb(uv_getaddrinfo_t* req, int status, struct addrinfo* res) {
+static void uv__getaddrinfo_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *res) {
     QUVGetAddrInfoReq *gr = req->data;
     CHECK_NOT_NULL(gr);
 
@@ -93,7 +98,7 @@ static void uv__getaddrinfo_cb(uv_getaddrinfo_t* req, int status, struct addrinf
     else
         arg = quv_addrinfo2obj(ctx, res);
 
-    QUV_SettlePromise(ctx, &gr->result, is_reject, 1, (JSValueConst *)&arg);
+    QUV_SettlePromise(ctx, &gr->result, is_reject, 1, (JSValueConst *) &arg);
 
     uv_freeaddrinfo(res);
     js_free(ctx, gr);
@@ -133,7 +138,7 @@ static JSValue quv_dns_getaddrinfo(JSContext *ctx, JSValueConst this_val, int ar
 }
 
 static const JSCFunctionListEntry quv_dns_funcs[] = {
-    JS_CFUNC_DEF("getaddrinfo", 2, quv_dns_getaddrinfo ),
+    JS_CFUNC_DEF("getaddrinfo", 2, quv_dns_getaddrinfo),
 #ifdef AI_PASSIVE
     QUV_CONST(AI_PASSIVE),
 #endif

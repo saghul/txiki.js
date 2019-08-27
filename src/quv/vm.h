@@ -1,7 +1,7 @@
 
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,9 +26,10 @@
 #ifndef QUV_VM_H
 #define QUV_VM_H
 
-#include <uv.h>
 #include "../cutils.h"
 #include "../quickjs-libuv.h"
+
+#include <uv.h>
 
 
 typedef struct QUVRuntime QUVRuntime;

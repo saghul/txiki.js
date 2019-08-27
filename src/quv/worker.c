@@ -1,6 +1,6 @@
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,14 +22,15 @@
  * THE SOFTWARE.
  */
 
-#include <unistd.h>
+#include "worker.h"
 
 #include "../cutils.h"
 #include "../quickjs-libc.h"
 #include "error.h"
 #include "utils.h"
 #include "vm.h"
-#include "worker.h"
+
+#include <unistd.h>
 
 
 static JSValue quv_new_worker(JSContext *ctx, int channel_fd, BOOL is_main);
@@ -66,7 +67,7 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValueConst *argv) {
     uint8_t *buf;
     size_t buf_len;
     const char *filename;
-    
+
     filename = JS_ToCString(ctx, argv[0]);
     buf = js_load_file(ctx, &buf_len, filename);
     if (!buf)
@@ -83,7 +84,7 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValueConst *argv) {
 
     return JS_UNDEFINED;
 
-error: ;
+error:;
     QUVRuntime *qrt = QUV_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
     QUV_Stop(qrt);
@@ -92,7 +93,7 @@ error: ;
 }
 
 /* This is what the worker runs */
-static void worker_entry(void* arg) {
+static void worker_entry(void *arg) {
     worker_data_t *wd = arg;
 
     QUVRuntime *wrt = QUV_NewRuntime2(TRUE);
@@ -108,7 +109,7 @@ static void worker_entry(void* arg) {
 
     /* Load the file and eval the file when the loop runs. */
     JSValue filename = JS_NewString(ctx, wd->path);
-    CHECK_EQ(JS_EnqueueJob(ctx, worker_eval, 1, (JSValueConst *)&filename), 0);
+    CHECK_EQ(JS_EnqueueJob(ctx, worker_eval, 1, (JSValueConst *) &filename), 0);
     JS_FreeValue(ctx, filename);
 
     /* Notify the caller we are setup.  */
@@ -162,7 +163,7 @@ static JSValue emit_event(JSContext *ctx, int argc, JSValueConst *argv) {
     JSValue func = argv[0];
     JSValue arg = argv[1];
 
-    JSValue ret = JS_Call(ctx, func, JS_UNDEFINED, 1, (JSValueConst *)&arg);
+    JSValue ret = JS_Call(ctx, func, JS_UNDEFINED, 1, (JSValueConst *) &arg);
     if (JS_IsException(ret))
         quv_dump_error(ctx);
 
@@ -182,10 +183,10 @@ static void maybe_emit_event(QUVWorker *w, int event, JSValue arg) {
     JSValue args[2];
     args[0] = JS_DupValue(ctx, event_func);
     args[1] = JS_DupValue(ctx, arg);
-    CHECK_EQ(JS_EnqueueJob(ctx, emit_event, 2, (JSValueConst *)&args), 0);
+    CHECK_EQ(JS_EnqueueJob(ctx, emit_event, 2, (JSValueConst *) &args), 0);
 }
 
-static void uv__alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
+static void uv__alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     QUVWorker *w = handle->data;
     CHECK_NOT_NULL(w);
 
@@ -193,7 +194,7 @@ static void uv__alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* b
     buf->len = suggested_size;
 }
 
-static void uv__read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
+static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
     QUVWorker *w = handle->data;
     CHECK_NOT_NULL(w);
 
@@ -268,14 +269,9 @@ static JSValue quv_worker_constructor(JSContext *ctx, JSValueConst new_target, i
     uv_sem_t sem;
     CHECK_EQ(uv_sem_init(&sem, 0), 0);
 
-    worker_data_t worker_data = {
-        .channel_fd = fds[1],
-        .path = path,
-        .sem = &sem,
-        .wrt = NULL
-    };
+    worker_data_t worker_data = { .channel_fd = fds[1], .path = path, .sem = &sem, .wrt = NULL };
 
-    CHECK_EQ(uv_thread_create(&w->tid, worker_entry, (void*) &worker_data), 0);
+    CHECK_EQ(uv_thread_create(&w->tid, worker_entry, (void *) &worker_data), 0);
 
     /* Wait for the worker to initialize. */
     uv_sem_wait(&sem);
@@ -290,7 +286,7 @@ static JSValue quv_worker_constructor(JSContext *ctx, JSValueConst new_target, i
     return obj;
 }
 
-static void uv__write_cb(uv_write_t* req, int status) {
+static void uv__write_cb(uv_write_t *req, int status) {
     QUVWorkerWriteReq *wr = req->data;
     CHECK_NOT_NULL(wr);
 
@@ -327,7 +323,7 @@ static JSValue quv_worker_postmessage(JSContext *ctx, JSValueConst this_val, int
     wr->req.data = wr;
     wr->data = buf;
 
-    uv_buf_t b = uv_buf_init((char*) buf, len);
+    uv_buf_t b = uv_buf_init((char *) buf, len);
     int r = uv_write(&wr->req, &w->h.stream, &b, 1, uv__write_cb);
     if (r != 0) {
         js_free(ctx, buf);
@@ -370,12 +366,12 @@ static JSValue quv_worker_event_set(JSContext *ctx, JSValueConst this_val, JSVal
 }
 
 static const JSCFunctionListEntry quv_worker_proto_funcs[] = {
-    JS_CFUNC_DEF("postMessage", 1, quv_worker_postmessage ),
-    JS_CFUNC_DEF("terminate", 0, quv_worker_terminate ),
-    JS_CGETSET_MAGIC_DEF("onmessage", quv_worker_event_get, quv_worker_event_set, 0 ),
-    JS_CGETSET_MAGIC_DEF("onmessageerror", quv_worker_event_get, quv_worker_event_set, 1 ),
-    JS_CGETSET_MAGIC_DEF("onerror", quv_worker_event_get, quv_worker_event_set, 2 ),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Worker", JS_PROP_CONFIGURABLE ),
+    JS_CFUNC_DEF("postMessage", 1, quv_worker_postmessage),
+    JS_CFUNC_DEF("terminate", 0, quv_worker_terminate),
+    JS_CGETSET_MAGIC_DEF("onmessage", quv_worker_event_get, quv_worker_event_set, 0),
+    JS_CGETSET_MAGIC_DEF("onmessageerror", quv_worker_event_get, quv_worker_event_set, 1),
+    JS_CGETSET_MAGIC_DEF("onerror", quv_worker_event_get, quv_worker_event_set, 2),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Worker", JS_PROP_CONFIGURABLE),
 };
 
 void quv_mod_worker_init(JSContext *ctx, JSModuleDef *m) {
