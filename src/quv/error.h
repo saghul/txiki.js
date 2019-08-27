@@ -1,6 +1,6 @@
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
- 
+
 #ifndef QUV_ERROR_H
 #define QUV_ERROR_H
 

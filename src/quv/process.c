@@ -1,6 +1,6 @@
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,14 +22,15 @@
  * THE SOFTWARE.
  */
 
-#include <string.h>
-#include <unistd.h>
+#include "process.h"
 
 #include "../cutils.h"
 #include "error.h"
-#include "process.h"
 #include "streams.h"
 #include "utils.h"
+
+#include <string.h>
+#include <unistd.h>
 
 
 static JSClassID quv_process_class_id;
@@ -48,7 +49,7 @@ typedef struct {
     } status;
 } QUVProcess;
 
-static void uv__close_cb(uv_handle_t* handle) {
+static void uv__close_cb(uv_handle_t *handle) {
     QUVProcess *p = handle->data;
     CHECK_NOT_NULL(p);
     p->closed = TRUE;
@@ -57,8 +58,8 @@ static void uv__close_cb(uv_handle_t* handle) {
 }
 
 static void maybe_close(QUVProcess *p) {
-    if (!uv_is_closing((uv_handle_t*) &p->process))
-        uv_close((uv_handle_t*) &p->process, uv__close_cb);
+    if (!uv_is_closing((uv_handle_t *) &p->process))
+        uv_close((uv_handle_t *) &p->process, uv__close_cb);
 }
 
 static void quv_process_finalizer(JSRuntime *rt, JSValue val) {
@@ -105,7 +106,7 @@ static JSValue quv_process_kill(JSContext *ctx, JSValueConst this_val, int argc,
     if (JS_ToInt32(ctx, &sig_num, argv[0]))
         return JS_EXCEPTION;
 
-    int r =  uv_process_kill(&p->process, sig_num);
+    int r = uv_process_kill(&p->process, sig_num);
     if (r != 0)
         return quv_throw_errno(ctx, r);
 
@@ -157,7 +158,7 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
         JS_DefinePropertyValueStr(ctx, arg, "exit_status", JS_NewInt32(ctx, exit_status), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, arg, "term_signal", JS_NewInt32(ctx, term_signal), JS_PROP_C_W_E);
 
-        QUV_SettlePromise(ctx, &p->status.result, FALSE, 1, (JSValueConst *)&arg);
+        QUV_SettlePromise(ctx, &p->status.result, FALSE, 1, (JSValueConst *) &arg);
         QUV_ClearPromise(ctx, &p->status.result);
     }
 
@@ -400,23 +401,23 @@ cleanup:
         js_free(ctx, options.env);
     }
     if (options.cwd)
-        js_free(ctx, (void*) options.cwd);
+        js_free(ctx, (void *) options.cwd);
 
     return ret;
 }
 
 static const JSCFunctionListEntry quv_process_proto_funcs[] = {
-    JS_CFUNC_DEF("kill", 0, quv_process_kill ),
-    JS_CFUNC_DEF("wait", 0, quv_process_wait ),
-    JS_CGETSET_DEF("pid", quv_process_pid_get, NULL ),
-    JS_CGETSET_MAGIC_DEF("stdin", quv_process_stdio_get, NULL, 0 ),
-    JS_CGETSET_MAGIC_DEF("stdout", quv_process_stdio_get, NULL, 1 ),
-    JS_CGETSET_MAGIC_DEF("stderr", quv_process_stdio_get, NULL, 2 ),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Process", JS_PROP_CONFIGURABLE ),
+    JS_CFUNC_DEF("kill", 0, quv_process_kill),
+    JS_CFUNC_DEF("wait", 0, quv_process_wait),
+    JS_CGETSET_DEF("pid", quv_process_pid_get, NULL),
+    JS_CGETSET_MAGIC_DEF("stdin", quv_process_stdio_get, NULL, 0),
+    JS_CGETSET_MAGIC_DEF("stdout", quv_process_stdio_get, NULL, 1),
+    JS_CGETSET_MAGIC_DEF("stderr", quv_process_stdio_get, NULL, 2),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Process", JS_PROP_CONFIGURABLE),
 };
 
 static const JSCFunctionListEntry quv_process_funcs[] = {
-    JS_CFUNC_DEF("spawn", 2, quv_spawn ),
+    JS_CFUNC_DEF("spawn", 2, quv_spawn),
 };
 
 void quv_mod_process_init(JSContext *ctx, JSModuleDef *m) {

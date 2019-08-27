@@ -1,6 +1,6 @@
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,9 +22,8 @@
  * THE SOFTWARE.
  */
 
-#include <stdlib.h>
-
 #include "quickjs-libuv.h"
+
 #include "quv/dns.h"
 #include "quv/error.h"
 #include "quv/fs.h"
@@ -36,6 +35,8 @@
 #include "quv/udp.h"
 #include "quv/utils.h"
 #include "quv/worker.h"
+
+#include <stdlib.h>
 
 
 static int quv_init(JSContext *ctx, JSModuleDef *m) {
@@ -53,8 +54,7 @@ static int quv_init(JSContext *ctx, JSModuleDef *m) {
     return 0;
 }
 
-JSModuleDef *js_init_module_uv(JSContext *ctx)
-{
+JSModuleDef *js_init_module_uv(JSContext *ctx) {
     JSModuleDef *m;
     m = JS_NewCModule(ctx, "uv", quv_init);
     if (!m)

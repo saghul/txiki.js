@@ -1,7 +1,7 @@
 
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,11 +23,12 @@
  * THE SOFTWARE.
  */
 
-#include <string.h>
+#include "vm.h"
 
 #include "../quickjs-libc.h"
 #include "utils.h"
-#include "vm.h"
+
+#include <string.h>
 
 
 extern const uint8_t bootstrap[];
@@ -59,7 +60,7 @@ static void quv__bootstrap_globals(JSContext *ctx) {
     js_std_eval_binary(ctx, encoding, encoding_size, 0);
 }
 
-static void uv__stop(uv_async_t* handle) {
+static void uv__stop(uv_async_t *handle) {
     QUVRuntime *qrt = handle->data;
     CHECK_NOT_NULL(qrt);
 
@@ -173,7 +174,7 @@ static void uv__check_cb(uv_check_t *handle) {
     int err;
 
     /* execute the pending jobs */
-    for(;;) {
+    for (;;) {
         err = JS_ExecutePendingJob(rt, &ctx1);
         if (err <= 0) {
             if (err < 0)
@@ -188,11 +189,11 @@ static void uv__check_cb(uv_check_t *handle) {
 /* main loop which calls the user JS callbacks */
 void QUV_Run(QUVRuntime *qrt) {
     CHECK_EQ(uv_check_start(&qrt->jobs.check, uv__check_cb), 0);
-    uv_unref((uv_handle_t*) &qrt->jobs.check);
+    uv_unref((uv_handle_t *) &qrt->jobs.check);
 
     /* Use the async handle to keep the worker alive even when there is nothing to do. */
     if (!qrt->is_worker)
-        uv_unref((uv_handle_t*) &qrt->stop);
+        uv_unref((uv_handle_t *) &qrt->stop);
 
     uv__maybe_idle(qrt);
 

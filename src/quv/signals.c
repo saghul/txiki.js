@@ -1,6 +1,6 @@
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,9 +22,10 @@
  * THE SOFTWARE.
  */
 
+#include "signals.h"
+
 #include "../cutils.h"
 #include "error.h"
-#include "signals.h"
 #include "utils.h"
 
 
@@ -40,7 +41,7 @@ typedef struct {
 
 static JSClassID quv_signal_handler_class_id;
 
-static void uv__signal_close_cb(uv_handle_t* handle) {
+static void uv__signal_close_cb(uv_handle_t *handle) {
     QUVSignalHandler *sh = handle->data;
     if (sh) {
         sh->closed = 1;
@@ -50,8 +51,8 @@ static void uv__signal_close_cb(uv_handle_t* handle) {
 }
 
 static void maybe_close(QUVSignalHandler *sh) {
-    if (!uv_is_closing((uv_handle_t*) &sh->handle))
-        uv_close((uv_handle_t*) &sh->handle, uv__signal_close_cb);
+    if (!uv_is_closing((uv_handle_t *) &sh->handle))
+        uv_close((uv_handle_t *) &sh->handle, uv__signal_close_cb);
 }
 
 static void quv_signal_handler_finalizer(JSRuntime *rt, JSValue val) {
@@ -117,7 +118,7 @@ static JSValue quv_signal(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         free(sh);
         return quv_throw_errno(ctx, r);
     }
-    uv_unref((uv_handle_t*)&sh->handle);
+    uv_unref((uv_handle_t *) &sh->handle);
 
     sh->ctx = ctx;
     sh->sig_num = sig_num;
@@ -148,9 +149,9 @@ static JSValue quv_signal_handler_signum_get(JSContext *ctx, JSValueConst this_v
 }
 
 static const JSCFunctionListEntry quv_signal_handler_proto_funcs[] = {
-    JS_CFUNC_DEF("close", 0, quv_signal_handler_close ),
-    JS_CGETSET_DEF("signum", quv_signal_handler_signum_get, NULL ),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Signal Handler", JS_PROP_CONFIGURABLE ),
+    JS_CFUNC_DEF("close", 0, quv_signal_handler_close),
+    JS_CGETSET_DEF("signum", quv_signal_handler_signum_get, NULL),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Signal Handler", JS_PROP_CONFIGURABLE),
 };
 
 static const JSCFunctionListEntry quv_signal_funcs[] = {
@@ -263,7 +264,7 @@ static const JSCFunctionListEntry quv_signal_funcs[] = {
 #ifdef SIGUNUSED
     QUV_CONST(SIGUNUSED),
 #endif
-    JS_CFUNC_DEF("signal", 2, quv_signal ),
+    JS_CFUNC_DEF("signal", 2, quv_signal),
 };
 
 void quv_mod_signals_init(JSContext *ctx, JSModuleDef *m) {

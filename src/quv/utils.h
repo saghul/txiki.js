@@ -1,6 +1,6 @@
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,47 +21,46 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
- 
+
 #ifndef QUV_UTILS_H
 #define QUV_UTILS_H
 
-#include <uv.h>
 #include "../quickjs-libuv.h"
+
+#include <uv.h>
 
 
 struct AssertionInfo {
-  const char* file_line;  // filename:line
-  const char* message;
-  const char* function;
+    const char *file_line;  // filename:line
+    const char *message;
+    const char *function;
 };
 
-#define ERROR_AND_ABORT(expr)                                                 \
-  do {                                                                        \
-    static const struct AssertionInfo args = {                                 \
-      __FILE__ ":" STRINGIFY(__LINE__), #expr, PRETTY_FUNCTION_NAME           \
-    };                                                                        \
-    quv_assert(args);                                                       \
-  } while (0)
+#define ERROR_AND_ABORT(expr)                                                                                          \
+    do {                                                                                                               \
+        static const struct AssertionInfo args = { __FILE__ ":" STRINGIFY(__LINE__), #expr, PRETTY_FUNCTION_NAME };    \
+        quv_assert(args);                                                                                              \
+    } while (0)
 
 #ifdef __GNUC__
-#define LIKELY(expr) __builtin_expect(!!(expr), 1)
-#define UNLIKELY(expr) __builtin_expect(!!(expr), 0)
-#define PRETTY_FUNCTION_NAME __PRETTY_FUNCTION__
+#    define LIKELY(expr) __builtin_expect(!!(expr), 1)
+#    define UNLIKELY(expr) __builtin_expect(!!(expr), 0)
+#    define PRETTY_FUNCTION_NAME __PRETTY_FUNCTION__
 #else
-#define LIKELY(expr) expr
-#define UNLIKELY(expr) expr
-#define PRETTY_FUNCTION_NAME ""
+#    define LIKELY(expr) expr
+#    define UNLIKELY(expr) expr
+#    define PRETTY_FUNCTION_NAME ""
 #endif
 
 #define STRINGIFY_(x) #x
 #define STRINGIFY(x) STRINGIFY_(x)
 
-#define CHECK(expr)                                                           \
-  do {                                                                        \
-    if (UNLIKELY(!(expr))) {                                                  \
-      ERROR_AND_ABORT(expr);                                                  \
-    }                                                                         \
-  } while (0)
+#define CHECK(expr)                                                                                                    \
+    do {                                                                                                               \
+        if (UNLIKELY(!(expr))) {                                                                                       \
+            ERROR_AND_ABORT(expr);                                                                                     \
+        }                                                                                                              \
+    } while (0)
 
 #define CHECK_EQ(a, b) CHECK((a) == (b))
 #define CHECK_GE(a, b) CHECK((a) >= (b))
@@ -74,7 +73,7 @@ struct AssertionInfo {
 
 void quv_assert(const struct AssertionInfo info);
 
-#define QUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_CONFIGURABLE )
+#define QUV_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_CONFIGURABLE)
 
 uv_loop_t *quv_get_loop(JSContext *ctx);
 int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);
@@ -84,8 +83,8 @@ void quv_dump_error(JSContext *ctx);
 void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len);
 
 typedef struct {
-  JSValue p;
-  JSValue rfuncs[2];
+    JSValue p;
+    JSValue rfuncs[2];
 } QUVPromise;
 
 JSValue QUV_InitPromise(JSContext *ctx, QUVPromise *p);

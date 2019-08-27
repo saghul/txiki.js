@@ -1,6 +1,6 @@
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,45 +22,37 @@
  * THE SOFTWARE.
  */
 
-#include <uv.h>
-
-#include "../cutils.h"
 #include "error.h"
 
+#include "../cutils.h"
 
-JSValue quv_new_error(JSContext *ctx, int err)
-{
+#include <uv.h>
+
+
+JSValue quv_new_error(JSContext *ctx, int err) {
     JSValue obj;
     obj = JS_NewError(ctx);
-    JS_DefinePropertyValueStr(ctx, obj, "message",
-                              JS_NewString(ctx, uv_strerror(err)),
-                              JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
-    JS_DefinePropertyValueStr(ctx, obj, "errno",
-                              JS_NewInt32(ctx, err),
-                              JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
+    JS_DefinePropertyValueStr(
+        ctx, obj, "message", JS_NewString(ctx, uv_strerror(err)), JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
+    JS_DefinePropertyValueStr(ctx, obj, "errno", JS_NewInt32(ctx, err), JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
     return obj;
 }
 
-static JSValue quv_error_constructor(JSContext *ctx, JSValueConst new_target,
-                                        int argc, JSValueConst *argv)
-{
+static JSValue quv_error_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
     int err;
     if (JS_ToInt32(ctx, &err, argv[0]))
         return JS_EXCEPTION;
     return quv_new_error(ctx, err);
 }
 
-static JSValue quv_error_strerror(JSContext *ctx, JSValueConst this_val,
-                                    int argc, JSValueConst *argv)
-{
+static JSValue quv_error_strerror(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     int err;
     if (JS_ToInt32(ctx, &err, argv[0]))
         return JS_EXCEPTION;
     return JS_NewString(ctx, uv_strerror(err));
 }
 
-JSValue quv_throw_errno(JSContext *ctx, int err)
-{
+JSValue quv_throw_errno(JSContext *ctx, int err) {
     JSValue obj;
     obj = quv_new_error(ctx, err);
     if (JS_IsException(obj))
@@ -68,11 +60,10 @@ JSValue quv_throw_errno(JSContext *ctx, int err)
     return JS_Throw(ctx, obj);
 }
 
-static const JSCFunctionListEntry quv_error_funcs[] = {
-    JS_CFUNC_DEF("strerror", 1, quv_error_strerror ),
-    /* various errno values */
-#define DEF(x, s) JS_PROP_INT32_DEF(stringify(UV_##x), UV_##x, JS_PROP_CONFIGURABLE ),
-    UV_ERRNO_MAP(DEF)
+static const JSCFunctionListEntry quv_error_funcs[] = { JS_CFUNC_DEF("strerror", 1, quv_error_strerror),
+/* various errno values */
+#define DEF(x, s) JS_PROP_INT32_DEF(stringify(UV_##x), UV_##x, JS_PROP_CONFIGURABLE),
+                                                        UV_ERRNO_MAP(DEF)
 #undef DEF
 };
 

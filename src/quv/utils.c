@@ -1,7 +1,7 @@
 
 /*
  * QuickJS libuv bindings
- * 
+ *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,23 +23,24 @@
  * THE SOFTWARE.
  */
 
-#include <string.h>
-#include <stdlib.h>
+#include "utils.h"
 
 #include "error.h"
-#include "utils.h"
 #include "vm.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 
 void quv_assert(const struct AssertionInfo info) {
-  fprintf(stderr,
-          "%s:%s%s Assertion `%s' failed.\n",
-          info.file_line,
-          info.function,
-          *info.function ? ":" : "",
-          info.message);
-  fflush(stderr);
-  abort();
+    fprintf(stderr,
+            "%s:%s%s Assertion `%s' failed.\n",
+            info.file_line,
+            info.function,
+            *info.function ? ":" : "",
+            info.message);
+    fflush(stderr);
+    abort();
 }
 
 uv_loop_t *quv_get_loop(JSContext *ctx) {
@@ -72,12 +73,12 @@ int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) 
 
     memset(ss, 0, sizeof(*ss));
 
-    if (uv_inet_pton(AF_INET, ip, &((struct sockaddr_in *)ss)->sin_addr) == 0) {
+    if (uv_inet_pton(AF_INET, ip, &((struct sockaddr_in *) ss)->sin_addr) == 0) {
         ss->ss_family = AF_INET;
-        ((struct sockaddr_in *)ss)->sin_port = htons(port);
-    } else if (uv_inet_pton(AF_INET6, ip, &((struct sockaddr_in6 *)ss)->sin6_addr) == 0) {
+        ((struct sockaddr_in *) ss)->sin_port = htons(port);
+    } else if (uv_inet_pton(AF_INET6, ip, &((struct sockaddr_in6 *) ss)->sin6_addr) == 0) {
         ss->ss_family = AF_INET6;
-        ((struct sockaddr_in6 *)ss)->sin6_port = htons(port);
+        ((struct sockaddr_in6 *) ss)->sin6_port = htons(port);
     } else {
         quv_throw_errno(ctx, UV_EAFNOSUPPORT);
         JS_FreeCString(ctx, ip);
@@ -89,51 +90,48 @@ int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) 
 }
 
 JSValue quv_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
-    char buf[INET6_ADDRSTRLEN+1];
+    char buf[INET6_ADDRSTRLEN + 1];
     JSValue obj;
 
     switch (sa->sa_family) {
-    case AF_INET:
-    {
-        struct sockaddr_in *addr4 = (struct sockaddr_in*)sa;
-        uv_ip4_name(addr4, buf, sizeof(buf));
+        case AF_INET: {
+            struct sockaddr_in *addr4 = (struct sockaddr_in *) sa;
+            uv_ip4_name(addr4, buf, sizeof(buf));
 
-        obj = JS_NewObjectProto(ctx, JS_NULL);
-        JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, AF_INET), JS_PROP_C_W_E);
-        JS_DefinePropertyValueStr(ctx, obj, "ip", JS_NewString(ctx, buf), JS_PROP_C_W_E);
-        JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr4->sin_port)), JS_PROP_C_W_E);
-        
-        return obj;
-    }
+            obj = JS_NewObjectProto(ctx, JS_NULL);
+            JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, AF_INET), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, obj, "ip", JS_NewString(ctx, buf), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr4->sin_port)), JS_PROP_C_W_E);
 
-    case AF_INET6:
-    {
-        struct sockaddr_in6 *addr6 = (struct sockaddr_in6*)sa;
-        uv_ip6_name(addr6, buf, sizeof(buf));
+            return obj;
+        }
 
-        obj = JS_NewObjectProto(ctx, JS_NULL);
-        JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, AF_INET6), JS_PROP_C_W_E);
-        JS_DefinePropertyValueStr(ctx, obj, "ip", JS_NewString(ctx, buf), JS_PROP_C_W_E);
-        JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr6->sin6_port)), JS_PROP_C_W_E);
-        JS_DefinePropertyValueStr(ctx, obj, "flowinfo", JS_NewInt32(ctx, ntohl(addr6->sin6_flowinfo)), JS_PROP_C_W_E);
-        JS_DefinePropertyValueStr(ctx, obj, "scopeId", JS_NewInt32(ctx, addr6->sin6_scope_id), JS_PROP_C_W_E);
-        
-        return obj;
-    }
+        case AF_INET6: {
+            struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *) sa;
+            uv_ip6_name(addr6, buf, sizeof(buf));
 
-    default:
-        /* If we don't know the address family, don't raise an exception -- return undefined. */
-        return JS_UNDEFINED;
+            obj = JS_NewObjectProto(ctx, JS_NULL);
+            JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, AF_INET6), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, obj, "ip", JS_NewString(ctx, buf), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr6->sin6_port)), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(
+                ctx, obj, "flowinfo", JS_NewInt32(ctx, ntohl(addr6->sin6_flowinfo)), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, obj, "scopeId", JS_NewInt32(ctx, addr6->sin6_scope_id), JS_PROP_C_W_E);
+
+            return obj;
+        }
+
+        default:
+            /* If we don't know the address family, don't raise an exception -- return undefined. */
+            return JS_UNDEFINED;
     }
 }
 
-static void js__print(JSContext *ctx, JSValueConst this_val,
-                              int argc, JSValueConst *argv)
-{
+static void js__print(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     int i;
     const char *str;
 
-    for(i = 0; i < argc; i++) {
+    for (i = 0; i < argc; i++) {
         if (i != 0)
             putchar(' ');
         str = JS_ToCString(ctx, argv[i]);
@@ -145,17 +143,16 @@ static void js__print(JSContext *ctx, JSValueConst this_val,
     putchar('\n');
 }
 
-void quv_dump_error(JSContext *ctx)
-{
+void quv_dump_error(JSContext *ctx) {
     JSValue exception_val, val;
     const char *stack;
     int is_error;
-    
+
     exception_val = JS_GetException(ctx);
     is_error = JS_IsError(ctx, exception_val);
     if (!is_error)
         printf("Throw: ");
-    js__print(ctx, JS_NULL, 1, (JSValueConst *)&exception_val);
+    js__print(ctx, JS_NULL, 1, (JSValueConst *) &exception_val);
     if (is_error) {
         val = JS_GetPropertyStr(ctx, exception_val, "stack");
         if (!JS_IsUndefined(val)) {
@@ -183,7 +180,7 @@ void quv_call_handler(JSContext *ctx, JSValueConst func) {
 void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len) {
     uint32_t i;
     if (tab) {
-        for(i = 0; i < len; i++)
+        for (i = 0; i < len; i++)
             JS_FreeAtom(ctx, tab[i].atom);
         js_free(ctx, tab);
     }

@@ -24,19 +24,17 @@
  * THE SOFTWARE.
  */
 
-#include <string.h>
-
 #include "cutils.h"
 #include "quickjs-libc.h"
 #include "quickjs-libuv.h"
+
+#include <string.h>
 
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
 
 
-static int eval_buf(JSContext *ctx, const void *buf, int buf_len,
-                    const char *filename, int eval_flags)
-{
+static int eval_buf(JSContext *ctx, const void *buf, int buf_len, const char *filename, int eval_flags) {
     JSValue val;
     int ret;
 
@@ -51,19 +49,18 @@ static int eval_buf(JSContext *ctx, const void *buf, int buf_len,
     return ret;
 }
 
-static int eval_file(JSContext *ctx, const char *filename)
-{
+static int eval_file(JSContext *ctx, const char *filename) {
     uint8_t *buf;
     int ret, eval_flags;
     size_t buf_len;
-    
+
     buf = js_load_file(ctx, &buf_len, filename);
     if (!buf) {
         perror(filename);
         exit(1);
     }
 
-    if (JS_DetectModule((const char *)buf, buf_len))
+    if (JS_DetectModule((const char *) buf, buf_len))
         eval_flags = JS_EVAL_TYPE_MODULE;
     else
         eval_flags = JS_EVAL_TYPE_GLOBAL;
@@ -74,8 +71,7 @@ static int eval_file(JSContext *ctx, const char *filename)
 
 #define PROG_NAME "quv"
 
-void help(void)
-{
+void help(void) {
     printf("QuickJS version " CONFIG_VERSION "\n"
            "usage: " PROG_NAME " [options] [file]\n"
            "-h  --help         list options\n"
@@ -85,15 +81,14 @@ void help(void)
     exit(1);
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     QUVRuntime *qrt;
     JSContext *ctx;
     int optind;
     char *expr = NULL;
     int interactive = 0;
     int empty_run = 0;
-    
+
     QUV_SetupArgs(argc, argv);
 
     /* cannot use getopt because we want to pass the command line to
@@ -152,13 +147,12 @@ int main(int argc, char **argv)
 
     qrt = QUV_NewRuntime();
     ctx = QUV_GetJSContext(qrt);
-                           
+
     if (!empty_run) {
         if (expr) {
             if (eval_buf(ctx, expr, strlen(expr), "<cmdline>", 0))
                 goto fail;
-        } else
-        if (optind >= argc) {
+        } else if (optind >= argc) {
             /* interactive mode */
             interactive = 1;
         } else {
@@ -176,7 +170,7 @@ int main(int argc, char **argv)
 
     QUV_FreeRuntime(qrt);
     return 0;
- fail:
+fail:
     QUV_FreeRuntime(qrt);
     return 1;
 }
