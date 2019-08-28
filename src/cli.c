@@ -48,26 +48,6 @@ static int eval_buf(JSContext *ctx, const void *buf, int buf_len, const char *fi
     return ret;
 }
 
-static int eval_file(JSContext *ctx, const char *filename) {
-    uint8_t *buf;
-    int ret, eval_flags;
-    size_t buf_len;
-
-    buf = js_load_file(ctx, &buf_len, filename);
-    if (!buf) {
-        perror(filename);
-        exit(1);
-    }
-
-    if (JS_DetectModule((const char *) buf, buf_len))
-        eval_flags = JS_EVAL_TYPE_MODULE;
-    else
-        eval_flags = JS_EVAL_TYPE_GLOBAL;
-    ret = eval_buf(ctx, buf, buf_len, filename, eval_flags);
-    js_free(ctx, buf);
-    return ret;
-}
-
 #define PROG_NAME "quv"
 
 void help(void) {
@@ -157,9 +137,13 @@ int main(int argc, char **argv) {
         } else {
             const char *filename;
             filename = argv[optind];
-
-            if (eval_file(ctx, filename))
+            JSValue ret = QUV_EvalFile(ctx, filename, -1);
+            if (JS_IsException(ret)) {
+                js_std_dump_error(ctx);
+                JS_FreeValue(ctx, ret);
                 goto fail;
+            }
+            JS_FreeValue(ctx, ret);
         }
         if (interactive) {
             js_std_eval_binary(ctx, repl, repl_size, 0);

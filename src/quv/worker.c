@@ -63,24 +63,25 @@ typedef struct {
 } QUVWorkerWriteReq;
 
 static JSValue worker_eval(JSContext *ctx, int argc, JSValueConst *argv) {
-    uint8_t *buf;
-    size_t buf_len;
     const char *filename;
+    JSValue ret;
 
     filename = JS_ToCString(ctx, argv[0]);
-    buf = js_load_file(ctx, &buf_len, filename);
-    if (!buf)
-        goto error;
-
-    JSValue val = JS_Eval(ctx, (const char *) buf, buf_len, filename, JS_EVAL_TYPE_MODULE);
-    if (JS_IsException(val)) {
+    if (!filename) {
         js_std_dump_error(ctx);
         goto error;
     }
 
-    JS_FreeValue(ctx, val);
-    js_free(ctx, buf);
+    ret = QUV_EvalFile(ctx, filename, JS_EVAL_TYPE_MODULE);
+    JS_FreeCString(ctx, filename);
 
+    if (JS_IsException(ret)) {
+        js_std_dump_error(ctx);
+        JS_FreeValue(ctx, ret);
+        goto error;
+    }
+
+    JS_FreeValue(ctx, ret);
     return JS_UNDEFINED;
 
 error:;
