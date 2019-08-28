@@ -32,8 +32,11 @@
 JSValue quv_new_error(JSContext *ctx, int err) {
     JSValue obj;
     obj = JS_NewError(ctx);
-    JS_DefinePropertyValueStr(
-        ctx, obj, "message", JS_NewString(ctx, uv_strerror(err)), JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
+    JS_DefinePropertyValueStr(ctx,
+                              obj,
+                              "message",
+                              JS_NewString(ctx, uv_strerror(err)),
+                              JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
     JS_DefinePropertyValueStr(ctx, obj, "errno", JS_NewInt32(ctx, err), JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
     return obj;
 }

@@ -107,8 +107,11 @@ static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
     SET_UINT64_FIELD(st_gen);
 #undef SET_UINT64_FIELD
 #define SET_TIMESPEC_FIELD(x)                                                                                          \
-    JS_DefinePropertyValueStr(                                                                                         \
-        ctx, obj, stringify(x), JS_NewFloat64(ctx, st->x.tv_sec + 1e-9 * st->x.tv_nsec), JS_PROP_C_W_E)
+    JS_DefinePropertyValueStr(ctx,                                                                                     \
+                              obj,                                                                                     \
+                              stringify(x),                                                                            \
+                              JS_NewFloat64(ctx, st->x.tv_sec + 1e-9 * st->x.tv_nsec),                                 \
+                              JS_PROP_C_W_E)
     SET_TIMESPEC_FIELD(st_atim);
     SET_TIMESPEC_FIELD(st_mtim);
     SET_TIMESPEC_FIELD(st_ctim);

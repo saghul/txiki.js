@@ -1,16 +1,19 @@
 ﻿---
 AlignAfterOpenBracket: Align
+AlignConsecutiveMacros: 'true'
 AlignConsecutiveAssignments: 'false'
 AlignConsecutiveDeclarations: 'false'
 AlignEscapedNewlines: Right
 AlignOperands: 'true'
 AlignTrailingComments: 'true'
+AllowAllArgumentsOnNextLine: 'false'
 AllowAllParametersOfDeclarationOnNextLine: 'false'
 AllowShortBlocksOnASingleLine: 'false'
 AllowShortCaseLabelsOnASingleLine: 'false'
 AllowShortFunctionsOnASingleLine: None
-AllowShortIfStatementsOnASingleLine: 'false'
+AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: 'false'
+AlwaysBreakAfterDefinitionReturnType: None
 AlwaysBreakAfterReturnType: None
 BinPackArguments: 'false'
 BinPackParameters: 'false'
@@ -28,6 +31,7 @@ IndentWrappedFunctionNames: 'false'
 KeepEmptyLinesAtTheStartOfBlocks: 'false'
 Language: Cpp
 MaxEmptyLinesToKeep: '2'
+PenaltyReturnTypeOnItsOwnLine: '1000'
 PointerAlignment: Right
 ReflowComments: 'true'
 SortIncludes: 'true'

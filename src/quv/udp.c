@@ -110,8 +110,11 @@ static void uv__udp_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_
     buf->len = u->read.b.len;
 }
 
-static void
-uv__udp_recv_cb(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
+static void uv__udp_recv_cb(uv_udp_t *handle,
+                            ssize_t nread,
+                            const uv_buf_t *buf,
+                            const struct sockaddr *addr,
+                            unsigned flags) {
     QUVUdp *u = handle->data;
     CHECK_NOT_NULL(u);
 
