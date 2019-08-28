@@ -25,7 +25,7 @@
 #ifndef QUV_TIMERS_H
 #define QUV_TIMERS_H
 
-#include "../quickjs-libuv.h"
+#include <quickjs.h>
 
 
 void quv_mod_timers_init(JSContext *ctx, JSModuleDef *m);

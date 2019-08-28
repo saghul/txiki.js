@@ -24,6 +24,8 @@
 
 #include "error.h"
 
+#include "utils.h"
+
 #include <uv.h>
 
 

@@ -25,7 +25,7 @@
 #ifndef QUV_SIGNALS_H
 #define QUV_SIGNALS_H
 
-#include "../quickjs-libuv.h"
+#include <quickjs.h>
 
 
 void quv_mod_signals_init(JSContext *ctx, JSModuleDef *m);

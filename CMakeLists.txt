@@ -59,9 +59,8 @@ add_custom_command(
 )
 
 add_executable(quv
-    src/qjs.c
+    src/cli.c
     src/quickjs-libc.c
-    src/quickjs-libuv.c
     src/quv/dns.c
     src/quv/error.c
     src/quv/fs.c

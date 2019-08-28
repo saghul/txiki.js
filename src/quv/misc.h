@@ -25,7 +25,7 @@
 #ifndef QUV_MISC_H
 #define QUV_MISC_H
 
-#include "../quickjs-libuv.h"
+#include <quickjs.h>
 
 
 void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m);

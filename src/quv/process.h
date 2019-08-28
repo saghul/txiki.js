@@ -25,7 +25,7 @@
 #ifndef QUV_PROCESS_H
 #define QUV_PROCESS_H
 
-#include "../quickjs-libuv.h"
+#include <quickjs.h>
 
 
 void quv_mod_process_init(JSContext *ctx, JSModuleDef *m);
