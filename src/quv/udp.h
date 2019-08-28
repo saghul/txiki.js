@@ -25,7 +25,7 @@
 #ifndef QUV_UDP_H
 #define QUV_UDP_H
 
-#include "../quickjs-libuv.h"
+#include <quickjs.h>
 
 
 void quv_mod_udp_init(JSContext *ctx, JSModuleDef *m);

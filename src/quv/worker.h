@@ -25,7 +25,7 @@
 #ifndef QUV_WORKER_H
 #define QUV_WORKER_H
 
-#include "../quickjs-libuv.h"
+#include <quickjs.h>
 
 
 void quv_mod_worker_init(JSContext *ctx, JSModuleDef *m);

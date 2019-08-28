@@ -26,7 +26,7 @@
 #ifndef QUV_VM_H
 #define QUV_VM_H
 
-#include "../quickjs-libuv.h"
+#include "../quv.h"
 
 #include <uv.h>
 

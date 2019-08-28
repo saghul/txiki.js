@@ -25,7 +25,7 @@
 #ifndef QUV_FS_H
 #define QUV_FS_H
 
-#include "../quickjs-libuv.h"
+#include <quickjs.h>
 
 
 void quv_mod_fs_init(JSContext *ctx, JSModuleDef *m);

@@ -25,7 +25,7 @@
 #ifndef QUV_ERROR_H
 #define QUV_ERROR_H
 
-#include "../quickjs-libuv.h"
+#include <quickjs.h>
 
 
 JSValue quv_new_error(JSContext *ctx, int err);

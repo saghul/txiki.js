@@ -1,7 +1,8 @@
+
 /*
  * QuickJS libuv bindings
  *
- * Copyright (c) 2019-present Saúl Ibarra Corretgé
+ * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,15 +22,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef QUICKJS_LIBUV_H
-#define QUICKJS_LIBUV_H
+
+#ifndef QUV_H
+#define QUV_H
 
 #include "quv/utils.h"
 #include "quv/vm.h"
 
-#include <quickjs.h>
-
-
-JSModuleDef *js_init_module_uv(JSContext *ctx);
-
-#endif /* QUICKJS_LIBUV_H */
+#endif

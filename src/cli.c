@@ -25,7 +25,7 @@
  */
 
 #include "quickjs-libc.h"
-#include "quickjs-libuv.h"
+#include "quv.h"
 
 #include <string.h>
 

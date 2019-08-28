@@ -25,7 +25,7 @@
 #ifndef QUV_DNS_H
 #define QUV_DNS_H
 
-#include "../quickjs-libuv.h"
+#include <quickjs.h>
 
 
 void quv_mod_dns_init(JSContext *ctx, JSModuleDef *m);

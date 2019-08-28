@@ -26,7 +26,17 @@
 #include "vm.h"
 
 #include "../quickjs-libc.h"
+#include "dns.h"
+#include "error.h"
+#include "fs.h"
+#include "misc.h"
+#include "process.h"
+#include "signals.h"
+#include "streams.h"
+#include "timers.h"
+#include "udp.h"
 #include "utils.h"
+#include "worker.h"
 
 #include <string.h>
 
@@ -51,6 +61,41 @@ struct QUVRuntime {
     uv_async_t stop;
     BOOL is_worker;
 };
+
+static int quv_init(JSContext *ctx, JSModuleDef *m) {
+    quv_mod_dns_init(ctx, m);
+    quv_mod_error_init(ctx, m);
+    quv_mod_fs_init(ctx, m);
+    quv_mod_misc_init(ctx, m);
+    quv_mod_process_init(ctx, m);
+    quv_mod_signals_init(ctx, m);
+    quv_mod_streams_init(ctx, m);
+    quv_mod_timers_init(ctx, m);
+    quv_mod_udp_init(ctx, m);
+    quv_mod_worker_init(ctx, m);
+
+    return 0;
+}
+
+JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
+    JSModuleDef *m;
+    m = JS_NewCModule(ctx, name, quv_init);
+    if (!m)
+        return NULL;
+
+    quv_mod_dns_export(ctx, m);
+    quv_mod_error_export(ctx, m);
+    quv_mod_fs_export(ctx, m);
+    quv_mod_misc_export(ctx, m);
+    quv_mod_process_export(ctx, m);
+    quv_mod_streams_export(ctx, m);
+    quv_mod_signals_export(ctx, m);
+    quv_mod_timers_export(ctx, m);
+    quv_mod_udp_export(ctx, m);
+    quv_mod_worker_export(ctx, m);
+
+    return m;
+}
 
 static void quv__bootstrap_globals(JSContext *ctx) {
     /* Load bootstrap */
@@ -105,7 +150,7 @@ QUVRuntime *QUV_NewRuntime2(BOOL is_worker) {
 
     /* system modules */
     js_init_module_std(qrt->ctx, "std");
-    js_init_module_uv(qrt->ctx);
+    js_init_module_uv(qrt->ctx, "uv");
 
     quv__bootstrap_globals(qrt->ctx);
 

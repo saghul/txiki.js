@@ -25,7 +25,8 @@
 #ifndef QUV_STREAMS_H
 #define QUV_STREAMS_H
 
-#include "../quickjs-libuv.h"
+#include <quickjs.h>
+#include <uv.h>
 
 
 JSValue quv_new_pipe(JSContext *ctx);
