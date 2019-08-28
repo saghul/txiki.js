@@ -25,6 +25,7 @@
 
 #include "vm.h"
 
+#include "../../deps/quickjs/src/cutils.h"
 #include "../quickjs-libc.h"
 #include "dns.h"
 #include "error.h"
@@ -252,4 +253,59 @@ void QUV_Stop(QUVRuntime *qrt) {
 
 uv_loop_t *QUV_GetLoop(QUVRuntime *qrt) {
     return &qrt->loop;
+}
+
+static int load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
+    uv_fs_t req;
+    uv_file fd;
+    int r;
+
+    r = uv_fs_open(NULL, &req, filename, O_RDONLY, 0, NULL);
+    uv_fs_req_cleanup(&req);
+    if (r < 0)
+        return r;
+
+    fd = r;
+    char buf[4096];
+    uv_buf_t b = uv_buf_init(buf, sizeof(buf));
+
+    do {
+        r = uv_fs_read(NULL, &req, fd, &b, 1, dbuf->size, NULL);
+        uv_fs_req_cleanup(&req);
+        if (r <= 0)
+            break;
+        r = dbuf_put(dbuf, (const uint8_t *) b.base, r);
+        if (r != 0)
+            break;
+    } while (1);
+
+    dbuf_putc(dbuf, '\0');
+    return r;
+}
+
+JSValue QUV_EvalFile(JSContext *ctx, const char *filename, int flags) {
+    DynBuf dbuf;
+    int r, eval_flags;
+    JSValue ret;
+
+    dbuf_init(&dbuf);
+    r = load_file(ctx, &dbuf, filename);
+    if (r != 0) {
+        dbuf_free(&dbuf);
+        JS_ThrowReferenceError(ctx, "could not load '%s'", filename);
+        return JS_EXCEPTION;
+    }
+
+    if (flags == -1) {
+        if (JS_DetectModule((const char *) dbuf.buf, dbuf.size))
+            eval_flags = JS_EVAL_TYPE_MODULE;
+        else
+            eval_flags = JS_EVAL_TYPE_GLOBAL;
+    } else {
+        eval_flags = flags;
+    }
+
+    ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, filename, eval_flags);
+    dbuf_free(&dbuf);
+    return ret;
 }

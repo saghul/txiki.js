@@ -24,6 +24,8 @@
  */
 
 #include <string.h>
+#include <uv.h>
+
 #if defined(_WIN32)
 #    include <windows.h>
 #else
@@ -32,48 +34,21 @@
 
 #include "../deps/quickjs/src/cutils.h"
 #include "quickjs-libc.h"
+#include "quv.h"
+
 
 static int eval_script_recurse;
 
-uint8_t *js_load_file(JSContext *ctx, size_t *pbuf_len, const char *filename) {
-    FILE *f;
-    uint8_t *buf;
-    size_t buf_len;
-
-    f = fopen(filename, "rb");
-    if (!f)
-        return NULL;
-    fseek(f, 0, SEEK_END);
-    buf_len = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    buf = js_malloc(ctx, buf_len + 1);
-    if (!buf)
-        return NULL;
-    fread(buf, 1, buf_len, f);
-    buf[buf_len] = '\0';
-    fclose(f);
-    *pbuf_len = buf_len;
-    return buf;
-}
 
 /* load and evaluate a file */
 static JSValue js_loadScript(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    uint8_t *buf;
     const char *filename;
     JSValue ret;
-    size_t buf_len;
 
     filename = JS_ToCString(ctx, argv[0]);
     if (!filename)
         return JS_EXCEPTION;
-    buf = js_load_file(ctx, &buf_len, filename);
-    if (!buf) {
-        JS_ThrowReferenceError(ctx, "could not load '%s'", filename);
-        JS_FreeCString(ctx, filename);
-        return JS_EXCEPTION;
-    }
-    ret = JS_Eval(ctx, (char *) buf, buf_len, filename, JS_EVAL_TYPE_GLOBAL);
-    js_free(ctx, buf);
+    ret = QUV_EvalFile(ctx, filename, JS_EVAL_TYPE_GLOBAL);
     JS_FreeCString(ctx, filename);
     return ret;
 }
@@ -138,21 +113,14 @@ JSModuleDef *js_module_loader(JSContext *ctx, const char *module_name, void *opa
     if (has_suffix(module_name, ".so")) {
         m = js_module_loader_so(ctx, module_name);
     } else {
-        size_t buf_len;
-        uint8_t *buf;
         JSValue func_val;
 
-        buf = js_load_file(ctx, &buf_len, module_name);
-        if (!buf) {
-            JS_ThrowReferenceError(ctx, "could not load module filename '%s'", module_name);
+        /* compile the module */
+        func_val = QUV_EvalFile(ctx, module_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+        if (JS_IsException(func_val)) {
+            JS_FreeValue(ctx, func_val);
             return NULL;
         }
-
-        /* compile the module */
-        func_val = JS_Eval(ctx, (char *) buf, buf_len, module_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
-        js_free(ctx, buf);
-        if (JS_IsException(func_val))
-            return NULL;
         /* the module is already referenced, so we must free it */
         m = JS_VALUE_GET_PTR(func_val);
         JS_FreeValue(ctx, func_val);
