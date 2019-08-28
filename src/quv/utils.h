@@ -31,7 +31,7 @@
 
 
 #define stringify(s) tostring(s)
-#define tostring(s) #s
+#define tostring(s)  #s
 
 #ifndef countof
 #    define countof(x) (sizeof(x) / sizeof((x)[0]))
@@ -59,17 +59,17 @@ struct AssertionInfo {
     } while (0)
 
 #ifdef __GNUC__
-#    define LIKELY(expr) __builtin_expect(!!(expr), 1)
-#    define UNLIKELY(expr) __builtin_expect(!!(expr), 0)
+#    define LIKELY(expr)         __builtin_expect(!!(expr), 1)
+#    define UNLIKELY(expr)       __builtin_expect(!!(expr), 0)
 #    define PRETTY_FUNCTION_NAME __PRETTY_FUNCTION__
 #else
-#    define LIKELY(expr) expr
-#    define UNLIKELY(expr) expr
+#    define LIKELY(expr)         expr
+#    define UNLIKELY(expr)       expr
 #    define PRETTY_FUNCTION_NAME ""
 #endif
 
 #define STRINGIFY_(x) #x
-#define STRINGIFY(x) STRINGIFY_(x)
+#define STRINGIFY(x)  STRINGIFY_(x)
 
 #define CHECK(expr)                                                                                                    \
     do {                                                                                                               \
@@ -78,13 +78,13 @@ struct AssertionInfo {
         }                                                                                                              \
     } while (0)
 
-#define CHECK_EQ(a, b) CHECK((a) == (b))
-#define CHECK_GE(a, b) CHECK((a) >= (b))
-#define CHECK_GT(a, b) CHECK((a) > (b))
-#define CHECK_LE(a, b) CHECK((a) <= (b))
-#define CHECK_LT(a, b) CHECK((a) < (b))
-#define CHECK_NE(a, b) CHECK((a) != (b))
-#define CHECK_NULL(val) CHECK((val) == NULL)
+#define CHECK_EQ(a, b)      CHECK((a) == (b))
+#define CHECK_GE(a, b)      CHECK((a) >= (b))
+#define CHECK_GT(a, b)      CHECK((a) > (b))
+#define CHECK_LE(a, b)      CHECK((a) <= (b))
+#define CHECK_LT(a, b)      CHECK((a) < (b))
+#define CHECK_NE(a, b)      CHECK((a) != (b))
+#define CHECK_NULL(val)     CHECK((val) == NULL)
 #define CHECK_NOT_NULL(val) CHECK((val) != NULL)
 
 void quv_assert(const struct AssertionInfo info);

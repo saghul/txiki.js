@@ -114,8 +114,11 @@ JSValue quv_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
             JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, AF_INET6), JS_PROP_C_W_E);
             JS_DefinePropertyValueStr(ctx, obj, "ip", JS_NewString(ctx, buf), JS_PROP_C_W_E);
             JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr6->sin6_port)), JS_PROP_C_W_E);
-            JS_DefinePropertyValueStr(
-                ctx, obj, "flowinfo", JS_NewInt32(ctx, ntohl(addr6->sin6_flowinfo)), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx,
+                                      obj,
+                                      "flowinfo",
+                                      JS_NewInt32(ctx, ntohl(addr6->sin6_flowinfo)),
+                                      JS_PROP_C_W_E);
             JS_DefinePropertyValueStr(ctx, obj, "scopeId", JS_NewInt32(ctx, addr6->sin6_scope_id), JS_PROP_C_W_E);
 
             return obj;

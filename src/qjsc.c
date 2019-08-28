@@ -413,8 +413,11 @@ int exec_cmd(char **argv) {
     return WEXITSTATUS(status);
 }
 
-static int
-output_executable(const char *out_filename, const char *cfilename, BOOL use_lto, BOOL verbose, const char *exename) {
+static int output_executable(const char *out_filename,
+                             const char *cfilename,
+                             BOOL use_lto,
+                             BOOL verbose,
+                             const char *exename) {
     const char *argv[64];
     const char **arg, *bn_suffix, *lto_suffix;
     char libjsname[1024];
@@ -483,8 +486,11 @@ output_executable(const char *out_filename, const char *cfilename, BOOL use_lto,
     return ret;
 }
 #else
-static int
-output_executable(const char *out_filename, const char *cfilename, BOOL use_lto, BOOL verbose, const char *exename) {
+static int output_executable(const char *out_filename,
+                             const char *cfilename,
+                             BOOL use_lto,
+                             BOOL verbose,
+                             const char *exename) {
     fprintf(stderr, "Executable output is not supported for this target\n");
     exit(1);
     return 0;
