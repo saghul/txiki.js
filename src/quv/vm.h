@@ -28,13 +28,14 @@
 
 #include "../quv.h"
 
+#include <stdbool.h>
 #include <uv.h>
 
 
 typedef struct QUVRuntime QUVRuntime;
 
 QUVRuntime *QUV_NewRuntime(void);
-QUVRuntime *QUV_NewRuntime2(BOOL is_worker);
+QUVRuntime *QUV_NewRuntime2(bool is_worker);
 void QUV_FreeRuntime(QUVRuntime *qrt);
 void QUV_SetupArgs(int argc, char **argv);
 JSContext *QUV_GetJSContext(QUVRuntime *qrt);

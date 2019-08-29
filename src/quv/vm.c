@@ -60,7 +60,7 @@ struct QUVRuntime {
         uv_idle_t idle;
     } jobs;
     uv_async_t stop;
-    BOOL is_worker;
+    bool is_worker;
 };
 
 static int quv_init(JSContext *ctx, JSModuleDef *m) {
@@ -114,10 +114,10 @@ static void uv__stop(uv_async_t *handle) {
 }
 
 QUVRuntime *QUV_NewRuntime(void) {
-    return QUV_NewRuntime2(FALSE);
+    return QUV_NewRuntime2(false);
 }
 
-QUVRuntime *QUV_NewRuntime2(BOOL is_worker) {
+QUVRuntime *QUV_NewRuntime2(bool is_worker) {
     QUVRuntime *qrt = calloc(1, sizeof(*qrt));
 
     qrt->rt = JS_NewRuntime();
