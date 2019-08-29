@@ -220,7 +220,7 @@ void QUV_MarkPromise(JSRuntime *rt, QUVPromise *p, JS_MarkFunc *mark_func) {
     JS_MarkValue(rt, p->rfuncs[1], mark_func);
 }
 
-void QUV_SettlePromise(JSContext *ctx, QUVPromise *p, BOOL is_reject, int argc, JSValueConst *argv) {
+void QUV_SettlePromise(JSContext *ctx, QUVPromise *p, bool is_reject, int argc, JSValueConst *argv) {
     JSValue ret = JS_Call(ctx, p->rfuncs[is_reject], JS_UNDEFINED, argc, argv);
     for (int i = 0; i < argc; i++)
         JS_FreeValue(ctx, argv[i]);
@@ -229,14 +229,14 @@ void QUV_SettlePromise(JSContext *ctx, QUVPromise *p, BOOL is_reject, int argc, 
 }
 
 void QUV_ResolvePromise(JSContext *ctx, QUVPromise *p, int argc, JSValueConst *argv) {
-    QUV_SettlePromise(ctx, p, FALSE, argc, argv);
+    QUV_SettlePromise(ctx, p, false, argc, argv);
 }
 
 void QUV_RejectPromise(JSContext *ctx, QUVPromise *p, int argc, JSValueConst *argv) {
-    QUV_SettlePromise(ctx, p, TRUE, argc, argv);
+    QUV_SettlePromise(ctx, p, true, argc, argv);
 }
 
-static inline JSValue quv__settled_promise(JSContext *ctx, BOOL is_reject, int argc, JSValueConst *argv) {
+static inline JSValue quv__settled_promise(JSContext *ctx, bool is_reject, int argc, JSValueConst *argv) {
     JSValue promise, resolving_funcs[2], ret;
 
     promise = JS_NewPromiseCapability(ctx, resolving_funcs);
@@ -255,9 +255,9 @@ static inline JSValue quv__settled_promise(JSContext *ctx, BOOL is_reject, int a
 }
 
 JSValue QUV_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
-    return quv__settled_promise(ctx, FALSE, argc, argv);
+    return quv__settled_promise(ctx, false, argc, argv);
 }
 
 JSValue QUV_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
-    return quv__settled_promise(ctx, TRUE, argc, argv);
+    return quv__settled_promise(ctx, true, argc, argv);
 }

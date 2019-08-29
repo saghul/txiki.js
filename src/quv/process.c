@@ -36,12 +36,12 @@ static JSClassID quv_process_class_id;
 
 typedef struct {
     JSContext *ctx;
-    BOOL closed;
-    BOOL finalized;
+    bool closed;
+    bool finalized;
     uv_process_t process;
     JSValue stdio[3];
     struct {
-        BOOL exited;
+        bool exited;
         int64_t exit_status;
         int term_signal;
         QUVPromise result;
@@ -51,7 +51,7 @@ typedef struct {
 static void uv__close_cb(uv_handle_t *handle) {
     QUVProcess *p = handle->data;
     CHECK_NOT_NULL(p);
-    p->closed = TRUE;
+    p->closed = true;
     if (p->finalized)
         free(p);
 }
@@ -68,7 +68,7 @@ static void quv_process_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, p->stdio[0]);
         JS_FreeValueRT(rt, p->stdio[1]);
         JS_FreeValueRT(rt, p->stdio[2]);
-        p->finalized = TRUE;
+        p->finalized = true;
         if (p->closed)
             free(p);
         else
@@ -147,7 +147,7 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
     QUVProcess *p = handle->data;
     CHECK_NOT_NULL(p);
 
-    p->status.exited = TRUE;
+    p->status.exited = true;
     p->status.exit_status = exit_status;
     p->status.term_signal = term_signal;
 
@@ -157,7 +157,7 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
         JS_DefinePropertyValueStr(ctx, arg, "exit_status", JS_NewInt32(ctx, exit_status), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, arg, "term_signal", JS_NewInt32(ctx, term_signal), JS_PROP_C_W_E);
 
-        QUV_SettlePromise(ctx, &p->status.result, FALSE, 1, (JSValueConst *) &arg);
+        QUV_SettlePromise(ctx, &p->status.result, false, 1, (JSValueConst *) &arg);
         QUV_ClearPromise(ctx, &p->status.result);
     }
 

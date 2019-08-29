@@ -26,24 +26,18 @@
 #define QUV_UTILS_H
 
 #include <quickjs.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <uv.h>
 
 
-#define stringify(s) tostring(s)
-#define tostring(s)  #s
+#ifndef stringify
+#   define stringify(s) tostring(s)
+#   define tostring(s)  #s
+#endif
 
 #ifndef countof
 #    define countof(x) (sizeof(x) / sizeof((x)[0]))
-#endif
-
-typedef int BOOL;
-
-#ifndef FALSE
-enum {
-    FALSE = 0,
-    TRUE = 1,
-};
 #endif
 
 struct AssertionInfo {
@@ -108,7 +102,7 @@ void QUV_FreePromise(JSContext *ctx, QUVPromise *p);
 void QUV_FreePromiseRT(JSRuntime *rt, QUVPromise *p);
 void QUV_ClearPromise(JSContext *ctx, QUVPromise *p);
 void QUV_MarkPromise(JSRuntime *rt, QUVPromise *p, JS_MarkFunc *mark_func);
-void QUV_SettlePromise(JSContext *ctx, QUVPromise *p, BOOL is_reject, int argc, JSValueConst *argv);
+void QUV_SettlePromise(JSContext *ctx, QUVPromise *p, bool is_reject, int argc, JSValueConst *argv);
 void QUV_ResolvePromise(JSContext *ctx, QUVPromise *p, int argc, JSValueConst *argv);
 void QUV_RejectPromise(JSContext *ctx, QUVPromise *p, int argc, JSValueConst *argv);
 JSValue QUV_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv);

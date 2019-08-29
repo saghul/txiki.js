@@ -61,7 +61,7 @@ typedef struct {
     uv_dir_t *dir;
     uv_dirent_t dirent;
     char *path;
-    BOOL done;
+    bool done;
 } QUVDir;
 
 static void quv_dir_finalizer(JSRuntime *rt, JSValue val) {
@@ -176,7 +176,7 @@ static JSValue quv_new_dir(JSContext *ctx, uv_dir_t *dir, const char *path) {
 
     d->ctx = ctx;
     d->dir = dir;
-    d->done = FALSE;
+    d->done = false;
 
     JS_SetOpaque(obj, d);
     return obj;
@@ -204,11 +204,11 @@ static void uv__fs_req_cb(uv_fs_t *req) {
     JSValue arg;
     QUVFile *f;
     QUVDir *d;
-    BOOL is_reject = FALSE;
+    bool is_reject = false;
 
     if (fr->req.result < 0) {
         arg = quv_new_error(ctx, fr->req.result);
-        is_reject = TRUE;
+        is_reject = true;
         goto skip;
     }
 
