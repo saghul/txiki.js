@@ -55,4 +55,6 @@ JSValue quv_throw_errno(JSContext *ctx, int err);
 JSValue quv_new_pipe(JSContext *ctx);
 uv_stream_t *quv_pipe_get_stream(JSContext *ctx, JSValueConst obj);
 
+JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *opaque);
+
 #endif

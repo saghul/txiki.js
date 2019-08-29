@@ -1,7 +1,8 @@
+
 /*
- * QuickJS C library
+ * QuickJS libuv bindings
  *
- * Copyright (c) 2017-2018 Fabrice Bellard
+ * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,17 +22,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef QUICKJS_LIBC_H
-#define QUICKJS_LIBC_H
 
-#include <quickjs.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "../quv.h"
+#include "private.h"
 
 
-JSModuleDef *js_init_module_std(JSContext *ctx, const char *module_name);
-void js_std_add_helpers(JSContext *ctx, int argc, char **argv);
-void js_std_dump_error(JSContext *ctx);
-void js_std_eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len, int flags);
+JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *opaque) {
+    JSModuleDef *m;
+    JSValue func_val;
 
-#endif /* QUICKJS_LIBC_H */
+    /* compile the module */
+    func_val = QUV_EvalFile(ctx, module_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    if (JS_IsException(func_val)) {
+        JS_FreeValue(ctx, func_val);
+        return NULL;
+    }
+    /* the module is already referenced, so we must free it */
+    m = JS_VALUE_GET_PTR(func_val);
+    JS_FreeValue(ctx, func_val);
+
+    return m;
+}

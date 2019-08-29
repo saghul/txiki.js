@@ -67,6 +67,7 @@ add_executable(quv
     src/quv/error.c
     src/quv/fs.c
     src/quv/misc.c
+    src/quv/modules.c
     src/quv/process.c
     src/quv/streams.c
     src/quv/signals.c

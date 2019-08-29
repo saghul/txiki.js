@@ -134,7 +134,7 @@ QUVRuntime *QUV_NewRuntime2(bool is_worker) {
     JS_SetContextOpaque(qrt->ctx, qrt);
 
     /* loader for ES6 modules */
-    JS_SetModuleLoaderFunc(qrt->rt, NULL, js_module_loader, NULL);
+    JS_SetModuleLoaderFunc(qrt->rt, NULL, quv_module_loader, NULL);
 
     js_std_add_helpers(qrt->ctx, quv__argc, quv__argv);
 
