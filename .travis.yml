@@ -24,11 +24,21 @@ matrix:
           update: true
           packages:
             - musl-tools
+            - ninja-build
       env: BUILDTYPE=Debug CC=musl-gcc LINK=musl-gcc
     - os: osx
       env: BUILDTYPE=Debug
     - os: osx
       env: BUILDTYPE=Release
+addons:
+  apt:
+    update: true
+    packages:
+      - ninja-build
+  homebrew:
+    update: true
+    packages:
+      - ninja
 script:
   - make
   - ./build/quv -e "console.log('hello world');"
