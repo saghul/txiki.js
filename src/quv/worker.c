@@ -22,12 +22,9 @@
  * THE SOFTWARE.
  */
 
-#include "worker.h"
-
 #include "../quickjs-libc.h"
-#include "error.h"
-#include "utils.h"
-#include "vm.h"
+#include "../quv.h"
+#include "private.h"
 
 #include <unistd.h>
 

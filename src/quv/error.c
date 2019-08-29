@@ -22,11 +22,8 @@
  * THE SOFTWARE.
  */
 
-#include "error.h"
-
+#include "private.h"
 #include "utils.h"
-
-#include <uv.h>
 
 
 JSValue quv_new_error(JSContext *ctx, int err) {

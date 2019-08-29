@@ -22,9 +22,7 @@
  * THE SOFTWARE.
  */
 
-#include "signals.h"
-
-#include "error.h"
+#include "private.h"
 #include "utils.h"
 
 

@@ -23,21 +23,10 @@
  * THE SOFTWARE.
  */
 
-#include "vm.h"
-
 #include "../../deps/quickjs/src/cutils.h"
 #include "../quickjs-libc.h"
-#include "dns.h"
-#include "error.h"
-#include "fs.h"
-#include "misc.h"
-#include "process.h"
-#include "signals.h"
-#include "streams.h"
-#include "timers.h"
-#include "udp.h"
-#include "utils.h"
-#include "worker.h"
+#include "../quv.h"
+#include "private.h"
 
 #include <string.h>
 

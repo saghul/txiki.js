@@ -23,10 +23,9 @@
  * THE SOFTWARE.
  */
 
+#include "../quv.h"
+#include "private.h"
 #include "utils.h"
-
-#include "error.h"
-#include "vm.h"
 
 #include <stdlib.h>
 #include <string.h>

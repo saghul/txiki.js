@@ -22,13 +22,37 @@
  * THE SOFTWARE.
  */
 
-#ifndef QUV_DNS_H
-#define QUV_DNS_H
+#ifndef QUV_PRIVATE_H
+#define QUV_PRIVATE_H
 
 #include <quickjs.h>
-
+#include <uv.h>
 
 void quv_mod_dns_init(JSContext *ctx, JSModuleDef *m);
 void quv_mod_dns_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_error_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_error_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_fs_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_fs_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_misc_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_process_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_process_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_signals_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_signals_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_streams_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_streams_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_timers_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_timers_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_udp_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_udp_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_worker_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_worker_export(JSContext *ctx, JSModuleDef *m);
+
+JSValue quv_new_error(JSContext *ctx, int err);
+JSValue quv_throw_errno(JSContext *ctx, int err);
+
+JSValue quv_new_pipe(JSContext *ctx);
+uv_stream_t *quv_pipe_get_stream(JSContext *ctx, JSValueConst obj);
 
 #endif
