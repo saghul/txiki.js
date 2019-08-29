@@ -62,7 +62,7 @@ JSValue quv_throw_errno(JSContext *ctx, int err) {
 
 static const JSCFunctionListEntry quv_error_funcs[] = { JS_CFUNC_DEF("strerror", 1, quv_error_strerror),
 /* various errno values */
-#define DEF(x, s) JS_PROP_INT32_DEF(stringify(UV_##x), UV_##x, JS_PROP_CONFIGURABLE),
+#define DEF(x, s) JS_PROP_INT32_DEF(STRINGIFY(UV_##x), UV_##x, JS_PROP_CONFIGURABLE),
                                                         UV_ERRNO_MAP(DEF)
 #undef DEF
 };

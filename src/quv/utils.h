@@ -31,11 +31,6 @@
 #include <uv.h>
 
 
-#ifndef stringify
-#   define stringify(s) tostring(s)
-#   define tostring(s)  #s
-#endif
-
 #ifndef countof
 #    define countof(x) (sizeof(x) / sizeof((x)[0]))
 #endif
