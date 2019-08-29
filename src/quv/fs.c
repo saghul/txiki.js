@@ -31,7 +31,7 @@ static JSClassID quv_file_class_id;
 typedef struct {
     JSContext *ctx;
     uv_file fd;
-    char *path;
+    JSValue path;
 } QUVFile;
 
 static void quv_file_finalizer(JSRuntime *rt, JSValue val) {
@@ -42,7 +42,7 @@ static void quv_file_finalizer(JSRuntime *rt, JSValue val) {
             uv_fs_close(NULL, &req, f->fd, NULL);
             uv_fs_req_cleanup(&req);
         }
-        js_free_rt(rt, f->path);
+        JS_FreeValueRT(rt, f->path);
         js_free_rt(rt, f);
     }
 }
@@ -58,7 +58,7 @@ typedef struct {
     JSContext *ctx;
     uv_dir_t *dir;
     uv_dirent_t dirent;
-    char *path;
+    JSValue path;
     bool done;
 } QUVDir;
 
@@ -70,7 +70,7 @@ static void quv_dir_finalizer(JSRuntime *rt, JSValue val) {
             uv_fs_closedir(NULL, &req, d->dir, NULL);
             uv_fs_req_cleanup(&req);
         }
-        js_free_rt(rt, d->path);
+        JS_FreeValueRT(rt, d->path);
         js_free_rt(rt, d);
     }
 }
@@ -132,18 +132,11 @@ static JSValue quv_new_file(JSContext *ctx, uv_file fd, const char *path) {
         return JS_EXCEPTION;
     }
 
-    f->path = js_strdup(ctx, path);
-    if (!f->path) {
-        js_free(ctx, f);
-        JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
-    }
-
+    f->path = JS_NewString(ctx, path);
     f->ctx = ctx;
     f->fd = fd;
 
     JS_SetOpaque(obj, f);
-
     return obj;
 }
 
@@ -165,13 +158,7 @@ static JSValue quv_new_dir(JSContext *ctx, uv_dir_t *dir, const char *path) {
         return JS_EXCEPTION;
     }
 
-    d->path = js_strdup(ctx, path);
-    if (!d->path) {
-        js_free(ctx, d);
-        JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
-    }
-
+    d->path = JS_NewString(ctx, path);
     d->ctx = ctx;
     d->dir = dir;
     d->done = false;
@@ -219,8 +206,8 @@ static void uv__fs_req_cb(uv_fs_t *req) {
             f = quv_file_get(ctx, fr->obj);
             CHECK_NOT_NULL(f);
             f->fd = -1;
-            js_free(ctx, f->path);
-            f->path = NULL;
+            JS_FreeValue(ctx, f->path);
+            f->path = JS_UNDEFINED;
             break;
         case UV_FS_READ:
         case UV_FS_WRITE:
@@ -257,8 +244,8 @@ static void uv__fs_req_cb(uv_fs_t *req) {
             d = quv_dir_get(ctx, fr->obj);
             CHECK_NOT_NULL(d);
             d->dir = NULL;
-            js_free(ctx, d->path);
-            d->path = NULL;
+            JS_FreeValue(ctx, d->path);
+            d->path = JS_UNDEFINED;
             break;
 
         case UV_FS_READDIR:
@@ -394,9 +381,7 @@ static JSValue quv_file_path_get(JSContext *ctx, JSValueConst this_val) {
     QUVFile *f = quv_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
-    if (!f->path)
-        return JS_UNDEFINED;
-    return JS_NewString(ctx, f->path);
+    return JS_DupValue(ctx, f->path);
 }
 
 /* Dir functions */
@@ -423,9 +408,7 @@ static JSValue quv_dir_path_get(JSContext *ctx, JSValueConst this_val) {
     QUVDir *d = quv_dir_get(ctx, this_val);
     if (!d)
         return JS_EXCEPTION;
-    if (!d->path)
-        return JS_UNDEFINED;
-    return JS_NewString(ctx, d->path);
+    return JS_DupValue(ctx, d->path);
 }
 
 static JSValue quv_dir_next(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
