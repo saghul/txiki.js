@@ -29,9 +29,6 @@
 
 #include <string.h>
 
-extern const uint8_t repl[];
-extern const uint32_t repl_size;
-
 
 static int eval_buf(JSContext *ctx, const void *buf, int buf_len, const char *filename, int eval_flags) {
     JSValue val;
@@ -146,7 +143,7 @@ int main(int argc, char **argv) {
             JS_FreeValue(ctx, ret);
         }
         if (interactive) {
-            js_std_eval_binary(ctx, repl, repl_size, 0);
+            QUV_RunRepl(ctx);
         }
         QUV_Run(qrt);
     }

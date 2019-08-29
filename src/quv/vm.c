@@ -37,6 +37,9 @@ extern const uint32_t bootstrap_size;
 extern const uint8_t encoding[];
 extern const uint32_t encoding_size;
 
+extern const uint8_t repl[];
+extern const uint32_t repl_size;
+
 static int quv__argc = 0;
 static char **quv__argv = NULL;
 
@@ -87,12 +90,22 @@ JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
     return m;
 }
 
+static int quv__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
+    JSValue val = JS_EvalBinary(ctx, buf, buf_len, 0);
+    if (JS_IsException(val)) {
+        js_std_dump_error(ctx);
+        return -1;
+    }
+    JS_FreeValue(ctx, val);
+    return 0;
+}
+
 static void quv__bootstrap_globals(JSContext *ctx) {
     /* Load bootstrap */
-    js_std_eval_binary(ctx, bootstrap, bootstrap_size, 0);
+    CHECK_EQ(0, quv__eval_binary(ctx, bootstrap, bootstrap_size));
 
     /* Load TextEncoder / TextDecoder */
-    js_std_eval_binary(ctx, encoding, encoding_size, 0);
+    CHECK_EQ(0, quv__eval_binary(ctx, encoding, encoding_size));
 }
 
 static void uv__stop(uv_async_t *handle) {
@@ -297,4 +310,8 @@ JSValue QUV_EvalFile(JSContext *ctx, const char *filename, int flags) {
     ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, filename, eval_flags);
     dbuf_free(&dbuf);
     return ret;
+}
+
+void QUV_RunRepl(JSContext *ctx) {
+    CHECK_EQ(0, quv__eval_binary(ctx, repl, repl_size));
 }

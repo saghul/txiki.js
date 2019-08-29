@@ -169,13 +169,3 @@ void js_std_dump_error(JSContext *ctx) {
     }
     JS_FreeValue(ctx, exception_val);
 }
-
-void js_std_eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len, int flags) {
-    JSValue val;
-    val = JS_EvalBinary(ctx, buf, buf_len, flags);
-    if (JS_IsException(val)) {
-        js_std_dump_error(ctx);
-        exit(1);
-    }
-    JS_FreeValue(ctx, val);
-}

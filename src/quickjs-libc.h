@@ -32,6 +32,5 @@
 JSModuleDef *js_init_module_std(JSContext *ctx, const char *module_name);
 void js_std_add_helpers(JSContext *ctx, int argc, char **argv);
 void js_std_dump_error(JSContext *ctx);
-void js_std_eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len, int flags);
 
 #endif /* QUICKJS_LIBC_H */
