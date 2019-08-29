@@ -27,6 +27,22 @@
 #define QUV_H
 
 #include "quv/utils.h"
-#include "quv/vm.h"
+
+#include <quickjs.h>
+#include <stdbool.h>
+#include <uv.h>
+
+typedef struct QUVRuntime QUVRuntime;
+
+QUVRuntime *QUV_NewRuntime(void);
+QUVRuntime *QUV_NewRuntime2(bool is_worker);
+void QUV_FreeRuntime(QUVRuntime *qrt);
+void QUV_SetupArgs(int argc, char **argv);
+JSContext *QUV_GetJSContext(QUVRuntime *qrt);
+QUVRuntime *QUV_GetRuntime(JSContext *ctx);
+void QUV_Run(QUVRuntime *qrt);
+void QUV_Stop(QUVRuntime *qrt);
+uv_loop_t *QUV_GetLoop(QUVRuntime *qrt);
+JSValue QUV_EvalFile(JSContext *ctx, const char *filename, int eval_flags);
 
 #endif

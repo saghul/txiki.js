@@ -22,9 +22,7 @@
  * THE SOFTWARE.
  */
 
-#include "udp.h"
-
-#include "error.h"
+#include "private.h"
 #include "utils.h"
 
 

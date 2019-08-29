@@ -22,10 +22,7 @@
  * THE SOFTWARE.
  */
 
-#include "process.h"
-
-#include "error.h"
-#include "streams.h"
+#include "private.h"
 #include "utils.h"
 
 #include <string.h>

@@ -22,10 +22,7 @@
  * THE SOFTWARE.
  */
 
-#include "streams.h"
-
-#include "error.h"
-#include "timers.h"
+#include "private.h"
 #include "utils.h"
 
 

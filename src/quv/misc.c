@@ -22,9 +22,7 @@
  * THE SOFTWARE.
  */
 
-#include "misc.h"
-
-#include "error.h"
+#include "private.h"
 #include "utils.h"
 
 #include <unistd.h>
