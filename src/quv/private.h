@@ -57,4 +57,8 @@ uv_stream_t *quv_pipe_get_stream(JSContext *ctx, JSValueConst obj);
 
 JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *opaque);
 
+JSModuleDef *js_init_module_std(JSContext *ctx, const char *module_name);
+void js_std_add_helpers(JSContext *ctx, int argc, char **argv);
+void js_std_dump_error(JSContext *ctx);
+
 #endif
