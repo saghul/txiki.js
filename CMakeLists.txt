@@ -12,6 +12,8 @@ message(STATUS "Building with ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -DDEBUG -O0 -g3")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -DNDEBUG -O2 -g")
 
+option(libuv_buildtests "" OFF)
+add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
 add_executable(qjsc
@@ -78,8 +80,8 @@ add_executable(quv
     ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
     ../deps/quickjs/src/cutils.c
 )
-
-option(libuv_buildtests "" OFF)
-add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
-
+set_target_properties(quv PROPERTIES
+    C_STANDARD 99
+    C_STANDARD_REQUIRED ON
+)
 target_link_libraries(quv qjs uv_a m)
