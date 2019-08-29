@@ -24,7 +24,6 @@
  */
 
 #include "../../deps/quickjs/src/cutils.h"
-#include "../quickjs-libc.h"
 #include "../quv.h"
 #include "private.h"
 

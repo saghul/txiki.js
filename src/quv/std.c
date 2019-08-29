@@ -23,10 +23,8 @@
  * THE SOFTWARE.
  */
 
-#include "quickjs-libc.h"
-
-#include "../deps/quickjs/src/cutils.h"
-#include "quv.h"
+#include "../quv.h"
+#include "private.h"
 
 #include <string.h>
 #include <uv.h>
@@ -152,7 +150,7 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv) {
 void js_std_dump_error(JSContext *ctx) {
     JSValue exception_val, val;
     const char *stack;
-    BOOL is_error;
+    bool is_error;
 
     exception_val = JS_GetException(ctx);
     is_error = JS_IsError(ctx, exception_val);

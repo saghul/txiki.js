@@ -62,13 +62,13 @@ add_custom_command(
 
 add_executable(quv
     src/cli.c
-    src/quickjs-libc.c
     src/quv/dns.c
     src/quv/error.c
     src/quv/fs.c
     src/quv/misc.c
     src/quv/modules.c
     src/quv/process.c
+    src/quv/std.c
     src/quv/streams.c
     src/quv/signals.c
     src/quv/timers.c

@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 
-#include "../quickjs-libc.h"
 #include "../quv.h"
 #include "private.h"
 
