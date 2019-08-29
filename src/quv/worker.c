@@ -64,7 +64,7 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValueConst *argv) {
 
     filename = JS_ToCString(ctx, argv[0]);
     if (!filename) {
-        js_std_dump_error(ctx);
+        quv_dump_error(ctx);
         goto error;
     }
 
@@ -72,7 +72,7 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValueConst *argv) {
     JS_FreeCString(ctx, filename);
 
     if (JS_IsException(ret)) {
-        js_std_dump_error(ctx);
+        quv_dump_error(ctx);
         JS_FreeValue(ctx, ret);
         goto error;
     }

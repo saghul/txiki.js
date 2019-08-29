@@ -36,7 +36,7 @@ static int eval_buf(JSContext *ctx, const void *buf, int buf_len, const char *fi
 
     val = JS_Eval(ctx, buf, buf_len, filename, eval_flags);
     if (JS_IsException(val)) {
-        js_std_dump_error(ctx);
+        quv_dump_error(ctx);
         ret = -1;
     } else {
         ret = 0;
@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
             filename = argv[optind];
             JSValue ret = QUV_EvalFile(ctx, filename, -1);
             if (JS_IsException(ret)) {
-                js_std_dump_error(ctx);
+                quv_dump_error(ctx);
                 JS_FreeValue(ctx, ret);
                 goto fail;
             }

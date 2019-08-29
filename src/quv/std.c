@@ -146,25 +146,3 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv) {
 
     JS_FreeValue(ctx, global_obj);
 }
-
-void js_std_dump_error(JSContext *ctx) {
-    JSValue exception_val, val;
-    const char *stack;
-    bool is_error;
-
-    exception_val = JS_GetException(ctx);
-    is_error = JS_IsError(ctx, exception_val);
-    if (!is_error)
-        printf("Throw: ");
-    js_print(ctx, JS_NULL, 1, (JSValueConst *) &exception_val);
-    if (is_error) {
-        val = JS_GetPropertyStr(ctx, exception_val, "stack");
-        if (!JS_IsUndefined(val)) {
-            stack = JS_ToCString(ctx, val);
-            printf("%s\n", stack);
-            JS_FreeCString(ctx, stack);
-        }
-        JS_FreeValue(ctx, val);
-    }
-    JS_FreeValue(ctx, exception_val);
-}
