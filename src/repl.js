@@ -292,6 +292,11 @@ import * as uv from "uv";
     function alert() {
     }
 
+    function clear_screen() {
+        stdout.write("\x1b[H\x1b[J");
+        return -2;
+    }
+
     function beginning_of_line() {
         cursor_pos = 0;
     }
@@ -667,6 +672,7 @@ import * as uv from "uv";
         "\x09":     completion,             /* ^I - history-search-backward */
         "\x0a":     accept_line,            /* ^J - newline */
         "\x0b":     kill_line,              /* ^K - delete to end of line */
+        "\x0c":     clear_screen,           /* ^L - clear screen */
         "\x0d":     accept_line,            /* ^M - enter */
         "\x0e":     next_history,           /* ^N - down */
         "\x10":     previous_history,       /* ^P - up */
@@ -970,7 +976,7 @@ import * as uv from "uv";
         } else if (cmd === "t") {
             show_time = !show_time;
         } else if (cmd === "clear") {
-            stdout.write("\x1b[H\x1b[J");
+            clear_screen();
         } else if (cmd === "q") {
             exit(0);
         } else {
