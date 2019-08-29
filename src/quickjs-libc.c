@@ -23,12 +23,13 @@
  * THE SOFTWARE.
  */
 
-#include <string.h>
-#include <uv.h>
+#include "quickjs-libc.h"
 
 #include "../deps/quickjs/src/cutils.h"
-#include "quickjs-libc.h"
 #include "quv.h"
+
+#include <string.h>
+#include <uv.h>
 
 
 static int eval_script_recurse;

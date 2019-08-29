@@ -90,7 +90,7 @@ typedef struct {
 static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
 #define SET_UINT64_FIELD(x)                                                                                            \
-    JS_DefinePropertyValueStr(ctx, obj, stringify(x), JS_NewBigUint64(ctx, st->x), JS_PROP_C_W_E)
+    JS_DefinePropertyValueStr(ctx, obj, STRINGIFY(x), JS_NewBigUint64(ctx, st->x), JS_PROP_C_W_E)
     SET_UINT64_FIELD(st_dev);
     SET_UINT64_FIELD(st_mode);
     SET_UINT64_FIELD(st_nlink);
@@ -107,7 +107,7 @@ static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
 #define SET_TIMESPEC_FIELD(x)                                                                                          \
     JS_DefinePropertyValueStr(ctx,                                                                                     \
                               obj,                                                                                     \
-                              stringify(x),                                                                            \
+                              STRINGIFY(x),                                                                            \
                               JS_NewFloat64(ctx, st->x.tv_sec + 1e-9 * st->x.tv_nsec),                                 \
                               JS_PROP_C_W_E)
     SET_TIMESPEC_FIELD(st_atim);
