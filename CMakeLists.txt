@@ -60,6 +60,8 @@ add_custom_command(
         ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
 )
 
+find_package(CURL)
+
 add_executable(quv
     src/cli.c
     src/quv/dns.c
@@ -85,4 +87,11 @@ set_target_properties(quv PROPERTIES
     C_STANDARD 99
     C_STANDARD_REQUIRED ON
 )
+if (CURL_FOUND)
+    target_compile_definitions(quv PRIVATE
+        QUV_HAVE_CURL
+    )
+    target_include_directories(quv PRIVATE ${CURL_INCLUDE_DIR})
+    target_link_libraries(quv ${CURL_LIBRARIES})
+endif()
 target_link_libraries(quv qjs uv_a m)
