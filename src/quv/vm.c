@@ -92,7 +92,7 @@ JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
 static int quv__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
     JSValue val = JS_EvalBinary(ctx, buf, buf_len, 0);
     if (JS_IsException(val)) {
-        js_std_dump_error(ctx);
+        quv_dump_error(ctx);
         return -1;
     }
     JS_FreeValue(ctx, val);
