@@ -17,15 +17,15 @@ matrix:
       dist: bionic
       compiler: clang
       env: BUILDTYPE=Release
-    - os: linux
-      dist: bionic
-      addons:
-        apt:
-          update: true
-          packages:
-            - musl-tools
-            - ninja-build
-      env: BUILDTYPE=Debug CC=musl-gcc LINK=musl-gcc
+#    - os: linux
+#      dist: bionic
+#      addons:
+#        apt:
+#          update: true
+#          packages:
+#            - musl-tools
+#            - ninja-build
+#      env: BUILDTYPE=Debug CC=musl-gcc LINK=musl-gcc
     - os: osx
       env: BUILDTYPE=Debug
     - os: osx
