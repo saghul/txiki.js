@@ -411,7 +411,7 @@ import * as uv from "uv";
     function control_d() {
         if (cmd.length == 0) {
             stdout.write("\n");
-            return -3; /* exit read eval print loop */
+            exit(0);
         } else {
             delete_char_dir(1);
         }
@@ -810,11 +810,6 @@ import * as uv from "uv";
                 return;
             case -2:
                 readline_cb(null);
-                return;
-            case -3:
-                /* uninstall a Ctrl-C signal handler */
-                sigint_h.close();
-                sigint_h = undefined;
                 return;
             }
             last_fun = this_fun;
