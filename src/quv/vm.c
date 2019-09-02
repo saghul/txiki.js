@@ -39,6 +39,9 @@ extern const uint32_t encoding_size;
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
 
+extern const uint8_t url[];
+extern const uint32_t url_size;
+
 static int quv__argc = 0;
 static char **quv__argv = NULL;
 
@@ -120,6 +123,9 @@ static void quv__bootstrap_globals(JSContext *ctx) {
 
     /* Load TextEncoder / TextDecoder */
     CHECK_EQ(0, quv__eval_binary(ctx, encoding, encoding_size));
+
+    /* Load URL */
+    CHECK_EQ(0, quv__eval_binary(ctx, url, url_size));
 }
 
 static void uv__stop(uv_async_t *handle) {

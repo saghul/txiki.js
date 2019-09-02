@@ -39,6 +39,7 @@ add_executable(quv
     ${CMAKE_CURRENT_BINARY_DIR}/bootstrap.c
     ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
     ${CMAKE_CURRENT_BINARY_DIR}/repl.c
+    ${CMAKE_CURRENT_BINARY_DIR}/url.c
     ../deps/quickjs/src/cutils.c
 )
 set_target_properties(quv PROPERTIES

@@ -8,6 +8,7 @@ set(js_files
     bootstrap
     encoding
     repl
+    url
 )
 foreach(x ${js_files})
     add_custom_command(
