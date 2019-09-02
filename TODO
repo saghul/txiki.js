@@ -1,6 +1,4 @@
 
-- create QUV_EvalXXX (str, binary)
 - add fs.readFile()
-- add ability to import files from HTTP URLs (use libcurl)
 - implement fetch using libcurl / libwebsockets
 - investigate libffi integration
