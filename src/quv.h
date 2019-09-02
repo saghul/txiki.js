@@ -43,7 +43,7 @@ QUVRuntime *QUV_GetRuntime(JSContext *ctx);
 void QUV_Run(QUVRuntime *qrt);
 void QUV_Stop(QUVRuntime *qrt);
 uv_loop_t *QUV_GetLoop(QUVRuntime *qrt);
-JSValue QUV_EvalFile(JSContext *ctx, const char *filename, int eval_flags);
+JSValue QUV_EvalFile(JSContext *ctx, const char *filename, int eval_flags, bool is_main);
 void QUV_RunRepl(JSContext *ctx);
 
 #endif

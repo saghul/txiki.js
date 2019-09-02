@@ -23,13 +23,12 @@
  * THE SOFTWARE.
  */
 
+#include "../../deps/quickjs/src/cutils.h"
 #include "../quv.h"
 #include "private.h"
 
 
 #ifdef QUV_HAVE_CURL
-
-#    include "../../deps/quickjs/src/cutils.h"
 
 #    include <curl/curl.h>
 #    include <string.h>
@@ -95,6 +94,8 @@ JSModuleDef *quv__load_http(JSContext *ctx, const char *url) {
         goto end;
     }
 
+    /* XXX: could propagate the exception */
+    js_module_set_import_meta(ctx, func_val, FALSE, FALSE);
     /* the module is already referenced, so we must free it */
     m = JS_VALUE_GET_PTR(func_val);
     JS_FreeValue(ctx, func_val);
@@ -114,6 +115,8 @@ end:
 JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *opaque) {
     JSModuleDef *m;
     JSValue func_val;
+    int r;
+    DynBuf dbuf;
 
 #ifdef QUV_HAVE_CURL
     if (strncmp(http, module_name, strlen(http)) == 0 || strncmp(https, module_name, strlen(https)) == 0) {
@@ -121,15 +124,72 @@ JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *op
     }
 #endif
 
+    dbuf_init(&dbuf);
+    r = quv__load_file(ctx, &dbuf, module_name);
+    if (r != 0) {
+        dbuf_free(&dbuf);
+        JS_ThrowReferenceError(ctx, "could not load '%s'", module_name);
+        return NULL;
+    }
+
     /* compile the module */
-    func_val = QUV_EvalFile(ctx, module_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    func_val = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, module_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    dbuf_free(&dbuf);
     if (JS_IsException(func_val)) {
         JS_FreeValue(ctx, func_val);
         return NULL;
     }
+
+    /* XXX: could propagate the exception */
+    js_module_set_import_meta(ctx, func_val, TRUE, FALSE);
     /* the module is already referenced, so we must free it */
     m = JS_VALUE_GET_PTR(func_val);
     JS_FreeValue(ctx, func_val);
 
     return m;
+}
+
+int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use_realpath, JS_BOOL is_main) {
+    JSModuleDef *m;
+    char buf[PATH_MAX + 16], *res;
+    JSValue meta_obj;
+    JSAtom module_name_atom;
+    const char *module_name;
+
+    CHECK_EQ(JS_VALUE_GET_TAG(func_val), JS_TAG_MODULE);
+    m = JS_VALUE_GET_PTR(func_val);
+
+    module_name_atom = JS_GetModuleName(ctx, m);
+    module_name = JS_AtomToCString(ctx, module_name_atom);
+    JS_FreeAtom(ctx, module_name_atom);
+    if (!module_name)
+        return -1;
+    if (!strchr(module_name, ':')) {
+        strcpy(buf, "file://");
+        /* realpath() cannot be used with modules compiled with qjsc
+           because the corresponding module source code is not
+           necessarily present */
+        if (use_realpath) {
+            // TODO: replace with uv_fs_realpath.
+            res = realpath(module_name, buf + strlen(buf));
+            if (!res) {
+                JS_ThrowTypeError(ctx, "realpath failure");
+                JS_FreeCString(ctx, module_name);
+                return -1;
+            }
+        } else {
+            pstrcat(buf, sizeof(buf), module_name);
+        }
+    } else {
+        pstrcpy(buf, sizeof(buf), module_name);
+    }
+    JS_FreeCString(ctx, module_name);
+
+    meta_obj = JS_GetImportMeta(ctx, m);
+    if (JS_IsException(meta_obj))
+        return -1;
+    JS_DefinePropertyValueStr(ctx, meta_obj, "url", JS_NewString(ctx, buf), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, meta_obj, "main", JS_NewBool(ctx, is_main), JS_PROP_C_W_E);
+    JS_FreeValue(ctx, meta_obj);
+    return 0;
 }

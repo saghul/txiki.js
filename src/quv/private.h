@@ -25,6 +25,8 @@
 #ifndef QUV_PRIVATE_H
 #define QUV_PRIVATE_H
 
+#include "../../deps/quickjs/src/cutils.h"
+
 #include <quickjs.h>
 #include <uv.h>
 
@@ -55,9 +57,11 @@ JSValue quv_throw_errno(JSContext *ctx, int err);
 JSValue quv_new_pipe(JSContext *ctx);
 uv_stream_t *quv_pipe_get_stream(JSContext *ctx, JSValueConst obj);
 
+int quv__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename);
 JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *opaque);
 
 JSModuleDef *js_init_module_std(JSContext *ctx, const char *module_name);
 void js_std_add_helpers(JSContext *ctx, int argc, char **argv);
+int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use_realpath, JS_BOOL is_main);
 
 #endif

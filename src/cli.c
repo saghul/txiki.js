@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
         } else {
             const char *filename;
             filename = argv[optind];
-            JSValue ret = QUV_EvalFile(ctx, filename, -1);
+            JSValue ret = QUV_EvalFile(ctx, filename, JS_EVAL_TYPE_MODULE, true);
             if (JS_IsException(ret)) {
                 quv_dump_error(ctx);
                 JS_FreeValue(ctx, ret);
