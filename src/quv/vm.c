@@ -90,13 +90,28 @@ JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
 }
 
 static int quv__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
-    JSValue val = JS_EvalBinary(ctx, buf, buf_len, 0);
-    if (JS_IsException(val)) {
-        quv_dump_error(ctx);
-        return -1;
+    JSValue obj = JS_ReadObject(ctx, buf, buf_len, JS_READ_OBJ_BYTECODE);
+    if (JS_IsException(obj))
+        goto error;
+
+    if (JS_VALUE_GET_TAG(obj) == JS_TAG_MODULE) {
+        if (JS_ResolveModule(ctx, obj) < 0) {
+            JS_FreeValue(ctx, obj);
+            goto error;
+        }
+        js_module_set_import_meta(ctx, obj, FALSE, TRUE);
     }
+
+    JSValue val = JS_EvalFunction(ctx, obj);
+    if (JS_IsException(val))
+        goto error;
     JS_FreeValue(ctx, val);
+
     return 0;
+
+error:
+    quv_dump_error(ctx);
+    return -1;
 }
 
 static void quv__bootstrap_globals(JSContext *ctx) {
@@ -256,7 +271,7 @@ uv_loop_t *QUV_GetLoop(QUVRuntime *qrt) {
     return &qrt->loop;
 }
 
-static int load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
+int quv__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
     uv_fs_t req;
     uv_file fd;
     int r;
@@ -284,13 +299,13 @@ static int load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
     return r;
 }
 
-JSValue QUV_EvalFile(JSContext *ctx, const char *filename, int flags) {
+JSValue QUV_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_main) {
     DynBuf dbuf;
     int r, eval_flags;
     JSValue ret;
 
     dbuf_init(&dbuf);
-    r = load_file(ctx, &dbuf, filename);
+    r = quv__load_file(ctx, &dbuf, filename);
     if (r != 0) {
         dbuf_free(&dbuf);
         JS_ThrowReferenceError(ctx, "could not load '%s'", filename);
@@ -306,7 +321,17 @@ JSValue QUV_EvalFile(JSContext *ctx, const char *filename, int flags) {
         eval_flags = flags;
     }
 
-    ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, filename, eval_flags);
+    if ((eval_flags & JS_EVAL_TYPE_MASK) == JS_EVAL_TYPE_MODULE) {
+        /* for the modules, we compile then run to be able to set import.meta */
+        ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, filename, eval_flags | JS_EVAL_FLAG_COMPILE_ONLY);
+        if (!JS_IsException(ret)) {
+            js_module_set_import_meta(ctx, ret, TRUE, is_main);
+            ret = JS_EvalFunction(ctx, ret);
+        }
+    } else {
+        ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, filename, eval_flags);
+    }
+
     dbuf_free(&dbuf);
     return ret;
 }

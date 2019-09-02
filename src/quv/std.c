@@ -41,7 +41,7 @@ static JSValue js_loadScript(JSContext *ctx, JSValueConst this_val, int argc, JS
     filename = JS_ToCString(ctx, argv[0]);
     if (!filename)
         return JS_EXCEPTION;
-    ret = QUV_EvalFile(ctx, filename, JS_EVAL_TYPE_GLOBAL);
+    ret = QUV_EvalFile(ctx, filename, JS_EVAL_TYPE_GLOBAL, false);
     JS_FreeCString(ctx, filename);
     return ret;
 }
@@ -127,11 +127,9 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv) {
     JSValue global_obj, console, args;
     int i;
 
-    /* XXX: should these global definitions be enumerable? */
     global_obj = JS_GetGlobalObject(ctx);
 
     JS_SetPropertyStr(ctx, global_obj, "global", JS_DupValue(ctx, global_obj));
-    JS_SetPropertyStr(ctx, global_obj, "globalThis", JS_DupValue(ctx, global_obj));
 
     console = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, console, "log", JS_NewCFunction(ctx, js_print, "log", 1));
