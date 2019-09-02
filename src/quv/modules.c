@@ -151,7 +151,8 @@ JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *op
 
 int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use_realpath, JS_BOOL is_main) {
     JSModuleDef *m;
-    char buf[PATH_MAX + 16], *res;
+    char buf[PATH_MAX + 16];
+    int r;
     JSValue meta_obj;
     JSAtom module_name_atom;
     const char *module_name;
@@ -165,18 +166,21 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
     if (!module_name)
         return -1;
     if (!strchr(module_name, ':')) {
-        strcpy(buf, "file://");
+        pstrcpy(buf, sizeof(buf), "file://");
         /* realpath() cannot be used with modules compiled with qjsc
            because the corresponding module source code is not
            necessarily present */
         if (use_realpath) {
-            // TODO: replace with uv_fs_realpath.
-            res = realpath(module_name, buf + strlen(buf));
-            if (!res) {
+            uv_fs_t req;
+            r = uv_fs_realpath(NULL, &req, module_name, NULL);
+            if (r != 0) {
+                uv_fs_req_cleanup(&req);
                 JS_ThrowTypeError(ctx, "realpath failure");
                 JS_FreeCString(ctx, module_name);
                 return -1;
             }
+            pstrcat(buf, sizeof(buf), req.ptr);
+            uv_fs_req_cleanup(&req);
         } else {
             pstrcat(buf, sizeof(buf), module_name);
         }
