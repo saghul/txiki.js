@@ -130,6 +130,7 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv) {
     global_obj = JS_GetGlobalObject(ctx);
 
     JS_SetPropertyStr(ctx, global_obj, "global", JS_DupValue(ctx, global_obj));
+    JS_SetPropertyStr(ctx, global_obj, "window", JS_DupValue(ctx, global_obj));
 
     console = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, console, "log", JS_NewCFunction(ctx, js_print, "log", 1));
