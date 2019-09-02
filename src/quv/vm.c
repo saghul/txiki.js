@@ -36,6 +36,9 @@ extern const uint32_t bootstrap_size;
 extern const uint8_t encoding[];
 extern const uint32_t encoding_size;
 
+extern const uint8_t path[];
+extern const uint32_t path_size;
+
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
 
@@ -176,6 +179,9 @@ QUVRuntime *QUV_NewRuntime2(bool is_worker) {
     js_init_module_uv(qrt->ctx, "uv");
 
     quv__bootstrap_globals(qrt->ctx);
+
+    /* extra builtin modules */
+    CHECK_EQ(0, quv__eval_binary(qrt->ctx, path, path_size));
 
     return qrt;
 }
