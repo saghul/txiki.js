@@ -4,22 +4,20 @@
 
 - `global`: reference to the global object.
 - `globalThis`: same as `global`.
+- `window`: same as `global`.
 - `console`: a minimal JS console object with just the `log` method.
-- `scriptArgs`: array with the arguments passed to the executable.
 - `TextEncoder` / `TextDecoder`: WHATWG [Encoding API].
 - `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval`: standard timer functions.
-- `std`: reference to the `std` module.
-- `uv`: reference to the `uv` module.
+- `quv`: reference to the `quv` module.
 - `workerThis`: reference to the worker global state (inside a worker).
 
-## `std` module
+## `quv` module
 
+- `args`: array with the arguments passed to the executable.
 - `exit([code])`: exits the program with the given code.
 - `gc()`: triggers a garbage collection cycle.
 - `evalScript(code)`: evals the given code in the global scope.
 - `loadScript(jsFile)`: loads and evaulates the file at the given path.
-
-## `uv` module
 
 These APIs are almost always a 1-to-1 mapping of the matching [libuv] API, please
 check the libuv documentation.
@@ -115,7 +113,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `kill(signum)`
 - `wait()`
 
-### `uv.fs` module
+### `quv.fs` module
 
 - `copyfile(path, newPath)`
 - `readdir(path)`
@@ -150,7 +148,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `UV_FS_COPYFILE_FICLONE`
 - `UV_FS_COPYFILE_FICLONE_FORCE`
 
-### `uv.dns` module
+### `quv.dns` module
 
 - `getaddrinfo(node, [options])`
 
