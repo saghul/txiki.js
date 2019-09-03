@@ -21,9 +21,9 @@ async function handleConnection(conn) {
 }
 
 (async () => {
-    const p = new uv.Pipe();
+    const p = new quv.Pipe();
 
-    p.bind(global.scriptArgs[2] || '/tmp/fooPipe');
+    p.bind(quv.args[2] || '/tmp/fooPipe');
     p.listen();
 
     console.log(`Listening on ${p.getsockname()}`); 

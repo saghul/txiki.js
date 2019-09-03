@@ -67,6 +67,7 @@ static int quv_init(JSContext *ctx, JSModuleDef *m) {
     quv_mod_misc_init(ctx, m);
     quv_mod_process_init(ctx, m);
     quv_mod_signals_init(ctx, m);
+    quv_mod_std_init(ctx, m);
     quv_mod_streams_init(ctx, m);
     quv_mod_timers_init(ctx, m);
     quv_mod_udp_init(ctx, m);
@@ -86,6 +87,7 @@ JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
     quv_mod_fs_export(ctx, m);
     quv_mod_misc_export(ctx, m);
     quv_mod_process_export(ctx, m);
+    quv_mod_std_export(ctx, m);
     quv_mod_streams_export(ctx, m);
     quv_mod_signals_export(ctx, m);
     quv_mod_timers_export(ctx, m);
@@ -120,15 +122,52 @@ error:
     return -1;
 }
 
+static JSValue js__print(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    int i;
+    const char *str;
+
+    for (i = 0; i < argc; i++) {
+        if (i != 0)
+            putchar(' ');
+        str = JS_ToCString(ctx, argv[i]);
+        if (!str)
+            return JS_EXCEPTION;
+        fputs(str, stdout);
+        JS_FreeCString(ctx, str);
+    }
+    putchar('\n');
+    return JS_UNDEFINED;
+}
+
 static void quv__bootstrap_globals(JSContext *ctx) {
     /* Load bootstrap */
     CHECK_EQ(0, quv__eval_binary(ctx, bootstrap, bootstrap_size));
+
+    /* globals */
+    JSValue global_obj = JS_GetGlobalObject(ctx);
+
+    JS_SetPropertyStr(ctx, global_obj, "global", JS_DupValue(ctx, global_obj));
+    JS_SetPropertyStr(ctx, global_obj, "window", JS_DupValue(ctx, global_obj));
+
+    JSValue console = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, console, "log", JS_NewCFunction(ctx, js__print, "log", 1));
+    JS_SetPropertyStr(ctx, global_obj, "console", console);
+
+    JS_FreeValue(ctx, global_obj);
 
     /* Load TextEncoder / TextDecoder */
     CHECK_EQ(0, quv__eval_binary(ctx, encoding, encoding_size));
 
     /* Load URL */
     CHECK_EQ(0, quv__eval_binary(ctx, url, url_size));
+}
+
+JSValue quv__get_args(JSContext *ctx) {
+    JSValue args = JS_NewArray(ctx);
+    for (int i = 0; i < quv__argc; i++) {
+        JS_SetPropertyUint32(ctx, args, i, JS_NewString(ctx, quv__argv[i]));
+    }
+    return args;
 }
 
 static void uv__stop(uv_async_t *handle) {
@@ -172,11 +211,8 @@ QUVRuntime *QUV_NewRuntime2(bool is_worker) {
     /* loader for ES6 modules */
     JS_SetModuleLoaderFunc(qrt->rt, NULL, quv_module_loader, NULL);
 
-    js_std_add_helpers(qrt->ctx, quv__argc, quv__argv);
-
     /* system modules */
-    js_init_module_std(qrt->ctx, "std");
-    js_init_module_uv(qrt->ctx, "uv");
+    js_init_module_uv(qrt->ctx, "quv");
 
     quv__bootstrap_globals(qrt->ctx);
 

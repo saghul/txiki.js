@@ -525,8 +525,7 @@ int main(int argc, char **argv) {
     use_lto = FALSE;
 
     /* add system modules */
-    namelist_add(&cmodule_list, "std", "std", 0);
-    namelist_add(&cmodule_list, "uv", "uv", 0);
+    namelist_add(&cmodule_list, "quv", "quv", 0);
     namelist_add(&cmodule_list, "path", "path", 0);
 
     for (;;) {

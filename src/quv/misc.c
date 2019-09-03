@@ -288,8 +288,10 @@ static const JSCFunctionListEntry quv_misc_funcs[] = {
 
 void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
     JS_SetModuleExportList(ctx, m, quv_misc_funcs, countof(quv_misc_funcs));
+    JS_SetModuleExport(ctx, m, "args", quv__get_args(ctx));
 }
 
 void quv_mod_misc_export(JSContext *ctx, JSModuleDef *m) {
     JS_AddModuleExportList(ctx, m, quv_misc_funcs, countof(quv_misc_funcs));
+    JS_AddModuleExport(ctx, m, "args");
 }

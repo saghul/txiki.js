@@ -42,6 +42,8 @@ void quv_mod_process_init(JSContext *ctx, JSModuleDef *m);
 void quv_mod_process_export(JSContext *ctx, JSModuleDef *m);
 void quv_mod_signals_init(JSContext *ctx, JSModuleDef *m);
 void quv_mod_signals_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_std_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_std_export(JSContext *ctx, JSModuleDef *m);
 void quv_mod_streams_init(JSContext *ctx, JSModuleDef *m);
 void quv_mod_streams_export(JSContext *ctx, JSModuleDef *m);
 void quv_mod_timers_init(JSContext *ctx, JSModuleDef *m);
@@ -61,7 +63,8 @@ int quv__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename);
 JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *opaque);
 
 JSModuleDef *js_init_module_std(JSContext *ctx, const char *module_name);
-void js_std_add_helpers(JSContext *ctx, int argc, char **argv);
 int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use_realpath, JS_BOOL is_main);
+
+JSValue quv__get_args(JSContext *ctx);
 
 #endif

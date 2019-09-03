@@ -120,7 +120,7 @@ var posix = {
         path = arguments[i];
       else {
         if (cwd === undefined)
-          cwd = process.cwd();
+          cwd = quv.cwd();
         path = cwd;
       }
 

@@ -1,12 +1,10 @@
 // quv internal bootstrap.
 //
 
-import * as std from 'std';
-import * as uv from 'uv';
+import * as quv from 'quv';
 
-global.std = std;
-global.uv = uv;
-global.setTimeout = uv.setTimeout;
-global.clearTimeout = uv.clearTimeout;
-global.setInterval = uv.setInterval;
-global.clearInterval = uv.clearInterval;
+globalThis.quv = quv;
+globalThis.setTimeout = quv.setTimeout;
+globalThis.clearTimeout = quv.clearTimeout;
+globalThis.setInterval = quv.setInterval;
+globalThis.clearInterval = quv.clearInterval;
