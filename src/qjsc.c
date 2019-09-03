@@ -332,17 +332,17 @@ static void compile_file(JSContext *ctx, FILE *fo, const char *filename, const c
         eval_flags |= JS_EVAL_TYPE_MODULE;
     else
         eval_flags |= JS_EVAL_TYPE_GLOBAL;
-    obj = JS_Eval(ctx, (const char *) buf, buf_len, filename, eval_flags);
-    if (JS_IsException(obj)) {
-        js_std_dump_error(ctx);
-        exit(1);
-    }
-    js_free(ctx, buf);
     if (c_name1) {
         pstrcpy(c_name, sizeof(c_name), c_name1);
     } else {
         get_c_name(c_name, sizeof(c_name), filename);
     }
+    obj = JS_Eval(ctx, (const char *) buf, buf_len, c_name, eval_flags);
+    if (JS_IsException(obj)) {
+        js_std_dump_error(ctx);
+        exit(1);
+    }
+    js_free(ctx, buf);
     output_object_code(ctx, fo, obj, c_name, FALSE);
     JS_FreeValue(ctx, obj);
 }
