@@ -130,32 +130,18 @@ JSValue quv_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
     }
 }
 
-static void js__print(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    int i;
-    const char *str;
-
-    for (i = 0; i < argc; i++) {
-        if (i != 0)
-            putchar(' ');
-        str = JS_ToCString(ctx, argv[i]);
-        if (!str)
-            return;
-        fputs(str, stdout);
-        JS_FreeCString(ctx, str);
-    }
-    putchar('\n');
-}
-
 void quv_dump_error(JSContext *ctx) {
     JSValue exception_val, val;
-    const char *stack;
+    const char *stack, *exception_str;
     int is_error;
 
     exception_val = JS_GetException(ctx);
     is_error = JS_IsError(ctx, exception_val);
     if (!is_error)
         printf("Throw: ");
-    js__print(ctx, JS_NULL, 1, (JSValueConst *) &exception_val);
+    exception_str = JS_ToCString(ctx, exception_val);
+    printf("%s\n", exception_str);
+    JS_FreeCString(ctx, exception_str);
     if (is_error) {
         val = JS_GetPropertyStr(ctx, exception_val, "stack");
         if (!JS_IsUndefined(val)) {
