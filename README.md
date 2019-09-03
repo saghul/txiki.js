@@ -12,7 +12,7 @@ Currently the following is already implemented in the `quv` (formerly `qjs`) int
 - Unix sockets / named pipes
 - Timers
 - Signals
-- Basic file operations
+- File operations
 - Event loop
 - High-resolution time
 - Miscellaneous utility functions
@@ -23,6 +23,8 @@ Currently the following is already implemented in the `quv` (formerly `qjs`) int
 Other extras:
 
 - TextEncoder / TextDecoder APIs
+- URL polyfill
+- Import directly from HTTP(S) URLs
 
 See the [full API].
 

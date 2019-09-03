@@ -1,3 +1,5 @@
 
+- rename uv module to "quv"
+    - merge std in
 - implement fetch using libcurl
 - investigate libffi integration
