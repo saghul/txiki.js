@@ -25,8 +25,12 @@
 
 import * as std from "std";
 import * as uv from "uv";
+import * as path from "path";
 
 (function(g) {
+    /* expose builtins */
+    g.path = path;
+
     /* close global objects */
     var Object = g.Object;
     var String = g.String;
