@@ -33,8 +33,14 @@
 extern const uint8_t bootstrap[];
 extern const uint32_t bootstrap_size;
 
+extern const uint8_t bootstrap2[];
+extern const uint32_t bootstrap2_size;
+
 extern const uint8_t encoding[];
 extern const uint32_t encoding_size;
+
+extern const uint8_t event_target[];
+extern const uint32_t event_target_size;
 
 extern const uint8_t path[];
 extern const uint32_t path_size;
@@ -158,8 +164,14 @@ static void quv__bootstrap_globals(JSContext *ctx) {
     /* Load TextEncoder / TextDecoder */
     CHECK_EQ(0, quv__eval_binary(ctx, encoding, encoding_size));
 
+    /* Load EventTarget */
+    CHECK_EQ(0, quv__eval_binary(ctx, event_target, event_target_size));
+
     /* Load URL */
     CHECK_EQ(0, quv__eval_binary(ctx, url, url_size));
+
+    /* Load bootstrap2 */
+    CHECK_EQ(0, quv__eval_binary(ctx, bootstrap2, bootstrap2_size));
 }
 
 JSValue quv__get_args(JSContext *ctx) {
@@ -378,6 +390,12 @@ JSValue QUV_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_ma
         }
     } else {
         ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, filename, eval_flags);
+    }
+
+    /* Emit window 'load' event. */
+    if (!JS_IsException(ret) && is_main) {
+        static char emit_window_load[] = "window.dispatchEvent({type: 'load'});";
+        JS_Eval(ctx, emit_window_load, strlen(emit_window_load), "<global>", JS_EVAL_TYPE_GLOBAL);
     }
 
     dbuf_free(&dbuf);
