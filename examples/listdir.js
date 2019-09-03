@@ -2,7 +2,7 @@
 //
 
 (async function() {
-    const dirIter = await uv.fs.readdir(global.scriptArgs[2]);
+    const dirIter = await quv.fs.readdir(quv.args[2]);
     for await (const item of dirIter) {
         console.log(item.name);
     }

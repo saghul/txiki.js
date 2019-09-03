@@ -30,6 +30,7 @@
 #include <uv.h>
 
 
+// TODO: move this out of the global scope.
 static int eval_script_recurse;
 
 
@@ -45,8 +46,6 @@ static JSValue js_loadScript(JSContext *ctx, JSValueConst this_val, int argc, JS
     JS_FreeCString(ctx, filename);
     return ret;
 }
-
-typedef JSModuleDef *(JSInitModuleFunc)(JSContext *ctx, const char *module_name);
 
 static JSValue js_std_exit(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     int status;
@@ -90,58 +89,10 @@ static const JSCFunctionListEntry js_std_funcs[] = {
     JS_CFUNC_DEF("loadScript", 1, js_loadScript),
 };
 
-static int js_std_init(JSContext *ctx, JSModuleDef *m) {
+void quv_mod_std_init(JSContext *ctx, JSModuleDef *m) {
     JS_SetModuleExportList(ctx, m, js_std_funcs, countof(js_std_funcs));
-    return 0;
 }
 
-JSModuleDef *js_init_module_std(JSContext *ctx, const char *module_name) {
-    JSModuleDef *m;
-    m = JS_NewCModule(ctx, module_name, js_std_init);
-    if (!m)
-        return NULL;
+void quv_mod_std_export(JSContext *ctx, JSModuleDef *m) {
     JS_AddModuleExportList(ctx, m, js_std_funcs, countof(js_std_funcs));
-    return m;
-}
-
-/**********************************************************/
-
-static JSValue js_print(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    int i;
-    const char *str;
-
-    for (i = 0; i < argc; i++) {
-        if (i != 0)
-            putchar(' ');
-        str = JS_ToCString(ctx, argv[i]);
-        if (!str)
-            return JS_EXCEPTION;
-        fputs(str, stdout);
-        JS_FreeCString(ctx, str);
-    }
-    putchar('\n');
-    return JS_UNDEFINED;
-}
-
-void js_std_add_helpers(JSContext *ctx, int argc, char **argv) {
-    JSValue global_obj, console, args;
-    int i;
-
-    global_obj = JS_GetGlobalObject(ctx);
-
-    JS_SetPropertyStr(ctx, global_obj, "global", JS_DupValue(ctx, global_obj));
-    JS_SetPropertyStr(ctx, global_obj, "window", JS_DupValue(ctx, global_obj));
-
-    console = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, console, "log", JS_NewCFunction(ctx, js_print, "log", 1));
-    JS_SetPropertyStr(ctx, global_obj, "console", console);
-
-    /* same methods as the mozilla JS shell */
-    args = JS_NewArray(ctx);
-    for (i = 0; i < argc; i++) {
-        JS_SetPropertyUint32(ctx, args, i, JS_NewString(ctx, argv[i]));
-    }
-    JS_SetPropertyStr(ctx, global_obj, "scriptArgs", args);
-
-    JS_FreeValue(ctx, global_obj);
 }

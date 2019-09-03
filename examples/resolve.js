@@ -2,7 +2,7 @@
 //
 
 (async function() {
-    const res = await uv.dns.getaddrinfo(global.scriptArgs[2]);
+    const res = await quv.dns.getaddrinfo(quv.args[2]);
     console.log(JSON.stringify(res, undefined, 2));
 })().catch(e => {
     console.log(e);

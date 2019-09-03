@@ -21,9 +21,9 @@ async function handleConnection(conn) {
 }
 
 (async () => {
-    const t = new uv.TCP();
+    const t = new quv.TCP();
 
-    t.bind({ip: global.scriptArgs[2] || '127.0.0.1', port: global.scriptArgs[3] || 1234});
+    t.bind({ip: quv.args[2] || '127.0.0.1', port: quv.args[3] || 1234});
     t.listen();
 
     console.log(`Listening on ${addr(t.getsockname())}`); 

@@ -23,8 +23,6 @@
  * THE SOFTWARE.
  */
 
-import * as std from "std";
-import * as uv from "uv";
 import * as path from "path";
 
 (function(g) {
@@ -110,29 +108,29 @@ import * as path from "path";
     var sigint_h;
     
     function termInit() {
-        if (!uv.isatty(uv.STDIN_FILENO))
+        if (!quv.isatty(quv.STDIN_FILENO))
             throw new Error('stdin is not a TTY');
 
-        stdin = new uv.TTY(uv.STDIN_FILENO, true);
-        stdout = new uv.TTY(uv.STDOUT_FILENO, false);
+        stdin = new quv.TTY(quv.STDIN_FILENO, true);
+        stdout = new quv.TTY(quv.STDOUT_FILENO, false);
         
         /* get the terminal size */
         var size = stdin.getWinSize();
         term_width = size.width;
 
         /* set the TTY to raw mode */
-        stdin.setMode(uv.UV_TTY_MODE_RAW);
+        stdin.setMode(quv.UV_TTY_MODE_RAW);
 
         /* install a Ctrl-C signal handler */
-        sigint_h = uv.signal(uv.SIGINT, sigint_handler);
+        sigint_h = quv.signal(quv.SIGINT, sigint_handler);
 
         /* handler to read stdin */
         term_read_handler();
     }
 
     function exit(code) {
-        stdin.setMode(uv.UV_TTY_MODE_NORMAL);
-        std.exit(code);
+        stdin.setMode(quv.UV_TTY_MODE_NORMAL);
+        quv.exit(code);
     }
 
     function sigint_handler() {
@@ -970,7 +968,7 @@ import * as path from "path";
             var filename = expr.substring(cmd.length + 1).trim();
             if (filename.lastIndexOf(".") <= filename.lastIndexOf("/"))
                 filename += ".js";
-            std.loadScript(filename);
+            quv.loadScript(filename);
             return false;
         } else if (cmd === "t") {
             show_time = !show_time;
@@ -1001,7 +999,7 @@ import * as path from "path";
         try {
             var now = (new Date).getTime();
             /* eval as a script */
-            result = std.evalScript(expr);
+            result = quv.evalScript(expr);
             eval_time = (new Date).getTime() - now;
             stdout.write(colors[styles.result]);
             print(result);
@@ -1074,7 +1072,7 @@ import * as path from "path";
         level = 0;
         
         /* run the garbage collector after each command */
-        std.gc();
+        quv.gc();
     }
 
     function colorize_js(str) {
