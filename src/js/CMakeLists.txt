@@ -6,7 +6,9 @@ target_link_libraries(qjsc qjs m)
 
 set(js_files
     bootstrap
+    bootstrap2
     encoding
+    event-target
     path
     repl
     url
