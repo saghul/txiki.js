@@ -125,6 +125,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `stat(path)`
 - `lstat(path)`
 - `open(path, flagsStr, mode)`
+- `readFile(path)`
 - `realpath(path)`
 - `unlink(path)`
 

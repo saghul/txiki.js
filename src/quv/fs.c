@@ -87,6 +87,15 @@ typedef struct {
     } rw;
 } QUVFsReq;
 
+typedef struct {
+    uv_work_t req;
+    DynBuf dbuf;
+    JSContext *ctx;
+    int r;
+    char *filename;
+    QUVPromise result;
+} QUVReadFileReq;
+
 static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
 #define SET_UINT64_FIELD(x)                                                                                            \
@@ -665,6 +674,71 @@ static JSValue quv_fs_readdir(JSContext *ctx, JSValueConst this_val, int argc, J
     return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
+static void quv__readfile_free(JSRuntime *rt, void *opaque, void *ptr) {
+    QUVReadFileReq *fr = opaque;
+    CHECK_NOT_NULL(fr);
+
+    dbuf_free(&fr->dbuf);
+    js_free_rt(rt, fr->filename);
+    js_free_rt(rt, fr);
+}
+
+static void quv__readfile_work_cb(uv_work_t *req) {
+    QUVReadFileReq *fr = req->data;
+    CHECK_NOT_NULL(fr);
+
+    fr->r = quv__load_file(fr->ctx, &fr->dbuf, fr->filename);
+}
+
+static void quv__readfile_after_work_cb(uv_work_t *req, int status) {
+    QUVReadFileReq *fr = req->data;
+    CHECK_NOT_NULL(fr);
+
+    JSContext *ctx = fr->ctx;
+    JSValue arg;
+    bool is_reject = false;
+
+    if (status != 0) {
+        arg = quv_new_error(ctx, status);
+        is_reject = true;
+    } else if (fr->r < 0) {
+        arg = quv_new_error(ctx, fr->r);
+        is_reject = true;
+    } else {
+        arg = JS_NewArrayBuffer(ctx, fr->dbuf.buf, fr->dbuf.size, quv__readfile_free, (void *) fr, false);
+    }
+
+    QUV_SettlePromise(ctx, &fr->result, is_reject, 1, (JSValueConst *) &arg);
+
+    if (is_reject)
+        quv__readfile_free(JS_GetRuntime(ctx), (void *) fr, NULL);
+}
+
+static JSValue quv_fs_readfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    QUVReadFileReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
+        return JS_EXCEPTION;
+
+    fr->ctx = ctx;
+    dbuf_init(&fr->dbuf);
+    fr->r = -1;
+    fr->filename = js_strdup(ctx, path);
+    fr->req.data = fr;
+
+    int r = uv_queue_work(quv_get_loop(ctx), &fr->req, quv__readfile_work_cb, quv__readfile_after_work_cb);
+    if (r != 0) {
+        js_free(ctx, fr->filename);
+        js_free(ctx, fr);
+        return quv_throw_errno(ctx, r);
+    }
+
+    return QUV_InitPromise(ctx, &fr->result);
+}
+
 static const JSCFunctionListEntry quv_file_proto_funcs[] = {
     JS_CFUNC_MAGIC_DEF("read", 4, quv_file_rw, 0),
     JS_CFUNC_MAGIC_DEF("write", 4, quv_file_rw, 1),
@@ -715,6 +789,7 @@ static const JSCFunctionListEntry quv_fs_funcs[] = {
     JS_CFUNC_DEF("rmdir", 1, quv_fs_rmdir),
     JS_CFUNC_DEF("copyfile", 3, quv_fs_copyfile),
     JS_CFUNC_DEF("readdir", 1, quv_fs_readdir),
+    JS_CFUNC_DEF("readFile", 1, quv_fs_readfile),
 };
 
 void quv_mod_fs_init(JSContext *ctx, JSModuleDef *m) {

@@ -1,4 +1,3 @@
 
-- add fs.readFile()
-- implement fetch using libcurl / libwebsockets
+- implement fetch using libcurl
 - investigate libffi integration
