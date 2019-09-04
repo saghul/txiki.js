@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "../version.h"
 #include "private.h"
 #include "utils.h"
 
@@ -289,9 +290,21 @@ static const JSCFunctionListEntry quv_misc_funcs[] = {
 void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
     JS_SetModuleExportList(ctx, m, quv_misc_funcs, countof(quv_misc_funcs));
     JS_SetModuleExport(ctx, m, "args", quv__get_args(ctx));
+    JS_SetModuleExport(ctx, m, "version", JS_NewString(ctx, quv_version()));
+    JSValue versions = JS_NewObjectProto(ctx, JS_NULL);
+    JS_DefinePropertyValueStr(ctx, versions, "quv", JS_NewString(ctx, quv_version()), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, versions, "uv", JS_NewString(ctx, uv_version_string()), JS_PROP_C_W_E);
+#ifdef QUV_HAVE_CURL
+    JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, "system"), JS_PROP_C_W_E);
+#else
+    JS_DefinePropertyValueStr(ctx, versions, "curl", JS_UNDEFINED, JS_PROP_C_W_E);
+#endif
+    JS_SetModuleExport(ctx, m, "versions", versions);
 }
 
 void quv_mod_misc_export(JSContext *ctx, JSModuleDef *m) {
     JS_AddModuleExportList(ctx, m, quv_misc_funcs, countof(quv_misc_funcs));
     JS_AddModuleExport(ctx, m, "args");
+    JS_AddModuleExport(ctx, m, "version");
+    JS_AddModuleExport(ctx, m, "versions");
 }

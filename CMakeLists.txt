@@ -12,6 +12,17 @@ message(STATUS "Building with ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -DDEBUG -O0 -g3")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -DNDEBUG -O2 -g")
 
+
+set(QUV__VERSION_MAJOR 19)
+set(QUV__VERSION_MINOR 0)
+set(QUV__VERSION_PATCH 0)
+set(QUV__VERSION_SUFFIX "-alpha")
+configure_file(
+    "${CMAKE_SOURCE_DIR}/src/version.h.in"
+    "${CMAKE_SOURCE_DIR}/src/version.h"
+)
+
+
 include(${CMAKE_SOURCE_DIR}/src/js/CMakeLists.txt)
 
 option(libuv_buildtests "" OFF)
@@ -34,6 +45,7 @@ add_executable(quv
     src/quv/timers.c
     src/quv/udp.c
     src/quv/utils.c
+    src/quv/version.c
     src/quv/vm.c
     src/quv/worker.c
     ${CMAKE_CURRENT_BINARY_DIR}/bootstrap.c
