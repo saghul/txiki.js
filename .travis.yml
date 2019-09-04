@@ -41,7 +41,7 @@ addons:
       - ninja
 script:
   - make
-  - ./build/quv -e "console.log('hello world');"
+  - ./build/quv tests/run.js
 branches:
   only:
     - master
