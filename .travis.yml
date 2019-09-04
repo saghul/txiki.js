@@ -4,11 +4,11 @@ matrix:
     - os: linux
       dist: bionic
       compiler: gcc
-      env: BUILDTYPE=Debug
+      env: BUILDTYPE=Debug USE_SYSTEM_CURL=OFF
     - os: linux
       dist: bionic
       compiler: gcc
-      env: BUILDTYPE=Release
+      env: BUILDTYPE=Release USE_SYSTEM_CURL=OFF
     - os: linux
       dist: bionic
       compiler: clang
@@ -17,15 +17,6 @@ matrix:
       dist: bionic
       compiler: clang
       env: BUILDTYPE=Release
-#    - os: linux
-#      dist: bionic
-#      addons:
-#        apt:
-#          update: true
-#          packages:
-#            - musl-tools
-#            - ninja-build
-#      env: BUILDTYPE=Debug CC=musl-gcc LINK=musl-gcc
     - os: osx
       env: BUILDTYPE=Debug
     - os: osx
@@ -41,6 +32,7 @@ addons:
       - ninja
 script:
   - make
+  - ./build/quv -e "console.log(JSON.stringify(quv.versions))"
   - make test
 branches:
   only:

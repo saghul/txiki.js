@@ -29,7 +29,37 @@ option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
-find_package(CURL)
+
+macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
+    option(${OPTION_NAME} ${OPTION_TEXT} ${OPTION_DEFAULT})
+    if(DEFINED ENV{${OPTION_NAME}})
+        # Allow setting the option through an environment variable
+        set(${OPTION_NAME} $ENV{${OPTION_NAME}})
+    endif()
+    if(${OPTION_NAME})
+        add_definitions(-D${OPTION_NAME})
+    endif()
+    message(STATUS "  ${OPTION_NAME}: ${${OPTION_NAME}}")
+endmacro()
+
+cpr_option(USE_SYSTEM_CURL "If ON, this project will look in the system paths for an installed curl library" ON)
+
+if(USE_SYSTEM_CURL)
+    find_package(CURL)
+endif()
+if(NOT USE_SYSTEM_CURL OR NOT CURL_FOUND)
+    message(STATUS "Not using system Curl, using built-in curl project instead.")
+    option(HTTP_ONLY "disables all protocols except HTTP" ON)
+    option(BUILD_TESTING "Set to ON to build cURL tests." OFF)
+    option(BUILD_CURL_EXE "Set to ON to build cURL executable." OFF)
+    add_subdirectory(deps/curl)
+    set(CURL_FOUND TRUE)
+    set(CURL_LIBRARIES libcurl)
+    set(CURL_INCLUDE_DIRS
+        ${CURL_SOURCE_DIR}/include
+        ${CURL_BINARY_DIR}/include/curl)
+endif()
+
 
 add_executable(quv
     src/cli.c
@@ -63,10 +93,15 @@ set_target_properties(quv PROPERTIES
     C_STANDARD_REQUIRED ON
 )
 if (CURL_FOUND)
+    if (USE_SYSTEM_CURL)
+        target_compile_definitions(quv PRIVATE
+            QUV_HAVE_SYSTEM_CURL
+        )
+    endif()
     target_compile_definitions(quv PRIVATE
         QUV_HAVE_CURL
     )
-    target_include_directories(quv PRIVATE ${CURL_INCLUDE_DIR})
+    target_include_directories(quv PRIVATE ${CURL_INCLUDE_DIRS})
     target_link_libraries(quv ${CURL_LIBRARIES})
 endif()
 target_link_libraries(quv qjs uv_a m)
