@@ -41,6 +41,7 @@ add_executable(quv
     ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
     ${CMAKE_CURRENT_BINARY_DIR}/event-target.c
     ${CMAKE_CURRENT_BINARY_DIR}/path.c
+    ${CMAKE_CURRENT_BINARY_DIR}/performance.c
     ${CMAKE_CURRENT_BINARY_DIR}/repl.c
     ${CMAKE_CURRENT_BINARY_DIR}/url.c
     ../deps/quickjs/src/cutils.c
