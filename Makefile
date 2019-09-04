@@ -28,4 +28,7 @@ distclean:
 format:
 	clang-format -i src/**/*.{c,h} src/*.{c,h}
 
-.PHONY: all build install clean distclean format
+test:
+	./build/quv tests/run.js
+
+.PHONY: all build install clean distclean format test

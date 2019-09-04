@@ -41,7 +41,7 @@ addons:
       - ninja
 script:
   - make
-  - ./build/quv tests/run.js
+  - make test
 branches:
   only:
     - master

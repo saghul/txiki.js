@@ -10,6 +10,7 @@ set(js_files
     encoding
     event-target
     path
+    performance
     repl
     url
 )

@@ -19,4 +19,10 @@ function run() {
     });
 }
 
-export { run, test };
+function sleep(ms) {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms);
+    })
+}
+
+export { run, test, sleep };

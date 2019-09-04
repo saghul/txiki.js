@@ -45,6 +45,9 @@ extern const uint32_t event_target_size;
 extern const uint8_t path[];
 extern const uint32_t path_size;
 
+extern const uint8_t performance[];
+extern const uint32_t performance_size;
+
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
 
@@ -166,6 +169,9 @@ static void quv__bootstrap_globals(JSContext *ctx) {
 
     /* Load EventTarget */
     CHECK_EQ(0, quv__eval_binary(ctx, event_target, event_target_size));
+
+    /* Load Performance */
+    CHECK_EQ(0, quv__eval_binary(ctx, performance, performance_size));
 
     /* Load URL */
     CHECK_EQ(0, quv__eval_binary(ctx, url, url_size));
