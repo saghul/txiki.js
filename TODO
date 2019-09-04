@@ -1,6 +1,4 @@
 
-- URLSearchParams
-- add quv.versions
 - bundle libcurl (optional everywhere, force on Musl tests)
 - implement fetch using libcurl
 - investigate libffi integration
