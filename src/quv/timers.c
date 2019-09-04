@@ -47,6 +47,10 @@ static void clear_timer(QUVTimer *th) {
         th->argv[i] = JS_UNDEFINED;
     }
     th->argc = 0;
+
+    JSValue obj = th->obj;
+    th->obj = JS_UNDEFINED;
+    JS_FreeValue(ctx, obj);
 }
 
 static void call_timer(QUVTimer *th) {
@@ -64,7 +68,6 @@ static void call_timer(QUVTimer *th) {
 static void uv__timer_close(uv_handle_t *handle) {
     QUVTimer *th = handle->data;
     CHECK_NOT_NULL(th);
-    JS_FreeValue(th->ctx, th->obj);
     free(th);
 }
 
