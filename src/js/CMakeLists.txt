@@ -9,6 +9,7 @@ set(js_files
     bootstrap2
     encoding
     event-target
+    getopts
     path
     performance
     repl

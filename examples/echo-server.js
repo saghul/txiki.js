@@ -1,6 +1,7 @@
 // Sample TCP echo server.
 //
 
+import { getopts } from 'getopts';
 import { addr, logError } from './utils.js';
 
 
@@ -21,9 +22,20 @@ async function handleConnection(conn) {
 }
 
 (async () => {
+    const options = getopts(quv.args.slice(2), {
+        alias: {
+            listen: 'l',
+            port: 'p'
+        },
+        default: {
+            listen: '127.0.0.1',
+            port: 1234
+        }
+    });
+
     const t = new quv.TCP();
 
-    t.bind({ip: quv.args[2] || '127.0.0.1', port: quv.args[3] || 1234});
+    t.bind({ip: options.listen, port: options.port});
     t.listen();
 
     console.log(`Listening on ${addr(t.getsockname())}`); 
