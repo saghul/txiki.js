@@ -42,6 +42,9 @@ extern const uint32_t encoding_size;
 extern const uint8_t event_target[];
 extern const uint32_t event_target_size;
 
+extern const uint8_t getopts[];
+extern const uint32_t getopts_size;
+
 extern const uint8_t path[];
 extern const uint32_t path_size;
 
@@ -235,6 +238,7 @@ QUVRuntime *QUV_NewRuntime2(bool is_worker) {
     quv__bootstrap_globals(qrt->ctx);
 
     /* extra builtin modules */
+    CHECK_EQ(0, quv__eval_binary(qrt->ctx, getopts, getopts_size));
     CHECK_EQ(0, quv__eval_binary(qrt->ctx, path, path_size));
 
     return qrt;
