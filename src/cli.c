@@ -26,6 +26,7 @@
 
 #include "quv.h"
 #include "quv/private.h"
+#include "version.h"
 
 #include <string.h>
 
@@ -45,15 +46,13 @@ static int eval_buf(JSContext *ctx, const void *buf, int buf_len, const char *fi
     return ret;
 }
 
-#define PROG_NAME "quv"
-
 void help(void) {
-    printf("QuickJS version " CONFIG_VERSION "\n"
-           "usage: " PROG_NAME " [options] [file]\n"
+    printf("quv version %s\n"
+           "usage: quv [options] [file]\n"
            "-h  --help         list options\n"
            "-e  --eval EXPR    evaluate EXPR\n"
            "-i  --interactive  go to interactive mode\n"
-           "-q  --quit         just instantiate the interpreter and quit\n");
+           "-q  --quit         just instantiate the interpreter and quit\n", quv_version());
     exit(1);
 }
 

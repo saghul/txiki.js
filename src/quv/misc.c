@@ -296,6 +296,7 @@ void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
     JS_SetModuleExport(ctx, m, "args", quv__get_args(ctx));
     JS_SetModuleExport(ctx, m, "version", JS_NewString(ctx, quv_version()));
     JSValue versions = JS_NewObjectProto(ctx, JS_NULL);
+    JS_DefinePropertyValueStr(ctx, versions, "quickjs", JS_NewString(ctx, QJS_VERSION_STR), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "quv", JS_NewString(ctx, quv_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "uv", JS_NewString(ctx, uv_version_string()), JS_PROP_C_W_E);
 #ifdef QUV_HAVE_CURL
