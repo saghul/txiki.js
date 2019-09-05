@@ -158,8 +158,8 @@ static void quv__bootstrap_globals(JSContext *ctx) {
     /* globals */
     JSValue global_obj = JS_GetGlobalObject(ctx);
 
-    JS_SetPropertyStr(ctx, global_obj, "global", JS_DupValue(ctx, global_obj));
-    JS_SetPropertyStr(ctx, global_obj, "window", JS_DupValue(ctx, global_obj));
+    JS_DefinePropertyValueStr(ctx, global_obj, "global", JS_DupValue(ctx, global_obj), JS_PROP_ENUMERABLE);
+    JS_DefinePropertyValueStr(ctx, global_obj, "window", JS_DupValue(ctx, global_obj), JS_PROP_ENUMERABLE);
 
     JSValue console = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, console, "log", JS_NewCFunction(ctx, js__print, "log", 1));
