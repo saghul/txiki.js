@@ -7,6 +7,7 @@ target_link_libraries(qjsc qjs m)
 set(js_files
     bootstrap
     bootstrap2
+    console
     encoding
     event-target
     getopts

@@ -2,8 +2,20 @@
 // already loaded.
 //
 
+import { Console } from 'console';
 import { defineEventAttribute, EventTarget } from 'event_target';
 import { Performance } from 'performance';
+
+
+// Console
+//
+
+Object.defineProperty(window, 'console', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: new Console()
+});
 
 
 // EventTarget

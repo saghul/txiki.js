@@ -36,6 +36,9 @@ extern const uint32_t bootstrap_size;
 extern const uint8_t bootstrap2[];
 extern const uint32_t bootstrap2_size;
 
+extern const uint8_t console[];
+extern const uint32_t console_size;
+
 extern const uint8_t encoding[];
 extern const uint32_t encoding_size;
 
@@ -134,38 +137,12 @@ error:
     return -1;
 }
 
-static JSValue js__print(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    int i;
-    const char *str;
-
-    for (i = 0; i < argc; i++) {
-        if (i != 0)
-            putchar(' ');
-        str = JS_ToCString(ctx, argv[i]);
-        if (!str)
-            return JS_EXCEPTION;
-        fputs(str, stdout);
-        JS_FreeCString(ctx, str);
-    }
-    putchar('\n');
-    return JS_UNDEFINED;
-}
-
 static void quv__bootstrap_globals(JSContext *ctx) {
     /* Load bootstrap */
     CHECK_EQ(0, quv__eval_binary(ctx, bootstrap, bootstrap_size));
 
-    /* globals */
-    JSValue global_obj = JS_GetGlobalObject(ctx);
-
-    JS_DefinePropertyValueStr(ctx, global_obj, "global", JS_DupValue(ctx, global_obj), JS_PROP_ENUMERABLE);
-    JS_DefinePropertyValueStr(ctx, global_obj, "window", JS_DupValue(ctx, global_obj), JS_PROP_ENUMERABLE);
-
-    JSValue console = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, console, "log", JS_NewCFunction(ctx, js__print, "log", 1));
-    JS_SetPropertyStr(ctx, global_obj, "console", console);
-
-    JS_FreeValue(ctx, global_obj);
+    /* Load Console */
+    CHECK_EQ(0, quv__eval_binary(ctx, console, console_size));
 
     /* Load TextEncoder / TextDecoder */
     CHECK_EQ(0, quv__eval_binary(ctx, encoding, encoding_size));
