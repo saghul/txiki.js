@@ -359,14 +359,10 @@ static const char main_c_template2[] = "  js_std_loop(ctx);\n"
                                        "  return 0;\n"
                                        "}\n";
 
-#ifdef CONFIG_BIGNUM
-#    define PROG_NAME "qjscbn"
-#else
-#    define PROG_NAME "qjsc"
-#endif
+#define PROG_NAME "qjsc"
 
 void help(void) {
-    printf("QuickJS Compiler version " CONFIG_VERSION "\n"
+    printf("QuickJS Compiler version " QJS_VERSION_STR "\n"
            "usage: " PROG_NAME " [options] [files]\n"
            "\n"
            "options are:\n"

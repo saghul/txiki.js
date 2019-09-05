@@ -17,6 +17,8 @@ else()
     list(APPEND qjs_cflags -Wno-array-bounds)
 endif()
 
+file(STRINGS "VERSION" QJS_VERSION_STR)
+
 add_library(qjs STATIC
     src/cutils.c
     src/libbf.c
@@ -26,8 +28,11 @@ add_library(qjs STATIC
 )
 target_compile_options(qjs PRIVATE ${qjs_cflags})
 target_compile_definitions(qjs PUBLIC
+    QJS_VERSION_STR="${QJS_VERSION_STR}"
+)
+target_compile_definitions(qjs PRIVATE
     CONFIG_BIGNUM
-    CONFIG_VERSION="2019-08-10"
+    CONFIG_VERSION="${QJS_VERSION_STR}"
 )
 target_include_directories(qjs PUBLIC include)
 target_include_directories(qjs PRIVATE src)
