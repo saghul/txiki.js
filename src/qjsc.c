@@ -522,6 +522,7 @@ int main(int argc, char **argv) {
 
     /* add system modules */
     namelist_add(&cmodule_list, "quv", "quv", 0);
+    namelist_add(&cmodule_list, "console", "console", 0);
     namelist_add(&cmodule_list, "event_target", "event_target", 0);
     namelist_add(&cmodule_list, "path", "path", 0);
     namelist_add(&cmodule_list, "performance", "performance", 0);

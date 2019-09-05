@@ -80,6 +80,7 @@ add_executable(quv
     src/quv/worker.c
     ${CMAKE_CURRENT_BINARY_DIR}/bootstrap.c
     ${CMAKE_CURRENT_BINARY_DIR}/bootstrap2.c
+    ${CMAKE_CURRENT_BINARY_DIR}/console.c
     ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
     ${CMAKE_CURRENT_BINARY_DIR}/event-target.c
     ${CMAKE_CURRENT_BINARY_DIR}/getopts.c

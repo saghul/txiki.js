@@ -263,6 +263,23 @@ static JSValue quv_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return ret;
 }
 
+static JSValue quv_print(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    int i;
+    const char *str;
+
+    for (i = 0; i < argc; i++) {
+        if (i != 0)
+            putchar(' ');
+        str = JS_ToCString(ctx, argv[i]);
+        if (!str)
+            return JS_EXCEPTION;
+        fputs(str, stdout);
+        JS_FreeCString(ctx, str);
+    }
+    putchar('\n');
+    return JS_UNDEFINED;
+}
+
 static const JSCFunctionListEntry quv_misc_funcs[] = {
     QUV_CONST(AF_INET),
     QUV_CONST(AF_INET6),
@@ -289,6 +306,7 @@ static const JSCFunctionListEntry quv_misc_funcs[] = {
     JS_CFUNC_DEF("homedir", 0, quv_homedir),
     JS_CFUNC_DEF("tmpdir", 0, quv_tmpdir),
     JS_CFUNC_DEF("exepath", 0, quv_exepath),
+    JS_CFUNC_DEF("print", 1, quv_print),
 };
 
 void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
