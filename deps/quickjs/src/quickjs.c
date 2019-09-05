@@ -50153,3 +50153,7 @@ void JS_AddIntrinsicTypedArrays(JSContext *ctx)
     JS_AddIntrinsicAtomics(ctx);
 #endif
 }
+
+JSValue JS_ObjectFreeze(JSContext *ctx, JSValue obj) {
+    return js_object_seal(ctx, JS_UNDEFINED, 1, (JSValueConst *)&obj, 1);
+}
