@@ -1,4 +1,4 @@
-import { test, sleep } from './t.js';
+import { run, sleep, test } from './t.js';
 
 test('performance now', async t => {
     const start = performance.now();
@@ -20,3 +20,8 @@ test('performance mark', async t => {
     entries = performance.getEntriesByName('m');
     t.equal(entries.length, 0, 'there should be 0 entries');
 });
+
+
+if (import.meta.main) {
+    run();
+}
