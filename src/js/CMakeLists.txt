@@ -21,6 +21,7 @@ foreach(x ${js_files})
         COMMAND
             ${CMAKE_CURRENT_BINARY_DIR}/qjsc
             -c
+            -N @quv/${x}
             -o ${CMAKE_CURRENT_BINARY_DIR}/${x}.c
             -m ${CMAKE_SOURCE_DIR}/src/js/${x}.js
         DEPENDS

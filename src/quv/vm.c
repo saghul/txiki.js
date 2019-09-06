@@ -209,8 +209,8 @@ QUVRuntime *QUV_NewRuntime2(bool is_worker) {
     /* loader for ES6 modules */
     JS_SetModuleLoaderFunc(qrt->rt, NULL, quv_module_loader, NULL);
 
-    /* system modules */
-    js_init_module_uv(qrt->ctx, "quv");
+    /* core module */
+    js_init_module_uv(qrt->ctx, "@quv/core");
 
     quv__bootstrap_globals(qrt->ctx);
 

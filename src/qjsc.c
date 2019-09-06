@@ -218,7 +218,7 @@ static void dump_hex(FILE *f, const uint8_t *buf, size_t len) {
         fprintf(f, "\n");
 }
 
-static void output_object_code(JSContext *ctx, FILE *fo, JSValueConst obj, const char *c_name, BOOL load_only) {
+static void output_object_code(JSContext *ctx, FILE *fo, JSValueConst obj, const char *c_name, const char *c_name2, BOOL load_only) {
     uint8_t *out_buf;
     size_t out_buf_len;
     int flags;
@@ -233,8 +233,8 @@ static void output_object_code(JSContext *ctx, FILE *fo, JSValueConst obj, const
 
     namelist_add(&cname_list, c_name, NULL, load_only);
 
-    fprintf(fo, "const uint32_t %s_size = %u;\n\n", c_name, (unsigned int) out_buf_len);
-    fprintf(fo, "const uint8_t %s[%u] = {\n", c_name, (unsigned int) out_buf_len);
+    fprintf(fo, "const uint32_t %s_size = %u;\n\n", c_name2, (unsigned int) out_buf_len);
+    fprintf(fo, "const uint8_t %s[%u] = {\n", c_name2, (unsigned int) out_buf_len);
     dump_hex(fo, out_buf, out_buf_len);
     fprintf(fo, "};\n\n");
 
@@ -303,7 +303,7 @@ JSModuleDef *jsc_module_loader(JSContext *ctx, const char *module_name, void *op
         if (namelist_find(&cname_list, cname)) {
             find_unique_cname(cname, sizeof(cname));
         }
-        output_object_code(ctx, outfile, func_val, cname, TRUE);
+        output_object_code(ctx, outfile, func_val, cname, cname, TRUE);
 
         /* the module is already referenced, so we must free it */
         m = JS_VALUE_GET_PTR(func_val);
@@ -315,6 +315,7 @@ JSModuleDef *jsc_module_loader(JSContext *ctx, const char *module_name, void *op
 static void compile_file(JSContext *ctx, FILE *fo, const char *filename, const char *c_name1, int module) {
     uint8_t *buf;
     char c_name[1024];
+    char c_name2[1024];
     int eval_flags;
     JSValue obj;
     size_t buf_len;
@@ -337,13 +338,14 @@ static void compile_file(JSContext *ctx, FILE *fo, const char *filename, const c
     } else {
         get_c_name(c_name, sizeof(c_name), filename);
     }
+    get_c_name(c_name2, sizeof(c_name2), filename);
     obj = JS_Eval(ctx, (const char *) buf, buf_len, c_name, eval_flags);
     if (JS_IsException(obj)) {
         js_std_dump_error(ctx);
         exit(1);
     }
     js_free(ctx, buf);
-    output_object_code(ctx, fo, obj, c_name, FALSE);
+    output_object_code(ctx, fo, obj, c_name, c_name2, FALSE);
     JS_FreeValue(ctx, obj);
 }
 
@@ -521,11 +523,11 @@ int main(int argc, char **argv) {
     use_lto = FALSE;
 
     /* add system modules */
-    namelist_add(&cmodule_list, "quv", "quv", 0);
-    namelist_add(&cmodule_list, "console", "console", 0);
-    namelist_add(&cmodule_list, "event_target", "event_target", 0);
-    namelist_add(&cmodule_list, "path", "path", 0);
-    namelist_add(&cmodule_list, "performance", "performance", 0);
+    namelist_add(&cmodule_list, "@quv/core", NULL, 0);
+    namelist_add(&cmodule_list, "@quv/console", NULL, 0);
+    namelist_add(&cmodule_list, "@quv/event-target", NULL, 0);
+    namelist_add(&cmodule_list, "@quv/path", NULL, 0);
+    namelist_add(&cmodule_list, "@quv/performance", NULL, 0);
 
     for (;;) {
         c = getopt(argc, argv, "ho:cN:f:mxevM:");

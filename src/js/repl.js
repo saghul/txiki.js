@@ -23,7 +23,7 @@
  * THE SOFTWARE.
  */
 
-import * as path from "path";
+import * as path from "@quv/path";
 
 (function(g) {
     /* expose builtins */

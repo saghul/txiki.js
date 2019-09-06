@@ -1,5 +1,5 @@
 
-import { dirname, join } from 'path';
+import { dirname, join } from '@quv/path';
 
 const thisFile = new URL(import.meta.url).pathname;
 
