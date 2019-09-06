@@ -2,9 +2,9 @@
 // already loaded.
 //
 
-import { Console } from 'console';
-import { defineEventAttribute, EventTarget } from 'event_target';
-import { Performance } from 'performance';
+import { Console } from '@quv/console';
+import { defineEventAttribute, EventTarget } from '@quv/event-target';
+import { Performance } from '@quv/performance';
 
 
 // Console

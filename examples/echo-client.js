@@ -1,7 +1,7 @@
 // Sample TCP echo client.
 //
 
-import { getopts } from 'getopts';
+import { getopts } from '@quv/getopts';
 import { addr, logError } from './utils.js';
 
 

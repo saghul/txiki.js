@@ -8,10 +8,10 @@
 - `console`: a minimal JS console object with just the `log` method.
 - `TextEncoder` / `TextDecoder`: WHATWG [Encoding API].
 - `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval`: standard timer functions.
-- `quv`: reference to the `quv` module.
+- `quv`: reference to the `@quv/core` module.
 - `workerThis`: reference to the worker global state (inside a worker).
 
-## `quv` module
+## `@quv/core` module
 
 - `args`: array with the arguments passed to the executable.
 - `exit([code])`: exits the program with the given code.
@@ -113,7 +113,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `kill(signum)`
 - `wait()`
 
-### `quv.fs` module
+### `quv.fs` submodule
 
 - `copyfile(path, newPath)`
 - `readdir(path)`
@@ -148,7 +148,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `UV_FS_COPYFILE_FICLONE`
 - `UV_FS_COPYFILE_FICLONE_FORCE`
 
-### `quv.dns` module
+### `quv.dns` submodule
 
 - `getaddrinfo(node, [options])`
 
@@ -161,6 +161,15 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `AI_ALL`
 - `AI_ADDRCONFIG`
 - `AI_NUMERICSERV`
+
+## Other builtins
+
+All builtin modules are part of the **@quv/xxx** namespace. Currently the following builtin
+modules are provided:
+
+- `@quv/getopts`: https://github.com/jorgebucaran/getopts
+- `@quv/path`: https://github.com/browserify/path-browserify
+
 
 [Encoding API]: https://encoding.spec.whatwg.org/
 [libuv]: https://github.com/libuv/libuv

@@ -1,7 +1,7 @@
 // quv internal bootstrap.
 //
 
-import * as quv from 'quv';
+import * as quv from '@quv/core';
 
 globalThis.quv = quv;
 globalThis.setTimeout = quv.setTimeout;
