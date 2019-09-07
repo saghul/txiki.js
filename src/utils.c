@@ -25,7 +25,7 @@
 
 #include "utils.h"
 
-#include "../quv.h"
+#include "quv.h"
 #include "private.h"
 
 #include <stdlib.h>

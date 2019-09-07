@@ -26,7 +26,7 @@
 #ifndef QUV_H
 #define QUV_H
 
-#include "quv/utils.h"
+#include "utils.h"
 
 #include <quickjs.h>
 #include <stdbool.h>

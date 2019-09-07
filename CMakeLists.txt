@@ -63,21 +63,21 @@ endif()
 
 add_executable(quv
     src/cli.c
-    src/quv/dns.c
-    src/quv/error.c
-    src/quv/fs.c
-    src/quv/misc.c
-    src/quv/modules.c
-    src/quv/process.c
-    src/quv/std.c
-    src/quv/streams.c
-    src/quv/signals.c
-    src/quv/timers.c
-    src/quv/udp.c
-    src/quv/utils.c
-    src/quv/version.c
-    src/quv/vm.c
-    src/quv/worker.c
+    src/dns.c
+    src/error.c
+    src/fs.c
+    src/misc.c
+    src/modules.c
+    src/process.c
+    src/std.c
+    src/streams.c
+    src/signals.c
+    src/timers.c
+    src/udp.c
+    src/utils.c
+    src/version.c
+    src/vm.c
+    src/worker.c
     ${CMAKE_CURRENT_BINARY_DIR}/bootstrap.c
     ${CMAKE_CURRENT_BINARY_DIR}/bootstrap2.c
     ${CMAKE_CURRENT_BINARY_DIR}/console.c

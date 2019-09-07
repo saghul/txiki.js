@@ -25,7 +25,7 @@
  */
 
 #include "quv.h"
-#include "quv/private.h"
+#include "private.h"
 #include "version.h"
 
 #include <string.h>

@@ -23,7 +23,7 @@
  * THE SOFTWARE.
  */
 
-#include "../quv.h"
+#include "quv.h"
 #include "private.h"
 
 #include <string.h>
