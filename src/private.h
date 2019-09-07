@@ -25,7 +25,7 @@
 #ifndef QUV_PRIVATE_H
 #define QUV_PRIVATE_H
 
-#include "../../deps/quickjs/src/cutils.h"
+#include "../deps/quickjs/src/cutils.h"
 
 #include <quickjs.h>
 #include <uv.h>

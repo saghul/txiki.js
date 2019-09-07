@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-#include "../version.h"
+#include "version.h"
 
 #include "utils.h"
 

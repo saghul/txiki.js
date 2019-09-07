@@ -22,9 +22,9 @@
  * THE SOFTWARE.
  */
 
-#include "../version.h"
 #include "private.h"
 #include "utils.h"
+#include "version.h"
 
 #include <unistd.h>
 

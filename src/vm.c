@@ -23,8 +23,7 @@
  * THE SOFTWARE.
  */
 
-#include "../../deps/quickjs/src/cutils.h"
-#include "../quv.h"
+#include "quv.h"
 #include "private.h"
 
 #include <string.h>
