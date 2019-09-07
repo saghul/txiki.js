@@ -22,8 +22,8 @@
  * THE SOFTWARE.
  */
 
-#include "quv.h"
 #include "private.h"
+#include "quv.h"
 
 #include <unistd.h>
 

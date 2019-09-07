@@ -218,7 +218,12 @@ static void dump_hex(FILE *f, const uint8_t *buf, size_t len) {
         fprintf(f, "\n");
 }
 
-static void output_object_code(JSContext *ctx, FILE *fo, JSValueConst obj, const char *c_name, const char *c_name2, BOOL load_only) {
+static void output_object_code(JSContext *ctx,
+                               FILE *fo,
+                               JSValueConst obj,
+                               const char *c_name,
+                               const char *c_name2,
+                               BOOL load_only) {
     uint8_t *out_buf;
     size_t out_buf_len;
     int flags;

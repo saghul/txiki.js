@@ -26,7 +26,7 @@ distclean:
 	@rm -rf build
 
 format:
-	clang-format -i src/**/*.{c,h} src/*.{c,h}
+	clang-format -i src/*.{c,h}
 
 test:
 	./build/quv tests/run.js
