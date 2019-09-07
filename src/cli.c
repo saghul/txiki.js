@@ -24,8 +24,8 @@
  * THE SOFTWARE.
  */
 
-#include "quv.h"
 #include "private.h"
+#include "quv.h"
 #include "version.h"
 
 #include <string.h>
@@ -52,7 +52,8 @@ void help(void) {
            "-h  --help         list options\n"
            "-e  --eval EXPR    evaluate EXPR\n"
            "-i  --interactive  go to interactive mode\n"
-           "-q  --quit         just instantiate the interpreter and quit\n", quv_version());
+           "-q  --quit         just instantiate the interpreter and quit\n",
+           quv_version());
     exit(1);
 }
 

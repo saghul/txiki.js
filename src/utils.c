@@ -25,8 +25,8 @@
 
 #include "utils.h"
 
-#include "quv.h"
 #include "private.h"
+#include "quv.h"
 
 #include <stdlib.h>
 #include <string.h>
