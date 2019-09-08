@@ -26,6 +26,10 @@ add_library(qjs STATIC
     src/libunicode.c
     src/quickjs.c
 )
+set_target_properties(qjs PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON
+)
 target_compile_options(qjs PRIVATE ${qjs_cflags})
 target_compile_definitions(qjs PUBLIC
     QJS_VERSION_STR="${QJS_VERSION_STR}"
@@ -36,3 +40,6 @@ target_compile_definitions(qjs PRIVATE
 )
 target_include_directories(qjs PUBLIC include)
 target_include_directories(qjs PRIVATE src)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    target_link_libraries(qjs atomic)
+endif()
