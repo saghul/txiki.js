@@ -28,7 +28,7 @@
 
 #ifdef QUV_HAVE_CURL
 
-#    include <curl/curl.h>
+#include <curl/curl.h>
 
 void quv_curl_init(void);
 CURLcode quv_curl_load_http(DynBuf *dbuf, const char *url);

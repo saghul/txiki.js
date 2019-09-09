@@ -29,7 +29,7 @@
 #include <unistd.h>
 
 #ifdef QUV_HAVE_CURL
-#    include <curl/curl.h>
+#include <curl/curl.h>
 #endif
 
 
@@ -322,11 +322,11 @@ void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
     JS_DefinePropertyValueStr(ctx, versions, "quv", JS_NewString(ctx, quv_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "uv", JS_NewString(ctx, uv_version_string()), JS_PROP_C_W_E);
 #ifdef QUV_HAVE_CURL
-#    ifdef QUV_HAVE_SYSTEM_CURL
+#ifdef QUV_HAVE_SYSTEM_CURL
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, "system"), JS_PROP_C_W_E);
-#    else
+#else
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, curl_version()), JS_PROP_C_W_E);
-#    endif
+#endif
 #else
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_UNDEFINED, JS_PROP_C_W_E);
 #endif
