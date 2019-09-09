@@ -63,6 +63,7 @@ endif()
 
 add_executable(quv
     src/cli.c
+    src/curl-utils.c
     src/dns.c
     src/error.c
     src/fs.c
