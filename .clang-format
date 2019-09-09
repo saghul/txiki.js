@@ -25,7 +25,7 @@ Cpp11BracedListStyle: 'false'
 DerivePointerAlignment: 'false'
 IncludeBlocks: Regroup
 IndentCaseLabels: 'true'
-IndentPPDirectives: AfterHash
+IndentPPDirectives: None
 IndentWidth: '4'
 IndentWrappedFunctionNames: 'false'
 KeepEmptyLinesAtTheStartOfBlocks: 'false'

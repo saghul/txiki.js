@@ -32,7 +32,7 @@
 
 
 #ifndef countof
-#    define countof(x) (sizeof(x) / sizeof((x)[0]))
+#define countof(x) (sizeof(x) / sizeof((x)[0]))
 #endif
 
 struct AssertionInfo {
@@ -48,13 +48,13 @@ struct AssertionInfo {
     } while (0)
 
 #ifdef __GNUC__
-#    define LIKELY(expr)         __builtin_expect(!!(expr), 1)
-#    define UNLIKELY(expr)       __builtin_expect(!!(expr), 0)
-#    define PRETTY_FUNCTION_NAME __PRETTY_FUNCTION__
+#define LIKELY(expr)         __builtin_expect(!!(expr), 1)
+#define UNLIKELY(expr)       __builtin_expect(!!(expr), 0)
+#define PRETTY_FUNCTION_NAME __PRETTY_FUNCTION__
 #else
-#    define LIKELY(expr)         expr
-#    define UNLIKELY(expr)       expr
-#    define PRETTY_FUNCTION_NAME ""
+#define LIKELY(expr)         expr
+#define UNLIKELY(expr)       expr
+#define PRETTY_FUNCTION_NAME ""
 #endif
 
 #define STRINGIFY_(x) #x

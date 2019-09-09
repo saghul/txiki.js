@@ -21,6 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "../deps/quickjs/src/cutils.h"
+#include "quickjs.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -29,9 +32,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "../deps/quickjs/src/cutils.h"
-#include "quickjs.h"
 
 
 /* BEGIN: copied over from quickjs-libc to avoid dependency. */
