@@ -79,6 +79,7 @@ add_executable(quv
     src/version.c
     src/vm.c
     src/worker.c
+    src/xhr.c
     ${CMAKE_CURRENT_BINARY_DIR}/bootstrap.c
     ${CMAKE_CURRENT_BINARY_DIR}/bootstrap2.c
     ${CMAKE_CURRENT_BINARY_DIR}/console.c

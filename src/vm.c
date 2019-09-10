@@ -86,6 +86,7 @@ static int quv_init(JSContext *ctx, JSModuleDef *m) {
     quv_mod_timers_init(ctx, m);
     quv_mod_udp_init(ctx, m);
     quv_mod_worker_init(ctx, m);
+    quv_mod_xhr_init(ctx, m);
 
     return 0;
 }
@@ -107,6 +108,7 @@ JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
     quv_mod_timers_export(ctx, m);
     quv_mod_udp_export(ctx, m);
     quv_mod_worker_export(ctx, m);
+    quv_mod_xhr_export(ctx, m);
 
     return m;
 }

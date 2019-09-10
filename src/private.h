@@ -52,6 +52,8 @@ void quv_mod_udp_init(JSContext *ctx, JSModuleDef *m);
 void quv_mod_udp_export(JSContext *ctx, JSModuleDef *m);
 void quv_mod_worker_init(JSContext *ctx, JSModuleDef *m);
 void quv_mod_worker_export(JSContext *ctx, JSModuleDef *m);
+void quv_mod_xhr_init(JSContext *ctx, JSModuleDef *m);
+void quv_mod_xhr_export(JSContext *ctx, JSModuleDef *m);
 
 JSValue quv_new_error(JSContext *ctx, int err);
 JSValue quv_throw_errno(JSContext *ctx, int err);

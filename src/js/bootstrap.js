@@ -8,6 +8,7 @@ globalThis.setTimeout = quv.setTimeout;
 globalThis.clearTimeout = quv.clearTimeout;
 globalThis.setInterval = quv.setInterval;
 globalThis.clearInterval = quv.clearInterval;
+globalThis.XMLHttpRequest = quv.XMLHttpRequest;
 
 Object.defineProperty(globalThis, 'global', {
     enumerable: true,
