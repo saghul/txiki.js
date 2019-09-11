@@ -44,6 +44,9 @@ extern const uint32_t encoding_size;
 extern const uint8_t event_target[];
 extern const uint32_t event_target_size;
 
+extern const uint8_t fetch[];
+extern const uint32_t fetch_size;
+
 extern const uint8_t getopts[];
 extern const uint32_t getopts_size;
 
@@ -156,6 +159,9 @@ static void quv__bootstrap_globals(JSContext *ctx) {
 
     /* Load URL */
     CHECK_EQ(0, quv__eval_binary(ctx, url, url_size));
+
+    /* Load fetch */
+    CHECK_EQ(0, quv__eval_binary(ctx, fetch, fetch_size));
 
     /* Load bootstrap2 */
     CHECK_EQ(0, quv__eval_binary(ctx, bootstrap2, bootstrap2_size));

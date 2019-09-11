@@ -85,6 +85,7 @@ add_executable(quv
     ${CMAKE_CURRENT_BINARY_DIR}/console.c
     ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
     ${CMAKE_CURRENT_BINARY_DIR}/event-target.c
+    ${CMAKE_CURRENT_BINARY_DIR}/fetch.c
     ${CMAKE_CURRENT_BINARY_DIR}/getopts.c
     ${CMAKE_CURRENT_BINARY_DIR}/path.c
     ${CMAKE_CURRENT_BINARY_DIR}/performance.c
