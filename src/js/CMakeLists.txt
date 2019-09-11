@@ -10,6 +10,7 @@ set(js_files
     console
     encoding
     event-target
+    fetch
     getopts
     path
     performance
