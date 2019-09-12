@@ -2,6 +2,7 @@
 // already loaded.
 //
 
+import { AbortController, AbortSignal } from '@quv/abort-controller';
 import { Console } from '@quv/console';
 import { defineEventAttribute, EventTarget } from '@quv/event-target';
 import { Performance } from '@quv/performance';
@@ -42,4 +43,22 @@ Object.defineProperty(window, 'performance', {
     configurable: false,
     writable: false,
     value: new Performance()
+});
+
+
+// AbortController
+//
+
+Object.defineProperty(window, 'AbortController', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: AbortController
+});
+
+Object.defineProperty(window, 'AbortSignal', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: AbortSignal
 });

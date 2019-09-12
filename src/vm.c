@@ -29,6 +29,9 @@
 #include <string.h>
 
 
+extern const uint8_t abort_controller[];
+extern const uint32_t abort_controller_size;
+
 extern const uint8_t bootstrap[];
 extern const uint32_t bootstrap_size;
 
@@ -162,6 +165,9 @@ static void quv__bootstrap_globals(JSContext *ctx) {
 
     /* Load fetch */
     CHECK_EQ(0, quv__eval_binary(ctx, fetch, fetch_size));
+
+    /* Load AbortController */
+    CHECK_EQ(0, quv__eval_binary(ctx, abort_controller, abort_controller_size));
 
     /* Load bootstrap2 */
     CHECK_EQ(0, quv__eval_binary(ctx, bootstrap2, bootstrap2_size));

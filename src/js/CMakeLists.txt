@@ -5,6 +5,7 @@ add_executable(qjsc
 target_link_libraries(qjsc qjs m)
 
 set(js_files
+    abort-controller
     bootstrap
     bootstrap2
     console
