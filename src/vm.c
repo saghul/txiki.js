@@ -137,11 +137,11 @@ static void quv__bootstrap_globals(JSContext *ctx) {
     /* Load bootstrap */
     CHECK_EQ(0, quv__eval_binary(ctx, bootstrap, bootstrap_size));
 
-    /* Load Console */
-    CHECK_EQ(0, quv__eval_binary(ctx, console, console_size));
-
     /* Load TextEncoder / TextDecoder */
     CHECK_EQ(0, quv__eval_binary(ctx, encoding, encoding_size));
+
+    /* Load Console */
+    CHECK_EQ(0, quv__eval_binary(ctx, console, console_size));
 
     /* Load EventTarget */
     CHECK_EQ(0, quv__eval_binary(ctx, event_target, event_target_size));
