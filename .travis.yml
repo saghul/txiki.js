@@ -1,25 +1,39 @@
 language: c
 matrix:
   include:
-    - os: linux
+    - name: Linux GCC embedded-CURL Debug
+      os: linux
       dist: bionic
       compiler: gcc
       env: BUILDTYPE=Debug USE_SYSTEM_CURL=OFF
-    - os: linux
+    - name: Linux GCC embedded-CURL Release
+      os: linux
       dist: bionic
       compiler: gcc
       env: BUILDTYPE=Release USE_SYSTEM_CURL=OFF
-    - os: linux
+    - name: Linux Clang system-CURL Debug
+      os: linux
       dist: bionic
       compiler: clang
       env: BUILDTYPE=Debug
-    - os: linux
+    - name: Linux Clang system-CURL Debug
+      os: linux
       dist: bionic
       compiler: clang
       env: BUILDTYPE=Release
-    - os: osx
+    - name: Linux (Alpine) GCC system-CURL Release
+      os: linux
+      sudo: true
+      language: minimal
+      before_install:
+        - sudo docker run -dit --name quv --volume "${PWD}:/mnt/quv" --workdir /mnt/quv alpine:latest
+        - sudo docker exec quv apk add build-base cmake ninja curl-dev --update-cache
+      script: sudo docker exec quv sh -c "make && make test"
+    - name: macOS Clang system-CURL Debug
+      os: osx
       env: BUILDTYPE=Debug
-    - os: osx
+    - name: macOS Clang system-CURL Release
+      os: osx
       env: BUILDTYPE=Release
 addons:
   apt:
