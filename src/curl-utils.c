@@ -78,4 +78,158 @@ CURLcode quv_curl_load_http(DynBuf *dbuf, const char *url) {
     return res;
 }
 
+static void check_multi_info(QUVRuntime *qrt) {
+    char *done_url;
+    CURLMsg *message;
+    int pending;
+
+    while ((message = curl_multi_info_read(qrt->curl_ctx.curlm_h, &pending))) {
+        switch (message->msg) {
+            case CURLMSG_DONE: {
+                /* Do not use message data after calling curl_multi_remove_handle() and
+                   curl_easy_cleanup(). As per curl_multi_info_read() docs:
+                   "WARNING: The data the returned pointer points to will not survive
+                   calling curl_multi_cleanup, curl_multi_remove_handle or
+                   curl_easy_cleanup." */
+                CURL *easy_handle = message->easy_handle;
+                CHECK_NOT_NULL(easy_handle);
+
+                quv_curl_private_t *curl_private = NULL;
+                curl_easy_getinfo(easy_handle, CURLINFO_PRIVATE, &curl_private);
+                CHECK_NOT_NULL(curl_private);
+                CHECK_NOT_NULL(curl_private->done_cb);
+                curl_private->done_cb(message, curl_private->arg);
+
+                curl_multi_remove_handle(qrt->curl_ctx.curlm_h, easy_handle);
+                curl_easy_cleanup(easy_handle);
+                break;
+            }
+            default:
+                abort();
+        }
+    }
+}
+
+typedef struct {
+    uv_poll_t poll;
+    curl_socket_t sockfd;
+    QUVRuntime *qrt;
+} quv_curl_poll_ctx_t;
+
+static void uv__poll_close_cb(uv_handle_t *handle) {
+    quv_curl_poll_ctx_t *poll_ctx = handle->data;
+    CHECK_NOT_NULL(poll_ctx);
+    free(poll_ctx);
+}
+
+static void uv__poll_cb(uv_poll_t *handle, int status, int events) {
+    quv_curl_poll_ctx_t *poll_ctx = handle->data;
+    CHECK_NOT_NULL(poll_ctx);
+    QUVRuntime *qrt = poll_ctx->qrt;
+    CHECK_NOT_NULL(qrt);
+
+    int flags = 0;
+    if (events & UV_READABLE)
+        flags |= CURL_CSELECT_IN;
+    if (events & UV_WRITABLE)
+        flags |= CURL_CSELECT_OUT;
+
+    int running_handles;
+    curl_multi_socket_action(qrt->curl_ctx.curlm_h, poll_ctx->sockfd, flags, &running_handles);
+
+    check_multi_info(qrt);
+}
+
+static int curl__handle_socket(CURL *easy, curl_socket_t s, int action, void *userp, void *socketp) {
+    QUVRuntime *qrt = userp;
+    CHECK_NOT_NULL(qrt);
+
+    switch (action) {
+        case CURL_POLL_IN:
+        case CURL_POLL_OUT:
+        case CURL_POLL_INOUT: {
+            quv_curl_poll_ctx_t *poll_ctx;
+            if (!socketp) {
+                // Initialize poll handle.
+                poll_ctx = malloc(sizeof(*poll_ctx));
+                if (!poll_ctx)
+                    return -1;
+                CHECK_EQ(uv_poll_init(&qrt->loop, &poll_ctx->poll, s), 0);
+                poll_ctx->qrt = qrt;
+                poll_ctx->sockfd = s;
+                poll_ctx->poll.data = poll_ctx;
+            } else {
+                poll_ctx = socketp;
+            }
+
+            curl_multi_assign(qrt->curl_ctx.curlm_h, s, (void *) poll_ctx);
+
+            int events = 0;
+            if (action != CURL_POLL_IN)
+                events |= UV_WRITABLE;
+            if (action != CURL_POLL_OUT)
+                events |= UV_READABLE;
+
+            CHECK_EQ(uv_poll_start(&poll_ctx->poll, events, uv__poll_cb), 0);
+            break;
+        }
+        case CURL_POLL_REMOVE:
+            if (socketp) {
+                quv_curl_poll_ctx_t *poll_ctx = socketp;
+                CHECK_EQ(uv_poll_stop(&poll_ctx->poll), 0);
+                curl_multi_assign(qrt->curl_ctx.curlm_h, s, NULL);
+                uv_close((uv_handle_t *) &poll_ctx->poll, uv__poll_close_cb);
+            }
+            break;
+        default:
+            abort();
+    }
+
+    return 0;
+}
+
+static void uv__timer_cb(uv_timer_t *handle) {
+    QUVRuntime *qrt = handle->data;
+    CHECK_NOT_NULL(qrt);
+
+    int running_handles;
+    curl_multi_socket_action(qrt->curl_ctx.curlm_h, CURL_SOCKET_TIMEOUT, 0, &running_handles);
+
+    check_multi_info(qrt);
+}
+
+static int curl__start_timeout(CURLM *multi, long timeout_ms, void *userp) {
+    QUVRuntime *qrt = userp;
+    CHECK_NOT_NULL(qrt);
+
+    if (timeout_ms < 0) {
+        CHECK_EQ(uv_timer_stop(&qrt->curl_ctx.timer), 0);
+    } else {
+        if (timeout_ms == 0)
+            timeout_ms = 1; /* 0 means directly call socket_action, but we'll do it in a bit */
+        CHECK_EQ(uv_timer_start(&qrt->curl_ctx.timer, uv__timer_cb, timeout_ms, 0), 0);
+    }
+
+    return 0;
+}
+
+CURLM *quv__get_curlm(JSContext *ctx) {
+    QUVRuntime *qrt = QUV_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+
+    if (!qrt->curl_ctx.curlm_h) {
+        quv_curl_init();
+        CURLM *curlm_h = curl_multi_init();
+        curl_multi_setopt(curlm_h, CURLMOPT_SOCKETFUNCTION, curl__handle_socket);
+        curl_multi_setopt(curlm_h, CURLMOPT_SOCKETDATA, qrt);
+        curl_multi_setopt(curlm_h, CURLMOPT_TIMERFUNCTION, curl__start_timeout);
+        curl_multi_setopt(curlm_h, CURLMOPT_TIMERDATA, qrt);
+        qrt->curl_ctx.curlm_h = curlm_h;
+        CHECK_EQ(uv_timer_init(&qrt->loop, &qrt->curl_ctx.timer), 0);
+        qrt->curl_ctx.timer.data = qrt;
+    }
+
+    return qrt->curl_ctx.curlm_h;
+}
+
 #endif

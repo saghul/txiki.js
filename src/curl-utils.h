@@ -30,7 +30,15 @@
 
 #include <curl/curl.h>
 
+
+typedef void (*quv_curl_done_cb)(CURLMsg *message, void *arg);
+typedef struct {
+    void *arg;
+    quv_curl_done_cb done_cb;
+} quv_curl_private_t;
+
 void quv_curl_init(void);
 CURLcode quv_curl_load_http(DynBuf *dbuf, const char *url);
+CURLM *quv__get_curlm(JSContext *ctx);
 
 #endif

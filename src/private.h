@@ -31,6 +31,11 @@
 #include <stdbool.h>
 #include <uv.h>
 
+#ifdef QUV_HAVE_CURL
+#include <curl/curl.h>
+#endif
+
+
 struct QUVRuntime {
     JSRuntime *rt;
     JSContext *ctx;
@@ -41,6 +46,12 @@ struct QUVRuntime {
     } jobs;
     uv_async_t stop;
     bool is_worker;
+#ifdef QUV_HAVE_CURL
+    struct {
+        CURLM *curlm_h;
+        uv_timer_t timer;
+    } curl_ctx;
+#endif
 };
 
 void quv_mod_dns_init(JSContext *ctx, JSModuleDef *m);
