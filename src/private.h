@@ -28,7 +28,20 @@
 #include "../deps/quickjs/src/cutils.h"
 
 #include <quickjs.h>
+#include <stdbool.h>
 #include <uv.h>
+
+struct QUVRuntime {
+    JSRuntime *rt;
+    JSContext *ctx;
+    uv_loop_t loop;
+    struct {
+        uv_check_t check;
+        uv_idle_t idle;
+    } jobs;
+    uv_async_t stop;
+    bool is_worker;
+};
 
 void quv_mod_dns_init(JSContext *ctx, JSModuleDef *m);
 void quv_mod_dns_export(JSContext *ctx, JSModuleDef *m);
