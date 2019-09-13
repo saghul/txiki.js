@@ -68,17 +68,6 @@ extern const uint32_t url_size;
 static int quv__argc = 0;
 static char **quv__argv = NULL;
 
-struct QUVRuntime {
-    JSRuntime *rt;
-    JSContext *ctx;
-    uv_loop_t loop;
-    struct {
-        uv_check_t check;
-        uv_idle_t idle;
-    } jobs;
-    uv_async_t stop;
-    bool is_worker;
-};
 
 static int quv_init(JSContext *ctx, JSModuleDef *m) {
     quv_mod_dns_init(ctx, m);
