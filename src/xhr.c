@@ -61,7 +61,7 @@ enum {
 typedef struct {
     JSContext *ctx;
     JSValue events[XHR_EVENT_MAX];
-    uv_timer_t timer;
+    quv_curl_private_t curl_private;
     CURL *curl_h;
     CURLM *curlm_h;
     struct curl_slist *slist;
@@ -84,25 +84,7 @@ typedef struct {
     } result;
 } QUVXhr;
 
-typedef struct {
-    uv_poll_t poll;
-    curl_socket_t sockfd;
-    QUVXhr *x;
-} quv_curl_poll_ctx_t;
-
 static JSClassID quv_xhr_class_id;
-
-static void uv__close_cb(uv_handle_t *handle) {
-    QUVXhr *x = handle->data;
-    CHECK_NOT_NULL(x);
-    free(x);
-}
-
-static void uv__poll_close_cb(uv_handle_t *handle) {
-    quv_curl_poll_ctx_t *poll_ctx = handle->data;
-    CHECK_NOT_NULL(poll_ctx);
-    free(poll_ctx);
-}
 
 static void quv_xhr_finalizer(JSRuntime *rt, JSValue val) {
     QUVXhr *x = JS_GetOpaque(val, quv_xhr_class_id);
@@ -111,19 +93,10 @@ static void quv_xhr_finalizer(JSRuntime *rt, JSValue val) {
             curl_multi_remove_handle(x->curlm_h, x->curl_h);
             curl_easy_cleanup(x->curl_h);
         }
-        if (x->curlm_h) {
-            curl_multi_cleanup(x->curlm_h);
-        }
-        x->curlm_h = NULL;
-        x->curl_h = NULL;
-        if (x->slist) {
+        if (x->slist)
             curl_slist_free_all(x->slist);
-            x->slist = NULL;
-        }
-        if (x->status.raw) {
+        if (x->status.raw)
             js_free_rt(rt, x->status.raw);
-            x->status.raw = NULL;
-        }
         for (int i = 0; i < XHR_EVENT_MAX; i++)
             JS_FreeValueRT(rt, x->events[i]);
         JS_FreeValueRT(rt, x->status.status);
@@ -133,7 +106,7 @@ static void quv_xhr_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, x->result.response);
         JS_FreeValueRT(rt, x->result.response_text);
 
-        uv_close((uv_handle_t *) &x->timer, uv__close_cb);
+        free(x);
     }
 }
 
@@ -177,148 +150,43 @@ static void maybe_emit_event(QUVXhr *x, int event, JSValue arg) {
     JS_FreeValue(ctx, arg);
 }
 
-static void check_multi_info(QUVXhr *x) {
-    char *done_url;
-    CURLMsg *message;
-    int pending;
-
-    while ((message = curl_multi_info_read(x->curlm_h, &pending))) {
-        switch (message->msg) {
-            case CURLMSG_DONE: {
-                /* Do not use message data after calling curl_multi_remove_handle() and
-                   curl_easy_cleanup(). As per curl_multi_info_read() docs:
-                   "WARNING: The data the returned pointer points to will not survive
-                   calling curl_multi_cleanup, curl_multi_remove_handle or
-                   curl_easy_cleanup." */
-                CURL *easy_handle = message->easy_handle;
-                CURLcode result = message->data.result;
-                CHECK_EQ(x->curl_h, easy_handle);
-
-                curl_easy_getinfo(easy_handle, CURLINFO_EFFECTIVE_URL, &done_url);
-                x->result.url = JS_NewString(x->ctx, done_url);
-
-                curl_multi_remove_handle(x->curlm_h, easy_handle);
-                curl_easy_cleanup(easy_handle);
-                curl_multi_cleanup(x->curlm_h);
-                x->curlm_h = NULL;
-                x->curl_h = NULL;
-
-                if (x->slist) {
-                    curl_slist_free_all(x->slist);
-                    x->slist = NULL;
-                }
-
-                x->ready_state = XHR_RSTATE_DONE;
-                maybe_emit_event(x, XHR_EVENT_READY_STATE_CHANGED, JS_UNDEFINED);
-
-                if (result == CURLE_OPERATION_TIMEDOUT)
-                    maybe_emit_event(x, XHR_EVENT_TIMEOUT, JS_UNDEFINED);
-
-                maybe_emit_event(x, XHR_EVENT_LOAD_END, JS_UNDEFINED);
-
-                if (result != CURLE_OPERATION_TIMEDOUT) {
-                    if (result != CURLE_OK)
-                        maybe_emit_event(x, XHR_EVENT_ERROR, JS_UNDEFINED);
-                    else
-                        maybe_emit_event(x, XHR_EVENT_LOAD, JS_UNDEFINED);
-                }
-                break;
-            }
-            default:
-                abort();
-                break;
-        }
-    }
-}
-
-static void uv__poll_cb(uv_poll_t *handle, int status, int events) {
-    quv_curl_poll_ctx_t *poll_ctx = handle->data;
-    CHECK_NOT_NULL(poll_ctx);
-    QUVXhr *x = poll_ctx->x;
+static void curl__done_cb(CURLMsg *message, void *arg) {
+    QUVXhr *x = arg;
     CHECK_NOT_NULL(x);
 
-    int flags = 0;
-    if (events & UV_READABLE)
-        flags |= CURL_CSELECT_IN;
-    if (events & UV_WRITABLE)
-        flags |= CURL_CSELECT_OUT;
+    CURL *easy_handle = message->easy_handle;
+    CHECK_EQ(x->curl_h, easy_handle);
 
-    int running_handles;
-    curl_multi_socket_action(x->curlm_h, poll_ctx->sockfd, flags, &running_handles);
+    CURLcode result = message->data.result;
 
-    check_multi_info(x);
-}
+    char *done_url = NULL;
+    curl_easy_getinfo(easy_handle, CURLINFO_EFFECTIVE_URL, &done_url);
+    if (done_url)
+        x->result.url = JS_NewString(x->ctx, done_url);
 
-static int curl__handle_socket(CURL *easy, curl_socket_t s, int action, void *userp, void *socketp) {
-    QUVXhr *x = userp;
-    CHECK_NOT_NULL(x);
+    // The calling function will disengage the easy handle when this
+    // function returns.
+    x->curl_h = NULL;
 
-    switch (action) {
-        case CURL_POLL_IN:
-        case CURL_POLL_OUT:
-        case CURL_POLL_INOUT: {
-            quv_curl_poll_ctx_t *poll_ctx;
-            if (!socketp) {
-                // Initialize poll handle.
-                poll_ctx = malloc(sizeof(*poll_ctx));
-                if (!poll_ctx)
-                    return -1;
-                CHECK_EQ(uv_poll_init(quv_get_loop(x->ctx), &poll_ctx->poll, s), 0);
-                poll_ctx->x = x;
-                poll_ctx->sockfd = s;
-                poll_ctx->poll.data = poll_ctx;
-            } else {
-                poll_ctx = socketp;
-            }
-
-            curl_multi_assign(x->curlm_h, s, (void *) poll_ctx);
-
-            int events = 0;
-            if (action != CURL_POLL_IN)
-                events |= UV_WRITABLE;
-            if (action != CURL_POLL_OUT)
-                events |= UV_READABLE;
-
-            CHECK_EQ(uv_poll_start(&poll_ctx->poll, events, uv__poll_cb), 0);
-            break;
-        }
-        case CURL_POLL_REMOVE:
-            if (socketp) {
-                quv_curl_poll_ctx_t *poll_ctx = socketp;
-                CHECK_EQ(uv_poll_stop(&poll_ctx->poll), 0);
-                curl_multi_assign(x->curlm_h, s, NULL);
-                uv_close((uv_handle_t *) &poll_ctx->poll, uv__poll_close_cb);
-            }
-            break;
-        default:
-            abort();
+    if (x->slist) {
+        curl_slist_free_all(x->slist);
+        x->slist = NULL;
     }
 
-    return 0;
-}
+    x->ready_state = XHR_RSTATE_DONE;
+    maybe_emit_event(x, XHR_EVENT_READY_STATE_CHANGED, JS_UNDEFINED);
 
-static void uv__timer_cb(uv_timer_t *handle) {
-    QUVXhr *x = handle->data;
-    CHECK_NOT_NULL(x);
+    if (result == CURLE_OPERATION_TIMEDOUT)
+        maybe_emit_event(x, XHR_EVENT_TIMEOUT, JS_UNDEFINED);
 
-    int running_handles;
-    curl_multi_socket_action(x->curlm_h, CURL_SOCKET_TIMEOUT, 0, &running_handles);
-    check_multi_info(x);
-}
+    maybe_emit_event(x, XHR_EVENT_LOAD_END, JS_UNDEFINED);
 
-static int curl__start_timeout(CURLM *multi, long timeout_ms, void *userp) {
-    QUVXhr *x = userp;
-    CHECK_NOT_NULL(x);
-
-    if (timeout_ms < 0) {
-        CHECK_EQ(uv_timer_stop(&x->timer), 0);
-    } else {
-        if (timeout_ms == 0)
-            timeout_ms = 1; /* 0 means directly call socket_action, but we'll do it in a bit */
-        CHECK_EQ(uv_timer_start(&x->timer, uv__timer_cb, timeout_ms, 0), 0);
+    if (result != CURLE_OPERATION_TIMEDOUT) {
+        if (result != CURLE_OK)
+            maybe_emit_event(x, XHR_EVENT_ERROR, JS_UNDEFINED);
+        else
+            maybe_emit_event(x, XHR_EVENT_LOAD, JS_UNDEFINED);
     }
-
-    return 0;
 }
 
 static size_t curl__data_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
@@ -443,18 +311,14 @@ static JSValue quv_xhr_constructor(JSContext *ctx, JSValueConst new_target, int 
         x->events[i] = JS_UNDEFINED;
     }
 
-    CHECK_EQ(uv_timer_init(quv_get_loop(ctx), &x->timer), 0);
-    x->timer.data = x;
-
     quv_curl_init();
 
-    x->curlm_h = curl_multi_init();
-    curl_multi_setopt(x->curlm_h, CURLMOPT_SOCKETFUNCTION, curl__handle_socket);
-    curl_multi_setopt(x->curlm_h, CURLMOPT_SOCKETDATA, x);
-    curl_multi_setopt(x->curlm_h, CURLMOPT_TIMERFUNCTION, curl__start_timeout);
-    curl_multi_setopt(x->curlm_h, CURLMOPT_TIMERDATA, x);
+    x->curl_private.arg = x;
+    x->curl_private.done_cb = curl__done_cb;
 
+    x->curlm_h = quv__get_curlm(ctx);
     x->curl_h = curl_easy_init();
+    curl_easy_setopt(x->curl_h, CURLOPT_PRIVATE, &x->curl_private);
     curl_easy_setopt(x->curl_h, CURLOPT_USERAGENT, "quv/1.0");
     curl_easy_setopt(x->curl_h, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(x->curl_h, CURLOPT_NOPROGRESS, 0L);
@@ -649,7 +513,6 @@ static JSValue quv_xhr_abort(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (x->curl_h) {
         curl_multi_remove_handle(x->curlm_h, x->curl_h);
         curl_easy_cleanup(x->curl_h);
-        curl_multi_cleanup(x->curlm_h);
         x->curl_h = NULL;
         x->curlm_h = NULL;
         x->ready_state = XHR_RSTATE_UNSENT;

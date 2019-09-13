@@ -232,6 +232,14 @@ void QUV_FreeRuntime(QUVRuntime *qrt) {
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
 
+    /* Destroy CURLM hande. */
+#ifdef QUV_HAVE_CURL
+    if (qrt->curl_ctx.curlm_h) {
+        curl_multi_cleanup(qrt->curl_ctx.curlm_h);
+        uv_close((uv_handle_t *) &qrt->curl_ctx.timer, NULL);
+    }
+#endif
+
     /* Cleanup loop. All handles should be closed. */
     int closed = 0;
     for (int i = 0; i < 5; i++) {
