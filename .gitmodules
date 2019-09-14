@@ -5,3 +5,7 @@
 	path = modules/libwebsockets
 	url = https://github.com/warmcat/libwebsockets.git
 	branch = v3.2-stable
+[submodule "deps/libwebsockets"]
+	path = deps/libwebsockets
+	url = https://github.com/warmcat/libwebsockets.git
+	branch = v3.2-stable
