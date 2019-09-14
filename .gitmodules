@@ -1,3 +1,7 @@
 [submodule "deps/curl"]
 	path = deps/curl
 	url = https://github.com/curl/curl
+[submodule "modules/libwebsockets"]
+	path = modules/libwebsockets
+	url = https://github.com/warmcat/libwebsockets.git
+	branch = v3.2-stable
