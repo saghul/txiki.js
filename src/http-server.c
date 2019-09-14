@@ -32,9 +32,9 @@ typedef struct {
     uv_tcp_t server;
     char *server;
     int port;
-} QUVHttp;
+} QUVHttpServer;
 
-static JSClassID quv_http_class_id;
+static JSClassID quv_http_server_class_id;
 
 /*void close_cb(uv_handle_t *handle) {
   client_t *client = (client_t *) handle->data;
@@ -112,7 +112,7 @@ int headers_complete_cb(http_parser* parser) {
   return 1;
 }*/
 
-static void uv__http_close_cb(uv_handle_t *handle) {
+static void uv__http_server_close_cb(uv_handle_t *handle) {
     QUVHttp *h = handle->data;
     CHECK_NOT_NULL(u);
     u->closed = 1;
@@ -125,7 +125,7 @@ static void maybe_close(QUVHttp *h) {
         uv_close((uv_handle_t *) &h->http, uv__http_close_cb);
 }
 
-static void quv_http_finalizer(JSRuntime *rt, JSValue val) {
+static void quv_http_server_finalizer(JSRuntime *rt, JSValue val) {
     QUVHttp *h = JS_GetOpaque(val, quv_http_class_id);
     if (u) {
         QUV_FreePromiseRT(rt, &h->read.result);
@@ -138,7 +138,7 @@ static void quv_http_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static void quv_http_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+static void quv_http_server_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
     QUVHttp *h = JS_GetOpaque(val, quv_http_class_id);
     if (u) {
         QUV_MarkPromise(rt, &h->read.result, mark_func);
@@ -146,22 +146,22 @@ static void quv_http_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_fun
     }
 }
 
-static JSClassDef quv_http_class = {
-    "HTTP",
-    .finalizer = quv_http_finalizer,
-    .gc_mark = quv_http_mark,
+static JSClassDef quv_http_server_class = {
+    "HttpServer",
+    .finalizer = quv_http_server_finalizer,
+    .gc_mark = quv_http_server_mark,
 };
 
-static QUVHttp *quv_http_get(JSContext *ctx, JSValueConst obj) {
+static QUVHttp *quv_http_server_get(JSContext *ctx, JSValueConst obj) {
     return JS_GetOpaque2(ctx, obj, quv_http_class_id);
 }
 
-static JSValue quv_new_http(JSContext *ctx, const char *host, int port) {
+static JSValue quv_new_http_server(JSContext *ctx, const char *host, int port) {
     QUVHttp *h;
     JSValue obj;
     int r;
 
-    obj = JS_NewObjectClass(ctx, quv_http_class_id);
+    obj = JS_NewObjectClass(ctx, quv_http_server_class_id);
     if (JS_IsException(obj))
         return obj;
 
@@ -205,7 +205,7 @@ static JSValue quv_new_http(JSContext *ctx, const char *host, int port) {
     return obj;
 }
 
-static JSValue quv_http_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
+static JSValue quv_http_server_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
     const char *host;
     int port;
 
@@ -218,11 +218,11 @@ static JSValue quv_http_constructor(JSContext *ctx, JSValueConst new_target, int
     return quv_new_http(ctx, host, port);
 }
 
-static const JSCFunctionListEntry quv_http_proto_funcs[] = {
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "HTTP", JS_PROP_CONFIGURABLE),
+static const JSCFunctionListEntry quv_http_server_proto_funcs[] = {
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "HttpServer", JS_PROP_CONFIGURABLE),
 };
 
-void quv_mod_http_init(JSContext *ctx, JSModuleDef *m) {
+void quv_mod_http_server_init(JSContext *ctx, JSModuleDef *m) {
     JSValue proto, obj;
 
     /* HTTP class */
@@ -233,10 +233,10 @@ void quv_mod_http_init(JSContext *ctx, JSModuleDef *m) {
     JS_SetClassProto(ctx, quv_http_class_id, proto);
 
     /* HTTP object */
-    obj = JS_NewCFunction2(ctx, quv_http_constructor, "HTTP", 1, JS_CFUNC_constructor, 0);
-    JS_SetModuleExport(ctx, m, "HTTP", obj);
+    obj = JS_NewCFunction2(ctx, quv_http_constructor, "HttpServer", 1, JS_CFUNC_constructor, 0);
+    JS_SetModuleExport(ctx, m, "HttpServer", obj);
 }
 
-void quv_mod_http_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExport(ctx, m, "HTTP");
+void quv_mod_http_server_export(JSContext *ctx, JSModuleDef *m) {
+    JS_AddModuleExport(ctx, m, "HttpServer");
 }

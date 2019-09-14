@@ -63,6 +63,8 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `recv(buffer, [offset, [length]])`
 - `send(buffer, [offset, [length, [addr]]])`
 
+### HttpServer(ip, port)
+
 ### Pipe()
 
 - `accept()`

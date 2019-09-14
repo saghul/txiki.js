@@ -102,7 +102,7 @@ JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
     quv_mod_signals_export(ctx, m);
     quv_mod_timers_export(ctx, m);
     quv_mod_udp_export(ctx, m);
-    quv_mod_http_export(ctx, m);
+    quv_mod_http_server_export(ctx, m);
     quv_mod_worker_export(ctx, m);
     quv_mod_xhr_export(ctx, m);
 
