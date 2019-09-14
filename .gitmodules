@@ -1,7 +1,6 @@
 [submodule "deps/curl"]
 	path = deps/curl
 	url = https://github.com/curl/curl
-[submodule "deps/libwebsockets"]
-	path = deps/libwebsockets
-	url = https://github.com/warmcat/libwebsockets.git
-	branch = v3.2-stable
+[submodule "deps/picohttpparser"]
+	path = deps/picohttpparser
+	url = https://github.com/h2o/picohttpparser.git
