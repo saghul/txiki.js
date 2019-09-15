@@ -13,6 +13,7 @@ set(js_files
     event-target
     fetch
     getopts
+    hashlib
     path
     performance
     repl
