@@ -322,6 +322,7 @@ int main(int argc, char **argv) {
     namelist_add(&cmodule_list, "@quv/core", NULL, 0);
     namelist_add(&cmodule_list, "@quv/console", NULL, 0);
     namelist_add(&cmodule_list, "@quv/event-target", NULL, 0);
+    namelist_add(&cmodule_list, "@quv/hashlib", NULL, 0);
     namelist_add(&cmodule_list, "@quv/path", NULL, 0);
     namelist_add(&cmodule_list, "@quv/performance", NULL, 0);
 

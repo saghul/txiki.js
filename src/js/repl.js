@@ -23,10 +23,12 @@
  * THE SOFTWARE.
  */
 
+import * as hashlib from "@quv/hashlib";
 import * as path from "@quv/path";
 
 (function(g) {
     /* expose builtins */
+    g.hashlib = hashlib;
     g.path = path;
 
     /* close global objects */

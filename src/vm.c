@@ -53,6 +53,9 @@ extern const uint32_t fetch_size;
 extern const uint8_t getopts[];
 extern const uint32_t getopts_size;
 
+extern const uint8_t hashlib[];
+extern const uint32_t hashlib_size;
+
 extern const uint8_t path[];
 extern const uint32_t path_size;
 
@@ -218,6 +221,7 @@ QUVRuntime *QUV_NewRuntime2(bool is_worker) {
 
     /* extra builtin modules */
     CHECK_EQ(0, quv__eval_binary(qrt->ctx, getopts, getopts_size));
+    CHECK_EQ(0, quv__eval_binary(qrt->ctx, hashlib, hashlib_size));
     CHECK_EQ(0, quv__eval_binary(qrt->ctx, path, path_size));
 
     return qrt;
