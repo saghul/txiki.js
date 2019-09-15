@@ -130,6 +130,10 @@ class Hash {
     digest() {
         return this[kHashObj].hex();
     }
+
+    bytes() {
+        return new Uint8Array(this[kHashObj].array());
+    }
 }
 
 function createHash(type) {
