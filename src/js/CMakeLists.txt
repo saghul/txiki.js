@@ -18,6 +18,7 @@ set(js_files
     performance
     repl
     url
+    uuid
 )
 foreach(x ${js_files})
     add_custom_command(
