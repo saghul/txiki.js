@@ -68,6 +68,9 @@ extern const uint32_t repl_size;
 extern const uint8_t url[];
 extern const uint32_t url_size;
 
+extern const uint8_t uuid[];
+extern const uint32_t uuid_size;
+
 static int quv__argc = 0;
 static char **quv__argv = NULL;
 
@@ -223,6 +226,7 @@ QUVRuntime *QUV_NewRuntime2(bool is_worker) {
     CHECK_EQ(0, quv__eval_binary(qrt->ctx, getopts, getopts_size));
     CHECK_EQ(0, quv__eval_binary(qrt->ctx, hashlib, hashlib_size));
     CHECK_EQ(0, quv__eval_binary(qrt->ctx, path, path_size));
+    CHECK_EQ(0, quv__eval_binary(qrt->ctx, uuid, uuid_size));
 
     return qrt;
 }

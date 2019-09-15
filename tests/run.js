@@ -7,6 +7,7 @@ import './test-hashlib.js';
 import './test-import-http.js';
 import './test-noop.js';
 import './test-performance.js';
+import './test-uuid.js';
 import './test-version.js';
 import './test-xhr.js';
 

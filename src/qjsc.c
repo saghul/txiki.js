@@ -325,6 +325,7 @@ int main(int argc, char **argv) {
     namelist_add(&cmodule_list, "@quv/hashlib", NULL, 0);
     namelist_add(&cmodule_list, "@quv/path", NULL, 0);
     namelist_add(&cmodule_list, "@quv/performance", NULL, 0);
+    namelist_add(&cmodule_list, "@quv/uuid", NULL, 0);
 
     for (;;) {
         c = getopt(argc, argv, "ho:N:mx");

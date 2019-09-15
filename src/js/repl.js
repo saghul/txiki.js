@@ -25,11 +25,13 @@
 
 import * as hashlib from "@quv/hashlib";
 import * as path from "@quv/path";
+import * as uuid from "@quv/uuid";
 
 (function(g) {
     /* expose builtins */
     g.hashlib = hashlib;
     g.path = path;
+    g.uuid = uuid;
 
     /* close global objects */
     var Object = g.Object;
