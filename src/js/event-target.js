@@ -1,12 +1,14 @@
 /**
+ * Modified from the original:
+ *
  * @author Toru Nagashima <https://github.com/mysticatea>
  * @copyright 2015 Toru Nagashima. All rights reserved.
  * See LICENSE file in root directory for full license.
  */
 /**
  * @typedef {object} PrivateData
- * @property {EventTarget} eventTarget The event target.
- * @property {{type:string}} event The original event object.
+ * @property {Object} eventInit The init object passed to the constructor.
+ * @property {string} eventType The event type.
  * @property {number} eventPhase The current event phase.
  * @property {EventTarget|null} currentTarget The current event target.
  * @property {boolean} canceled The flag to prevent default.
@@ -25,13 +27,6 @@
 const privateData = new WeakMap();
 
 /**
- * Cache for wrapper classes.
- * @type {WeakMap<Object, Function>}
- * @private
- */
-const wrappers = new WeakMap();
-
-/**
  * Get private data.
  * @param {Event} event The event object to get private data.
  * @returns {PrivateData} The private data of the event.
@@ -42,7 +37,7 @@ function pd(event) {
     if (retv == null) {
         throw new Error("'this' is expected an Event object, but got " + event);
     }
-    return retv
+    return retv;
 }
 
 /**
@@ -51,88 +46,64 @@ function pd(event) {
  */
 function setCancelFlag(data) {
     if (data.passiveListener != null) {
-        if (
-            typeof console !== "undefined" &&
-            typeof console.error === "function"
-        ) {
-            console.error(
-                "Unable to preventDefault inside passive event listener invocation.",
-                data.passiveListener
-            );
-        }
+        console.error(
+            "Unable to preventDefault inside passive event listener invocation.",
+            data.passiveListener);
         return
     }
-    if (!data.event.cancelable) {
-        return
+    if (!data.eventInit.cancelable) {
+        return;
     }
 
     data.canceled = true;
-    if (typeof data.event.preventDefault === "function") {
-        data.event.preventDefault();
-    }
 }
 
-/**
- * @see https://dom.spec.whatwg.org/#interface-event
- * @private
- */
-/**
- * The event wrapper.
- * @constructor
- * @param {EventTarget} eventTarget The event target of this dispatching.
- * @param {Event|{type:string}} event The original event to wrap.
- */
-function Event(eventTarget, event) {
-    privateData.set(this, {
-        eventTarget,
-        event,
-        eventPhase: 2,
-        currentTarget: eventTarget,
-        canceled: false,
-        stopped: false,
-        immediateStopped: false,
-        passiveListener: null,
-        timeStamp: event.timeStamp || Date.now(),
-    });
 
-    // https://heycam.github.io/webidl/#Unforgeable
-    Object.defineProperty(this, "isTrusted", { value: false, enumerable: true });
-
-    // Define accessors
-    const keys = Object.keys(event);
-    for (let i = 0; i < keys.length; ++i) {
-        const key = keys[i];
-        if (!(key in this)) {
-            Object.defineProperty(this, key, defineRedirectDescriptor(key));
+class Event {
+    constructor(eventType, eventInit = {}) {
+        if (eventInit && typeof eventInit !== 'object') {
+            throw TypeError('Value must be an object.')
         }
-    }
-}
 
-// Should be enumerable, but class methods are not enumerable.
-Event.prototype = {
+        privateData.set(this, {
+            eventInit,
+            eventPhase: 2,
+            eventType: String(eventType),
+            currentTarget: null,
+            canceled: false,
+            stopped: false,
+            immediateStopped: false,
+            passiveListener: null,
+            timeStamp: Date.now(),
+        });
+
+        // https://heycam.github.io/webidl/#Unforgeable
+        Object.defineProperty(this, "isTrusted", { value: false, enumerable: true });
+    }
+
     /**
      * The type of this event.
      * @type {string}
      */
     get type() {
-        return pd(this).event.type
-    },
+        return pd(this).eventType;
+    }
 
     /**
      * The target of this event.
      * @type {EventTarget}
      */
     get target() {
-        return pd(this).eventTarget
-    },
+        return null;
+    }
 
     /**
      * The target of this event.
      * @type {EventTarget}
      */
     get currentTarget() {
-        return pd(this).currentTarget
-    },
+        return pd(this).currentTarget;
+    }
 
     /**
      * @returns {EventTarget[]} The composed path of this event.
@@ -140,63 +111,58 @@ Event.prototype = {
     composedPath() {
         const currentTarget = pd(this).currentTarget;
         if (currentTarget == null) {
-            return []
+            return [];
         }
-        return [currentTarget]
-    },
+        return [currentTarget];
+    }
 
     /**
      * Constant of NONE.
      * @type {number}
      */
     get NONE() {
-        return 0
-    },
+        return 0;
+    }
 
     /**
      * Constant of CAPTURING_PHASE.
      * @type {number}
      */
     get CAPTURING_PHASE() {
-        return 1
-    },
+        return 1;
+    }
 
     /**
      * Constant of AT_TARGET.
      * @type {number}
      */
     get AT_TARGET() {
-        return 2
-    },
+        return 2;
+    }
 
     /**
      * Constant of BUBBLING_PHASE.
      * @type {number}
      */
     get BUBBLING_PHASE() {
-        return 3
-    },
+        return 3;
+    }
 
     /**
      * The target of this event.
      * @type {number}
      */
     get eventPhase() {
-        return pd(this).eventPhase
-    },
+        return pd(this).eventPhase;
+    }
 
     /**
      * Stop event bubbling.
      * @returns {void}
      */
     stopPropagation() {
-        const data = pd(this);
-
-        data.stopped = true;
-        if (typeof data.event.stopPropagation === "function") {
-            data.event.stopPropagation();
-        }
-    },
+        pd(this).stopped = true;
+    }
 
     /**
      * Stop event bubbling.
@@ -207,26 +173,23 @@ Event.prototype = {
 
         data.stopped = true;
         data.immediateStopped = true;
-        if (typeof data.event.stopImmediatePropagation === "function") {
-            data.event.stopImmediatePropagation();
-        }
-    },
+    }
 
     /**
      * The flag to be bubbling.
      * @type {boolean}
      */
     get bubbles() {
-        return Boolean(pd(this).event.bubbles)
-    },
+        return Boolean(pd(this).eventInit.bubbles);
+    }
 
     /**
      * The flag to be cancelable.
      * @type {boolean}
      */
     get cancelable() {
-        return Boolean(pd(this).event.cancelable)
-    },
+        return Boolean(pd(this).eventInit.cancelable);
+    }
 
     /**
      * Cancel this event.
@@ -234,209 +197,47 @@ Event.prototype = {
      */
     preventDefault() {
         setCancelFlag(pd(this));
-    },
+    }
 
     /**
      * The flag to indicate cancellation state.
      * @type {boolean}
      */
     get defaultPrevented() {
-        return pd(this).canceled
-    },
+        return pd(this).canceled;
+    }
 
     /**
      * The flag to be composed.
      * @type {boolean}
      */
     get composed() {
-        return Boolean(pd(this).event.composed)
-    },
+        return Boolean(pd(this).eventInit.composed);
+    }
 
     /**
      * The unix time of this event.
      * @type {number}
      */
     get timeStamp() {
-        return pd(this).timeStamp
-    },
+        return pd(this).timeStamp;
+    }
+}
 
+
+/**
+ * CustomEvent.
+ */
+class CustomEvent extends Event {
     /**
-     * The target of this event.
-     * @type {EventTarget}
-     * @deprecated
+     * Any data passed when initializing the event.
+     * @type {any}
      */
-    get srcElement() {
-        return pd(this).eventTarget
-    },
-
-    /**
-     * The flag to stop event bubbling.
-     * @type {boolean}
-     * @deprecated
-     */
-    get cancelBubble() {
-        return pd(this).stopped
-    },
-    set cancelBubble(value) {
-        if (!value) {
-            return
-        }
-        const data = pd(this);
-
-        data.stopped = true;
-        if (typeof data.event.cancelBubble === "boolean") {
-            data.event.cancelBubble = true;
-        }
-    },
-
-    /**
-     * The flag to indicate cancellation state.
-     * @type {boolean}
-     * @deprecated
-     */
-    get returnValue() {
-        return !pd(this).canceled
-    },
-    set returnValue(value) {
-        if (!value) {
-            setCancelFlag(pd(this));
-        }
-    },
-
-    /**
-     * Initialize this event object. But do nothing under event dispatching.
-     * @param {string} type The event type.
-     * @param {boolean} [bubbles=false] The flag to be possible to bubble up.
-     * @param {boolean} [cancelable=false] The flag to be possible to cancel.
-     * @deprecated
-     */
-    initEvent() {
-        // Do nothing.
-    },
-};
-
-// `constructor` is not enumerable.
-Object.defineProperty(Event.prototype, "constructor", {
-    value: Event,
-    configurable: true,
-    writable: true,
-});
-
-// Ensure `event instanceof window.Event` is `true`.
-if (typeof window !== "undefined" && typeof window.Event !== "undefined") {
-    Object.setPrototypeOf(Event.prototype, window.Event.prototype);
-
-    // Make association for wrappers.
-    wrappers.set(window.Event.prototype, Event);
-}
-
-/**
- * Get the property descriptor to redirect a given property.
- * @param {string} key Property name to define property descriptor.
- * @returns {PropertyDescriptor} The property descriptor to redirect the property.
- * @private
- */
-function defineRedirectDescriptor(key) {
-    return {
-        get() {
-            return pd(this).event[key]
-        },
-        set(value) {
-            pd(this).event[key] = value;
-        },
-        configurable: true,
-        enumerable: true,
+    get detail() {
+        return Boolean(pd(this).eventInit.detail);
     }
 }
 
-/**
- * Get the property descriptor to call a given method property.
- * @param {string} key Property name to define property descriptor.
- * @returns {PropertyDescriptor} The property descriptor to call the method property.
- * @private
- */
-function defineCallDescriptor(key) {
-    return {
-        value() {
-            const event = pd(this).event;
-            return event[key].apply(event, arguments)
-        },
-        configurable: true,
-        enumerable: true,
-    }
-}
-
-/**
- * Define new wrapper class.
- * @param {Function} BaseEvent The base wrapper class.
- * @param {Object} proto The prototype of the original event.
- * @returns {Function} The defined wrapper class.
- * @private
- */
-function defineWrapper(BaseEvent, proto) {
-    const keys = Object.keys(proto);
-    if (keys.length === 0) {
-        return BaseEvent
-    }
-
-    /** CustomEvent */
-    function CustomEvent(eventTarget, event) {
-        BaseEvent.call(this, eventTarget, event);
-    }
-
-    CustomEvent.prototype = Object.create(BaseEvent.prototype, {
-        constructor: { value: CustomEvent, configurable: true, writable: true },
-    });
-
-    // Define accessors.
-    for (let i = 0; i < keys.length; ++i) {
-        const key = keys[i];
-        if (!(key in BaseEvent.prototype)) {
-            const descriptor = Object.getOwnPropertyDescriptor(proto, key);
-            const isFunc = typeof descriptor.value === "function";
-            Object.defineProperty(
-                CustomEvent.prototype,
-                key,
-                isFunc
-                    ? defineCallDescriptor(key)
-                    : defineRedirectDescriptor(key)
-            );
-        }
-    }
-
-    return CustomEvent
-}
-
-/**
- * Get the wrapper class of a given prototype.
- * @param {Object} proto The prototype of the original event to get its wrapper.
- * @returns {Function} The wrapper class.
- * @private
- */
-function getWrapper(proto) {
-    if (proto == null || proto === Object.prototype) {
-        return Event
-    }
-
-    let wrapper = wrappers.get(proto);
-    if (wrapper == null) {
-        wrapper = defineWrapper(getWrapper(Object.getPrototypeOf(proto)), proto);
-        wrappers.set(proto, wrapper);
-    }
-    return wrapper
-}
-
-/**
- * Wrap a given event to management a dispatching.
- * @param {EventTarget} eventTarget The event target of this dispatching.
- * @param {Object} event The event to wrap.
- * @returns {Event} The wrapper instance.
- * @private
- */
-function wrapEvent(eventTarget, event) {
-    const Wrapper = getWrapper(Object.getPrototypeOf(event));
-    return new Wrapper(eventTarget, event)
-}
 
 /**
  * Get the immediateStopped flag of a given event.
@@ -445,7 +246,7 @@ function wrapEvent(eventTarget, event) {
  * @private
  */
 function isStopped(event) {
-    return pd(event).immediateStopped
+    return pd(event).immediateStopped;
 }
 
 /**
@@ -609,67 +410,17 @@ function defineEventAttribute(eventTargetPrototype, eventName) {
 }
 
 /**
- * Define a custom EventTarget with event attributes.
- * @param {string[]} eventNames Event names for event attributes.
- * @returns {EventTarget} The custom EventTarget.
- * @private
- */
-function defineCustomEventTarget(eventNames) {
-    /** CustomEventTarget */
-    function CustomEventTarget() {
-        EventTarget.call(this);
-    }
-
-    CustomEventTarget.prototype = Object.create(EventTarget.prototype, {
-        constructor: {
-            value: CustomEventTarget,
-            configurable: true,
-            writable: true,
-        },
-    });
-
-    for (let i = 0; i < eventNames.length; ++i) {
-        defineEventAttribute(CustomEventTarget.prototype, eventNames[i]);
-    }
-
-    return CustomEventTarget
-}
-
-/**
  * EventTarget.
- *
- * - This is constructor if no arguments.
- * - This is a function which returns a CustomEventTarget constructor if there are arguments.
- *
- * For example:
- *
- *     class A extends EventTarget {}
- *     class B extends EventTarget("message") {}
- *     class C extends EventTarget("message", "error") {}
- *     class D extends EventTarget(["message", "error"]) {}
  */
-function EventTarget() {
-    /*eslint-disable consistent-return */
-    if (this instanceof EventTarget) {
-        listenersMap.set(this, new Map());
-        return
+class EventTarget {
+    constructor() {
+        this.__init();
     }
-    if (arguments.length === 1 && Array.isArray(arguments[0])) {
-        return defineCustomEventTarget(arguments[0])
-    }
-    if (arguments.length > 0) {
-        const types = new Array(arguments.length);
-        for (let i = 0; i < arguments.length; ++i) {
-            types[i] = arguments[i];
-        }
-        return defineCustomEventTarget(types)
-    }
-    throw new TypeError("Cannot call a class as a function")
-    /*eslint-enable consistent-return */
-}
 
-// Should be enumerable, but class methods are not enumerable.
-EventTarget.prototype = {
+    __init() {
+        listenersMap.set(this, new Map());
+    }
+
     /**
      * Add a given listener to this event target.
      * @param {string} eventName The event name to add.
@@ -722,7 +473,7 @@ EventTarget.prototype = {
 
         // Add it.
         prev.next = newNode;
-    },
+    }
 
     /**
      * Remove a given listener from this event target.
@@ -762,7 +513,7 @@ EventTarget.prototype = {
             prev = node;
             node = node.next;
         }
-    },
+    }
 
     /**
      * Dispatch a given event.
@@ -770,9 +521,15 @@ EventTarget.prototype = {
      * @returns {boolean} `false` if canceled.
      */
     dispatchEvent(event) {
-        if (event == null || typeof event.type !== "string") {
-            throw new TypeError('"event.type" should be a string.')
+        if (typeof event !== 'object') {
+            throw new TypeError('Argument 1 of EventTarget.dispatchEvent is not an object.');
         }
+        if (!(event instanceof Event)) {
+            throw new TypeError('Argument 1 of EventTarget.dispatchEvent does not implement interface Event.');
+        }
+
+        // Set the current target.
+        setCurrentTarget(event, this);
 
         // If listeners aren't registered, terminate.
         const listeners = getListeners(this);
@@ -781,9 +538,6 @@ EventTarget.prototype = {
         if (node == null) {
             return true
         }
-
-        // Since we cannot rewrite several properties, so wrap object.
-        const wrappedEvent = wrapEvent(this, event);
 
         // This doesn't process capturing phase and bubbling phase.
         // This isn't participating in a tree.
@@ -803,49 +557,31 @@ EventTarget.prototype = {
             }
 
             // Call this listener
-            setPassiveListener(
-                wrappedEvent,
-                node.passive ? node.listener : null
-            );
+            setPassiveListener(event, node.passive ? node.listener : null);
             if (typeof node.listener === "function") {
                 try {
-                    node.listener.call(this, wrappedEvent);
+                    node.listener.call(this, event);
                 } catch (err) {
-                    if (
-                        typeof console !== "undefined" &&
-                        typeof console.error === "function"
-                    ) {
-                        console.error(err);
-                    }
+                    console.error(err);
                 }
-            } else if (
-                node.listenerType !== ATTRIBUTE &&
-                typeof node.listener.handleEvent === "function"
-            ) {
-                node.listener.handleEvent(wrappedEvent);
+            } else if (node.listenerType !== ATTRIBUTE && typeof node.listener.handleEvent === "function") {
+                node.listener.handleEvent(event);
             }
 
             // Break if `event.stopImmediatePropagation` was called.
-            if (isStopped(wrappedEvent)) {
+            if (isStopped(event)) {
                 break
             }
 
             node = node.next;
         }
-        setPassiveListener(wrappedEvent, null);
-        setEventPhase(wrappedEvent, 0);
-        setCurrentTarget(wrappedEvent, null);
+        setPassiveListener(event, null);
+        setEventPhase(event, 0);
+        //setCurrentTarget(event, null); ?
 
-        return !wrappedEvent.defaultPrevented
-    },
-};
-
-// `constructor` is not enumerable.
-Object.defineProperty(EventTarget.prototype, "constructor", {
-    value: EventTarget,
-    configurable: true,
-    writable: true,
-});
+        return !event.defaultPrevented
+    }
+}
 
 
-export { defineEventAttribute, EventTarget };
+export { defineEventAttribute, EventTarget, Event, CustomEvent };
