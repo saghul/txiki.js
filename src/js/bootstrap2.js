@@ -4,7 +4,7 @@
 
 import { AbortController, AbortSignal } from '@quv/abort-controller';
 import { Console } from '@quv/console';
-import { defineEventAttribute, EventTarget } from '@quv/event-target';
+import { defineEventAttribute, EventTarget, Event, CustomEvent } from '@quv/event-target';
 import { Performance } from '@quv/performance';
 
 
@@ -22,15 +22,29 @@ Object.defineProperty(window, 'console', {
 // EventTarget
 //
 
-Object.defineProperty(window, 'EventTarget', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: EventTarget
+Object.defineProperties(window, {
+    EventTarget: {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: EventTarget
+    },
+    Event: {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: Event
+    },
+    CustomEvent: {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: CustomEvent
+    }
 });
 
 Object.setPrototypeOf(window, EventTarget.prototype);
-EventTarget.call(window);
+EventTarget.prototype.__init.call(window);
 
 defineEventAttribute(Object.getPrototypeOf(window), 'load');
 

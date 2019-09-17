@@ -33,7 +33,7 @@ defineEventAttribute(AbortSignal.prototype, "abort");
  */
 function createAbortSignal() {
     const signal = Object.create(AbortSignal.prototype);
-    EventTarget.call(signal);
+    EventTarget.prototype.__init.call(signal);
     abortedFlags.set(signal, false);
     return signal;
 }
@@ -45,7 +45,7 @@ function abortSignal(signal) {
         return;
     }
     abortedFlags.set(signal, true);
-    signal.dispatchEvent({ type: "abort" });
+    signal.dispatchEvent(new CustomEvent("abort"));
 }
 /**
  * Aborted flag for each instances.
