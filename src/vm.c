@@ -347,7 +347,7 @@ int quv__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
         return r;
 
     fd = r;
-    char buf[4096];
+    char buf[64 * 1024];
     uv_buf_t b = uv_buf_init(buf, sizeof(buf));
 
     do {
