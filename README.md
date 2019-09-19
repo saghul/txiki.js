@@ -5,7 +5,7 @@
 
 This is an experiment in using [libuv] as the platform layer for [QuickJS].
 
-Currently the following is already implemented in the `quv` (formerly `qjs`) interpreter, using libuv:
+Currently the following is already implemented in the runtime, using libuv:
 
 - TCP and UDP sockets
 - TTY handles
@@ -20,17 +20,28 @@ Currently the following is already implemented in the `quv` (formerly `qjs`) int
 - Child processes
 - DNS (getaddrinfo)
 
+See the [full API].
+
 Other extras:
 
-- TextEncoder / TextDecoder APIs
-- URL polyfill
 - Import directly from HTTP(S) URLs
+- path module
+- uuid module
+- hashlib module
 
-See the [full API].
+Browser-like features:
+
+- Console API
+- URL & URLSearchParams
+- TextEncoder / TextDecoder APIs
+- EventTarget / Event / CustomEvent
+- XMLHttpRequest & fetch (including AbortController)
+- Performance API
+- Worker API
 
 ## Building
 
-CMake is necessary.
+[CMake] and [Ninja] are necessary.
 
 ```bash
 # Get the code
@@ -44,3 +55,5 @@ make
 [QuickJS]: https://bellard.org/quickjs/
 [libuv]: https://libuv.org/
 [full API]: API.md
+[CMake]: https://cmake.org/
+[Ninja]: https://ninja-build.org/
