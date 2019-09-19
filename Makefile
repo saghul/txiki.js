@@ -1,7 +1,7 @@
-MAKE?=make
+NINJA?=ninja
 
-CMAKE_MK=build/Makefile
-BUILT=build/BUILT
+BUILD_DIR=build
+CMAKE_MK=$(BUILD_DIR)/Makefile
 
 BUILDTYPE?=Release
 PREFIX?=/usr/local
@@ -9,26 +9,25 @@ PREFIX?=/usr/local
 all: build
 
 build: $(CMAKE_MK)
-	ninja -C build
-	@touch $(BUILT)
+	$(NINJA) -C $(BUILD_DIR)
 
 $(CMAKE_MK):
-	@mkdir -p build
-	cd build; cmake ../ -DCMAKE_BUILD_TYPE=$(BUILDTYPE) -DCMAKE_INSTALL_PREFIX=$(PREFIX) -GNinja
+	@mkdir -p $(BUILD_DIR)
+	cd $(BUILD_DIR); cmake ../ -DCMAKE_BUILD_TYPE=$(BUILDTYPE) -DCMAKE_INSTALL_PREFIX=$(PREFIX) -GNinja
 
-install: $(BUILT)
-	@$(MAKE) -C build install
+install:
+	@$(NINJA) -C $(BUILD_DIR) install
 
 clean:
-	@$(MAKE) -C build clean
+	@$(NINJA) -C $(BUILD_DIR) clean
 
 distclean:
-	@rm -rf build
+	@rm -rf $(BUILD_DIR)
 
 format:
 	clang-format -i src/*.{c,h}
 
 test:
-	./build/quv tests/run.js
+	./$(BUILD_DIR)/quv tests/run.js
 
 .PHONY: all build install clean distclean format test
