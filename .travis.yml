@@ -16,7 +16,7 @@ matrix:
       dist: bionic
       compiler: clang
       env: BUILDTYPE=Debug
-    - name: Linux Clang system-CURL Debug
+    - name: Linux Clang system-CURL Release
       os: linux
       dist: bionic
       compiler: clang
