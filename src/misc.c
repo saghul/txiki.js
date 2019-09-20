@@ -263,20 +263,22 @@ static JSValue quv_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return ret;
 }
 
-static JSValue quv_print(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue quv_print(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
     int i;
     const char *str;
+    FILE *f = magic == 0 ? stdout : stderr;
 
     for (i = 0; i < argc; i++) {
         if (i != 0)
-            putchar(' ');
+            fputc(' ', f);
         str = JS_ToCString(ctx, argv[i]);
         if (!str)
             return JS_EXCEPTION;
-        fputs(str, stdout);
+        fputs(str, f);
         JS_FreeCString(ctx, str);
     }
-    putchar('\n');
+    fputc('\n', f);
+
     return JS_UNDEFINED;
 }
 
@@ -330,7 +332,8 @@ static const JSCFunctionListEntry quv_misc_funcs[] = {
     JS_CFUNC_DEF("homedir", 0, quv_homedir),
     JS_CFUNC_DEF("tmpdir", 0, quv_tmpdir),
     JS_CFUNC_DEF("exepath", 0, quv_exepath),
-    JS_CFUNC_DEF("print", 1, quv_print),
+    JS_CFUNC_MAGIC_DEF("print", 1, quv_print, 0),
+    JS_CFUNC_MAGIC_DEF("printError", 1, quv_print, 1),
     JS_CFUNC_DEF("random", 3, quv_random),
 };
 
