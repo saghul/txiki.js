@@ -93,4 +93,8 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
 
 JSValue quv__get_args(JSContext *ctx);
 
+int quv__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len);
+void quv__bootstrap_globals(JSContext *ctx);
+void quv__add_builtins(JSContext *ctx);
+
 #endif

@@ -62,6 +62,7 @@ endif()
 
 
 add_executable(quv
+    src/bootstrap.c
     src/cli.c
     src/curl-utils.c
     src/dns.c
@@ -80,21 +81,7 @@ add_executable(quv
     src/vm.c
     src/worker.c
     src/xhr.c
-    ${CMAKE_CURRENT_BINARY_DIR}/abort-controller.c
-    ${CMAKE_CURRENT_BINARY_DIR}/bootstrap.c
-    ${CMAKE_CURRENT_BINARY_DIR}/bootstrap2.c
-    ${CMAKE_CURRENT_BINARY_DIR}/console.c
-    ${CMAKE_CURRENT_BINARY_DIR}/crypto.c
-    ${CMAKE_CURRENT_BINARY_DIR}/encoding.c
-    ${CMAKE_CURRENT_BINARY_DIR}/event-target.c
-    ${CMAKE_CURRENT_BINARY_DIR}/fetch.c
-    ${CMAKE_CURRENT_BINARY_DIR}/getopts.c
-    ${CMAKE_CURRENT_BINARY_DIR}/hashlib.c
-    ${CMAKE_CURRENT_BINARY_DIR}/path.c
-    ${CMAKE_CURRENT_BINARY_DIR}/performance.c
-    ${CMAKE_CURRENT_BINARY_DIR}/repl.c
-    ${CMAKE_CURRENT_BINARY_DIR}/url.c
-    ${CMAKE_CURRENT_BINARY_DIR}/uuid.c
+    ${CMAKE_CURRENT_BINARY_DIR}/js.c
     ../deps/quickjs/src/cutils.c
 )
 set_target_properties(quv PROPERTIES

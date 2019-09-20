@@ -163,6 +163,25 @@ static void get_c_name(char *buf, size_t buf_size, const char *file) {
     /* Note: could also try to avoid using C keywords */
 }
 
+static void get_c_name2(char *buf, size_t buf_size, const char *file) {
+    const char *p, *r;
+    size_t len;
+
+    p = strrchr(file, '/');
+    if (!p)
+        p = file;
+    else
+        p++;
+    r = strrchr(p, '.');
+    if (!r)
+        r = p + strlen(p);
+    len = r - p;
+    if (len > buf_size - 1)
+        len = buf_size - 1;
+    memcpy(buf, p, len);
+    buf[len] = '\0';
+}
+
 static void dump_hex(FILE *f, const uint8_t *buf, size_t len) {
     size_t i, col;
     col = 0;
@@ -210,30 +229,16 @@ static int js_module_dummy_init(JSContext *ctx, JSModuleDef *m) {
     abort();
 }
 
-static void find_unique_cname(char *cname, size_t cname_size) {
-    char cname1[1024];
-    int suffix_num;
-    size_t len, max_len;
-    assert(cname_size >= 32);
-    /* find a C name not matching an existing module C name by
-       adding a numeric suffix */
-    len = strlen(cname);
-    max_len = cname_size - 16;
-    if (len > max_len)
-        cname[max_len] = '\0';
-    suffix_num = 1;
-    for (;;) {
-        snprintf(cname1, sizeof(cname1), "%s_%d", cname, suffix_num);
-        if (!namelist_find(&cname_list, cname1))
-            break;
-        suffix_num++;
-    }
-    pstrcpy(cname, cname_size, cname1);
-}
-
 JSModuleDef *jsc_module_loader(JSContext *ctx, const char *module_name, void *opaque) {
+    static const char prefix[] = "@quv/";
+
     JSModuleDef *m;
     namelist_entry_t *e;
+
+    /* check if it's a builtin */
+    if (strncmp(prefix, module_name, sizeof(prefix)-1) == 0) {
+        return JS_NewCModule(ctx, module_name, js_module_dummy_init);
+    }
 
     /* check if it is a declared C or system module */
     e = namelist_find(&cmodule_list, module_name);
@@ -249,7 +254,9 @@ JSModuleDef *jsc_module_loader(JSContext *ctx, const char *module_name, void *op
     return m;
 }
 
-static void compile_file(JSContext *ctx, FILE *fo, const char *filename, const char *c_name1, int module) {
+static void compile_file(JSContext *ctx, FILE *fo, const char *filename, int module) {
+    static const char prefix[] = "@quv/";
+
     uint8_t *buf;
     char c_name[1024];
     char c_name2[1024];
@@ -270,12 +277,11 @@ static void compile_file(JSContext *ctx, FILE *fo, const char *filename, const c
         eval_flags |= JS_EVAL_TYPE_MODULE;
     else
         eval_flags |= JS_EVAL_TYPE_GLOBAL;
-    if (c_name1) {
-        pstrcpy(c_name, sizeof(c_name), c_name1);
-    } else {
-        get_c_name(c_name, sizeof(c_name), filename);
-    }
+
     get_c_name(c_name2, sizeof(c_name2), filename);
+    pstrcpy(c_name, sizeof(c_name), prefix);
+    get_c_name2(c_name+sizeof(prefix)-1, sizeof(c_name)-sizeof(prefix)-1, filename);
+
     obj = JS_Eval(ctx, (const char *) buf, buf_len, c_name, eval_flags);
     if (JS_IsException(obj)) {
         js_std_dump_error(ctx);
@@ -293,11 +299,8 @@ void help(void) {
            "\n"
            "options are:\n"
            "-c          only output bytecode in a C file\n"
-           "-e          output main() and bytecode in a C file (default = executable output)\n"
            "-o output   set the output filename\n"
-           "-N cname    set the C name of the generated data\n"
            "-m          compile as Javascript module (default=autodetect)\n"
-           "-M module_name[,cname] add initialization code for an external C module\n"
            "-x          byte swapped output\n");
     exit(1);
 }
@@ -305,7 +308,7 @@ void help(void) {
 
 int main(int argc, char **argv) {
     int c, i;
-    const char *out_filename, *cname;
+    const char *out_filename;
     char cfilename[1024];
     FILE *fo;
     JSRuntime *rt;
@@ -313,22 +316,11 @@ int main(int argc, char **argv) {
     int module;
 
     out_filename = NULL;
-    cname = NULL;
     module = -1;
     byte_swap = FALSE;
 
-    /* add system modules */
-    namelist_add(&cmodule_list, "@quv/abort-controller", NULL, 0);
-    namelist_add(&cmodule_list, "@quv/core", NULL, 0);
-    namelist_add(&cmodule_list, "@quv/console", NULL, 0);
-    namelist_add(&cmodule_list, "@quv/event-target", NULL, 0);
-    namelist_add(&cmodule_list, "@quv/hashlib", NULL, 0);
-    namelist_add(&cmodule_list, "@quv/path", NULL, 0);
-    namelist_add(&cmodule_list, "@quv/performance", NULL, 0);
-    namelist_add(&cmodule_list, "@quv/uuid", NULL, 0);
-
     for (;;) {
-        c = getopt(argc, argv, "ho:N:mx");
+        c = getopt(argc, argv, "ho:mx");
         if (c == -1)
             break;
         switch (c) {
@@ -336,9 +328,6 @@ int main(int argc, char **argv) {
                 help();
             case 'o':
                 out_filename = optarg;
-                break;
-            case 'N':
-                cname = optarg;
                 break;
             case 'm':
                 module = 1;
@@ -382,8 +371,7 @@ int main(int argc, char **argv) {
 
     for (i = optind; i < argc; i++) {
         const char *filename = argv[i];
-        compile_file(ctx, fo, filename, cname, module);
-        cname = NULL;
+        compile_file(ctx, fo, filename, module);
     }
 
     JS_FreeContext(ctx);
