@@ -280,6 +280,30 @@ static JSValue quv_print(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
+static JSValue quv_random(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    size_t size;
+    uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
+    if (!buf)
+        return JS_EXCEPTION;
+
+    uint64_t off = 0;
+    if (!JS_IsUndefined(argv[1]) && JS_ToIndex(ctx, &off, argv[1]))
+        return JS_EXCEPTION;
+
+    uint64_t len = size;
+    if (!JS_IsUndefined(argv[2]) && JS_ToIndex(ctx, &len, argv[2]))
+        return JS_EXCEPTION;
+
+    if (off + len > size)
+        return JS_ThrowRangeError(ctx, "array buffer overflow");
+
+    int r = uv_random(NULL, NULL, buf + off, len, 0, NULL);
+    if (r != 0)
+        return quv_throw_errno(ctx, r);
+
+    return JS_UNDEFINED;
+}
+
 static const JSCFunctionListEntry quv_misc_funcs[] = {
     QUV_CONST(AF_INET),
     QUV_CONST(AF_INET6),
@@ -307,6 +331,7 @@ static const JSCFunctionListEntry quv_misc_funcs[] = {
     JS_CFUNC_DEF("tmpdir", 0, quv_tmpdir),
     JS_CFUNC_DEF("exepath", 0, quv_exepath),
     JS_CFUNC_DEF("print", 1, quv_print),
+    JS_CFUNC_DEF("random", 3, quv_random),
 };
 
 void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {

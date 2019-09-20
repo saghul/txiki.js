@@ -41,6 +41,9 @@ extern const uint32_t bootstrap2_size;
 extern const uint8_t console[];
 extern const uint32_t console_size;
 
+extern const uint8_t crypto[];
+extern const uint32_t crypto_size;
+
 extern const uint8_t encoding[];
 extern const uint32_t encoding_size;
 
@@ -148,6 +151,9 @@ static void quv__bootstrap_globals(JSContext *ctx) {
 
     /* Load Console */
     CHECK_EQ(0, quv__eval_binary(ctx, console, console_size));
+
+    /* Load Crypto */
+    CHECK_EQ(0, quv__eval_binary(ctx, crypto, crypto_size));
 
     /* Load EventTarget */
     CHECK_EQ(0, quv__eval_binary(ctx, event_target, event_target_size));
