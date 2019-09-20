@@ -38,6 +38,7 @@ Browser-like features:
 - XMLHttpRequest & fetch (including AbortController)
 - Performance API
 - Worker API
+- Crypto API (just getRandomValues)
 
 ## Building
 

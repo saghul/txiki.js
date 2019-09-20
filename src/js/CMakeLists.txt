@@ -9,6 +9,7 @@ set(js_files
     bootstrap
     bootstrap2
     console
+    crypto
     encoding
     event-target
     fetch
