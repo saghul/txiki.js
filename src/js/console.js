@@ -409,6 +409,10 @@ function print() {
     quv.print(format.apply(null, arguments));
 }
 
+function printError() {
+  quv.printError(format.apply(null, arguments));
+}
+
 
 // Copyright Joyent, Inc. and other Node contributors. MIT license.
 // Forked from Node's lib/internal/cli_table.js
@@ -519,11 +523,11 @@ class Console {
     }
 
     warn(...args) {
-        print(...args);
+        printError(...args);
     }
 
     error(...args) {
-        print(...args);
+        printError(...args);
     }
 
     assert(expression, ...args) {
