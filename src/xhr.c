@@ -137,8 +137,10 @@ static QUVXhr *quv_xhr_get(JSContext *ctx, JSValueConst obj) {
 static void maybe_emit_event(QUVXhr *x, int event, JSValue arg) {
     JSContext *ctx = x->ctx;
     JSValue event_func = x->events[event];
-    if (!JS_IsFunction(ctx, event_func))
+    if (!JS_IsFunction(ctx, event_func)) {
+        JS_FreeValue(ctx, arg);
         return;
+    }
 
     JSValue func = JS_DupValue(ctx, event_func);
     JSValue ret = JS_Call(ctx, func, JS_UNDEFINED, 1, (JSValueConst *) &arg);
