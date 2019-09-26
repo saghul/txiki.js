@@ -45,11 +45,12 @@ size_t curl__write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
     return realsize;
 }
 
-CURLcode quv_curl_load_http(DynBuf *dbuf, const char *url) {
+int quv_curl_load_http(DynBuf *dbuf, const char *url) {
     quv_curl_init();
 
     CURL *curl_handle;
     CURLcode res;
+    int r = -1;
 
     /* init the curl session */
     curl_handle = curl_easy_init();
@@ -69,13 +70,20 @@ CURLcode quv_curl_load_http(DynBuf *dbuf, const char *url) {
     /* get it! */
     res = curl_easy_perform(curl_handle);
 
+    if (res == CURLE_OK) {
+        long code = 0;
+        res = curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &code);
+        if (res == CURLE_OK)
+            r = (int) code;
+    }
+
     /* cleanup curl stuff */
     curl_easy_cleanup(curl_handle);
 
     /* curl won't null terminate the memory, do it ourselves */
     dbuf_putc(dbuf, '\0');
 
-    return res;
+    return r;
 }
 
 static void check_multi_info(QUVRuntime *qrt) {
