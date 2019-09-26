@@ -34,14 +34,13 @@
 JSModuleDef *quv__load_http(JSContext *ctx, const char *url) {
     JSModuleDef *m;
     DynBuf dbuf;
-    CURLcode res;
 
     dbuf_init(&dbuf);
 
-    res = quv_curl_load_http(&dbuf, url);
-
-    if (res != CURLE_OK) {
+    int r = quv_curl_load_http(&dbuf, url);
+    if (r != 200) {
         m = NULL;
+        JS_ThrowReferenceError(ctx, "could not load '%s' code: %d", url, r);
         goto end;
     }
 

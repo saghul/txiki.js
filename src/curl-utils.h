@@ -38,7 +38,7 @@ typedef struct {
 } quv_curl_private_t;
 
 void quv_curl_init(void);
-CURLcode quv_curl_load_http(DynBuf *dbuf, const char *url);
+int quv_curl_load_http(DynBuf *dbuf, const char *url);
 CURLM *quv__get_curlm(JSContext *ctx);
 
 #endif
