@@ -190,18 +190,9 @@ static JSValue quv_stream_write(JSContext *ctx, QUVStream *s, int argc, JSValueC
     if (!s)
         return JS_EXCEPTION;
 
-    JSValue jsData = argv[0];
-
-    size_t size;
-    char *buf;
-
     /* arg 0: buffer */
-    if (JS_IsString(jsData)) {
-        buf = (char *) JS_ToCStringLen(ctx, &size, jsData);
-    } else {
-        buf = (char *) JS_GetArrayBuffer(ctx, &size, jsData);
-    }
-
+    size_t size;
+    char *buf = (char *) JS_GetArrayBuffer(ctx, &size, argv[0]);
     if (!buf)
         return JS_EXCEPTION;
 
@@ -239,12 +230,12 @@ static JSValue quv_stream_write(JSContext *ctx, QUVStream *s, int argc, JSValueC
         return JS_EXCEPTION;
 
     wr->req.data = wr;
-    wr->data = JS_DupValue(ctx, jsData);
+    wr->data = JS_DupValue(ctx, argv[0]);
 
     b = uv_buf_init(buf, len);
     r = uv_write(&wr->req, &s->h.stream, &b, 1, uv__stream_write_cb);
     if (r != 0) {
-        JS_FreeValue(ctx, jsData);
+        JS_FreeValue(ctx, argv[0]);
         js_free(ctx, wr);
         return quv_throw_errno(ctx, r);
     }
