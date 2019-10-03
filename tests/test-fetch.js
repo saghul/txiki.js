@@ -18,6 +18,20 @@ test('abort fetch', async t => {
     }
 });
 
+test('fetch with POST and body', async t => {
+    const data = JSON.stringify({ foo: 'bar', bar: 'baz' });
+    const r = await fetch('http://httpbin.org/post', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: data
+    });
+    t.eq(r.status, 200, 'status is 200');
+    const json = await r.json();
+    t.eq(json.data, data, 'sent and received data match');
+});
+
 
 if (import.meta.main) {
     run();
