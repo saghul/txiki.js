@@ -50,6 +50,26 @@ test('XHR abort', async t => {
     await p;
 });
 
+test('XHR with body', async t => {
+    const p = new Promise(resolve => {
+        const data = JSON.stringify({ foo: 'bar', bar: 'baz' });
+        const url = 'http://httpbin.org/post';
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.responseType = 'json';
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onloadend = () => {
+            t.eq(xhr.readyState, xhr.DONE, 'readyState is DONE');
+            t.eq(xhr.responseURL, url, 'url is the same');
+            t.eq(xhr.status, 200, 'status is 200');
+            t.eq(xhr.response.data, data, 'sent and received data match');
+            resolve();
+        };
+        xhr.send(data);
+    });
+    await p;
+});
+
 
 if (import.meta.main) {
     run();

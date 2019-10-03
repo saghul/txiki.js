@@ -1,5 +1,3 @@
-- XHR + fetch upload body (not files, for now)
-- qjsc refactor: single C output file auto-register @quv/xxx
 - windows
 - rename project
 - docs with mdbook

@@ -381,6 +381,8 @@ static JSValue quv_xhr_response_get(JSContext *ctx, JSValueConst this_val) {
                 x->result.response = JS_NewArrayBufferCopy(ctx, bbuf->buf, bbuf->size);
                 break;
             case XHR_RTYPE_JSON:
+                // It's necessary to null-terminate the string passed to JS_ParseJSON.
+                dbuf_putc(bbuf, '\0');
                 x->result.response = JS_ParseJSON(ctx, (char *) bbuf->buf, bbuf->size, "<xhr>");
                 break;
             default:
@@ -635,6 +637,16 @@ static JSValue quv_xhr_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (!x)
         return JS_EXCEPTION;
     if (!x->sent) {
+        JSValue arg = argv[0];
+        if (JS_IsString(arg)) {
+            size_t size;
+            const char *body = JS_ToCStringLen(ctx, &size, arg);
+            if (body) {
+                curl_easy_setopt(x->curl_h, CURLOPT_POSTFIELDSIZE, (long) size);
+                curl_easy_setopt(x->curl_h, CURLOPT_COPYPOSTFIELDS, body);
+                JS_FreeCString(ctx, body);
+            }
+        }
         if (x->slist)
             curl_easy_setopt(x->curl_h, CURLOPT_HTTPHEADER, x->slist);
         curl_multi_add_handle(x->curlm_h, x->curl_h);
