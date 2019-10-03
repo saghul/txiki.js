@@ -206,18 +206,9 @@ static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (!u)
         return JS_EXCEPTION;
 
-    JSValue jsData = argv[0];
-
-    size_t size;
-    char *buf;
-
     /* arg 0: buffer */
-    if (JS_IsString(jsData)) {
-        buf = (char *) JS_ToCStringLen(ctx, &size, jsData);
-    } else {
-        buf = (char *) JS_GetArrayBuffer(ctx, &size, jsData);
-    }
-
+    size_t size;
+    char *buf = (char *) JS_GetArrayBuffer(ctx, &size, argv[0]);
     if (!buf)
         return JS_EXCEPTION;
 
@@ -265,13 +256,13 @@ static JSValue quv_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
         return JS_EXCEPTION;
 
     sr->req.data = sr;
-    sr->data = JS_DupValue(ctx, jsData);
+    sr->data = JS_DupValue(ctx, argv[0]);
 
     b = uv_buf_init(buf, len);
 
     r = uv_udp_send(&sr->req, &u->udp, &b, 1, sa, uv__udp_send_cb);
     if (r != 0) {
-        JS_FreeValue(ctx, jsData);
+        JS_FreeValue(ctx, argv[0]);
         js_free(ctx, sr);
         return quv_throw_errno(ctx, r);
     }

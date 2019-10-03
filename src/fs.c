@@ -292,14 +292,8 @@ static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
         return JS_EXCEPTION;
 
     /* arg 0: buffer */
-    JSValue jsData = argv[0];
     size_t size;
-    char *buf;
-    if (magic && JS_IsString(jsData))
-        buf = (char *) JS_ToCStringLen(ctx, &size, jsData);
-    else
-        buf = (char *) JS_GetArrayBuffer(ctx, &size, jsData);
-
+    char *buf = (char *) JS_GetArrayBuffer(ctx, &size, argv[0]);
     if (!buf)
         return JS_EXCEPTION;
 
@@ -493,11 +487,13 @@ static JSValue quv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
+
     strflags = JS_ToCStringLen(ctx, &len, argv[1]);
     if (!strflags)
         return JS_EXCEPTION;
-
     flags = js__uv_open_flags(strflags, len);
+    JS_FreeCString(ctx, strflags);
+
     if (JS_ToInt32(ctx, &mode, argv[2]))
         return JS_EXCEPTION;
 

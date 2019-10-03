@@ -48,9 +48,9 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `getpeername()`
 - `getsockname()`
 - `listen([backlog])`
-- `read()`
+- `read(buffer, [offset, [length]])`
 - `shutdown()`
-- `write(data)`
+- `write(buffer, [offset, [length]])`
 
 ### UDP([family])
 
@@ -73,18 +73,18 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `getpeername()`
 - `getsockname()`
 - `listen([backlog])`
-- `read()`
+- `read(buffer, [offset, [length]])`
 - `shutdown()`
-- `write(data)`
+- `write(buffer, [offset, [length]])`
 
 ### TTY(fd, readable)
 
 - `close()`
 - `fileno()`
 - `getWinSize()`
-- `read()`
+- `read(buffer, [offset, [length]])`
 - `setMode(mode)`
-- `write(data)`
+- `write(buffer, [offset, [length]])`
 
 ### Constants
 
