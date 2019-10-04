@@ -123,7 +123,7 @@ import * as uuid from "@quv/uuid";
         stdout = new quv.TTY(quv.STDOUT_FILENO, false);
         
         /* get the terminal size */
-        var size = stdin.getWinSize();
+        var size = stdout.getWinSize();
         term_width = size.width;
 
         /* set the TTY to raw mode */
