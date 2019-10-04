@@ -288,7 +288,13 @@ static JSValue quv_stream_fileno(JSContext *ctx, QUVStream *s, int argc, JSValue
     if (r != 0) {
         return quv_throw_errno(ctx, r);
     }
-    return JS_NewInt32(ctx, fd);
+    int32_t rfd;
+#if defined(_WIN32)
+    rfd = (int32_t) (intptr_t) fd;
+#else
+    rfd = fd;
+#endif
+    return JS_NewInt32(ctx, rfd);
 }
 
 static void uv__stream_connect_cb(uv_connect_t *req, int status) {

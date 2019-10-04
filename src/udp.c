@@ -279,7 +279,13 @@ static JSValue quv_udp_fileno(JSContext *ctx, JSValueConst this_val, int argc, J
     r = uv_fileno((uv_handle_t *) &u->udp, &fd);
     if (r != 0)
         return quv_throw_errno(ctx, r);
-    return JS_NewInt32(ctx, fd);
+    int32_t rfd;
+#if defined(_WIN32)
+    rfd = (int32_t) (intptr_t) fd;
+#else
+    rfd = fd;
+#endif
+    return JS_NewInt32(ctx, rfd);
 }
 
 static JSValue quv_new_udp(JSContext *ctx, int af) {
