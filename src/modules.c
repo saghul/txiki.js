@@ -162,6 +162,14 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
     return 0;
 }
 
+#if defined(_WIN32)
+#define QUV__PATHSEP '\\'
+#define QUV__PATHSEPS "\\"
+#else
+#define QUV__PATHSEP '/'
+#define QUV__PATHSEPS "/"
+#endif
+
 char *quv_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque) {
     (void) opaque;
 
@@ -174,7 +182,7 @@ char *quv_module_normalizer(JSContext *ctx, const char *base_name, const char *n
         return js_strdup(ctx, name);
     }
 
-    p = strrchr(base_name, '/');
+    p = strrchr(base_name, QUV__PATHSEP);
     if (p)
         len = p - base_name;
     else
@@ -214,6 +222,14 @@ char *quv_module_normalizer(JSContext *ctx, const char *base_name, const char *n
     if (filename[0] != '\0')
         strcat(filename, "/");
     strcat(filename, r);
-    //    printf("normalize: %s %s -> %s\n", base_name, name, filename);
+#if defined(_WIN32)
+    for (p = filename; *p; p++) {
+        if (p[0] == '/')
+            p[0] = '\\';
+    }
+    //printf("normalize: %s %s -> %s\n", base_name, name, filename);
+#endif
     return filename;
 }
+
+#undef QUV__PATHSEP

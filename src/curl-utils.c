@@ -67,6 +67,10 @@ int quv_curl_load_http(DynBuf *dbuf, const char *url) {
     /* some servers don't like requests that are made without a user-agent field, so we provide one */
     curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "quv/1.0");
 
+#if defined(_WIN32)
+    curl_easy_setopt(curl_handle, CURLOPT_CAINFO, "cacert.pem");
+#endif
+
     /* get it! */
     res = curl_easy_perform(curl_handle);
 
@@ -162,7 +166,7 @@ static int curl__handle_socket(CURL *easy, curl_socket_t s, int action, void *us
                 poll_ctx = malloc(sizeof(*poll_ctx));
                 if (!poll_ctx)
                     return -1;
-                CHECK_EQ(uv_poll_init(&qrt->loop, &poll_ctx->poll, s), 0);
+                CHECK_EQ(uv_poll_init_socket(&qrt->loop, &poll_ctx->poll, s), 0);
                 poll_ctx->qrt = qrt;
                 poll_ctx->sockfd = s;
                 poll_ctx->poll.data = poll_ctx;

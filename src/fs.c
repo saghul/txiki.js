@@ -771,10 +771,16 @@ static const JSCFunctionListEntry quv_fs_funcs[] = {
     QUV_CONST(S_IFDIR),
     QUV_CONST(S_IFBLK),
     QUV_CONST(S_IFREG),
+#ifdef S_IFSOCK
     QUV_CONST(S_IFSOCK),
+#endif
     QUV_CONST(S_IFLNK),
+#ifdef S_ISGID
     QUV_CONST(S_ISGID),
+#endif
+#ifdef S_ISUID
     QUV_CONST(S_ISUID),
+#endif
     JS_CFUNC_DEF("open", 3, quv_fs_open),
     JS_CFUNC_MAGIC_DEF("stat", 1, quv_fs_stat, 0),
     JS_CFUNC_MAGIC_DEF("lstat", 1, quv_fs_stat, 1),

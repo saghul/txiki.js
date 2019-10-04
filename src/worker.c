@@ -28,14 +28,14 @@
 #include <unistd.h>
 
 
-static JSValue quv_new_worker(JSContext *ctx, int channel_fd, bool is_main);
+static JSValue quv_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_main);
 
 
 static JSClassID quv_worker_class_id;
 
 typedef struct {
     const char *path;
-    uv_os_fd_t channel_fd;
+    uv_os_sock_t channel_fd;
     uv_sem_t *sem;
     QUVRuntime *wrt;
 } worker_data_t;
@@ -45,7 +45,11 @@ typedef struct {
     union {
         uv_handle_t handle;
         uv_stream_t stream;
+#if defined(_WIN32)
+        uv_tcp_t tcp;
+#else
         uv_pipe_t pipe;
+#endif
     } h;
     JSValue events[3];
     uv_thread_t tid;
@@ -214,7 +218,7 @@ static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
     js_free(ctx, buf->base);
 }
 
-static JSValue quv_new_worker(JSContext *ctx, int channel_fd, bool is_main) {
+static JSValue quv_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_main) {
     JSValue obj = JS_NewObjectClass(ctx, quv_worker_class_id);
     if (JS_IsException(obj))
         return obj;
@@ -229,8 +233,13 @@ static JSValue quv_new_worker(JSContext *ctx, int channel_fd, bool is_main) {
     w->is_main = is_main;
     w->h.handle.data = w;
 
+#if defined(_WIN32)
+    CHECK_EQ(uv_tcp_init(quv_get_loop(ctx), &w->h.tcp), 0);
+    CHECK_EQ(uv_tcp_open(&w->h.tcp, channel_fd), 0);
+#else
     CHECK_EQ(uv_pipe_init(quv_get_loop(ctx), &w->h.pipe, 0), 0);
     CHECK_EQ(uv_pipe_open(&w->h.pipe, channel_fd), 0);
+#endif
     CHECK_EQ(uv_read_start(&w->h.stream, uv__alloc_cb, uv__read_cb), 0);
 
     w->events[0] = JS_UNDEFINED;
@@ -241,16 +250,66 @@ static JSValue quv_new_worker(JSContext *ctx, int channel_fd, bool is_main) {
     return obj;
 }
 
+static int quv__worker_channel(uv_os_sock_t fds[2]) {
+#if defined(_WIN32)
+    union {
+       struct sockaddr_in inaddr;
+       struct sockaddr addr;
+    } a;
+    socklen_t addrlen = sizeof(a.inaddr);
+    SOCKET listener;
+
+    listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (listener == INVALID_SOCKET)
+        return -1;
+
+    memset(&a, 0, sizeof(a));
+    a.inaddr.sin_family = AF_INET;
+    a.inaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    a.inaddr.sin_port = 0;
+
+    fds[0] = fds[1] = INVALID_SOCKET;
+
+    if (bind(listener, &a.addr, sizeof(a.inaddr)) == SOCKET_ERROR)
+        goto error;
+    if (getsockname(listener, &a.addr, &addrlen) == SOCKET_ERROR)
+        goto error;
+    if (listen(listener, 1) == SOCKET_ERROR)
+        goto error;
+
+    fds[0] = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
+    if (fds[0] == INVALID_SOCKET)
+        goto error;
+    if (connect(fds[0], &a.addr, sizeof(a.inaddr)) == SOCKET_ERROR)
+        goto error;
+    fds[1] = accept(listener, NULL, NULL);
+    if (fds[1] == INVALID_SOCKET)
+        goto error;
+
+    closesocket(listener);
+    return 0;
+
+error:
+    closesocket(listener);
+    closesocket(fds[0]);
+    closesocket(fds[1]);
+    return -1;
+#else
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
+        return -errno;
+    return 0;
+#endif
+}
+
 static JSValue quv_worker_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
 
-    // TODO: Windows support.
-    int fds[2];
-    int r = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
+    uv_os_sock_t fds[2];
+    int r = quv__worker_channel(fds);
     if (r != 0)
-        return quv_throw_errno(ctx, -errno);
+        return quv_throw_errno(ctx, r);
 
     JSValue obj = quv_new_worker(ctx, fds[0], true);
     if (JS_IsException(obj)) {

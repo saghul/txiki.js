@@ -304,11 +304,11 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
         /* stdio */
         JSValue js_stdin = JS_GetPropertyStr(ctx, arg1, "stdin");
         if (!JS_IsException(js_stdin) && !JS_IsUndefined(js_stdin)) {
-            const char *stdin = JS_ToCString(ctx, js_stdin);
-            if (strcmp(stdin, "inherit") == 0) {
+            const char *in = JS_ToCString(ctx, js_stdin);
+            if (strcmp(in, "inherit") == 0) {
                 stdio[0].flags = UV_INHERIT_FD;
                 stdio[0].data.fd = STDIN_FILENO;
-            } else if (strcmp(stdin, "pipe") == 0) {
+            } else if (strcmp(in, "pipe") == 0) {
                 JSValue obj = quv_new_pipe(ctx);
                 if (JS_IsException(obj)) {
                     JS_FreeValue(ctx, js_stdin);
@@ -317,7 +317,7 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
                 p->stdio[0] = obj;
                 stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
                 stdio[0].data.stream = quv_pipe_get_stream(ctx, obj);
-            } else if (strcmp(stdin, "ignore") == 0) {
+            } else if (strcmp(in, "ignore") == 0) {
                 stdio[0].flags = UV_IGNORE;
             }
         }
@@ -325,11 +325,11 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
 
         JSValue js_stdout = JS_GetPropertyStr(ctx, arg1, "stdout");
         if (!JS_IsException(js_stdout) && !JS_IsUndefined(js_stdout)) {
-            const char *stdout = JS_ToCString(ctx, js_stdout);
-            if (strcmp(stdout, "inherit") == 0) {
+            const char *out = JS_ToCString(ctx, js_stdout);
+            if (strcmp(out, "inherit") == 0) {
                 stdio[1].flags = UV_INHERIT_FD;
                 stdio[1].data.fd = STDOUT_FILENO;
-            } else if (strcmp(stdout, "pipe") == 0) {
+            } else if (strcmp(out, "pipe") == 0) {
                 JSValue obj = quv_new_pipe(ctx);
                 if (JS_IsException(obj)) {
                     JS_FreeValue(ctx, js_stdout);
@@ -338,7 +338,7 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
                 p->stdio[1] = obj;
                 stdio[1].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
                 stdio[1].data.stream = quv_pipe_get_stream(ctx, obj);
-            } else if (strcmp(stdout, "ignore") == 0) {
+            } else if (strcmp(out, "ignore") == 0) {
                 stdio[1].flags = UV_IGNORE;
             }
         }
@@ -346,11 +346,11 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
 
         JSValue js_stderr = JS_GetPropertyStr(ctx, arg1, "stderr");
         if (!JS_IsException(js_stderr) && !JS_IsUndefined(js_stderr)) {
-            const char *stderr = JS_ToCString(ctx, js_stderr);
-            if (strcmp(stderr, "inherit") == 0) {
+            const char *err = JS_ToCString(ctx, js_stderr);
+            if (strcmp(err, "inherit") == 0) {
                 stdio[2].flags = UV_INHERIT_FD;
                 stdio[2].data.fd = STDERR_FILENO;
-            } else if (strcmp(stderr, "pipe") == 0) {
+            } else if (strcmp(err, "pipe") == 0) {
                 JSValue obj = quv_new_pipe(ctx);
                 if (JS_IsException(obj)) {
                     JS_FreeValue(ctx, js_stderr);
@@ -359,7 +359,7 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
                 p->stdio[2] = obj;
                 stdio[2].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
                 stdio[2].data.stream = quv_pipe_get_stream(ctx, obj);
-            } else if (strcmp(stderr, "ignore") == 0) {
+            } else if (strcmp(err, "ignore") == 0) {
                 stdio[2].flags = UV_IGNORE;
             }
         }
