@@ -109,6 +109,10 @@ QUVRuntime *QUV_NewRuntime2(bool is_worker) {
 
     CHECK_EQ(uv_loop_init(&qrt->loop), 0);
 
+    /* handle which runs the job queue */
+    CHECK_EQ(uv_prepare_init(&qrt->loop, &qrt->jobs.prepare), 0);
+    qrt->jobs.prepare.data = qrt;
+
     /* handle to prevent the loop from blocking for i/o when there are pending jobs. */
     CHECK_EQ(uv_idle_init(&qrt->loop, &qrt->jobs.idle), 0);
     qrt->jobs.idle.data = qrt;
@@ -139,6 +143,7 @@ QUVRuntime *QUV_NewRuntime2(bool is_worker) {
 
 void QUV_FreeRuntime(QUVRuntime *qrt) {
     /* Close all loop handles. */
+    uv_close((uv_handle_t *) &qrt->jobs.prepare, NULL);
     uv_close((uv_handle_t *) &qrt->jobs.idle, NULL);
     uv_close((uv_handle_t *) &qrt->jobs.check, NULL);
     uv_close((uv_handle_t *) &qrt->stop, NULL);
@@ -198,6 +203,13 @@ static void uv__maybe_idle(QUVRuntime *qrt) {
         CHECK_EQ(uv_idle_stop(&qrt->jobs.idle), 0);
 }
 
+static void uv__prepare_cb(uv_prepare_t *handle) {
+    QUVRuntime *qrt = handle->data;
+    CHECK_NOT_NULL(qrt);
+
+    uv__maybe_idle(qrt);
+}
+
 static void uv__check_cb(uv_check_t *handle) {
     QUVRuntime *qrt = handle->data;
     CHECK_NOT_NULL(qrt);
@@ -221,6 +233,8 @@ static void uv__check_cb(uv_check_t *handle) {
 
 /* main loop which calls the user JS callbacks */
 void QUV_Run(QUVRuntime *qrt) {
+    CHECK_EQ(uv_prepare_start(&qrt->jobs.prepare, uv__prepare_cb), 0);
+    uv_unref((uv_handle_t *) &qrt->jobs.prepare);
     CHECK_EQ(uv_check_start(&qrt->jobs.check, uv__check_cb), 0);
     uv_unref((uv_handle_t *) &qrt->jobs.check);
 
