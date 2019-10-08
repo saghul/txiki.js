@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 3.0)
-project(quickjs)
+cmake_minimum_required(VERSION 3.4)
+
+project(quickjs LANGUAGES C)
 
 list(APPEND qjs_cflags -Wall)
 if(CMAKE_C_COMPILER_ID MATCHES "AppleClang|Clang")
