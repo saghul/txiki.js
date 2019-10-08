@@ -188,7 +188,7 @@ char *quv_module_normalizer(JSContext *ctx, const char *base_name, const char *n
 
     /* we only normalize the leading '..' or '.' */
     r = name;
-    for(;;) {
+    for (;;) {
         if (r[0] == '.' && r[1] == '/') {
             r += 2;
         } else if (r[0] == '.' && r[1] == '.' && r[2] == '/') {
