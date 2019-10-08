@@ -4,6 +4,7 @@ import './test-args.js';
 import './test-fetch.js';
 import './test-global-window.js';
 import './test-hashlib.js';
+import './test-import.js';
 import './test-import-http.js';
 import './test-noop.js';
 import './test-performance.js';
