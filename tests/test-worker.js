@@ -1,7 +1,7 @@
 import { run, test } from './t.js';
 import { dirname, join } from '@quv/path';
 
-const thisFile = new URL(import.meta.url).pathname;
+const thisFile = import.meta.url.slice(7);   // strip "file://"
 
 
 test('basic worker', async t => {
