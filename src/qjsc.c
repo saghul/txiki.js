@@ -236,7 +236,7 @@ JSModuleDef *jsc_module_loader(JSContext *ctx, const char *module_name, void *op
     namelist_entry_t *e;
 
     /* check if it's a builtin */
-    if (strncmp(prefix, module_name, sizeof(prefix)-1) == 0) {
+    if (strncmp(prefix, module_name, sizeof(prefix) - 1) == 0) {
         return JS_NewCModule(ctx, module_name, js_module_dummy_init);
     }
 
@@ -280,7 +280,7 @@ static void compile_file(JSContext *ctx, FILE *fo, const char *filename, int mod
 
     get_c_name(c_name2, sizeof(c_name2), filename);
     pstrcpy(c_name, sizeof(c_name), prefix);
-    get_c_name2(c_name+sizeof(prefix)-1, sizeof(c_name)-sizeof(prefix)-1, filename);
+    get_c_name2(c_name + sizeof(prefix) - 1, sizeof(c_name) - sizeof(prefix) - 1, filename);
 
     obj = JS_Eval(ctx, (const char *) buf, buf_len, c_name, eval_flags);
     if (JS_IsException(obj)) {
