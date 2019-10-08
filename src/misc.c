@@ -344,6 +344,8 @@ void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
     JS_FreeValue(ctx, JS_ObjectFreeze(ctx, args));
     JS_SetModuleExport(ctx, m, "args", args);
 
+    JS_SetModuleExport(ctx, m, "platform", JS_NewString(ctx, QUV__PLATFORM));
+
     JS_SetModuleExport(ctx, m, "version", JS_NewString(ctx, quv_version()));
     JSValue versions = JS_NewObjectProto(ctx, JS_NULL);
     JS_DefinePropertyValueStr(ctx, versions, "quickjs", JS_NewString(ctx, QJS_VERSION_STR), JS_PROP_C_W_E);
@@ -365,6 +367,7 @@ void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
 void quv_mod_misc_export(JSContext *ctx, JSModuleDef *m) {
     JS_AddModuleExportList(ctx, m, quv_misc_funcs, countof(quv_misc_funcs));
     JS_AddModuleExport(ctx, m, "args");
+    JS_AddModuleExport(ctx, m, "platform");
     JS_AddModuleExport(ctx, m, "version");
     JS_AddModuleExport(ctx, m, "versions");
 }
