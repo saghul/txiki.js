@@ -1,7 +1,7 @@
 import { run, test } from './t.js';
 
 test('basic fetch', async t => {
-    const r = await fetch('http://httpbin.org/get');
+    const r = await fetch('https://httpbin.org/get');
     t.eq(r.status, 200, 'status is 200');
 });
 
@@ -12,7 +12,7 @@ test('abort fetch', async t => {
         controller.abort();
     }, 500);
     try {
-        const r = await fetch('http://httpbin.org/delay/3', { signal });
+        const r = await fetch('https://httpbin.org/delay/3', { signal });
     } catch (e) {
         t.eq(e.name, 'AbortError', 'fetch was aborted');
     }
@@ -20,7 +20,7 @@ test('abort fetch', async t => {
 
 test('fetch with POST and body', async t => {
     const data = JSON.stringify({ foo: 'bar', bar: 'baz' });
-    const r = await fetch('http://httpbin.org/post', {
+    const r = await fetch('https://httpbin.org/post', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
