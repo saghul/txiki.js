@@ -2,7 +2,7 @@ import { run, test } from './t.js';
 
 test('basic XHR', async t => {
     const p = new Promise(resolve => {
-        const url = 'http://httpbin.org/get';
+        const url = 'https://httpbin.org/get';
         const xhr = new XMLHttpRequest();
         xhr.open('GET', url);
         xhr.onloadend = () => {
@@ -18,7 +18,7 @@ test('basic XHR', async t => {
 
 test('XHR timeout', async t => {
     const p = new Promise(resolve => {
-        const url = 'http://httpbin.org/delay/3';
+        const url = 'https://httpbin.org/delay/3';
         const xhr = new XMLHttpRequest();
         xhr.open('GET', url);
         xhr.timeout = 200;
@@ -34,7 +34,7 @@ test('XHR timeout', async t => {
 
 test('XHR abort', async t => {
     const p = new Promise(resolve => {
-        const url = 'http://httpbin.org/delay/3';
+        const url = 'https://httpbin.org/delay/3';
         const xhr = new XMLHttpRequest();
         xhr.open('GET', url);
         xhr.onabort = () => {
@@ -53,7 +53,7 @@ test('XHR abort', async t => {
 test('XHR with body', async t => {
     const p = new Promise(resolve => {
         const data = JSON.stringify({ foo: 'bar', bar: 'baz' });
-        const url = 'http://httpbin.org/post';
+        const url = 'https://httpbin.org/post';
         const xhr = new XMLHttpRequest();
         xhr.open('POST', url);
         xhr.responseType = 'json';
