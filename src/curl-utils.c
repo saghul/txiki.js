@@ -81,6 +81,13 @@ int quv_curl_load_http(DynBuf *dbuf, const char *url) {
             r = (int) code;
     }
 
+    if (res != CURLE_OK) {
+        r = -res;
+#if 0
+        printf("CURL ERROR: %d %s\n", res,  curl_easy_strerror(res));
+#endif
+    }
+
     /* cleanup curl stuff */
     curl_easy_cleanup(curl_handle);
 
