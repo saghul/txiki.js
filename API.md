@@ -18,6 +18,7 @@
 - `gc()`: triggers a garbage collection cycle.
 - `evalScript(code)`: evals the given code in the global scope.
 - `loadScript(jsFile)`: loads and evaulates the file at the given path.
+- `platform`: string with the platform name.
 
 These APIs are almost always a 1-to-1 mapping of the matching [libuv] API, please
 check the libuv documentation.

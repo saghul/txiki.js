@@ -40,6 +40,13 @@ Browser-like features:
 - Worker API
 - Crypto API (just getRandomValues)
 
+## Supported platforms
+
+* GNU/Linux
+* macOS
+* Windows (experimental)
+* Other Unixes (please test)
+
 ## Building
 
 [CMake] and [Ninja] are necessary.
