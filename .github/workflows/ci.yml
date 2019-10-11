@@ -11,6 +11,12 @@ jobs:
         operating-system: [ubuntu-latest, macOS-latest]
     steps:
     - uses: actions/checkout@v1
+    - name: Prepare (Linux)
+      if: matrix.operating-system == 'ubuntu-latest'
+      run: sudo apt install -y ninja-build
+    - name: Prepare (macOS)
+      if: matrix.operating-system == 'macOS-latest'
+      run: brew install ninja
     - name: Build it
       run: make
     - name: Test it
