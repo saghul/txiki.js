@@ -15,7 +15,7 @@ jobs:
         submodules: true
     - name: Prepare (Linux)
       if: matrix.operating-system == 'ubuntu-latest'
-      run: sudo apt install -y ninja-build
+      run: sudo apt install -y libcurl4-openssl-dev ninja-build
     - name: Prepare (macOS)
       if: matrix.operating-system == 'macOS-latest'
       run: brew install ninja
