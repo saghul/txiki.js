@@ -2,20 +2,20 @@ cmake_minimum_required(VERSION 3.4)
 
 project(quickjs LANGUAGES C)
 
-list(APPEND qjs_cflags -Wall)
+set(qjs_cflags -Wall)
 if(CMAKE_C_COMPILER_ID MATCHES "AppleClang|Clang")
-    list(APPEND qjs_cflags -Wextra)
-    list(APPEND qjs_cflags -Wno-sign-compare)
-    list(APPEND qjs_cflags -Wno-missing-field-initializers)
-    list(APPEND qjs_cflags -Wundef)
-    list(APPEND qjs_cflags -Wuninitialized)
-    list(APPEND qjs_cflags -Wunused)
-    list(APPEND qjs_cflags -Wno-unused-parameter)
-    list(APPEND qjs_cflags -Wwrite-strings)
-    list(APPEND qjs_cflags -Wchar-subscripts)
-    list(APPEND qjs_cflags -funsigned-char)
+    list(APPEND qjs_cflags
+        -Wextra
+        -Wno-sign-compare
+        -Wno-missing-field-initializers
+        -Wno-unused-parameter
+        -Wno-unused-variable
+        -funsigned-char)
 else()
-    list(APPEND qjs_cflags -Wno-array-bounds)
+    list(APPEND qjs_cflags
+        -Wno-array-bounds
+        -Wno-unused-variable
+        -Wno-unused-but-set-variable)
 endif()
 
 file(STRINGS "VERSION" QJS_VERSION_STR)
