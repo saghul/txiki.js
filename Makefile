@@ -4,7 +4,6 @@ BUILD_DIR=build
 CMAKE_MK=$(BUILD_DIR)/Makefile
 
 BUILDTYPE?=Release
-PREFIX?=/usr/local
 
 all: build
 
@@ -13,7 +12,7 @@ build: $(CMAKE_MK)
 
 $(CMAKE_MK):
 	@mkdir -p $(BUILD_DIR)
-	cd $(BUILD_DIR); cmake ../ -DCMAKE_BUILD_TYPE=$(BUILDTYPE) -DCMAKE_INSTALL_PREFIX=$(PREFIX) -GNinja
+	cd $(BUILD_DIR); cmake ../ -DCMAKE_BUILD_TYPE=$(BUILDTYPE) -GNinja
 
 install:
 	@$(NINJA) -C $(BUILD_DIR) install
