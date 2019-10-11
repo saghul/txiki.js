@@ -11,6 +11,8 @@ jobs:
         operating-system: [ubuntu-latest, macOS-latest]
     steps:
     - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: Prepare (Linux)
       if: matrix.operating-system == 'ubuntu-latest'
       run: sudo apt install -y ninja-build
