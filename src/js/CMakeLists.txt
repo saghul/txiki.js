@@ -21,6 +21,7 @@ set(js_files
     ${JS_PATH}/repl.js
     ${JS_PATH}/url.js
     ${JS_PATH}/uuid.js
+    ${JS_PATH}/worker-bootstrap.js
 )
 
 add_custom_command(

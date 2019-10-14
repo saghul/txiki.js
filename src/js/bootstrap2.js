@@ -4,6 +4,7 @@
 
 import { AbortController, AbortSignal } from '@quv/abort-controller';
 import { Console } from '@quv/console';
+import { Worker as _Worker } from '@quv/core';
 import { defineEventAttribute, EventTarget, Event, CustomEvent } from '@quv/event-target';
 import { Performance } from '@quv/performance';
 
@@ -22,6 +23,50 @@ Object.defineProperty(window, 'console', {
 // EventTarget
 //
 
+const kErrorEventData = Symbol('kErrorEventData');
+
+class ErrorEvent extends Event {
+    constructor(error) {
+        super('error');
+
+        this[kErrorEventData] = error;
+    }
+
+    get message() {
+        return String(this[kErrorEventData]);
+    }
+
+    get filename() {
+        return undefined;
+    }
+
+    get lineno() {
+        return undefined;
+    }
+
+    get colno() {
+        return undefined;
+    }
+
+    get error() {
+        return this[kErrorEventData];
+    }
+}
+
+const kMessageEventData = Symbol('kMessageEventData');
+
+class MessageEvent extends Event {
+    constructor(eventTye, data) {
+        super(eventTye);
+
+        this[kMessageEventData] = data;
+    }
+
+    get data() {
+        return this[kMessageEventData];
+    }
+}
+
 Object.defineProperties(window, {
     EventTarget: {
         enumerable: true,
@@ -34,6 +79,18 @@ Object.defineProperties(window, {
         configurable: false,
         writable: false,
         value: Event
+    },
+    ErrorEvent: {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: ErrorEvent
+    },
+    MessageEvent: {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: MessageEvent
     },
     CustomEvent: {
         enumerable: true,
@@ -75,4 +132,48 @@ Object.defineProperty(window, 'AbortSignal', {
     configurable: false,
     writable: false,
     value: AbortSignal
+});
+
+
+// Worker
+//
+
+const kWorker = Symbol('kWorker');
+
+class Worker extends EventTarget {
+    constructor(path) {
+        super();
+
+        const worker = new _Worker(path);
+        worker.onmessage = msg => {
+            this.dispatchEvent(new MessageEvent('message', msg));
+        };
+        worker.onmessageerror = msgerror => {
+            this.dispatchEvent(new MessageEvent('messageerror', msgerror));
+        };
+        worker.onerror = error => {
+            this.dispatchEvent(new ErrorEvent(error));
+        };
+
+        this[kWorker] = worker;
+    }
+
+    postMessage(...args) {
+        this[kWorker].postMessage(args); 
+    }
+
+    terminate() {
+        this[kWorker].terminate();
+    }
+}
+
+defineEventAttribute(Object.getPrototypeOf(Worker), 'message');
+defineEventAttribute(Object.getPrototypeOf(Worker), 'messageerror');
+defineEventAttribute(Object.getPrototypeOf(Worker), 'error');
+
+Object.defineProperty(window, 'Worker', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: Worker
 });

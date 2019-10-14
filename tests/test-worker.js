@@ -5,22 +5,23 @@ const thisFile = import.meta.url.slice(7);   // strip "file://"
 
 
 test('basic worker', async t => {
-    let message;
+    const data = JSON.stringify({foo: 42, bar: 'baz!'});
+    let recvData;
     const p = new Promise(resolve => {
-        const w = new quv.Worker(join(dirname(thisFile), 'helpers', 'worker.js'));
+        const w = new Worker(join(dirname(thisFile), 'helpers', 'worker.js'));
         const timer = setTimeout(() => {
             w.terminate();
             resolve();
         }, 1000);
-        w.onmessage = msg => { 
-            message = msg;
+        w.addEventListener('message', event => {
+            recvData = JSON.stringify(event.data);
             w.terminate();
             clearTimeout(timer);
             resolve();
-        };
+        });
     });
     await p;
-    t.ok(message, 'Message received');
+    t.eq(data, recvData, 'Message received matches');
 });
 
 

@@ -28,8 +28,17 @@
 #include <unistd.h>
 
 
-static JSValue quv_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_main);
+extern const uint8_t worker_bootstrap[];
+extern const uint32_t worker_bootstrap_size;
 
+enum {
+    WORKER_EVENT_MESSAGE = 0,
+    WORKER_EVENT_MESSAGE_ERROR,
+    WORKER_EVENT_ERROR,
+    WORKER_EVENT_MAX,
+};
+
+static JSValue quv_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_main);
 
 static JSClassID quv_worker_class_id;
 
@@ -51,7 +60,7 @@ typedef struct {
         uv_pipe_t pipe;
 #endif
     } h;
-    JSValue events[3];
+    JSValue events[WORKER_EVENT_MAX];
     uv_thread_t tid;
     QUVRuntime *wrt;
     bool is_main;
@@ -101,11 +110,12 @@ static void worker_entry(void *arg) {
 
     JSContext *ctx = QUV_GetJSContext(wrt);
 
-    /* Set the 'workerThis' global object. */
+    /* Bootstrap the worker scope. */
     JSValue global_obj = JS_GetGlobalObject(ctx);
     JSValue worker_obj = quv_new_worker(ctx, wd->channel_fd, false);
     JS_SetPropertyStr(ctx, global_obj, "workerThis", worker_obj);
     JS_FreeValue(ctx, global_obj);
+    CHECK_EQ(0, quv__eval_binary(ctx, worker_bootstrap, worker_bootstrap_size));
 
     /* Load the file and eval the file when the loop runs. */
     JSValue filename = JS_NewString(ctx, wd->path);
@@ -131,9 +141,8 @@ static void uv__close_cb(uv_handle_t *handle) {
 static void quv_worker_finalizer(JSRuntime *rt, JSValue val) {
     QUVWorker *w = JS_GetOpaque(val, quv_worker_class_id);
     if (w) {
-        JS_FreeValueRT(rt, w->events[0]);
-        JS_FreeValueRT(rt, w->events[1]);
-        JS_FreeValueRT(rt, w->events[2]);
+        for (int i = 0; i < WORKER_EVENT_MAX; i++)
+            JS_FreeValueRT(rt, w->events[i]);
         uv_close(&w->h.handle, uv__close_cb);
     }
 }
@@ -141,9 +150,8 @@ static void quv_worker_finalizer(JSRuntime *rt, JSValue val) {
 static void quv_worker_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
     QUVWorker *w = JS_GetOpaque(val, quv_worker_class_id);
     if (w) {
-        JS_MarkValue(rt, w->events[0], mark_func);
-        JS_MarkValue(rt, w->events[1], mark_func);
-        JS_MarkValue(rt, w->events[2], mark_func);
+        for (int i = 0; i < WORKER_EVENT_MAX; i++)
+            JS_MarkValue(rt, w->events[i], mark_func);
     }
 }
 
@@ -205,7 +213,7 @@ static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         js_free(ctx, buf->base);
         if (nread != UV_EOF) {
             JSValue error = quv_new_error(ctx, nread);
-            maybe_emit_event(w, 1, error);  // onmessageerror vs onerror?
+            maybe_emit_event(w, WORKER_EVENT_ERROR, error);
             JS_FreeValue(ctx, error);
         }
         return;
@@ -213,7 +221,7 @@ static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
     // TODO: the entire object might not have come in a single packet. Use netstrings.
     JSValue obj = JS_ReadObject(ctx, (const uint8_t *) buf->base, buf->len, 0);
-    maybe_emit_event(w, 0, obj);
+    maybe_emit_event(w, WORKER_EVENT_MESSAGE, obj);
     JS_FreeValue(ctx, obj);
     js_free(ctx, buf->base);
 }
@@ -352,7 +360,7 @@ static void uv__write_cb(uv_write_t *req, int status) {
 
     if (status < 0) {
         JSValue error = quv_new_error(ctx, status);
-        maybe_emit_event(w, 1, error);
+        maybe_emit_event(w, WORKER_EVENT_MESSAGE_ERROR, error);
         JS_FreeValue(ctx, error);
     }
 
@@ -423,9 +431,9 @@ static JSValue quv_worker_event_set(JSContext *ctx, JSValueConst this_val, JSVal
 static const JSCFunctionListEntry quv_worker_proto_funcs[] = {
     JS_CFUNC_DEF("postMessage", 1, quv_worker_postmessage),
     JS_CFUNC_DEF("terminate", 0, quv_worker_terminate),
-    JS_CGETSET_MAGIC_DEF("onmessage", quv_worker_event_get, quv_worker_event_set, 0),
-    JS_CGETSET_MAGIC_DEF("onmessageerror", quv_worker_event_get, quv_worker_event_set, 1),
-    JS_CGETSET_MAGIC_DEF("onerror", quv_worker_event_get, quv_worker_event_set, 2),
+    JS_CGETSET_MAGIC_DEF("onmessage", quv_worker_event_get, quv_worker_event_set, WORKER_EVENT_MESSAGE),
+    JS_CGETSET_MAGIC_DEF("onmessageerror", quv_worker_event_get, quv_worker_event_set, WORKER_EVENT_MESSAGE_ERROR),
+    JS_CGETSET_MAGIC_DEF("onerror", quv_worker_event_get, quv_worker_event_set, WORKER_EVENT_ERROR),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Worker", JS_PROP_CONFIGURABLE),
 };
 
