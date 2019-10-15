@@ -1,9 +1,9 @@
 
-import { dirname, join } from '@quv/path';
+import { dirname, join } from '@tjs/path';
 
 const thisFile = import.meta.url.slice(7);  // strip "file://"
 
-quv.loadScript(join(dirname(thisFile), 'zora.js'));
+tjs.loadScript(join(dirname(thisFile), 'zora.js'));
 
 const { createHarness, mochaTapLike } = zora;
 const harness = createHarness();
@@ -15,7 +15,7 @@ function run() {
         .then(() => {
             // set the exit code ourselves in case of failing test
             const exitCode = harness.pass === true ? 0 : 1;
-            quv.exit(exitCode);
+            tjs.exit(exitCode);
     });
 }
 

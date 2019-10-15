@@ -34,9 +34,9 @@ typedef struct {
     JSValue func;
     int argc;
     JSValue argv[];
-} QUVTimer;
+} TJSTimer;
 
-static void clear_timer(QUVTimer *th) {
+static void clear_timer(TJSTimer *th) {
     JSContext *ctx = th->ctx;
 
     JS_FreeValue(ctx, th->func);
@@ -53,7 +53,7 @@ static void clear_timer(QUVTimer *th) {
     JS_FreeValue(ctx, obj);
 }
 
-static void call_timer(QUVTimer *th) {
+static void call_timer(TJSTimer *th) {
     JSContext *ctx = th->ctx;
     JSValue ret, func1;
     /* 'func' might be destroyed when calling itself (if it frees the handler), so must take extra care */
@@ -61,36 +61,36 @@ static void call_timer(QUVTimer *th) {
     ret = JS_Call(ctx, func1, JS_UNDEFINED, th->argc, (JSValueConst *) th->argv);
     JS_FreeValue(ctx, func1);
     if (JS_IsException(ret))
-        quv_dump_error(ctx);
+        tjs_dump_error(ctx);
     JS_FreeValue(ctx, ret);
 }
 
 static void uv__timer_close(uv_handle_t *handle) {
-    QUVTimer *th = handle->data;
+    TJSTimer *th = handle->data;
     CHECK_NOT_NULL(th);
     free(th);
 }
 
 static void uv__timer_cb(uv_timer_t *handle) {
-    QUVTimer *th = handle->data;
+    TJSTimer *th = handle->data;
     CHECK_NOT_NULL(th);
     call_timer(th);
     if (!th->interval)
         clear_timer(th);
 }
 
-static JSClassID quv_timer_class_id;
+static JSClassID tjs_timer_class_id;
 
-static void quv_timer_finalizer(JSRuntime *rt, JSValue val) {
-    QUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
+static void tjs_timer_finalizer(JSRuntime *rt, JSValue val) {
+    TJSTimer *th = JS_GetOpaque(val, tjs_timer_class_id);
     if (th) {
         clear_timer(th);
         uv_close((uv_handle_t *) &th->handle, uv__timer_close);
     }
 }
 
-static void quv_timer_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
-    QUVTimer *th = JS_GetOpaque(val, quv_timer_class_id);
+static void tjs_timer_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+    TJSTimer *th = JS_GetOpaque(val, tjs_timer_class_id);
     if (th) {
         JS_MarkValue(rt, th->func, mark_func);
         for (int i = 0; i < th->argc; i++)
@@ -98,16 +98,16 @@ static void quv_timer_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_fu
     }
 }
 
-static JSClassDef quv_timer_class = {
+static JSClassDef tjs_timer_class = {
     "Timer",
-    .finalizer = quv_timer_finalizer,
-    .gc_mark = quv_timer_mark,
+    .finalizer = tjs_timer_finalizer,
+    .gc_mark = tjs_timer_mark,
 };
 
-static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
+static JSValue tjs_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
     int64_t delay;
     JSValueConst func;
-    QUVTimer *th;
+    TJSTimer *th;
     JSValue obj;
 
     func = argv[0];
@@ -117,7 +117,7 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
     if (JS_ToInt64(ctx, &delay, argv[1]))
         return JS_EXCEPTION;
 
-    obj = JS_NewObjectClass(ctx, quv_timer_class_id);
+    obj = JS_NewObjectClass(ctx, tjs_timer_class_id);
     if (JS_IsException(obj))
         return obj;
 
@@ -130,7 +130,7 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
     }
 
     th->ctx = ctx;
-    CHECK_EQ(uv_timer_init(quv_get_loop(ctx), &th->handle), 0);
+    CHECK_EQ(uv_timer_init(tjs_get_loop(ctx), &th->handle), 0);
     th->handle.data = th;
     th->interval = magic;
     th->obj = JS_DupValue(ctx, obj);
@@ -145,8 +145,8 @@ static JSValue quv_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
     return obj;
 }
 
-static JSValue quv_clearTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    QUVTimer *th = JS_GetOpaque2(ctx, argv[0], quv_timer_class_id);
+static JSValue tjs_clearTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSTimer *th = JS_GetOpaque2(ctx, argv[0], tjs_timer_class_id);
     if (!th)
         return JS_EXCEPTION;
 
@@ -156,20 +156,20 @@ static JSValue quv_clearTimeout(JSContext *ctx, JSValueConst this_val, int argc,
     return JS_UNDEFINED;
 }
 
-static const JSCFunctionListEntry quv_timer_funcs[] = {
-    JS_CFUNC_MAGIC_DEF("setTimeout", 2, quv_setTimeout, 0),
-    JS_CFUNC_DEF("clearTimeout", 1, quv_clearTimeout),
-    JS_CFUNC_MAGIC_DEF("setInterval", 2, quv_setTimeout, 1),
-    JS_CFUNC_DEF("clearInterval", 1, quv_clearTimeout),
+static const JSCFunctionListEntry tjs_timer_funcs[] = {
+    JS_CFUNC_MAGIC_DEF("setTimeout", 2, tjs_setTimeout, 0),
+    JS_CFUNC_DEF("clearTimeout", 1, tjs_clearTimeout),
+    JS_CFUNC_MAGIC_DEF("setInterval", 2, tjs_setTimeout, 1),
+    JS_CFUNC_DEF("clearInterval", 1, tjs_clearTimeout),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Timer", JS_PROP_CONFIGURABLE),
 };
 
-void quv_mod_timers_init(JSContext *ctx, JSModuleDef *m) {
-    JS_NewClassID(&quv_timer_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), quv_timer_class_id, &quv_timer_class);
-    JS_SetModuleExportList(ctx, m, quv_timer_funcs, countof(quv_timer_funcs));
+void tjs_mod_timers_init(JSContext *ctx, JSModuleDef *m) {
+    JS_NewClassID(&tjs_timer_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), tjs_timer_class_id, &tjs_timer_class);
+    JS_SetModuleExportList(ctx, m, tjs_timer_funcs, countof(tjs_timer_funcs));
 }
 
-void quv_mod_timers_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExportList(ctx, m, quv_timer_funcs, countof(quv_timer_funcs));
+void tjs_mod_timers_export(JSContext *ctx, JSModuleDef *m) {
+    JS_AddModuleExportList(ctx, m, tjs_timer_funcs, countof(tjs_timer_funcs));
 }

@@ -23,7 +23,7 @@
  */
 
 #include "private.h"
-#include "quv.h"
+#include "tjs.h"
 
 extern const uint8_t abort_controller[];
 extern const uint32_t abort_controller_size;
@@ -68,7 +68,7 @@ extern const uint8_t uuid[];
 extern const uint32_t uuid_size;
 
 
-int quv__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
+int tjs__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
     JSValue obj = JS_ReadObject(ctx, buf, buf_len, JS_READ_OBJ_BYTECODE);
     if (JS_IsException(obj))
         goto error;
@@ -89,45 +89,45 @@ int quv__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
     return 0;
 
 error:
-    quv_dump_error(ctx);
+    tjs_dump_error(ctx);
     return -1;
 }
 
-void quv__bootstrap_globals(JSContext *ctx) {
+void tjs__bootstrap_globals(JSContext *ctx) {
     /* Load bootstrap */
-    CHECK_EQ(0, quv__eval_binary(ctx, bootstrap, bootstrap_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, bootstrap, bootstrap_size));
 
     /* Load TextEncoder / TextDecoder */
-    CHECK_EQ(0, quv__eval_binary(ctx, encoding, encoding_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, encoding, encoding_size));
 
     /* Load Console */
-    CHECK_EQ(0, quv__eval_binary(ctx, console, console_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, console, console_size));
 
     /* Load Crypto */
-    CHECK_EQ(0, quv__eval_binary(ctx, crypto, crypto_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, crypto, crypto_size));
 
     /* Load EventTarget */
-    CHECK_EQ(0, quv__eval_binary(ctx, event_target, event_target_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, event_target, event_target_size));
 
     /* Load Performance */
-    CHECK_EQ(0, quv__eval_binary(ctx, performance, performance_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, performance, performance_size));
 
     /* Load URL */
-    CHECK_EQ(0, quv__eval_binary(ctx, url, url_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, url, url_size));
 
     /* Load fetch */
-    CHECK_EQ(0, quv__eval_binary(ctx, fetch, fetch_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, fetch, fetch_size));
 
     /* Load AbortController */
-    CHECK_EQ(0, quv__eval_binary(ctx, abort_controller, abort_controller_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, abort_controller, abort_controller_size));
 
     /* Load bootstrap2 */
-    CHECK_EQ(0, quv__eval_binary(ctx, bootstrap2, bootstrap2_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, bootstrap2, bootstrap2_size));
 }
 
-void quv__add_builtins(JSContext *ctx) {
-    CHECK_EQ(0, quv__eval_binary(ctx, getopts, getopts_size));
-    CHECK_EQ(0, quv__eval_binary(ctx, hashlib, hashlib_size));
-    CHECK_EQ(0, quv__eval_binary(ctx, path, path_size));
-    CHECK_EQ(0, quv__eval_binary(ctx, uuid, uuid_size));
+void tjs__add_builtins(JSContext *ctx) {
+    CHECK_EQ(0, tjs__eval_binary(ctx, getopts, getopts_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, hashlib, hashlib_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, path, path_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, uuid, uuid_size));
 }

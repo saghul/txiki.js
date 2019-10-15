@@ -5,9 +5,9 @@ import { logError } from './utils.js';
 
 
 (async () => {
-    const p = new quv.Pipe();
+    const p = new tjs.Pipe();
     
-    await p.connect(quv.args[2] || '/tmp/fooPipe');
+    await p.connect(tjs.args[2] || '/tmp/fooPipe');
     
     console.log(`Connected to ${p.getpeername()}`);
 

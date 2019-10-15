@@ -27,6 +27,6 @@ format:
 	clang-format -i src/*.{c,h}
 
 test:
-	./$(BUILD_DIR)/quv tests/run.js
+	./$(BUILD_DIR)/tjs tests/run.js
 
 .PHONY: all build install clean distclean format test

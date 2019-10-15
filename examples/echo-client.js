@@ -1,12 +1,12 @@
 // Sample TCP echo client.
 //
 
-import { getopts } from '@quv/getopts';
+import { getopts } from '@tjs/getopts';
 import { addr, logError } from './utils.js';
 
 
 (async () => {
-    const options = getopts(quv.args.slice(2), {
+    const options = getopts(tjs.args.slice(2), {
         alias: {
             connect: 'c',
             port: 'p'
@@ -17,7 +17,7 @@ import { addr, logError } from './utils.js';
         }
     });
 
-    const t = new quv.TCP();
+    const t = new tjs.TCP();
     
     await t.connect({ip: options.connect, port: options.port});
     

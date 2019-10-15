@@ -24,20 +24,20 @@
 
 #include "curl-utils.h"
 #include "private.h"
-#include "quv.h"
+#include "tjs.h"
 
 #include <string.h>
 
 
-#ifdef QUV_HAVE_CURL
+#ifdef TJS_HAVE_CURL
 
-JSModuleDef *quv__load_http(JSContext *ctx, const char *url) {
+JSModuleDef *tjs__load_http(JSContext *ctx, const char *url) {
     JSModuleDef *m;
     DynBuf dbuf;
 
     dbuf_init(&dbuf);
 
-    int r = quv_curl_load_http(&dbuf, url);
+    int r = tjs_curl_load_http(&dbuf, url);
     if (r != 200) {
         m = NULL;
         JS_ThrowReferenceError(ctx, "could not load '%s' code: %d", url, r);
@@ -67,7 +67,7 @@ end:
 
 #endif
 
-JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *opaque) {
+JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *opaque) {
     static const char http[] = "http://";
     static const char https[] = "https://";
 
@@ -77,8 +77,8 @@ JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *op
     DynBuf dbuf;
 
     if (strncmp(http, module_name, strlen(http)) == 0 || strncmp(https, module_name, strlen(https)) == 0) {
-#ifdef QUV_HAVE_CURL
-        return quv__load_http(ctx, module_name);
+#ifdef TJS_HAVE_CURL
+        return tjs__load_http(ctx, module_name);
 #else
         JS_ThrowReferenceError(ctx, "could not load '%s', libcurl support not enabled", module_name);
         return NULL;
@@ -86,7 +86,7 @@ JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *op
     }
 
     dbuf_init(&dbuf);
-    r = quv__load_file(ctx, &dbuf, module_name);
+    r = tjs__load_file(ctx, &dbuf, module_name);
     if (r != 0) {
         dbuf_free(&dbuf);
         JS_ThrowReferenceError(ctx, "could not load '%s'", module_name);
@@ -163,14 +163,14 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
 }
 
 #if defined(_WIN32)
-#define QUV__PATHSEP '\\'
-#define QUV__PATHSEPS "\\"
+#define TJS__PATHSEP '\\'
+#define TJS__PATHSEPS "\\"
 #else
-#define QUV__PATHSEP '/'
-#define QUV__PATHSEPS "/"
+#define TJS__PATHSEP '/'
+#define TJS__PATHSEPS "/"
 #endif
 
-char *quv_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque) {
+char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque) {
     (void) opaque;
 
     char *filename, *p;
@@ -182,7 +182,7 @@ char *quv_module_normalizer(JSContext *ctx, const char *base_name, const char *n
         return js_strdup(ctx, name);
     }
 
-    p = strrchr(base_name, QUV__PATHSEP);
+    p = strrchr(base_name, TJS__PATHSEP);
     if (p)
         len = p - base_name;
     else
@@ -232,4 +232,4 @@ char *quv_module_normalizer(JSContext *ctx, const char *base_name, const char *n
     return filename;
 }
 
-#undef QUV__PATHSEP
+#undef TJS__PATHSEP

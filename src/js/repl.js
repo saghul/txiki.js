@@ -23,9 +23,9 @@
  * THE SOFTWARE.
  */
 
-import * as hashlib from "@quv/hashlib";
-import * as path from "@quv/path";
-import * as uuid from "@quv/uuid";
+import * as hashlib from "@tjs/hashlib";
+import * as path from "@tjs/path";
+import * as uuid from "@tjs/uuid";
 
 (function(g) {
     /* expose builtins */
@@ -116,29 +116,29 @@ import * as uuid from "@quv/uuid";
     }
 
     function termInit() {
-        if (!quv.isatty(quv.STDIN_FILENO))
+        if (!tjs.isatty(tjs.STDIN_FILENO))
             throw new Error('stdin is not a TTY');
 
-        stdin = new quv.TTY(quv.STDIN_FILENO, true);
-        stdout = new quv.TTY(quv.STDOUT_FILENO, false);
+        stdin = new tjs.TTY(tjs.STDIN_FILENO, true);
+        stdout = new tjs.TTY(tjs.STDOUT_FILENO, false);
         
         /* get the terminal size */
         var size = stdout.getWinSize();
         term_width = size.width;
 
         /* set the TTY to raw mode */
-        stdin.setMode(quv.UV_TTY_MODE_RAW);
+        stdin.setMode(tjs.UV_TTY_MODE_RAW);
 
         /* install a Ctrl-C signal handler */
-        sigint_h = quv.signal(quv.SIGINT, sigint_handler);
+        sigint_h = tjs.signal(tjs.SIGINT, sigint_handler);
 
         /* handler to read stdin */
         term_read_handler();
     }
 
     function exit(code) {
-        stdin.setMode(quv.UV_TTY_MODE_NORMAL);
-        quv.exit(code);
+        stdin.setMode(tjs.UV_TTY_MODE_NORMAL);
+        tjs.exit(code);
     }
 
     function sigint_handler() {
@@ -976,7 +976,7 @@ import * as uuid from "@quv/uuid";
             var filename = expr.substring(cmd.length + 1).trim();
             if (filename.lastIndexOf(".") <= filename.lastIndexOf("/"))
                 filename += ".js";
-            quv.loadScript(filename);
+            tjs.loadScript(filename);
             return false;
         } else if (cmd === "t") {
             show_time = !show_time;
@@ -1007,7 +1007,7 @@ import * as uuid from "@quv/uuid";
         try {
             var now = (new Date).getTime();
             /* eval as a script */
-            result = quv.evalScript(expr);
+            result = tjs.evalScript(expr);
             eval_time = (new Date).getTime() - now;
             stdout_write(colors[styles.result]);
             print(result);
@@ -1031,7 +1031,7 @@ import * as uuid from "@quv/uuid";
     }
 
     function cmd_start() {
-        stdout_write('Welcome to quv — QuickJS + libuv\nType "\\h" for help\n');
+        stdout_write('Welcome to txiki.js — The tiny JavaScript runtime\nType "\\h" for help\n');
         cmd_readline_start();
     }
 
@@ -1080,7 +1080,7 @@ import * as uuid from "@quv/uuid";
         level = 0;
         
         /* run the garbage collector after each command */
-        quv.gc();
+        tjs.gc();
     }
 
     function colorize_js(str) {

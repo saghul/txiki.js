@@ -20,7 +20,7 @@ These commands must be run in the "MSYS2 MinGW 64-bit" shell.
 make
 curl --remote-name --time-cond cacert.pem https://curl.haxx.se/ca/cacert.pem
 cp cacert.pem build
-ldd build/quv.exe | grep mingw | awk '{ print $3 }' | xargs -I{} cp -u {} build/
+ldd build/tjs.exe | grep mingw | awk '{ print $3 }' | xargs -I{} cp -u {} build/
 ```
 
 This will build the executable and copy all the required filed (DLLs and CA bundle) into the build directory.
@@ -30,7 +30,7 @@ This will build the executable and copy all the required filed (DLLs and CA bund
 Make sure these commands are run from PowerShell or Windows Terminal (mintty, what MSYS2 uses is not yet supported).
 
 ```
-.\build\quv.exe .\tests\run.js
+.\build\tjs.exe .\tests\run.js
 ```
 
 [MSYS2]: https://www.msys2.org

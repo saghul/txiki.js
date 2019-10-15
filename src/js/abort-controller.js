@@ -2,7 +2,7 @@
  * @author Toru Nagashima <https://github.com/mysticatea>
  * See LICENSE file in root directory for full license.
  */
-import { defineEventAttribute, EventTarget } from '@quv/event-target';
+import { defineEventAttribute, EventTarget } from '@tjs/event-target';
 
 /**
  * The signal class.

@@ -2,7 +2,7 @@
 //
 
 (async function() {
-    const dirIter = await quv.fs.readdir(quv.args[2]);
+    const dirIter = await tjs.fs.readdir(tjs.args[2]);
     for await (const item of dirIter) {
         console.log(item.name);
     }

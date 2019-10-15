@@ -25,16 +25,16 @@
 #include "curl-utils.h"
 
 
-#ifdef QUV_HAVE_CURL
+#ifdef TJS_HAVE_CURL
 
 static uv_once_t curl__init_once = UV_ONCE_INIT;
 
-void quv__curl_init_once(void) {
+void tjs__curl_init_once(void) {
     curl_global_init(CURL_GLOBAL_ALL);
 }
 
-void quv_curl_init(void) {
-    uv_once(&curl__init_once, quv__curl_init_once);
+void tjs_curl_init(void) {
+    uv_once(&curl__init_once, tjs__curl_init_once);
 }
 
 size_t curl__write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
@@ -45,8 +45,8 @@ size_t curl__write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
     return realsize;
 }
 
-int quv_curl_load_http(DynBuf *dbuf, const char *url) {
-    quv_curl_init();
+int tjs_curl_load_http(DynBuf *dbuf, const char *url) {
+    tjs_curl_init();
 
     CURL *curl_handle;
     CURLcode res;
@@ -65,7 +65,7 @@ int quv_curl_load_http(DynBuf *dbuf, const char *url) {
     curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *) dbuf);
 
     /* some servers don't like requests that are made without a user-agent field, so we provide one */
-    curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "quv/1.0");
+    curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "tjs/1.0");
 
 #if defined(_WIN32)
     curl_easy_setopt(curl_handle, CURLOPT_CAINFO, "cacert.pem");
@@ -97,7 +97,7 @@ int quv_curl_load_http(DynBuf *dbuf, const char *url) {
     return r;
 }
 
-static void check_multi_info(QUVRuntime *qrt) {
+static void check_multi_info(TJSRuntime *qrt) {
     char *done_url;
     CURLMsg *message;
     int pending;
@@ -113,7 +113,7 @@ static void check_multi_info(QUVRuntime *qrt) {
                 CURL *easy_handle = message->easy_handle;
                 CHECK_NOT_NULL(easy_handle);
 
-                quv_curl_private_t *curl_private = NULL;
+                tjs_curl_private_t *curl_private = NULL;
                 curl_easy_getinfo(easy_handle, CURLINFO_PRIVATE, &curl_private);
                 CHECK_NOT_NULL(curl_private);
                 CHECK_NOT_NULL(curl_private->done_cb);
@@ -132,19 +132,19 @@ static void check_multi_info(QUVRuntime *qrt) {
 typedef struct {
     uv_poll_t poll;
     curl_socket_t sockfd;
-    QUVRuntime *qrt;
-} quv_curl_poll_ctx_t;
+    TJSRuntime *qrt;
+} tjs_curl_poll_ctx_t;
 
 static void uv__poll_close_cb(uv_handle_t *handle) {
-    quv_curl_poll_ctx_t *poll_ctx = handle->data;
+    tjs_curl_poll_ctx_t *poll_ctx = handle->data;
     CHECK_NOT_NULL(poll_ctx);
     free(poll_ctx);
 }
 
 static void uv__poll_cb(uv_poll_t *handle, int status, int events) {
-    quv_curl_poll_ctx_t *poll_ctx = handle->data;
+    tjs_curl_poll_ctx_t *poll_ctx = handle->data;
     CHECK_NOT_NULL(poll_ctx);
-    QUVRuntime *qrt = poll_ctx->qrt;
+    TJSRuntime *qrt = poll_ctx->qrt;
     CHECK_NOT_NULL(qrt);
 
     int flags = 0;
@@ -160,14 +160,14 @@ static void uv__poll_cb(uv_poll_t *handle, int status, int events) {
 }
 
 static int curl__handle_socket(CURL *easy, curl_socket_t s, int action, void *userp, void *socketp) {
-    QUVRuntime *qrt = userp;
+    TJSRuntime *qrt = userp;
     CHECK_NOT_NULL(qrt);
 
     switch (action) {
         case CURL_POLL_IN:
         case CURL_POLL_OUT:
         case CURL_POLL_INOUT: {
-            quv_curl_poll_ctx_t *poll_ctx;
+            tjs_curl_poll_ctx_t *poll_ctx;
             if (!socketp) {
                 // Initialize poll handle.
                 poll_ctx = malloc(sizeof(*poll_ctx));
@@ -194,7 +194,7 @@ static int curl__handle_socket(CURL *easy, curl_socket_t s, int action, void *us
         }
         case CURL_POLL_REMOVE:
             if (socketp) {
-                quv_curl_poll_ctx_t *poll_ctx = socketp;
+                tjs_curl_poll_ctx_t *poll_ctx = socketp;
                 CHECK_EQ(uv_poll_stop(&poll_ctx->poll), 0);
                 curl_multi_assign(qrt->curl_ctx.curlm_h, s, NULL);
                 uv_close((uv_handle_t *) &poll_ctx->poll, uv__poll_close_cb);
@@ -208,7 +208,7 @@ static int curl__handle_socket(CURL *easy, curl_socket_t s, int action, void *us
 }
 
 static void uv__timer_cb(uv_timer_t *handle) {
-    QUVRuntime *qrt = handle->data;
+    TJSRuntime *qrt = handle->data;
     CHECK_NOT_NULL(qrt);
 
     int running_handles;
@@ -218,7 +218,7 @@ static void uv__timer_cb(uv_timer_t *handle) {
 }
 
 static int curl__start_timeout(CURLM *multi, long timeout_ms, void *userp) {
-    QUVRuntime *qrt = userp;
+    TJSRuntime *qrt = userp;
     CHECK_NOT_NULL(qrt);
 
     if (timeout_ms < 0) {
@@ -232,12 +232,12 @@ static int curl__start_timeout(CURLM *multi, long timeout_ms, void *userp) {
     return 0;
 }
 
-CURLM *quv__get_curlm(JSContext *ctx) {
-    QUVRuntime *qrt = QUV_GetRuntime(ctx);
+CURLM *tjs__get_curlm(JSContext *ctx) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
 
     if (!qrt->curl_ctx.curlm_h) {
-        quv_curl_init();
+        tjs_curl_init();
         CURLM *curlm_h = curl_multi_init();
         curl_multi_setopt(curlm_h, CURLMOPT_SOCKETFUNCTION, curl__handle_socket);
         curl_multi_setopt(curlm_h, CURLMOPT_SOCKETDATA, qrt);

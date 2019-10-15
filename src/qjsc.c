@@ -230,7 +230,7 @@ static int js_module_dummy_init(JSContext *ctx, JSModuleDef *m) {
 }
 
 JSModuleDef *jsc_module_loader(JSContext *ctx, const char *module_name, void *opaque) {
-    static const char prefix[] = "@quv/";
+    static const char prefix[] = "@tjs/";
 
     JSModuleDef *m;
     namelist_entry_t *e;
@@ -255,7 +255,7 @@ JSModuleDef *jsc_module_loader(JSContext *ctx, const char *module_name, void *op
 }
 
 static void compile_file(JSContext *ctx, FILE *fo, const char *filename, int module) {
-    static const char prefix[] = "@quv/";
+    static const char prefix[] = "@tjs/";
 
     uint8_t *buf;
     char c_name[1024];

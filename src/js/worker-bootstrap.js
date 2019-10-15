@@ -1,7 +1,7 @@
 
-import { defineEventAttribute } from '@quv/event-target';
+import { defineEventAttribute } from '@tjs/event-target';
 
-// `workerThis` is a reference to a quv/core `Worker` objet.
+// `workerThis` is a reference to a tjs/core `Worker` objet.
 
 const kWorkerSelf = Symbol('kWorkerSelf');
 

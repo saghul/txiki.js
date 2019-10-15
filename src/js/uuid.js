@@ -1,4 +1,4 @@
-import * as hashlib from '@quv/hashlib';
+import * as hashlib from '@tjs/hashlib';
 
 // Adapted from node-uuid
 // Copyright (c) 2010-2016 Robert Kieffer and other contributors

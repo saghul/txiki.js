@@ -1,5 +1,5 @@
 import { run, test } from './t.js';
-import { dirname, join } from '@quv/path';
+import { dirname, join } from '@tjs/path';
 
 const thisFile = import.meta.url.slice(7);   // strip "file://"
 

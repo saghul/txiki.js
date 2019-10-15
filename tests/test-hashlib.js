@@ -1,5 +1,5 @@
 import { run, test } from './t.js';
-import * as hashlib from '@quv/hashlib';
+import * as hashlib from '@tjs/hashlib';
 
 test('hashlib module', t => {
     const text = 'The quick brown fox jumps over the lazy dog';

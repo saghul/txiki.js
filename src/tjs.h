@@ -23,8 +23,8 @@
  * THE SOFTWARE.
  */
 
-#ifndef QUV_H
-#define QUV_H
+#ifndef TJS_H
+#define TJS_H
 
 #include "utils.h"
 
@@ -32,18 +32,18 @@
 #include <stdbool.h>
 #include <uv.h>
 
-typedef struct QUVRuntime QUVRuntime;
+typedef struct TJSRuntime TJSRuntime;
 
-QUVRuntime *QUV_NewRuntime(void);
-QUVRuntime *QUV_NewRuntime2(bool is_worker);
-void QUV_FreeRuntime(QUVRuntime *qrt);
-void QUV_SetupArgs(int argc, char **argv);
-JSContext *QUV_GetJSContext(QUVRuntime *qrt);
-QUVRuntime *QUV_GetRuntime(JSContext *ctx);
-void QUV_Run(QUVRuntime *qrt);
-void QUV_Stop(QUVRuntime *qrt);
-uv_loop_t *QUV_GetLoop(QUVRuntime *qrt);
-JSValue QUV_EvalFile(JSContext *ctx, const char *filename, int eval_flags, bool is_main);
-void QUV_RunRepl(JSContext *ctx);
+TJSRuntime *TJS_NewRuntime(void);
+TJSRuntime *TJS_NewRuntime2(bool is_worker);
+void TJS_FreeRuntime(TJSRuntime *qrt);
+void TJS_SetupArgs(int argc, char **argv);
+JSContext *TJS_GetJSContext(TJSRuntime *qrt);
+TJSRuntime *TJS_GetRuntime(JSContext *ctx);
+void TJS_Run(TJSRuntime *qrt);
+void TJS_Stop(TJSRuntime *qrt);
+uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
+JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int eval_flags, bool is_main);
+void TJS_RunRepl(JSContext *ctx);
 
 #endif

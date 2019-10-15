@@ -26,13 +26,13 @@
 #include "utils.h"
 
 #include "private.h"
-#include "quv.h"
+#include "tjs.h"
 
 #include <stdlib.h>
 #include <string.h>
 
 
-void quv_assert(const struct AssertionInfo info) {
+void tjs_assert(const struct AssertionInfo info) {
     fprintf(stderr,
             "%s:%s%s Assertion `%s' failed.\n",
             info.file_line,
@@ -43,14 +43,14 @@ void quv_assert(const struct AssertionInfo info) {
     abort();
 }
 
-uv_loop_t *quv_get_loop(JSContext *ctx) {
-    QUVRuntime *qrt = JS_GetContextOpaque(ctx);
+uv_loop_t *tjs_get_loop(JSContext *ctx) {
+    TJSRuntime *qrt = JS_GetContextOpaque(ctx);
     CHECK_NOT_NULL(qrt);
 
-    return QUV_GetLoop(qrt);
+    return TJS_GetLoop(qrt);
 }
 
-int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) {
+int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) {
     JSValue js_ip;
     JSValue js_port;
     const char *ip;
@@ -80,7 +80,7 @@ int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) 
         ss->ss_family = AF_INET6;
         ((struct sockaddr_in6 *) ss)->sin6_port = htons(port);
     } else {
-        quv_throw_errno(ctx, UV_EAFNOSUPPORT);
+        tjs_throw_errno(ctx, UV_EAFNOSUPPORT);
         JS_FreeCString(ctx, ip);
         return -1;
     }
@@ -89,7 +89,7 @@ int quv_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) 
     return 0;
 }
 
-JSValue quv_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
+JSValue tjs_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
     char buf[INET6_ADDRSTRLEN + 1];
     JSValue obj;
 
@@ -130,7 +130,7 @@ JSValue quv_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
     }
 }
 
-void quv_dump_error(JSContext *ctx) {
+void tjs_dump_error(JSContext *ctx) {
     JSValue exception_val, val;
     const char *stack, *exception_str;
     int is_error;
@@ -154,7 +154,7 @@ void quv_dump_error(JSContext *ctx) {
     JS_FreeValue(ctx, exception_val);
 }
 
-void quv_call_handler(JSContext *ctx, JSValueConst func) {
+void tjs_call_handler(JSContext *ctx, JSValueConst func) {
     JSValue ret, func1;
     /* 'func' might be destroyed when calling itself (if it frees the
        handler), so must take extra care */
@@ -162,7 +162,7 @@ void quv_call_handler(JSContext *ctx, JSValueConst func) {
     ret = JS_Call(ctx, func1, JS_UNDEFINED, 0, NULL);
     JS_FreeValue(ctx, func1);
     if (JS_IsException(ret))
-        quv_dump_error(ctx);
+        tjs_dump_error(ctx);
     JS_FreeValue(ctx, ret);
 }
 
@@ -175,54 +175,54 @@ void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len) {
     }
 }
 
-JSValue QUV_InitPromise(JSContext *ctx, QUVPromise *p) {
+JSValue TJS_InitPromise(JSContext *ctx, TJSPromise *p) {
     p->p = JS_NewPromiseCapability(ctx, p->rfuncs);
     if (JS_IsException(p->p))
         return JS_EXCEPTION;
     return JS_DupValue(ctx, p->p);
 }
 
-void QUV_FreePromise(JSContext *ctx, QUVPromise *p) {
+void TJS_FreePromise(JSContext *ctx, TJSPromise *p) {
     JS_FreeValue(ctx, p->p);
     JS_FreeValue(ctx, p->rfuncs[0]);
     JS_FreeValue(ctx, p->rfuncs[1]);
 }
 
-void QUV_FreePromiseRT(JSRuntime *rt, QUVPromise *p) {
+void TJS_FreePromiseRT(JSRuntime *rt, TJSPromise *p) {
     JS_FreeValueRT(rt, p->p);
     JS_FreeValueRT(rt, p->rfuncs[0]);
     JS_FreeValueRT(rt, p->rfuncs[1]);
 }
 
-void QUV_ClearPromise(JSContext *ctx, QUVPromise *p) {
+void TJS_ClearPromise(JSContext *ctx, TJSPromise *p) {
     p->p = JS_UNDEFINED;
     p->rfuncs[0] = JS_UNDEFINED;
     p->rfuncs[1] = JS_UNDEFINED;
 }
 
-void QUV_MarkPromise(JSRuntime *rt, QUVPromise *p, JS_MarkFunc *mark_func) {
+void TJS_MarkPromise(JSRuntime *rt, TJSPromise *p, JS_MarkFunc *mark_func) {
     JS_MarkValue(rt, p->p, mark_func);
     JS_MarkValue(rt, p->rfuncs[0], mark_func);
     JS_MarkValue(rt, p->rfuncs[1], mark_func);
 }
 
-void QUV_SettlePromise(JSContext *ctx, QUVPromise *p, bool is_reject, int argc, JSValueConst *argv) {
+void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, int argc, JSValueConst *argv) {
     JSValue ret = JS_Call(ctx, p->rfuncs[is_reject], JS_UNDEFINED, argc, argv);
     for (int i = 0; i < argc; i++)
         JS_FreeValue(ctx, argv[i]);
     JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
-    QUV_FreePromise(ctx, p);
+    TJS_FreePromise(ctx, p);
 }
 
-void QUV_ResolvePromise(JSContext *ctx, QUVPromise *p, int argc, JSValueConst *argv) {
-    QUV_SettlePromise(ctx, p, false, argc, argv);
+void TJS_ResolvePromise(JSContext *ctx, TJSPromise *p, int argc, JSValueConst *argv) {
+    TJS_SettlePromise(ctx, p, false, argc, argv);
 }
 
-void QUV_RejectPromise(JSContext *ctx, QUVPromise *p, int argc, JSValueConst *argv) {
-    QUV_SettlePromise(ctx, p, true, argc, argv);
+void TJS_RejectPromise(JSContext *ctx, TJSPromise *p, int argc, JSValueConst *argv) {
+    TJS_SettlePromise(ctx, p, true, argc, argv);
 }
 
-static inline JSValue quv__settled_promise(JSContext *ctx, bool is_reject, int argc, JSValueConst *argv) {
+static inline JSValue tjs__settled_promise(JSContext *ctx, bool is_reject, int argc, JSValueConst *argv) {
     JSValue promise, resolving_funcs[2], ret;
 
     promise = JS_NewPromiseCapability(ctx, resolving_funcs);
@@ -240,10 +240,10 @@ static inline JSValue quv__settled_promise(JSContext *ctx, bool is_reject, int a
     return promise;
 }
 
-JSValue QUV_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
-    return quv__settled_promise(ctx, false, argc, argv);
+JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
+    return tjs__settled_promise(ctx, false, argc, argv);
 }
 
-JSValue QUV_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
-    return quv__settled_promise(ctx, true, argc, argv);
+JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
+    return tjs__settled_promise(ctx, true, argc, argv);
 }
