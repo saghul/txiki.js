@@ -26,16 +26,16 @@
 #include "utils.h"
 
 
-static JSClassID quv_file_class_id;
+static JSClassID tjs_file_class_id;
 
 typedef struct {
     JSContext *ctx;
     uv_file fd;
     JSValue path;
-} QUVFile;
+} TJSFile;
 
-static void quv_file_finalizer(JSRuntime *rt, JSValue val) {
-    QUVFile *f = JS_GetOpaque(val, quv_file_class_id);
+static void tjs_file_finalizer(JSRuntime *rt, JSValue val) {
+    TJSFile *f = JS_GetOpaque(val, tjs_file_class_id);
     if (f) {
         if (f->fd != -1) {
             uv_fs_t req;
@@ -47,12 +47,12 @@ static void quv_file_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static JSClassDef quv_file_class = {
+static JSClassDef tjs_file_class = {
     "File",
-    .finalizer = quv_file_finalizer,
+    .finalizer = tjs_file_finalizer,
 };
 
-static JSClassID quv_dir_class_id;
+static JSClassID tjs_dir_class_id;
 
 typedef struct {
     JSContext *ctx;
@@ -60,10 +60,10 @@ typedef struct {
     uv_dirent_t dirent;
     JSValue path;
     bool done;
-} QUVDir;
+} TJSDir;
 
-static void quv_dir_finalizer(JSRuntime *rt, JSValue val) {
-    QUVDir *d = JS_GetOpaque(val, quv_dir_class_id);
+static void tjs_dir_finalizer(JSRuntime *rt, JSValue val) {
+    TJSDir *d = JS_GetOpaque(val, tjs_dir_class_id);
     if (d) {
         if (d->dir) {
             uv_fs_t req;
@@ -75,17 +75,17 @@ static void quv_dir_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static JSClassDef quv_dir_class = { "Directory", .finalizer = quv_dir_finalizer };
+static JSClassDef tjs_dir_class = { "Directory", .finalizer = tjs_dir_finalizer };
 
 typedef struct {
     uv_fs_t req;
     JSContext *ctx;
     JSValue obj;
-    QUVPromise result;
+    TJSPromise result;
     struct {
         JSValue buf;
     } rw;
-} QUVFsReq;
+} TJSFsReq;
 
 typedef struct {
     uv_work_t req;
@@ -93,8 +93,8 @@ typedef struct {
     JSContext *ctx;
     int r;
     char *filename;
-    QUVPromise result;
-} QUVReadFileReq;
+    TJSPromise result;
+} TJSReadFileReq;
 
 static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
@@ -127,11 +127,11 @@ static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
     return obj;
 }
 
-static JSValue quv_new_file(JSContext *ctx, uv_file fd, const char *path) {
-    QUVFile *f;
+static JSValue tjs_new_file(JSContext *ctx, uv_file fd, const char *path) {
+    TJSFile *f;
     JSValue obj;
 
-    obj = JS_NewObjectClass(ctx, quv_file_class_id);
+    obj = JS_NewObjectClass(ctx, tjs_file_class_id);
     if (JS_IsException(obj))
         return obj;
 
@@ -149,15 +149,15 @@ static JSValue quv_new_file(JSContext *ctx, uv_file fd, const char *path) {
     return obj;
 }
 
-static QUVFile *quv_file_get(JSContext *ctx, JSValueConst obj) {
-    return JS_GetOpaque2(ctx, obj, quv_file_class_id);
+static TJSFile *tjs_file_get(JSContext *ctx, JSValueConst obj) {
+    return JS_GetOpaque2(ctx, obj, tjs_file_class_id);
 }
 
-static JSValue quv_new_dir(JSContext *ctx, uv_dir_t *dir, const char *path) {
-    QUVDir *d;
+static JSValue tjs_new_dir(JSContext *ctx, uv_dir_t *dir, const char *path) {
+    TJSDir *d;
     JSValue obj;
 
-    obj = JS_NewObjectClass(ctx, quv_dir_class_id);
+    obj = JS_NewObjectClass(ctx, tjs_dir_class_id);
     if (JS_IsException(obj))
         return obj;
 
@@ -176,43 +176,43 @@ static JSValue quv_new_dir(JSContext *ctx, uv_dir_t *dir, const char *path) {
     return obj;
 }
 
-static QUVDir *quv_dir_get(JSContext *ctx, JSValueConst obj) {
-    return JS_GetOpaque2(ctx, obj, quv_dir_class_id);
+static TJSDir *tjs_dir_get(JSContext *ctx, JSValueConst obj) {
+    return JS_GetOpaque2(ctx, obj, tjs_dir_class_id);
 }
 
-static JSValue quv_fsreq_init(JSContext *ctx, QUVFsReq *fr, JSValue obj) {
+static JSValue tjs_fsreq_init(JSContext *ctx, TJSFsReq *fr, JSValue obj) {
     fr->ctx = ctx;
     fr->req.data = fr;
     fr->obj = JS_DupValue(ctx, obj);
     fr->rw.buf = JS_UNDEFINED;
 
-    return QUV_InitPromise(ctx, &fr->result);
+    return TJS_InitPromise(ctx, &fr->result);
 }
 
 static void uv__fs_req_cb(uv_fs_t *req) {
-    QUVFsReq *fr = req->data;
+    TJSFsReq *fr = req->data;
     if (!fr)
         return;
 
     JSContext *ctx = fr->ctx;
     JSValue arg;
-    QUVFile *f;
-    QUVDir *d;
+    TJSFile *f;
+    TJSDir *d;
     bool is_reject = false;
 
     if (fr->req.result < 0) {
-        arg = quv_new_error(ctx, fr->req.result);
+        arg = tjs_new_error(ctx, fr->req.result);
         is_reject = true;
         goto skip;
     }
 
     switch (fr->req.fs_type) {
         case UV_FS_OPEN:
-            arg = quv_new_file(ctx, fr->req.result, fr->req.path);
+            arg = tjs_new_file(ctx, fr->req.result, fr->req.path);
             break;
         case UV_FS_CLOSE:
             arg = JS_UNDEFINED;
-            f = quv_file_get(ctx, fr->obj);
+            f = tjs_file_get(ctx, fr->obj);
             CHECK_NOT_NULL(f);
             f->fd = -1;
             JS_FreeValue(ctx, f->path);
@@ -245,12 +245,12 @@ static void uv__fs_req_cb(uv_fs_t *req) {
             break;
 
         case UV_FS_OPENDIR:
-            arg = quv_new_dir(ctx, fr->req.ptr, fr->req.path);
+            arg = tjs_new_dir(ctx, fr->req.ptr, fr->req.path);
             break;
 
         case UV_FS_CLOSEDIR:
             arg = JS_UNDEFINED;
-            d = quv_dir_get(ctx, fr->obj);
+            d = tjs_dir_get(ctx, fr->obj);
             CHECK_NOT_NULL(d);
             d->dir = NULL;
             JS_FreeValue(ctx, d->path);
@@ -258,7 +258,7 @@ static void uv__fs_req_cb(uv_fs_t *req) {
             break;
 
         case UV_FS_READDIR:
-            d = quv_dir_get(ctx, fr->obj);
+            d = tjs_dir_get(ctx, fr->obj);
             d->done = fr->req.result == 0;
             arg = JS_NewObjectProto(ctx, JS_NULL);
             JS_DefinePropertyValueStr(ctx, arg, "done", JS_NewBool(ctx, d->done), JS_PROP_C_W_E);
@@ -275,7 +275,7 @@ static void uv__fs_req_cb(uv_fs_t *req) {
     }
 
 skip:
-    QUV_SettlePromise(ctx, &fr->result, is_reject, 1, (JSValueConst *) &arg);
+    TJS_SettlePromise(ctx, &fr->result, is_reject, 1, (JSValueConst *) &arg);
 
     JS_FreeValue(ctx, fr->obj);
     JS_FreeValue(ctx, fr->rw.buf);
@@ -286,8 +286,8 @@ skip:
 
 /* File functions */
 
-static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
-    QUVFile *f = quv_file_get(ctx, this_val);
+static JSValue tjs_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
+    TJSFile *f = tjs_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
@@ -315,7 +315,7 @@ static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     if (!JS_IsUndefined(argv[3]) && JS_ToIndex(ctx, &pos, argv[3]))
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -323,65 +323,65 @@ static JSValue quv_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 
     int r;
     if (magic)
-        r = uv_fs_write(quv_get_loop(ctx), &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
+        r = uv_fs_write(tjs_get_loop(ctx), &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
     else
-        r = uv_fs_read(quv_get_loop(ctx), &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
+        r = uv_fs_read(tjs_get_loop(ctx), &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    quv_fsreq_init(ctx, fr, this_val);
+    tjs_fsreq_init(ctx, fr, this_val);
     fr->rw.buf = JS_DupValue(ctx, argv[0]);
     return fr->result.p;
 }
 
-static JSValue quv_file_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    QUVFile *f = quv_file_get(ctx, this_val);
+static JSValue tjs_file_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSFile *f = tjs_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_close(quv_get_loop(ctx), &fr->req, f->fd, uv__fs_req_cb);
+    int r = uv_fs_close(tjs_get_loop(ctx), &fr->req, f->fd, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, this_val);
+    return tjs_fsreq_init(ctx, fr, this_val);
 }
 
-static JSValue quv_file_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    QUVFile *f = quv_file_get(ctx, this_val);
+static JSValue tjs_file_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSFile *f = tjs_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_fstat(quv_get_loop(ctx), &fr->req, f->fd, uv__fs_req_cb);
+    int r = uv_fs_fstat(tjs_get_loop(ctx), &fr->req, f->fd, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, this_val);
+    return tjs_fsreq_init(ctx, fr, this_val);
 }
 
-static JSValue quv_file_fileno(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    QUVFile *f = quv_file_get(ctx, this_val);
+static JSValue tjs_file_fileno(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSFile *f = tjs_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
     return JS_NewInt32(ctx, f->fd);
 }
 
-static JSValue quv_file_path_get(JSContext *ctx, JSValueConst this_val) {
-    QUVFile *f = quv_file_get(ctx, this_val);
+static JSValue tjs_file_path_get(JSContext *ctx, JSValueConst this_val) {
+    TJSFile *f = tjs_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
     return JS_DupValue(ctx, f->path);
@@ -389,56 +389,56 @@ static JSValue quv_file_path_get(JSContext *ctx, JSValueConst this_val) {
 
 /* Dir functions */
 
-static JSValue quv_dir_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    QUVDir *d = quv_dir_get(ctx, this_val);
+static JSValue tjs_dir_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSDir *d = tjs_dir_get(ctx, this_val);
     if (!d)
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_closedir(quv_get_loop(ctx), &fr->req, d->dir, uv__fs_req_cb);
+    int r = uv_fs_closedir(tjs_get_loop(ctx), &fr->req, d->dir, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, this_val);
+    return tjs_fsreq_init(ctx, fr, this_val);
 }
 
-static JSValue quv_dir_path_get(JSContext *ctx, JSValueConst this_val) {
-    QUVDir *d = quv_dir_get(ctx, this_val);
+static JSValue tjs_dir_path_get(JSContext *ctx, JSValueConst this_val) {
+    TJSDir *d = tjs_dir_get(ctx, this_val);
     if (!d)
         return JS_EXCEPTION;
     return JS_DupValue(ctx, d->path);
 }
 
-static JSValue quv_dir_next(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    QUVDir *d = quv_dir_get(ctx, this_val);
+static JSValue tjs_dir_next(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSDir *d = tjs_dir_get(ctx, this_val);
     if (!d)
         return JS_EXCEPTION;
 
     if (d->done)
         return JS_UNDEFINED;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
     d->dir->dirents = &d->dirent;
     d->dir->nentries = 1;
 
-    int r = uv_fs_readdir(quv_get_loop(ctx), &fr->req, d->dir, uv__fs_req_cb);
+    int r = uv_fs_readdir(tjs_get_loop(ctx), &fr->req, d->dir, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, this_val);
+    return tjs_fsreq_init(ctx, fr, this_val);
 }
 
-static JSValue quv_dir_iterator(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_dir_iterator(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     return JS_DupValue(ctx, this_val);
 }
 
@@ -477,7 +477,7 @@ static int js__uv_open_flags(const char *strflags, size_t len) {
     return flags;
 }
 
-static JSValue quv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path;
     const char *strflags;
     size_t len;
@@ -497,78 +497,78 @@ static JSValue quv_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     if (JS_ToInt32(ctx, &mode, argv[2]))
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_open(quv_get_loop(ctx), &fr->req, path, flags, mode, uv__fs_req_cb);
+    int r = uv_fs_open(tjs_get_loop(ctx), &fr->req, path, flags, mode, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
-static JSValue quv_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
+static JSValue tjs_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
     int r;
     if (magic)
-        r = uv_fs_lstat(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
+        r = uv_fs_lstat(tjs_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
     else
-        r = uv_fs_stat(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
+        r = uv_fs_stat(tjs_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
-static JSValue quv_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_realpath(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
+    int r = uv_fs_realpath(tjs_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
-static JSValue quv_fs_unlink(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_fs_unlink(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_unlink(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
+    int r = uv_fs_unlink(tjs_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
-static JSValue quv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
@@ -577,56 +577,56 @@ static JSValue quv_fs_rename(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (!new_path)
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_rename(quv_get_loop(ctx), &fr->req, path, new_path, uv__fs_req_cb);
+    int r = uv_fs_rename(tjs_get_loop(ctx), &fr->req, path, new_path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
-static JSValue quv_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *tpl = JS_ToCString(ctx, argv[0]);
     if (!tpl)
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_mkdtemp(quv_get_loop(ctx), &fr->req, tpl, uv__fs_req_cb);
+    int r = uv_fs_mkdtemp(tjs_get_loop(ctx), &fr->req, tpl, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
-static JSValue quv_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_rmdir(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
+    int r = uv_fs_rmdir(tjs_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
-static JSValue quv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
@@ -639,39 +639,39 @@ static JSValue quv_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, 
     if (JS_ToInt32(ctx, &flags, argv[2]))
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_copyfile(quv_get_loop(ctx), &fr->req, path, new_path, flags, uv__fs_req_cb);
+    int r = uv_fs_copyfile(tjs_get_loop(ctx), &fr->req, path, new_path, flags, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
-static JSValue quv_fs_readdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_fs_readdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
 
-    QUVFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
-    int r = uv_fs_opendir(quv_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
+    int r = uv_fs_opendir(tjs_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return quv_fsreq_init(ctx, fr, JS_UNDEFINED);
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
-static void quv__readfile_free(JSRuntime *rt, void *opaque, void *ptr) {
-    QUVReadFileReq *fr = opaque;
+static void tjs__readfile_free(JSRuntime *rt, void *opaque, void *ptr) {
+    TJSReadFileReq *fr = opaque;
     CHECK_NOT_NULL(fr);
 
     dbuf_free(&fr->dbuf);
@@ -679,15 +679,15 @@ static void quv__readfile_free(JSRuntime *rt, void *opaque, void *ptr) {
     js_free_rt(rt, fr);
 }
 
-static void quv__readfile_work_cb(uv_work_t *req) {
-    QUVReadFileReq *fr = req->data;
+static void tjs__readfile_work_cb(uv_work_t *req) {
+    TJSReadFileReq *fr = req->data;
     CHECK_NOT_NULL(fr);
 
-    fr->r = quv__load_file(fr->ctx, &fr->dbuf, fr->filename);
+    fr->r = tjs__load_file(fr->ctx, &fr->dbuf, fr->filename);
 }
 
-static void quv__readfile_after_work_cb(uv_work_t *req, int status) {
-    QUVReadFileReq *fr = req->data;
+static void tjs__readfile_after_work_cb(uv_work_t *req, int status) {
+    TJSReadFileReq *fr = req->data;
     CHECK_NOT_NULL(fr);
 
     JSContext *ctx = fr->ctx;
@@ -695,27 +695,27 @@ static void quv__readfile_after_work_cb(uv_work_t *req, int status) {
     bool is_reject = false;
 
     if (status != 0) {
-        arg = quv_new_error(ctx, status);
+        arg = tjs_new_error(ctx, status);
         is_reject = true;
     } else if (fr->r < 0) {
-        arg = quv_new_error(ctx, fr->r);
+        arg = tjs_new_error(ctx, fr->r);
         is_reject = true;
     } else {
-        arg = JS_NewArrayBuffer(ctx, fr->dbuf.buf, fr->dbuf.size, quv__readfile_free, (void *) fr, false);
+        arg = JS_NewArrayBuffer(ctx, fr->dbuf.buf, fr->dbuf.size, tjs__readfile_free, (void *) fr, false);
     }
 
-    QUV_SettlePromise(ctx, &fr->result, is_reject, 1, (JSValueConst *) &arg);
+    TJS_SettlePromise(ctx, &fr->result, is_reject, 1, (JSValueConst *) &arg);
 
     if (is_reject)
-        quv__readfile_free(JS_GetRuntime(ctx), (void *) fr, NULL);
+        tjs__readfile_free(JS_GetRuntime(ctx), (void *) fr, NULL);
 }
 
-static JSValue quv_fs_readfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_fs_readfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
 
-    QUVReadFileReq *fr = js_malloc(ctx, sizeof(*fr));
+    TJSReadFileReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr)
         return JS_EXCEPTION;
 
@@ -725,97 +725,97 @@ static JSValue quv_fs_readfile(JSContext *ctx, JSValueConst this_val, int argc, 
     fr->filename = js_strdup(ctx, path);
     fr->req.data = fr;
 
-    int r = uv_queue_work(quv_get_loop(ctx), &fr->req, quv__readfile_work_cb, quv__readfile_after_work_cb);
+    int r = uv_queue_work(tjs_get_loop(ctx), &fr->req, tjs__readfile_work_cb, tjs__readfile_after_work_cb);
     if (r != 0) {
         js_free(ctx, fr->filename);
         js_free(ctx, fr);
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     }
 
-    return QUV_InitPromise(ctx, &fr->result);
+    return TJS_InitPromise(ctx, &fr->result);
 }
 
-static const JSCFunctionListEntry quv_file_proto_funcs[] = {
-    JS_CFUNC_MAGIC_DEF("read", 4, quv_file_rw, 0),
-    JS_CFUNC_MAGIC_DEF("write", 4, quv_file_rw, 1),
-    JS_CFUNC_DEF("close", 0, quv_file_close),
-    JS_CFUNC_DEF("fileno", 0, quv_file_fileno),
-    JS_CFUNC_DEF("stat", 0, quv_file_stat),
-    JS_CGETSET_DEF("path", quv_file_path_get, NULL),
+static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
+    JS_CFUNC_MAGIC_DEF("read", 4, tjs_file_rw, 0),
+    JS_CFUNC_MAGIC_DEF("write", 4, tjs_file_rw, 1),
+    JS_CFUNC_DEF("close", 0, tjs_file_close),
+    JS_CFUNC_DEF("fileno", 0, tjs_file_fileno),
+    JS_CFUNC_DEF("stat", 0, tjs_file_stat),
+    JS_CGETSET_DEF("path", tjs_file_path_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "File", JS_PROP_CONFIGURABLE),
 };
 
-static const JSCFunctionListEntry quv_dir_proto_funcs[] = {
-    JS_CFUNC_DEF("close", 0, quv_dir_close),
-    JS_CGETSET_DEF("path", quv_dir_path_get, NULL),
-    JS_CFUNC_DEF("next", 0, quv_dir_next),
+static const JSCFunctionListEntry tjs_dir_proto_funcs[] = {
+    JS_CFUNC_DEF("close", 0, tjs_dir_close),
+    JS_CGETSET_DEF("path", tjs_dir_path_get, NULL),
+    JS_CFUNC_DEF("next", 0, tjs_dir_next),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Dir", JS_PROP_CONFIGURABLE),
-    JS_CFUNC_DEF("[Symbol.asyncIterator]", 0, quv_dir_iterator),
+    JS_CFUNC_DEF("[Symbol.asyncIterator]", 0, tjs_dir_iterator),
 };
 
-static const JSCFunctionListEntry quv_fs_funcs[] = {
-    QUV_CONST(UV_DIRENT_UNKNOWN),
-    QUV_CONST(UV_DIRENT_FILE),
-    QUV_CONST(UV_DIRENT_DIR),
-    QUV_CONST(UV_DIRENT_LINK),
-    QUV_CONST(UV_DIRENT_FIFO),
-    QUV_CONST(UV_DIRENT_SOCKET),
-    QUV_CONST(UV_DIRENT_CHAR),
-    QUV_CONST(UV_DIRENT_BLOCK),
-    QUV_CONST(UV_FS_COPYFILE_EXCL),
-    QUV_CONST(UV_FS_COPYFILE_FICLONE),
-    QUV_CONST(UV_FS_COPYFILE_FICLONE_FORCE),
-    QUV_CONST(S_IFMT),
-    QUV_CONST(S_IFIFO),
-    QUV_CONST(S_IFCHR),
-    QUV_CONST(S_IFDIR),
-    QUV_CONST(S_IFBLK),
-    QUV_CONST(S_IFREG),
+static const JSCFunctionListEntry tjs_fs_funcs[] = {
+    TJS_CONST(UV_DIRENT_UNKNOWN),
+    TJS_CONST(UV_DIRENT_FILE),
+    TJS_CONST(UV_DIRENT_DIR),
+    TJS_CONST(UV_DIRENT_LINK),
+    TJS_CONST(UV_DIRENT_FIFO),
+    TJS_CONST(UV_DIRENT_SOCKET),
+    TJS_CONST(UV_DIRENT_CHAR),
+    TJS_CONST(UV_DIRENT_BLOCK),
+    TJS_CONST(UV_FS_COPYFILE_EXCL),
+    TJS_CONST(UV_FS_COPYFILE_FICLONE),
+    TJS_CONST(UV_FS_COPYFILE_FICLONE_FORCE),
+    TJS_CONST(S_IFMT),
+    TJS_CONST(S_IFIFO),
+    TJS_CONST(S_IFCHR),
+    TJS_CONST(S_IFDIR),
+    TJS_CONST(S_IFBLK),
+    TJS_CONST(S_IFREG),
 #ifdef S_IFSOCK
-    QUV_CONST(S_IFSOCK),
+    TJS_CONST(S_IFSOCK),
 #endif
-    QUV_CONST(S_IFLNK),
+    TJS_CONST(S_IFLNK),
 #ifdef S_ISGID
-    QUV_CONST(S_ISGID),
+    TJS_CONST(S_ISGID),
 #endif
 #ifdef S_ISUID
-    QUV_CONST(S_ISUID),
+    TJS_CONST(S_ISUID),
 #endif
-    JS_CFUNC_DEF("open", 3, quv_fs_open),
-    JS_CFUNC_MAGIC_DEF("stat", 1, quv_fs_stat, 0),
-    JS_CFUNC_MAGIC_DEF("lstat", 1, quv_fs_stat, 1),
-    JS_CFUNC_DEF("realpath", 1, quv_fs_realpath),
-    JS_CFUNC_DEF("unlink", 1, quv_fs_unlink),
-    JS_CFUNC_DEF("rename", 2, quv_fs_rename),
-    JS_CFUNC_DEF("mkdtemp", 1, quv_fs_mkdtemp),
-    JS_CFUNC_DEF("rmdir", 1, quv_fs_rmdir),
-    JS_CFUNC_DEF("copyfile", 3, quv_fs_copyfile),
-    JS_CFUNC_DEF("readdir", 1, quv_fs_readdir),
-    JS_CFUNC_DEF("readFile", 1, quv_fs_readfile),
+    JS_CFUNC_DEF("open", 3, tjs_fs_open),
+    JS_CFUNC_MAGIC_DEF("stat", 1, tjs_fs_stat, 0),
+    JS_CFUNC_MAGIC_DEF("lstat", 1, tjs_fs_stat, 1),
+    JS_CFUNC_DEF("realpath", 1, tjs_fs_realpath),
+    JS_CFUNC_DEF("unlink", 1, tjs_fs_unlink),
+    JS_CFUNC_DEF("rename", 2, tjs_fs_rename),
+    JS_CFUNC_DEF("mkdtemp", 1, tjs_fs_mkdtemp),
+    JS_CFUNC_DEF("rmdir", 1, tjs_fs_rmdir),
+    JS_CFUNC_DEF("copyfile", 3, tjs_fs_copyfile),
+    JS_CFUNC_DEF("readdir", 1, tjs_fs_readdir),
+    JS_CFUNC_DEF("readFile", 1, tjs_fs_readfile),
 };
 
-void quv_mod_fs_init(JSContext *ctx, JSModuleDef *m) {
+void tjs_mod_fs_init(JSContext *ctx, JSModuleDef *m) {
     JSValue proto, obj;
 
     /* File object */
-    JS_NewClassID(&quv_file_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), quv_file_class_id, &quv_file_class);
+    JS_NewClassID(&tjs_file_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), tjs_file_class_id, &tjs_file_class);
     proto = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, proto, quv_file_proto_funcs, countof(quv_file_proto_funcs));
-    JS_SetClassProto(ctx, quv_file_class_id, proto);
+    JS_SetPropertyFunctionList(ctx, proto, tjs_file_proto_funcs, countof(tjs_file_proto_funcs));
+    JS_SetClassProto(ctx, tjs_file_class_id, proto);
 
     /* Dir object */
-    JS_NewClassID(&quv_dir_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), quv_dir_class_id, &quv_dir_class);
+    JS_NewClassID(&tjs_dir_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), tjs_dir_class_id, &tjs_dir_class);
     proto = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, proto, quv_dir_proto_funcs, countof(quv_dir_proto_funcs));
-    JS_SetClassProto(ctx, quv_dir_class_id, proto);
+    JS_SetPropertyFunctionList(ctx, proto, tjs_dir_proto_funcs, countof(tjs_dir_proto_funcs));
+    JS_SetClassProto(ctx, tjs_dir_class_id, proto);
 
     obj = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, obj, quv_fs_funcs, countof(quv_fs_funcs));
+    JS_SetPropertyFunctionList(ctx, obj, tjs_fs_funcs, countof(tjs_fs_funcs));
     JS_SetModuleExport(ctx, m, "fs", obj);
 }
 
-void quv_mod_fs_export(JSContext *ctx, JSModuleDef *m) {
+void tjs_mod_fs_export(JSContext *ctx, JSModuleDef *m) {
     JS_AddModuleExport(ctx, m, "fs");
 }

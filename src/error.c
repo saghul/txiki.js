@@ -26,7 +26,7 @@
 #include "utils.h"
 
 
-JSValue quv_new_error(JSContext *ctx, int err) {
+JSValue tjs_new_error(JSContext *ctx, int err) {
     JSValue obj;
     obj = JS_NewError(ctx);
     JS_DefinePropertyValueStr(ctx,
@@ -38,41 +38,41 @@ JSValue quv_new_error(JSContext *ctx, int err) {
     return obj;
 }
 
-static JSValue quv_error_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
+static JSValue tjs_error_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
     int err;
     if (JS_ToInt32(ctx, &err, argv[0]))
         return JS_EXCEPTION;
-    return quv_new_error(ctx, err);
+    return tjs_new_error(ctx, err);
 }
 
-static JSValue quv_error_strerror(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_error_strerror(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     int err;
     if (JS_ToInt32(ctx, &err, argv[0]))
         return JS_EXCEPTION;
     return JS_NewString(ctx, uv_strerror(err));
 }
 
-JSValue quv_throw_errno(JSContext *ctx, int err) {
+JSValue tjs_throw_errno(JSContext *ctx, int err) {
     JSValue obj;
-    obj = quv_new_error(ctx, err);
+    obj = tjs_new_error(ctx, err);
     if (JS_IsException(obj))
         obj = JS_NULL;
     return JS_Throw(ctx, obj);
 }
 
-static const JSCFunctionListEntry quv_error_funcs[] = { JS_CFUNC_DEF("strerror", 1, quv_error_strerror),
+static const JSCFunctionListEntry tjs_error_funcs[] = { JS_CFUNC_DEF("strerror", 1, tjs_error_strerror),
 /* various errno values */
 #define DEF(x, s) JS_PROP_INT32_DEF(STRINGIFY(UV_##x), UV_##x, JS_PROP_CONFIGURABLE),
                                                         UV_ERRNO_MAP(DEF)
 #undef DEF
 };
 
-void quv_mod_error_init(JSContext *ctx, JSModuleDef *m) {
-    JSValue obj = JS_NewCFunction2(ctx, quv_error_constructor, "Error", 1, JS_CFUNC_constructor, 0);
-    JS_SetPropertyFunctionList(ctx, obj, quv_error_funcs, countof(quv_error_funcs));
+void tjs_mod_error_init(JSContext *ctx, JSModuleDef *m) {
+    JSValue obj = JS_NewCFunction2(ctx, tjs_error_constructor, "Error", 1, JS_CFUNC_constructor, 0);
+    JS_SetPropertyFunctionList(ctx, obj, tjs_error_funcs, countof(tjs_error_funcs));
     JS_SetModuleExport(ctx, m, "Error", obj);
 }
 
-void quv_mod_error_export(JSContext *ctx, JSModuleDef *m) {
+void tjs_mod_error_export(JSContext *ctx, JSModuleDef *m) {
     JS_AddModuleExport(ctx, m, "Error");
 }

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.4)
 
-project(quv LANGUAGES C)
+project(tjs LANGUAGES C)
 
 include(GNUInstallDirs)
 
@@ -15,10 +15,10 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -DDEBUG -O0 -g3")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -DNDEBUG -O2 -g")
 
 
-set(QUV__VERSION_MAJOR 19)
-set(QUV__VERSION_MINOR 0)
-set(QUV__VERSION_PATCH 0)
-set(QUV__VERSION_SUFFIX "-alpha")
+set(TJS__VERSION_MAJOR 19)
+set(TJS__VERSION_MINOR 0)
+set(TJS__VERSION_PATCH 0)
+set(TJS__VERSION_SUFFIX "-alpha")
 configure_file(
     "${CMAKE_SOURCE_DIR}/src/version.h.in"
     "${CMAKE_SOURCE_DIR}/src/version.h"
@@ -66,7 +66,7 @@ if(NOT DISABLE_CURL)
 endif()
 
 
-add_executable(quv
+add_executable(tjs
     src/bootstrap.c
     src/cli.c
     src/curl-utils.c
@@ -89,20 +89,20 @@ add_executable(quv
     ${CMAKE_CURRENT_BINARY_DIR}/js.c
     ../deps/quickjs/src/cutils.c
 )
-set_target_properties(quv PROPERTIES
+set_target_properties(tjs PROPERTIES
     C_STANDARD 99
     C_STANDARD_REQUIRED ON
 )
 if (CURL_FOUND)
     if (USE_SYSTEM_CURL)
-        target_compile_definitions(quv PRIVATE
-            QUV_HAVE_SYSTEM_CURL
+        target_compile_definitions(tjs PRIVATE
+            TJS_HAVE_SYSTEM_CURL
         )
     endif()
-    target_compile_definitions(quv PRIVATE
-        QUV_HAVE_CURL
+    target_compile_definitions(tjs PRIVATE
+        TJS_HAVE_CURL
     )
-    target_include_directories(quv PRIVATE ${CURL_INCLUDE_DIRS})
-    target_link_libraries(quv ${CURL_LIBRARIES})
+    target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
+    target_link_libraries(tjs ${CURL_LIBRARIES})
 endif()
-target_link_libraries(quv qjs uv_a m)
+target_link_libraries(tjs qjs uv_a m)

@@ -29,7 +29,7 @@
 #include <unistd.h>
 
 
-static JSClassID quv_process_class_id;
+static JSClassID tjs_process_class_id;
 
 typedef struct {
     JSContext *ctx;
@@ -41,27 +41,27 @@ typedef struct {
         bool exited;
         int64_t exit_status;
         int term_signal;
-        QUVPromise result;
+        TJSPromise result;
     } status;
-} QUVProcess;
+} TJSProcess;
 
 static void uv__close_cb(uv_handle_t *handle) {
-    QUVProcess *p = handle->data;
+    TJSProcess *p = handle->data;
     CHECK_NOT_NULL(p);
     p->closed = true;
     if (p->finalized)
         free(p);
 }
 
-static void maybe_close(QUVProcess *p) {
+static void maybe_close(TJSProcess *p) {
     if (!uv_is_closing((uv_handle_t *) &p->process))
         uv_close((uv_handle_t *) &p->process, uv__close_cb);
 }
 
-static void quv_process_finalizer(JSRuntime *rt, JSValue val) {
-    QUVProcess *p = JS_GetOpaque(val, quv_process_class_id);
+static void tjs_process_finalizer(JSRuntime *rt, JSValue val) {
+    TJSProcess *p = JS_GetOpaque(val, tjs_process_class_id);
     if (p) {
-        QUV_FreePromiseRT(rt, &p->status.result);
+        TJS_FreePromiseRT(rt, &p->status.result);
         JS_FreeValueRT(rt, p->stdio[0]);
         JS_FreeValueRT(rt, p->stdio[1]);
         JS_FreeValueRT(rt, p->stdio[2]);
@@ -73,28 +73,28 @@ static void quv_process_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static void quv_process_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
-    QUVProcess *p = JS_GetOpaque(val, quv_process_class_id);
+static void tjs_process_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+    TJSProcess *p = JS_GetOpaque(val, tjs_process_class_id);
     if (p) {
-        QUV_MarkPromise(rt, &p->status.result, mark_func);
+        TJS_MarkPromise(rt, &p->status.result, mark_func);
         JS_MarkValue(rt, p->stdio[0], mark_func);
         JS_MarkValue(rt, p->stdio[1], mark_func);
         JS_MarkValue(rt, p->stdio[2], mark_func);
     }
 }
 
-static JSClassDef quv_process_class = {
+static JSClassDef tjs_process_class = {
     "Process",
-    .finalizer = quv_process_finalizer,
-    .gc_mark = quv_process_mark,
+    .finalizer = tjs_process_finalizer,
+    .gc_mark = tjs_process_mark,
 };
 
-static QUVProcess *quv_process_get(JSContext *ctx, JSValueConst obj) {
-    return JS_GetOpaque2(ctx, obj, quv_process_class_id);
+static TJSProcess *tjs_process_get(JSContext *ctx, JSValueConst obj) {
+    return JS_GetOpaque2(ctx, obj, tjs_process_class_id);
 }
 
-static JSValue quv_process_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    QUVProcess *p = quv_process_get(ctx, this_val);
+static JSValue tjs_process_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSProcess *p = tjs_process_get(ctx, this_val);
     if (!p)
         return JS_EXCEPTION;
 
@@ -104,13 +104,13 @@ static JSValue quv_process_kill(JSContext *ctx, JSValueConst this_val, int argc,
 
     int r = uv_process_kill(&p->process, sig_num);
     if (r != 0)
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
 
     return JS_UNDEFINED;
 }
 
-static JSValue quv_process_wait(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    QUVProcess *p = quv_process_get(ctx, this_val);
+static JSValue tjs_process_wait(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSProcess *p = tjs_process_get(ctx, this_val);
     if (!p)
         return JS_EXCEPTION;
 
@@ -118,30 +118,30 @@ static JSValue quv_process_wait(JSContext *ctx, JSValueConst this_val, int argc,
         JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
         JS_DefinePropertyValueStr(ctx, obj, "exit_status", JS_NewInt32(ctx, p->status.exit_status), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, obj, "term_signal", JS_NewInt32(ctx, p->status.term_signal), JS_PROP_C_W_E);
-        return QUV_NewResolvedPromise(ctx, 1, &obj);
+        return TJS_NewResolvedPromise(ctx, 1, &obj);
     } else if (p->closed) {
         return JS_UNDEFINED;
     } else {
-        return QUV_InitPromise(ctx, &p->status.result);
+        return TJS_InitPromise(ctx, &p->status.result);
     }
 }
 
-static JSValue quv_process_pid_get(JSContext *ctx, JSValueConst this_val) {
-    QUVProcess *p = quv_process_get(ctx, this_val);
+static JSValue tjs_process_pid_get(JSContext *ctx, JSValueConst this_val) {
+    TJSProcess *p = tjs_process_get(ctx, this_val);
     if (!p)
         return JS_EXCEPTION;
     return JS_NewInt32(ctx, uv_process_get_pid(&p->process));
 }
 
-static JSValue quv_process_stdio_get(JSContext *ctx, JSValueConst this_val, int magic) {
-    QUVProcess *p = quv_process_get(ctx, this_val);
+static JSValue tjs_process_stdio_get(JSContext *ctx, JSValueConst this_val, int magic) {
+    TJSProcess *p = tjs_process_get(ctx, this_val);
     if (!p)
         return JS_EXCEPTION;
     return JS_DupValue(ctx, p->stdio[magic]);
 }
 
 static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_signal) {
-    QUVProcess *p = handle->data;
+    TJSProcess *p = handle->data;
     CHECK_NOT_NULL(p);
 
     p->status.exited = true;
@@ -154,21 +154,21 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
         JS_DefinePropertyValueStr(ctx, arg, "exit_status", JS_NewInt32(ctx, exit_status), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, arg, "term_signal", JS_NewInt32(ctx, term_signal), JS_PROP_C_W_E);
 
-        QUV_SettlePromise(ctx, &p->status.result, false, 1, (JSValueConst *) &arg);
-        QUV_ClearPromise(ctx, &p->status.result);
+        TJS_SettlePromise(ctx, &p->status.result, false, 1, (JSValueConst *) &arg);
+        TJS_ClearPromise(ctx, &p->status.result);
     }
 
     maybe_close(p);
 }
 
-static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue ret;
 
-    JSValue obj = JS_NewObjectClass(ctx, quv_process_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs_process_class_id);
     if (JS_IsException(obj))
         return obj;
 
-    QUVProcess *p = calloc(1, sizeof(*p));
+    TJSProcess *p = calloc(1, sizeof(*p));
     if (!p) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -177,7 +177,7 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     p->ctx = ctx;
     p->process.data = p;
 
-    QUV_ClearPromise(ctx, &p->status.result);
+    TJS_ClearPromise(ctx, &p->status.result);
 
     p->stdio[0] = JS_UNDEFINED;
     p->stdio[1] = JS_UNDEFINED;
@@ -309,14 +309,14 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
                 stdio[0].flags = UV_INHERIT_FD;
                 stdio[0].data.fd = STDIN_FILENO;
             } else if (strcmp(in, "pipe") == 0) {
-                JSValue obj = quv_new_pipe(ctx);
+                JSValue obj = tjs_new_pipe(ctx);
                 if (JS_IsException(obj)) {
                     JS_FreeValue(ctx, js_stdin);
                     goto fail;
                 }
                 p->stdio[0] = obj;
                 stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
-                stdio[0].data.stream = quv_pipe_get_stream(ctx, obj);
+                stdio[0].data.stream = tjs_pipe_get_stream(ctx, obj);
             } else if (strcmp(in, "ignore") == 0) {
                 stdio[0].flags = UV_IGNORE;
             }
@@ -330,14 +330,14 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
                 stdio[1].flags = UV_INHERIT_FD;
                 stdio[1].data.fd = STDOUT_FILENO;
             } else if (strcmp(out, "pipe") == 0) {
-                JSValue obj = quv_new_pipe(ctx);
+                JSValue obj = tjs_new_pipe(ctx);
                 if (JS_IsException(obj)) {
                     JS_FreeValue(ctx, js_stdout);
                     goto fail;
                 }
                 p->stdio[1] = obj;
                 stdio[1].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
-                stdio[1].data.stream = quv_pipe_get_stream(ctx, obj);
+                stdio[1].data.stream = tjs_pipe_get_stream(ctx, obj);
             } else if (strcmp(out, "ignore") == 0) {
                 stdio[1].flags = UV_IGNORE;
             }
@@ -351,14 +351,14 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
                 stdio[2].flags = UV_INHERIT_FD;
                 stdio[2].data.fd = STDERR_FILENO;
             } else if (strcmp(err, "pipe") == 0) {
-                JSValue obj = quv_new_pipe(ctx);
+                JSValue obj = tjs_new_pipe(ctx);
                 if (JS_IsException(obj)) {
                     JS_FreeValue(ctx, js_stderr);
                     goto fail;
                 }
                 p->stdio[2] = obj;
                 stdio[2].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
-                stdio[2].data.stream = quv_pipe_get_stream(ctx, obj);
+                stdio[2].data.stream = tjs_pipe_get_stream(ctx, obj);
             } else if (strcmp(err, "ignore") == 0) {
                 stdio[2].flags = UV_IGNORE;
             }
@@ -368,9 +368,9 @@ static JSValue quv_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
 
     options.exit_cb = uv__exit_cb;
 
-    int r = uv_spawn(quv_get_loop(ctx), &p->process, &options);
+    int r = uv_spawn(tjs_get_loop(ctx), &p->process, &options);
     if (r != 0) {
-        quv_throw_errno(ctx, r);
+        tjs_throw_errno(ctx, r);
         goto fail;
     }
 
@@ -402,30 +402,30 @@ cleanup:
     return ret;
 }
 
-static const JSCFunctionListEntry quv_process_proto_funcs[] = {
-    JS_CFUNC_DEF("kill", 0, quv_process_kill),
-    JS_CFUNC_DEF("wait", 0, quv_process_wait),
-    JS_CGETSET_DEF("pid", quv_process_pid_get, NULL),
-    JS_CGETSET_MAGIC_DEF("stdin", quv_process_stdio_get, NULL, 0),
-    JS_CGETSET_MAGIC_DEF("stdout", quv_process_stdio_get, NULL, 1),
-    JS_CGETSET_MAGIC_DEF("stderr", quv_process_stdio_get, NULL, 2),
+static const JSCFunctionListEntry tjs_process_proto_funcs[] = {
+    JS_CFUNC_DEF("kill", 0, tjs_process_kill),
+    JS_CFUNC_DEF("wait", 0, tjs_process_wait),
+    JS_CGETSET_DEF("pid", tjs_process_pid_get, NULL),
+    JS_CGETSET_MAGIC_DEF("stdin", tjs_process_stdio_get, NULL, 0),
+    JS_CGETSET_MAGIC_DEF("stdout", tjs_process_stdio_get, NULL, 1),
+    JS_CGETSET_MAGIC_DEF("stderr", tjs_process_stdio_get, NULL, 2),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Process", JS_PROP_CONFIGURABLE),
 };
 
-static const JSCFunctionListEntry quv_process_funcs[] = {
-    JS_CFUNC_DEF("spawn", 2, quv_spawn),
+static const JSCFunctionListEntry tjs_process_funcs[] = {
+    JS_CFUNC_DEF("spawn", 2, tjs_spawn),
 };
 
-void quv_mod_process_init(JSContext *ctx, JSModuleDef *m) {
-    JS_NewClassID(&quv_process_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), quv_process_class_id, &quv_process_class);
+void tjs_mod_process_init(JSContext *ctx, JSModuleDef *m) {
+    JS_NewClassID(&tjs_process_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), tjs_process_class_id, &tjs_process_class);
     JSValue proto = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, proto, quv_process_proto_funcs, countof(quv_process_proto_funcs));
-    JS_SetClassProto(ctx, quv_process_class_id, proto);
+    JS_SetPropertyFunctionList(ctx, proto, tjs_process_proto_funcs, countof(tjs_process_proto_funcs));
+    JS_SetClassProto(ctx, tjs_process_class_id, proto);
 
-    JS_SetModuleExportList(ctx, m, quv_process_funcs, countof(quv_process_funcs));
+    JS_SetModuleExportList(ctx, m, tjs_process_funcs, countof(tjs_process_funcs));
 }
 
-void quv_mod_process_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExportList(ctx, m, quv_process_funcs, countof(quv_process_funcs));
+void tjs_mod_process_export(JSContext *ctx, JSModuleDef *m) {
+    JS_AddModuleExportList(ctx, m, tjs_process_funcs, countof(tjs_process_funcs));
 }

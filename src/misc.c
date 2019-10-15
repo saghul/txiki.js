@@ -28,31 +28,31 @@
 
 #include <unistd.h>
 
-#ifdef QUV_HAVE_CURL
+#ifdef TJS_HAVE_CURL
 #include <curl/curl.h>
 #endif
 
 
-static JSValue quv_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     return JS_NewBigUint64(ctx, uv_hrtime());
 }
 
-static JSValue quv_gettimeofday(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_gettimeofday(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     uv_timeval64_t tv;
     int r = uv_gettimeofday(&tv);
     if (r != 0)
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
     return JS_NewInt64(ctx, tv.tv_sec * 1000 + (tv.tv_usec / 1000));
 }
 
-static JSValue quv_uname(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_uname(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue obj;
     int r;
     uv_utsname_t utsname;
 
     r = uv_os_uname(&utsname);
     if (r != 0)
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
 
     obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_DefinePropertyValueStr(ctx, obj, "sysname", JS_NewString(ctx, utsname.sysname), JS_PROP_C_W_E);
@@ -63,7 +63,7 @@ static JSValue quv_uname(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return obj;
 }
 
-static JSValue quv_isatty(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_isatty(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     int fd, type;
     if (JS_ToInt32(ctx, &fd, argv[0]))
         return JS_EXCEPTION;
@@ -72,13 +72,13 @@ static JSValue quv_isatty(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return JS_NewBool(ctx, type == UV_TTY);
 }
 
-static JSValue quv_environ(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_environ(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     uv_env_item_t *env;
     int envcount, r;
 
     r = uv_os_environ(&env, &envcount);
     if (r != 0)
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
 
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
 
@@ -91,7 +91,7 @@ static JSValue quv_environ(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return obj;
 }
 
-static JSValue quv_getenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_getenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *name = JS_ToCString(ctx, argv[0]);
     if (!name)
         return JS_EXCEPTION;
@@ -104,14 +104,14 @@ static JSValue quv_getenv(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     r = uv_os_getenv(name, dbuf, &size);
     if (r != 0) {
         if (r != UV_ENOBUFS)
-            return quv_throw_errno(ctx, r);
+            return tjs_throw_errno(ctx, r);
         dbuf = js_malloc(ctx, size);
         if (!dbuf)
             return JS_EXCEPTION;
         r = uv_os_getenv(name, dbuf, &size);
         if (r != 0) {
             js_free(ctx, dbuf);
-            return quv_throw_errno(ctx, r);
+            return tjs_throw_errno(ctx, r);
         }
     }
 
@@ -123,7 +123,7 @@ static JSValue quv_getenv(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return ret;
 }
 
-static JSValue quv_setenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_setenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *name = JS_ToCString(ctx, argv[0]);
     if (!name)
         return JS_EXCEPTION;
@@ -134,24 +134,24 @@ static JSValue quv_setenv(JSContext *ctx, JSValueConst this_val, int argc, JSVal
 
     int r = uv_os_setenv(name, value);
     if (r != 0)
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
 
     return JS_UNDEFINED;
 }
 
-static JSValue quv_unsetenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_unsetenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *name = JS_ToCString(ctx, argv[0]);
     if (!name)
         return JS_EXCEPTION;
 
     int r = uv_os_unsetenv(name);
     if (r != 0)
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
 
     return JS_UNDEFINED;
 }
 
-static JSValue quv_cwd(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_cwd(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -160,14 +160,14 @@ static JSValue quv_cwd(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     r = uv_cwd(dbuf, &size);
     if (r != 0) {
         if (r != UV_ENOBUFS)
-            return quv_throw_errno(ctx, r);
+            return tjs_throw_errno(ctx, r);
         dbuf = js_malloc(ctx, size);
         if (!dbuf)
             return JS_EXCEPTION;
         r = uv_cwd(dbuf, &size);
         if (r != 0) {
             js_free(ctx, dbuf);
-            return quv_throw_errno(ctx, r);
+            return tjs_throw_errno(ctx, r);
         }
     }
 
@@ -179,7 +179,7 @@ static JSValue quv_cwd(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     return ret;
 }
 
-static JSValue quv_homedir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_homedir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -188,14 +188,14 @@ static JSValue quv_homedir(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     r = uv_os_homedir(dbuf, &size);
     if (r != 0) {
         if (r != UV_ENOBUFS)
-            return quv_throw_errno(ctx, r);
+            return tjs_throw_errno(ctx, r);
         dbuf = js_malloc(ctx, size);
         if (!dbuf)
             return JS_EXCEPTION;
         r = uv_os_homedir(dbuf, &size);
         if (r != 0) {
             js_free(ctx, dbuf);
-            return quv_throw_errno(ctx, r);
+            return tjs_throw_errno(ctx, r);
         }
     }
 
@@ -207,7 +207,7 @@ static JSValue quv_homedir(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return ret;
 }
 
-static JSValue quv_tmpdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_tmpdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -216,14 +216,14 @@ static JSValue quv_tmpdir(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     r = uv_os_tmpdir(dbuf, &size);
     if (r != 0) {
         if (r != UV_ENOBUFS)
-            return quv_throw_errno(ctx, r);
+            return tjs_throw_errno(ctx, r);
         dbuf = js_malloc(ctx, size);
         if (!dbuf)
             return JS_EXCEPTION;
         r = uv_os_tmpdir(dbuf, &size);
         if (r != 0) {
             js_free(ctx, dbuf);
-            return quv_throw_errno(ctx, r);
+            return tjs_throw_errno(ctx, r);
         }
     }
 
@@ -235,7 +235,7 @@ static JSValue quv_tmpdir(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return ret;
 }
 
-static JSValue quv_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -244,14 +244,14 @@ static JSValue quv_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     r = uv_exepath(dbuf, &size);
     if (r != 0) {
         if (r != UV_ENOBUFS)
-            return quv_throw_errno(ctx, r);
+            return tjs_throw_errno(ctx, r);
         dbuf = js_malloc(ctx, size);
         if (!dbuf)
             return JS_EXCEPTION;
         r = uv_exepath(dbuf, &size);
         if (r != 0) {
             js_free(ctx, dbuf);
-            return quv_throw_errno(ctx, r);
+            return tjs_throw_errno(ctx, r);
         }
     }
 
@@ -263,7 +263,7 @@ static JSValue quv_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return ret;
 }
 
-static JSValue quv_print(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
+static JSValue tjs_print(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
     int i;
     const char *str;
     FILE *f = magic == 0 ? stdout : stderr;
@@ -282,7 +282,7 @@ static JSValue quv_print(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
-static JSValue quv_random(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_random(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     size_t size;
     uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
     if (!buf)
@@ -301,58 +301,58 @@ static JSValue quv_random(JSContext *ctx, JSValueConst this_val, int argc, JSVal
 
     int r = uv_random(NULL, NULL, buf + off, len, 0, NULL);
     if (r != 0)
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
 
     return JS_UNDEFINED;
 }
 
-static const JSCFunctionListEntry quv_misc_funcs[] = {
-    QUV_CONST(AF_INET),
-    QUV_CONST(AF_INET6),
-    QUV_CONST(AF_UNSPEC),
-    QUV_CONST(STDIN_FILENO),
-    QUV_CONST(STDOUT_FILENO),
-    QUV_CONST(STDERR_FILENO),
-    QUV_CONST(UV_TCP_IPV6ONLY),
-    QUV_CONST(UV_TTY_MODE_NORMAL),
-    QUV_CONST(UV_TTY_MODE_RAW),
-    QUV_CONST(UV_TTY_MODE_IO),
-    QUV_CONST(UV_UDP_IPV6ONLY),
-    QUV_CONST(UV_UDP_PARTIAL),
-    QUV_CONST(UV_UDP_REUSEADDR),
-    JS_CFUNC_DEF("hrtime", 0, quv_hrtime),
-    JS_CFUNC_DEF("gettimeofday", 0, quv_gettimeofday),
-    JS_CFUNC_DEF("uname", 0, quv_uname),
-    JS_CFUNC_DEF("isatty", 1, quv_isatty),
-    JS_CFUNC_DEF("environ", 0, quv_environ),
-    JS_CFUNC_DEF("getenv", 0, quv_getenv),
-    JS_CFUNC_DEF("setenv", 2, quv_setenv),
-    JS_CFUNC_DEF("unsetenv", 1, quv_unsetenv),
-    JS_CFUNC_DEF("cwd", 0, quv_cwd),
-    JS_CFUNC_DEF("homedir", 0, quv_homedir),
-    JS_CFUNC_DEF("tmpdir", 0, quv_tmpdir),
-    JS_CFUNC_DEF("exepath", 0, quv_exepath),
-    JS_CFUNC_MAGIC_DEF("print", 1, quv_print, 0),
-    JS_CFUNC_MAGIC_DEF("printError", 1, quv_print, 1),
-    JS_CFUNC_DEF("random", 3, quv_random),
+static const JSCFunctionListEntry tjs_misc_funcs[] = {
+    TJS_CONST(AF_INET),
+    TJS_CONST(AF_INET6),
+    TJS_CONST(AF_UNSPEC),
+    TJS_CONST(STDIN_FILENO),
+    TJS_CONST(STDOUT_FILENO),
+    TJS_CONST(STDERR_FILENO),
+    TJS_CONST(UV_TCP_IPV6ONLY),
+    TJS_CONST(UV_TTY_MODE_NORMAL),
+    TJS_CONST(UV_TTY_MODE_RAW),
+    TJS_CONST(UV_TTY_MODE_IO),
+    TJS_CONST(UV_UDP_IPV6ONLY),
+    TJS_CONST(UV_UDP_PARTIAL),
+    TJS_CONST(UV_UDP_REUSEADDR),
+    JS_CFUNC_DEF("hrtime", 0, tjs_hrtime),
+    JS_CFUNC_DEF("gettimeofday", 0, tjs_gettimeofday),
+    JS_CFUNC_DEF("uname", 0, tjs_uname),
+    JS_CFUNC_DEF("isatty", 1, tjs_isatty),
+    JS_CFUNC_DEF("environ", 0, tjs_environ),
+    JS_CFUNC_DEF("getenv", 0, tjs_getenv),
+    JS_CFUNC_DEF("setenv", 2, tjs_setenv),
+    JS_CFUNC_DEF("unsetenv", 1, tjs_unsetenv),
+    JS_CFUNC_DEF("cwd", 0, tjs_cwd),
+    JS_CFUNC_DEF("homedir", 0, tjs_homedir),
+    JS_CFUNC_DEF("tmpdir", 0, tjs_tmpdir),
+    JS_CFUNC_DEF("exepath", 0, tjs_exepath),
+    JS_CFUNC_MAGIC_DEF("print", 1, tjs_print, 0),
+    JS_CFUNC_MAGIC_DEF("printError", 1, tjs_print, 1),
+    JS_CFUNC_DEF("random", 3, tjs_random),
 };
 
-void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
-    JS_SetModuleExportList(ctx, m, quv_misc_funcs, countof(quv_misc_funcs));
+void tjs_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
+    JS_SetModuleExportList(ctx, m, tjs_misc_funcs, countof(tjs_misc_funcs));
 
-    JSValue args = quv__get_args(ctx);
+    JSValue args = tjs__get_args(ctx);
     JS_FreeValue(ctx, JS_ObjectFreeze(ctx, args));
     JS_SetModuleExport(ctx, m, "args", args);
 
-    JS_SetModuleExport(ctx, m, "platform", JS_NewString(ctx, QUV__PLATFORM));
+    JS_SetModuleExport(ctx, m, "platform", JS_NewString(ctx, TJS__PLATFORM));
 
-    JS_SetModuleExport(ctx, m, "version", JS_NewString(ctx, quv_version()));
+    JS_SetModuleExport(ctx, m, "version", JS_NewString(ctx, tjs_version()));
     JSValue versions = JS_NewObjectProto(ctx, JS_NULL);
     JS_DefinePropertyValueStr(ctx, versions, "quickjs", JS_NewString(ctx, QJS_VERSION_STR), JS_PROP_C_W_E);
-    JS_DefinePropertyValueStr(ctx, versions, "quv", JS_NewString(ctx, quv_version()), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, versions, "tjs", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "uv", JS_NewString(ctx, uv_version_string()), JS_PROP_C_W_E);
-#ifdef QUV_HAVE_CURL
-#ifdef QUV_HAVE_SYSTEM_CURL
+#ifdef TJS_HAVE_CURL
+#ifdef TJS_HAVE_SYSTEM_CURL
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, "system"), JS_PROP_C_W_E);
 #else
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, curl_version()), JS_PROP_C_W_E);
@@ -364,8 +364,8 @@ void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
     JS_SetModuleExport(ctx, m, "versions", versions);
 }
 
-void quv_mod_misc_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExportList(ctx, m, quv_misc_funcs, countof(quv_misc_funcs));
+void tjs_mod_misc_export(JSContext *ctx, JSModuleDef *m) {
+    JS_AddModuleExportList(ctx, m, tjs_misc_funcs, countof(tjs_misc_funcs));
     JS_AddModuleExport(ctx, m, "args");
     JS_AddModuleExport(ctx, m, "platform");
     JS_AddModuleExport(ctx, m, "version");

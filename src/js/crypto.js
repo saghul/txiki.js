@@ -24,7 +24,7 @@ function getRandomValues(obj) {
         throw e;
     }
 
-    quv.random(obj.buffer, obj.byteOffset, obj.byteLength);
+    tjs.random(obj.buffer, obj.byteOffset, obj.byteLength);
     return obj;
 }
 

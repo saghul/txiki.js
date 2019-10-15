@@ -22,8 +22,8 @@
  * THE SOFTWARE.
  */
 
-#ifndef QUV_PRIVATE_H
-#define QUV_PRIVATE_H
+#ifndef TJS_PRIVATE_H
+#define TJS_PRIVATE_H
 
 #include "../deps/quickjs/src/cutils.h"
 
@@ -31,23 +31,23 @@
 #include <stdbool.h>
 #include <uv.h>
 
-#ifdef QUV_HAVE_CURL
+#ifdef TJS_HAVE_CURL
 #include <curl/curl.h>
 #endif
 
 // TODO: improve this.
 #if defined(_WIN32)
-#define QUV__PLATFORM "win32"
+#define TJS__PLATFORM "win32"
 #elif defined(__APPLE__)
-#define QUV__PLATFORM "darwin"
+#define TJS__PLATFORM "darwin"
 #elif defined(__linux__)
-#define QUV__PLATFORM "linux"
+#define TJS__PLATFORM "linux"
 #else
-#define QUV__PLATFORM "posix"
+#define TJS__PLATFORM "posix"
 #endif
 
 
-struct QUVRuntime {
+struct TJSRuntime {
     JSRuntime *rt;
     JSContext *ctx;
     uv_loop_t loop;
@@ -58,7 +58,7 @@ struct QUVRuntime {
     } jobs;
     uv_async_t stop;
     bool is_worker;
-#ifdef QUV_HAVE_CURL
+#ifdef TJS_HAVE_CURL
     struct {
         CURLM *curlm_h;
         uv_timer_t timer;
@@ -66,48 +66,48 @@ struct QUVRuntime {
 #endif
 };
 
-void quv_mod_dns_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_dns_export(JSContext *ctx, JSModuleDef *m);
-void quv_mod_error_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_error_export(JSContext *ctx, JSModuleDef *m);
-void quv_mod_fs_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_fs_export(JSContext *ctx, JSModuleDef *m);
-void quv_mod_misc_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_misc_export(JSContext *ctx, JSModuleDef *m);
-void quv_mod_process_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_process_export(JSContext *ctx, JSModuleDef *m);
-void quv_mod_signals_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_signals_export(JSContext *ctx, JSModuleDef *m);
-void quv_mod_std_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_std_export(JSContext *ctx, JSModuleDef *m);
-void quv_mod_streams_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_streams_export(JSContext *ctx, JSModuleDef *m);
-void quv_mod_timers_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_timers_export(JSContext *ctx, JSModuleDef *m);
-void quv_mod_udp_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_udp_export(JSContext *ctx, JSModuleDef *m);
-void quv_mod_worker_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_worker_export(JSContext *ctx, JSModuleDef *m);
-void quv_mod_xhr_init(JSContext *ctx, JSModuleDef *m);
-void quv_mod_xhr_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_dns_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_dns_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_error_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_error_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_fs_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_fs_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_misc_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_misc_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_process_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_process_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_signals_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_signals_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_std_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_std_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_streams_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_streams_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_timers_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_timers_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_udp_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_udp_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_worker_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_worker_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_xhr_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_xhr_export(JSContext *ctx, JSModuleDef *m);
 
-JSValue quv_new_error(JSContext *ctx, int err);
-JSValue quv_throw_errno(JSContext *ctx, int err);
+JSValue tjs_new_error(JSContext *ctx, int err);
+JSValue tjs_throw_errno(JSContext *ctx, int err);
 
-JSValue quv_new_pipe(JSContext *ctx);
-uv_stream_t *quv_pipe_get_stream(JSContext *ctx, JSValueConst obj);
+JSValue tjs_new_pipe(JSContext *ctx);
+uv_stream_t *tjs_pipe_get_stream(JSContext *ctx, JSValueConst obj);
 
-int quv__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename);
-JSModuleDef *quv_module_loader(JSContext *ctx, const char *module_name, void *opaque);
-char *quv_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque);
+int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename);
+JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *opaque);
+char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque);
 
 JSModuleDef *js_init_module_std(JSContext *ctx, const char *module_name);
 int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use_realpath, JS_BOOL is_main);
 
-JSValue quv__get_args(JSContext *ctx);
+JSValue tjs__get_args(JSContext *ctx);
 
-int quv__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len);
-void quv__bootstrap_globals(JSContext *ctx);
-void quv__add_builtins(JSContext *ctx);
+int tjs__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len);
+void tjs__bootstrap_globals(JSContext *ctx);
+void tjs__add_builtins(JSContext *ctx);
 
 #endif

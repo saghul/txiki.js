@@ -1,7 +1,7 @@
 // Sample TCP echo server.
 //
 
-import { getopts } from '@quv/getopts';
+import { getopts } from '@tjs/getopts';
 import { addr, logError } from './utils.js';
 
 
@@ -22,7 +22,7 @@ async function handleConnection(conn) {
 }
 
 (async () => {
-    const options = getopts(quv.args.slice(2), {
+    const options = getopts(tjs.args.slice(2), {
         alias: {
             listen: 'l',
             port: 'p'
@@ -33,7 +33,7 @@ async function handleConnection(conn) {
         }
     });
 
-    const t = new quv.TCP();
+    const t = new tjs.TCP();
 
     t.bind({ip: options.listen, port: options.port});
     t.listen();

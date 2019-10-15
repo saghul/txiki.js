@@ -1,14 +1,14 @@
-// quv internal bootstrap.
+// tjs internal bootstrap.
 //
 
-import * as quv from '@quv/core';
+import * as tjs from '@tjs/core';
 
-globalThis.quv = quv;
-globalThis.setTimeout = quv.setTimeout;
-globalThis.clearTimeout = quv.clearTimeout;
-globalThis.setInterval = quv.setInterval;
-globalThis.clearInterval = quv.clearInterval;
-globalThis.XMLHttpRequest = quv.XMLHttpRequest;
+globalThis.tjs = tjs;
+globalThis.setTimeout = tjs.setTimeout;
+globalThis.clearTimeout = tjs.clearTimeout;
+globalThis.setInterval = tjs.setInterval;
+globalThis.clearInterval = tjs.clearInterval;
+globalThis.XMLHttpRequest = tjs.XMLHttpRequest;
 
 Object.defineProperty(globalThis, 'global', {
     enumerable: true,

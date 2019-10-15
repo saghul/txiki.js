@@ -2,11 +2,11 @@
 // already loaded.
 //
 
-import { AbortController, AbortSignal } from '@quv/abort-controller';
-import { Console } from '@quv/console';
-import { Worker as _Worker } from '@quv/core';
-import { defineEventAttribute, EventTarget, Event, CustomEvent } from '@quv/event-target';
-import { Performance } from '@quv/performance';
+import { AbortController, AbortSignal } from '@tjs/abort-controller';
+import { Console } from '@tjs/console';
+import { Worker as _Worker } from '@tjs/core';
+import { defineEventAttribute, EventTarget, Event, CustomEvent } from '@tjs/event-target';
+import { Performance } from '@tjs/performance';
 
 
 // Console

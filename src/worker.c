@@ -23,7 +23,7 @@
  */
 
 #include "private.h"
-#include "quv.h"
+#include "tjs.h"
 
 #include <unistd.h>
 
@@ -38,15 +38,15 @@ enum {
     WORKER_EVENT_MAX,
 };
 
-static JSValue quv_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_main);
+static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_main);
 
-static JSClassID quv_worker_class_id;
+static JSClassID tjs_worker_class_id;
 
 typedef struct {
     const char *path;
     uv_os_sock_t channel_fd;
     uv_sem_t *sem;
-    QUVRuntime *wrt;
+    TJSRuntime *wrt;
 } worker_data_t;
 
 typedef struct {
@@ -62,14 +62,14 @@ typedef struct {
     } h;
     JSValue events[WORKER_EVENT_MAX];
     uv_thread_t tid;
-    QUVRuntime *wrt;
+    TJSRuntime *wrt;
     bool is_main;
-} QUVWorker;
+} TJSWorker;
 
 typedef struct {
     uv_write_t req;
     uint8_t *data;
-} QUVWorkerWriteReq;
+} TJSWorkerWriteReq;
 
 static JSValue worker_eval(JSContext *ctx, int argc, JSValueConst *argv) {
     const char *filename;
@@ -77,15 +77,15 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValueConst *argv) {
 
     filename = JS_ToCString(ctx, argv[0]);
     if (!filename) {
-        quv_dump_error(ctx);
+        tjs_dump_error(ctx);
         goto error;
     }
 
-    ret = QUV_EvalFile(ctx, filename, JS_EVAL_TYPE_MODULE, false);
+    ret = TJS_EvalFile(ctx, filename, JS_EVAL_TYPE_MODULE, false);
     JS_FreeCString(ctx, filename);
 
     if (JS_IsException(ret)) {
-        quv_dump_error(ctx);
+        tjs_dump_error(ctx);
         JS_FreeValue(ctx, ret);
         goto error;
     }
@@ -94,9 +94,9 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValueConst *argv) {
     return JS_UNDEFINED;
 
 error:;
-    QUVRuntime *qrt = QUV_GetRuntime(ctx);
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
-    QUV_Stop(qrt);
+    TJS_Stop(qrt);
 
     return JS_UNDEFINED;
 }
@@ -105,17 +105,17 @@ error:;
 static void worker_entry(void *arg) {
     worker_data_t *wd = arg;
 
-    QUVRuntime *wrt = QUV_NewRuntime2(true);
+    TJSRuntime *wrt = TJS_NewRuntime2(true);
     CHECK_NOT_NULL(wrt);
 
-    JSContext *ctx = QUV_GetJSContext(wrt);
+    JSContext *ctx = TJS_GetJSContext(wrt);
 
     /* Bootstrap the worker scope. */
     JSValue global_obj = JS_GetGlobalObject(ctx);
-    JSValue worker_obj = quv_new_worker(ctx, wd->channel_fd, false);
+    JSValue worker_obj = tjs_new_worker(ctx, wd->channel_fd, false);
     JS_SetPropertyStr(ctx, global_obj, "workerThis", worker_obj);
     JS_FreeValue(ctx, global_obj);
-    CHECK_EQ(0, quv__eval_binary(ctx, worker_bootstrap, worker_bootstrap_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, worker_bootstrap, worker_bootstrap_size));
 
     /* Load the file and eval the file when the loop runs. */
     JSValue filename = JS_NewString(ctx, wd->path);
@@ -127,19 +127,19 @@ static void worker_entry(void *arg) {
     uv_sem_post(wd->sem);
     wd = NULL;
 
-    QUV_Run(wrt);
+    TJS_Run(wrt);
 
-    QUV_FreeRuntime(wrt);
+    TJS_FreeRuntime(wrt);
 }
 
 static void uv__close_cb(uv_handle_t *handle) {
-    QUVWorker *w = handle->data;
+    TJSWorker *w = handle->data;
     CHECK_NOT_NULL(w);
     free(w);
 }
 
-static void quv_worker_finalizer(JSRuntime *rt, JSValue val) {
-    QUVWorker *w = JS_GetOpaque(val, quv_worker_class_id);
+static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
+    TJSWorker *w = JS_GetOpaque(val, tjs_worker_class_id);
     if (w) {
         for (int i = 0; i < WORKER_EVENT_MAX; i++)
             JS_FreeValueRT(rt, w->events[i]);
@@ -147,22 +147,22 @@ static void quv_worker_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static void quv_worker_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
-    QUVWorker *w = JS_GetOpaque(val, quv_worker_class_id);
+static void tjs_worker_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+    TJSWorker *w = JS_GetOpaque(val, tjs_worker_class_id);
     if (w) {
         for (int i = 0; i < WORKER_EVENT_MAX; i++)
             JS_MarkValue(rt, w->events[i], mark_func);
     }
 }
 
-static JSClassDef quv_worker_class = {
+static JSClassDef tjs_worker_class = {
     "Worker",
-    .finalizer = quv_worker_finalizer,
-    .gc_mark = quv_worker_mark,
+    .finalizer = tjs_worker_finalizer,
+    .gc_mark = tjs_worker_mark,
 };
 
-static QUVWorker *quv_worker_get(JSContext *ctx, JSValueConst obj) {
-    return JS_GetOpaque2(ctx, obj, quv_worker_class_id);
+static TJSWorker *tjs_worker_get(JSContext *ctx, JSValueConst obj) {
+    return JS_GetOpaque2(ctx, obj, tjs_worker_class_id);
 }
 
 static JSValue emit_event(JSContext *ctx, int argc, JSValueConst *argv) {
@@ -173,7 +173,7 @@ static JSValue emit_event(JSContext *ctx, int argc, JSValueConst *argv) {
 
     JSValue ret = JS_Call(ctx, func, JS_UNDEFINED, 1, (JSValueConst *) &arg);
     if (JS_IsException(ret))
-        quv_dump_error(ctx);
+        tjs_dump_error(ctx);
 
     JS_FreeValue(ctx, ret);
     JS_FreeValue(ctx, func);
@@ -182,7 +182,7 @@ static JSValue emit_event(JSContext *ctx, int argc, JSValueConst *argv) {
     return JS_UNDEFINED;
 }
 
-static void maybe_emit_event(QUVWorker *w, int event, JSValue arg) {
+static void maybe_emit_event(TJSWorker *w, int event, JSValue arg) {
     JSContext *ctx = w->ctx;
     JSValue event_func = w->events[event];
     if (!JS_IsFunction(ctx, event_func))
@@ -195,7 +195,7 @@ static void maybe_emit_event(QUVWorker *w, int event, JSValue arg) {
 }
 
 static void uv__alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-    QUVWorker *w = handle->data;
+    TJSWorker *w = handle->data;
     CHECK_NOT_NULL(w);
 
     buf->base = js_malloc(w->ctx, suggested_size);
@@ -203,7 +203,7 @@ static void uv__alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *b
 }
 
 static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
-    QUVWorker *w = handle->data;
+    TJSWorker *w = handle->data;
     CHECK_NOT_NULL(w);
 
     JSContext *ctx = w->ctx;
@@ -212,7 +212,7 @@ static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         uv_read_stop(&w->h.stream);
         js_free(ctx, buf->base);
         if (nread != UV_EOF) {
-            JSValue error = quv_new_error(ctx, nread);
+            JSValue error = tjs_new_error(ctx, nread);
             maybe_emit_event(w, WORKER_EVENT_ERROR, error);
             JS_FreeValue(ctx, error);
         }
@@ -226,12 +226,12 @@ static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
     js_free(ctx, buf->base);
 }
 
-static JSValue quv_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_main) {
-    JSValue obj = JS_NewObjectClass(ctx, quv_worker_class_id);
+static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_main) {
+    JSValue obj = JS_NewObjectClass(ctx, tjs_worker_class_id);
     if (JS_IsException(obj))
         return obj;
 
-    QUVWorker *w = calloc(1, sizeof(*w));
+    TJSWorker *w = calloc(1, sizeof(*w));
     if (!w) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -242,10 +242,10 @@ static JSValue quv_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_m
     w->h.handle.data = w;
 
 #if defined(_WIN32)
-    CHECK_EQ(uv_tcp_init(quv_get_loop(ctx), &w->h.tcp), 0);
+    CHECK_EQ(uv_tcp_init(tjs_get_loop(ctx), &w->h.tcp), 0);
     CHECK_EQ(uv_tcp_open(&w->h.tcp, channel_fd), 0);
 #else
-    CHECK_EQ(uv_pipe_init(quv_get_loop(ctx), &w->h.pipe, 0), 0);
+    CHECK_EQ(uv_pipe_init(tjs_get_loop(ctx), &w->h.pipe, 0), 0);
     CHECK_EQ(uv_pipe_open(&w->h.pipe, channel_fd), 0);
 #endif
     CHECK_EQ(uv_read_start(&w->h.stream, uv__alloc_cb, uv__read_cb), 0);
@@ -258,7 +258,7 @@ static JSValue quv_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_m
     return obj;
 }
 
-static int quv__worker_channel(uv_os_sock_t fds[2]) {
+static int tjs__worker_channel(uv_os_sock_t fds[2]) {
 #if defined(_WIN32)
     union {
        struct sockaddr_in inaddr;
@@ -309,24 +309,24 @@ error:
 #endif
 }
 
-static JSValue quv_worker_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
+static JSValue tjs_worker_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
 
     uv_os_sock_t fds[2];
-    int r = quv__worker_channel(fds);
+    int r = tjs__worker_channel(fds);
     if (r != 0)
-        return quv_throw_errno(ctx, r);
+        return tjs_throw_errno(ctx, r);
 
-    JSValue obj = quv_new_worker(ctx, fds[0], true);
+    JSValue obj = tjs_new_worker(ctx, fds[0], true);
     if (JS_IsException(obj)) {
         close(fds[0]);
         close(fds[1]);
         return JS_EXCEPTION;
     }
 
-    QUVWorker *w = quv_worker_get(ctx, obj);
+    TJSWorker *w = tjs_worker_get(ctx, obj);
 
     /* We will wait for the worker to complete the creation of the VM. */
     uv_sem_t sem;
@@ -340,7 +340,7 @@ static JSValue quv_worker_constructor(JSContext *ctx, JSValueConst new_target, i
     uv_sem_wait(&sem);
     uv_sem_destroy(&sem);
 
-    uv_update_time(quv_get_loop(ctx));
+    uv_update_time(tjs_get_loop(ctx));
 
     worker_data.sem = NULL;
     w->wrt = worker_data.wrt;
@@ -350,16 +350,16 @@ static JSValue quv_worker_constructor(JSContext *ctx, JSValueConst new_target, i
 }
 
 static void uv__write_cb(uv_write_t *req, int status) {
-    QUVWorkerWriteReq *wr = req->data;
+    TJSWorkerWriteReq *wr = req->data;
     CHECK_NOT_NULL(wr);
 
-    QUVWorker *w = req->handle->data;
+    TJSWorker *w = req->handle->data;
     CHECK_NOT_NULL(w);
 
     JSContext *ctx = w->ctx;
 
     if (status < 0) {
-        JSValue error = quv_new_error(ctx, status);
+        JSValue error = tjs_new_error(ctx, status);
         maybe_emit_event(w, WORKER_EVENT_MESSAGE_ERROR, error);
         JS_FreeValue(ctx, error);
     }
@@ -367,12 +367,12 @@ static void uv__write_cb(uv_write_t *req, int status) {
     js_free(ctx, wr);
 }
 
-static JSValue quv_worker_postmessage(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    QUVWorker *w = quv_worker_get(ctx, this_val);
+static JSValue tjs_worker_postmessage(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSWorker *w = tjs_worker_get(ctx, this_val);
     if (!w)
         return JS_EXCEPTION;
 
-    QUVWorkerWriteReq *wr = js_malloc(ctx, sizeof(*wr));
+    TJSWorkerWriteReq *wr = js_malloc(ctx, sizeof(*wr));
     if (!wr)
         return JS_EXCEPTION;
 
@@ -397,28 +397,28 @@ static JSValue quv_worker_postmessage(JSContext *ctx, JSValueConst this_val, int
     return JS_UNDEFINED;
 }
 
-static JSValue quv_worker_terminate(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    QUVWorker *w = quv_worker_get(ctx, this_val);
+static JSValue tjs_worker_terminate(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSWorker *w = tjs_worker_get(ctx, this_val);
     if (!w)
         return JS_EXCEPTION;
     if (w->is_main && w->wrt) {
-        QUV_Stop(w->wrt);
+        TJS_Stop(w->wrt);
         CHECK_EQ(uv_thread_join(&w->tid), 0);
-        uv_update_time(quv_get_loop(ctx));
+        uv_update_time(tjs_get_loop(ctx));
         w->wrt = NULL;
     }
     return JS_UNDEFINED;
 }
 
-static JSValue quv_worker_event_get(JSContext *ctx, JSValueConst this_val, int magic) {
-    QUVWorker *w = quv_worker_get(ctx, this_val);
+static JSValue tjs_worker_event_get(JSContext *ctx, JSValueConst this_val, int magic) {
+    TJSWorker *w = tjs_worker_get(ctx, this_val);
     if (!w)
         return JS_EXCEPTION;
     return JS_DupValue(ctx, w->events[magic]);
 }
 
-static JSValue quv_worker_event_set(JSContext *ctx, JSValueConst this_val, JSValueConst value, int magic) {
-    QUVWorker *w = quv_worker_get(ctx, this_val);
+static JSValue tjs_worker_event_set(JSContext *ctx, JSValueConst this_val, JSValueConst value, int magic) {
+    TJSWorker *w = tjs_worker_get(ctx, this_val);
     if (!w)
         return JS_EXCEPTION;
     if (JS_IsFunction(ctx, value) || JS_IsUndefined(value) || JS_IsNull(value)) {
@@ -428,30 +428,30 @@ static JSValue quv_worker_event_set(JSContext *ctx, JSValueConst this_val, JSVal
     return JS_UNDEFINED;
 }
 
-static const JSCFunctionListEntry quv_worker_proto_funcs[] = {
-    JS_CFUNC_DEF("postMessage", 1, quv_worker_postmessage),
-    JS_CFUNC_DEF("terminate", 0, quv_worker_terminate),
-    JS_CGETSET_MAGIC_DEF("onmessage", quv_worker_event_get, quv_worker_event_set, WORKER_EVENT_MESSAGE),
-    JS_CGETSET_MAGIC_DEF("onmessageerror", quv_worker_event_get, quv_worker_event_set, WORKER_EVENT_MESSAGE_ERROR),
-    JS_CGETSET_MAGIC_DEF("onerror", quv_worker_event_get, quv_worker_event_set, WORKER_EVENT_ERROR),
+static const JSCFunctionListEntry tjs_worker_proto_funcs[] = {
+    JS_CFUNC_DEF("postMessage", 1, tjs_worker_postmessage),
+    JS_CFUNC_DEF("terminate", 0, tjs_worker_terminate),
+    JS_CGETSET_MAGIC_DEF("onmessage", tjs_worker_event_get, tjs_worker_event_set, WORKER_EVENT_MESSAGE),
+    JS_CGETSET_MAGIC_DEF("onmessageerror", tjs_worker_event_get, tjs_worker_event_set, WORKER_EVENT_MESSAGE_ERROR),
+    JS_CGETSET_MAGIC_DEF("onerror", tjs_worker_event_get, tjs_worker_event_set, WORKER_EVENT_ERROR),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Worker", JS_PROP_CONFIGURABLE),
 };
 
-void quv_mod_worker_init(JSContext *ctx, JSModuleDef *m) {
+void tjs_mod_worker_init(JSContext *ctx, JSModuleDef *m) {
     JSValue proto, obj;
 
     /* Worker class */
-    JS_NewClassID(&quv_worker_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), quv_worker_class_id, &quv_worker_class);
+    JS_NewClassID(&tjs_worker_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), tjs_worker_class_id, &tjs_worker_class);
     proto = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, proto, quv_worker_proto_funcs, countof(quv_worker_proto_funcs));
-    JS_SetClassProto(ctx, quv_worker_class_id, proto);
+    JS_SetPropertyFunctionList(ctx, proto, tjs_worker_proto_funcs, countof(tjs_worker_proto_funcs));
+    JS_SetClassProto(ctx, tjs_worker_class_id, proto);
 
     /* Worker object */
-    obj = JS_NewCFunction2(ctx, quv_worker_constructor, "Worker", 1, JS_CFUNC_constructor, 0);
+    obj = JS_NewCFunction2(ctx, tjs_worker_constructor, "Worker", 1, JS_CFUNC_constructor, 0);
     JS_SetModuleExport(ctx, m, "Worker", obj);
 }
 
-void quv_mod_worker_export(JSContext *ctx, JSModuleDef *m) {
+void tjs_mod_worker_export(JSContext *ctx, JSModuleDef *m) {
     JS_AddModuleExport(ctx, m, "Worker");
 }

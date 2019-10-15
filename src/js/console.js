@@ -406,11 +406,11 @@ const format = (function() {
 
 
 function print() {
-    quv.print(format.apply(null, arguments));
+    tjs.print(format.apply(null, arguments));
 }
 
 function printError() {
-  quv.printError(format.apply(null, arguments));
+  tjs.printError(format.apply(null, arguments));
 }
 
 

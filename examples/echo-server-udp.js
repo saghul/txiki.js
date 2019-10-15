@@ -5,9 +5,9 @@ import { addr, logError } from './utils.js';
 
 
 (async () => {
-    const u = new quv.UDP();
+    const u = new tjs.UDP();
 
-    u.bind({ip: quv.args[2] || '127.0.0.1', port: quv.args[3] || 1234});
+    u.bind({ip: tjs.args[2] || '127.0.0.1', port: tjs.args[3] || 1234});
     console.log(`Listening on ${addr(u.getsockname())}`); 
 
     let buf = new ArrayBuffer(1024);

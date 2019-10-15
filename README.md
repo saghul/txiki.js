@@ -1,11 +1,31 @@
 
-# quv — QuickJS ❤️ libuv
+# txiki.js — The tiny JavaScript runtime
 
-[![Build Status](https://travis-ci.org/saghul/quv.svg?branch=master)](https://travis-ci.org/saghul/quv)
+[![Build Status](https://travis-ci.org/saghul/tjs.svg?branch=master)](https://travis-ci.org/saghul/tjs)
 
-This is an experiment in using [libuv] as the platform layer for [QuickJS].
+## Overview
 
-Currently the following is already implemented in the runtime, using libuv:
+> **txikia** (basque): small, tiny.
+
+*txikiJS* is a small and powerful JavaScript runtime. It's built on the shoulders of
+giants: it uses [QuickJS] as its JavaScript engine and [libuv] as the platform layer.
+
+It was formerly named *quv*.
+
+## Features
+
+### Browser-like APIs
+
+- Console API
+- URL & URLSearchParams
+- TextEncoder / TextDecoder APIs
+- EventTarget / Event / CustomEvent
+- XMLHttpRequest & fetch (including AbortController)
+- Performance API
+- Worker API
+- Crypto API (just getRandomValues)
+
+### Custom features
 
 - TCP and UDP sockets
 - TTY handles
@@ -29,23 +49,12 @@ Other extras:
 - uuid module
 - hashlib module
 
-Browser-like features:
-
-- Console API
-- URL & URLSearchParams
-- TextEncoder / TextDecoder APIs
-- EventTarget / Event / CustomEvent
-- XMLHttpRequest & fetch (including AbortController)
-- Performance API
-- Worker API
-- Crypto API (just getRandomValues)
-
 ## Supported platforms
 
 * GNU/Linux
 * macOS
 * Windows (experimental)
-* Other Unixes (please test)
+* Other Unixes (please test!)
 
 ## Building
 
@@ -53,11 +62,11 @@ Browser-like features:
 
 ```bash
 # Get the code
-git clone --recursive https://github.com/saghul/quv && cd quv
+git clone --recursive https://github.com/saghul/txiki.js && cd txiki.js
 # Compile it!
 make
 # Run the REPL
-./build/quv
+./build/tjs
 ```
 
 [QuickJS]: https://bellard.org/quickjs/

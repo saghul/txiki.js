@@ -27,9 +27,9 @@
 #include "utils.h"
 
 
-#define QUV_VERSION_STRING                                                                                             \
-    STRINGIFY(QUV_VERSION_MAJOR) "." STRINGIFY(QUV_VERSION_MINOR) "." STRINGIFY(QUV_VERSION_PATCH) QUV_VERSION_SUFFIX
+#define TJS_VERSION_STRING                                                                                             \
+    STRINGIFY(TJS_VERSION_MAJOR) "." STRINGIFY(TJS_VERSION_MINOR) "." STRINGIFY(TJS_VERSION_PATCH) TJS_VERSION_SUFFIX
 
-const char *quv_version(void) {
-    return QUV_VERSION_STRING;
+const char *tjs_version(void) {
+    return TJS_VERSION_STRING;
 }

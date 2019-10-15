@@ -21,9 +21,9 @@ async function handleConnection(conn) {
 }
 
 (async () => {
-    const p = new quv.Pipe();
+    const p = new tjs.Pipe();
 
-    p.bind(quv.args[2] || '/tmp/fooPipe');
+    p.bind(tjs.args[2] || '/tmp/fooPipe');
     p.listen();
 
     console.log(`Listening on ${p.getsockname()}`); 

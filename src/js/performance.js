@@ -3,7 +3,7 @@
 // Derived from: https://github.com/blackswanny/performance-polyfill
 class Performance {
     constructor() {
-        this._startTime = quv.hrtime();
+        this._startTime = tjs.hrtime();
         this._entries = [];
         this._marksIndex = Object.create(null);
     }
@@ -13,7 +13,7 @@ class Performance {
     }
 
     now() {
-        return quv.hrtime() - this._startTime;
+        return tjs.hrtime() - this._startTime;
     }
 
     mark(name) {

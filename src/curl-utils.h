@@ -23,22 +23,22 @@
  */
 
 #include "private.h"
-#include "quv.h"
+#include "tjs.h"
 
 
-#ifdef QUV_HAVE_CURL
+#ifdef TJS_HAVE_CURL
 
 #include <curl/curl.h>
 
 
-typedef void (*quv_curl_done_cb)(CURLMsg *message, void *arg);
+typedef void (*tjs_curl_done_cb)(CURLMsg *message, void *arg);
 typedef struct {
     void *arg;
-    quv_curl_done_cb done_cb;
-} quv_curl_private_t;
+    tjs_curl_done_cb done_cb;
+} tjs_curl_private_t;
 
-void quv_curl_init(void);
-int quv_curl_load_http(DynBuf *dbuf, const char *url);
-CURLM *quv__get_curlm(JSContext *ctx);
+void tjs_curl_init(void);
+int tjs_curl_load_http(DynBuf *dbuf, const char *url);
+CURLM *tjs__get_curlm(JSContext *ctx);
 
 #endif

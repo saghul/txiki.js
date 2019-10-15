@@ -25,7 +25,7 @@
  */
 
 #include "private.h"
-#include "quv.h"
+#include "tjs.h"
 #include "version.h"
 
 #include <string.h>
@@ -37,7 +37,7 @@ static int eval_buf(JSContext *ctx, const void *buf, int buf_len, const char *fi
 
     val = JS_Eval(ctx, buf, buf_len, filename, eval_flags);
     if (JS_IsException(val)) {
-        quv_dump_error(ctx);
+        tjs_dump_error(ctx);
         ret = -1;
     } else {
         ret = 0;
@@ -47,25 +47,25 @@ static int eval_buf(JSContext *ctx, const void *buf, int buf_len, const char *fi
 }
 
 void help(void) {
-    printf("quv version %s\n"
-           "usage: quv [options] [file]\n"
+    printf("tjs version %s\n"
+           "usage: tjs [options] [file]\n"
            "-h  --help         list options\n"
            "-e  --eval EXPR    evaluate EXPR\n"
            "-i  --interactive  go to interactive mode\n"
            "-q  --quit         just instantiate the interpreter and quit\n",
-           quv_version());
+           tjs_version());
     exit(1);
 }
 
 int main(int argc, char **argv) {
-    QUVRuntime *qrt;
+    TJSRuntime *qrt;
     JSContext *ctx;
     int optind;
     char *expr = NULL;
     int interactive = 0;
     int empty_run = 0;
 
-    QUV_SetupArgs(argc, argv);
+    TJS_SetupArgs(argc, argv);
 
     /* cannot use getopt because we want to pass the command line to
        the script */
@@ -121,8 +121,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    qrt = QUV_NewRuntime();
-    ctx = QUV_GetJSContext(qrt);
+    qrt = TJS_NewRuntime();
+    ctx = TJS_GetJSContext(qrt);
 
     if (!empty_run) {
         if (expr) {
@@ -134,23 +134,23 @@ int main(int argc, char **argv) {
         } else {
             const char *filename;
             filename = argv[optind];
-            JSValue ret = QUV_EvalFile(ctx, filename, JS_EVAL_TYPE_MODULE, true);
+            JSValue ret = TJS_EvalFile(ctx, filename, JS_EVAL_TYPE_MODULE, true);
             if (JS_IsException(ret)) {
-                quv_dump_error(ctx);
+                tjs_dump_error(ctx);
                 JS_FreeValue(ctx, ret);
                 goto fail;
             }
             JS_FreeValue(ctx, ret);
         }
         if (interactive) {
-            QUV_RunRepl(ctx);
+            TJS_RunRepl(ctx);
         }
-        QUV_Run(qrt);
+        TJS_Run(qrt);
     }
 
-    QUV_FreeRuntime(qrt);
+    TJS_FreeRuntime(qrt);
     return 0;
 fail:
-    QUV_FreeRuntime(qrt);
+    TJS_FreeRuntime(qrt);
     return 1;
 }

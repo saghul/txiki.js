@@ -189,14 +189,14 @@ const win32 = {
       if (i >= 0) {
         path = arguments[i];
       } else if (!resolvedDevice) {
-        path = quv.cwd();
+        path = tjs.cwd();
       } else {
         // Windows has the concept of drive-specific current working
         // directories. If we've resolved a drive letter but not yet an
         // absolute path, get cwd for that drive, or the process cwd if
         // the drive cwd is not available. We're sure the device is not
         // a UNC path at this points, because UNC paths are always absolute.
-        path = quv.environ()['=' + resolvedDevice] || quv.cwd();
+        path = tjs.environ()['=' + resolvedDevice] || tjs.cwd();
 
         // Verify that a cwd was found and that it actually points
         // to our drive. If not, default to the drive's root.
@@ -1161,7 +1161,7 @@ const posix = {
       if (i >= 0)
         path = arguments[i];
       else {
-        path = quv.cwd();
+        path = tjs.cwd();
       }
 
       assertPath(path);
@@ -1610,7 +1610,7 @@ const posix = {
 posix.win32 = win32.win32 = win32;
 posix.posix = win32.posix = posix;
 
-const p = quv.platform === 'win32' ? win32 : posix;
+const p = tjs.platform === 'win32' ? win32 : posix;
 
 export const basename = p.basename;
 export const dirname = p.dirname;
