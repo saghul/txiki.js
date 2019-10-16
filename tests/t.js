@@ -9,14 +9,15 @@ const { createHarness, mochaTapLike } = zora;
 const harness = createHarness();
 const { test } = harness;
 
-function run() {
-    harness
-        .report(mochaTapLike)
-        .then(() => {
-            // set the exit code ourselves in case of failing test
-            const exitCode = harness.pass === true ? 0 : 1;
-            tjs.exit(exitCode);
-    });
+async function run() {
+    try {
+        await harness.report(mochaTapLike)
+    } catch (e) {
+        console.error(e);
+        tjs.exit(1);
+    } finally {
+        tjs.exit(harness.pass ? 0 : 1);
+    }
 }
 
 function sleep(ms) {
