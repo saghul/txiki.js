@@ -1,13 +1,13 @@
 
 # txiki.js — The tiny JavaScript runtime
 
-[![Build Status](https://travis-ci.org/saghul/tjs.svg?branch=master)](https://travis-ci.org/saghul/tjs)
+[![Build Status](https://travis-ci.org/saghul/txiki.js.svg?branch=master)](https://travis-ci.org/saghul/txiki.js)
 
 ## Overview
 
 > **txikia** (basque): small, tiny.
 
-*txikiJS* is a small and powerful JavaScript runtime. It's built on the shoulders of
+*txiki.js* is a small and powerful JavaScript runtime. It's built on the shoulders of
 giants: it uses [QuickJS] as its JavaScript engine and [libuv] as the platform layer.
 
 It was formerly named *quv*.
