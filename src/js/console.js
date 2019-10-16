@@ -207,7 +207,7 @@ const format = (function() {
     }
   
     function formatError(value) {
-      return '[' + Error.prototype.toString.call(value) + ']';
+      return `${Error.prototype.toString.call(value)}\n${value.stack}`;
     }
   
     function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
