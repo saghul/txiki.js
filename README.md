@@ -69,8 +69,11 @@ make
 ./build/tjs
 ```
 
+*NOTE:* The txiki.js build depends on a number of git submodules (e.g. [curl], [libuv]). If you didn't already clone this repository recursively, make sure you initialize these submodules with `git submodule update --init` before proceeding to the build.
+
 [QuickJS]: https://bellard.org/quickjs/
 [libuv]: https://libuv.org/
+[curl]: https://github.com/curl/curl
 [full API]: API.md
 [CMake]: https://cmake.org/
 [Ninja]: https://ninja-build.org/
