@@ -1,5 +1,5 @@
-
-import * as uv from 'uv';
+//Sample process.
+//
 
 function logStatus(s) {
     console.log(JSON.stringify(s));
@@ -42,10 +42,10 @@ const exe = tjs.exepath();
     console.log(`proc PID: ${proc.pid}`);
     console.log(proc.stdin.fileno());
     console.log(proc.stdout.fileno());
-    proc.stdin.write('hello!');
+    proc.stdin.write(buf, 'hello!');
     nread = await proc.stdout.read(buf);
     console.log(String.fromCharCode.apply(null, new Uint8Array(buf, 0, nread)));
-    proc.stdin.write('hello again!');
+    proc.stdin.write(buf, 'hello again!');
     nread = await proc.stdout.read(buf);
     console.log(String.fromCharCode.apply(null, new Uint8Array(buf, 0, nread)));
     proc.kill(tjs.SIGTERM);
