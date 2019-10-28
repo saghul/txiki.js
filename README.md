@@ -58,7 +58,7 @@ Other extras:
 
 ## Building
 
-[CMake] and [Ninja] are necessary.
+[CMake] is necessary.
 
 ```bash
 # Get the code
@@ -76,4 +76,3 @@ make
 [curl]: https://github.com/curl/curl
 [full API]: API.md
 [CMake]: https://cmake.org/
-[Ninja]: https://ninja-build.org/
