@@ -1,24 +1,19 @@
 NINJA?=ninja
-
 BUILD_DIR=build
-CMAKE_MK=$(BUILD_DIR)/Makefile
-
 BUILDTYPE?=Release
 
 all: build
 
-build: $(CMAKE_MK)
-	$(NINJA) -C $(BUILD_DIR)
-
-$(CMAKE_MK):
+build:
 	@mkdir -p $(BUILD_DIR)
-	cd $(BUILD_DIR); cmake ../ -DCMAKE_BUILD_TYPE=$(BUILDTYPE) -GNinja
+	cd $(BUILD_DIR); cmake ../ -DCMAKE_BUILD_TYPE=$(BUILDTYPE)
+	$(MAKE) -C $(BUILD_DIR) -j8
 
 install:
-	@$(NINJA) -C $(BUILD_DIR) install
+	@$(MAKE) -C $(BUILD_DIR) install
 
 clean:
-	@$(NINJA) -C $(BUILD_DIR) clean
+	@$(MAKE) -C $(BUILD_DIR) clean
 
 distclean:
 	@rm -rf $(BUILD_DIR)

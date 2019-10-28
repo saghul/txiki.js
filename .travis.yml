@@ -27,7 +27,7 @@ matrix:
       language: minimal
       before_install:
         - sudo docker run -dit --name tjs --volume "${PWD}:/mnt/tjs" --workdir /mnt/tjs alpine:latest
-        - sudo docker exec tjs apk add build-base cmake ninja curl-dev --update-cache
+        - sudo docker exec tjs apk add build-base cmake curl-dev --update-cache
       script: sudo docker exec tjs sh -c "make && make test"
     - name: macOS Clang system-CURL Debug
       os: osx
@@ -35,15 +35,6 @@ matrix:
     - name: macOS Clang system-CURL Release
       os: osx
       env: BUILDTYPE=Release
-addons:
-  apt:
-    update: true
-    packages:
-      - ninja-build
-  homebrew:
-    update: true
-    packages:
-      - ninja
 script:
   - make
   - ./build/tjs -e "console.log(JSON.stringify(tjs.versions))"
