@@ -1,4 +1,3 @@
-NINJA?=ninja
 BUILD_DIR=build
 BUILDTYPE?=Release
 
