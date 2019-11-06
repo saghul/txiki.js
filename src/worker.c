@@ -81,7 +81,7 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValueConst *argv) {
         goto error;
     }
 
-    ret = TJS_EvalFile(ctx, filename, JS_EVAL_TYPE_MODULE, false);
+    ret = TJS_EvalFile(ctx, filename, JS_EVAL_TYPE_MODULE, false, NULL);
     JS_FreeCString(ctx, filename);
 
     if (JS_IsException(ret)) {

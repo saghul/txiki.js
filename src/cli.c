@@ -49,10 +49,11 @@ static int eval_buf(JSContext *ctx, const void *buf, int buf_len, const char *fi
 void help(void) {
     printf("tjs version %s\n"
            "usage: tjs [options] [file]\n"
-           "-h  --help         list options\n"
-           "-e  --eval EXPR    evaluate EXPR\n"
-           "-i  --interactive  go to interactive mode\n"
-           "-q  --quit         just instantiate the interpreter and quit\n",
+           "-h  --help                        list options\n"
+           "-e  --eval EXPR                   evaluate EXPR\n"
+           "-i  --interactive                 go to interactive mode\n"
+           "    --override-filename FILENAME  override filename in error messages\n"
+           "-q  --quit                        just instantiate the interpreter and quit\n",
            tjs_version());
     exit(1);
 }
@@ -62,6 +63,7 @@ int main(int argc, char **argv) {
     JSContext *ctx;
     int optind;
     char *expr = NULL;
+    char *override_filename = NULL;
     int interactive = 0;
     int empty_run = 0;
 
@@ -101,7 +103,19 @@ int main(int argc, char **argv) {
                     expr = argv[optind++];
                     break;
                 }
-                fprintf(stderr, "qjs: missing expression for -e\n");
+                fprintf(stderr, "tjs: missing expression for -e\n");
+                exit(2);
+            }
+            if (!strcmp(longopt, "override-filename")) {
+                if (*arg) {
+                    override_filename = arg;
+                    break;
+                }
+                if (optind < argc) {
+                    override_filename = argv[optind++];
+                    break;
+                }
+                fprintf(stderr, "tjs: missing expression for --override-filename\n");
                 exit(2);
             }
             if (opt == 'i' || !strcmp(longopt, "interactive")) {
@@ -113,9 +127,9 @@ int main(int argc, char **argv) {
                 continue;
             }
             if (opt) {
-                fprintf(stderr, "qjs: unknown option '-%c'\n", opt);
+                fprintf(stderr, "tjs: unknown option '-%c'\n", opt);
             } else {
-                fprintf(stderr, "qjs: unknown option '--%s'\n", longopt);
+                fprintf(stderr, "tjs: unknown option '--%s'\n", longopt);
             }
             help();
         }
@@ -134,7 +148,7 @@ int main(int argc, char **argv) {
         } else {
             const char *filename;
             filename = argv[optind];
-            JSValue ret = TJS_EvalFile(ctx, filename, JS_EVAL_TYPE_MODULE, true);
+            JSValue ret = TJS_EvalFile(ctx, filename, JS_EVAL_TYPE_MODULE, true, override_filename);
             if (JS_IsException(ret)) {
                 tjs_dump_error(ctx);
                 JS_FreeValue(ctx, ret);

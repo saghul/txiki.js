@@ -284,7 +284,7 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
     return r;
 }
 
-JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_main) {
+JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_main, char *override_filename) {
     DynBuf dbuf;
     int r, eval_flags;
     JSValue ret;
@@ -308,13 +308,13 @@ JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_ma
 
     if ((eval_flags & JS_EVAL_TYPE_MASK) == JS_EVAL_TYPE_MODULE) {
         /* for the modules, we compile then run to be able to set import.meta */
-        ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, filename, eval_flags | JS_EVAL_FLAG_COMPILE_ONLY);
+        ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, override_filename != NULL ? override_filename : filename, eval_flags | JS_EVAL_FLAG_COMPILE_ONLY);
         if (!JS_IsException(ret)) {
             js_module_set_import_meta(ctx, ret, TRUE, is_main);
             ret = JS_EvalFunction(ctx, ret);
         }
     } else {
-        ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, filename, eval_flags);
+        ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, override_filename != NULL ? override_filename : filename, eval_flags);
     }
 
     /* Emit window 'load' event. */

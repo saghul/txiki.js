@@ -42,7 +42,7 @@ static JSValue js_loadScript(JSContext *ctx, JSValueConst this_val, int argc, JS
     filename = JS_ToCString(ctx, argv[0]);
     if (!filename)
         return JS_EXCEPTION;
-    ret = TJS_EvalFile(ctx, filename, JS_EVAL_TYPE_GLOBAL, false);
+    ret = TJS_EvalFile(ctx, filename, JS_EVAL_TYPE_GLOBAL, false, NULL);
     JS_FreeCString(ctx, filename);
     return ret;
 }
