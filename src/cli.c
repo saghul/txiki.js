@@ -49,11 +49,12 @@ static int eval_buf(JSContext *ctx, const void *buf, int buf_len, const char *fi
 void help(void) {
     printf("tjs version %s\n"
            "usage: tjs [options] [file]\n"
-           "-h  --help                        list options\n"
-           "-e  --eval EXPR                   evaluate EXPR\n"
-           "-i  --interactive                 go to interactive mode\n"
-           "    --override-filename FILENAME  override filename in error messages\n"
-           "-q  --quit                        just instantiate the interpreter and quit\n",
+           "-h  --help                       list options\n"
+           "-e  --eval EXPR                  evaluate EXPR\n"
+           "-i  --interactive                go to interactive mode\n"
+           "    --strict-module-detection    only run code as a module if its extension is \".mjs\"\n"
+           "    --override-filename FILENAME override filename in error messages\n"
+           "-q  --quit                       just instantiate the interpreter and quit\n",
            tjs_version());
     exit(1);
 }
@@ -66,6 +67,7 @@ int main(int argc, char **argv) {
     char *override_filename = NULL;
     int interactive = 0;
     int empty_run = 0;
+    int strict_module_detection = 0;
 
     TJS_SetupArgs(argc, argv);
 
@@ -126,6 +128,9 @@ int main(int argc, char **argv) {
                 empty_run++;
                 continue;
             }
+            if (strcmp(longopt, "strict-module-detection")) {
+                strict_module_detection = 1;
+            }
             if (opt) {
                 fprintf(stderr, "tjs: unknown option '-%c'\n", opt);
             } else {
@@ -148,7 +153,11 @@ int main(int argc, char **argv) {
         } else {
             const char *filename;
             filename = argv[optind];
-            JSValue ret = TJS_EvalFile(ctx, filename, JS_EVAL_TYPE_MODULE, true, override_filename);
+            int flags = JS_EVAL_TYPE_MODULE;
+            if (strict_module_detection && !has_suffix(filename, ".mjs")) {
+                flags = JS_EVAL_TYPE_GLOBAL;
+            }
+            JSValue ret = TJS_EvalFile(ctx, filename, flags, true, override_filename);
             if (JS_IsException(ret)) {
                 tjs_dump_error(ctx);
                 JS_FreeValue(ctx, ret);
