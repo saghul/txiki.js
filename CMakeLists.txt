@@ -30,6 +30,7 @@ include(${CMAKE_SOURCE_DIR}/src/js/CMakeLists.txt)
 option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
+add_subdirectory(deps/replxx EXCLUDE_FROM_ALL)
 
 
 macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
@@ -45,7 +46,6 @@ macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
 endmacro()
 
 cpr_option(DISABLE_CURL "If ON, curl support will be disabled" OFF)
-cpr_option(DISABLE_READLINE "If ON, readline support will be disabled" OFF)
 cpr_option(USE_SYSTEM_CURL "If ON, this project will look in the system paths for an installed curl library" ON)
 
 if(NOT DISABLE_CURL)
@@ -65,12 +65,6 @@ if(NOT DISABLE_CURL)
             ${CURL_BINARY_DIR}/include/curl)
     endif()
 endif()
-
-if(NOT DISABLE_READLINE)
-    include(FindReadline.cmake)
-    find_package(CURL)
-endif()
-
 
 add_executable(tjs
     src/bootstrap.c
@@ -113,12 +107,4 @@ if (CURL_FOUND)
     target_link_libraries(tjs ${CURL_LIBRARIES})
 endif()
 
-if (READLINE_FOUND)
-    target_compile_definitions(tjs PRIVATE
-        TJS_HAVE_READLINE
-    )
-    target_include_directories(tjs PRIVATE ${Readline_INCLUDE_DIR})
-    target_link_libraries(tjs ${Readline_LIBRARY})
-endif()
-
-target_link_libraries(tjs qjs uv_a m)
+target_link_libraries(tjs qjs uv_a m replxx)

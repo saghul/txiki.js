@@ -5,3 +5,6 @@
 	path = deps/libuv
 	url = https://github.com/libuv/libuv
 	branch = v1.x
+[submodule "deps/replxx"]
+	path = deps/replxx
+	url = https://github.com/AmokHuginnsson/replxx.git

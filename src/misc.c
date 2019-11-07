@@ -33,9 +33,7 @@
 #include <curl/curl.h>
 #endif
 
-#ifdef TJS_HAVE_READLINE
-#include <readline/readline.h>
-#endif
+#include <replxx.h>
 
 
 static JSValue tjs_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -322,27 +320,9 @@ static JSValue tjs_prompt(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         JS_FreeCString(ctx, str);
     }
 
-#ifdef TJS_HAVE_READLINE
-    str = readline(message);
-#else
-    printf("%s", message);
-    fflush(stdout);
-
-    len = 0;
-    int ch;
-    int str_size = STR_BUFFER_SIZE;
-    str = js_mallocz(ctx, sizeof (char) * STR_BUFFER_SIZE);
-    if (!str) goto fail;
-    while (EOF != (ch = getchar()) && ch != '\n') {
-        str[len++] = ch;
-        if (len == str_size) {
-            tmp = js_realloc(ctx, str, sizeof (char) * (str_size += STR_BUFFER_INCREMENT));
-            if (!tmp) goto fail;
-            str = tmp;
-        }
-    }
-    str[len++] = '\0';
-#endif
+    Replxx* replxx = replxx_init();
+    str = strdup(replxx_input(replxx, message));
+    replxx_end(replxx);
 
     js_free(ctx, message);
 
@@ -404,6 +384,7 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
     JS_CFUNC_DEF("tmpdir", 0, tjs_tmpdir),
     JS_CFUNC_DEF("exepath", 0, tjs_exepath),
     JS_CFUNC_MAGIC_DEF("print", 1, tjs_print, 0),
+    JS_CFUNC_MAGIC_DEF("printError", 1, tjs_print, 1),
     JS_CFUNC_MAGIC_DEF("alert", 1, tjs_print, 1),
     JS_CFUNC_DEF("prompt", 1, tjs_prompt),
     JS_CFUNC_DEF("random", 3, tjs_random),
