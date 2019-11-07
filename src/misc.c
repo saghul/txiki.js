@@ -27,9 +27,14 @@
 #include "version.h"
 
 #include <unistd.h>
+#include <string.h>
 
 #ifdef TJS_HAVE_CURL
 #include <curl/curl.h>
+#endif
+
+#ifdef TJS_HAVE_READLINE
+#include <readline/readline.h>
 #endif
 
 
@@ -282,6 +287,72 @@ static JSValue tjs_print(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
+#define STR_BUFFER_SIZE 128
+#define STR_BUFFER_INCREMENT 16
+
+static JSValue tjs_prompt(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    char *str;
+    char *tmp;
+
+    char *message = js_mallocz(ctx, sizeof (char) * STR_BUFFER_SIZE);
+    size_t len = 0;
+    int i;
+    int k;
+    char *arg;
+    int message_size = STR_BUFFER_SIZE;
+    for (i = 0; i < argc; i++) {
+        if (i != 0)
+            message[len++] = ' ';
+            if (len == message_size) {
+                tmp = js_realloc(ctx, message, sizeof (char) * (message_size += STR_BUFFER_INCREMENT));
+                if (!tmp) goto fail;
+                message = tmp;
+            }
+        arg = (char *) JS_ToCString(ctx, argv[i]);
+        if (!arg)
+            goto fail;
+        for (k = 0; k < strlen(arg); k++) {
+            message[len++] = arg[k];
+            if (len == message_size) {
+                tmp = js_realloc(ctx, message, sizeof (char) * (message_size += STR_BUFFER_INCREMENT));
+                if (!tmp) goto fail;
+                message = tmp;
+            }
+        }
+        JS_FreeCString(ctx, str);
+    }
+
+#ifdef TJS_HAVE_READLINE
+    str = readline(message);
+#else
+    printf("%s", message);
+    fflush(stdout);
+
+    len = 0;
+    int ch;
+    int str_size = STR_BUFFER_SIZE;
+    str = js_mallocz(ctx, sizeof (char) * STR_BUFFER_SIZE);
+    if (!str) goto fail;
+    while (EOF != (ch = getchar()) && ch != '\n') {
+        str[len++] = ch;
+        if (len == str_size) {
+            tmp = js_realloc(ctx, str, sizeof (char) * (str_size += STR_BUFFER_INCREMENT));
+            if (!tmp) goto fail;
+            str = tmp;
+        }
+    }
+    str[len++] = '\0';
+#endif
+
+    js_free(ctx, message);
+
+    return JS_NewString(ctx, str);
+
+fail:
+    js_free(ctx, message);
+    return JS_EXCEPTION;
+}
+
 static JSValue tjs_random(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     size_t size;
     uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
@@ -333,7 +404,8 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
     JS_CFUNC_DEF("tmpdir", 0, tjs_tmpdir),
     JS_CFUNC_DEF("exepath", 0, tjs_exepath),
     JS_CFUNC_MAGIC_DEF("print", 1, tjs_print, 0),
-    JS_CFUNC_MAGIC_DEF("printError", 1, tjs_print, 1),
+    JS_CFUNC_MAGIC_DEF("alert", 1, tjs_print, 1),
+    JS_CFUNC_DEF("prompt", 1, tjs_prompt),
     JS_CFUNC_DEF("random", 3, tjs_random),
 };
 
