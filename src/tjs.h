@@ -43,7 +43,7 @@ TJSRuntime *TJS_GetRuntime(JSContext *ctx);
 void TJS_Run(TJSRuntime *qrt);
 void TJS_Stop(TJSRuntime *qrt);
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
-JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int eval_flags, bool is_main);
+JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int eval_flags, bool is_main, char *override_filename);
 void TJS_RunRepl(JSContext *ctx);
 
 #endif
