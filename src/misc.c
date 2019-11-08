@@ -285,52 +285,37 @@ static JSValue tjs_print(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
-#define STR_BUFFER_SIZE 128
-#define STR_BUFFER_INCREMENT 16
-
 static JSValue tjs_prompt(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     char *str;
-    char *tmp;
 
-    char *message = js_mallocz(ctx, sizeof (char) * STR_BUFFER_SIZE);
-    size_t len = 0;
-    int i;
-    int k;
-    char *arg;
-    int message_size = STR_BUFFER_SIZE;
-    for (i = 0; i < argc; i++) {
-        if (i != 0)
-            message[len++] = ' ';
-            if (len == message_size) {
-                tmp = js_realloc(ctx, message, sizeof (char) * (message_size += STR_BUFFER_INCREMENT));
-                if (!tmp) goto fail;
-                message = tmp;
-            }
-        arg = (char *) JS_ToCString(ctx, argv[i]);
-        if (!arg)
-            goto fail;
-        for (k = 0; k < strlen(arg); k++) {
-            message[len++] = arg[k];
-            if (len == message_size) {
-                tmp = js_realloc(ctx, message, sizeof (char) * (message_size += STR_BUFFER_INCREMENT));
-                if (!tmp) goto fail;
-                message = tmp;
-            }
+    const char *message = "";
+    const char *default_value = "";
+
+    if (argc > 0) {
+        message = JS_ToCString(ctx, argv[0]);
+        if (!message) {
+            return JS_EXCEPTION;
         }
-        JS_FreeCString(ctx, str);
     }
 
     Replxx* replxx = replxx_init();
+    
+    if (argc > 1) {
+        default_value = JS_ToCString(ctx, argv[1]);
+        replxx_set_preload_buffer(replxx, default_value);
+    }
+
     str = strdup(replxx_input(replxx, message));
     replxx_end(replxx);
 
-    js_free(ctx, message);
+    if (argc > 0) {
+        JS_FreeCString(ctx, message);
+    }
+    if (argc > 1) {
+        JS_FreeCString(ctx, default_value);
+    }
 
     return JS_NewString(ctx, str);
-
-fail:
-    js_free(ctx, message);
-    return JS_EXCEPTION;
 }
 
 static JSValue tjs_random(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -386,7 +371,7 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
     JS_CFUNC_MAGIC_DEF("print", 1, tjs_print, 0),
     JS_CFUNC_MAGIC_DEF("printError", 1, tjs_print, 1),
     JS_CFUNC_MAGIC_DEF("alert", 1, tjs_print, 1),
-    JS_CFUNC_DEF("prompt", 1, tjs_prompt),
+    JS_CFUNC_DEF("prompt", 0, tjs_prompt),
     JS_CFUNC_DEF("random", 3, tjs_random),
 };
 
