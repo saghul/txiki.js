@@ -27,7 +27,6 @@
 #include "version.h"
 
 #include <unistd.h>
-#include <string.h>
 
 #ifdef TJS_HAVE_CURL
 #include <curl/curl.h>
@@ -286,10 +285,10 @@ static JSValue tjs_print(JSContext *ctx, JSValueConst this_val, int argc, JSValu
 }
 
 static JSValue tjs_prompt(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    char *str;
+    JSValue str;
 
     const char *message = "";
-    const char *default_value = "";
+    const char *default_value = NULL;
 
     if (argc > 0) {
         message = JS_ToCString(ctx, argv[0]);
@@ -305,7 +304,8 @@ static JSValue tjs_prompt(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         replxx_set_preload_buffer(replxx, default_value);
     }
 
-    str = strdup(replxx_input(replxx, message));
+    str = JS_NewString(ctx, replxx_input(replxx, message));
+
     replxx_end(replxx);
 
     if (argc > 0) {
@@ -315,7 +315,7 @@ static JSValue tjs_prompt(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         JS_FreeCString(ctx, default_value);
     }
 
-    return JS_NewString(ctx, str);
+    return str;
 }
 
 static JSValue tjs_random(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
