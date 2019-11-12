@@ -1,8 +1,17 @@
+option(QJSC_HOST_CC "QJSC host C compiler" ${CMAKE_C_COMPILER})
 
-add_executable(qjsc
-    src/qjsc.c
+get_target_property(QJS_SOURCES qjs SOURCES)
+add_custom_command(
+    COMMAND
+        ${QJSC_HOST_CC}
+        -o ${CMAKE_CURRENT_BINARY_DIR}/qjsc-host
+        -lm
+        src/qjsc.c ${QJS_SOURCES}
+    DEPENDS
+        src/qjsc.c ${QJS_SOURCES}
+    OUTPUT
+        ${CMAKE_CURRENT_BINARY_DIR}/qjsc-host
 )
-target_link_libraries(qjsc qjs m)
 
 set(JS_PATH ${CMAKE_SOURCE_DIR}/src/js)
 set(js_files
@@ -26,11 +35,11 @@ set(js_files
 
 add_custom_command(
     COMMAND
-        ${CMAKE_CURRENT_BINARY_DIR}/qjsc
+        ${CMAKE_CURRENT_BINARY_DIR}/qjsc-host
         -o ${CMAKE_CURRENT_BINARY_DIR}/js.c
         -m ${js_files}
     DEPENDS
-        ${CMAKE_CURRENT_BINARY_DIR}/qjsc
+        ${CMAKE_CURRENT_BINARY_DIR}/qjsc-host
         ${js_files}
     OUTPUT
         ${CMAKE_CURRENT_BINARY_DIR}/js.c
