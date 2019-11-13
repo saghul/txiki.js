@@ -23,7 +23,7 @@ set(js_files
     ${JS_PATH}/worker-bootstrap.js
 )
 
-set(CUSTOM_QJSC STRING ${CMAKE_CURRENT_BINARY_DIR}/qjsc CACHE "Custom path to QJSC")
+set(CUSTOM_QJSC "${CMAKE_CURRENT_BINARY_DIR}/qjsc" CACHE STRING "Custom path to QJSC")
 add_custom_command(
     COMMAND
         ${CUSTOM_QJSC}
