@@ -13,7 +13,6 @@ message(STATUS "Building with ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}
 
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -DDEBUG -O0 -g3")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -DNDEBUG -O2 -g")
-SET(CMAKE_C_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE}")
 
 
 set(TJS__VERSION_MAJOR 19)
@@ -109,4 +108,4 @@ if (CURL_FOUND)
     target_link_libraries(tjs ${CURL_LIBRARIES})
 endif()
 
-target_link_libraries(tjs qjs uv_a m replxx-static)
+target_link_libraries(tjs qjs uv_a m stdc++ replxx-static)
