@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.4)
 
-project(tjs LANGUAGES CXX)
+project(tjs LANGUAGES C)
 
 include(GNUInstallDirs)
 
@@ -108,4 +108,4 @@ if (CURL_FOUND)
     target_link_libraries(tjs ${CURL_LIBRARIES})
 endif()
 
-target_link_libraries(tjs qjs uv_a m replxx-static)
+target_link_libraries(tjs qjs uv_a m replxx-static stdc++)
