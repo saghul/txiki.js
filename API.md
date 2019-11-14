@@ -5,7 +5,9 @@
 - `global`: reference to the global object.
 - `globalThis`: same as `global`.
 - `window`: same as `global`.
-- `console`: a minimal JS console object with just the `log` method.
+- `console`: a minimal JS console object.
+- `window.alert`: sames as `console.log`.
+- `window.prompt`: User input function with line-editing.
 - `TextEncoder` / `TextDecoder`: WHATWG [Encoding API].
 - `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval`: standard timer functions.
 - `tjs`: reference to the `@tjs/core` module.

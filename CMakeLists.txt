@@ -30,6 +30,9 @@ include(${CMAKE_SOURCE_DIR}/src/js/CMakeLists.txt)
 option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
+option(REPLXX_BuildExamples "" OFF)
+option(BUILD_SHARED_LIBS "" OFF)
+add_subdirectory(deps/replxx EXCLUDE_FROM_ALL)
 
 
 macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
@@ -65,7 +68,6 @@ if(NOT DISABLE_CURL)
     endif()
 endif()
 
-
 add_executable(tjs
     src/bootstrap.c
     src/cli.c
@@ -93,6 +95,7 @@ set_target_properties(tjs PROPERTIES
     C_STANDARD 99
     C_STANDARD_REQUIRED ON
 )
+
 if (CURL_FOUND)
     if (USE_SYSTEM_CURL)
         target_compile_definitions(tjs PRIVATE
@@ -105,4 +108,5 @@ if (CURL_FOUND)
     target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
     target_link_libraries(tjs ${CURL_LIBRARIES})
 endif()
-target_link_libraries(tjs qjs uv_a m)
+
+target_link_libraries(tjs qjs uv_a m replxx-static stdc++)

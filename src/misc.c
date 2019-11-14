@@ -32,6 +32,8 @@
 #include <curl/curl.h>
 #endif
 
+#include <replxx.h>
+
 
 static JSValue tjs_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     return JS_NewBigUint64(ctx, uv_hrtime());
@@ -282,6 +284,40 @@ static JSValue tjs_print(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_prompt(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue str;
+
+    const char *message = "";
+    const char *default_value = NULL;
+
+    if (argc > 0) {
+        message = JS_ToCString(ctx, argv[0]);
+        if (!message) {
+            return JS_EXCEPTION;
+        }
+    }
+
+    Replxx* replxx = replxx_init();
+    
+    if (argc > 1) {
+        default_value = JS_ToCString(ctx, argv[1]);
+        replxx_set_preload_buffer(replxx, default_value);
+    }
+
+    str = JS_NewString(ctx, replxx_input(replxx, message));
+
+    replxx_end(replxx);
+
+    if (argc > 0) {
+        JS_FreeCString(ctx, message);
+    }
+    if (argc > 1) {
+        JS_FreeCString(ctx, default_value);
+    }
+
+    return str;
+}
+
 static JSValue tjs_random(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     size_t size;
     uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
@@ -334,6 +370,8 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
     JS_CFUNC_DEF("exepath", 0, tjs_exepath),
     JS_CFUNC_MAGIC_DEF("print", 1, tjs_print, 0),
     JS_CFUNC_MAGIC_DEF("printError", 1, tjs_print, 1),
+    JS_CFUNC_MAGIC_DEF("alert", 1, tjs_print, 1),
+    JS_CFUNC_DEF("prompt", 0, tjs_prompt),
     JS_CFUNC_DEF("random", 3, tjs_random),
 };
 
