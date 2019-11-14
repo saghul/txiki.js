@@ -1,4 +1,3 @@
-
 add_executable(qjsc
     src/qjsc.c
 )
@@ -24,13 +23,14 @@ set(js_files
     ${JS_PATH}/worker-bootstrap.js
 )
 
+set(CUSTOM_QJSC "${CMAKE_CURRENT_BINARY_DIR}/qjsc" CACHE STRING "Custom path to QJSC")
 add_custom_command(
     COMMAND
-        ${CMAKE_CURRENT_BINARY_DIR}/qjsc
+        ${CUSTOM_QJSC}
         -o ${CMAKE_CURRENT_BINARY_DIR}/js.c
         -m ${js_files}
     DEPENDS
-        ${CMAKE_CURRENT_BINARY_DIR}/qjsc
+        ${CUSTOM_QJSC}
         ${js_files}
     OUTPUT
         ${CMAKE_CURRENT_BINARY_DIR}/js.c
