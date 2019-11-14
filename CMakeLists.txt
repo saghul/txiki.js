@@ -31,6 +31,7 @@ option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 option(REPLXX_BuildExamples "" OFF)
+option(BUILD_SHARED_LIBS "" OFF)
 add_subdirectory(deps/replxx EXCLUDE_FROM_ALL)
 
 
