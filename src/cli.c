@@ -128,8 +128,9 @@ int main(int argc, char **argv) {
                 empty_run++;
                 continue;
             }
-            if (strcmp(longopt, "strict-module-detection")) {
-                strict_module_detection = 1;
+            if (!strcmp(longopt, "strict-module-detection")) {
+                strict_module_detection++;
+                continue;
             }
             if (opt) {
                 fprintf(stderr, "tjs: unknown option '-%c'\n", opt);
