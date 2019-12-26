@@ -23,4 +23,8 @@ format:
 test:
 	./$(BUILD_DIR)/tjs tests/run.js
 
+test-advanced:
+	cd tests/advanced && npm install
+	./$(BUILD_DIR)/tjs tests/run-advanced.js
+
 .PHONY: all build install clean distclean format test
