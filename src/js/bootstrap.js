@@ -4,6 +4,7 @@
 import * as tjs from '@tjs/core';
 
 globalThis.tjs = tjs;
+globalThis.fs = tjs.fs;
 globalThis.setTimeout = tjs.setTimeout;
 globalThis.clearTimeout = tjs.clearTimeout;
 globalThis.setInterval = tjs.setInterval;

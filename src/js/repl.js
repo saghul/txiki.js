@@ -32,6 +32,7 @@ import * as uuid from "@tjs/uuid";
     g.hashlib = hashlib;
     g.path = path;
     g.uuid = uuid;
+    g.fs = tjs.fs;
 
     /* close global objects */
     var Object = g.Object;
