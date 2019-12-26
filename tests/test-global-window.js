@@ -1,12 +1,12 @@
 import { run, test } from './t.js';
 
-test('global is not configurable / writable', t => {
-    t.throws(() => { globalThis.global = 'foo'; }, TypeError, 'assigning global throws');
+test('should be futile to rewriting global', t => {
+    globalThis.global = 'foo';
     t.is(globalThis, global, 'globalThis is global')
 });
 
-test('window is not configurable / writable', t => {
-    t.throws(() => { globalThis.window = 'foo'; }, TypeError, 'assigning window throws');
+test('should be futile to rewriting window', t => {
+    globalThis.window = 'foo';
     t.is(globalThis, window, 'globalThis is window')
 });
 
