@@ -368,6 +368,7 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
     TJS_CONST(UV_UDP_IPV6ONLY),
     TJS_CONST(UV_UDP_PARTIAL),
     TJS_CONST(UV_UDP_REUSEADDR),
+    JS_CFUNC_DEF("hrtime", 0, tjs_hrtime),
     JS_CFUNC_DEF("hrtimeBigInt", 0, tjs_hrtimeBigInt),
     JS_CFUNC_DEF("gettimeofday", 0, tjs_gettimeofday),
     JS_CFUNC_DEF("uname", 0, tjs_uname),
