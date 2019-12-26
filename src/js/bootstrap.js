@@ -14,14 +14,12 @@ globalThis.prompt = tjs.prompt;
 
 Object.defineProperty(globalThis, 'global', {
     enumerable: true,
-    configurable: true,
-    writable: true,
-    value: globalThis
+    get() { return globalThis },
+    set() {}
 });
 
 Object.defineProperty(globalThis, 'window', {
     enumerable: true,
-    configurable: true,
-    writable: true,
-    value: globalThis
+    get() { return globalThis },
+    set() {}
 });
