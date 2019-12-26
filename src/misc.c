@@ -35,8 +35,20 @@
 #include <replxx.h>
 
 
-static JSValue tjs_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_hrtimeBigInt(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     return JS_NewBigUint64(ctx, uv_hrtime());
+}
+
+static JSValue tjs_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uint64_t nanosecs = uv_hrtime();
+    unsigned secs = nanosecs / 1000000000ULL;
+    unsigned nanos = nanosecs - secs;
+
+    JSValue ret = JS_NewArray(ctx);
+    JS_SetPropertyUint32(ctx, ret, 0, JS_NewInt32(ctx, secs));
+    JS_SetPropertyUint32(ctx, ret, 1, JS_NewInt32(ctx, nanos));
+
+    return ret;
 }
 
 static JSValue tjs_gettimeofday(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -356,7 +368,7 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
     TJS_CONST(UV_UDP_IPV6ONLY),
     TJS_CONST(UV_UDP_PARTIAL),
     TJS_CONST(UV_UDP_REUSEADDR),
-    JS_CFUNC_DEF("hrtime", 0, tjs_hrtime),
+    JS_CFUNC_DEF("hrtimeBigInt", 0, tjs_hrtimeBigInt),
     JS_CFUNC_DEF("gettimeofday", 0, tjs_gettimeofday),
     JS_CFUNC_DEF("uname", 0, tjs_uname),
     JS_CFUNC_DEF("isatty", 1, tjs_isatty),
