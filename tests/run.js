@@ -13,5 +13,6 @@ import './test-uuid.js';
 import './test-version.js';
 import './test-xhr.js';
 import './test-worker.js';
+import './test-hrtime.js';
 
 run();
