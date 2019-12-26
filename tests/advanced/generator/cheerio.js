@@ -1,0 +1,1 @@
+global.cheerio = require('cheerio') // workaround for qjs, there is no module.exports available
