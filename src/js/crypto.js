@@ -36,7 +36,7 @@ const crypto = Object.freeze({
 
 Object.defineProperty(window, 'crypto', {
     enumerable: true,
-    configurable: false,
-    writable: false,
+    configurable: true,
+    writable: true,
     value: crypto
 });
