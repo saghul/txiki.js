@@ -41,12 +41,12 @@ static JSValue tjs_hrtimeBigInt(JSContext *ctx, JSValueConst this_val, int argc,
 
 static JSValue tjs_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     uint64_t nanosecs = uv_hrtime();
-    unsigned secs = nanosecs / 1000000000ULL;
-    unsigned nanos = nanosecs - secs;
+    uint64_t secs = nanosecs / 1000000000ULL;
+    uint64_t remainingNanosecs = nanosecs - (secs * 1000000000ULL);
 
     JSValue ret = JS_NewArray(ctx);
-    JS_SetPropertyUint32(ctx, ret, 0, JS_NewInt32(ctx, secs));
-    JS_SetPropertyUint32(ctx, ret, 1, JS_NewInt32(ctx, nanos));
+    JS_SetPropertyUint32(ctx, ret, 0, JS_NewInt64(ctx, secs));
+    JS_SetPropertyUint32(ctx, ret, 1, JS_NewInt64(ctx, remainingNanosecs));
 
     return ret;
 }
