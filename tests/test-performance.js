@@ -2,6 +2,7 @@ import { run, sleep, test } from './t.js';
 
 test('performance now', async t => {
     const start = performance.now();
+    t.ok(typeof start == 'number', 'performance.now() returns number (for now)');
     await sleep(100);
     t.ok(performance.now() - start >= 100, 'performance.now() works');
 });

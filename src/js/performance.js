@@ -13,7 +13,7 @@ class Performance {
     }
 
     now() {
-        return tjs.hrtimeBigInt() - this._startTime;
+        return Number(tjs.hrtimeBigInt() - this._startTime);
     }
 
     mark(name) {
