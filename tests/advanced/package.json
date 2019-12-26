@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "cheerio": "^0.22.0",
+    "global-jsdom": "^5.1.0",
+    "jsdom": "^15.2.1"
+  },
+  "devDependencies": {
+    "browserify": "^16.5.0"
+  },
+  "scripts": {
+    "build": "node browserify.config.js",
+    "postinstall": "npm run build"
+  }
+}
