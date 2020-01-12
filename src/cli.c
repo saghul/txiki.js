@@ -86,6 +86,10 @@ static void print_version() {
     printf("v%s\n", tjs_version());
 }
 
+static void report_bad_option(char *opt) {
+    fprintf(stderr, "tjs: bad option -%s\n", opt);
+}
+
 static void report_missing_argument(char opt, const char *longopt) {
     if (opt)
         fprintf(stderr, "tjs: -%c requires an argument\n", opt);
@@ -133,6 +137,8 @@ static char *get_option_value(char *arg, int argc, char **argv, int *optind) {
     if (*optind >= argc)
         return NULL;
     char *value = argv[*optind];
+    if (*value == OPT_PREFIX)
+        return NULL;
     *optind += 1;
     return value;
 }
@@ -160,6 +166,12 @@ int main(int argc, char **argv) {
         if (!get_option(&arg, &opt, &longopt, &optlen))
             break;
         optind += 1;
+        /* combining short options is NOT supported */
+        if (opt && optlen > 0) {
+            report_bad_option(arg - 1);
+            exit_code = EXIT_INVALID_ARG;
+            goto exit;
+        }
         while (opt || *longopt) {
             if (opt == 'v' || is_longopt(longopt, "version", optlen)) {
                 print_version();
