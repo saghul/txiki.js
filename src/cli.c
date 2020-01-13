@@ -36,12 +36,18 @@
 #define OPT_PREFIX '-'
 #define OPT_ASSIGN '='
 
-#define is_longopt(longopt, str, optlen) (longopt && !strncmp(longopt, str, optlen))
+#define is_longopt(opt, str) (opt.name && !strncmp(opt.name, str, opt.length))
 
-typedef struct CLIOptions {
+typedef struct CLIOption {
+    char key;
+    char *name;
+    unsigned length;
+} CLIOption;
+
+typedef struct Flags {
     unsigned interactive, empty_run, strict_module_detection;
     char *eval_expr, *override_filename;
-} CLIOptions;
+} Flags;
 
 static int eval_buf(JSContext *ctx, const char *buf, const char *filename, int eval_flags) {
     JSValue val;
@@ -86,44 +92,44 @@ static void print_version() {
     printf("v%s\n", tjs_version());
 }
 
-static void report_bad_option(char *opt) {
-    fprintf(stderr, "tjs: bad option -%s\n", opt);
+static void report_bad_option(char *name) {
+    fprintf(stderr, "tjs: bad option -%s\n", name);
 }
 
-static void report_missing_argument(char opt, const char *longopt) {
-    if (opt)
-        fprintf(stderr, "tjs: -%c requires an argument\n", opt);
+static void report_missing_argument(CLIOption opt) {
+    if (opt.key)
+        fprintf(stderr, "tjs: -%c requires an argument\n", opt.key);
     else
-        fprintf(stderr, "tjs: --%s requires an argument\n", longopt);
+        fprintf(stderr, "tjs: --%s requires an argument\n", opt.name);
 }
 
-static void report_unknown_option(char opt, const char *longopt) {
-    if (opt)
-        fprintf(stderr, "tjs: unknown option -%c\n", opt);
+static void report_unknown_option(CLIOption opt) {
+    if (opt.key)
+        fprintf(stderr, "tjs: unknown option -%c\n", opt.key);
     else
-        fprintf(stderr, "tjs: unknown option --%s\n", longopt);
+        fprintf(stderr, "tjs: unknown option --%s\n", opt.name);
 }
 
-static int get_option_length(const char *arg) {
+static unsigned get_option_length(const char *arg) {
     const char *val_start = strchr(arg, OPT_ASSIGN);
     if (!val_start)
         val_start = arg + strlen(arg);
-    return (int) (val_start - arg - 1);
+    return val_start - arg - 1;
 }
 
-static int get_option(char **arg, char *opt, char **longopt, int *optlen) {
+static int get_option(char **arg, CLIOption *opt) {
     /* a single `-` is not an option, it also stops argument scanning */
     if (!**arg)
         return false;
-    *optlen = get_option_length(*arg);
+    opt->length = get_option_length(*arg);
     if (**arg == OPT_PREFIX) {
-        *longopt = *arg + 1;
+        opt->name = *arg + 1;
         /* `--` stops argument scanning */
-        if (!**longopt)
+        if (!*opt->name)
             return false;
-        *arg += *optlen + 1;
+        *arg += opt->length + 1;
     } else if (**arg) {
-        *opt = **arg;
+        opt->key = **arg;
         *arg += 1;
     }
     if (**arg == OPT_ASSIGN)
@@ -148,11 +154,11 @@ int main(int argc, char **argv) {
     JSContext *ctx = NULL;
     int exit_code = EXIT_SUCCESS;
 
-    CLIOptions opts = { .interactive = false,
-                        .empty_run = false,
-                        .strict_module_detection = false,
-                        .eval_expr = NULL,
-                        .override_filename = NULL };
+    Flags flags = { .interactive = false,
+                    .empty_run = false,
+                    .strict_module_detection = false,
+                    .eval_expr = NULL,
+                    .override_filename = NULL };
 
     TJS_SetupArgs(argc, argv);
 
@@ -160,57 +166,54 @@ int main(int argc, char **argv) {
     int optind = 1;
     while (optind < argc && *argv[optind] == OPT_PREFIX) {
         char *arg = argv[optind] + 1;
-        char opt = 0;
-        char *longopt = NULL;
-        int optlen = 0;
-        if (!get_option(&arg, &opt, &longopt, &optlen))
+        CLIOption opt = { .key = 0, .name = NULL, .length = 0 };
+        if (!get_option(&arg, &opt))
             break;
         optind += 1;
         /* combining short options is NOT supported */
-        if (opt && optlen > 0) {
+        if (opt.key && opt.length > 0) {
             report_bad_option(arg - 1);
             exit_code = EXIT_INVALID_ARG;
             goto exit;
         }
-        while (opt || *longopt) {
-            if (opt == 'v' || is_longopt(longopt, "version", optlen)) {
+        while (opt.key || *opt.name) {
+            if (opt.key == 'v' || is_longopt(opt, "version")) {
                 print_version();
                 goto exit;
             }
-            if (opt == 'h' || is_longopt(longopt, "help", optlen)) {
+            if (opt.key == 'h' || is_longopt(opt, "help")) {
                 print_help();
                 goto exit;
             }
-            if (opt == 'e' || is_longopt(longopt, "eval", optlen)) {
-                opts.eval_expr = get_option_value(arg, argc, argv, &optind);
-                if (opts.eval_expr)
+            if (opt.key == 'e' || is_longopt(opt, "eval")) {
+                flags.eval_expr = get_option_value(arg, argc, argv, &optind);
+                if (flags.eval_expr)
                     break;
-                report_missing_argument(opt, longopt);
+                report_missing_argument(opt);
                 exit_code = EXIT_INVALID_ARG;
                 goto exit;
             }
-            if (is_longopt(longopt, "override-filename", optlen) || is_longopt(longopt, "overrideFilename", optlen)) {
-                opts.override_filename = get_option_value(arg, argc, argv, &optind);
-                if (opts.override_filename)
+            if (is_longopt(opt, "override-filename") || is_longopt(opt, "overrideFilename")) {
+                flags.override_filename = get_option_value(arg, argc, argv, &optind);
+                if (flags.override_filename)
                     break;
-                report_missing_argument(opt, longopt);
+                report_missing_argument(opt);
                 exit_code = EXIT_INVALID_ARG;
                 goto exit;
             }
-            if (opt == 'i' || is_longopt(longopt, "interactive", optlen)) {
-                opts.interactive = true;
+            if (opt.key == 'i' || is_longopt(opt, "interactive")) {
+                flags.interactive = true;
                 break;
             }
-            if (opt == 'q' || is_longopt(longopt, "quit", optlen)) {
-                opts.empty_run = true;
+            if (opt.key == 'q' || is_longopt(opt, "quit")) {
+                flags.empty_run = true;
                 break;
             }
-            if (is_longopt(longopt, "strict-module-detection", optlen) ||
-                is_longopt(longopt, "strictModuleDetection", optlen)) {
-                opts.strict_module_detection = true;
+            if (is_longopt(opt, "strict-module-detection") || is_longopt(opt, "strictModuleDetection")) {
+                flags.strict_module_detection = true;
                 break;
             }
-            report_unknown_option(opt, longopt);
+            report_unknown_option(opt);
             exit_code = EXIT_INVALID_ARG;
             goto exit;
         }
@@ -219,29 +222,29 @@ int main(int argc, char **argv) {
     qrt = TJS_NewRuntime();
     ctx = TJS_GetJSContext(qrt);
 
-    if (opts.empty_run)
+    if (flags.empty_run)
         goto exit;
 
-    if (opts.eval_expr) {
-        if (eval_buf(ctx, opts.eval_expr, "<cmdline>", JS_EVAL_TYPE_GLOBAL)) {
+    if (flags.eval_expr) {
+        if (eval_buf(ctx, flags.eval_expr, "<cmdline>", JS_EVAL_TYPE_GLOBAL)) {
             exit_code = EXIT_FAILURE;
             goto exit;
         }
     } else if (optind >= argc) {
         /* interactive mode */
-        opts.interactive = true;
+        flags.interactive = true;
     } else {
         const char *filepath = argv[optind];
         int eval_flags = JS_EVAL_TYPE_MODULE;
-        if (opts.strict_module_detection && !has_suffix(filepath, ".mjs"))
+        if (flags.strict_module_detection && !has_suffix(filepath, ".mjs"))
             eval_flags = JS_EVAL_TYPE_GLOBAL;
-        if (eval_module(ctx, filepath, opts.override_filename, eval_flags)) {
+        if (eval_module(ctx, filepath, flags.override_filename, eval_flags)) {
             exit_code = EXIT_FAILURE;
             goto exit;
         }
     }
 
-    if (opts.interactive)
+    if (flags.interactive)
         TJS_RunRepl(ctx);
     TJS_Run(qrt);
 
