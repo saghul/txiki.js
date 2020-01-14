@@ -96,18 +96,18 @@ static void report_bad_option(char *name) {
     fprintf(stderr, "tjs: bad option -%s\n", name);
 }
 
-static void report_missing_argument(CLIOption opt) {
-    if (opt.key)
-        fprintf(stderr, "tjs: -%c requires an argument\n", opt.key);
+static void report_missing_argument(CLIOption *opt) {
+    if (opt->key)
+        fprintf(stderr, "tjs: -%c requires an argument\n", opt->key);
     else
-        fprintf(stderr, "tjs: --%s requires an argument\n", opt.name);
+        fprintf(stderr, "tjs: --%s requires an argument\n", opt->name);
 }
 
-static void report_unknown_option(CLIOption opt) {
-    if (opt.key)
-        fprintf(stderr, "tjs: unknown option -%c\n", opt.key);
+static void report_unknown_option(CLIOption *opt) {
+    if (opt->key)
+        fprintf(stderr, "tjs: unknown option -%c\n", opt->key);
     else
-        fprintf(stderr, "tjs: unknown option --%s\n", opt.name);
+        fprintf(stderr, "tjs: unknown option --%s\n", opt->name);
 }
 
 static unsigned get_option_length(const char *arg) {
@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
                 flags.eval_expr = get_option_value(arg, argc, argv, &optind);
                 if (flags.eval_expr)
                     break;
-                report_missing_argument(opt);
+                report_missing_argument(&opt);
                 exit_code = EXIT_INVALID_ARG;
                 goto exit;
             }
@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
                 flags.override_filename = get_option_value(arg, argc, argv, &optind);
                 if (flags.override_filename)
                     break;
-                report_missing_argument(opt);
+                report_missing_argument(&opt);
                 exit_code = EXIT_INVALID_ARG;
                 goto exit;
             }
@@ -213,7 +213,7 @@ int main(int argc, char **argv) {
                 flags.strict_module_detection = true;
                 break;
             }
-            report_unknown_option(opt);
+            report_unknown_option(&opt);
             exit_code = EXIT_INVALID_ARG;
             goto exit;
         }
