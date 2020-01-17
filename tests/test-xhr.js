@@ -16,6 +16,22 @@ test('basic XHR', async t => {
     await p;
 });
 
+test('basic XHR with EventTarget', async t => {
+    const p = new Promise(resolve => {
+        const url = 'https://httpbin.org/get';
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', url);
+        xhr.addEventListener('loadend', () => {
+            t.eq(xhr.readyState, xhr.DONE, 'readyState is DONE');
+            t.eq(xhr.responseURL, url, 'url is the same');
+            t.eq(xhr.status, 200, 'status is 200');
+            resolve();
+        });
+        xhr.send();
+    });
+    await p;
+});
+
 test('XHR timeout', async t => {
     const p = new Promise(resolve => {
         const url = 'https://httpbin.org/delay/3';

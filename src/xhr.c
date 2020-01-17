@@ -682,12 +682,15 @@ static JSValue tjs_xhr_setrequestheader(JSContext *ctx, JSValueConst this_val, i
     return JS_UNDEFINED;
 }
 
-static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
+static const JSCFunctionListEntry tjs_xhr_class_funcs[] = {
     JS_PROP_INT32_DEF("UNSENT", XHR_RSTATE_UNSENT, JS_PROP_ENUMERABLE),
     JS_PROP_INT32_DEF("OPENED", XHR_RSTATE_OPENED, JS_PROP_ENUMERABLE),
     JS_PROP_INT32_DEF("HEADERS_RECEIVED", XHR_RSTATE_HEADERS_RECEIVED, JS_PROP_ENUMERABLE),
     JS_PROP_INT32_DEF("LOADING", XHR_RSTATE_LOADING, JS_PROP_ENUMERABLE),
     JS_PROP_INT32_DEF("DONE", XHR_RSTATE_DONE, JS_PROP_ENUMERABLE),
+};
+
+static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
     JS_CGETSET_MAGIC_DEF("onabort", tjs_xhr_event_get, tjs_xhr_event_set, XHR_EVENT_ABORT),
     JS_CGETSET_MAGIC_DEF("onerror", tjs_xhr_event_get, tjs_xhr_event_set, XHR_EVENT_ERROR),
     JS_CGETSET_MAGIC_DEF("onload", tjs_xhr_event_get, tjs_xhr_event_set, XHR_EVENT_LOAD),
@@ -727,6 +730,7 @@ void tjs_mod_xhr_init(JSContext *ctx, JSModuleDef *m) {
 
     /* XHR object */
     obj = JS_NewCFunction2(ctx, tjs_xhr_constructor, "XMLHttpRequest", 1, JS_CFUNC_constructor, 0);
+    JS_SetPropertyFunctionList(ctx, obj, tjs_xhr_class_funcs, countof(tjs_xhr_class_funcs));
     JS_SetModuleExport(ctx, m, "XMLHttpRequest", obj);
 }
 

@@ -8,7 +8,6 @@ globalThis.setTimeout = tjs.setTimeout;
 globalThis.clearTimeout = tjs.clearTimeout;
 globalThis.setInterval = tjs.setInterval;
 globalThis.clearInterval = tjs.clearInterval;
-globalThis.XMLHttpRequest = tjs.XMLHttpRequest;
 globalThis.alert = tjs.alert;
 globalThis.prompt = tjs.prompt;
 
