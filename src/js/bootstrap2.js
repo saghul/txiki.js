@@ -167,9 +167,10 @@ class Worker extends EventTarget {
     }
 }
 
-defineEventAttribute(Object.getPrototypeOf(Worker), 'message');
-defineEventAttribute(Object.getPrototypeOf(Worker), 'messageerror');
-defineEventAttribute(Object.getPrototypeOf(Worker), 'error');
+const workerProto = Worker.prototype;
+defineEventAttribute(workerProto, 'message');
+defineEventAttribute(workerProto, 'messageerror');
+defineEventAttribute(workerProto, 'error');
 
 Object.defineProperty(window, 'Worker', {
     enumerable: true,
