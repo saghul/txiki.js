@@ -13,6 +13,26 @@ test('basic worker', async t => {
             w.terminate();
             resolve();
         }, 1000);
+        w.onmessage = event => {
+            recvData = JSON.stringify(event.data);
+            w.terminate();
+            clearTimeout(timer);
+            resolve();
+        };
+    });
+    await p;
+    t.eq(data, recvData, 'Message received matches');
+});
+
+test('basic worker with EventTarget', async t => {
+    const data = JSON.stringify({foo: 42, bar: 'baz!'});
+    let recvData;
+    const p = new Promise(resolve => {
+        const w = new Worker(join(dirname(thisFile), 'helpers', 'worker.js'));
+        const timer = setTimeout(() => {
+            w.terminate();
+            resolve();
+        }, 1000);
         w.addEventListener('message', event => {
             recvData = JSON.stringify(event.data);
             w.terminate();
@@ -23,7 +43,6 @@ test('basic worker', async t => {
     await p;
     t.eq(data, recvData, 'Message received matches');
 });
-
 
 if (import.meta.main) {
     run();
