@@ -35166,7 +35166,7 @@ static JSValue js_object_seal(JSContext *ctx, JSValueConst this_val,
             goto exception;
     }
     js_free_prop_enum(ctx, props, len);
-    return JS_TRUE;
+    return js_object_preventExtensions(ctx, JS_UNDEFINED, 1, argv, 0);
 
  exception:
     js_free_prop_enum(ctx, props, len);
