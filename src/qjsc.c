@@ -356,9 +356,7 @@ int main(int argc, char **argv) {
     outfile = fo;
 
     rt = JS_NewRuntime();
-    ctx = JS_NewContextRaw(rt);
-    JS_AddIntrinsicEval(ctx);
-    JS_AddIntrinsicRegExpCompiler(ctx);
+    ctx = JS_NewContext(rt);
 
     /* loader for ES6 modules */
     JS_SetModuleLoaderFunc(rt, NULL, jsc_module_loader, NULL);
