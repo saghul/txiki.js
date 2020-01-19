@@ -378,9 +378,7 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
 void tjs_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
     JS_SetModuleExportList(ctx, m, tjs_misc_funcs, countof(tjs_misc_funcs));
 
-    JSValue args = tjs__get_args(ctx);
-    JS_FreeValue(ctx, JS_ObjectFreeze(ctx, args));
-    JS_SetModuleExport(ctx, m, "args", args);
+    JS_SetModuleExport(ctx, m, "args", tjs__get_args(ctx));
 
     JS_SetModuleExport(ctx, m, "platform", JS_NewString(ctx, TJS__PLATFORM));
 
@@ -398,7 +396,6 @@ void tjs_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
 #else
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_UNDEFINED, JS_PROP_C_W_E);
 #endif
-    JS_FreeValue(ctx, JS_ObjectFreeze(ctx, versions));
     JS_SetModuleExport(ctx, m, "versions", versions);
 }
 
