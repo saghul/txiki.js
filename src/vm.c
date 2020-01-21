@@ -85,6 +85,47 @@ JSValue tjs__get_args(JSContext *ctx) {
     return args;
 }
 
+static void tjs__promise_rejection_tracker(JSContext *ctx,
+                                           JSValueConst promise,
+                                           JSValueConst reason,
+                                           BOOL is_handled,
+                                           void *opaque) {
+    if (!is_handled) {
+        JSValue global_obj = JS_GetGlobalObject(ctx);
+
+        JSValue event_ctor = JS_GetPropertyStr(ctx, global_obj, "PromiseRejectionEvent");
+        CHECK_EQ(JS_IsUndefined(event_ctor), 0);
+
+        JSValue event_name = JS_NewString(ctx, "unhandledrejection");
+        JSValueConst args[2];
+        args[0] = event_name;
+        args[1] = reason;
+        JSValue event = JS_CallConstructor(ctx, event_ctor, 2, args);
+        CHECK_EQ(JS_IsException(event), 0);
+
+        JSValue dispatch_func = JS_GetPropertyStr(ctx, global_obj, "dispatchEvent");
+        CHECK_EQ(JS_IsUndefined(dispatch_func), 0);
+
+        JSValue ret = JS_Call(ctx, dispatch_func, global_obj, 1, &event);
+
+        JS_FreeValue(ctx, global_obj);
+        JS_FreeValue(ctx, event);
+        JS_FreeValue(ctx, event_ctor);
+        JS_FreeValue(ctx, event_name);
+        JS_FreeValue(ctx, dispatch_func);
+
+        if (JS_IsException(ret)) {
+            tjs_dump_error(ctx);
+        } else if (JS_ToBool(ctx, ret)) {
+            // The event wasn't cancelled, log the error.
+            printf("Unhandled promise rejection: ");
+            tjs_dump_error1(ctx, reason, FALSE);
+        }
+
+        JS_FreeValue(ctx, ret);
+    }
+}
+
 static void uv__stop(uv_async_t *handle) {
     TJSRuntime *qrt = handle->data;
     CHECK_NOT_NULL(qrt);
@@ -137,6 +178,9 @@ TJSRuntime *TJS_NewRuntime2(bool is_worker) {
 
     /* extra builtin modules */
     tjs__add_builtins(qrt->ctx);
+
+    /* unhandled promise rejection tracker */
+    JS_SetHostPromiseRejectionTracker(qrt->rt, tjs__promise_rejection_tracker, NULL);
 
     return qrt;
 }
