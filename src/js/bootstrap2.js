@@ -67,6 +67,20 @@ class MessageEvent extends Event {
     }
 }
 
+const kPromiseRejectionReason = Symbol('kPromiseRejectionReason');
+
+class PromiseRejectionEvent extends Event {
+    constructor(eventTye, reason) {
+        super(eventTye, { cancelable: true });
+
+        this[kPromiseRejectionReason] = reason;
+    }
+
+    get reason() {
+        return this[kPromiseRejectionReason];
+    }
+}
+
 Object.defineProperties(window, {
     EventTarget: {
         enumerable: true,
@@ -92,6 +106,12 @@ Object.defineProperties(window, {
         writable: true,
         value: MessageEvent
     },
+    PromiseRejectionEvent: {
+        enumerable: true,
+        configurable: true,
+        writable: true,
+        value: PromiseRejectionEvent
+    },
     CustomEvent: {
         enumerable: true,
         configurable: true,
@@ -103,7 +123,9 @@ Object.defineProperties(window, {
 Object.setPrototypeOf(window, EventTarget.prototype);
 EventTarget.prototype.__init.call(window);
 
-defineEventAttribute(Object.getPrototypeOf(window), 'load');
+const windowProto = Object.getPrototypeOf(window);
+defineEventAttribute(windowProto, 'load');
+defineEventAttribute(windowProto, 'unhandledrejection');
 
 
 // Performance
