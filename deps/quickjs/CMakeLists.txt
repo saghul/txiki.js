@@ -36,6 +36,7 @@ target_compile_definitions(qjs PUBLIC
     QJS_VERSION_STR="${QJS_VERSION_STR}"
 )
 target_compile_definitions(qjs PRIVATE
+    CONFIG_BIGNUM
     CONFIG_VERSION="${QJS_VERSION_STR}"
 )
 target_include_directories(qjs PUBLIC include)
