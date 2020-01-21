@@ -131,13 +131,18 @@ JSValue tjs_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
 }
 
 void tjs_dump_error(JSContext *ctx) {
-    JSValue exception_val, val;
+    JSValue exception_val = JS_GetException(ctx);
+    tjs_dump_error1(ctx, exception_val, true);
+    JS_FreeValue(ctx, exception_val);
+}
+
+void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val, bool is_throw) {
+    JSValue val;
     const char *stack, *exception_str;
     int is_error;
 
-    exception_val = JS_GetException(ctx);
     is_error = JS_IsError(ctx, exception_val);
-    if (!is_error)
+    if (is_throw && !is_error)
         printf("Throw: ");
     exception_str = JS_ToCString(ctx, exception_val);
     printf("%s\n", exception_str);
@@ -151,7 +156,6 @@ void tjs_dump_error(JSContext *ctx) {
         }
         JS_FreeValue(ctx, val);
     }
-    JS_FreeValue(ctx, exception_val);
 }
 
 void tjs_call_handler(JSContext *ctx, JSValueConst func) {
