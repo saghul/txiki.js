@@ -319,8 +319,11 @@ JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_ma
 
     /* Emit window 'load' event. */
     if (!JS_IsException(ret) && is_main) {
-        static char emit_window_load[] = "window.dispatchEvent({type: 'load'});";
-        JS_Eval(ctx, emit_window_load, strlen(emit_window_load), "<global>", JS_EVAL_TYPE_GLOBAL);
+        static char emit_window_load[] = "window.dispatchEvent(new Event('load'));";
+        JSValue ret1 = JS_Eval(ctx, emit_window_load, strlen(emit_window_load), "<global>", JS_EVAL_TYPE_GLOBAL);
+        if (JS_IsException(ret1)) {
+            tjs_dump_error(ctx);
+        }
     }
 
     dbuf_free(&dbuf);
