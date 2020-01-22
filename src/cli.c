@@ -79,13 +79,13 @@ static void print_help(void) {
     printf("Usage: tjs [options] [file]\n"
            "\n"
            "Options:\n"
-           "  -v, --version                     print tjs version\n"
-           "  -h, --help                        list options\n"
-           "  -e, --eval EXPR                   evaluate EXPR\n"
-           "  -i, --interactive                 go to interactive mode\n"
-           "      --strict-module-detection     only run code as a module if its extension is \".mjs\"\n"
-           "      --override-filename FILENAME  override filename in error messages\n"
-           "  -q, --quit                        just instantiate the interpreter and quit\n");
+           "  -v, --version                 print tjs version\n"
+           "  -h, --help                    list options\n"
+           "  -e, --eval EXPR               evaluate EXPR\n"
+           "  -i, --interactive             go to interactive mode\n"
+           "  --strict-module-detection     only run code as a module if its extension is \".mjs\"\n"
+           "  --override-filename FILENAME  override filename in error messages\n"
+           "  -q, --quit                    just instantiate the interpreter and quit\n");
 }
 
 static void print_version() {
