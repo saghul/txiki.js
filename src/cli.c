@@ -28,8 +28,11 @@
 #include "tjs.h"
 #include "version.h"
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define PROG_NAME "tjs"
 
 #define EXIT_INVALID_ARG 2
 
@@ -48,6 +51,15 @@ typedef struct Flags {
     unsigned interactive, empty_run, strict_module_detection;
     char *eval_expr, *override_filename;
 } Flags;
+
+static int eprintf(const char *format, ...) {
+    va_list argp;
+    va_start(argp, format);
+    int ret = fprintf(stderr, "%s: ", PROG_NAME);
+    ret += vfprintf(stderr, format, argp);
+    va_end(argp);
+    return ret;
+}
 
 static int eval_buf(JSContext *ctx, const char *buf, const char *filename, int eval_flags) {
     JSValue val;
@@ -93,21 +105,21 @@ static void print_version() {
 }
 
 static void report_bad_option(char *name) {
-    fprintf(stderr, "tjs: bad option -%s\n", name);
+    eprintf("bad option -%s\n", name);
 }
 
 static void report_missing_argument(CLIOption *opt) {
     if (opt->key)
-        fprintf(stderr, "tjs: -%c requires an argument\n", opt->key);
+        eprintf("-%c requires an argument\n", opt->key);
     else
-        fprintf(stderr, "tjs: --%s requires an argument\n", opt->name);
+        eprintf("--%s requires an argument\n", opt->name);
 }
 
 static void report_unknown_option(CLIOption *opt) {
     if (opt->key)
-        fprintf(stderr, "tjs: unknown option -%c\n", opt->key);
+        eprintf("unknown option -%c\n", opt->key);
     else
-        fprintf(stderr, "tjs: unknown option --%s\n", opt->name);
+        eprintf("unknown option --%s\n", opt->name);
 }
 
 static unsigned get_option_length(const char *arg) {
