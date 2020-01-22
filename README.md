@@ -48,6 +48,7 @@ Other extras:
 - path module
 - uuid module
 - hashlib module
+- BigFloat and BigDecimal extensions
 
 ## Supported platforms
 
