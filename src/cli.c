@@ -205,7 +205,7 @@ int main(int argc, char **argv) {
                 exit_code = EXIT_INVALID_ARG;
                 goto exit;
             }
-            if (is_longopt(opt, "override-filename") || is_longopt(opt, "overrideFilename")) {
+            if (is_longopt(opt, "override-filename")) {
                 flags.override_filename = get_option_value(arg, argc, argv, &optind);
                 if (flags.override_filename)
                     break;
@@ -221,7 +221,7 @@ int main(int argc, char **argv) {
                 flags.empty_run = true;
                 break;
             }
-            if (is_longopt(opt, "strict-module-detection") || is_longopt(opt, "strictModuleDetection")) {
+            if (is_longopt(opt, "strict-module-detection")) {
                 flags.strict_module_detection = true;
                 break;
             }
