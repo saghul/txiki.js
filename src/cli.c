@@ -259,12 +259,14 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (flags.interactive)
+    if (flags.interactive) {
         TJS_RunRepl(ctx);
+    }
     TJS_Run(qrt);
 
 exit:
-    if (qrt)
+    if (qrt) {
         TJS_FreeRuntime(qrt);
+    }
     return exit_code;
 }
