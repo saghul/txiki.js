@@ -44,12 +44,15 @@
 typedef struct CLIOption {
     char key;
     char *name;
-    unsigned length;
+    size_t length;
 } CLIOption;
 
 typedef struct Flags {
-    unsigned interactive, empty_run, strict_module_detection;
-    char *eval_expr, *override_filename;
+    bool interactive;
+    bool empty_run;
+    bool strict_module_detection;
+    char *eval_expr;
+    char *override_filename;
 } Flags;
 
 static int eprintf(const char *format, ...) {
@@ -122,14 +125,14 @@ static void report_unknown_option(CLIOption *opt) {
         eprintf("unknown option --%s\n", opt->name);
 }
 
-static unsigned get_option_length(const char *arg) {
+static size_t get_option_length(const char *arg) {
     const char *val_start = strchr(arg, OPT_ASSIGN);
     if (!val_start)
         val_start = arg + strlen(arg);
     return val_start - arg - 1;
 }
 
-static int get_option(char **arg, CLIOption *opt) {
+static bool get_option(char **arg, CLIOption *opt) {
     /* a single `-` is not an option, it also stops argument scanning */
     if (!**arg)
         return false;
