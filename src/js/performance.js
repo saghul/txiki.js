@@ -1,9 +1,8 @@
-
 // https://www.w3.org/TR/user-timing/
 // Derived from: https://github.com/blackswanny/performance-polyfill
 class Performance {
     constructor() {
-        this._startTime = tjs.hrtime();
+        this._startTime = hrtimeMs();
         this._entries = [];
         this._marksIndex = Object.create(null);
     }
@@ -13,7 +12,7 @@ class Performance {
     }
 
     now() {
-        return tjs.hrtime() - this._startTime;
+        return hrtimeMs() - this._startTime;
     }
 
     mark(name) {
@@ -21,7 +20,7 @@ class Performance {
             name,
             entryType: 'mark',
             startTime: this.now(),
-            duration: 0n
+            duration: 0
         };
         this._entries.push(mark);
         this._marksIndex[name] = mark;
@@ -42,13 +41,13 @@ class Performance {
         if (this._marksIndex[startMark]) {
           startTime = this._marksIndex[startMark].startTime;
         } else {
-          startTime = 0n;
+          startTime = 0;
         }
   
         if (this._marksIndex[endMark]) {
           endTime = this._marksIndex[endMark].startTime;
         } else {
-          endTime = performance.now();
+          endTime = this.now();
         }
   
         const mark = {
@@ -86,6 +85,10 @@ class Performance {
             this._entries.splice(this._entries.indexOf(entry), 1);
         }
     }
+}
+
+function hrtimeMs() {
+    return Number(BigDecimal(tjs.hrtime()) / 1e6m);
 }
 
 
