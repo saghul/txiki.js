@@ -28,153 +28,245 @@
 #include "tjs.h"
 #include "version.h"
 
+#include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 
+#define PROG_NAME "tjs"
 
-static int eval_buf(JSContext *ctx, const void *buf, int buf_len, const char *filename, int eval_flags) {
+#define EXIT_INVALID_ARG 2
+
+#define OPT_PREFIX '-'
+#define OPT_ASSIGN '='
+
+#define is_longopt(opt, str) (opt.name && !strncmp(opt.name, str, opt.length))
+
+typedef struct CLIOption {
+    char key;
+    char *name;
+    size_t length;
+} CLIOption;
+
+typedef struct Flags {
+    bool interactive;
+    bool empty_run;
+    bool strict_module_detection;
+    char *eval_expr;
+    char *override_filename;
+} Flags;
+
+static int eprintf(const char *format, ...) {
+    va_list argp;
+    va_start(argp, format);
+    int ret = fprintf(stderr, "%s: ", PROG_NAME);
+    ret += vfprintf(stderr, format, argp);
+    va_end(argp);
+    return ret;
+}
+
+static int eval_buf(JSContext *ctx, const char *buf, const char *filename, int eval_flags) {
     JSValue val;
-    int ret;
+    int ret = 0;
 
-    val = JS_Eval(ctx, buf, buf_len, filename, eval_flags);
+    val = JS_Eval(ctx, buf, strlen(buf), filename, eval_flags);
     if (JS_IsException(val)) {
         tjs_dump_error(ctx);
         ret = -1;
-    } else {
-        ret = 0;
     }
     JS_FreeValue(ctx, val);
     return ret;
 }
 
-void help(void) {
-    printf("tjs version %s\n"
-           "usage: tjs [options] [file]\n"
-           "-h  --help                       list options\n"
-           "-e  --eval EXPR                  evaluate EXPR\n"
-           "-i  --interactive                go to interactive mode\n"
-           "    --strict-module-detection    only run code as a module if its extension is \".mjs\"\n"
-           "    --override-filename FILENAME override filename in error messages\n"
-           "-q  --quit                       just instantiate the interpreter and quit\n",
-           tjs_version());
-    exit(1);
+static int eval_module(JSContext *ctx, const char *filepath, char *override_filename, int eval_flags) {
+    JSValue val;
+    int ret = 0;
+
+    val = TJS_EvalFile(ctx, filepath, eval_flags, true, override_filename);
+    if (JS_IsException(val)) {
+        tjs_dump_error(ctx);
+        ret = -1;
+    }
+    JS_FreeValue(ctx, val);
+    return ret;
+}
+
+static void print_help(void) {
+    printf("Usage: tjs [options] [file]\n"
+           "\n"
+           "Options:\n"
+           "  -v, --version                 print tjs version\n"
+           "  -h, --help                    list options\n"
+           "  -e, --eval EXPR               evaluate EXPR\n"
+           "  -i, --interactive             go to interactive mode\n"
+           "  --strict-module-detection     only run code as a module if its extension is \".mjs\"\n"
+           "  --override-filename FILENAME  override filename in error messages\n"
+           "  -q, --quit                    just instantiate the interpreter and quit\n");
+}
+
+static void print_version() {
+    printf("v%s\n", tjs_version());
+}
+
+static void report_bad_option(char *name) {
+    eprintf("bad option -%s\n", name);
+}
+
+static void report_missing_argument(CLIOption *opt) {
+    if (opt->key)
+        eprintf("-%c requires an argument\n", opt->key);
+    else
+        eprintf("--%s requires an argument\n", opt->name);
+}
+
+static void report_unknown_option(CLIOption *opt) {
+    if (opt->key)
+        eprintf("unknown option -%c\n", opt->key);
+    else
+        eprintf("unknown option --%s\n", opt->name);
+}
+
+static size_t get_option_length(const char *arg) {
+    const char *val_start = strchr(arg, OPT_ASSIGN);
+    if (!val_start)
+        val_start = arg + strlen(arg);
+    return val_start - arg - 1;
+}
+
+static bool get_option(char **arg, CLIOption *opt) {
+    /* a single `-` is not an option, it also stops argument scanning */
+    if (!**arg)
+        return false;
+    opt->length = get_option_length(*arg);
+    if (**arg == OPT_PREFIX) {
+        opt->name = *arg + 1;
+        /* `--` stops argument scanning */
+        if (!*opt->name)
+            return false;
+        *arg += opt->length + 1;
+    } else if (**arg) {
+        opt->key = **arg;
+        *arg += 1;
+    }
+    if (**arg == OPT_ASSIGN)
+        *arg += 1;
+    return true;
+}
+
+static char *get_option_value(char *arg, int argc, char **argv, int *optind) {
+    if (*arg)
+        return arg;
+    if (*optind >= argc)
+        return NULL;
+    char *value = argv[*optind];
+    if (*value == OPT_PREFIX)
+        return NULL;
+    *optind += 1;
+    return value;
 }
 
 int main(int argc, char **argv) {
-    TJSRuntime *qrt;
-    JSContext *ctx;
-    int optind;
-    char *expr = NULL;
-    char *override_filename = NULL;
-    int interactive = 0;
-    int empty_run = 0;
-    int strict_module_detection = 0;
+    TJSRuntime *qrt = NULL;
+    JSContext *ctx = NULL;
+    int exit_code = EXIT_SUCCESS;
+
+    Flags flags = { .interactive = false,
+                    .empty_run = false,
+                    .strict_module_detection = false,
+                    .eval_expr = NULL,
+                    .override_filename = NULL };
 
     TJS_SetupArgs(argc, argv);
 
-    /* cannot use getopt because we want to pass the command line to
-       the script */
-    optind = 1;
-    while (optind < argc && *argv[optind] == '-') {
+    /* cannot use getopt because we want to pass the command line to the script */
+    int optind = 1;
+    while (optind < argc && *argv[optind] == OPT_PREFIX) {
         char *arg = argv[optind] + 1;
-        const char *longopt = "";
-        /* a single - is not an option, it also stops argument scanning */
-        if (!*arg)
+        CLIOption opt = { .key = 0, .name = NULL, .length = 0 };
+        if (!get_option(&arg, &opt))
             break;
-        optind++;
-        if (*arg == '-') {
-            longopt = arg + 1;
-            arg += strlen(arg);
-            /* -- stops argument scanning */
-            if (!*longopt)
-                break;
+        optind += 1;
+        /* combining short options is NOT supported */
+        if (opt.key && opt.length > 0) {
+            report_bad_option(arg - 1);
+            exit_code = EXIT_INVALID_ARG;
+            goto exit;
         }
-        for (; *arg || *longopt; longopt = "") {
-            char opt = *arg;
-            if (opt)
-                arg++;
-            if (opt == 'h' || opt == '?' || !strcmp(longopt, "help")) {
-                help();
-                continue;
+        while (opt.key || *opt.name) {
+            if (opt.key == 'v' || is_longopt(opt, "version")) {
+                print_version();
+                goto exit;
             }
-            if (opt == 'e' || !strcmp(longopt, "eval")) {
-                if (*arg) {
-                    expr = arg;
+            if (opt.key == 'h' || is_longopt(opt, "help")) {
+                print_help();
+                goto exit;
+            }
+            if (opt.key == 'e' || is_longopt(opt, "eval")) {
+                flags.eval_expr = get_option_value(arg, argc, argv, &optind);
+                if (flags.eval_expr)
                     break;
-                }
-                if (optind < argc) {
-                    expr = argv[optind++];
+                report_missing_argument(&opt);
+                exit_code = EXIT_INVALID_ARG;
+                goto exit;
+            }
+            if (is_longopt(opt, "override-filename")) {
+                flags.override_filename = get_option_value(arg, argc, argv, &optind);
+                if (flags.override_filename)
                     break;
-                }
-                fprintf(stderr, "tjs: missing expression for -e\n");
-                exit(2);
+                report_missing_argument(&opt);
+                exit_code = EXIT_INVALID_ARG;
+                goto exit;
             }
-            if (!strcmp(longopt, "override-filename")) {
-                if (*arg) {
-                    override_filename = arg;
-                    break;
-                }
-                if (optind < argc) {
-                    override_filename = argv[optind++];
-                    break;
-                }
-                fprintf(stderr, "tjs: missing expression for --override-filename\n");
-                exit(2);
+            if (opt.key == 'i' || is_longopt(opt, "interactive")) {
+                flags.interactive = true;
+                break;
             }
-            if (opt == 'i' || !strcmp(longopt, "interactive")) {
-                interactive++;
-                continue;
+            if (opt.key == 'q' || is_longopt(opt, "quit")) {
+                flags.empty_run = true;
+                break;
             }
-            if (opt == 'q' || !strcmp(longopt, "quit")) {
-                empty_run++;
-                continue;
+            if (is_longopt(opt, "strict-module-detection")) {
+                flags.strict_module_detection = true;
+                break;
             }
-            if (!strcmp(longopt, "strict-module-detection")) {
-                strict_module_detection++;
-                continue;
-            }
-            if (opt) {
-                fprintf(stderr, "tjs: unknown option '-%c'\n", opt);
-            } else {
-                fprintf(stderr, "tjs: unknown option '--%s'\n", longopt);
-            }
-            help();
+            report_unknown_option(&opt);
+            exit_code = EXIT_INVALID_ARG;
+            goto exit;
         }
     }
 
     qrt = TJS_NewRuntime();
     ctx = TJS_GetJSContext(qrt);
 
-    if (!empty_run) {
-        if (expr) {
-            if (eval_buf(ctx, expr, strlen(expr), "<cmdline>", 0))
-                goto fail;
-        } else if (optind >= argc) {
-            /* interactive mode */
-            interactive = 1;
-        } else {
-            const char *filename;
-            filename = argv[optind];
-            int flags = JS_EVAL_TYPE_MODULE;
-            if (strict_module_detection && !has_suffix(filename, ".mjs")) {
-                flags = JS_EVAL_TYPE_GLOBAL;
-            }
-            JSValue ret = TJS_EvalFile(ctx, filename, flags, true, override_filename);
-            if (JS_IsException(ret)) {
-                tjs_dump_error(ctx);
-                JS_FreeValue(ctx, ret);
-                goto fail;
-            }
-            JS_FreeValue(ctx, ret);
+    if (flags.empty_run)
+        goto exit;
+
+    if (flags.eval_expr) {
+        if (eval_buf(ctx, flags.eval_expr, "<cmdline>", JS_EVAL_TYPE_GLOBAL)) {
+            exit_code = EXIT_FAILURE;
+            goto exit;
         }
-        if (interactive) {
-            TJS_RunRepl(ctx);
+    } else if (optind >= argc) {
+        /* interactive mode */
+        flags.interactive = true;
+    } else {
+        const char *filepath = argv[optind];
+        int eval_flags = JS_EVAL_TYPE_MODULE;
+        if (flags.strict_module_detection && !has_suffix(filepath, ".mjs"))
+            eval_flags = JS_EVAL_TYPE_GLOBAL;
+        if (eval_module(ctx, filepath, flags.override_filename, eval_flags)) {
+            exit_code = EXIT_FAILURE;
+            goto exit;
         }
-        TJS_Run(qrt);
     }
 
-    TJS_FreeRuntime(qrt);
-    return 0;
-fail:
-    TJS_FreeRuntime(qrt);
-    return 1;
+    if (flags.interactive) {
+        TJS_RunRepl(ctx);
+    }
+    TJS_Run(qrt);
+
+exit:
+    if (qrt) {
+        TJS_FreeRuntime(qrt);
+    }
+    return exit_code;
 }

@@ -1,2 +1,7 @@
+.vscode
+.idea
+
 build/
 src/version.h
+
+.DS_Store
