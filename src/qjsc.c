@@ -358,6 +358,10 @@ int main(int argc, char **argv) {
     rt = JS_NewRuntime();
     ctx = JS_NewContext(rt);
 
+    /* Enable BigFloat and BigDecimal */
+    JS_AddIntrinsicBigFloat(ctx);
+    JS_AddIntrinsicBigDecimal(ctx);
+
     /* loader for ES6 modules */
     JS_SetModuleLoaderFunc(rt, NULL, jsc_module_loader, NULL);
 
