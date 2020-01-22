@@ -261,8 +261,8 @@ static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_m
 static int tjs__worker_channel(uv_os_sock_t fds[2]) {
 #if defined(_WIN32)
     union {
-       struct sockaddr_in inaddr;
-       struct sockaddr addr;
+        struct sockaddr_in inaddr;
+        struct sockaddr addr;
     } a;
     socklen_t addrlen = sizeof(a.inaddr);
     SOCKET listener;

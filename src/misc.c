@@ -297,8 +297,8 @@ static JSValue tjs_prompt(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         }
     }
 
-    Replxx* replxx = replxx_init();
-    
+    Replxx *replxx = replxx_init();
+
     if (argc > 1) {
         default_value = JS_ToCString(ctx, argv[1]);
         replxx_set_preload_buffer(replxx, default_value);

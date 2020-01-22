@@ -281,7 +281,7 @@ static JSValue tjs_udp_fileno(JSContext *ctx, JSValueConst this_val, int argc, J
         return tjs_throw_errno(ctx, r);
     int32_t rfd;
 #if defined(_WIN32)
-    rfd = (int32_t) (intptr_t) fd;
+    rfd = (int32_t)(intptr_t) fd;
 #else
     rfd = fd;
 #endif

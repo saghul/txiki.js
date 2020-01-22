@@ -163,10 +163,10 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
 }
 
 #if defined(_WIN32)
-#define TJS__PATHSEP '\\'
+#define TJS__PATHSEP  '\\'
 #define TJS__PATHSEPS "\\"
 #else
-#define TJS__PATHSEP '/'
+#define TJS__PATHSEP  '/'
 #define TJS__PATHSEPS "/"
 #endif
 
@@ -227,7 +227,7 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
         if (p[0] == '/')
             p[0] = '\\';
     }
-    //printf("normalize: %s %s -> %s\n", base_name, name, filename);
+    // printf("normalize: %s %s -> %s\n", base_name, name, filename);
 #endif
     return filename;
 }

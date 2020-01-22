@@ -290,7 +290,7 @@ static JSValue tjs_stream_fileno(JSContext *ctx, TJSStream *s, int argc, JSValue
     }
     int32_t rfd;
 #if defined(_WIN32)
-    rfd = (int32_t) (intptr_t) fd;
+    rfd = (int32_t)(intptr_t) fd;
 #else
     rfd = fd;
 #endif
