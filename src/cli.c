@@ -70,9 +70,10 @@ static int eprintf(const char *format, ...) {
     return ret;
 }
 
-static int get_eval_flags(const char *filepath, unsigned strict_module_detection) {
-    if (strict_module_detection && !has_suffix(filepath, ".mjs"))
+static int get_eval_flags(const char *filepath, bool strict_module_detection) {
+    if (strict_module_detection && !has_suffix(filepath, ".mjs")) {
         return JS_EVAL_TYPE_GLOBAL;
+    }
     return JS_EVAL_TYPE_MODULE;
 }
 
@@ -229,9 +230,9 @@ int main(int argc, char **argv) {
                     exit_code = EXIT_INVALID_ARG;
                     goto exit;
                 }
-                FileItem *file = (FileItem *) (malloc(sizeof(FileItem)));
+                FileItem *file = malloc(sizeof(*file));
                 if (!file) {
-                    fprintf(stderr, "tjs: could not allocate memory\n");
+                    eprintf("could not allocate memory\n");
                     exit_code = EXIT_FAILURE;
                     goto exit;
                 }
@@ -292,7 +293,7 @@ int main(int argc, char **argv) {
         /* interactive mode */
         flags.interactive = true;
     } else {
-        char *filepath = argv[optind];
+        const char *filepath = argv[optind];
         int eval_flags = get_eval_flags(filepath, flags.strict_module_detection);
         if (eval_module(ctx, filepath, flags.override_filename, eval_flags)) {
             exit_code = EXIT_FAILURE;
