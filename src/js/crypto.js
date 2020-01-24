@@ -1,3 +1,4 @@
+import * as core from '@tjs/core';
 
 const TypedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
 const TypedArrayProto_toStringTag = Object.getOwnPropertyDescriptor(TypedArrayPrototype, Symbol.toStringTag).get;
@@ -24,7 +25,7 @@ function getRandomValues(obj) {
         throw e;
     }
 
-    tjs.random(obj.buffer, obj.byteOffset, obj.byteLength);
+    core.random(obj.buffer, obj.byteOffset, obj.byteLength);
     return obj;
 }
 

@@ -852,6 +852,10 @@ static const JSCFunctionListEntry tjs_tcp_proto_funcs[] = {
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "TCP", JS_PROP_CONFIGURABLE),
 };
 
+static const JSCFunctionListEntry tjs_tcp_class_funcs[] = {
+    JS_PROP_INT32_DEF("IPV6ONLY", UV_TCP_IPV6ONLY, 0),
+};
+
 static const JSCFunctionListEntry tjs_tty_proto_funcs[] = {
     /* Stream functions */
     JS_CFUNC_DEF("close", 0, tjs_tty_close),
@@ -862,6 +866,12 @@ static const JSCFunctionListEntry tjs_tty_proto_funcs[] = {
     JS_CFUNC_DEF("setMode", 1, tjs_tty_setMode),
     JS_CFUNC_DEF("getWinSize", 0, tjs_tty_getWinSize),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "TTY", JS_PROP_CONFIGURABLE),
+};
+
+static const JSCFunctionListEntry tjs_tty_class_funcs[] = {
+    JS_PROP_INT32_DEF("MODE_NORMAL", UV_TTY_MODE_NORMAL, 0),
+    JS_PROP_INT32_DEF("MODE_RAW", UV_TTY_MODE_RAW, 0),
+    JS_PROP_INT32_DEF("MODE_IO", UV_TTY_MODE_IO, 0),
 };
 
 static const JSCFunctionListEntry tjs_pipe_proto_funcs[] = {
@@ -892,6 +902,7 @@ void tjs_mod_streams_init(JSContext *ctx, JSModuleDef *m) {
 
     /* TCP object */
     obj = JS_NewCFunction2(ctx, tjs_tcp_constructor, "TCP", 1, JS_CFUNC_constructor, 0);
+    JS_SetPropertyFunctionList(ctx, obj, tjs_tcp_class_funcs, countof(tjs_tcp_class_funcs));
     JS_SetModuleExport(ctx, m, "TCP", obj);
 
     /* TTY class */
@@ -903,6 +914,7 @@ void tjs_mod_streams_init(JSContext *ctx, JSModuleDef *m) {
 
     /* TTY object */
     obj = JS_NewCFunction2(ctx, tjs_tty_constructor, "TTY", 1, JS_CFUNC_constructor, 0);
+    JS_SetPropertyFunctionList(ctx, obj, tjs_tty_class_funcs, countof(tjs_tty_class_funcs));
     JS_SetModuleExport(ctx, m, "TTY", obj);
 
     /* Pipe class */
