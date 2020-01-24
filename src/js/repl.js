@@ -127,17 +127,17 @@ import * as uuid from "@tjs/uuid";
         term_width = size.width;
 
         /* set the TTY to raw mode */
-        stdin.setMode(tjs.UV_TTY_MODE_RAW);
+        stdin.setMode(tjs.TTY.MODE_RAW);
 
         /* install a Ctrl-C signal handler */
-        sigint_h = tjs.signal(tjs.SIGINT, sigint_handler);
+        sigint_h = tjs.signal(tjs.signal.SIGINT, sigint_handler);
 
         /* handler to read stdin */
         term_read_handler();
     }
 
     function exit(code) {
-        stdin.setMode(tjs.UV_TTY_MODE_NORMAL);
+        stdin.setMode(tjs.TTY.MODE_NORMAL);
         tjs.exit(code);
     }
 
