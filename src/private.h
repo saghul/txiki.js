@@ -26,6 +26,7 @@
 #define TJS_PRIVATE_H
 
 #include "../deps/quickjs/src/cutils.h"
+#include "../deps/quickjs/src/list.h"
 
 #include <quickjs.h>
 #include <stdbool.h>
