@@ -27,6 +27,7 @@
 
 #include "../deps/quickjs/src/cutils.h"
 #include "../deps/quickjs/src/list.h"
+#include "wasm.h"
 
 #include <quickjs.h>
 #include <stdbool.h>
@@ -55,6 +56,11 @@ struct TJSRuntime {
         uv_timer_t timer;
     } curl_ctx;
 #endif
+#ifdef TJS_HAVE_WASM
+    struct {
+        IM3Environment env;
+    } wasm_ctx;
+#endif
 };
 
 void tjs_mod_dns_init(JSContext *ctx, JSModuleDef *m);
@@ -77,6 +83,8 @@ void tjs_mod_timers_init(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_timers_export(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_udp_init(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_udp_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_wasm_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_wasm_export(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_worker_init(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_worker_export(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_xhr_init(JSContext *ctx, JSModuleDef *m);

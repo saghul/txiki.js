@@ -24,6 +24,7 @@ It was formerly named *quv*.
 - Performance API
 - Worker API
 - Crypto API (just getRandomValues)
+- WebAssembly (no tables, globals or memory support yet)
 
 ### Custom features
 
@@ -39,6 +40,7 @@ It was formerly named *quv*.
 - Worker threads
 - Child processes
 - DNS (getaddrinfo)
+- WASI (no memory support yet)
 
 See the [full API].
 

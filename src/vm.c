@@ -45,6 +45,9 @@ static int tjs_init(JSContext *ctx, JSModuleDef *m) {
     tjs_mod_streams_init(ctx, m);
     tjs_mod_timers_init(ctx, m);
     tjs_mod_udp_init(ctx, m);
+#ifdef TJS_HAVE_WASM
+    tjs_mod_wasm_init(ctx, m);
+#endif
     tjs_mod_worker_init(ctx, m);
 #ifdef TJS_HAVE_CURL
     tjs_mod_xhr_init(ctx, m);
@@ -69,6 +72,9 @@ JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
     tjs_mod_signals_export(ctx, m);
     tjs_mod_timers_export(ctx, m);
     tjs_mod_udp_export(ctx, m);
+#ifdef TJS_HAVE_WASM
+    tjs_mod_wasm_export(ctx, m);
+#endif
     tjs_mod_worker_export(ctx, m);
 #ifdef TJS_HAVE_CURL
     tjs_mod_xhr_export(ctx, m);
@@ -195,6 +201,11 @@ TJSRuntime *TJS_NewRuntime2(bool is_worker) {
     /* end bootstrap */
     qrt->in_bootstrap = false;
 
+    /* WASM */
+#ifdef TJS_HAVE_WASM
+    qrt->wasm_ctx.env = m3_NewEnvironment();
+#endif
+
     return qrt;
 }
 
@@ -214,6 +225,11 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         curl_multi_cleanup(qrt->curl_ctx.curlm_h);
         uv_close((uv_handle_t *) &qrt->curl_ctx.timer, NULL);
     }
+#endif
+
+    /* Destroy WASM runtime. */
+#ifdef TJS_HAVE_WASM
+    m3_FreeEnvironment(qrt->wasm_ctx.env);
 #endif
 
     /* Cleanup loop. All handles should be closed. */
@@ -340,7 +356,6 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
             break;
     } while (1);
 
-    dbuf_putc(dbuf, '\0');
     return r;
 }
 
@@ -356,6 +371,9 @@ JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_ma
         JS_ThrowReferenceError(ctx, "could not load '%s'", filename);
         return JS_EXCEPTION;
     }
+
+    /* Add null termination, required by JS_Eval. */
+    dbuf_putc(&dbuf, '\0');
 
     if (flags == -1) {
         if (JS_DetectModule((const char *) dbuf.buf, dbuf.size))
