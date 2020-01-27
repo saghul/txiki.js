@@ -94,6 +94,9 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
         return NULL;
     }
 
+    /* Add null termination, required by JS_Eval. */
+    dbuf_putc(&dbuf, '\0');
+
     /* compile the module */
     func_val = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, module_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     dbuf_free(&dbuf);
