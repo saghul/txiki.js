@@ -9,6 +9,7 @@ import './test-import-http.js';
 import './test-noop.js';
 import './test-performance.js';
 import './test-random.js';
+import './test-timer.js';
 import './test-uuid.js';
 import './test-version.js';
 import './test-xhr.js';
