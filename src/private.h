@@ -98,6 +98,8 @@ JSValue tjs_throw_errno(JSContext *ctx, int err);
 JSValue tjs_new_pipe(JSContext *ctx);
 uv_stream_t *tjs_pipe_get_stream(JSContext *ctx, JSValueConst obj);
 
+void tjs_execute_jobs(JSContext *ctx);
+
 int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename);
 JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *opaque);
 char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque);

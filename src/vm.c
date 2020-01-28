@@ -258,23 +258,26 @@ static void uv__prepare_cb(uv_prepare_t *handle) {
     uv__maybe_idle(qrt);
 }
 
-static void uv__check_cb(uv_check_t *handle) {
-    TJSRuntime *qrt = handle->data;
-    CHECK_NOT_NULL(qrt);
-
-    JSRuntime *rt = qrt->rt;
-    JSContext *ctx1;
+void tjs_execute_jobs(JSContext *ctx) {
+    JSRuntime *rt = JS_GetRuntime(ctx);
     int err;
 
     /* execute the pending jobs */
     for (;;) {
-        err = JS_ExecutePendingJob(rt, &ctx1);
+        err = JS_ExecutePendingJob(rt, &ctx);
         if (err <= 0) {
             if (err < 0)
-                tjs_dump_error(ctx1);
+                tjs_dump_error(ctx);
             break;
         }
     }
+}
+
+static void uv__check_cb(uv_check_t *handle) {
+    TJSRuntime *qrt = handle->data;
+    CHECK_NOT_NULL(qrt);
+
+    tjs_execute_jobs(qrt->ctx);
 
     uv__maybe_idle(qrt);
 }
