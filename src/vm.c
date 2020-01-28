@@ -259,15 +259,15 @@ static void uv__prepare_cb(uv_prepare_t *handle) {
 }
 
 void tjs_execute_jobs(JSContext *ctx) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
+    JSContext *ctx1;
     int err;
 
     /* execute the pending jobs */
     for (;;) {
-        err = JS_ExecutePendingJob(rt, &ctx);
+        err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
         if (err <= 0) {
             if (err < 0)
-                tjs_dump_error(ctx);
+                tjs_dump_error(ctx1);
             break;
         }
     }
