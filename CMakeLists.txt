@@ -106,4 +106,7 @@ if (CURL_FOUND)
     target_link_libraries(tjs ${CURL_LIBRARIES})
 endif()
 
+string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
+target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
+
 target_link_libraries(tjs qjs uv_a m replxx stdc++)

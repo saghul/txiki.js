@@ -36,17 +36,6 @@
 #include <curl/curl.h>
 #endif
 
-// TODO: improve this.
-#if defined(_WIN32)
-#define TJS__PLATFORM "win32"
-#elif defined(__APPLE__)
-#define TJS__PLATFORM "darwin"
-#elif defined(__linux__)
-#define TJS__PLATFORM "linux"
-#else
-#define TJS__PLATFORM "posix"
-#endif
-
 
 struct TJSRuntime {
     JSRuntime *rt;
