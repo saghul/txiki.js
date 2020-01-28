@@ -65,6 +65,21 @@ static void call_timer(TJSTimer *th) {
     JS_FreeValue(ctx, ret);
 }
 
+static void execute_jobs(TJSTimer *th) {
+    JSContext *ctx = th->ctx;
+    JSRuntime *rt = JS_GetRuntime(ctx);
+    int err;
+
+    for (;;) {
+        err = JS_ExecutePendingJob(rt, &ctx);
+        if (err <= 0) {
+            if (err < 0)
+                tjs_dump_error(ctx);
+            break;
+        }
+    }
+}
+
 static void uv__timer_close(uv_handle_t *handle) {
     TJSTimer *th = handle->data;
     CHECK_NOT_NULL(th);
@@ -74,6 +89,11 @@ static void uv__timer_close(uv_handle_t *handle) {
 static void uv__timer_cb(uv_timer_t *handle) {
     TJSTimer *th = handle->data;
     CHECK_NOT_NULL(th);
+
+    /* Timer always executes before check phase in libuv,
+       so clear the microtask queue here before running setTimeout macrotasks */
+    execute_jobs(th);
+
     call_timer(th);
     if (!th->interval)
         clear_timer(th);
