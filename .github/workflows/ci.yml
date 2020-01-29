@@ -20,3 +20,5 @@ jobs:
       run: make
     - name: Test it
       run: make test
+    - name: Test it (advanced)
+      run: make test-advanced
