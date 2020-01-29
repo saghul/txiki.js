@@ -39,6 +39,7 @@ script:
   - make
   - ./build/tjs -e "console.log(JSON.stringify(tjs.versions))"
   - make test
+  - make test-advanced
 branches:
   only:
     - master
