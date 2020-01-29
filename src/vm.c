@@ -146,6 +146,9 @@ TJSRuntime *TJS_NewRuntime2(bool is_worker) {
     qrt->ctx = JS_NewContext(qrt->rt);
     CHECK_NOT_NULL(qrt->ctx);
 
+    /* Increase stack size */
+    JS_SetMaxStackSize(qrt->ctx, 1024*1024);
+
     /* Enable BigFloat and BigDecimal */
     JS_AddIntrinsicBigFloat(qrt->ctx);
     JS_AddIntrinsicBigDecimal(qrt->ctx);
