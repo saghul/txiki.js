@@ -10,6 +10,11 @@ test('should be futile to rewriting window', t => {
     t.is(globalThis, window, 'globalThis is window')
 });
 
+test('should be futile to rewriting self', t => {
+    globalThis.self = 'foo';
+    t.is(globalThis, self, 'globalThis is self')
+});
+
 
 if (import.meta.main) {
     run();

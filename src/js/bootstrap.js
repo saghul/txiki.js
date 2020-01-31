@@ -22,6 +22,12 @@ Object.defineProperty(globalThis, 'window', {
     set() {}
 });
 
+Object.defineProperty(globalThis, 'self', {
+    enumerable: true,
+    get() { return globalThis },
+    set() {}
+});
+
 // The "tjs" global.
 //
 
