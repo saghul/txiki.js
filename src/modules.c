@@ -1,5 +1,5 @@
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -25,6 +25,7 @@
 #include "curl-utils.h"
 #include "private.h"
 #include "tjs.h"
+#include "utils.h"
 
 #include <string.h>
 
@@ -171,7 +172,31 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
 #endif
 
 char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque) {
-    (void) opaque;
+    static char *internal_modules[] = {
+        "@tjs/abort-controller",
+        "@tjs/bootstrap",
+        "@tjs/bootstrap2",
+        "@tjs/console",
+        "@tjs/core",
+        "@tjs/crypto",
+        "@tjs/event-target",
+        "@tjs/performance"
+    };
+
+    TJSRuntime *qrt = opaque;
+    CHECK_NOT_NULL(qrt);
+
+    // printf("normalize: %s %s\n", base_name, name);
+
+    if (!qrt->in_bootstrap && name[0] == '@') {
+        /* check if it's an internal module, those cannot be imported */
+        for (int i = 0; i < ARRAY_SIZE(internal_modules); i++) {
+            if (strncmp(internal_modules[i], name, strlen(internal_modules[i])) == 0) {
+                JS_ThrowReferenceError(ctx, "could not load '%s', it's an internal module", name);
+                return NULL;
+            }
+        }
+    }
 
     char *filename, *p;
     const char *r;

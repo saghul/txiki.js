@@ -48,6 +48,7 @@ struct TJSRuntime {
     } jobs;
     uv_async_t stop;
     bool is_worker;
+    bool in_bootstrap;
 #ifdef TJS_HAVE_CURL
     struct {
         CURLM *curlm_h;
