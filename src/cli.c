@@ -74,7 +74,7 @@ static int get_eval_flags(const char *filepath, bool strict_module_detection) {
     if (strict_module_detection && !has_suffix(filepath, ".mjs")) {
         return JS_EVAL_TYPE_GLOBAL;
     }
-    return JS_EVAL_TYPE_MODULE;
+    return -1  /* autodetect */;
 }
 
 static int eval_buf(JSContext *ctx, const char *buf, const char *filename, int eval_flags) {
