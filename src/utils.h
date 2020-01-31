@@ -31,9 +31,7 @@
 #include <uv.h>
 
 
-#ifndef countof
-#define countof(x) (sizeof(x) / sizeof((x)[0]))
-#endif
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 struct AssertionInfo {
     const char *file_line;  // filename:line

@@ -107,8 +107,10 @@ static void worker_entry(void *arg) {
 
     TJSRuntime *wrt = TJS_NewRuntime2(true);
     CHECK_NOT_NULL(wrt);
-
     JSContext *ctx = TJS_GetJSContext(wrt);
+
+    /* Start the worker bootstrap. */
+    wrt->in_bootstrap = true;
 
     /* Bootstrap the worker scope. */
     JSValue global_obj = JS_GetGlobalObject(ctx);
@@ -116,6 +118,9 @@ static void worker_entry(void *arg) {
     JS_SetPropertyStr(ctx, global_obj, "workerThis", worker_obj);
     JS_FreeValue(ctx, global_obj);
     CHECK_EQ(0, tjs__eval_binary(ctx, worker_bootstrap, worker_bootstrap_size));
+
+    /* End the worker bootstrap. */
+    wrt->in_bootstrap = false;
 
     /* Load the file and eval the file when the loop runs. */
     JSValue filename = JS_NewString(ctx, wd->path);

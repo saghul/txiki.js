@@ -1,5 +1,5 @@
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -176,7 +176,13 @@ TJSRuntime *TJS_NewRuntime2(bool is_worker) {
     JS_SetContextOpaque(qrt->ctx, qrt);
 
     /* loader for ES6 modules */
-    JS_SetModuleLoaderFunc(qrt->rt, tjs_module_normalizer, tjs_module_loader, NULL);
+    JS_SetModuleLoaderFunc(qrt->rt, tjs_module_normalizer, tjs_module_loader, qrt);
+
+    /* unhandled promise rejection tracker */
+    JS_SetHostPromiseRejectionTracker(qrt->rt, tjs__promise_rejection_tracker, NULL);
+
+    /* start bootstrap */
+    qrt->in_bootstrap = true;
 
     /* core module */
     js_init_module_uv(qrt->ctx, "@tjs/core");
@@ -186,8 +192,8 @@ TJSRuntime *TJS_NewRuntime2(bool is_worker) {
     /* extra builtin modules */
     tjs__add_builtins(qrt->ctx);
 
-    /* unhandled promise rejection tracker */
-    JS_SetHostPromiseRejectionTracker(qrt->rt, tjs__promise_rejection_tracker, NULL);
+    /* end bootstrap */
+    qrt->in_bootstrap = false;
 
     return qrt;
 }
