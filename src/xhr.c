@@ -66,6 +66,7 @@ typedef struct {
     CURLM *curlm_h;
     struct curl_slist *slist;
     bool sent;
+    bool async;
     unsigned long timeout;
     short response_type;
     unsigned short ready_state;
@@ -90,7 +91,8 @@ static void tjs_xhr_finalizer(JSRuntime *rt, JSValue val) {
     TJSXhr *x = JS_GetOpaque(val, tjs_xhr_class_id);
     if (x) {
         if (x->curl_h) {
-            curl_multi_remove_handle(x->curlm_h, x->curl_h);
+            if (x->async)
+                curl_multi_remove_handle(x->curlm_h, x->curl_h);
             curl_easy_cleanup(x->curl_h);
         }
         if (x->slist)
@@ -152,23 +154,17 @@ static void maybe_emit_event(TJSXhr *x, int event, JSValue arg) {
     JS_FreeValue(ctx, arg);
 }
 
-static void curl__done_cb(CURLMsg *message, void *arg) {
+static void curl__done_cb(CURLcode result, void *arg) {
     TJSXhr *x = arg;
     CHECK_NOT_NULL(x);
 
-    CURL *easy_handle = message->easy_handle;
+    CURL *easy_handle = x->curl_h;
     CHECK_EQ(x->curl_h, easy_handle);
-
-    CURLcode result = message->data.result;
 
     char *done_url = NULL;
     curl_easy_getinfo(easy_handle, CURLINFO_EFFECTIVE_URL, &done_url);
     if (done_url)
         x->result.url = JS_NewString(x->ctx, done_url);
-
-    // The calling function will disengage the easy handle when this
-    // function returns.
-    x->curl_h = NULL;
 
     if (x->slist) {
         curl_slist_free_all(x->slist);
@@ -189,6 +185,15 @@ static void curl__done_cb(CURLMsg *message, void *arg) {
         else
             maybe_emit_event(x, XHR_EVENT_LOAD, JS_UNDEFINED);
     }
+}
+
+static void curlm__done_cb(CURLMsg *message, void *arg) {
+    TJSXhr *x = arg;
+    CHECK_NOT_NULL(x);
+
+    CURL *easy_handle = message->easy_handle;
+    CHECK_EQ(x->curl_h, easy_handle);
+    curl__done_cb(message->data.result, x);
 }
 
 static size_t curl__data_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
@@ -217,7 +222,6 @@ static size_t curl__header_cb(char *ptr, size_t size, size_t nmemb, void *userda
 
     DynBuf *hbuf = &x->result.hbuf;
     size_t realsize = size * nmemb;
-
     if (strncmp(status_line, ptr, sizeof(status_line) - 1) == 0) {
         if (hbuf->size == 0) {
             // Fire loadstart on the first HTTP status line.
@@ -308,6 +312,7 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValueConst new_target, int 
     x->status.status_text = JS_UNDEFINED;
     x->slist = NULL;
     x->sent = false;
+    x->async = true;
 
     for (int i = 0; i < XHR_EVENT_MAX; i++) {
         x->events[i] = JS_UNDEFINED;
@@ -316,7 +321,7 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValueConst new_target, int 
     tjs_curl_init();
 
     x->curl_private.arg = x;
-    x->curl_private.done_cb = curl__done_cb;
+    x->curl_private.done_cb = curlm__done_cb;
 
     x->curlm_h = tjs__get_curlm(ctx);
     x->curl_h = curl_easy_init();
@@ -609,12 +614,48 @@ static JSValue tjs_xhr_open(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
     // TODO: support username and password.
 
+    if (x->ready_state == XHR_RSTATE_DONE) {
+        if (x->slist)
+            curl_slist_free_all(x->slist);
+        if (x->status.raw)
+            js_free(ctx, x->status.raw);
+        for (int i = 0; i < XHR_EVENT_MAX; i++)
+            JS_FreeValue(ctx, x->events[i]);
+        JS_FreeValue(ctx, x->status.status);
+        JS_FreeValue(ctx, x->status.status_text);
+        JS_FreeValue(ctx, x->result.url);
+        JS_FreeValue(ctx, x->result.headers);
+        JS_FreeValue(ctx, x->result.response);
+        JS_FreeValue(ctx, x->result.response_text);
+        dbuf_free(&x->result.hbuf);
+        dbuf_free(&x->result.bbuf);
+
+        dbuf_init(&x->result.hbuf);
+        dbuf_init(&x->result.bbuf);
+        x->result.url = JS_NULL;
+        x->result.headers = JS_NULL;
+        x->result.response = JS_NULL;
+        x->result.response_text = JS_NULL;
+        x->ready_state = XHR_RSTATE_UNSENT;
+        x->status.raw = NULL;
+        x->status.status = JS_UNDEFINED;
+        x->status.status_text = JS_UNDEFINED;
+        x->slist = NULL;
+        x->sent = false;
+        x->async = true;
+
+        for (int i = 0; i < XHR_EVENT_MAX; i++) {
+            x->events[i] = JS_UNDEFINED;
+        }
+    }
     if (x->ready_state < XHR_RSTATE_OPENED) {
         JSValue method = argv[0];
         JSValue url = argv[1];
+        JSValue async = argv[2];
         const char *method_str = JS_ToCString(ctx, method);
         const char *url_str = JS_ToCString(ctx, url);
-
+        if (argc == 3)
+            x->async = JS_ToBool(ctx, async);
         if (strncasecmp(head_method, method_str, sizeof(head_method) - 1) == 0)
             curl_easy_setopt(x->curl_h, CURLOPT_NOBODY, 1L);
         else
@@ -652,7 +693,12 @@ static JSValue tjs_xhr_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
         }
         if (x->slist)
             curl_easy_setopt(x->curl_h, CURLOPT_HTTPHEADER, x->slist);
-        curl_multi_add_handle(x->curlm_h, x->curl_h);
+        if (x->async)
+            curl_multi_add_handle(x->curlm_h, x->curl_h);
+        else {
+            CURLcode result = curl_easy_perform(x->curl_h);
+            curl__done_cb(result, x);
+        }
         x->sent = true;
     }
     return JS_UNDEFINED;

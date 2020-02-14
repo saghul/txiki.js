@@ -16,6 +16,32 @@ test('basic XHR', async t => {
     await p;
 });
 
+test('basic sync XHR', t => {
+        const url = 'https://httpbin.org/get';
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', url, false);
+        xhr.send();
+        t.eq(xhr.readyState, xhr.DONE, 'readyState is DONE');
+        t.eq(xhr.responseURL, url, 'url is the same');
+        t.eq(xhr.status, 200, 'status is 200');
+});
+
+test('XHR persistent connection', t => {
+        const url = 'https://httpbin.org/get';
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', url, false);
+        xhr.send();
+        t.eq(xhr.readyState, xhr.DONE, 'readyState is DONE');
+        t.eq(xhr.responseURL, url, 'url is the same');
+        t.eq(xhr.status, 200, 'status is 200');
+
+        xhr.open('GET', url, false);
+        xhr.send();
+        t.eq(xhr.readyState, xhr.DONE, 'readyState is DONE');
+        t.eq(xhr.responseURL, url, 'url is the same');
+        t.eq(xhr.status, 200, 'status is 200');
+});
+
 test('basic XHR with EventTarget', async t => {
     const p = new Promise(resolve => {
         const url = 'https://httpbin.org/get';
