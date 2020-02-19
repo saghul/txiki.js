@@ -194,6 +194,10 @@ static void curlm__done_cb(CURLMsg *message, void *arg) {
     CURL *easy_handle = message->easy_handle;
     CHECK_EQ(x->curl_h, easy_handle);
     curl__done_cb(message->data.result, x);
+
+    // The calling function will disengage the easy handle when this
+    // function returns.
+    x->curl_h = NULL;
 }
 
 static size_t curl__data_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
