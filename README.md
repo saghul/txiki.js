@@ -74,8 +74,24 @@ make
 
 *NOTE:* The txiki.js build depends on a number of git submodules (e.g. [curl], [libuv]). If you didn't already clone this repository recursively, make sure you initialize these submodules with `git submodule update --init` before proceeding to the build.
 
+## Thanks
+
+txiki.js stands on shoulders of giants. It wouldn't be what it is today without these libraries:
+
+* [QuickJS]: JavaScript engine
+* [libuv]: platform abstraction layer
+* [wasm3]: WASM engine
+* [curl]: HTTP client
+
+In addition, txiki.js has these [contributors] to thank for their help.
+
+Thank you all for making this project possible!
+
+
 [QuickJS]: https://bellard.org/quickjs/
 [libuv]: https://libuv.org/
 [curl]: https://github.com/curl/curl
 [full API]: API.md
 [CMake]: https://cmake.org/
+[wasm3]: https://github.com/wasm3/wasm3
+[contributors]: https://github.com/saghul/txiki.js/graphs/contributors
