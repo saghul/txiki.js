@@ -1019,9 +1019,6 @@ import * as uuid from "@tjs/uuid";
             stdout_write(colors[styles.error_msg]);
             if (error instanceof Error) {
                 console.log(error);
-                if (error.stack) {
-                    stdout_write(error.stack);
-                }
             } else {
                 stdout_write("Throw: ");
                 console.log(error);

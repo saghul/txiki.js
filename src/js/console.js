@@ -198,7 +198,15 @@ const format = (function() {
           "'";
         return ctx.stylize(simple, 'string');
       }
-      if (isNumber(value)) return ctx.stylize('' + value, 'number');
+      if (isNumber(value)) {
+        if (value == 0) {
+          if (1 / value < 0)
+            value = "-0";
+          else
+            value = "0";
+        }
+        return ctx.stylize('' + value, 'number');
+      }
       if (isBoolean(value)) return ctx.stylize('' + value, 'boolean');
       // For some reason typeof null is "object", so special case here.
       if (isNull(value)) return ctx.stylize('null', 'null');
