@@ -30,10 +30,6 @@
 #include <uv.h>
 
 
-// TODO: move this out of the global scope.
-static int eval_script_recurse;
-
-
 /* load and evaluate a file */
 static JSValue js_loadScript(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *filename;
@@ -67,18 +63,8 @@ static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val, int argc, JS
     str = JS_ToCStringLen(ctx, &len, argv[0]);
     if (!str)
         return JS_EXCEPTION;
-    if (++eval_script_recurse == 1) {
-        /* TODO: install the interrupt handler */
-    }
     ret = JS_Eval(ctx, str, len, "<evalScript>", JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_BACKTRACE_BARRIER);
     JS_FreeCString(ctx, str);
-    if (--eval_script_recurse == 0) {
-        /* TODO: remove the interrupt handler */
-        /* convert the uncatchable "interrupted" error into a normal error
-           so that it can be caught by the REPL */
-        if (JS_IsException(ret))
-            JS_ResetUncatchableError(ctx);
-    }
     return ret;
 }
 
