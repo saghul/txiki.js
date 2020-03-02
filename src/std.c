@@ -70,7 +70,7 @@ static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (++eval_script_recurse == 1) {
         /* TODO: install the interrupt handler */
     }
-    ret = JS_Eval(ctx, str, len, "<evalScript>", JS_EVAL_TYPE_GLOBAL);
+    ret = JS_Eval(ctx, str, len, "<evalScript>", JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_BACKTRACE_BARRIER);
     JS_FreeCString(ctx, str);
     if (--eval_script_recurse == 0) {
         /* TODO: remove the interrupt handler */
