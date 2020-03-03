@@ -33,8 +33,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MAX_STACK_SIZE 1048576
-
 /* BEGIN: copied over from quickjs-libc to avoid dependency. */
 
 uint8_t *js_load_file(JSContext *ctx, size_t *pbuf_len, const char *filename) {
@@ -365,9 +363,6 @@ int main(int argc, char **argv) {
 
     /* loader for ES6 modules */
     JS_SetModuleLoaderFunc(rt, NULL, jsc_module_loader, NULL);
-
-    /* Increase stack size */
-    JS_SetMaxStackSize(ctx, MAX_STACK_SIZE);
 
     fprintf(fo,
             "/* File generated automatically by the QuickJS compiler. */\n"

@@ -27,6 +27,8 @@
 
 #include <string.h>
 
+#define MAX_STACK_SIZE 1048576
+
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
 
@@ -139,11 +141,19 @@ static void uv__stop(uv_async_t *handle) {
     uv_stop(&qrt->loop);
 }
 
-TJSRuntime *TJS_NewRuntime(void) {
-    return TJS_NewRuntime2(false);
+TJSRuntime *TJS_NewRuntime(RunOption *option) {
+    if (!option->stack_szie) {
+        option->stack_szie = MAX_STACK_SIZE;
+    }
+    return TJS_NewRuntimeByOptions(false, option);
 }
 
 TJSRuntime *TJS_NewRuntime2(bool is_worker) {
+    RunOption option = { .stack_szie = MAX_STACK_SIZE };
+    return TJS_NewRuntimeByOptions(is_worker, &option);
+}
+
+TJSRuntime *TJS_NewRuntimeByOptions(bool is_worker, RunOption *option) {
     TJSRuntime *qrt = calloc(1, sizeof(*qrt));
 
     qrt->rt = JS_NewRuntime();
@@ -153,7 +163,7 @@ TJSRuntime *TJS_NewRuntime2(bool is_worker) {
     CHECK_NOT_NULL(qrt->ctx);
 
     /* Increase stack size */
-    JS_SetMaxStackSize(qrt->ctx, 1024*1024);
+    JS_SetMaxStackSize(qrt->ctx, option->stack_szie);
 
     /* Enable BigFloat and BigDecimal */
     JS_AddIntrinsicBigFloat(qrt->ctx);

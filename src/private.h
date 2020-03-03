@@ -63,6 +63,10 @@ struct TJSRuntime {
 #endif
 };
 
+typedef struct RunOption {
+    size_t stack_szie;
+} RunOption;
+
 void tjs_mod_dns_init(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_dns_export(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_error_init(JSContext *ctx, JSModuleDef *m);
