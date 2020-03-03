@@ -27,6 +27,8 @@
 
 #include <string.h>
 
+#define TJS__DEFAULT_STACK_SIZE 1048576
+
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
 
@@ -140,10 +142,16 @@ static void uv__stop(uv_async_t *handle) {
 }
 
 TJSRuntime *TJS_NewRuntime(void) {
-    return TJS_NewRuntime2(false);
+    TJSRunOptions option = { .stack_size = TJS__DEFAULT_STACK_SIZE };
+    return TJS_NewRuntimeOption(false, &option);
 }
 
-TJSRuntime *TJS_NewRuntime2(bool is_worker) {
+TJSRuntime *TJS_NewRuntimeWorker(void) {
+    TJSRunOptions option = { .stack_size = TJS__DEFAULT_STACK_SIZE };
+    return TJS_NewRuntimeOption(true, &option);
+}
+
+TJSRuntime *TJS_NewRuntimeOption(bool is_worker, TJSRunOptions *option) {
     TJSRuntime *qrt = calloc(1, sizeof(*qrt));
 
     qrt->rt = JS_NewRuntime();
@@ -153,7 +161,7 @@ TJSRuntime *TJS_NewRuntime2(bool is_worker) {
     CHECK_NOT_NULL(qrt->ctx);
 
     /* Increase stack size */
-    JS_SetMaxStackSize(qrt->ctx, 1024*1024);
+    JS_SetMaxStackSize(qrt->ctx, option->stack_size);
 
     /* Enable BigFloat and BigDecimal */
     JS_AddIntrinsicBigFloat(qrt->ctx);
