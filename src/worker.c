@@ -105,7 +105,7 @@ error:;
 static void worker_entry(void *arg) {
     worker_data_t *wd = arg;
 
-    TJSRuntime *wrt = TJS_NewRuntime2(true);
+    TJSRuntime *wrt = TJS_NewRuntimeWorker();
     CHECK_NOT_NULL(wrt);
     JSContext *ctx = TJS_GetJSContext(wrt);
 

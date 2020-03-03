@@ -34,9 +34,13 @@
 
 typedef struct TJSRuntime TJSRuntime;
 
-TJSRuntime *TJS_NewRuntime(RunOption *option);
-TJSRuntime *TJS_NewRuntime2(bool is_worker);
-TJSRuntime *TJS_NewRuntimeByOptions(bool is_worker, RunOption *option);
+typedef struct TJSRunOptions {
+   size_t stack_size;
+} TJSRunOptions;
+
+TJSRuntime *TJS_NewRuntime(void);
+TJSRuntime *TJS_NewRuntimeWorker(void);
+TJSRuntime *TJS_NewRuntimeOption(bool is_worker, TJSRunOptions *option);
 void TJS_FreeRuntime(TJSRuntime *qrt);
 void TJS_SetupArgs(int argc, char **argv);
 JSContext *TJS_GetJSContext(TJSRuntime *qrt);
