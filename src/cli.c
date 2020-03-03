@@ -71,9 +71,14 @@ static int eprintf(const char *format, ...) {
 }
 
 static int get_eval_flags(const char *filepath, bool strict_module_detection) {
-    if (strict_module_detection && !has_suffix(filepath, ".mjs")) {
-        return JS_EVAL_TYPE_GLOBAL;
-    }
+    int is_mjs = has_suffix(filepath, ".mjs");
+
+    if (strict_module_detection)
+        return is_mjs ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL;
+
+    if (is_mjs)
+        return JS_EVAL_TYPE_MODULE;
+
     return -1  /* autodetect */;
 }
 
