@@ -253,7 +253,11 @@ int main(int argc, char **argv) {
             if (is_longopt(opt, "stack-size")) {
                 char *stack_size = get_option_value(arg, argc, argv, &optind);
                 runOption.stack_szie = (size_t) stack_size;
-                break;
+                if (runOption.stack_szie)
+                    break;
+                report_missing_argument(&opt);
+                exit_code = EXIT_INVALID_ARG;
+                goto exit;
             }
             if (opt.key == 'i' || is_longopt(opt, "interactive")) {
                 flags.interactive = true;
