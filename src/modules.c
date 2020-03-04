@@ -30,6 +30,9 @@
 #include <string.h>
 
 
+int tjs__path_dirname(const char *path, char *buffer, size_t *size);
+int tjs__path_basename(const char *path, char *buffer, size_t *size);
+
 #ifdef TJS_HAVE_CURL
 
 JSModuleDef *tjs__load_http(JSContext *ctx, const char *url) {
@@ -121,6 +124,10 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
     JSValue meta_obj;
     JSAtom module_name_atom;
     const char *module_name;
+    char dirname_buf[PATH_MAX];
+    char *dirname_ptr = NULL;
+    char basename_buf[PATH_MAX];
+    char *basename_ptr = NULL;
 
     CHECK_EQ(JS_VALUE_GET_TAG(func_val), JS_TAG_MODULE);
     m = JS_VALUE_GET_PTR(func_val);
@@ -149,6 +156,16 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
             }
             pstrcat(buf, sizeof(buf), req.ptr);
             uv_fs_req_cleanup(&req);
+
+#ifndef _WIN32
+            size_t s = sizeof(dirname_buf);
+            if (tjs__path_dirname(buf + 7 /* Skip 'file://' */, dirname_buf, &s) == 0)
+                dirname_ptr = dirname_buf;
+            s = sizeof(basename_buf);
+            if (tjs__path_basename(buf, basename_buf, &s) == 0)
+                basename_ptr = basename_buf;
+#endif
+
         } else {
             pstrcat(buf, sizeof(buf), module_name);
         }
@@ -162,6 +179,10 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
         return -1;
     JS_DefinePropertyValueStr(ctx, meta_obj, "url", JS_NewString(ctx, buf), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, meta_obj, "main", JS_NewBool(ctx, is_main), JS_PROP_C_W_E);
+    if (dirname_ptr)
+        JS_DefinePropertyValueStr(ctx, meta_obj, "dirname", JS_NewString(ctx, dirname_ptr), JS_PROP_C_W_E);
+    if (basename_ptr)
+        JS_DefinePropertyValueStr(ctx, meta_obj, "basename", JS_NewString(ctx, basename_ptr), JS_PROP_C_W_E);
     JS_FreeValue(ctx, meta_obj);
     return 0;
 }
@@ -261,3 +282,114 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
 }
 
 #undef TJS__PATHSEP
+
+/*
+ * Based on the Android implementation, BSD licensed.
+ * Check http://android.git.kernel.org/
+ */
+int tjs__path_dirname(const char *path, char *buffer, size_t *size)
+{
+	const char *endp;
+	int is_prefix = 0, len;
+
+    if (!buffer || !size || *size == 0) {
+        return -1;
+    }
+
+	/* Empty or NULL string gets treated as "." */
+	if (path == NULL || *path == '\0') {
+		path = ".";
+		len = 1;
+		goto end;
+	}
+
+	/* Strip trailing slashes */
+	endp = path + strlen(path) - 1;
+	while (endp > path && *endp == '/')
+		endp--;
+
+	if (endp - path + 1 > INT_MAX) {
+        return -1;
+	}
+
+	/* Find the start of the dir */
+	while (endp > path && *endp != '/')
+		endp--;
+
+	/* Either the dir is "/" or there are no slashes */
+	if (endp == path) {
+		path = (*endp == '/') ? "/" : ".";
+		len = 1;
+		goto end;
+	}
+
+	do {
+		endp--;
+	} while (endp > path && *endp == '/');
+
+	if (endp - path + 1 > INT_MAX) {
+        return -1;
+	}
+
+	/* Cast is safe because max path < max int */
+	len = (int)(endp - path + 1);
+
+end:
+    if (*size < len + 1) {
+        *size = len + 1;
+        return -1;
+    }
+
+    memcpy(buffer, path, len);
+    buffer[len] = '\0';
+
+	return 0;
+}
+
+int tjs__path_basename(const char *path, char *buffer, size_t *size)
+{
+	const char *endp, *startp;
+	int len;
+
+    if (!buffer || !size || *size == 0) {
+        return -1;
+    }
+
+	/* Empty or NULL string gets treated as "." */
+	if (path == NULL || *path == '\0') {
+		startp = ".";
+		len		= 1;
+		goto end;
+	}
+
+	/* Strip trailing slashes */
+	endp = path + strlen(path) - 1;
+	while (endp > path && *endp == '/')
+		endp--;
+
+	/* All slashes becomes "/" */
+	if (endp == path && *endp == '/') {
+		startp = "/";
+		len	= 1;
+		goto end;
+	}
+
+	/* Find the start of the base */
+	startp = endp;
+	while (startp > path && *(startp - 1) != '/')
+		startp--;
+
+	/* Cast is safe because max path < max int */
+	len = (int)(endp - startp + 1);
+
+end:
+    if (*size < len + 1) {
+        *size = len + 1;
+        return -1;
+    }
+
+    memcpy(buffer, startp, len);
+    buffer[len] = '\0';
+
+	return 0;
+}
