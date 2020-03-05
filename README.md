@@ -47,6 +47,7 @@ See the [full API].
 Other extras:
 
 - Import directly from HTTP(S) URLs
+- Import JSON files
 - path module
 - uuid module
 - hashlib module

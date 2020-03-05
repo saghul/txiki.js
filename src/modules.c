@@ -71,10 +71,12 @@ end:
 JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *opaque) {
     static const char http[] = "http://";
     static const char https[] = "https://";
+    static const char json_tpl_start[] = "export default JSON.parse(`";
+    static const char json_tpl_end[] = "`);";
 
     JSModuleDef *m;
     JSValue func_val;
-    int r;
+    int r, is_json;
     DynBuf dbuf;
 
     if (strncmp(http, module_name, strlen(http)) == 0 || strncmp(https, module_name, strlen(https)) == 0) {
@@ -87,6 +89,13 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     }
 
     dbuf_init(&dbuf);
+
+    is_json = has_suffix(module_name, ".json");
+
+    /* Support importing JSON files bcause... why not? */
+    if (is_json)
+        dbuf_put(&dbuf, (const uint8_t *) json_tpl_start, strlen(json_tpl_start));
+
     r = tjs__load_file(ctx, &dbuf, module_name);
     if (r != 0) {
         dbuf_free(&dbuf);
@@ -94,10 +103,13 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
         return NULL;
     }
 
+    if (is_json)
+        dbuf_put(&dbuf, (const uint8_t *) json_tpl_end, strlen(json_tpl_end));
+
     /* Add null termination, required by JS_Eval. */
     dbuf_putc(&dbuf, '\0');
 
-    /* compile the module */
+    /* compile JS the module */
     func_val = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, module_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     dbuf_free(&dbuf);
     if (JS_IsException(func_val)) {

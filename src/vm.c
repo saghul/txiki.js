@@ -353,12 +353,14 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
     fd = r;
     char buf[64 * 1024];
     uv_buf_t b = uv_buf_init(buf, sizeof(buf));
+    size_t offset = 0;
 
     do {
-        r = uv_fs_read(NULL, &req, fd, &b, 1, dbuf->size, NULL);
+        r = uv_fs_read(NULL, &req, fd, &b, 1, offset, NULL);
         uv_fs_req_cleanup(&req);
         if (r <= 0)
             break;
+        offset += r;
         r = dbuf_put(dbuf, (const uint8_t *) b.base, r);
         if (r != 0)
             break;
