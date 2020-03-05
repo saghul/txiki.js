@@ -6,6 +6,7 @@ import './test-global-window.js';
 import './test-hashlib.js';
 import './test-import.js';
 import './test-import-http.js';
+import './test-import-json.js';
 import './test-noop.js';
 import './test-performance.js';
 import './test-random.js';
