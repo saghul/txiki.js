@@ -46,12 +46,12 @@ struct AssertionInfo {
     } while (0)
 
 #ifdef __GNUC__
-#define TJS__LIKELY(expr)         __builtin_expect(!!(expr), 1)
-#define TJS__UNLIKELY(expr)       __builtin_expect(!!(expr), 0)
+#define TJS__LIKELY(expr)    __builtin_expect(!!(expr), 1)
+#define TJS__UNLIKELY(expr)  __builtin_expect(!!(expr), 0)
 #define PRETTY_FUNCTION_NAME __PRETTY_FUNCTION__
 #else
-#define TJS__LIKELY(expr)         expr
-#define TJS__UNLIKELY(expr)       expr
+#define TJS__LIKELY(expr)    expr
+#define TJS__UNLIKELY(expr)  expr
 #define PRETTY_FUNCTION_NAME ""
 #endif
 
@@ -60,7 +60,7 @@ struct AssertionInfo {
 
 #define CHECK(expr)                                                                                                    \
     do {                                                                                                               \
-        if (TJS__UNLIKELY(!(expr))) {                                                                                       \
+        if (TJS__UNLIKELY(!(expr))) {                                                                                  \
             ERROR_AND_ABORT(expr);                                                                                     \
         }                                                                                                              \
     } while (0)

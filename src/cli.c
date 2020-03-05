@@ -79,7 +79,7 @@ static int get_eval_flags(const char *filepath, bool strict_module_detection) {
     if (is_mjs)
         return JS_EVAL_TYPE_MODULE;
 
-    return -1  /* autodetect */;
+    return -1 /* autodetect */;
 }
 
 static int eval_buf(JSContext *ctx, const char *buf, const char *filename, int eval_flags) {

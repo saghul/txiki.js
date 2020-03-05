@@ -26,8 +26,8 @@
 #define TJS_WASM_H
 
 #ifdef TJS_HAVE_WASM
-#include <m3_env.h>
 #include <m3_api_wasi.h>
+#include <m3_env.h>
 #endif
 
 #endif

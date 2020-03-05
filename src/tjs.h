@@ -35,7 +35,7 @@
 typedef struct TJSRuntime TJSRuntime;
 
 typedef struct TJSRunOptions {
-   size_t stack_size;
+    size_t stack_size;
 } TJSRunOptions;
 
 TJSRuntime *TJS_NewRuntime(void);

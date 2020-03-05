@@ -195,7 +195,7 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
         "@tjs/core",
         "@tjs/crypto",
         "@tjs/event-target",
-        "@tjs/performance"
+        "@tjs/performance",
     };
 
     TJSRuntime *qrt = opaque;

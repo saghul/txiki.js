@@ -22,10 +22,11 @@
  * THE SOFTWARE.
  */
 
+#include "wasm.h"
+
 #include "private.h"
 #include "tjs.h"
 #include "utils.h"
-#include "wasm.h"
 
 #ifdef TJS_HAVE_WASM
 
@@ -162,7 +163,7 @@ static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValueConst this_val, int 
     } else {
         const char *m3_argv[nargs + 1];
         for (int i = 0; i < nargs; i++) {
-            m3_argv[i] = JS_ToCString(ctx, argv[i+1]);
+            m3_argv[i] = JS_ToCString(ctx, argv[i + 1]);
         }
         m3_argv[nargs] = NULL;
         r = m3_CallWithArgs(func, nargs, m3_argv);
@@ -182,25 +183,25 @@ static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValueConst this_val, int 
     JSValue ret;
     switch (func->funcType->returnType) {
         case c_m3Type_i32: {
-            int32_t val = *(int32_t*)(stack);
+            int32_t val = *(int32_t *) (stack);
             ret = JS_NewInt32(ctx, val);
             break;
         }
         case c_m3Type_i64: {
-            int64_t val = *(int64_t*)(stack);
-            if (val == (int32_t)val)
-                ret = JS_NewInt32(ctx, (int32_t)val);
+            int64_t val = *(int64_t *) (stack);
+            if (val == (int32_t) val)
+                ret = JS_NewInt32(ctx, (int32_t) val);
             else
                 ret = JS_NewBigInt64(ctx, val);
             break;
         }
         case c_m3Type_f32: {
-            float val = *(float*)(stack);
-            ret = JS_NewFloat64(ctx, (double)val);
+            float val = *(float *) (stack);
+            ret = JS_NewFloat64(ctx, (double) val);
             break;
         }
         case c_m3Type_f64: {
-            double val = *(double*)(stack);
+            double val = *(double *) (stack);
             ret = JS_NewFloat64(ctx, val);
             break;
         }
@@ -242,7 +243,7 @@ static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValueConst this_val, int
     CHECK_NULL(r);  // Should never fail because we already parsed it. TODO: clone it?
 
     /* Create a runtime per module to avoid symbol clash. */
-    i->runtime = m3_NewRuntime(qrt->wasm_ctx.env, /* TODO: adjust */ 512*1024, NULL);
+    i->runtime = m3_NewRuntime(qrt->wasm_ctx.env, /* TODO: adjust */ 512 * 1024, NULL);
     if (!i->runtime) {
         JS_FreeValue(ctx, obj);
         return JS_ThrowOutOfMemory(ctx);
@@ -293,7 +294,7 @@ static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValueConst this_val, int a
 
     if (!buf) {
         /* Check if it's a typed array. */
-        size_t aoffset, asize; 
+        size_t aoffset, asize;
         JSValue abuf = JS_GetTypedArrayBuffer(ctx, argv[0], &aoffset, &asize, NULL);
         if (JS_IsException(abuf))
             return abuf;
@@ -318,7 +319,7 @@ static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValueConst this_val, int a
     M3Result r = m3_ParseModule(qrt->wasm_ctx.env, &m->module, m->data.bytes, m->data.size);
     if (r) {
         JS_FreeValue(ctx, obj);
-        return tjs_throw_wasm_error(ctx, "CompileError" ,r);
+        return tjs_throw_wasm_error(ctx, "CompileError", r);
     }
 
     return obj;
