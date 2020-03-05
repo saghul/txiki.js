@@ -1,19 +1,21 @@
 import { run } from './t.js';
+import { dirname, join } from '@tjs/path';
 
-import './test-args.js';
-import './test-fetch.js';
-import './test-global-window.js';
-import './test-hashlib.js';
-import './test-import.js';
-import './test-import-http.js';
-import './test-import-json.js';
-import './test-noop.js';
-import './test-performance.js';
-import './test-random.js';
-import './test-timer.js';
-import './test-uuid.js';
-import './test-version.js';
-import './test-xhr.js';
-import './test-worker.js';
+const thisFile = import.meta.url.slice(7);  // strip "file://"
 
-run();
+
+(async function() {
+    const dirIter = await tjs.fs.readdir(dirname(thisFile));
+    const tests = [];
+    for await (const item of dirIter) {
+        const { name } = item;
+        if (name.startsWith('test-') && name.endsWith('.js')) {
+            tests.push(name);
+        }
+    }
+    for (const name of tests.sort()) {
+        await import(`./${name}`);
+    }
+
+    await run();
+})();
