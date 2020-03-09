@@ -84,14 +84,13 @@ test('WASI', async t => {
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe' });
     const status = await proc.wait();
-    const buf = new ArrayBuffer(4096);
-    const nread = await proc.stdout.read(buf);
-    t.ok(nread > 0, 'stdout was read');
-    const data = new TextDecoder().decode(new Uint8Array(buf, 0, nread));
-    t.ok(data.match(/Hello world/), 'data matches 1');
-    t.ok(data.match(/Constructor OK/), 'data matches 2');
-    t.ok(data.match(/Hello printf!/), 'data matches 3');
-    t.ok(data.match(/fib\(20\)/), 'data matches 4');
+    const data = await proc.stdout.read(4096);
+    t.ok(data.length > 0, 'stdout was read');
+    const dataStr = new TextDecoder().decode(data);
+    t.ok(dataStr.match(/Hello world/), 'data matches 1');
+    t.ok(dataStr.match(/Constructor OK/), 'data matches 2');
+    t.ok(dataStr.match(/Hello printf!/), 'data matches 3');
+    t.ok(dataStr.match(/fib\(20\)/), 'data matches 4');
     t.eq(status.exit_status, 0, 'WASI ran succesfully')
     t.eq(status.term_signal, 0, 'WASI ran succesfully 2')
 });

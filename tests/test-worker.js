@@ -3,9 +3,9 @@ import { dirname, join } from '@tjs/path';
 
 const thisFile = import.meta.url.slice(7);   // strip "file://"
 
+const data = JSON.stringify({foo: 42, bar: 'baz!'});
 
 test('basic worker', async t => {
-    const data = JSON.stringify({foo: 42, bar: 'baz!'});
     let recvData;
     const p = new Promise(resolve => {
         const w = new Worker(join(dirname(thisFile), 'helpers', 'worker.js'));
@@ -25,7 +25,6 @@ test('basic worker', async t => {
 });
 
 test('basic worker with EventTarget', async t => {
-    const data = JSON.stringify({foo: 42, bar: 'baz!'});
     let recvData;
     const p = new Promise(resolve => {
         const w = new Worker(join(dirname(thisFile), 'helpers', 'worker.js'));
