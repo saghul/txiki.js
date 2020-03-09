@@ -1,8 +1,6 @@
 // Sample Pipe echo client.
 //
 
-import { logError } from './utils.js';
-
 
 (async () => {
     const p = new tjs.Pipe();
@@ -11,16 +9,14 @@ import { logError } from './utils.js';
     
     console.log(`Connected to ${p.getpeername()}`);
 
-    const buf = new ArrayBuffer(4096);
-    let nread;
+    let data;
     while (true) {
-        nread = await p.read(buf);
-        //console.log(String.fromCharCode.apply(null, new Uint8Array(buf, 0, nread)));
-        if (!nread) {
+        data = await p.read();
+        if (!data) {
             console.log('connection closed!');
             break;
         }
-        p.write(buf.slice(0, nread));
+        //console.log(`Received: ${new TextDecoder().decode(data)}`);
+        p.write(data);
     }
-
-})().catch(logError);
+})();
