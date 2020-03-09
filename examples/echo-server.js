@@ -2,22 +2,21 @@
 //
 
 import { getopts } from '@tjs/getopts';
-import { addr, logError } from './utils.js';
+import { addr } from './utils.js';
 
 
 async function handleConnection(conn) {
     console.log(`Accepted connection! ${addr(conn.getpeername())} <-> ${addr(conn.getsockname())}`);
 
-    const buf = new ArrayBuffer(4096);
-    let nread;
+    let data;
     while (true) {
-        nread = await conn.read(buf);
+        data = await conn.read();
         //console.log(String.fromCharCode.apply(null, new Uint8Array(buf, 0, nread)));
-        if (!nread) {
+        if (!data) {
             console.log('connection closed!');
             break;
         }
-        await conn.write(buf, 0, nread);
+        conn.write(data);
     }
 }
 
@@ -47,4 +46,4 @@ async function handleConnection(conn) {
         conn = undefined;
     }
 
-})().catch(logError);
+})();
