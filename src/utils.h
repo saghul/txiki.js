@@ -102,4 +102,6 @@ void TJS_RejectPromise(JSContext *ctx, TJSPromise *p, int argc, JSValueConst *ar
 JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 
+JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size);
+
 #endif
