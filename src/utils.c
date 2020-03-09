@@ -256,3 +256,18 @@ JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
 JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
     return tjs__settled_promise(ctx, true, argc, argv);
 }
+
+static void tjs__buf_free(JSRuntime *rt, void *opaque, void *ptr) {
+    js_free_rt(rt, ptr);
+}
+
+JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size) {
+    JSValue abuf = JS_NewArrayBuffer(ctx, data, size, tjs__buf_free, NULL, false);
+    if (JS_IsException(abuf))
+        return abuf;
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+    JSValue buf = JS_CallConstructor(ctx, qrt->builtins.u8array_ctor, 1, &abuf);
+    JS_FreeValue(ctx, abuf);
+    return buf;
+}

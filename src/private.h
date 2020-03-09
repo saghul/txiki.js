@@ -61,6 +61,9 @@ struct TJSRuntime {
         IM3Environment env;
     } wasm_ctx;
 #endif
+    struct {
+        JSValue u8array_ctor;
+    } builtins;
 };
 
 void tjs_mod_dns_init(JSContext *ctx, JSModuleDef *m);
