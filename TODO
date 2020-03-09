@@ -1,8 +1,0 @@
-
-- docs with mdbook
-- Blob + FileReader
-- use sds instead of dynbuf?
-- WebUSB API using libusb
-- native module integration
-    - libffi?
-    - WASM / WASI with wasmtime?
