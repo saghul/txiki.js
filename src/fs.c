@@ -314,7 +314,7 @@ static JSValue tjs_file_read(JSContext *ctx, JSValueConst this_val, int argc, JS
         return JS_EXCEPTION;
 
     /* arg 2: position (on the file) */
-    int64_t pos = 0;
+    int64_t pos = -1;
     if (!JS_IsUndefined(argv[1]) && JS_ToInt64(ctx, &pos, argv[1]))
         return JS_EXCEPTION;
 
@@ -369,8 +369,8 @@ static JSValue tjs_file_write(JSContext *ctx, JSValueConst this_val, int argc, J
     }
 
     /* arg 2: position (on the file) */
-    uint64_t pos = 0;
-    if (!JS_IsUndefined(argv[1]) && JS_ToIndex(ctx, &pos, argv[1])) {
+    int64_t pos = -1;
+    if (!JS_IsUndefined(argv[1]) && JS_ToInt64(ctx, &pos, argv[1])) {
         if (is_string)
             JS_FreeCString(ctx, buf);
         return JS_EXCEPTION;
