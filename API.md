@@ -123,6 +123,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `rename(path, newPath)`
 - `rmdir(path)`
 - `mkdtemp(name)`
+- `mkstemp(name)`
 - `stat(path)`
 - `lstat(path)`
 - `open(path, flagsStr, mode)`
