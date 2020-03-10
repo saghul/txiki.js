@@ -258,6 +258,10 @@ static void uv__fs_req_cb(uv_fs_t *req) {
             arg = JS_NewString(ctx, fr->req.path);
             break;
 
+        case UV_FS_MKSTEMP:
+            arg = tjs_new_file(ctx, fr->req.result, fr->req.path);
+            break;
+
         case UV_FS_OPENDIR:
             arg = tjs_new_dir(ctx, fr->req.ptr, fr->req.path);
             break;
@@ -694,6 +698,27 @@ static JSValue tjs_fs_mkdtemp(JSContext *ctx, JSValueConst this_val, int argc, J
     return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
+static JSValue tjs_fs_mkstemp(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    const char *tpl = JS_ToCString(ctx, argv[0]);
+    if (!tpl)
+        return JS_EXCEPTION;
+
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr) {
+        JS_FreeCString(ctx, tpl);
+        return JS_EXCEPTION;
+    }
+
+    int r = uv_fs_mkstemp(tjs_get_loop(ctx), &fr->req, tpl, uv__fs_req_cb);
+    JS_FreeCString(ctx, tpl);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
+}
+
 static JSValue tjs_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
@@ -893,6 +918,7 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     JS_CFUNC_DEF("unlink", 1, tjs_fs_unlink),
     JS_CFUNC_DEF("rename", 2, tjs_fs_rename),
     JS_CFUNC_DEF("mkdtemp", 1, tjs_fs_mkdtemp),
+    JS_CFUNC_DEF("mkstemp", 1, tjs_fs_mkstemp),
     JS_CFUNC_DEF("rmdir", 1, tjs_fs_rmdir),
     JS_CFUNC_DEF("copyfile", 3, tjs_fs_copyfile),
     JS_CFUNC_DEF("readdir", 1, tjs_fs_readdir),
