@@ -1,12 +1,7 @@
-import { run, test } from './t.js';
+import assert from './assert.js';
 
-test('importing JSON works', async t => {
+(async () => {
     const { default: data } = await import('./fixtures/data.json');
-    t.eq(data.widget.debug, 'on', 'string data matches');
-    t.eq(data.widget.window.width, 500, 'number data matches');
-});
-
-
-if (import.meta.main) {
-    run();
-}
+    assert.eq(data.widget.debug, 'on', 'string data matches');
+    assert.eq(data.widget.window.width, 500, 'number data matches');
+})();
