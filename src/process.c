@@ -98,8 +98,8 @@ static JSValue tjs_process_kill(JSContext *ctx, JSValueConst this_val, int argc,
     if (!p)
         return JS_EXCEPTION;
 
-    int32_t sig_num;
-    if (JS_ToInt32(ctx, &sig_num, argv[0]))
+    int32_t sig_num = SIGTERM;
+    if (!JS_IsUndefined(argv[0]) && JS_ToInt32(ctx, &sig_num, argv[0]))
         return JS_EXCEPTION;
 
     int r = uv_process_kill(&p->process, sig_num);
@@ -403,7 +403,7 @@ cleanup:
 }
 
 static const JSCFunctionListEntry tjs_process_proto_funcs[] = {
-    JS_CFUNC_DEF("kill", 0, tjs_process_kill),
+    JS_CFUNC_DEF("kill", 1, tjs_process_kill),
     JS_CFUNC_DEF("wait", 0, tjs_process_wait),
     JS_CGETSET_DEF("pid", tjs_process_pid_get, NULL),
     JS_CGETSET_MAGIC_DEF("stdin", tjs_process_stdio_get, NULL, 0),
