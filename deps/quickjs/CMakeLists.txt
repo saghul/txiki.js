@@ -39,6 +39,12 @@ target_compile_definitions(qjs PRIVATE
     CONFIG_BIGNUM
     CONFIG_VERSION="${QJS_VERSION_STR}"
 )
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+    target_compile_definitions(qjs PRIVATE
+        DUMP_LEAKS
+    )
+endif()
+
 target_include_directories(qjs PUBLIC include)
 target_include_directories(qjs PRIVATE src)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
