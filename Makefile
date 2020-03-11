@@ -21,10 +21,10 @@ format:
 	clang-format -i src/*.{c,h}
 
 test:
-	./$(BUILD_DIR)/tjs tests/run.js
+	./$(BUILD_DIR)/tjs tests/run.js tests/
 
 test-advanced:
 	cd tests/advanced && npm install
-	./$(BUILD_DIR)/tjs tests/run-advanced.js
+	./$(BUILD_DIR)/tjs tests/run.js tests/advanced/
 
-.PHONY: all build install clean distclean format test
+.PHONY: all build install clean distclean format test test-advanced

@@ -1,4 +1,4 @@
-import { run, test } from './t.js';
+import assert from './assert.js';
 
 
 async function doEchoServer(server) {
@@ -13,7 +13,7 @@ async function doEchoServer(server) {
     }
 }
 
-test('basic Pipe ops work', async t => {
+(async () => {
     const server = new tjs.Pipe();
     server.bind('testPipe');
     server.listen();
@@ -25,17 +25,12 @@ test('basic Pipe ops work', async t => {
     let data, dataStr;
     data = await client.read();
     dataStr = new TextDecoder().decode(data);
-    t.eq(dataStr, "PING", "sending strings works");
+    assert.eq(dataStr, "PING", "sending strings works");
     client.write(data);
     data = await client.read();
     dataStr = new TextDecoder().decode(data);
-    t.eq(dataStr, "PING", "sending a Uint8Array works");
-    t.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
+    assert.eq(dataStr, "PING", "sending a Uint8Array works");
+    assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
     client.close();
     server.close();
-});
-
-
-if (import.meta.main) {
-    run();
-}
+})();

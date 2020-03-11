@@ -1,10 +1,4 @@
-import { run, test } from './t.js';
-
-test('noop', t => {
-    t.ok(true, 'true is truthy');
-});
+import assert from './assert.js';
 
 
-if (import.meta.main) {
-    run();
-}
+assert.ok(true, 'true is truthy');
