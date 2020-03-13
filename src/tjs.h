@@ -38,7 +38,6 @@ typedef struct TJSRunOptions {
 } TJSRunOptions;
 
 TJSRuntime *TJS_NewRuntime(void);
-TJSRuntime *TJS_NewRuntimeWorker(void);
 TJSRuntime *TJS_NewRuntimeOption(bool is_worker, TJSRunOptions *option);
 void TJS_FreeRuntime(TJSRuntime *qrt);
 void TJS_SetupArgs(int argc, char **argv);
