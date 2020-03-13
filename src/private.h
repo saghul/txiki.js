@@ -116,5 +116,6 @@ void tjs__bootstrap_globals(JSContext *ctx);
 void tjs__add_builtins(JSContext *ctx);
 
 uv_loop_t *TJS_GetLoop(struct TJSRuntime *qrt);
+struct TJSRuntime *TJS_NewRuntimeWorker(void);
 
 #endif
