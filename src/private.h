@@ -41,6 +41,7 @@
 #define kDefaultReadSize 65536
 
 struct TJSRuntime {
+    TJSRunOptions options;
     JSRuntime *rt;
     JSContext *ctx;
     uv_loop_t loop;
