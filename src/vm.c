@@ -141,8 +141,17 @@ static void uv__stop(uv_async_t *handle) {
     uv_stop(&qrt->loop);
 }
 
+void TJS_DefaultOptions(TJSRunOptions *options) {
+    static TJSRunOptions default_options = {
+        .stack_size = TJS__DEFAULT_STACK_SIZE
+    };
+
+    memcpy(options, &default_options, sizeof(*options));
+}
+
 TJSRuntime *TJS_NewRuntime(void) {
-    TJSRunOptions options = { .stack_size = TJS__DEFAULT_STACK_SIZE };
+    TJSRunOptions options;
+    TJS_DefaultOptions(&options);
     return TJS_NewRuntimeInternal(false, &options);
 }
 
@@ -151,7 +160,8 @@ TJSRuntime *TJS_NewRuntimeOptions(TJSRunOptions *options) {
 }
 
 TJSRuntime *TJS_NewRuntimeWorker(void) {
-    TJSRunOptions options = { .stack_size = TJS__DEFAULT_STACK_SIZE };
+    TJSRunOptions options;
+    TJS_DefaultOptions(&options);
     return TJS_NewRuntimeInternal(true, &options);
 }
 

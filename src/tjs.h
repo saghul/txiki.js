@@ -37,6 +37,7 @@ typedef struct TJSRunOptions {
     size_t stack_size;
 } TJSRunOptions;
 
+void TJS_DefaultOptions(TJSRunOptions *options);
 TJSRuntime *TJS_NewRuntime(void);
 TJSRuntime *TJS_NewRuntimeOptions(TJSRunOptions *options);
 void TJS_FreeRuntime(TJSRuntime *qrt);

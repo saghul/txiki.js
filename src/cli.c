@@ -187,8 +187,10 @@ static char *get_option_value(char *arg, int argc, char **argv, int *optind) {
 int main(int argc, char **argv) {
     TJSRuntime *qrt = NULL;
     JSContext *ctx = NULL;
-    TJSRunOptions runOptions = {};
+    TJSRunOptions runOptions;
     int exit_code = EXIT_SUCCESS;
+
+    TJS_DefaultOptions(&runOptions);
 
     Flags flags = { .interactive = false,
                     .empty_run = false,
@@ -286,11 +288,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (runOptions.stack_size) {
-        qrt = TJS_NewRuntimeOptions(&runOptions);
-    } else {
-        qrt = TJS_NewRuntime();
-    }
+    qrt = TJS_NewRuntimeOptions(&runOptions);
     ctx = TJS_GetJSContext(qrt);
 
     if (flags.empty_run)
