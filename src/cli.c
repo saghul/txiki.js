@@ -257,9 +257,13 @@ int main(int argc, char **argv) {
             }
             if (is_longopt(opt, "stack-size")) {
                 char *stack_size = get_option_value(arg, argc, argv, &optind);
-                runOptions.stack_size = (size_t) atoi(stack_size);
-                if (runOptions.stack_size)
-                    break;
+                if (stack_size) {
+                    long n = strtol(stack_size, NULL, 10);
+                    if (n > 0) {
+                        runOptions.stack_size = (size_t) n;
+                        break;
+                    }
+                }
                 report_missing_argument(&opt);
                 exit_code = EXIT_INVALID_ARG;
                 goto exit;
