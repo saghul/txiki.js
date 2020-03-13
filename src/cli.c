@@ -187,7 +187,7 @@ static char *get_option_value(char *arg, int argc, char **argv, int *optind) {
 int main(int argc, char **argv) {
     TJSRuntime *qrt = NULL;
     JSContext *ctx = NULL;
-    TJSRunOptions runOption = {};
+    TJSRunOptions runOptions = {};
     int exit_code = EXIT_SUCCESS;
 
     Flags flags = { .interactive = false,
@@ -257,8 +257,8 @@ int main(int argc, char **argv) {
             }
             if (is_longopt(opt, "stack-size")) {
                 char *stack_size = get_option_value(arg, argc, argv, &optind);
-                runOption.stack_size = (size_t) atoi(stack_size);
-                if (runOption.stack_size)
+                runOptions.stack_size = (size_t) atoi(stack_size);
+                if (runOptions.stack_size)
                     break;
                 report_missing_argument(&opt);
                 exit_code = EXIT_INVALID_ARG;
@@ -282,8 +282,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (runOption.stack_size) {
-        qrt = TJS_NewRuntimeOption(false, &runOption);
+    if (runOptions.stack_size) {
+        qrt = TJS_NewRuntimeOptions(&runOptions);
     } else {
         qrt = TJS_NewRuntime();
     }

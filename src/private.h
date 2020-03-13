@@ -27,6 +27,7 @@
 
 #include "../deps/quickjs/src/cutils.h"
 #include "../deps/quickjs/src/list.h"
+#include "tjs.h"
 #include "wasm.h"
 
 #include <quickjs.h>
@@ -115,7 +116,8 @@ int tjs__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len);
 void tjs__bootstrap_globals(JSContext *ctx);
 void tjs__add_builtins(JSContext *ctx);
 
-uv_loop_t *TJS_GetLoop(struct TJSRuntime *qrt);
-struct TJSRuntime *TJS_NewRuntimeWorker(void);
+uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
+TJSRuntime *TJS_NewRuntimeWorker(void);
+TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options);
 
 #endif

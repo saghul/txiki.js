@@ -38,7 +38,7 @@ typedef struct TJSRunOptions {
 } TJSRunOptions;
 
 TJSRuntime *TJS_NewRuntime(void);
-TJSRuntime *TJS_NewRuntimeOption(bool is_worker, TJSRunOptions *option);
+TJSRuntime *TJS_NewRuntimeOptions(TJSRunOptions *options);
 void TJS_FreeRuntime(TJSRuntime *qrt);
 void TJS_SetupArgs(int argc, char **argv);
 JSContext *TJS_GetJSContext(TJSRuntime *qrt);

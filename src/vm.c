@@ -142,16 +142,20 @@ static void uv__stop(uv_async_t *handle) {
 }
 
 TJSRuntime *TJS_NewRuntime(void) {
-    TJSRunOptions option = { .stack_size = TJS__DEFAULT_STACK_SIZE };
-    return TJS_NewRuntimeOption(false, &option);
+    TJSRunOptions options = { .stack_size = TJS__DEFAULT_STACK_SIZE };
+    return TJS_NewRuntimeInternal(false, &options);
+}
+
+TJSRuntime *TJS_NewRuntimeOptions(TJSRunOptions *options) {
+    return TJS_NewRuntimeInternal(false, options);
 }
 
 TJSRuntime *TJS_NewRuntimeWorker(void) {
-    TJSRunOptions option = { .stack_size = TJS__DEFAULT_STACK_SIZE };
-    return TJS_NewRuntimeOption(true, &option);
+    TJSRunOptions options = { .stack_size = TJS__DEFAULT_STACK_SIZE };
+    return TJS_NewRuntimeInternal(true, &options);
 }
 
-TJSRuntime *TJS_NewRuntimeOption(bool is_worker, TJSRunOptions *option) {
+TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     TJSRuntime *qrt = calloc(1, sizeof(*qrt));
 
     qrt->rt = JS_NewRuntime();
@@ -161,7 +165,7 @@ TJSRuntime *TJS_NewRuntimeOption(bool is_worker, TJSRunOptions *option) {
     CHECK_NOT_NULL(qrt->ctx);
 
     /* Increase stack size */
-    JS_SetMaxStackSize(qrt->ctx, option->stack_size);
+    JS_SetMaxStackSize(qrt->ctx, options->stack_size);
 
     /* Enable BigFloat and BigDecimal */
     JS_AddIntrinsicBigFloat(qrt->ctx);
