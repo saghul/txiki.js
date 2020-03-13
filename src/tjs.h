@@ -34,6 +34,7 @@
 typedef struct TJSRuntime TJSRuntime;
 
 typedef struct TJSRunOptions {
+    bool abort_on_unhandled_rejection;
     size_t stack_size;
 } TJSRunOptions;
 

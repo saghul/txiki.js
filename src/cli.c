@@ -112,15 +112,16 @@ static void print_help(void) {
     printf("Usage: tjs [options] [file]\n"
            "\n"
            "Options:\n"
-           "  -v, --version                 print tjs version\n"
-           "  -h, --help                    list options\n"
-           "  -e, --eval EXPR               evaluate EXPR\n"
-           "  -l, --load FILENAME           module to preload (option can be repeated)\n"
-           "  -i, --interactive             go to interactive mode\n"
-           "  --strict-module-detection     only run code as a module if its extension is \".mjs\"\n"
-           "  --override-filename FILENAME  override filename in error messages\n"
-           "  --stack-size STACKSIZE        Reset max stack size\n"
-           "  -q, --quit                    just instantiate the interpreter and quit\n");
+           "  -v, --version                   print tjs version\n"
+           "  -h, --help                      list options\n"
+           "  -e, --eval EXPR                 evaluate EXPR\n"
+           "  -l, --load FILENAME             module to preload (option can be repeated)\n"
+           "  -i, --interactive               go to interactive mode\n"
+           "  -q, --quit                      just instantiate the interpreter and quit\n"
+           "  --abort-on-unhandled-rejection  abort when a rejected promise is not caught\n"
+           "  --override-filename FILENAME    override filename in error messages\n"
+           "  --stack-size STACKSIZE          set max stack size\n"
+           "  --strict-module-detection       only run code as a module if its extension is \".mjs\"\n");
 }
 
 static void print_version() {
@@ -280,6 +281,10 @@ int main(int argc, char **argv) {
             }
             if (is_longopt(opt, "strict-module-detection")) {
                 flags.strict_module_detection = true;
+                break;
+            }
+            if (is_longopt(opt, "abort-on-unhandled-rejection")) {
+                runOptions.abort_on_unhandled_rejection = true;
                 break;
             }
             report_unknown_option(&opt);
