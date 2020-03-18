@@ -92,6 +92,12 @@ static JSValue tjs_udp_close(JSContext *ctx, JSValueConst this_val, int argc, JS
     TJSUdp *u = tjs_udp_get(ctx, this_val);
     if (!u)
         return JS_EXCEPTION;
+    if (TJS_IsPromisePending(ctx, &u->read.result)) {
+        JSValue arg = JS_NewObjectProto(ctx, JS_NULL);
+        JS_DefinePropertyValueStr(ctx, arg, "data", JS_UNDEFINED, JS_PROP_C_W_E);
+        TJS_SettlePromise(ctx, &u->read.result, false, 1, (JSValueConst *) &arg);
+        TJS_ClearPromise(ctx, &u->read.result);
+    }
     maybe_close(u);
     return JS_UNDEFINED;
 }
@@ -141,7 +147,7 @@ static JSValue tjs_udp_recv(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (!u)
         return JS_EXCEPTION;
 
-    if (!JS_IsUndefined(u->read.result.p))
+    if (TJS_IsPromisePending(ctx, &u->read.result))
         return tjs_throw_errno(ctx, UV_EBUSY);
 
     uint64_t size = kDefaultReadSize;

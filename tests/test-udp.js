@@ -8,7 +8,7 @@ async function doEchoServer(server) {
         if (rinfo.data) {
             server.send(rinfo.data, rinfo.addr);
         } else {
-            // Error!
+            // Handle closed!
             break;
         }
     }
