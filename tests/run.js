@@ -2,7 +2,7 @@ import { basename, dirname, join } from '@tjs/path';
 
 const thisFile = import.meta.url.slice(7);  // strip "file://"
 
-const TIMEOUT = 5 * 1000;
+const TIMEOUT = 10 * 1000;
 
 const colors = {
     none:    "\x1b[0m",
