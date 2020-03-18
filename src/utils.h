@@ -92,6 +92,7 @@ typedef struct {
 } TJSPromise;
 
 JSValue TJS_InitPromise(JSContext *ctx, TJSPromise *p);
+bool TJS_IsPromisePending(JSContext *ctx, TJSPromise *p);
 void TJS_FreePromise(JSContext *ctx, TJSPromise *p);
 void TJS_FreePromiseRT(JSRuntime *rt, TJSPromise *p);
 void TJS_ClearPromise(JSContext *ctx, TJSPromise *p);
