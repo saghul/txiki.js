@@ -53,6 +53,7 @@ class Test {
         return {
             name: basename(this._fileName),
             failed: status.exit_status !== 0 || status.term_signal !== 0,
+            status,
             stdout: stdout.value,
             stderr: stderr.value,
             timeout: Boolean(this._timeout)
@@ -76,7 +77,9 @@ class Test {
 function printResult(result) {
     const status = result.timeout ? colors.yellow+'TIMEOUT' : (result.failed ? colors.red+'FAIL' : colors.green+'OK');
     console.log(`${result.name.padEnd(40, ' ')} ${status+colors.none}`);
-    if (result.timeout || result.failed) {
+    if (result.failed) {
+        console.log('status:');
+        console.log(result.status);
         if (result.stdout) {
             console.log('stdout:');
             console.log(result.stdout);
