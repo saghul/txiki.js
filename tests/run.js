@@ -47,11 +47,12 @@ class Test {
     }
 
     async wait() {
-        const [ status, stdout, stderr ] = await Promise.allSettled([this._proc_exit, this._stdout, this._stderr]);
+        const [ status_, stdout, stderr ] = await Promise.allSettled([this._proc_exit, this._stdout, this._stderr]);
+        const status = status_.value;
 
         return {
             name: basename(this._fileName),
-            failed: status.value.exit_status !== 0,
+            failed: status.exit_status !== 0 || status.term_signal !== 0,
             stdout: stdout.value,
             stderr: stderr.value,
             timeout: Boolean(this._timeout)
