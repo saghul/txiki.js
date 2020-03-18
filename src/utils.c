@@ -189,6 +189,10 @@ JSValue TJS_InitPromise(JSContext *ctx, TJSPromise *p) {
     return JS_DupValue(ctx, p->p);
 }
 
+bool TJS_IsPromisePending(JSContext *ctx, TJSPromise *p) {
+    return !JS_IsUndefined(p->p);
+}
+
 void TJS_FreePromise(JSContext *ctx, TJSPromise *p) {
     JS_FreeValue(ctx, p->rfuncs[0]);
     JS_FreeValue(ctx, p->rfuncs[1]);
