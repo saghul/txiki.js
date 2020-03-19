@@ -4,6 +4,7 @@ on: [pull_request]
 
 jobs:
   build-linux:
+    name: Linux
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -24,6 +25,7 @@ jobs:
     - name: Test it (advanced)
       run: make test-advanced
   build-macos:
+    name: macOS
     runs-on: macOS-latest
     strategy:
       fail-fast: false
@@ -42,7 +44,7 @@ jobs:
     - name: Test it (advanced)
       run: make test-advanced
   build-alpine:
-    name: Alpine
+    name: Alpine Linux
     runs-on: ubuntu-latest
     container: alpine:latest
     strategy:
