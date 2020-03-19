@@ -25,3 +25,23 @@ jobs:
       run: make test
     - name: Test it (advanced)
       run: make test-advanced
+  build-alpine:
+    name: Alpine
+    runs-on: ubuntu-latest
+    container: alpine:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        buildType: [Debug, Release]
+    env:
+      BUILDTYPE: ${{ matrix.buildType }}
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: Prepare
+      run: apk add build-base cmake curl-dev --update-cache
+    - name: Build it
+      run: make
+    - name: Test it
+      run: make test
