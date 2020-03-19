@@ -83,7 +83,7 @@ int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);
 JSValue tjs_addr2obj(JSContext *ctx, const struct sockaddr *sa);
 void tjs_call_handler(JSContext *ctx, JSValueConst func);
 void tjs_dump_error(JSContext *ctx);
-void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val, bool is_throw);
+void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val);
 void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len);
 
 typedef struct {
