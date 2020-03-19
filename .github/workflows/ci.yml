@@ -4,17 +4,20 @@ on: [pull_request]
 
 jobs:
   build:
-    runs-on: ${{ matrix.operating-system }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        operating-system: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-latest, macOS-latest]
+        buildType: [Debug, Release]
+    env:
+      BUILDTYPE: ${{ matrix.buildType }}
     steps:
     - uses: actions/checkout@v1
       with:
         submodules: true
     - name: Prepare (Linux)
-      if: matrix.operating-system == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest'
       run: sudo apt install -y libcurl4-openssl-dev
     - name: Build it
       run: make
