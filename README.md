@@ -1,7 +1,7 @@
 
 # txiki.js — The tiny JavaScript runtime
 
-[![Build Status](https://travis-ci.org/saghul/txiki.js.svg?branch=master)](https://travis-ci.org/saghul/txiki.js)
+[![Build Status](https://github.com/saghul/txiki.js/workflows/CI/badge.svg)](https://github.com/saghul/txiki.js/actions)
 
 ## Overview
 
