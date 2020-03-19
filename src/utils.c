@@ -130,30 +130,29 @@ JSValue tjs_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
     }
 }
 
+static void tjs_dump_obj(JSContext *ctx, FILE *f, JSValueConst val) {
+    const char *str = JS_ToCString(ctx, val);
+    if (str) {
+        fprintf(f, "%s\n", str);
+        JS_FreeCString(ctx, str);
+    } else {
+        fprintf(f, "[exception]\n");
+    }
+}
+
 void tjs_dump_error(JSContext *ctx) {
     JSValue exception_val = JS_GetException(ctx);
-    tjs_dump_error1(ctx, exception_val, true);
+    tjs_dump_error1(ctx, exception_val);
     JS_FreeValue(ctx, exception_val);
 }
 
-void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val, bool is_throw) {
-    JSValue val;
-    const char *stack, *exception_str;
-    int is_error;
-
-    is_error = JS_IsError(ctx, exception_val);
-    if (is_throw && !is_error)
-        printf("Throw: ");
-    exception_str = JS_ToCString(ctx, exception_val);
-    printf("%s\n", exception_str);
-    JS_FreeCString(ctx, exception_str);
+void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val) {
+    int is_error = JS_IsError(ctx, exception_val);
+    tjs_dump_obj(ctx, stderr, exception_val);
     if (is_error) {
-        val = JS_GetPropertyStr(ctx, exception_val, "stack");
-        if (!JS_IsUndefined(val)) {
-            stack = JS_ToCString(ctx, val);
-            printf("%s\n", stack);
-            JS_FreeCString(ctx, stack);
-        }
+        JSValue val = JS_GetPropertyStr(ctx, exception_val, "stack");
+        if (!JS_IsUndefined(val))
+            tjs_dump_obj(ctx, stderr, val);
         JS_FreeValue(ctx, val);
     }
 }

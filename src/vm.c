@@ -126,14 +126,13 @@ static void tjs__promise_rejection_tracker(JSContext *ctx,
             tjs_dump_error(ctx);
         } else if (JS_ToBool(ctx, ret)) {
             // The event wasn't cancelled, log the error and maybe abort.
-            printf("Unhandled promise rejection: ");
-            tjs_dump_error1(ctx, reason, FALSE);
+            fprintf(stderr, "Unhandled promise rejection: ");
+            tjs_dump_error1(ctx, reason);
             TJSRuntime *qrt = TJS_GetRuntime(ctx);
             CHECK_NOT_NULL(qrt);
             if (qrt->options.abort_on_unhandled_rejection) {
-                // TODO: we should probably print these to stderr.
-                fprintf(stdout, "Unhandled promise rejected, aborting!\n");
-                fflush(stdout);
+                fprintf(stderr, "Unhandled promise rejected, aborting!\n");
+                fflush(stderr);
                 abort();
             }
         }
