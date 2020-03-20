@@ -10,14 +10,21 @@ jobs:
       fail-fast: false
       matrix:
         buildType: [Debug, Release]
+        compiler: [gcc, clang]
     env:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
     - uses: actions/checkout@v1
       with:
         submodules: true
-    - name: Prepare
-      run: sudo apt install -y libcurl4-openssl-dev
+    - name: Dependencies
+      run: |
+        sudo apt install -y libcurl4-openssl-dev
+        if [ "${{ matrix.compiler }}" = "clang" ]; then
+          sudo apt install -y clang
+          echo "::set-env name=CC::clang"
+          echo "::set-env name=CXX::clang++"
+        fi
     - name: Build it
       run: make
     - name: Test it
