@@ -185,6 +185,8 @@ JSValue TJS_InitPromise(JSContext *ctx, TJSPromise *p) {
         return JS_EXCEPTION;
     p->rfuncs[0] = JS_DupValue(ctx, rfuncs[0]);
     p->rfuncs[1] = JS_DupValue(ctx, rfuncs[1]);
+    JS_FreeValue(ctx, rfuncs[0]);
+    JS_FreeValue(ctx, rfuncs[1]);
     return JS_DupValue(ctx, p->p);
 }
 
@@ -221,8 +223,6 @@ void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, int argc, 
     for (int i = 0; i < argc; i++)
         JS_FreeValue(ctx, argv[i]);
     JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
-    JS_FreeValue(ctx, p->rfuncs[0]);
-    JS_FreeValue(ctx, p->rfuncs[1]);
     TJS_FreePromise(ctx, p);
 }
 
