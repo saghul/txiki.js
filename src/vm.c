@@ -188,7 +188,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JS_SetContextOpaque(qrt->ctx, qrt);
 
     /* Increase stack size */
-    JS_SetMaxStackSize(qrt->ctx, options->stack_size);
+    JS_SetMaxStackSize(qrt->rt, options->stack_size);
 
     /* Enable BigFloat and BigDecimal */
     JS_AddIntrinsicBigFloat(qrt->ctx);
