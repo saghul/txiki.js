@@ -46,12 +46,12 @@ struct AssertionInfo {
     } while (0)
 
 #ifdef __GNUC__
-#define LIKELY(expr)         __builtin_expect(!!(expr), 1)
-#define UNLIKELY(expr)       __builtin_expect(!!(expr), 0)
+#define TJS__LIKELY(expr)    __builtin_expect(!!(expr), 1)
+#define TJS__UNLIKELY(expr)  __builtin_expect(!!(expr), 0)
 #define PRETTY_FUNCTION_NAME __PRETTY_FUNCTION__
 #else
-#define LIKELY(expr)         expr
-#define UNLIKELY(expr)       expr
+#define TJS__LIKELY(expr)    expr
+#define TJS__UNLIKELY(expr)  expr
 #define PRETTY_FUNCTION_NAME ""
 #endif
 
@@ -60,7 +60,7 @@ struct AssertionInfo {
 
 #define CHECK(expr)                                                                                                    \
     do {                                                                                                               \
-        if (UNLIKELY(!(expr))) {                                                                                       \
+        if (TJS__UNLIKELY(!(expr))) {                                                                                  \
             ERROR_AND_ABORT(expr);                                                                                     \
         }                                                                                                              \
     } while (0)
@@ -83,7 +83,7 @@ int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);
 JSValue tjs_addr2obj(JSContext *ctx, const struct sockaddr *sa);
 void tjs_call_handler(JSContext *ctx, JSValueConst func);
 void tjs_dump_error(JSContext *ctx);
-void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val, bool is_throw);
+void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val);
 void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len);
 
 typedef struct {
@@ -92,6 +92,7 @@ typedef struct {
 } TJSPromise;
 
 JSValue TJS_InitPromise(JSContext *ctx, TJSPromise *p);
+bool TJS_IsPromisePending(JSContext *ctx, TJSPromise *p);
 void TJS_FreePromise(JSContext *ctx, TJSPromise *p);
 void TJS_FreePromiseRT(JSRuntime *rt, TJSPromise *p);
 void TJS_ClearPromise(JSContext *ctx, TJSPromise *p);
@@ -101,5 +102,7 @@ void TJS_ResolvePromise(JSContext *ctx, TJSPromise *p, int argc, JSValueConst *a
 void TJS_RejectPromise(JSContext *ctx, TJSPromise *p, int argc, JSValueConst *argv);
 JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv);
+
+JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size);
 
 #endif

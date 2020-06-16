@@ -27,6 +27,8 @@
 
 #include <string.h>
 
+#define TJS__DEFAULT_STACK_SIZE 1048576
+
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
 
@@ -45,6 +47,9 @@ static int tjs_init(JSContext *ctx, JSModuleDef *m) {
     tjs_mod_streams_init(ctx, m);
     tjs_mod_timers_init(ctx, m);
     tjs_mod_udp_init(ctx, m);
+#ifdef TJS_HAVE_WASM
+    tjs_mod_wasm_init(ctx, m);
+#endif
     tjs_mod_worker_init(ctx, m);
 #ifdef TJS_HAVE_CURL
     tjs_mod_xhr_init(ctx, m);
@@ -69,6 +74,9 @@ JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
     tjs_mod_signals_export(ctx, m);
     tjs_mod_timers_export(ctx, m);
     tjs_mod_udp_export(ctx, m);
+#ifdef TJS_HAVE_WASM
+    tjs_mod_wasm_export(ctx, m);
+#endif
     tjs_mod_worker_export(ctx, m);
 #ifdef TJS_HAVE_CURL
     tjs_mod_xhr_export(ctx, m);
@@ -117,9 +125,16 @@ static void tjs__promise_rejection_tracker(JSContext *ctx,
         if (JS_IsException(ret)) {
             tjs_dump_error(ctx);
         } else if (JS_ToBool(ctx, ret)) {
-            // The event wasn't cancelled, log the error.
-            printf("Unhandled promise rejection: ");
-            tjs_dump_error1(ctx, reason, FALSE);
+            // The event wasn't cancelled, log the error and maybe abort.
+            fprintf(stderr, "Unhandled promise rejection: ");
+            tjs_dump_error1(ctx, reason);
+            TJSRuntime *qrt = TJS_GetRuntime(ctx);
+            CHECK_NOT_NULL(qrt);
+            if (qrt->options.abort_on_unhandled_rejection) {
+                fprintf(stderr, "Unhandled promise rejected, aborting!\n");
+                fflush(stderr);
+                abort();
+            }
         }
 
         JS_FreeValue(ctx, ret);
@@ -133,12 +148,35 @@ static void uv__stop(uv_async_t *handle) {
     uv_stop(&qrt->loop);
 }
 
-TJSRuntime *TJS_NewRuntime(void) {
-    return TJS_NewRuntime2(false);
+void TJS_DefaultOptions(TJSRunOptions *options) {
+    static TJSRunOptions default_options = {
+        .abort_on_unhandled_rejection = false,
+        .stack_size = TJS__DEFAULT_STACK_SIZE
+    };
+
+    memcpy(options, &default_options, sizeof(*options));
 }
 
-TJSRuntime *TJS_NewRuntime2(bool is_worker) {
+TJSRuntime *TJS_NewRuntime(void) {
+    TJSRunOptions options;
+    TJS_DefaultOptions(&options);
+    return TJS_NewRuntimeInternal(false, &options);
+}
+
+TJSRuntime *TJS_NewRuntimeOptions(TJSRunOptions *options) {
+    return TJS_NewRuntimeInternal(false, options);
+}
+
+TJSRuntime *TJS_NewRuntimeWorker(void) {
+    TJSRunOptions options;
+    TJS_DefaultOptions(&options);
+    return TJS_NewRuntimeInternal(true, &options);
+}
+
+TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     TJSRuntime *qrt = calloc(1, sizeof(*qrt));
+
+    memcpy(&qrt->options, options, sizeof(*options));
 
     qrt->rt = JS_NewRuntime();
     CHECK_NOT_NULL(qrt->rt);
@@ -146,8 +184,11 @@ TJSRuntime *TJS_NewRuntime2(bool is_worker) {
     qrt->ctx = JS_NewContext(qrt->rt);
     CHECK_NOT_NULL(qrt->ctx);
 
+    JS_SetRuntimeOpaque(qrt->rt, qrt);
+    JS_SetContextOpaque(qrt->ctx, qrt);
+
     /* Increase stack size */
-    JS_SetMaxStackSize(qrt->ctx, 1024*1024);
+    JS_SetMaxStackSize(qrt->rt, options->stack_size);
 
     /* Enable BigFloat and BigDecimal */
     JS_AddIntrinsicBigFloat(qrt->ctx);
@@ -173,8 +214,6 @@ TJSRuntime *TJS_NewRuntime2(bool is_worker) {
     CHECK_EQ(uv_async_init(&qrt->loop, &qrt->stop, uv__stop), 0);
     qrt->stop.data = qrt;
 
-    JS_SetContextOpaque(qrt->ctx, qrt);
-
     /* loader for ES6 modules */
     JS_SetModuleLoaderFunc(qrt->rt, tjs_module_normalizer, tjs_module_loader, qrt);
 
@@ -195,6 +234,17 @@ TJSRuntime *TJS_NewRuntime2(bool is_worker) {
     /* end bootstrap */
     qrt->in_bootstrap = false;
 
+    /* WASM */
+#ifdef TJS_HAVE_WASM
+    qrt->wasm_ctx.env = m3_NewEnvironment();
+#endif
+
+    /* Load some builtin references for easy access */
+    JSValue global_obj = JS_GetGlobalObject(qrt->ctx);
+    qrt->builtins.u8array_ctor = JS_GetPropertyStr(qrt->ctx, global_obj, "Uint8Array");
+    CHECK_EQ(JS_IsUndefined(qrt->builtins.u8array_ctor), 0);
+    JS_FreeValue(qrt->ctx, global_obj);
+
     return qrt;
 }
 
@@ -205,6 +255,8 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     uv_close((uv_handle_t *) &qrt->jobs.check, NULL);
     uv_close((uv_handle_t *) &qrt->stop, NULL);
 
+    JS_FreeValue(qrt->ctx, qrt->builtins.u8array_ctor);
+
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
 
@@ -214,6 +266,11 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         curl_multi_cleanup(qrt->curl_ctx.curlm_h);
         uv_close((uv_handle_t *) &qrt->curl_ctx.timer, NULL);
     }
+#endif
+
+    /* Destroy WASM runtime. */
+#ifdef TJS_HAVE_WASM
+    m3_FreeEnvironment(qrt->wasm_ctx.env);
 #endif
 
     /* Cleanup loop. All handles should be closed. */
@@ -329,18 +386,19 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
     fd = r;
     char buf[64 * 1024];
     uv_buf_t b = uv_buf_init(buf, sizeof(buf));
+    size_t offset = 0;
 
     do {
-        r = uv_fs_read(NULL, &req, fd, &b, 1, dbuf->size, NULL);
+        r = uv_fs_read(NULL, &req, fd, &b, 1, offset, NULL);
         uv_fs_req_cleanup(&req);
         if (r <= 0)
             break;
+        offset += r;
         r = dbuf_put(dbuf, (const uint8_t *) b.base, r);
         if (r != 0)
             break;
     } while (1);
 
-    dbuf_putc(dbuf, '\0');
     return r;
 }
 
@@ -356,6 +414,9 @@ JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_ma
         JS_ThrowReferenceError(ctx, "could not load '%s'", filename);
         return JS_EXCEPTION;
     }
+
+    /* Add null termination, required by JS_Eval. */
+    dbuf_putc(&dbuf, '\0');
 
     if (flags == -1) {
         if (JS_DetectModule((const char *) dbuf.buf, dbuf.size))

@@ -105,7 +105,7 @@ error:;
 static void worker_entry(void *arg) {
     worker_data_t *wd = arg;
 
-    TJSRuntime *wrt = TJS_NewRuntime2(true);
+    TJSRuntime *wrt = TJS_NewRuntimeWorker();
     CHECK_NOT_NULL(wrt);
     JSContext *ctx = TJS_GetJSContext(wrt);
 
@@ -321,13 +321,16 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValueConst new_target, i
 
     uv_os_sock_t fds[2];
     int r = tjs__worker_channel(fds);
-    if (r != 0)
+    if (r != 0) {
+        JS_FreeCString(ctx, path);
         return tjs_throw_errno(ctx, r);
+    }
 
     JSValue obj = tjs_new_worker(ctx, fds[0], true);
     if (JS_IsException(obj)) {
         close(fds[0]);
         close(fds[1]);
+        JS_FreeCString(ctx, path);
         return JS_EXCEPTION;
     }
 
@@ -344,6 +347,8 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValueConst new_target, i
     /* Wait for the worker to initialize. */
     uv_sem_wait(&sem);
     uv_sem_destroy(&sem);
+
+    JS_FreeCString(ctx, path);
 
     uv_update_time(tjs_get_loop(ctx));
 
@@ -369,6 +374,7 @@ static void uv__write_cb(uv_write_t *req, int status) {
         JS_FreeValue(ctx, error);
     }
 
+    js_free(ctx, wr->data);
     js_free(ctx, wr);
 }
 

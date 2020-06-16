@@ -130,30 +130,29 @@ JSValue tjs_addr2obj(JSContext *ctx, const struct sockaddr *sa) {
     }
 }
 
+static void tjs_dump_obj(JSContext *ctx, FILE *f, JSValueConst val) {
+    const char *str = JS_ToCString(ctx, val);
+    if (str) {
+        fprintf(f, "%s\n", str);
+        JS_FreeCString(ctx, str);
+    } else {
+        fprintf(f, "[exception]\n");
+    }
+}
+
 void tjs_dump_error(JSContext *ctx) {
     JSValue exception_val = JS_GetException(ctx);
-    tjs_dump_error1(ctx, exception_val, true);
+    tjs_dump_error1(ctx, exception_val);
     JS_FreeValue(ctx, exception_val);
 }
 
-void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val, bool is_throw) {
-    JSValue val;
-    const char *stack, *exception_str;
-    int is_error;
-
-    is_error = JS_IsError(ctx, exception_val);
-    if (is_throw && !is_error)
-        printf("Throw: ");
-    exception_str = JS_ToCString(ctx, exception_val);
-    printf("%s\n", exception_str);
-    JS_FreeCString(ctx, exception_str);
+void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val) {
+    int is_error = JS_IsError(ctx, exception_val);
+    tjs_dump_obj(ctx, stderr, exception_val);
     if (is_error) {
-        val = JS_GetPropertyStr(ctx, exception_val, "stack");
-        if (!JS_IsUndefined(val)) {
-            stack = JS_ToCString(ctx, val);
-            printf("%s\n", stack);
-            JS_FreeCString(ctx, stack);
-        }
+        JSValue val = JS_GetPropertyStr(ctx, exception_val, "stack");
+        if (!JS_IsUndefined(val))
+            tjs_dump_obj(ctx, stderr, val);
         JS_FreeValue(ctx, val);
     }
 }
@@ -180,22 +179,29 @@ void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len) {
 }
 
 JSValue TJS_InitPromise(JSContext *ctx, TJSPromise *p) {
-    p->p = JS_NewPromiseCapability(ctx, p->rfuncs);
+    JSValue rfuncs[2];
+    p->p = JS_NewPromiseCapability(ctx, rfuncs);
     if (JS_IsException(p->p))
         return JS_EXCEPTION;
+    p->rfuncs[0] = JS_DupValue(ctx, rfuncs[0]);
+    p->rfuncs[1] = JS_DupValue(ctx, rfuncs[1]);
     return JS_DupValue(ctx, p->p);
 }
 
+bool TJS_IsPromisePending(JSContext *ctx, TJSPromise *p) {
+    return !JS_IsUndefined(p->p);
+}
+
 void TJS_FreePromise(JSContext *ctx, TJSPromise *p) {
-    JS_FreeValue(ctx, p->p);
     JS_FreeValue(ctx, p->rfuncs[0]);
     JS_FreeValue(ctx, p->rfuncs[1]);
+    JS_FreeValue(ctx, p->p);
 }
 
 void TJS_FreePromiseRT(JSRuntime *rt, TJSPromise *p) {
-    JS_FreeValueRT(rt, p->p);
     JS_FreeValueRT(rt, p->rfuncs[0]);
     JS_FreeValueRT(rt, p->rfuncs[1]);
+    JS_FreeValueRT(rt, p->p);
 }
 
 void TJS_ClearPromise(JSContext *ctx, TJSPromise *p) {
@@ -215,6 +221,8 @@ void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, int argc, 
     for (int i = 0; i < argc; i++)
         JS_FreeValue(ctx, argv[i]);
     JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
+    JS_FreeValue(ctx, p->rfuncs[0]);
+    JS_FreeValue(ctx, p->rfuncs[1]);
     TJS_FreePromise(ctx, p);
 }
 
@@ -250,4 +258,19 @@ JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
 
 JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
     return tjs__settled_promise(ctx, true, argc, argv);
+}
+
+static void tjs__buf_free(JSRuntime *rt, void *opaque, void *ptr) {
+    js_free_rt(rt, ptr);
+}
+
+JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size) {
+    JSValue abuf = JS_NewArrayBuffer(ctx, data, size, tjs__buf_free, NULL, false);
+    if (JS_IsException(abuf))
+        return abuf;
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+    JSValue buf = JS_CallConstructor(ctx, qrt->builtins.u8array_ctor, 1, &abuf);
+    JS_FreeValue(ctx, abuf);
+    return buf;
 }

@@ -11,7 +11,6 @@ endif()
 message(STATUS "Building in ${CMAKE_BUILD_TYPE} mode")
 message(STATUS "Building with ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION} on ${CMAKE_SYSTEM}")
 
-
 set(TJS__VERSION_MAJOR 19)
 set(TJS__VERSION_MINOR 0)
 set(TJS__VERSION_PATCH 0)
@@ -20,16 +19,6 @@ configure_file(
     "${CMAKE_SOURCE_DIR}/src/version.h.in"
     "${CMAKE_SOURCE_DIR}/src/version.h"
 )
-
-
-include(${CMAKE_SOURCE_DIR}/src/js/CMakeLists.txt)
-
-option(libuv_buildtests "" OFF)
-add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
-add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
-option(REPLXX_BUILD_EXAMPLES "" OFF)
-option(BUILD_SHARED_LIBS "" OFF)
-add_subdirectory(deps/replxx EXCLUDE_FROM_ALL)
 
 
 macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
@@ -43,6 +32,26 @@ macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
     endif()
     message(STATUS "  ${OPTION_NAME}: ${${OPTION_NAME}}")
 endmacro()
+
+
+include(${CMAKE_SOURCE_DIR}/src/js/CMakeLists.txt)
+add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
+
+option(libuv_buildtests "" OFF)
+add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
+
+option(REPLXX_BUILD_EXAMPLES "" OFF)
+option(BUILD_SHARED_LIBS "" OFF)
+add_subdirectory(deps/replxx EXCLUDE_FROM_ALL)
+
+cpr_option(DISABLE_WASM "If ON, WASM support will be disabled" OFF)
+if (NOT DISABLE_WASM)
+    option(BUILD_WASI_SUPPORT "" ON)
+    add_subdirectory(deps/wasm3/source EXCLUDE_FROM_ALL)
+    target_compile_definitions(m3 PRIVATE
+        d_m3LogOutput=0
+    )
+endif()
 
 cpr_option(DISABLE_CURL "If ON, curl support will be disabled" OFF)
 cpr_option(USE_SYSTEM_CURL "If ON, this project will look in the system paths for an installed curl library" ON)
@@ -83,13 +92,15 @@ add_executable(tjs
     src/utils.c
     src/version.c
     src/vm.c
+    src/wasm.c
     src/worker.c
     src/xhr.c
     ${CMAKE_CURRENT_BINARY_DIR}/js.c
     ../deps/quickjs/src/cutils.c
 )
+
 set_target_properties(tjs PROPERTIES
-    C_STANDARD 99
+    C_STANDARD 11
     C_STANDARD_REQUIRED ON
 )
 
@@ -108,5 +119,12 @@ endif()
 
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
+
+if (NOT DISABLE_WASM)
+    target_compile_definitions(tjs PRIVATE
+        TJS_HAVE_WASM
+    )
+    target_link_libraries(tjs m3)
+endif()
 
 target_link_libraries(tjs qjs uv_a m replxx stdc++)

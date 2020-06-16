@@ -27,6 +27,8 @@
 
 #include "../deps/quickjs/src/cutils.h"
 #include "../deps/quickjs/src/list.h"
+#include "tjs.h"
+#include "wasm.h"
 
 #include <quickjs.h>
 #include <stdbool.h>
@@ -36,8 +38,10 @@
 #include <curl/curl.h>
 #endif
 
+#define kDefaultReadSize 65536
 
 struct TJSRuntime {
+    TJSRunOptions options;
     JSRuntime *rt;
     JSContext *ctx;
     uv_loop_t loop;
@@ -55,6 +59,14 @@ struct TJSRuntime {
         uv_timer_t timer;
     } curl_ctx;
 #endif
+#ifdef TJS_HAVE_WASM
+    struct {
+        IM3Environment env;
+    } wasm_ctx;
+#endif
+    struct {
+        JSValue u8array_ctor;
+    } builtins;
 };
 
 void tjs_mod_dns_init(JSContext *ctx, JSModuleDef *m);
@@ -77,6 +89,8 @@ void tjs_mod_timers_init(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_timers_export(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_udp_init(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_udp_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_wasm_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_wasm_export(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_worker_init(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_worker_export(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_xhr_init(JSContext *ctx, JSModuleDef *m);
@@ -102,5 +116,9 @@ JSValue tjs__get_args(JSContext *ctx);
 int tjs__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len);
 void tjs__bootstrap_globals(JSContext *ctx);
 void tjs__add_builtins(JSContext *ctx);
+
+uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
+TJSRuntime *TJS_NewRuntimeWorker(void);
+TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options);
 
 #endif

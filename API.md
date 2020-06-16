@@ -10,10 +10,10 @@
 - `window.prompt`: User input function with line-editing.
 - `TextEncoder` / `TextDecoder`: WHATWG [Encoding API].
 - `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval`: standard timer functions.
-- `tjs`: reference to the `@tjs/core` module.
+- `tjs`: reference to the main global module.
 - `workerThis`: reference to the worker global state (inside a worker).
 
-## `@tjs/core` module
+## `tjs` global
 
 - `args`: array with the arguments passed to the executable.
 - `exit([code])`: exits the program with the given code.
@@ -51,9 +51,9 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `getpeername()`
 - `getsockname()`
 - `listen([backlog])`
-- `read(buffer, [offset, [length]])`
+- `read([size])`
 - `shutdown()`
-- `write(buffer, [offset, [length]])`
+- `write(String|Uint8Array)`
 
 ### UDP([family])
 
@@ -63,8 +63,8 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `fileno()`
 - `getpeername()`
 - `getsockname()`
-- `recv(buffer, [offset, [length]])`
-- `send(buffer, [offset, [length, [addr]]])`
+- `recv([size])`
+- `send(String|Uint8Array, [addr])`
 
 ### Pipe()
 
@@ -76,18 +76,18 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `getpeername()`
 - `getsockname()`
 - `listen([backlog])`
-- `read(buffer, [offset, [length]])`
+- `read([size])`
 - `shutdown()`
-- `write(buffer, [offset, [length]])`
+- `write(String|Uint8Array)`
 
 ### TTY(fd, readable)
 
 - `close()`
 - `fileno()`
 - `getWinSize()`
-- `read(buffer, [offset, [length]])`
+- `read([size])`
 - `setMode(mode)`
-- `write(buffer, [offset, [length]])`
+- `write(String|Uint8Array)`
 
 ### Constants
 
@@ -123,6 +123,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `rename(path, newPath)`
 - `rmdir(path)`
 - `mkdtemp(name)`
+- `mkstemp(name)`
 - `stat(path)`
 - `lstat(path)`
 - `open(path, flagsStr, mode)`
@@ -135,9 +136,9 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `close()`
 - `fileno()`
 - `path`
-- `read(buffer, [offset, [length, [position]]])`
+- `read([size, [offset]])`
 - `stat()`
-- `write(buffer, [offset, [length, [position]]])`
+- `write(String|Uint8Array, [offset])`
 
 #### Dir
 

@@ -643,16 +643,10 @@ class Console {
         const err = new Error();
         err.name = 'Trace';
         err.message = args.map(String).join(' ');
-    
-        try {
-            throw err;
-        } catch (e) {
-            // remove entry for this very function
-            const tmpStack = e.stack.split('\n');
-            tmpStack.splice(0, 1);
-            this.error(e);
-            this.error(tmpStack.join('\n'));
-        }
+        const tmpStack = err.stack.split('\n');
+        tmpStack.splice(0, 1);
+        err.stack = tmpStack.join('\n');
+        this.error(err);
     }
 }
 

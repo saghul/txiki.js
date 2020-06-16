@@ -30,19 +30,23 @@
 
 #include <quickjs.h>
 #include <stdbool.h>
-#include <uv.h>
 
 typedef struct TJSRuntime TJSRuntime;
 
+typedef struct TJSRunOptions {
+    bool abort_on_unhandled_rejection;
+    size_t stack_size;
+} TJSRunOptions;
+
+void TJS_DefaultOptions(TJSRunOptions *options);
 TJSRuntime *TJS_NewRuntime(void);
-TJSRuntime *TJS_NewRuntime2(bool is_worker);
+TJSRuntime *TJS_NewRuntimeOptions(TJSRunOptions *options);
 void TJS_FreeRuntime(TJSRuntime *qrt);
 void TJS_SetupArgs(int argc, char **argv);
 JSContext *TJS_GetJSContext(TJSRuntime *qrt);
 TJSRuntime *TJS_GetRuntime(JSContext *ctx);
 void TJS_Run(TJSRuntime *qrt);
 void TJS_Stop(TJSRuntime *qrt);
-uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int eval_flags, bool is_main, char *override_filename);
 void TJS_RunRepl(JSContext *ctx);
 

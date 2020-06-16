@@ -2,7 +2,7 @@
 //
 
 import { getopts } from '@tjs/getopts';
-import { addr, logError } from './utils.js';
+import { addr } from './utils.js';
 
 
 (async () => {
@@ -23,16 +23,14 @@ import { addr, logError } from './utils.js';
     
     console.log(`Connected to ${addr(t.getpeername())}`);
 
-    const buf = new ArrayBuffer(4096);
-    let nread;
+    let data;
     while (true) {
-        nread = await t.read(buf);
-        //console.log(String.fromCharCode.apply(null, new Uint8Array(buf, 0, nread)));
-        if (!nread) {
+        data = await t.read();
+        if (!data) {
             console.log('connection closed!');
             break;
         }
-        t.write(buf.slice(0, nread));
+        //console.log(`Received: ${new TextDecoder().decode(data)}`);
+        t.write(data);
     }
-
-})().catch(logError);
+})();

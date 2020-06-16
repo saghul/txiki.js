@@ -1,22 +1,19 @@
 // Sample Pipe echo server.
 //
 
-import { logError } from './utils.js';
-
 
 async function handleConnection(conn) {
     console.log(`Accepted connection! ${conn.getpeername()} <-> ${conn.getsockname()}`);
 
-    const buf = new ArrayBuffer(4096);
-    let nread;
+    let data;
     while (true) {
-        nread = await conn.read(buf);
-        //console.log(String.fromCharCode.apply(null, new Uint8Array(buf, 0, nread)));
-        if (!nread) {
+        data = await conn.read();
+        if (!data) {
             console.log('connection closed!');
             break;
         }
-        conn.write(buf.slice(0, nread));
+        //console.log(`Received: ${new TextDecoder().decode(data)}`);
+        conn.write(data);
     }
 }
 
@@ -34,5 +31,4 @@ async function handleConnection(conn) {
         handleConnection(conn);
         conn = undefined;
     }
-
-})().catch(logError);
+})();

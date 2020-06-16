@@ -71,10 +71,15 @@ static int eprintf(const char *format, ...) {
 }
 
 static int get_eval_flags(const char *filepath, bool strict_module_detection) {
-    if (strict_module_detection && !has_suffix(filepath, ".mjs")) {
-        return JS_EVAL_TYPE_GLOBAL;
-    }
-    return -1  /* autodetect */;
+    int is_mjs = has_suffix(filepath, ".mjs");
+
+    if (strict_module_detection)
+        return is_mjs ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL;
+
+    if (is_mjs)
+        return JS_EVAL_TYPE_MODULE;
+
+    return -1 /* autodetect */;
 }
 
 static int eval_buf(JSContext *ctx, const char *buf, const char *filename, int eval_flags) {
@@ -107,14 +112,16 @@ static void print_help(void) {
     printf("Usage: tjs [options] [file]\n"
            "\n"
            "Options:\n"
-           "  -v, --version                 print tjs version\n"
-           "  -h, --help                    list options\n"
-           "  -e, --eval EXPR               evaluate EXPR\n"
-           "  -l, --load FILENAME           module to preload (option can be repeated)\n"
-           "  -i, --interactive             go to interactive mode\n"
-           "  --strict-module-detection     only run code as a module if its extension is \".mjs\"\n"
-           "  --override-filename FILENAME  override filename in error messages\n"
-           "  -q, --quit                    just instantiate the interpreter and quit\n");
+           "  -v, --version                   print tjs version\n"
+           "  -h, --help                      list options\n"
+           "  -e, --eval EXPR                 evaluate EXPR\n"
+           "  -l, --load FILENAME             module to preload (option can be repeated)\n"
+           "  -i, --interactive               go to interactive mode\n"
+           "  -q, --quit                      just instantiate the interpreter and quit\n"
+           "  --abort-on-unhandled-rejection  abort when a rejected promise is not caught\n"
+           "  --override-filename FILENAME    override filename in error messages\n"
+           "  --stack-size STACKSIZE          set max stack size\n"
+           "  --strict-module-detection       only run code as a module if its extension is \".mjs\"\n");
 }
 
 static void print_version() {
@@ -181,7 +188,10 @@ static char *get_option_value(char *arg, int argc, char **argv, int *optind) {
 int main(int argc, char **argv) {
     TJSRuntime *qrt = NULL;
     JSContext *ctx = NULL;
+    TJSRunOptions runOptions;
     int exit_code = EXIT_SUCCESS;
+
+    TJS_DefaultOptions(&runOptions);
 
     Flags flags = { .interactive = false,
                     .empty_run = false,
@@ -248,6 +258,19 @@ int main(int argc, char **argv) {
                 exit_code = EXIT_INVALID_ARG;
                 goto exit;
             }
+            if (is_longopt(opt, "stack-size")) {
+                char *stack_size = get_option_value(arg, argc, argv, &optind);
+                if (stack_size) {
+                    long n = strtol(stack_size, NULL, 10);
+                    if (n > 0) {
+                        runOptions.stack_size = (size_t) n;
+                        break;
+                    }
+                }
+                report_missing_argument(&opt);
+                exit_code = EXIT_INVALID_ARG;
+                goto exit;
+            }
             if (opt.key == 'i' || is_longopt(opt, "interactive")) {
                 flags.interactive = true;
                 break;
@@ -260,13 +283,17 @@ int main(int argc, char **argv) {
                 flags.strict_module_detection = true;
                 break;
             }
+            if (is_longopt(opt, "abort-on-unhandled-rejection")) {
+                runOptions.abort_on_unhandled_rejection = true;
+                break;
+            }
             report_unknown_option(&opt);
             exit_code = EXIT_INVALID_ARG;
             goto exit;
         }
     }
 
-    qrt = TJS_NewRuntime();
+    qrt = TJS_NewRuntimeOptions(&runOptions);
     ctx = TJS_GetJSContext(qrt);
 
     if (flags.empty_run)

@@ -195,7 +195,7 @@ static void curlm__done_cb(CURLMsg *message, void *arg) {
     CHECK_EQ(x->curl_h, easy_handle);
     curl__done_cb(message->data.result, x);
 
-    // The calling function will disengage the easy handle when this	
+    // The calling function will disengage the easy handle when this
     // function returns.
     x->curl_h = NULL;
 }

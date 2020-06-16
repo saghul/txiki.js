@@ -33,7 +33,6 @@
 #include <string.h>
 #include <unistd.h>
 
-
 /* BEGIN: copied over from quickjs-libc to avoid dependency. */
 
 uint8_t *js_load_file(JSContext *ctx, size_t *pbuf_len, const char *filename) {

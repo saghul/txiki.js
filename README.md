@@ -1,7 +1,7 @@
 
 # txiki.js — The tiny JavaScript runtime
 
-[![Build Status](https://travis-ci.org/saghul/txiki.js.svg?branch=master)](https://travis-ci.org/saghul/txiki.js)
+[![Build Status](https://github.com/saghul/txiki.js/workflows/CI/badge.svg)](https://github.com/saghul/txiki.js/actions)
 
 ## Overview
 
@@ -24,6 +24,7 @@ It was formerly named *quv*.
 - Performance API
 - Worker API
 - Crypto API (just getRandomValues)
+- WebAssembly (no tables, globals or memory support yet)
 
 ### Custom features
 
@@ -39,12 +40,14 @@ It was formerly named *quv*.
 - Worker threads
 - Child processes
 - DNS (getaddrinfo)
+- WASI (no memory support yet)
 
 See the [full API].
 
 Other extras:
 
 - Import directly from HTTP(S) URLs
+- Import JSON files
 - path module
 - uuid module
 - hashlib module
@@ -72,8 +75,24 @@ make
 
 *NOTE:* The txiki.js build depends on a number of git submodules (e.g. [curl], [libuv]). If you didn't already clone this repository recursively, make sure you initialize these submodules with `git submodule update --init` before proceeding to the build.
 
+## Thanks
+
+txiki.js stands on shoulders of giants. It wouldn't be what it is today without these libraries:
+
+* [QuickJS]: JavaScript engine
+* [libuv]: platform abstraction layer
+* [wasm3]: WASM engine
+* [curl]: HTTP client
+
+In addition, txiki.js has these [contributors] to thank for their help.
+
+Thank you all for making this project possible!
+
+
 [QuickJS]: https://bellard.org/quickjs/
 [libuv]: https://libuv.org/
 [curl]: https://github.com/curl/curl
 [full API]: API.md
 [CMake]: https://cmake.org/
+[wasm3]: https://github.com/wasm3/wasm3
+[contributors]: https://github.com/saghul/txiki.js/graphs/contributors

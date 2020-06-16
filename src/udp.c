@@ -1,5 +1,5 @@
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -32,19 +32,16 @@ typedef struct {
     int finalized;
     uv_udp_t udp;
     struct {
-        struct {
-            JSValue buffer;
-            uint8_t *data;
-            size_t len;
-        } b;
+        size_t size;
         TJSPromise result;
     } read;
 } TJSUdp;
 
 typedef struct {
     uv_udp_send_t req;
-    JSValue data;
     TJSPromise result;
+    size_t size;
+    char data[];
 } TJSSendReq;
 
 static JSClassID tjs_udp_class_id;
@@ -66,7 +63,6 @@ static void tjs_udp_finalizer(JSRuntime *rt, JSValue val) {
     TJSUdp *u = JS_GetOpaque(val, tjs_udp_class_id);
     if (u) {
         TJS_FreePromiseRT(rt, &u->read.result);
-        JS_FreeValueRT(rt, u->read.b.buffer);
         u->finalized = 1;
         if (u->closed)
             free(u);
@@ -79,7 +75,6 @@ static void tjs_udp_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func
     TJSUdp *u = JS_GetOpaque(val, tjs_udp_class_id);
     if (u) {
         TJS_MarkPromise(rt, &u->read.result, mark_func);
-        JS_MarkValue(rt, u->read.b.buffer, mark_func);
     }
 }
 
@@ -97,6 +92,12 @@ static JSValue tjs_udp_close(JSContext *ctx, JSValueConst this_val, int argc, JS
     TJSUdp *u = tjs_udp_get(ctx, this_val);
     if (!u)
         return JS_EXCEPTION;
+    if (TJS_IsPromisePending(ctx, &u->read.result)) {
+        JSValue arg = JS_NewObjectProto(ctx, JS_NULL);
+        JS_DefinePropertyValueStr(ctx, arg, "data", JS_UNDEFINED, JS_PROP_C_W_E);
+        TJS_SettlePromise(ctx, &u->read.result, false, 1, (JSValueConst *) &arg);
+        TJS_ClearPromise(ctx, &u->read.result);
+    }
     maybe_close(u);
     return JS_UNDEFINED;
 }
@@ -104,8 +105,8 @@ static JSValue tjs_udp_close(JSContext *ctx, JSValueConst this_val, int argc, JS
 static void uv__udp_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     TJSUdp *u = handle->data;
     CHECK_NOT_NULL(u);
-    buf->base = (char *) u->read.b.data;
-    buf->len = u->read.b.len;
+    buf->base = js_malloc(u->ctx, u->read.size);
+    buf->len = u->read.size;
 }
 
 static void uv__udp_recv_cb(uv_udp_t *handle,
@@ -116,6 +117,11 @@ static void uv__udp_recv_cb(uv_udp_t *handle,
     TJSUdp *u = handle->data;
     CHECK_NOT_NULL(u);
 
+    if (nread == 0 && addr == NULL) {
+        js_free(u->ctx, buf->base);
+        return;
+    }
+
     uv_udp_recv_stop(handle);
 
     JSContext *ctx = u->ctx;
@@ -124,20 +130,16 @@ static void uv__udp_recv_cb(uv_udp_t *handle,
     if (nread < 0) {
         arg = tjs_new_error(ctx, nread);
         is_reject = 1;
+        js_free(ctx, buf->base);
     } else {
         arg = JS_NewObjectProto(ctx, JS_NULL);
-        JS_DefinePropertyValueStr(ctx, arg, "nread", JS_NewInt32(ctx, nread), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, arg, "data", TJS_NewUint8Array(ctx, (uint8_t *) buf->base, nread), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, arg, "flags", JS_NewInt32(ctx, flags), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, arg, "addr", tjs_addr2obj(ctx, addr), JS_PROP_C_W_E);
     }
 
     TJS_SettlePromise(ctx, &u->read.result, is_reject, 1, (JSValueConst *) &arg);
     TJS_ClearPromise(ctx, &u->read.result);
-
-    JS_FreeValue(ctx, u->read.b.buffer);
-    u->read.b.buffer = JS_UNDEFINED;
-    u->read.b.data = NULL;
-    u->read.b.len = 0;
 }
 
 static JSValue tjs_udp_recv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -145,32 +147,13 @@ static JSValue tjs_udp_recv(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (!u)
         return JS_EXCEPTION;
 
-    if (!JS_IsUndefined(u->read.result.p))
+    if (TJS_IsPromisePending(ctx, &u->read.result))
         return tjs_throw_errno(ctx, UV_EBUSY);
 
-    size_t size;
-    uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
-    if (!buf)
+    uint64_t size = kDefaultReadSize;
+    if (!JS_IsUndefined(argv[0]) && JS_ToIndex(ctx, &size, argv[0]))
         return JS_EXCEPTION;
-
-    uint64_t off;
-    if (JS_IsUndefined(argv[1]))
-        off = 0;
-    else if (JS_ToIndex(ctx, &off, argv[1]))
-        return JS_EXCEPTION;
-
-    uint64_t len;
-    if (JS_IsUndefined(argv[2]))
-        len = size;
-    else if (JS_ToIndex(ctx, &len, argv[2]))
-        return JS_EXCEPTION;
-
-    if (off + len > size)
-        return JS_ThrowRangeError(ctx, "read/write array buffer overflow");
-
-    u->read.b.buffer = JS_DupValue(ctx, argv[0]);
-    u->read.b.data = buf + off;
-    u->read.b.len = len;
+    u->read.size = size;
 
     int r = uv_udp_recv_start(&u->udp, uv__udp_alloc_cb, uv__udp_recv_cb);
     if (r != 0)
@@ -196,8 +179,6 @@ static void uv__udp_send_cb(uv_udp_send_t *req, int status) {
     }
 
     TJS_SettlePromise(ctx, &sr->result, is_reject, 1, (JSValueConst *) &arg);
-
-    JS_FreeValue(ctx, sr->data);
     js_free(ctx, sr);
 }
 
@@ -206,63 +187,69 @@ static JSValue tjs_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (!u)
         return JS_EXCEPTION;
 
-    /* arg 0: buffer */
+    JSValue jsData = argv[0];
+    bool is_string = false;
     size_t size;
-    char *buf = (char *) JS_GetArrayBuffer(ctx, &size, argv[0]);
-    if (!buf)
-        return JS_EXCEPTION;
+    char *buf;
 
-    /* arg 1: offset (within the buffer) */
-    uint64_t off = 0;
-    if (!JS_IsUndefined(argv[1]) && JS_ToIndex(ctx, &off, argv[1]))
-        return JS_EXCEPTION;
+    if (JS_IsString(jsData)) {
+        is_string = true;
+        buf = (char*) JS_ToCStringLen(ctx, &size, jsData);
+        if (!buf)
+            return JS_EXCEPTION;
+    } else {
+        size_t aoffset, asize;
+        JSValue abuf = JS_GetTypedArrayBuffer(ctx, jsData, &aoffset, &asize, NULL);
+        if (JS_IsException(abuf))
+            return abuf;
+        buf = (char*) JS_GetArrayBuffer(ctx, &size, abuf);
+        JS_FreeValue(ctx, abuf);
+        if (!buf)
+            return JS_EXCEPTION;
+        buf += aoffset;
+        size = asize;
+    }
 
-    /* arg 2: buffer length */
-    uint64_t len = size;
-    if (!JS_IsUndefined(argv[2]) && JS_ToIndex(ctx, &len, argv[2]))
-        return JS_EXCEPTION;
-
-    if (off + len > size)
-        return JS_ThrowRangeError(ctx, "write buffer overflow");
-
-    /* arg 3: target address */
+    /* arg 2: target address */
     struct sockaddr_storage ss;
     struct sockaddr *sa = NULL;
     int r;
-    if (!JS_IsUndefined(argv[3])) {
-        r = tjs_obj2addr(ctx, argv[3], &ss);
+    if (!JS_IsUndefined(argv[1])) {
+        r = tjs_obj2addr(ctx, argv[1], &ss);
         if (r != 0)
             return JS_EXCEPTION;
         sa = (struct sockaddr *) &ss;
     }
 
-    uv_buf_t b;
-
     /* First try to do the write inline */
-    b = uv_buf_init(buf, len);
+    uv_buf_t b;
+    b = uv_buf_init(buf, size);
     r = uv_udp_try_send(&u->udp, &b, 1, sa);
-
-    if (r == len)
-        return JS_UNDEFINED;
+    if (r == size) {
+        if (is_string)
+            JS_FreeCString(ctx, buf);
+        return TJS_NewResolvedPromise(ctx, 0, NULL);
+    }
 
     /* Do an async write, copy the data. */
     if (r >= 0) {
         buf += r;
-        len -= r;
+        size -= r;
     }
 
-    TJSSendReq *sr = js_malloc(ctx, sizeof(*sr));
+    TJSSendReq *sr = js_malloc(ctx, sizeof(*sr) + size);
     if (!sr)
         return JS_EXCEPTION;
 
     sr->req.data = sr;
-    sr->data = JS_DupValue(ctx, argv[0]);
+    memcpy(sr->data, buf, size);
 
-    b = uv_buf_init(buf, len);
+    if (is_string)
+        JS_FreeCString(ctx, buf);
 
+    b = uv_buf_init(sr->data, size);
     r = uv_udp_send(&sr->req, &u->udp, &b, 1, sa, uv__udp_send_cb);
     if (r != 0) {
-        JS_FreeValue(ctx, argv[0]);
         js_free(ctx, sr);
         return tjs_throw_errno(ctx, r);
     }
@@ -315,10 +302,6 @@ static JSValue tjs_new_udp(JSContext *ctx, int af) {
     u->finalized = 0;
 
     u->udp.data = u;
-
-    u->read.b.buffer = JS_UNDEFINED;
-    u->read.b.data = NULL;
-    u->read.b.len = 0;
 
     TJS_ClearPromise(ctx, &u->read.result);
 
@@ -394,8 +377,8 @@ static JSValue tjs_udp_bind(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
 static const JSCFunctionListEntry tjs_udp_proto_funcs[] = {
     JS_CFUNC_DEF("close", 0, tjs_udp_close),
-    JS_CFUNC_DEF("recv", 3, tjs_udp_recv),
-    JS_CFUNC_DEF("send", 4, tjs_udp_send),
+    JS_CFUNC_DEF("recv", 1, tjs_udp_recv),
+    JS_CFUNC_DEF("send", 2, tjs_udp_send),
     JS_CFUNC_DEF("fileno", 0, tjs_udp_fileno),
     JS_CFUNC_MAGIC_DEF("getsockname", 0, tjs_udp_getsockpeername, 0),
     JS_CFUNC_MAGIC_DEF("getpeername", 0, tjs_udp_getsockpeername, 1),
