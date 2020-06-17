@@ -88,6 +88,17 @@ static void maybe_close(TJSStream *s) {
 static JSValue tjs_stream_close(JSContext *ctx, TJSStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
+
+    JSValue arg = JS_UNDEFINED;
+    if (TJS_IsPromisePending(ctx, &s->read.result)) {
+        TJS_SettlePromise(ctx, &s->read.result, 0, 1, (JSValueConst *) &arg);
+        TJS_ClearPromise(ctx, &s->read.result);
+    }
+    if (TJS_IsPromisePending(ctx, &s->accept.result)) {
+        TJS_SettlePromise(ctx, &s->accept.result, 0, 1, (JSValueConst *) &arg);
+        TJS_ClearPromise(ctx, &s->accept.result);
+    }
+
     maybe_close(s);
     return JS_UNDEFINED;
 }
@@ -127,7 +138,7 @@ static void uv__stream_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_
 static JSValue tjs_stream_read(JSContext *ctx, TJSStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
-    if (!JS_IsUndefined(s->read.result.p))
+    if (TJS_IsPromisePending(ctx, &s->read.result))
         return tjs_throw_errno(ctx, UV_EBUSY);
 
     uint64_t size = kDefaultReadSize;
@@ -305,7 +316,7 @@ static void uv__stream_connection_cb(uv_stream_t *handle, int status) {
     TJSStream *s = handle->data;
     CHECK_NOT_NULL(s);
 
-    if (JS_IsUndefined(s->accept.result.p)) {
+    if (!TJS_IsPromisePending(s->ctx, &s->accept.result)) {
         // TODO - handle this.
         return;
     }
@@ -360,7 +371,7 @@ static JSValue tjs_stream_listen(JSContext *ctx, TJSStream *s, int argc, JSValue
 static JSValue tjs_stream_accept(JSContext *ctx, TJSStream *s, int argc, JSValueConst *argv) {
     if (!s)
         return JS_EXCEPTION;
-    if (!JS_IsUndefined(s->accept.result.p))
+    if (TJS_IsPromisePending(ctx, &s->accept.result))
         return tjs_throw_errno(ctx, UV_EBUSY);
     return TJS_InitPromise(ctx, &s->accept.result);
 }
