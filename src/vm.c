@@ -148,12 +148,11 @@ static void uv__stop(uv_async_t *handle) {
     uv_stop(&qrt->loop);
 }
 
+static void uv__idle_cb(uv_idle_t *handle);
 void TJS_DefaultOptions(TJSRunOptions *options) {
-    static TJSRunOptions default_options = {
-        .abort_on_unhandled_rejection = false,
-        .stack_size = TJS__DEFAULT_STACK_SIZE
-    };
-
+    static TJSRunOptions default_options = { .abort_on_unhandled_rejection = false,
+                                             .stack_size = TJS__DEFAULT_STACK_SIZE,
+                                             .idle_cb = uv__idle_cb };
     memcpy(options, &default_options, sizeof(*options));
 }
 
@@ -312,7 +311,7 @@ static void uv__idle_cb(uv_idle_t *handle) {
 
 static void uv__maybe_idle(TJSRuntime *qrt) {
     if (!JS_IsJobPending(qrt->rt))
-        CHECK_EQ(uv_idle_start(&qrt->jobs.idle, uv__idle_cb), 0);
+        CHECK_EQ(uv_idle_start(&qrt->jobs.idle, qrt->options.idle_cb), 0);
     else
         CHECK_EQ(uv_idle_stop(&qrt->jobs.idle), 0);
 }
