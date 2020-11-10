@@ -66,7 +66,7 @@ Other extras:
 
 ```bash
 # Get the code
-git clone --recursive https://github.com/saghul/txiki.js && cd txiki.js
+git clone --recursive https://github.com/saghul/txiki.js --shallow-submodules && cd txiki.js
 # Compile it!
 make
 # Run the REPL
