@@ -46,7 +46,7 @@ JSModuleDef *tjs__load_http(JSContext *ctx, const char *url) {
     }
 
     /* compile the module */
-    JSValue func_val = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, url, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    JSValue func_val = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size - 1, url, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     if (JS_IsException(func_val)) {
         JS_FreeValue(ctx, func_val);
         m = NULL;
@@ -110,7 +110,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     dbuf_putc(&dbuf, '\0');
 
     /* compile JS the module */
-    func_val = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size, module_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    func_val = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size - 1, module_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     dbuf_free(&dbuf);
     if (JS_IsException(func_val)) {
         JS_FreeValue(ctx, func_val);

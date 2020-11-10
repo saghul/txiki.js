@@ -404,6 +404,7 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
 
 JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_main, char *override_filename) {
     DynBuf dbuf;
+    size_t dbuf_size;
     int r, eval_flags;
     JSValue ret;
 
@@ -415,11 +416,13 @@ JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_ma
         return JS_EXCEPTION;
     }
 
+    dbuf_size = dbuf.size;
+
     /* Add null termination, required by JS_Eval. */
     dbuf_putc(&dbuf, '\0');
 
     if (flags == -1) {
-        if (JS_DetectModule((const char *) dbuf.buf, dbuf.size))
+        if (JS_DetectModule((const char *) dbuf.buf, dbuf_size))
             eval_flags = JS_EVAL_TYPE_MODULE;
         else
             eval_flags = JS_EVAL_TYPE_GLOBAL;
@@ -431,7 +434,7 @@ JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_ma
         /* for the modules, we compile then run to be able to set import.meta */
         ret = JS_Eval(ctx,
                       (char *) dbuf.buf,
-                      dbuf.size,
+                      dbuf_size,
                       override_filename != NULL ? override_filename : filename,
                       eval_flags | JS_EVAL_FLAG_COMPILE_ONLY);
         if (!JS_IsException(ret)) {
@@ -441,7 +444,7 @@ JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_ma
     } else {
         ret = JS_Eval(ctx,
                       (char *) dbuf.buf,
-                      dbuf.size,
+                      dbuf_size,
                       override_filename != NULL ? override_filename : filename,
                       eval_flags);
     }
