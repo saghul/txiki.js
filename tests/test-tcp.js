@@ -33,4 +33,10 @@ async function doEchoServer(server) {
     assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
     client.close();
     server.close();
+
+    const server1 = new tjs.TCP();
+    server1.bind({ ip: '127.0.0.1' });
+    server1.listen();
+    doEchoServer(server1);
+    server1.close();
 })();
