@@ -18,6 +18,8 @@ jobs:
       with:
         submodules: true
     - name: Dependencies
+      env:
+        ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
       run: |
         sudo apt install -y libcurl4-openssl-dev
         if [ "${{ matrix.compiler }}" = "clang" ]; then
