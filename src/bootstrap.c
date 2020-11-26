@@ -125,7 +125,9 @@ void tjs__bootstrap_globals(JSContext *ctx) {
     CHECK_EQ(0, tjs__eval_binary(ctx, abort_controller, abort_controller_size));
 
     /* Load WebAssembly */
+#ifndef DISABLE_WASM
     CHECK_EQ(0, tjs__eval_binary(ctx, wasm, wasm_size));
+#endif
 
     /* Load bootstrap2 */
     CHECK_EQ(0, tjs__eval_binary(ctx, bootstrap2, bootstrap2_size));
