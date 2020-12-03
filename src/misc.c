@@ -32,8 +32,6 @@
 #include <curl/curl.h>
 #endif
 
-#include <replxx.h>
-
 
 static JSValue tjs_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     return JS_NewBigUint64(ctx, uv_hrtime());
@@ -287,8 +285,9 @@ static JSValue tjs_print(JSContext *ctx, JSValueConst this_val, int argc, JSValu
 static JSValue tjs_prompt(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue str;
 
-    const char *message = "";
+    const char *message = NULL;
     const char *default_value = NULL;
+    char buf[4096];
 
     if (argc > 0) {
         message = JS_ToCString(ctx, argv[0]);
@@ -297,21 +296,33 @@ static JSValue tjs_prompt(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         }
     }
 
-    Replxx *replxx = replxx_init();
-
     if (argc > 1) {
         default_value = JS_ToCString(ctx, argv[1]);
-        replxx_set_preload_buffer(replxx, default_value);
     }
 
-    str = JS_NewString(ctx, replxx_input(replxx, message));
+    if (message) {
+        fputs(message, stdout);
+    }
 
-    replxx_end(replxx);
+    if (fgets(buf, sizeof(buf), stdin) != NULL) {
+        size_t len = strcspn(buf, "\r\n"); /* skip newline */
+        if (len == 0) {
+            goto use_default;
+        }
+        str = JS_NewStringLen(ctx, buf, len);
+    } else {
+use_default:
+        if (default_value != NULL) {
+            str = JS_NewString(ctx, default_value);
+        } else {
+            str = JS_UNDEFINED;
+        }
+    }
 
-    if (argc > 0) {
+    if (message) {
         JS_FreeCString(ctx, message);
     }
-    if (argc > 1) {
+    if (default_value) {
         JS_FreeCString(ctx, default_value);
     }
 
@@ -364,7 +375,7 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
     JS_CFUNC_MAGIC_DEF("print", 1, tjs_print, 0),
     JS_CFUNC_MAGIC_DEF("printError", 1, tjs_print, 1),
     JS_CFUNC_MAGIC_DEF("alert", 1, tjs_print, 1),
-    JS_CFUNC_DEF("prompt", 0, tjs_prompt),
+    JS_CFUNC_DEF("prompt", 2, tjs_prompt),
     JS_CFUNC_DEF("random", 3, tjs_random),
 };
 

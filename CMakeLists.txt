@@ -40,10 +40,6 @@ add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 
-option(REPLXX_BUILD_EXAMPLES "" OFF)
-option(BUILD_SHARED_LIBS "" OFF)
-add_subdirectory(deps/replxx EXCLUDE_FROM_ALL)
-
 cpr_option(DISABLE_WASM "If ON, WASM support will be disabled" OFF)
 if (NOT DISABLE_WASM)
     option(BUILD_WASI_SUPPORT "" ON)
@@ -127,4 +123,4 @@ if (NOT DISABLE_WASM)
     target_link_libraries(tjs m3)
 endif()
 
-target_link_libraries(tjs qjs uv_a m replxx stdc++)
+target_link_libraries(tjs qjs uv_a m)
