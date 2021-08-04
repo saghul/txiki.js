@@ -399,6 +399,9 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
             break;
     } while (1);
 
+    uv_fs_close(NULL, &req, fd, NULL);
+    uv_fs_req_cleanup(&req);
+
     return r;
 }
 
