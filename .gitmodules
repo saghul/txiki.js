@@ -7,4 +7,5 @@
 	branch = v1.x
 [submodule "deps/wasm3"]
 	path = deps/wasm3
-	url = https://github.com/wasm3/wasm3.git
+	url = https://github.com/saghul/wasm3.git
+	branch = v0.5-tjs
