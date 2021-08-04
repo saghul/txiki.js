@@ -30,6 +30,8 @@
 
 #ifdef TJS_HAVE_WASM
 
+#define TJS__WASM_MAX_ARGS 32
+
 static JSClassID tjs_wasm_module_class_id;
 
 typedef struct {
@@ -136,6 +138,32 @@ JSValue tjs_throw_wasm_error(JSContext *ctx, const char *name, M3Result r) {
     return JS_Throw(ctx, obj);
 }
 
+static JSValue tjs__wasm_result(JSContext *ctx, M3ValueType type, const void *stack) {
+    switch (type) {
+        case c_m3Type_i32: {
+            int32_t val = *(int32_t *) stack;
+            return JS_NewInt32(ctx, val);
+        }
+        case c_m3Type_i64: {
+            int64_t val = *(int64_t *) stack;
+            if (val == (int32_t) val)
+                return JS_NewInt32(ctx, (int32_t) val);
+            else
+                return JS_NewBigInt64(ctx, val);
+        }
+        case c_m3Type_f32: {
+            float val = *(float *) stack;
+            return JS_NewFloat64(ctx, (double) val);
+        }
+        case c_m3Type_f64: {
+            double val = *(double *) stack;
+            return JS_NewFloat64(ctx, val);
+        }
+        default:
+            return JS_UNDEFINED;
+    }
+}
+
 static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     TJSWasmInstance *i = tjs_wasm_instance_get(ctx, this_val);
     if (!i)
@@ -159,14 +187,14 @@ static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValueConst this_val, int 
 
     int nargs = argc - 1;
     if (nargs == 0) {
-        r = m3_Call(func);
+        r = m3_Call(func, 0, NULL);
     } else {
         const char *m3_argv[nargs + 1];
         for (int i = 0; i < nargs; i++) {
             m3_argv[i] = JS_ToCString(ctx, argv[i + 1]);
         }
         m3_argv[nargs] = NULL;
-        r = m3_CallWithArgs(func, nargs, m3_argv);
+        r = m3_CallArgv(func, nargs, m3_argv);
         for (int i = 0; i < nargs; i++) {
             JS_FreeCString(ctx, m3_argv[i]);
         }
@@ -175,42 +203,31 @@ static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValueConst this_val, int 
     if (r)
         return tjs_throw_wasm_error(ctx, "RuntimeError", r);
 
-    m3stack_t stack = i->runtime->stack;
-
     // https://webassembly.org/docs/js/ See "ToJSValue"
     // NOTE: here we support returning BigInt, because we can.
 
-    JSValue ret;
-    switch (func->funcType->returnType) {
-        case c_m3Type_i32: {
-            int32_t val = *(int32_t *) (stack);
-            ret = JS_NewInt32(ctx, val);
-            break;
-        }
-        case c_m3Type_i64: {
-            int64_t val = *(int64_t *) (stack);
-            if (val == (int32_t) val)
-                ret = JS_NewInt32(ctx, (int32_t) val);
-            else
-                ret = JS_NewBigInt64(ctx, val);
-            break;
-        }
-        case c_m3Type_f32: {
-            float val = *(float *) (stack);
-            ret = JS_NewFloat64(ctx, (double) val);
-            break;
-        }
-        case c_m3Type_f64: {
-            double val = *(double *) (stack);
-            ret = JS_NewFloat64(ctx, val);
-            break;
-        }
-        default:
-            ret = JS_UNDEFINED;
-            break;
+    int ret_count = m3_GetRetCount(func);
+
+    if (ret_count > TJS__WASM_MAX_ARGS)
+        return tjs_throw_wasm_error(ctx, "RuntimeError", "Too many return values");
+
+    uint64_t valbuff[TJS__WASM_MAX_ARGS];
+    const void *valptrs[TJS__WASM_MAX_ARGS];
+    memset(valbuff, 0, sizeof(valbuff));
+    for (int i = 0; i < ret_count; i++) {
+        valptrs[i] = &valbuff[i];
     }
 
-    return ret;
+    r = m3_GetResults(func, ret_count, valptrs);
+    if (r)
+        return tjs_throw_wasm_error(ctx, "RuntimeError", r);
+
+    if (ret_count == 1) {
+        return tjs__wasm_result(ctx, m3_GetRetType(func, 0), valptrs[0]);
+    } else {
+        // TODO
+        return JS_UNDEFINED;
+    }
 }
 
 static JSValue tjs_wasm_linkwasi(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -271,9 +288,10 @@ static JSValue tjs_wasm_moduleexports(JSContext *ctx, JSValueConst this_val, int
 
     for (size_t i = 0, j = 0; i < m->module->numFunctions; ++i) {
         IM3Function f = &m->module->functions[i];
-        if (f->name) {
+        const char *name = m3_GetFunctionName(f);
+        if (name) {
             JSValue item = JS_NewObjectProto(ctx, JS_NULL);
-            JS_SetPropertyStr(ctx, item, "name", JS_NewString(ctx, f->name));
+            JS_SetPropertyStr(ctx, item, "name", JS_NewString(ctx, name));
             JS_SetPropertyStr(ctx, item, "kind", JS_NewString(ctx, "function"));
             JS_DefinePropertyValueUint32(ctx, exports, j, item, JS_PROP_C_W_E);
             j++;
