@@ -44,11 +44,8 @@ add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 
 cpr_option(DISABLE_WASM "If ON, WASM support will be disabled" OFF)
 if (NOT DISABLE_WASM)
-    option(BUILD_WASI_SUPPORT "" ON)
-    add_subdirectory(deps/wasm3/source EXCLUDE_FROM_ALL)
-    target_compile_definitions(m3 PRIVATE
-        d_m3LogOutput=0
-    )
+    set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
+    add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 endif()
 
 cpr_option(DISABLE_CURL "If ON, curl support will be disabled" OFF)
