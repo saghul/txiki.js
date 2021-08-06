@@ -283,8 +283,8 @@ int main(int argc, char **argv) {
                 flags.strict_module_detection = true;
                 break;
             }
-            if (is_longopt(opt, "abort-on-unhandled-rejection")) {
-                runOptions.abort_on_unhandled_rejection = true;
+            if (is_longopt(opt, "no-abort-on-unhandled-rejection")) {
+                runOptions.no_abort_on_unhandled_rejection = true;
                 break;
             }
             report_unknown_option(&opt);
