@@ -12,6 +12,8 @@ const thisFile = import.meta.url.slice(7);   // strip "file://"
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe' });
     const status = await proc.wait();
+    assert.eq(status.exit_status, 0, 'WASI ran succesfully')
+    assert.eq(status.term_signal, 0, 'WASI ran succesfully 2')
     const data = await proc.stdout.read(4096);
     assert.ok(data.length > 0, 'stdout was read');
     const dataStr = new TextDecoder().decode(data);
@@ -19,6 +21,4 @@ const thisFile = import.meta.url.slice(7);   // strip "file://"
     assert.ok(dataStr.match(/Constructor OK/), 'data matches 2');
     assert.ok(dataStr.match(/Hello printf!/), 'data matches 3');
     assert.ok(dataStr.match(/fib\(20\)/), 'data matches 4');
-    assert.eq(status.exit_status, 0, 'WASI ran succesfully')
-    assert.eq(status.term_signal, 0, 'WASI ran succesfully 2')
 })();
