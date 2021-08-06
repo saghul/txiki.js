@@ -225,8 +225,11 @@ static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValueConst this_val, int 
     if (ret_count == 1) {
         return tjs__wasm_result(ctx, m3_GetRetType(func, 0), valptrs[0]);
     } else {
-        // TODO
-        return JS_UNDEFINED;
+        JSValue rets = JS_NewArray(ctx);
+        for (int i = 0; i < ret_count; i++) {
+            JS_SetPropertyUint32(ctx, rets, i, tjs__wasm_result(ctx, m3_GetRetType(func, i), valptrs[i]));
+        }
+        return rets;
     }
 }
 
