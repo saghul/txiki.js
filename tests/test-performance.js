@@ -1,5 +1,7 @@
 import assert from './assert.js';
 
+const LIMIT = 2000;
+const THRESHOLD = 25;
 
 // performance now
 
@@ -10,10 +12,10 @@ let now;
 
 // Busy loop
 now = Date.now();
-while (Date.now() - now < 2000);
+while (Date.now() - now < LIMIT);
 
 const diff = Math.round(performance.now() - start);
-assert.ok(diff >= 1000 && diff <= 2000, 'performance.now() works');
+assert.ok(Math.abs(LIMIT - diff) < THRESHOLD, 'performance.now() works');
 
 
 // performance mark
@@ -24,7 +26,7 @@ performance.mark(m1);
 
 // Busy loop
 now = Date.now();
-while (Date.now() - now < 2000);
+while (Date.now() - now < LIMIT);
 
 performance.mark(m2);
 performance.measure('m', m1, m2);
@@ -33,7 +35,7 @@ assert.equal(entries.length, 1, 'there should be 1 entry');
 const { duration } = entries[0];
 assert.eq(typeof duration, 'number', 'entry duration is Number');
 const d = Math.round(duration);
-assert.ok(d >= 1000 && d <= 2000, 'duration works');
+assert.ok(Math.abs(LIMIT - d) < THRESHOLD, 'duration works');
 performance.clearMeasures();
 entries = performance.getEntriesByName('m');
 assert.equal(entries.length, 0, 'there should be 0 entries');
