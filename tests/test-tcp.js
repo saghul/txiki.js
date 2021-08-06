@@ -3,6 +3,11 @@ import assert from './assert.js';
 
 async function doEchoServer(server) {
     const conn = await server.accept();
+
+    if (!conn) {
+        return;
+    }
+
     let data;
     while (true) {
         data = await conn.read();
