@@ -14,6 +14,9 @@ install:
 clean:
 	@$(MAKE) -C $(BUILD_DIR) clean
 
+debug:
+	BUILDTYPE=Debug $(MAKE)
+
 distclean:
 	@rm -rf $(BUILD_DIR)
 
@@ -27,4 +30,4 @@ test-advanced:
 	cd tests/advanced && npm install
 	./$(BUILD_DIR)/tjs tests/run.js tests/advanced/
 
-.PHONY: all build install clean distclean format test test-advanced
+.PHONY: all build debug install clean distclean format test test-advanced
