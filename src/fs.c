@@ -25,6 +25,8 @@
 #include "private.h"
 #include "utils.h"
 
+#include <string.h>
+
 
 static JSClassID tjs_file_class_id;
 

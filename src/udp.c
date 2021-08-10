@@ -25,6 +25,8 @@
 #include "private.h"
 #include "utils.h"
 
+#include <string.h>
+
 
 typedef struct {
     JSContext *ctx;

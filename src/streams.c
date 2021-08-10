@@ -25,6 +25,8 @@
 #include "private.h"
 #include "utils.h"
 
+#include <string.h>
+
 
 /* Forward declarations */
 static JSValue tjs_new_tcp(JSContext *ctx, int af);

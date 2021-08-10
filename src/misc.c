@@ -26,6 +26,7 @@
 #include "utils.h"
 #include "version.h"
 
+#include <string.h>
 #include <unistd.h>
 
 #ifdef TJS_HAVE_CURL
