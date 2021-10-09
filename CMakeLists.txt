@@ -22,7 +22,6 @@ configure_file(
     "${CMAKE_SOURCE_DIR}/src/version.h"
 )
 
-
 macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
     option(${OPTION_NAME} ${OPTION_TEXT} ${OPTION_DEFAULT})
     if(DEFINED ENV{${OPTION_NAME}})
@@ -75,55 +74,57 @@ if(NOT DISABLE_CURL)
     endif()
 endif()
 
-add_executable(tjs
-    src/bootstrap.c
-    src/cli.c
-    src/curl-utils.c
-    src/dns.c
-    src/error.c
-    src/fs.c
-    src/misc.c
-    src/modules.c
-    src/process.c
-    src/std.c
-    src/streams.c
-    src/signals.c
-    src/timers.c
-    src/udp.c
-    src/utils.c
-    src/version.c
-    src/vm.c
-    src/wasm.c
-    src/worker.c
-    src/xhr.c
-    ${CMAKE_CURRENT_BINARY_DIR}/js.c
-    ../deps/quickjs/src/cutils.c
-)
-
-add_library(tjs SHARED
-    src/bootstrap.c
-    src/cli.c
-    src/curl-utils.c
-    src/dns.c
-    src/error.c
-    src/fs.c
-    src/misc.c
-    src/modules.c
-    src/process.c
-    src/std.c
-    src/streams.c
-    src/signals.c
-    src/timers.c
-    src/udp.c
-    src/utils.c
-    src/version.c
-    src/vm.c
-    src/wasm.c
-    src/worker.c
-    src/xhr.c
-    ${CMAKE_CURRENT_BINARY_DIR}/js.c
-    ../deps/quickjs/src/cutils.c
-)
+if(BUILD_LIBRARY)
+    add_library(tjs SHARED
+        src/bootstrap.c
+        src/cli.c
+        src/curl-utils.c
+        src/dns.c
+        src/error.c
+        src/fs.c
+        src/misc.c
+        src/modules.c
+        src/process.c
+        src/std.c
+        src/streams.c
+        src/signals.c
+        src/timers.c
+        src/udp.c
+        src/utils.c
+        src/version.c
+        src/vm.c
+        src/wasm.c
+        src/worker.c
+        src/xhr.c
+        ${CMAKE_CURRENT_BINARY_DIR}/js.c
+        ../deps/quickjs/src/cutils.c
+    )
+else()
+    add_executable(tjs
+        src/bootstrap.c
+        src/cli.c
+        src/curl-utils.c
+        src/dns.c
+        src/error.c
+        src/fs.c
+        src/misc.c
+        src/modules.c
+        src/process.c
+        src/std.c
+        src/streams.c
+        src/signals.c
+        src/timers.c
+        src/udp.c
+        src/utils.c
+        src/version.c
+        src/vm.c
+        src/wasm.c
+        src/worker.c
+        src/xhr.c
+        ${CMAKE_CURRENT_BINARY_DIR}/js.c
+        ../deps/quickjs/src/cutils.c
+    )
+endif()
 
 set_target_properties(tjs PROPERTIES
     C_STANDARD 11
