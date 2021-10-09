@@ -100,6 +100,31 @@ add_executable(tjs
     ../deps/quickjs/src/cutils.c
 )
 
+add_library(tjs SHARED
+    src/bootstrap.c
+    src/cli.c
+    src/curl-utils.c
+    src/dns.c
+    src/error.c
+    src/fs.c
+    src/misc.c
+    src/modules.c
+    src/process.c
+    src/std.c
+    src/streams.c
+    src/signals.c
+    src/timers.c
+    src/udp.c
+    src/utils.c
+    src/version.c
+    src/vm.c
+    src/wasm.c
+    src/worker.c
+    src/xhr.c
+    ${CMAKE_CURRENT_BINARY_DIR}/js.c
+    ../deps/quickjs/src/cutils.c
+)
+
 set_target_properties(tjs PROPERTIES
     C_STANDARD 11
     C_STANDARD_REQUIRED ON
