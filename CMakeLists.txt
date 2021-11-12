@@ -75,9 +75,8 @@ if(NOT DISABLE_CURL)
     endif()
 endif()
 
-add_executable(tjs
+add_library(quv STATIC
     src/bootstrap.c
-    src/cli.c
     src/curl-utils.c
     src/dns.c
     src/error.c
@@ -100,6 +99,24 @@ add_executable(tjs
     ../deps/quickjs/src/cutils.c
 )
 
+set_target_properties(quv PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON
+)
+
+target_include_directories(quv PRIVATE
+    deps/quickjs/include
+    deps/libuv/include
+    deps/curl/include
+    deps/wasm3/source
+)
+
+target_link_libraries(quv qjs uv_a m)
+
+add_executable(tjs
+    src/cli.c
+)
+
 set_target_properties(tjs PROPERTIES
     C_STANDARD 11
     C_STANDARD_REQUIRED ON
@@ -107,25 +124,25 @@ set_target_properties(tjs PROPERTIES
 
 if (CURL_FOUND)
     if (USE_SYSTEM_CURL)
-        target_compile_definitions(tjs PRIVATE
+        target_compile_definitions(quv PRIVATE
             TJS_HAVE_SYSTEM_CURL
         )
     endif()
-    target_compile_definitions(tjs PRIVATE
+    target_compile_definitions(quv PRIVATE
         TJS_HAVE_CURL
     )
-    target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
-    target_link_libraries(tjs ${CURL_LIBRARIES})
+    target_include_directories(quv PRIVATE ${CURL_INCLUDE_DIRS})
+    target_link_libraries(quv ${CURL_LIBRARIES})
 endif()
 
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
-target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
+target_compile_definitions(quv PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 
 if (NOT DISABLE_WASM)
-    target_compile_definitions(tjs PRIVATE
+    target_compile_definitions(quv PRIVATE
         TJS_HAVE_WASM
     )
-    target_link_libraries(tjs m3)
+    target_link_libraries(quv m3)
 endif()
 
-target_link_libraries(tjs qjs uv_a m)
+target_link_libraries(tjs quv)
