@@ -37,6 +37,8 @@ endmacro()
 
 
 include(${CMAKE_SOURCE_DIR}/src/js/CMakeLists.txt)
+
+cpr_option(CONFIG_QUICKJS_DEBUGGER "Enable QuickJS Debugger Support", OFF)
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
 option(libuv_buildtests "" OFF)
