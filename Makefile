@@ -5,7 +5,10 @@ all: build
 
 build:
 	@mkdir -p $(BUILD_DIR)
+	# build executable
 	cd $(BUILD_DIR); cmake ../ -DCMAKE_BUILD_TYPE=$(BUILDTYPE)
+	# build shared library
+	cd $(BUILD_DIR); cmake ../ -DCMAKE_BUILD_TYPE=$(BUILDTYPE) -DBUILD_LIBRARY=1
 	$(MAKE) -C $(BUILD_DIR) -j8
 
 install:
