@@ -13,6 +13,13 @@ message(STATUS "Building with ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb -O0 -fno-omit-frame-pointer")
+
+message(STATUS "C flags:         ${CMAKE_C_FLAGS}")
+message(STATUS "C Debug flags:   ${CMAKE_C_FLAGS_DEBUG}")
+message(STATUS "C Release flags: ${CMAKE_C_FLAGS_RELEASE}")
+
 set(TJS__VERSION_MAJOR 19)
 set(TJS__VERSION_MINOR 0)
 set(TJS__VERSION_PATCH 0)
