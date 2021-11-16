@@ -27,7 +27,7 @@
 
 #include <string.h>
 
-#define TJS__DEFAULT_STACK_SIZE 1048576
+#define TJS__DEFAULT_STACK_SIZE 10 * 1024 * 1024
 
 extern const uint8_t repl[];
 extern const uint32_t repl_size;
