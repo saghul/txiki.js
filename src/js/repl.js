@@ -23,15 +23,11 @@
  * THE SOFTWARE.
  */
 
-import * as hashlib from "@tjs/hashlib";
-import * as path from "@tjs/path";
-import * as uuid from "@tjs/uuid";
+import * as std from '@tjs/std';
 
 (function(g) {
-    /* expose builtins */
-    g.hashlib = hashlib;
-    g.path = path;
-    g.uuid = uuid;
+    /* expose stdlib */
+    g.std = std;
 
     /* close global objects */
     var Object = g.Object;

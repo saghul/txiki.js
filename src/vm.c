@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "embedjs.h"
 #include "private.h"
 #include "tjs.h"
 
@@ -29,8 +30,16 @@
 
 #define TJS__DEFAULT_STACK_SIZE 10 * 1024 * 1024
 
-extern const uint8_t repl[];
-extern const uint32_t repl_size;
+INCTXT(repl, "repl.js");
+
+/**
+ * These are defined now:
+ *
+ * const unsigned char tjs__code_repl_data[];
+ * const unsigned char *const tjs__code_repl_end;
+ * const unsigned int tjs__code_repl_size;
+ *
+ */
 
 static int tjs__argc = 0;
 static char **tjs__argv = NULL;
@@ -228,8 +237,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     tjs__bootstrap_globals(qrt->ctx);
 
-    /* extra builtin modules */
-    tjs__add_builtins(qrt->ctx);
+    /* standard library */
+    tjs__add_stdlib(qrt->ctx);
 
     /* end bootstrap */
     qrt->in_bootstrap = false;
@@ -466,5 +475,5 @@ JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_ma
 }
 
 void TJS_RunRepl(JSContext *ctx) {
-    CHECK_EQ(0, tjs__eval_binary(ctx, repl, repl_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, tjs__code_repl_data, tjs__code_repl_size));
 }

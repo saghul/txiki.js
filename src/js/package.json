@@ -1,0 +1,27 @@
+{
+  "name": "tjs-bundle",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "bundle": "esbuild index.js --bundle --outfile=bundle.js --target=es2020 --platform=neutral --format=esm --external:'@tjs/core' --main-fields=main,module",
+    "stdlib": "esbuild stdlib/index.js --bundle --outfile=std.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "abortcontroller-polyfill": "^1.7.3",
+    "esbuild": "^0.14.11",
+    "getopts": "^2.3.0",
+    "js-md5": "^0.7.3",
+    "js-sha1": "^0.6.0",
+    "js-sha256": "^0.9.0",
+    "js-sha3": "^0.8.0",
+    "js-sha512": "^0.8.0",
+    "path-browserify": "^1.0.1",
+    "text-encoding": "^0.7.0",
+    "url-polyfill": "^1.1.12",
+    "uuid": "^8.3.2",
+    "whatwg-fetch": "^3.6.2"
+  }
+}

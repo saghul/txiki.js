@@ -1,4 +1,6 @@
-import { basename, dirname, join } from '@tjs/path';
+import { path } from '@tjs/std';
+
+const { basename, dirname, join } = path;
 
 const thisFile = import.meta.url.slice(7);  // strip "file://"
 

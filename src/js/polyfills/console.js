@@ -651,4 +651,9 @@ class Console {
 }
 
 
-export { Console };
+Object.defineProperty(window, 'console', {
+    enumerable: true,
+    configurable: true,
+    writable: true,
+    value: new Console()
+});

@@ -1,5 +1,7 @@
 import assert from './assert.js';
-import { dirname, join } from '@tjs/path';
+import { path } from '@tjs/std';
+
+const { dirname, join } = path;
 
 const thisFile = import.meta.url.slice(7);   // strip "file://"
 

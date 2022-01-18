@@ -188,14 +188,7 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
 
 char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque) {
     static char *internal_modules[] = {
-        "@tjs/abort-controller",
-        "@tjs/bootstrap",
-        "@tjs/bootstrap2",
-        "@tjs/console",
-        "@tjs/core",
-        "@tjs/crypto",
-        "@tjs/event-target",
-        "@tjs/performance",
+        "@tjs/core"
     };
 
     TJSRuntime *qrt = opaque;

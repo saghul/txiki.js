@@ -22,14 +22,22 @@
  * THE SOFTWARE.
  */
 
+#include "embedjs.h"
 #include "private.h"
 #include "tjs.h"
 
 #include <unistd.h>
 
+INCTXT(worker_bootstrap, "worker-bootstrap.js");
 
-extern const uint8_t worker_bootstrap[];
-extern const uint32_t worker_bootstrap_size;
+/**
+ * These are defined now:
+ *
+ * const unsigned char tjs__code_worker_bootstrap_data[];
+ * const unsigned char *const tjs__code_worker_bootstrap_end;
+ * const unsigned int tjs__code_worker_bootstrap_size;
+ *
+ */
 
 enum {
     WORKER_EVENT_MESSAGE = 0,
@@ -117,7 +125,7 @@ static void worker_entry(void *arg) {
     JSValue worker_obj = tjs_new_worker(ctx, wd->channel_fd, false);
     JS_SetPropertyStr(ctx, global_obj, "workerThis", worker_obj);
     JS_FreeValue(ctx, global_obj);
-    CHECK_EQ(0, tjs__eval_binary(ctx, worker_bootstrap, worker_bootstrap_size));
+    CHECK_EQ(0, tjs__eval_binary(ctx, tjs__code_worker_bootstrap_data, tjs__code_worker_bootstrap_size));
 
     /* End the worker bootstrap. */
     wrt->in_bootstrap = false;

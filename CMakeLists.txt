@@ -20,7 +20,7 @@ message(STATUS "C flags:         ${CMAKE_C_FLAGS}")
 message(STATUS "C Debug flags:   ${CMAKE_C_FLAGS_DEBUG}")
 message(STATUS "C Release flags: ${CMAKE_C_FLAGS_RELEASE}")
 
-set(TJS__VERSION_MAJOR 19)
+set(TJS__VERSION_MAJOR 22)
 set(TJS__VERSION_MINOR 0)
 set(TJS__VERSION_PATCH 0)
 set(TJS__VERSION_SUFFIX "-alpha")
@@ -42,8 +42,23 @@ macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
     message(STATUS "  ${OPTION_NAME}: ${${OPTION_NAME}}")
 endmacro()
 
+configure_file(
+        ${CMAKE_SOURCE_DIR}/src/js/bundle.js
+        ${CMAKE_CURRENT_BINARY_DIR}/bundle.js
+        COPYONLY)
+configure_file(
+        ${CMAKE_SOURCE_DIR}/src/js/repl.js
+        ${CMAKE_CURRENT_BINARY_DIR}/repl.js
+        COPYONLY)
+configure_file(
+        ${CMAKE_SOURCE_DIR}/src/js/std.js
+        ${CMAKE_CURRENT_BINARY_DIR}/std.js
+        COPYONLY)
+configure_file(
+        ${CMAKE_SOURCE_DIR}/src/js/worker-bootstrap.js
+        ${CMAKE_CURRENT_BINARY_DIR}/worker-bootstrap.js
+        COPYONLY)
 
-include(${CMAKE_SOURCE_DIR}/src/js/CMakeLists.txt)
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
 option(libuv_buildtests "" OFF)
@@ -100,7 +115,6 @@ add_executable(tjs
     src/wasm.c
     src/worker.c
     src/xhr.c
-    ${CMAKE_CURRENT_BINARY_DIR}/js.c
     ../deps/quickjs/src/cutils.c
 )
 
