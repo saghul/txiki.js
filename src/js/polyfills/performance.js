@@ -1,3 +1,5 @@
+import * as core from '@tjs/core';
+
 // https://www.w3.org/TR/user-timing/
 // Derived from: https://github.com/blackswanny/performance-polyfill
 class Performance {
@@ -88,8 +90,13 @@ class Performance {
 }
 
 function hrtimeMs() {
-    return Number(BigDecimal(tjs.hrtime()) / 1e6m);
+    return Number(BigDecimal(core.hrtime()) / BigDecimal(1e6));
 }
 
 
-export { Performance };
+Object.defineProperty(window, 'performance', {
+    enumerable: true,
+    configurable: true,
+    writable: true,
+    value: new Performance()
+});
