@@ -3668,7 +3668,7 @@ Object.defineProperty(window, "crypto", {
 });
 
 // polyfills/performance.js
-import * as core3 from "@tjs/core";
+import { hrtimeMs } from "@tjs/core";
 var Performance = class {
   constructor() {
     this._startTime = hrtimeMs();
@@ -3742,9 +3742,6 @@ var Performance = class {
     }
   }
 };
-function hrtimeMs() {
-  return Number(BigDecimal(core3.hrtime()) / BigDecimal(1e6));
-}
 Object.defineProperty(window, "performance", {
   enumerable: true,
   configurable: true,
@@ -3957,7 +3954,7 @@ Object.defineProperty(window, "Worker", {
 });
 
 // tjs.js
-import * as core4 from "@tjs/core";
+import * as core3 from "@tjs/core";
 var tjs2 = /* @__PURE__ */ Object.create(null);
 var noExport = [
   "setTimeout",
@@ -3972,11 +3969,10 @@ var noExport = [
   "random",
   "args",
   "versions",
-  "wasm",
-  "hrtime"
+  "wasm"
 ];
-tjs2.signal = core4.signal;
-for (const [key, value] of Object.entries(core4)) {
+tjs2.signal = core3.signal;
+for (const [key, value] of Object.entries(core3)) {
   if (noExport.indexOf(key) !== -1) {
     continue;
   }
@@ -3986,8 +3982,8 @@ for (const [key, value] of Object.entries(core4)) {
   }
   tjs2[key] = value;
 }
-tjs2.args = Object.freeze(core4.args);
-tjs2.versions = Object.freeze(core4.versions);
+tjs2.args = Object.freeze(core3.args);
+tjs2.versions = Object.freeze(core3.versions);
 Object.defineProperty(globalThis, "tjs", {
   enumerable: true,
   configurable: false,

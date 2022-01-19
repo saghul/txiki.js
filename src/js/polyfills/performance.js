@@ -1,4 +1,4 @@
-import * as core from '@tjs/core';
+import { hrtimeMs } from '@tjs/core';
 
 // https://www.w3.org/TR/user-timing/
 // Derived from: https://github.com/blackswanny/performance-polyfill
@@ -87,10 +87,6 @@ class Performance {
             this._entries.splice(this._entries.indexOf(entry), 1);
         }
     }
-}
-
-function hrtimeMs() {
-    return Number(BigDecimal(core.hrtime()) / BigDecimal(1e6));
 }
 
 

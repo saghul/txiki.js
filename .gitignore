@@ -3,5 +3,6 @@
 
 build/
 src/version.h
+node_modules/
 
 .DS_Store
