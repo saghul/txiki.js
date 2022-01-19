@@ -38,6 +38,10 @@ static JSValue tjs_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return JS_NewBigUint64(ctx, uv_hrtime());
 }
 
+static JSValue tjs_hrtime_ms(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    return JS_NewFloat64(ctx, uv_hrtime() /  1e6);
+}
+
 static JSValue tjs_gettimeofday(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     uv_timeval64_t tv;
     int r = uv_gettimeofday(&tv);
@@ -362,6 +366,7 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
     TJS_CONST(STDOUT_FILENO),
     TJS_CONST(STDERR_FILENO),
     JS_CFUNC_DEF("hrtime", 0, tjs_hrtime),
+    JS_CFUNC_DEF("hrtimeMs", 0, tjs_hrtime_ms),
     JS_CFUNC_DEF("gettimeofday", 0, tjs_gettimeofday),
     JS_CFUNC_DEF("uname", 0, tjs_uname),
     JS_CFUNC_DEF("isatty", 1, tjs_isatty),

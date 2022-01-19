@@ -17,8 +17,7 @@ const noExport = [
     'random',
     'args',
     'versions',
-    'wasm',
-    'hrtime'
+    'wasm'
 ];
 
 tjs.signal = core.signal;
