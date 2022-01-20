@@ -24,3 +24,6 @@ Object.defineProperty(globalThis, 'self', {
     get() { return globalThis },
     set() {}
 });
+
+// For node-util.
+globalThis.process = { env: {} };

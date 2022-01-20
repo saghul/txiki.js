@@ -15,3 +15,5 @@ import './crypto.js';
 import './performance.js';
 import './wasm.js';
 import './worker.js';
+
+import './cleanup.js';
