@@ -11,6 +11,7 @@
   "license": "MIT",
   "dependencies": {
     "abortcontroller-polyfill": "^1.7.3",
+    "core-js": "^3.20.3",
     "esbuild": "^0.14.11",
     "getopts": "^2.3.0",
     "js-md5": "^0.7.3",
@@ -20,8 +21,9 @@
     "js-sha512": "^0.8.0",
     "path-browserify": "^1.0.1",
     "text-encoding": "^0.7.0",
-    "url-polyfill": "^1.1.12",
+    "urlpattern-polyfill": "^1.0.0-rc4",
     "uuid": "^8.3.2",
+    "web-streams-polyfill": "^3.2.0",
     "whatwg-fetch": "^3.6.2"
   }
 }

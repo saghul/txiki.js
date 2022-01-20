@@ -25,6 +25,3760 @@ var __publicField = (obj, key, value) => {
   return value;
 };
 
+// node_modules/core-js/internals/fails.js
+var require_fails = __commonJS({
+  "node_modules/core-js/internals/fails.js"(exports, module) {
+    module.exports = function(exec) {
+      try {
+        return !!exec();
+      } catch (error) {
+        return true;
+      }
+    };
+  }
+});
+
+// node_modules/core-js/internals/function-bind-native.js
+var require_function_bind_native = __commonJS({
+  "node_modules/core-js/internals/function-bind-native.js"(exports, module) {
+    var fails = require_fails();
+    module.exports = !fails(function() {
+      var test = function() {
+      }.bind();
+      return typeof test != "function" || test.hasOwnProperty("prototype");
+    });
+  }
+});
+
+// node_modules/core-js/internals/function-uncurry-this.js
+var require_function_uncurry_this = __commonJS({
+  "node_modules/core-js/internals/function-uncurry-this.js"(exports, module) {
+    var NATIVE_BIND = require_function_bind_native();
+    var FunctionPrototype = Function.prototype;
+    var bind = FunctionPrototype.bind;
+    var call = FunctionPrototype.call;
+    var uncurryThis = NATIVE_BIND && bind.bind(call, call);
+    module.exports = NATIVE_BIND ? function(fn) {
+      return fn && uncurryThis(fn);
+    } : function(fn) {
+      return fn && function() {
+        return call.apply(fn, arguments);
+      };
+    };
+  }
+});
+
+// node_modules/core-js/internals/to-integer-or-infinity.js
+var require_to_integer_or_infinity = __commonJS({
+  "node_modules/core-js/internals/to-integer-or-infinity.js"(exports, module) {
+    var ceil = Math.ceil;
+    var floor = Math.floor;
+    module.exports = function(argument) {
+      var number = +argument;
+      return number !== number || number === 0 ? 0 : (number > 0 ? floor : ceil)(number);
+    };
+  }
+});
+
+// node_modules/core-js/internals/global.js
+var require_global = __commonJS({
+  "node_modules/core-js/internals/global.js"(exports, module) {
+    var check = function(it) {
+      return it && it.Math == Math && it;
+    };
+    module.exports = check(typeof globalThis == "object" && globalThis) || check(typeof window == "object" && window) || check(typeof self == "object" && self) || check(typeof global == "object" && global) || function() {
+      return this;
+    }() || Function("return this")();
+  }
+});
+
+// node_modules/core-js/internals/is-pure.js
+var require_is_pure = __commonJS({
+  "node_modules/core-js/internals/is-pure.js"(exports, module) {
+    module.exports = false;
+  }
+});
+
+// node_modules/core-js/internals/set-global.js
+var require_set_global = __commonJS({
+  "node_modules/core-js/internals/set-global.js"(exports, module) {
+    var global2 = require_global();
+    var defineProperty = Object.defineProperty;
+    module.exports = function(key, value) {
+      try {
+        defineProperty(global2, key, { value, configurable: true, writable: true });
+      } catch (error) {
+        global2[key] = value;
+      }
+      return value;
+    };
+  }
+});
+
+// node_modules/core-js/internals/shared-store.js
+var require_shared_store = __commonJS({
+  "node_modules/core-js/internals/shared-store.js"(exports, module) {
+    var global2 = require_global();
+    var setGlobal = require_set_global();
+    var SHARED = "__core-js_shared__";
+    var store = global2[SHARED] || setGlobal(SHARED, {});
+    module.exports = store;
+  }
+});
+
+// node_modules/core-js/internals/shared.js
+var require_shared = __commonJS({
+  "node_modules/core-js/internals/shared.js"(exports, module) {
+    var IS_PURE = require_is_pure();
+    var store = require_shared_store();
+    (module.exports = function(key, value) {
+      return store[key] || (store[key] = value !== void 0 ? value : {});
+    })("versions", []).push({
+      version: "3.20.3",
+      mode: IS_PURE ? "pure" : "global",
+      copyright: "\xA9 2014-2022 Denis Pushkarev (zloirock.ru)",
+      license: "https://github.com/zloirock/core-js/blob/v3.20.3/LICENSE",
+      source: "https://github.com/zloirock/core-js"
+    });
+  }
+});
+
+// node_modules/core-js/internals/require-object-coercible.js
+var require_require_object_coercible = __commonJS({
+  "node_modules/core-js/internals/require-object-coercible.js"(exports, module) {
+    var global2 = require_global();
+    var TypeError2 = global2.TypeError;
+    module.exports = function(it) {
+      if (it == void 0)
+        throw TypeError2("Can't call method on " + it);
+      return it;
+    };
+  }
+});
+
+// node_modules/core-js/internals/to-object.js
+var require_to_object = __commonJS({
+  "node_modules/core-js/internals/to-object.js"(exports, module) {
+    var global2 = require_global();
+    var requireObjectCoercible = require_require_object_coercible();
+    var Object2 = global2.Object;
+    module.exports = function(argument) {
+      return Object2(requireObjectCoercible(argument));
+    };
+  }
+});
+
+// node_modules/core-js/internals/has-own-property.js
+var require_has_own_property = __commonJS({
+  "node_modules/core-js/internals/has-own-property.js"(exports, module) {
+    var uncurryThis = require_function_uncurry_this();
+    var toObject = require_to_object();
+    var hasOwnProperty2 = uncurryThis({}.hasOwnProperty);
+    module.exports = Object.hasOwn || function hasOwn(it, key) {
+      return hasOwnProperty2(toObject(it), key);
+    };
+  }
+});
+
+// node_modules/core-js/internals/uid.js
+var require_uid = __commonJS({
+  "node_modules/core-js/internals/uid.js"(exports, module) {
+    var uncurryThis = require_function_uncurry_this();
+    var id = 0;
+    var postfix = Math.random();
+    var toString = uncurryThis(1 .toString);
+    module.exports = function(key) {
+      return "Symbol(" + (key === void 0 ? "" : key) + ")_" + toString(++id + postfix, 36);
+    };
+  }
+});
+
+// node_modules/core-js/internals/is-callable.js
+var require_is_callable = __commonJS({
+  "node_modules/core-js/internals/is-callable.js"(exports, module) {
+    module.exports = function(argument) {
+      return typeof argument == "function";
+    };
+  }
+});
+
+// node_modules/core-js/internals/get-built-in.js
+var require_get_built_in = __commonJS({
+  "node_modules/core-js/internals/get-built-in.js"(exports, module) {
+    var global2 = require_global();
+    var isCallable = require_is_callable();
+    var aFunction = function(argument) {
+      return isCallable(argument) ? argument : void 0;
+    };
+    module.exports = function(namespace, method) {
+      return arguments.length < 2 ? aFunction(global2[namespace]) : global2[namespace] && global2[namespace][method];
+    };
+  }
+});
+
+// node_modules/core-js/internals/engine-user-agent.js
+var require_engine_user_agent = __commonJS({
+  "node_modules/core-js/internals/engine-user-agent.js"(exports, module) {
+    var getBuiltIn = require_get_built_in();
+    module.exports = getBuiltIn("navigator", "userAgent") || "";
+  }
+});
+
+// node_modules/core-js/internals/engine-v8-version.js
+var require_engine_v8_version = __commonJS({
+  "node_modules/core-js/internals/engine-v8-version.js"(exports, module) {
+    var global2 = require_global();
+    var userAgent = require_engine_user_agent();
+    var process = global2.process;
+    var Deno = global2.Deno;
+    var versions2 = process && process.versions || Deno && Deno.version;
+    var v8 = versions2 && versions2.v8;
+    var match;
+    var version;
+    if (v8) {
+      match = v8.split(".");
+      version = match[0] > 0 && match[0] < 4 ? 1 : +(match[0] + match[1]);
+    }
+    if (!version && userAgent) {
+      match = userAgent.match(/Edge\/(\d+)/);
+      if (!match || match[1] >= 74) {
+        match = userAgent.match(/Chrome\/(\d+)/);
+        if (match)
+          version = +match[1];
+      }
+    }
+    module.exports = version;
+  }
+});
+
+// node_modules/core-js/internals/native-symbol.js
+var require_native_symbol = __commonJS({
+  "node_modules/core-js/internals/native-symbol.js"(exports, module) {
+    var V8_VERSION = require_engine_v8_version();
+    var fails = require_fails();
+    module.exports = !!Object.getOwnPropertySymbols && !fails(function() {
+      var symbol = Symbol();
+      return !String(symbol) || !(Object(symbol) instanceof Symbol) || !Symbol.sham && V8_VERSION && V8_VERSION < 41;
+    });
+  }
+});
+
+// node_modules/core-js/internals/use-symbol-as-uid.js
+var require_use_symbol_as_uid = __commonJS({
+  "node_modules/core-js/internals/use-symbol-as-uid.js"(exports, module) {
+    var NATIVE_SYMBOL = require_native_symbol();
+    module.exports = NATIVE_SYMBOL && !Symbol.sham && typeof Symbol.iterator == "symbol";
+  }
+});
+
+// node_modules/core-js/internals/well-known-symbol.js
+var require_well_known_symbol = __commonJS({
+  "node_modules/core-js/internals/well-known-symbol.js"(exports, module) {
+    var global2 = require_global();
+    var shared = require_shared();
+    var hasOwn = require_has_own_property();
+    var uid = require_uid();
+    var NATIVE_SYMBOL = require_native_symbol();
+    var USE_SYMBOL_AS_UID = require_use_symbol_as_uid();
+    var WellKnownSymbolsStore = shared("wks");
+    var Symbol2 = global2.Symbol;
+    var symbolFor = Symbol2 && Symbol2["for"];
+    var createWellKnownSymbol = USE_SYMBOL_AS_UID ? Symbol2 : Symbol2 && Symbol2.withoutSetter || uid;
+    module.exports = function(name) {
+      if (!hasOwn(WellKnownSymbolsStore, name) || !(NATIVE_SYMBOL || typeof WellKnownSymbolsStore[name] == "string")) {
+        var description = "Symbol." + name;
+        if (NATIVE_SYMBOL && hasOwn(Symbol2, name)) {
+          WellKnownSymbolsStore[name] = Symbol2[name];
+        } else if (USE_SYMBOL_AS_UID && symbolFor) {
+          WellKnownSymbolsStore[name] = symbolFor(description);
+        } else {
+          WellKnownSymbolsStore[name] = createWellKnownSymbol(description);
+        }
+      }
+      return WellKnownSymbolsStore[name];
+    };
+  }
+});
+
+// node_modules/core-js/internals/to-string-tag-support.js
+var require_to_string_tag_support = __commonJS({
+  "node_modules/core-js/internals/to-string-tag-support.js"(exports, module) {
+    var wellKnownSymbol = require_well_known_symbol();
+    var TO_STRING_TAG = wellKnownSymbol("toStringTag");
+    var test = {};
+    test[TO_STRING_TAG] = "z";
+    module.exports = String(test) === "[object z]";
+  }
+});
+
+// node_modules/core-js/internals/classof-raw.js
+var require_classof_raw = __commonJS({
+  "node_modules/core-js/internals/classof-raw.js"(exports, module) {
+    var uncurryThis = require_function_uncurry_this();
+    var toString = uncurryThis({}.toString);
+    var stringSlice = uncurryThis("".slice);
+    module.exports = function(it) {
+      return stringSlice(toString(it), 8, -1);
+    };
+  }
+});
+
+// node_modules/core-js/internals/classof.js
+var require_classof = __commonJS({
+  "node_modules/core-js/internals/classof.js"(exports, module) {
+    var global2 = require_global();
+    var TO_STRING_TAG_SUPPORT = require_to_string_tag_support();
+    var isCallable = require_is_callable();
+    var classofRaw = require_classof_raw();
+    var wellKnownSymbol = require_well_known_symbol();
+    var TO_STRING_TAG = wellKnownSymbol("toStringTag");
+    var Object2 = global2.Object;
+    var CORRECT_ARGUMENTS = classofRaw(function() {
+      return arguments;
+    }()) == "Arguments";
+    var tryGet = function(it, key) {
+      try {
+        return it[key];
+      } catch (error) {
+      }
+    };
+    module.exports = TO_STRING_TAG_SUPPORT ? classofRaw : function(it) {
+      var O2, tag, result;
+      return it === void 0 ? "Undefined" : it === null ? "Null" : typeof (tag = tryGet(O2 = Object2(it), TO_STRING_TAG)) == "string" ? tag : CORRECT_ARGUMENTS ? classofRaw(O2) : (result = classofRaw(O2)) == "Object" && isCallable(O2.callee) ? "Arguments" : result;
+    };
+  }
+});
+
+// node_modules/core-js/internals/to-string.js
+var require_to_string = __commonJS({
+  "node_modules/core-js/internals/to-string.js"(exports, module) {
+    var global2 = require_global();
+    var classof = require_classof();
+    var String2 = global2.String;
+    module.exports = function(argument) {
+      if (classof(argument) === "Symbol")
+        throw TypeError("Cannot convert a Symbol value to a string");
+      return String2(argument);
+    };
+  }
+});
+
+// node_modules/core-js/internals/string-multibyte.js
+var require_string_multibyte = __commonJS({
+  "node_modules/core-js/internals/string-multibyte.js"(exports, module) {
+    var uncurryThis = require_function_uncurry_this();
+    var toIntegerOrInfinity = require_to_integer_or_infinity();
+    var toString = require_to_string();
+    var requireObjectCoercible = require_require_object_coercible();
+    var charAt = uncurryThis("".charAt);
+    var charCodeAt = uncurryThis("".charCodeAt);
+    var stringSlice = uncurryThis("".slice);
+    var createMethod = function(CONVERT_TO_STRING) {
+      return function($this, pos) {
+        var S2 = toString(requireObjectCoercible($this));
+        var position = toIntegerOrInfinity(pos);
+        var size = S2.length;
+        var first, second;
+        if (position < 0 || position >= size)
+          return CONVERT_TO_STRING ? "" : void 0;
+        first = charCodeAt(S2, position);
+        return first < 55296 || first > 56319 || position + 1 === size || (second = charCodeAt(S2, position + 1)) < 56320 || second > 57343 ? CONVERT_TO_STRING ? charAt(S2, position) : first : CONVERT_TO_STRING ? stringSlice(S2, position, position + 2) : (first - 55296 << 10) + (second - 56320) + 65536;
+      };
+    };
+    module.exports = {
+      codeAt: createMethod(false),
+      charAt: createMethod(true)
+    };
+  }
+});
+
+// node_modules/core-js/internals/inspect-source.js
+var require_inspect_source = __commonJS({
+  "node_modules/core-js/internals/inspect-source.js"(exports, module) {
+    var uncurryThis = require_function_uncurry_this();
+    var isCallable = require_is_callable();
+    var store = require_shared_store();
+    var functionToString = uncurryThis(Function.toString);
+    if (!isCallable(store.inspectSource)) {
+      store.inspectSource = function(it) {
+        return functionToString(it);
+      };
+    }
+    module.exports = store.inspectSource;
+  }
+});
+
+// node_modules/core-js/internals/native-weak-map.js
+var require_native_weak_map = __commonJS({
+  "node_modules/core-js/internals/native-weak-map.js"(exports, module) {
+    var global2 = require_global();
+    var isCallable = require_is_callable();
+    var inspectSource = require_inspect_source();
+    var WeakMap2 = global2.WeakMap;
+    module.exports = isCallable(WeakMap2) && /native code/.test(inspectSource(WeakMap2));
+  }
+});
+
+// node_modules/core-js/internals/is-object.js
+var require_is_object = __commonJS({
+  "node_modules/core-js/internals/is-object.js"(exports, module) {
+    var isCallable = require_is_callable();
+    module.exports = function(it) {
+      return typeof it == "object" ? it !== null : isCallable(it);
+    };
+  }
+});
+
+// node_modules/core-js/internals/descriptors.js
+var require_descriptors = __commonJS({
+  "node_modules/core-js/internals/descriptors.js"(exports, module) {
+    var fails = require_fails();
+    module.exports = !fails(function() {
+      return Object.defineProperty({}, 1, { get: function() {
+        return 7;
+      } })[1] != 7;
+    });
+  }
+});
+
+// node_modules/core-js/internals/document-create-element.js
+var require_document_create_element = __commonJS({
+  "node_modules/core-js/internals/document-create-element.js"(exports, module) {
+    var global2 = require_global();
+    var isObject2 = require_is_object();
+    var document2 = global2.document;
+    var EXISTS = isObject2(document2) && isObject2(document2.createElement);
+    module.exports = function(it) {
+      return EXISTS ? document2.createElement(it) : {};
+    };
+  }
+});
+
+// node_modules/core-js/internals/ie8-dom-define.js
+var require_ie8_dom_define = __commonJS({
+  "node_modules/core-js/internals/ie8-dom-define.js"(exports, module) {
+    var DESCRIPTORS = require_descriptors();
+    var fails = require_fails();
+    var createElement = require_document_create_element();
+    module.exports = !DESCRIPTORS && !fails(function() {
+      return Object.defineProperty(createElement("div"), "a", {
+        get: function() {
+          return 7;
+        }
+      }).a != 7;
+    });
+  }
+});
+
+// node_modules/core-js/internals/v8-prototype-define-bug.js
+var require_v8_prototype_define_bug = __commonJS({
+  "node_modules/core-js/internals/v8-prototype-define-bug.js"(exports, module) {
+    var DESCRIPTORS = require_descriptors();
+    var fails = require_fails();
+    module.exports = DESCRIPTORS && fails(function() {
+      return Object.defineProperty(function() {
+      }, "prototype", {
+        value: 42,
+        writable: false
+      }).prototype != 42;
+    });
+  }
+});
+
+// node_modules/core-js/internals/an-object.js
+var require_an_object = __commonJS({
+  "node_modules/core-js/internals/an-object.js"(exports, module) {
+    var global2 = require_global();
+    var isObject2 = require_is_object();
+    var String2 = global2.String;
+    var TypeError2 = global2.TypeError;
+    module.exports = function(argument) {
+      if (isObject2(argument))
+        return argument;
+      throw TypeError2(String2(argument) + " is not an object");
+    };
+  }
+});
+
+// node_modules/core-js/internals/function-call.js
+var require_function_call = __commonJS({
+  "node_modules/core-js/internals/function-call.js"(exports, module) {
+    var NATIVE_BIND = require_function_bind_native();
+    var call = Function.prototype.call;
+    module.exports = NATIVE_BIND ? call.bind(call) : function() {
+      return call.apply(call, arguments);
+    };
+  }
+});
+
+// node_modules/core-js/internals/object-is-prototype-of.js
+var require_object_is_prototype_of = __commonJS({
+  "node_modules/core-js/internals/object-is-prototype-of.js"(exports, module) {
+    var uncurryThis = require_function_uncurry_this();
+    module.exports = uncurryThis({}.isPrototypeOf);
+  }
+});
+
+// node_modules/core-js/internals/is-symbol.js
+var require_is_symbol = __commonJS({
+  "node_modules/core-js/internals/is-symbol.js"(exports, module) {
+    var global2 = require_global();
+    var getBuiltIn = require_get_built_in();
+    var isCallable = require_is_callable();
+    var isPrototypeOf = require_object_is_prototype_of();
+    var USE_SYMBOL_AS_UID = require_use_symbol_as_uid();
+    var Object2 = global2.Object;
+    module.exports = USE_SYMBOL_AS_UID ? function(it) {
+      return typeof it == "symbol";
+    } : function(it) {
+      var $Symbol = getBuiltIn("Symbol");
+      return isCallable($Symbol) && isPrototypeOf($Symbol.prototype, Object2(it));
+    };
+  }
+});
+
+// node_modules/core-js/internals/try-to-string.js
+var require_try_to_string = __commonJS({
+  "node_modules/core-js/internals/try-to-string.js"(exports, module) {
+    var global2 = require_global();
+    var String2 = global2.String;
+    module.exports = function(argument) {
+      try {
+        return String2(argument);
+      } catch (error) {
+        return "Object";
+      }
+    };
+  }
+});
+
+// node_modules/core-js/internals/a-callable.js
+var require_a_callable = __commonJS({
+  "node_modules/core-js/internals/a-callable.js"(exports, module) {
+    var global2 = require_global();
+    var isCallable = require_is_callable();
+    var tryToString = require_try_to_string();
+    var TypeError2 = global2.TypeError;
+    module.exports = function(argument) {
+      if (isCallable(argument))
+        return argument;
+      throw TypeError2(tryToString(argument) + " is not a function");
+    };
+  }
+});
+
+// node_modules/core-js/internals/get-method.js
+var require_get_method = __commonJS({
+  "node_modules/core-js/internals/get-method.js"(exports, module) {
+    var aCallable = require_a_callable();
+    module.exports = function(V, P2) {
+      var func = V[P2];
+      return func == null ? void 0 : aCallable(func);
+    };
+  }
+});
+
+// node_modules/core-js/internals/ordinary-to-primitive.js
+var require_ordinary_to_primitive = __commonJS({
+  "node_modules/core-js/internals/ordinary-to-primitive.js"(exports, module) {
+    var global2 = require_global();
+    var call = require_function_call();
+    var isCallable = require_is_callable();
+    var isObject2 = require_is_object();
+    var TypeError2 = global2.TypeError;
+    module.exports = function(input, pref) {
+      var fn, val;
+      if (pref === "string" && isCallable(fn = input.toString) && !isObject2(val = call(fn, input)))
+        return val;
+      if (isCallable(fn = input.valueOf) && !isObject2(val = call(fn, input)))
+        return val;
+      if (pref !== "string" && isCallable(fn = input.toString) && !isObject2(val = call(fn, input)))
+        return val;
+      throw TypeError2("Can't convert object to primitive value");
+    };
+  }
+});
+
+// node_modules/core-js/internals/to-primitive.js
+var require_to_primitive = __commonJS({
+  "node_modules/core-js/internals/to-primitive.js"(exports, module) {
+    var global2 = require_global();
+    var call = require_function_call();
+    var isObject2 = require_is_object();
+    var isSymbol = require_is_symbol();
+    var getMethod = require_get_method();
+    var ordinaryToPrimitive = require_ordinary_to_primitive();
+    var wellKnownSymbol = require_well_known_symbol();
+    var TypeError2 = global2.TypeError;
+    var TO_PRIMITIVE = wellKnownSymbol("toPrimitive");
+    module.exports = function(input, pref) {
+      if (!isObject2(input) || isSymbol(input))
+        return input;
+      var exoticToPrim = getMethod(input, TO_PRIMITIVE);
+      var result;
+      if (exoticToPrim) {
+        if (pref === void 0)
+          pref = "default";
+        result = call(exoticToPrim, input, pref);
+        if (!isObject2(result) || isSymbol(result))
+          return result;
+        throw TypeError2("Can't convert object to primitive value");
+      }
+      if (pref === void 0)
+        pref = "number";
+      return ordinaryToPrimitive(input, pref);
+    };
+  }
+});
+
+// node_modules/core-js/internals/to-property-key.js
+var require_to_property_key = __commonJS({
+  "node_modules/core-js/internals/to-property-key.js"(exports, module) {
+    var toPrimitive = require_to_primitive();
+    var isSymbol = require_is_symbol();
+    module.exports = function(argument) {
+      var key = toPrimitive(argument, "string");
+      return isSymbol(key) ? key : key + "";
+    };
+  }
+});
+
+// node_modules/core-js/internals/object-define-property.js
+var require_object_define_property = __commonJS({
+  "node_modules/core-js/internals/object-define-property.js"(exports) {
+    var global2 = require_global();
+    var DESCRIPTORS = require_descriptors();
+    var IE8_DOM_DEFINE = require_ie8_dom_define();
+    var V8_PROTOTYPE_DEFINE_BUG = require_v8_prototype_define_bug();
+    var anObject = require_an_object();
+    var toPropertyKey = require_to_property_key();
+    var TypeError2 = global2.TypeError;
+    var $defineProperty = Object.defineProperty;
+    var $getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+    var ENUMERABLE = "enumerable";
+    var CONFIGURABLE = "configurable";
+    var WRITABLE = "writable";
+    exports.f = DESCRIPTORS ? V8_PROTOTYPE_DEFINE_BUG ? function defineProperty(O2, P2, Attributes) {
+      anObject(O2);
+      P2 = toPropertyKey(P2);
+      anObject(Attributes);
+      if (typeof O2 === "function" && P2 === "prototype" && "value" in Attributes && WRITABLE in Attributes && !Attributes[WRITABLE]) {
+        var current = $getOwnPropertyDescriptor(O2, P2);
+        if (current && current[WRITABLE]) {
+          O2[P2] = Attributes.value;
+          Attributes = {
+            configurable: CONFIGURABLE in Attributes ? Attributes[CONFIGURABLE] : current[CONFIGURABLE],
+            enumerable: ENUMERABLE in Attributes ? Attributes[ENUMERABLE] : current[ENUMERABLE],
+            writable: false
+          };
+        }
+      }
+      return $defineProperty(O2, P2, Attributes);
+    } : $defineProperty : function defineProperty(O2, P2, Attributes) {
+      anObject(O2);
+      P2 = toPropertyKey(P2);
+      anObject(Attributes);
+      if (IE8_DOM_DEFINE)
+        try {
+          return $defineProperty(O2, P2, Attributes);
+        } catch (error) {
+        }
+      if ("get" in Attributes || "set" in Attributes)
+        throw TypeError2("Accessors not supported");
+      if ("value" in Attributes)
+        O2[P2] = Attributes.value;
+      return O2;
+    };
+  }
+});
+
+// node_modules/core-js/internals/create-property-descriptor.js
+var require_create_property_descriptor = __commonJS({
+  "node_modules/core-js/internals/create-property-descriptor.js"(exports, module) {
+    module.exports = function(bitmap, value) {
+      return {
+        enumerable: !(bitmap & 1),
+        configurable: !(bitmap & 2),
+        writable: !(bitmap & 4),
+        value
+      };
+    };
+  }
+});
+
+// node_modules/core-js/internals/create-non-enumerable-property.js
+var require_create_non_enumerable_property = __commonJS({
+  "node_modules/core-js/internals/create-non-enumerable-property.js"(exports, module) {
+    var DESCRIPTORS = require_descriptors();
+    var definePropertyModule = require_object_define_property();
+    var createPropertyDescriptor = require_create_property_descriptor();
+    module.exports = DESCRIPTORS ? function(object, key, value) {
+      return definePropertyModule.f(object, key, createPropertyDescriptor(1, value));
+    } : function(object, key, value) {
+      object[key] = value;
+      return object;
+    };
+  }
+});
+
+// node_modules/core-js/internals/shared-key.js
+var require_shared_key = __commonJS({
+  "node_modules/core-js/internals/shared-key.js"(exports, module) {
+    var shared = require_shared();
+    var uid = require_uid();
+    var keys = shared("keys");
+    module.exports = function(key) {
+      return keys[key] || (keys[key] = uid(key));
+    };
+  }
+});
+
+// node_modules/core-js/internals/hidden-keys.js
+var require_hidden_keys = __commonJS({
+  "node_modules/core-js/internals/hidden-keys.js"(exports, module) {
+    module.exports = {};
+  }
+});
+
+// node_modules/core-js/internals/internal-state.js
+var require_internal_state = __commonJS({
+  "node_modules/core-js/internals/internal-state.js"(exports, module) {
+    var NATIVE_WEAK_MAP = require_native_weak_map();
+    var global2 = require_global();
+    var uncurryThis = require_function_uncurry_this();
+    var isObject2 = require_is_object();
+    var createNonEnumerableProperty = require_create_non_enumerable_property();
+    var hasOwn = require_has_own_property();
+    var shared = require_shared_store();
+    var sharedKey = require_shared_key();
+    var hiddenKeys = require_hidden_keys();
+    var OBJECT_ALREADY_INITIALIZED = "Object already initialized";
+    var TypeError2 = global2.TypeError;
+    var WeakMap2 = global2.WeakMap;
+    var set;
+    var get;
+    var has;
+    var enforce = function(it) {
+      return has(it) ? get(it) : set(it, {});
+    };
+    var getterFor = function(TYPE) {
+      return function(it) {
+        var state;
+        if (!isObject2(it) || (state = get(it)).type !== TYPE) {
+          throw TypeError2("Incompatible receiver, " + TYPE + " required");
+        }
+        return state;
+      };
+    };
+    if (NATIVE_WEAK_MAP || shared.state) {
+      store = shared.state || (shared.state = new WeakMap2());
+      wmget = uncurryThis(store.get);
+      wmhas = uncurryThis(store.has);
+      wmset = uncurryThis(store.set);
+      set = function(it, metadata) {
+        if (wmhas(store, it))
+          throw new TypeError2(OBJECT_ALREADY_INITIALIZED);
+        metadata.facade = it;
+        wmset(store, it, metadata);
+        return metadata;
+      };
+      get = function(it) {
+        return wmget(store, it) || {};
+      };
+      has = function(it) {
+        return wmhas(store, it);
+      };
+    } else {
+      STATE = sharedKey("state");
+      hiddenKeys[STATE] = true;
+      set = function(it, metadata) {
+        if (hasOwn(it, STATE))
+          throw new TypeError2(OBJECT_ALREADY_INITIALIZED);
+        metadata.facade = it;
+        createNonEnumerableProperty(it, STATE, metadata);
+        return metadata;
+      };
+      get = function(it) {
+        return hasOwn(it, STATE) ? it[STATE] : {};
+      };
+      has = function(it) {
+        return hasOwn(it, STATE);
+      };
+    }
+    var store;
+    var wmget;
+    var wmhas;
+    var wmset;
+    var STATE;
+    module.exports = {
+      set,
+      get,
+      has,
+      enforce,
+      getterFor
+    };
+  }
+});
+
+// node_modules/core-js/internals/object-property-is-enumerable.js
+var require_object_property_is_enumerable = __commonJS({
+  "node_modules/core-js/internals/object-property-is-enumerable.js"(exports) {
+    "use strict";
+    var $propertyIsEnumerable = {}.propertyIsEnumerable;
+    var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+    var NASHORN_BUG = getOwnPropertyDescriptor && !$propertyIsEnumerable.call({ 1: 2 }, 1);
+    exports.f = NASHORN_BUG ? function propertyIsEnumerable(V) {
+      var descriptor = getOwnPropertyDescriptor(this, V);
+      return !!descriptor && descriptor.enumerable;
+    } : $propertyIsEnumerable;
+  }
+});
+
+// node_modules/core-js/internals/indexed-object.js
+var require_indexed_object = __commonJS({
+  "node_modules/core-js/internals/indexed-object.js"(exports, module) {
+    var global2 = require_global();
+    var uncurryThis = require_function_uncurry_this();
+    var fails = require_fails();
+    var classof = require_classof_raw();
+    var Object2 = global2.Object;
+    var split = uncurryThis("".split);
+    module.exports = fails(function() {
+      return !Object2("z").propertyIsEnumerable(0);
+    }) ? function(it) {
+      return classof(it) == "String" ? split(it, "") : Object2(it);
+    } : Object2;
+  }
+});
+
+// node_modules/core-js/internals/to-indexed-object.js
+var require_to_indexed_object = __commonJS({
+  "node_modules/core-js/internals/to-indexed-object.js"(exports, module) {
+    var IndexedObject = require_indexed_object();
+    var requireObjectCoercible = require_require_object_coercible();
+    module.exports = function(it) {
+      return IndexedObject(requireObjectCoercible(it));
+    };
+  }
+});
+
+// node_modules/core-js/internals/object-get-own-property-descriptor.js
+var require_object_get_own_property_descriptor = __commonJS({
+  "node_modules/core-js/internals/object-get-own-property-descriptor.js"(exports) {
+    var DESCRIPTORS = require_descriptors();
+    var call = require_function_call();
+    var propertyIsEnumerableModule = require_object_property_is_enumerable();
+    var createPropertyDescriptor = require_create_property_descriptor();
+    var toIndexedObject = require_to_indexed_object();
+    var toPropertyKey = require_to_property_key();
+    var hasOwn = require_has_own_property();
+    var IE8_DOM_DEFINE = require_ie8_dom_define();
+    var $getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+    exports.f = DESCRIPTORS ? $getOwnPropertyDescriptor : function getOwnPropertyDescriptor(O2, P2) {
+      O2 = toIndexedObject(O2);
+      P2 = toPropertyKey(P2);
+      if (IE8_DOM_DEFINE)
+        try {
+          return $getOwnPropertyDescriptor(O2, P2);
+        } catch (error) {
+        }
+      if (hasOwn(O2, P2))
+        return createPropertyDescriptor(!call(propertyIsEnumerableModule.f, O2, P2), O2[P2]);
+    };
+  }
+});
+
+// node_modules/core-js/internals/function-name.js
+var require_function_name = __commonJS({
+  "node_modules/core-js/internals/function-name.js"(exports, module) {
+    var DESCRIPTORS = require_descriptors();
+    var hasOwn = require_has_own_property();
+    var FunctionPrototype = Function.prototype;
+    var getDescriptor = DESCRIPTORS && Object.getOwnPropertyDescriptor;
+    var EXISTS = hasOwn(FunctionPrototype, "name");
+    var PROPER = EXISTS && function something() {
+    }.name === "something";
+    var CONFIGURABLE = EXISTS && (!DESCRIPTORS || DESCRIPTORS && getDescriptor(FunctionPrototype, "name").configurable);
+    module.exports = {
+      EXISTS,
+      PROPER,
+      CONFIGURABLE
+    };
+  }
+});
+
+// node_modules/core-js/internals/redefine.js
+var require_redefine = __commonJS({
+  "node_modules/core-js/internals/redefine.js"(exports, module) {
+    var global2 = require_global();
+    var isCallable = require_is_callable();
+    var hasOwn = require_has_own_property();
+    var createNonEnumerableProperty = require_create_non_enumerable_property();
+    var setGlobal = require_set_global();
+    var inspectSource = require_inspect_source();
+    var InternalStateModule = require_internal_state();
+    var CONFIGURABLE_FUNCTION_NAME = require_function_name().CONFIGURABLE;
+    var getInternalState = InternalStateModule.get;
+    var enforceInternalState = InternalStateModule.enforce;
+    var TEMPLATE = String(String).split("String");
+    (module.exports = function(O2, key, value, options) {
+      var unsafe = options ? !!options.unsafe : false;
+      var simple = options ? !!options.enumerable : false;
+      var noTargetGet = options ? !!options.noTargetGet : false;
+      var name = options && options.name !== void 0 ? options.name : key;
+      var state;
+      if (isCallable(value)) {
+        if (String(name).slice(0, 7) === "Symbol(") {
+          name = "[" + String(name).replace(/^Symbol\(([^)]*)\)/, "$1") + "]";
+        }
+        if (!hasOwn(value, "name") || CONFIGURABLE_FUNCTION_NAME && value.name !== name) {
+          createNonEnumerableProperty(value, "name", name);
+        }
+        state = enforceInternalState(value);
+        if (!state.source) {
+          state.source = TEMPLATE.join(typeof name == "string" ? name : "");
+        }
+      }
+      if (O2 === global2) {
+        if (simple)
+          O2[key] = value;
+        else
+          setGlobal(key, value);
+        return;
+      } else if (!unsafe) {
+        delete O2[key];
+      } else if (!noTargetGet && O2[key]) {
+        simple = true;
+      }
+      if (simple)
+        O2[key] = value;
+      else
+        createNonEnumerableProperty(O2, key, value);
+    })(Function.prototype, "toString", function toString() {
+      return isCallable(this) && getInternalState(this).source || inspectSource(this);
+    });
+  }
+});
+
+// node_modules/core-js/internals/to-absolute-index.js
+var require_to_absolute_index = __commonJS({
+  "node_modules/core-js/internals/to-absolute-index.js"(exports, module) {
+    var toIntegerOrInfinity = require_to_integer_or_infinity();
+    var max = Math.max;
+    var min = Math.min;
+    module.exports = function(index, length) {
+      var integer = toIntegerOrInfinity(index);
+      return integer < 0 ? max(integer + length, 0) : min(integer, length);
+    };
+  }
+});
+
+// node_modules/core-js/internals/to-length.js
+var require_to_length = __commonJS({
+  "node_modules/core-js/internals/to-length.js"(exports, module) {
+    var toIntegerOrInfinity = require_to_integer_or_infinity();
+    var min = Math.min;
+    module.exports = function(argument) {
+      return argument > 0 ? min(toIntegerOrInfinity(argument), 9007199254740991) : 0;
+    };
+  }
+});
+
+// node_modules/core-js/internals/length-of-array-like.js
+var require_length_of_array_like = __commonJS({
+  "node_modules/core-js/internals/length-of-array-like.js"(exports, module) {
+    var toLength = require_to_length();
+    module.exports = function(obj) {
+      return toLength(obj.length);
+    };
+  }
+});
+
+// node_modules/core-js/internals/array-includes.js
+var require_array_includes = __commonJS({
+  "node_modules/core-js/internals/array-includes.js"(exports, module) {
+    var toIndexedObject = require_to_indexed_object();
+    var toAbsoluteIndex = require_to_absolute_index();
+    var lengthOfArrayLike = require_length_of_array_like();
+    var createMethod = function(IS_INCLUDES) {
+      return function($this, el, fromIndex) {
+        var O2 = toIndexedObject($this);
+        var length = lengthOfArrayLike(O2);
+        var index = toAbsoluteIndex(fromIndex, length);
+        var value;
+        if (IS_INCLUDES && el != el)
+          while (length > index) {
+            value = O2[index++];
+            if (value != value)
+              return true;
+          }
+        else
+          for (; length > index; index++) {
+            if ((IS_INCLUDES || index in O2) && O2[index] === el)
+              return IS_INCLUDES || index || 0;
+          }
+        return !IS_INCLUDES && -1;
+      };
+    };
+    module.exports = {
+      includes: createMethod(true),
+      indexOf: createMethod(false)
+    };
+  }
+});
+
+// node_modules/core-js/internals/object-keys-internal.js
+var require_object_keys_internal = __commonJS({
+  "node_modules/core-js/internals/object-keys-internal.js"(exports, module) {
+    var uncurryThis = require_function_uncurry_this();
+    var hasOwn = require_has_own_property();
+    var toIndexedObject = require_to_indexed_object();
+    var indexOf = require_array_includes().indexOf;
+    var hiddenKeys = require_hidden_keys();
+    var push = uncurryThis([].push);
+    module.exports = function(object, names) {
+      var O2 = toIndexedObject(object);
+      var i2 = 0;
+      var result = [];
+      var key;
+      for (key in O2)
+        !hasOwn(hiddenKeys, key) && hasOwn(O2, key) && push(result, key);
+      while (names.length > i2)
+        if (hasOwn(O2, key = names[i2++])) {
+          ~indexOf(result, key) || push(result, key);
+        }
+      return result;
+    };
+  }
+});
+
+// node_modules/core-js/internals/enum-bug-keys.js
+var require_enum_bug_keys = __commonJS({
+  "node_modules/core-js/internals/enum-bug-keys.js"(exports, module) {
+    module.exports = [
+      "constructor",
+      "hasOwnProperty",
+      "isPrototypeOf",
+      "propertyIsEnumerable",
+      "toLocaleString",
+      "toString",
+      "valueOf"
+    ];
+  }
+});
+
+// node_modules/core-js/internals/object-get-own-property-names.js
+var require_object_get_own_property_names = __commonJS({
+  "node_modules/core-js/internals/object-get-own-property-names.js"(exports) {
+    var internalObjectKeys = require_object_keys_internal();
+    var enumBugKeys = require_enum_bug_keys();
+    var hiddenKeys = enumBugKeys.concat("length", "prototype");
+    exports.f = Object.getOwnPropertyNames || function getOwnPropertyNames(O2) {
+      return internalObjectKeys(O2, hiddenKeys);
+    };
+  }
+});
+
+// node_modules/core-js/internals/object-get-own-property-symbols.js
+var require_object_get_own_property_symbols = __commonJS({
+  "node_modules/core-js/internals/object-get-own-property-symbols.js"(exports) {
+    exports.f = Object.getOwnPropertySymbols;
+  }
+});
+
+// node_modules/core-js/internals/own-keys.js
+var require_own_keys = __commonJS({
+  "node_modules/core-js/internals/own-keys.js"(exports, module) {
+    var getBuiltIn = require_get_built_in();
+    var uncurryThis = require_function_uncurry_this();
+    var getOwnPropertyNamesModule = require_object_get_own_property_names();
+    var getOwnPropertySymbolsModule = require_object_get_own_property_symbols();
+    var anObject = require_an_object();
+    var concat = uncurryThis([].concat);
+    module.exports = getBuiltIn("Reflect", "ownKeys") || function ownKeys(it) {
+      var keys = getOwnPropertyNamesModule.f(anObject(it));
+      var getOwnPropertySymbols = getOwnPropertySymbolsModule.f;
+      return getOwnPropertySymbols ? concat(keys, getOwnPropertySymbols(it)) : keys;
+    };
+  }
+});
+
+// node_modules/core-js/internals/copy-constructor-properties.js
+var require_copy_constructor_properties = __commonJS({
+  "node_modules/core-js/internals/copy-constructor-properties.js"(exports, module) {
+    var hasOwn = require_has_own_property();
+    var ownKeys = require_own_keys();
+    var getOwnPropertyDescriptorModule = require_object_get_own_property_descriptor();
+    var definePropertyModule = require_object_define_property();
+    module.exports = function(target, source, exceptions) {
+      var keys = ownKeys(source);
+      var defineProperty = definePropertyModule.f;
+      var getOwnPropertyDescriptor = getOwnPropertyDescriptorModule.f;
+      for (var i2 = 0; i2 < keys.length; i2++) {
+        var key = keys[i2];
+        if (!hasOwn(target, key) && !(exceptions && hasOwn(exceptions, key))) {
+          defineProperty(target, key, getOwnPropertyDescriptor(source, key));
+        }
+      }
+    };
+  }
+});
+
+// node_modules/core-js/internals/is-forced.js
+var require_is_forced = __commonJS({
+  "node_modules/core-js/internals/is-forced.js"(exports, module) {
+    var fails = require_fails();
+    var isCallable = require_is_callable();
+    var replacement = /#|\.prototype\./;
+    var isForced = function(feature, detection) {
+      var value = data[normalize(feature)];
+      return value == POLYFILL ? true : value == NATIVE ? false : isCallable(detection) ? fails(detection) : !!detection;
+    };
+    var normalize = isForced.normalize = function(string) {
+      return String(string).replace(replacement, ".").toLowerCase();
+    };
+    var data = isForced.data = {};
+    var NATIVE = isForced.NATIVE = "N";
+    var POLYFILL = isForced.POLYFILL = "P";
+    module.exports = isForced;
+  }
+});
+
+// node_modules/core-js/internals/export.js
+var require_export = __commonJS({
+  "node_modules/core-js/internals/export.js"(exports, module) {
+    var global2 = require_global();
+    var getOwnPropertyDescriptor = require_object_get_own_property_descriptor().f;
+    var createNonEnumerableProperty = require_create_non_enumerable_property();
+    var redefine = require_redefine();
+    var setGlobal = require_set_global();
+    var copyConstructorProperties = require_copy_constructor_properties();
+    var isForced = require_is_forced();
+    module.exports = function(options, source) {
+      var TARGET = options.target;
+      var GLOBAL = options.global;
+      var STATIC = options.stat;
+      var FORCED, target, key, targetProperty, sourceProperty, descriptor;
+      if (GLOBAL) {
+        target = global2;
+      } else if (STATIC) {
+        target = global2[TARGET] || setGlobal(TARGET, {});
+      } else {
+        target = (global2[TARGET] || {}).prototype;
+      }
+      if (target)
+        for (key in source) {
+          sourceProperty = source[key];
+          if (options.noTargetGet) {
+            descriptor = getOwnPropertyDescriptor(target, key);
+            targetProperty = descriptor && descriptor.value;
+          } else
+            targetProperty = target[key];
+          FORCED = isForced(GLOBAL ? key : TARGET + (STATIC ? "." : "#") + key, options.forced);
+          if (!FORCED && targetProperty !== void 0) {
+            if (typeof sourceProperty == typeof targetProperty)
+              continue;
+            copyConstructorProperties(sourceProperty, targetProperty);
+          }
+          if (options.sham || targetProperty && targetProperty.sham) {
+            createNonEnumerableProperty(sourceProperty, "sham", true);
+          }
+          redefine(target, key, sourceProperty, options);
+        }
+    };
+  }
+});
+
+// node_modules/core-js/internals/object-keys.js
+var require_object_keys = __commonJS({
+  "node_modules/core-js/internals/object-keys.js"(exports, module) {
+    var internalObjectKeys = require_object_keys_internal();
+    var enumBugKeys = require_enum_bug_keys();
+    module.exports = Object.keys || function keys(O2) {
+      return internalObjectKeys(O2, enumBugKeys);
+    };
+  }
+});
+
+// node_modules/core-js/internals/object-define-properties.js
+var require_object_define_properties = __commonJS({
+  "node_modules/core-js/internals/object-define-properties.js"(exports) {
+    var DESCRIPTORS = require_descriptors();
+    var V8_PROTOTYPE_DEFINE_BUG = require_v8_prototype_define_bug();
+    var definePropertyModule = require_object_define_property();
+    var anObject = require_an_object();
+    var toIndexedObject = require_to_indexed_object();
+    var objectKeys = require_object_keys();
+    exports.f = DESCRIPTORS && !V8_PROTOTYPE_DEFINE_BUG ? Object.defineProperties : function defineProperties(O2, Properties) {
+      anObject(O2);
+      var props = toIndexedObject(Properties);
+      var keys = objectKeys(Properties);
+      var length = keys.length;
+      var index = 0;
+      var key;
+      while (length > index)
+        definePropertyModule.f(O2, key = keys[index++], props[key]);
+      return O2;
+    };
+  }
+});
+
+// node_modules/core-js/internals/html.js
+var require_html = __commonJS({
+  "node_modules/core-js/internals/html.js"(exports, module) {
+    var getBuiltIn = require_get_built_in();
+    module.exports = getBuiltIn("document", "documentElement");
+  }
+});
+
+// node_modules/core-js/internals/object-create.js
+var require_object_create = __commonJS({
+  "node_modules/core-js/internals/object-create.js"(exports, module) {
+    var anObject = require_an_object();
+    var definePropertiesModule = require_object_define_properties();
+    var enumBugKeys = require_enum_bug_keys();
+    var hiddenKeys = require_hidden_keys();
+    var html = require_html();
+    var documentCreateElement = require_document_create_element();
+    var sharedKey = require_shared_key();
+    var GT = ">";
+    var LT = "<";
+    var PROTOTYPE = "prototype";
+    var SCRIPT = "script";
+    var IE_PROTO = sharedKey("IE_PROTO");
+    var EmptyConstructor = function() {
+    };
+    var scriptTag = function(content) {
+      return LT + SCRIPT + GT + content + LT + "/" + SCRIPT + GT;
+    };
+    var NullProtoObjectViaActiveX = function(activeXDocument2) {
+      activeXDocument2.write(scriptTag(""));
+      activeXDocument2.close();
+      var temp = activeXDocument2.parentWindow.Object;
+      activeXDocument2 = null;
+      return temp;
+    };
+    var NullProtoObjectViaIFrame = function() {
+      var iframe = documentCreateElement("iframe");
+      var JS = "java" + SCRIPT + ":";
+      var iframeDocument;
+      iframe.style.display = "none";
+      html.appendChild(iframe);
+      iframe.src = String(JS);
+      iframeDocument = iframe.contentWindow.document;
+      iframeDocument.open();
+      iframeDocument.write(scriptTag("document.F=Object"));
+      iframeDocument.close();
+      return iframeDocument.F;
+    };
+    var activeXDocument;
+    var NullProtoObject = function() {
+      try {
+        activeXDocument = new ActiveXObject("htmlfile");
+      } catch (error) {
+      }
+      NullProtoObject = typeof document != "undefined" ? document.domain && activeXDocument ? NullProtoObjectViaActiveX(activeXDocument) : NullProtoObjectViaIFrame() : NullProtoObjectViaActiveX(activeXDocument);
+      var length = enumBugKeys.length;
+      while (length--)
+        delete NullProtoObject[PROTOTYPE][enumBugKeys[length]];
+      return NullProtoObject();
+    };
+    hiddenKeys[IE_PROTO] = true;
+    module.exports = Object.create || function create(O2, Properties) {
+      var result;
+      if (O2 !== null) {
+        EmptyConstructor[PROTOTYPE] = anObject(O2);
+        result = new EmptyConstructor();
+        EmptyConstructor[PROTOTYPE] = null;
+        result[IE_PROTO] = O2;
+      } else
+        result = NullProtoObject();
+      return Properties === void 0 ? result : definePropertiesModule.f(result, Properties);
+    };
+  }
+});
+
+// node_modules/core-js/internals/correct-prototype-getter.js
+var require_correct_prototype_getter = __commonJS({
+  "node_modules/core-js/internals/correct-prototype-getter.js"(exports, module) {
+    var fails = require_fails();
+    module.exports = !fails(function() {
+      function F2() {
+      }
+      F2.prototype.constructor = null;
+      return Object.getPrototypeOf(new F2()) !== F2.prototype;
+    });
+  }
+});
+
+// node_modules/core-js/internals/object-get-prototype-of.js
+var require_object_get_prototype_of = __commonJS({
+  "node_modules/core-js/internals/object-get-prototype-of.js"(exports, module) {
+    var global2 = require_global();
+    var hasOwn = require_has_own_property();
+    var isCallable = require_is_callable();
+    var toObject = require_to_object();
+    var sharedKey = require_shared_key();
+    var CORRECT_PROTOTYPE_GETTER = require_correct_prototype_getter();
+    var IE_PROTO = sharedKey("IE_PROTO");
+    var Object2 = global2.Object;
+    var ObjectPrototype = Object2.prototype;
+    module.exports = CORRECT_PROTOTYPE_GETTER ? Object2.getPrototypeOf : function(O2) {
+      var object = toObject(O2);
+      if (hasOwn(object, IE_PROTO))
+        return object[IE_PROTO];
+      var constructor = object.constructor;
+      if (isCallable(constructor) && object instanceof constructor) {
+        return constructor.prototype;
+      }
+      return object instanceof Object2 ? ObjectPrototype : null;
+    };
+  }
+});
+
+// node_modules/core-js/internals/iterators-core.js
+var require_iterators_core = __commonJS({
+  "node_modules/core-js/internals/iterators-core.js"(exports, module) {
+    "use strict";
+    var fails = require_fails();
+    var isCallable = require_is_callable();
+    var create = require_object_create();
+    var getPrototypeOf = require_object_get_prototype_of();
+    var redefine = require_redefine();
+    var wellKnownSymbol = require_well_known_symbol();
+    var IS_PURE = require_is_pure();
+    var ITERATOR = wellKnownSymbol("iterator");
+    var BUGGY_SAFARI_ITERATORS = false;
+    var IteratorPrototype;
+    var PrototypeOfArrayIteratorPrototype;
+    var arrayIterator;
+    if ([].keys) {
+      arrayIterator = [].keys();
+      if (!("next" in arrayIterator))
+        BUGGY_SAFARI_ITERATORS = true;
+      else {
+        PrototypeOfArrayIteratorPrototype = getPrototypeOf(getPrototypeOf(arrayIterator));
+        if (PrototypeOfArrayIteratorPrototype !== Object.prototype)
+          IteratorPrototype = PrototypeOfArrayIteratorPrototype;
+      }
+    }
+    var NEW_ITERATOR_PROTOTYPE = IteratorPrototype == void 0 || fails(function() {
+      var test = {};
+      return IteratorPrototype[ITERATOR].call(test) !== test;
+    });
+    if (NEW_ITERATOR_PROTOTYPE)
+      IteratorPrototype = {};
+    else if (IS_PURE)
+      IteratorPrototype = create(IteratorPrototype);
+    if (!isCallable(IteratorPrototype[ITERATOR])) {
+      redefine(IteratorPrototype, ITERATOR, function() {
+        return this;
+      });
+    }
+    module.exports = {
+      IteratorPrototype,
+      BUGGY_SAFARI_ITERATORS
+    };
+  }
+});
+
+// node_modules/core-js/internals/set-to-string-tag.js
+var require_set_to_string_tag = __commonJS({
+  "node_modules/core-js/internals/set-to-string-tag.js"(exports, module) {
+    var defineProperty = require_object_define_property().f;
+    var hasOwn = require_has_own_property();
+    var wellKnownSymbol = require_well_known_symbol();
+    var TO_STRING_TAG = wellKnownSymbol("toStringTag");
+    module.exports = function(target, TAG, STATIC) {
+      if (target && !STATIC)
+        target = target.prototype;
+      if (target && !hasOwn(target, TO_STRING_TAG)) {
+        defineProperty(target, TO_STRING_TAG, { configurable: true, value: TAG });
+      }
+    };
+  }
+});
+
+// node_modules/core-js/internals/iterators.js
+var require_iterators = __commonJS({
+  "node_modules/core-js/internals/iterators.js"(exports, module) {
+    module.exports = {};
+  }
+});
+
+// node_modules/core-js/internals/create-iterator-constructor.js
+var require_create_iterator_constructor = __commonJS({
+  "node_modules/core-js/internals/create-iterator-constructor.js"(exports, module) {
+    "use strict";
+    var IteratorPrototype = require_iterators_core().IteratorPrototype;
+    var create = require_object_create();
+    var createPropertyDescriptor = require_create_property_descriptor();
+    var setToStringTag = require_set_to_string_tag();
+    var Iterators = require_iterators();
+    var returnThis = function() {
+      return this;
+    };
+    module.exports = function(IteratorConstructor, NAME, next, ENUMERABLE_NEXT) {
+      var TO_STRING_TAG = NAME + " Iterator";
+      IteratorConstructor.prototype = create(IteratorPrototype, { next: createPropertyDescriptor(+!ENUMERABLE_NEXT, next) });
+      setToStringTag(IteratorConstructor, TO_STRING_TAG, false, true);
+      Iterators[TO_STRING_TAG] = returnThis;
+      return IteratorConstructor;
+    };
+  }
+});
+
+// node_modules/core-js/internals/a-possible-prototype.js
+var require_a_possible_prototype = __commonJS({
+  "node_modules/core-js/internals/a-possible-prototype.js"(exports, module) {
+    var global2 = require_global();
+    var isCallable = require_is_callable();
+    var String2 = global2.String;
+    var TypeError2 = global2.TypeError;
+    module.exports = function(argument) {
+      if (typeof argument == "object" || isCallable(argument))
+        return argument;
+      throw TypeError2("Can't set " + String2(argument) + " as a prototype");
+    };
+  }
+});
+
+// node_modules/core-js/internals/object-set-prototype-of.js
+var require_object_set_prototype_of = __commonJS({
+  "node_modules/core-js/internals/object-set-prototype-of.js"(exports, module) {
+    var uncurryThis = require_function_uncurry_this();
+    var anObject = require_an_object();
+    var aPossiblePrototype = require_a_possible_prototype();
+    module.exports = Object.setPrototypeOf || ("__proto__" in {} ? function() {
+      var CORRECT_SETTER = false;
+      var test = {};
+      var setter;
+      try {
+        setter = uncurryThis(Object.getOwnPropertyDescriptor(Object.prototype, "__proto__").set);
+        setter(test, []);
+        CORRECT_SETTER = test instanceof Array;
+      } catch (error) {
+      }
+      return function setPrototypeOf(O2, proto) {
+        anObject(O2);
+        aPossiblePrototype(proto);
+        if (CORRECT_SETTER)
+          setter(O2, proto);
+        else
+          O2.__proto__ = proto;
+        return O2;
+      };
+    }() : void 0);
+  }
+});
+
+// node_modules/core-js/internals/define-iterator.js
+var require_define_iterator = __commonJS({
+  "node_modules/core-js/internals/define-iterator.js"(exports, module) {
+    "use strict";
+    var $ = require_export();
+    var call = require_function_call();
+    var IS_PURE = require_is_pure();
+    var FunctionName = require_function_name();
+    var isCallable = require_is_callable();
+    var createIteratorConstructor = require_create_iterator_constructor();
+    var getPrototypeOf = require_object_get_prototype_of();
+    var setPrototypeOf = require_object_set_prototype_of();
+    var setToStringTag = require_set_to_string_tag();
+    var createNonEnumerableProperty = require_create_non_enumerable_property();
+    var redefine = require_redefine();
+    var wellKnownSymbol = require_well_known_symbol();
+    var Iterators = require_iterators();
+    var IteratorsCore = require_iterators_core();
+    var PROPER_FUNCTION_NAME = FunctionName.PROPER;
+    var CONFIGURABLE_FUNCTION_NAME = FunctionName.CONFIGURABLE;
+    var IteratorPrototype = IteratorsCore.IteratorPrototype;
+    var BUGGY_SAFARI_ITERATORS = IteratorsCore.BUGGY_SAFARI_ITERATORS;
+    var ITERATOR = wellKnownSymbol("iterator");
+    var KEYS = "keys";
+    var VALUES = "values";
+    var ENTRIES = "entries";
+    var returnThis = function() {
+      return this;
+    };
+    module.exports = function(Iterable, NAME, IteratorConstructor, next, DEFAULT, IS_SET, FORCED) {
+      createIteratorConstructor(IteratorConstructor, NAME, next);
+      var getIterationMethod = function(KIND) {
+        if (KIND === DEFAULT && defaultIterator)
+          return defaultIterator;
+        if (!BUGGY_SAFARI_ITERATORS && KIND in IterablePrototype)
+          return IterablePrototype[KIND];
+        switch (KIND) {
+          case KEYS:
+            return function keys() {
+              return new IteratorConstructor(this, KIND);
+            };
+          case VALUES:
+            return function values() {
+              return new IteratorConstructor(this, KIND);
+            };
+          case ENTRIES:
+            return function entries() {
+              return new IteratorConstructor(this, KIND);
+            };
+        }
+        return function() {
+          return new IteratorConstructor(this);
+        };
+      };
+      var TO_STRING_TAG = NAME + " Iterator";
+      var INCORRECT_VALUES_NAME = false;
+      var IterablePrototype = Iterable.prototype;
+      var nativeIterator = IterablePrototype[ITERATOR] || IterablePrototype["@@iterator"] || DEFAULT && IterablePrototype[DEFAULT];
+      var defaultIterator = !BUGGY_SAFARI_ITERATORS && nativeIterator || getIterationMethod(DEFAULT);
+      var anyNativeIterator = NAME == "Array" ? IterablePrototype.entries || nativeIterator : nativeIterator;
+      var CurrentIteratorPrototype, methods, KEY;
+      if (anyNativeIterator) {
+        CurrentIteratorPrototype = getPrototypeOf(anyNativeIterator.call(new Iterable()));
+        if (CurrentIteratorPrototype !== Object.prototype && CurrentIteratorPrototype.next) {
+          if (!IS_PURE && getPrototypeOf(CurrentIteratorPrototype) !== IteratorPrototype) {
+            if (setPrototypeOf) {
+              setPrototypeOf(CurrentIteratorPrototype, IteratorPrototype);
+            } else if (!isCallable(CurrentIteratorPrototype[ITERATOR])) {
+              redefine(CurrentIteratorPrototype, ITERATOR, returnThis);
+            }
+          }
+          setToStringTag(CurrentIteratorPrototype, TO_STRING_TAG, true, true);
+          if (IS_PURE)
+            Iterators[TO_STRING_TAG] = returnThis;
+        }
+      }
+      if (PROPER_FUNCTION_NAME && DEFAULT == VALUES && nativeIterator && nativeIterator.name !== VALUES) {
+        if (!IS_PURE && CONFIGURABLE_FUNCTION_NAME) {
+          createNonEnumerableProperty(IterablePrototype, "name", VALUES);
+        } else {
+          INCORRECT_VALUES_NAME = true;
+          defaultIterator = function values() {
+            return call(nativeIterator, this);
+          };
+        }
+      }
+      if (DEFAULT) {
+        methods = {
+          values: getIterationMethod(VALUES),
+          keys: IS_SET ? defaultIterator : getIterationMethod(KEYS),
+          entries: getIterationMethod(ENTRIES)
+        };
+        if (FORCED)
+          for (KEY in methods) {
+            if (BUGGY_SAFARI_ITERATORS || INCORRECT_VALUES_NAME || !(KEY in IterablePrototype)) {
+              redefine(IterablePrototype, KEY, methods[KEY]);
+            }
+          }
+        else
+          $({ target: NAME, proto: true, forced: BUGGY_SAFARI_ITERATORS || INCORRECT_VALUES_NAME }, methods);
+      }
+      if ((!IS_PURE || FORCED) && IterablePrototype[ITERATOR] !== defaultIterator) {
+        redefine(IterablePrototype, ITERATOR, defaultIterator, { name: DEFAULT });
+      }
+      Iterators[NAME] = defaultIterator;
+      return methods;
+    };
+  }
+});
+
+// node_modules/core-js/modules/es.string.iterator.js
+var require_es_string_iterator = __commonJS({
+  "node_modules/core-js/modules/es.string.iterator.js"() {
+    "use strict";
+    var charAt = require_string_multibyte().charAt;
+    var toString = require_to_string();
+    var InternalStateModule = require_internal_state();
+    var defineIterator = require_define_iterator();
+    var STRING_ITERATOR = "String Iterator";
+    var setInternalState = InternalStateModule.set;
+    var getInternalState = InternalStateModule.getterFor(STRING_ITERATOR);
+    defineIterator(String, "String", function(iterated) {
+      setInternalState(this, {
+        type: STRING_ITERATOR,
+        string: toString(iterated),
+        index: 0
+      });
+    }, function next() {
+      var state = getInternalState(this);
+      var string = state.string;
+      var index = state.index;
+      var point;
+      if (index >= string.length)
+        return { value: void 0, done: true };
+      point = charAt(string, index);
+      state.index += point.length;
+      return { value: point, done: false };
+    });
+  }
+});
+
+// node_modules/core-js/internals/native-url.js
+var require_native_url = __commonJS({
+  "node_modules/core-js/internals/native-url.js"(exports, module) {
+    var fails = require_fails();
+    var wellKnownSymbol = require_well_known_symbol();
+    var IS_PURE = require_is_pure();
+    var ITERATOR = wellKnownSymbol("iterator");
+    module.exports = !fails(function() {
+      var url = new URL("b?a=1&b=2&c=3", "http://a");
+      var searchParams = url.searchParams;
+      var result = "";
+      url.pathname = "c%20d";
+      searchParams.forEach(function(value, key) {
+        searchParams["delete"]("b");
+        result += key + value;
+      });
+      return IS_PURE && !url.toJSON || !searchParams.sort || url.href !== "http://a/c%20d?a=1&c=3" || searchParams.get("c") !== "3" || String(new URLSearchParams("?a=1")) !== "a=1" || !searchParams[ITERATOR] || new URL("https://a@b").username !== "a" || new URLSearchParams(new URLSearchParams("a=b")).get("a") !== "b" || new URL("http://\u0442\u0435\u0441\u0442").host !== "xn--e1aybc" || new URL("http://a#\u0431").hash !== "#%D0%B1" || result !== "a1c3" || new URL("http://x", void 0).host !== "x";
+    });
+  }
+});
+
+// node_modules/core-js/internals/function-bind-context.js
+var require_function_bind_context = __commonJS({
+  "node_modules/core-js/internals/function-bind-context.js"(exports, module) {
+    var uncurryThis = require_function_uncurry_this();
+    var aCallable = require_a_callable();
+    var NATIVE_BIND = require_function_bind_native();
+    var bind = uncurryThis(uncurryThis.bind);
+    module.exports = function(fn, that) {
+      aCallable(fn);
+      return that === void 0 ? fn : NATIVE_BIND ? bind(fn, that) : function() {
+        return fn.apply(that, arguments);
+      };
+    };
+  }
+});
+
+// node_modules/core-js/internals/an-instance.js
+var require_an_instance = __commonJS({
+  "node_modules/core-js/internals/an-instance.js"(exports, module) {
+    var global2 = require_global();
+    var isPrototypeOf = require_object_is_prototype_of();
+    var TypeError2 = global2.TypeError;
+    module.exports = function(it, Prototype) {
+      if (isPrototypeOf(Prototype, it))
+        return it;
+      throw TypeError2("Incorrect invocation");
+    };
+  }
+});
+
+// node_modules/core-js/internals/object-assign.js
+var require_object_assign = __commonJS({
+  "node_modules/core-js/internals/object-assign.js"(exports, module) {
+    "use strict";
+    var DESCRIPTORS = require_descriptors();
+    var uncurryThis = require_function_uncurry_this();
+    var call = require_function_call();
+    var fails = require_fails();
+    var objectKeys = require_object_keys();
+    var getOwnPropertySymbolsModule = require_object_get_own_property_symbols();
+    var propertyIsEnumerableModule = require_object_property_is_enumerable();
+    var toObject = require_to_object();
+    var IndexedObject = require_indexed_object();
+    var $assign = Object.assign;
+    var defineProperty = Object.defineProperty;
+    var concat = uncurryThis([].concat);
+    module.exports = !$assign || fails(function() {
+      if (DESCRIPTORS && $assign({ b: 1 }, $assign(defineProperty({}, "a", {
+        enumerable: true,
+        get: function() {
+          defineProperty(this, "b", {
+            value: 3,
+            enumerable: false
+          });
+        }
+      }), { b: 2 })).b !== 1)
+        return true;
+      var A2 = {};
+      var B2 = {};
+      var symbol = Symbol();
+      var alphabet = "abcdefghijklmnopqrst";
+      A2[symbol] = 7;
+      alphabet.split("").forEach(function(chr) {
+        B2[chr] = chr;
+      });
+      return $assign({}, A2)[symbol] != 7 || objectKeys($assign({}, B2)).join("") != alphabet;
+    }) ? function assign(target, source) {
+      var T2 = toObject(target);
+      var argumentsLength = arguments.length;
+      var index = 1;
+      var getOwnPropertySymbols = getOwnPropertySymbolsModule.f;
+      var propertyIsEnumerable = propertyIsEnumerableModule.f;
+      while (argumentsLength > index) {
+        var S2 = IndexedObject(arguments[index++]);
+        var keys = getOwnPropertySymbols ? concat(objectKeys(S2), getOwnPropertySymbols(S2)) : objectKeys(S2);
+        var length = keys.length;
+        var j = 0;
+        var key;
+        while (length > j) {
+          key = keys[j++];
+          if (!DESCRIPTORS || call(propertyIsEnumerable, S2, key))
+            T2[key] = S2[key];
+        }
+      }
+      return T2;
+    } : $assign;
+  }
+});
+
+// node_modules/core-js/internals/iterator-close.js
+var require_iterator_close = __commonJS({
+  "node_modules/core-js/internals/iterator-close.js"(exports, module) {
+    var call = require_function_call();
+    var anObject = require_an_object();
+    var getMethod = require_get_method();
+    module.exports = function(iterator, kind, value) {
+      var innerResult, innerError;
+      anObject(iterator);
+      try {
+        innerResult = getMethod(iterator, "return");
+        if (!innerResult) {
+          if (kind === "throw")
+            throw value;
+          return value;
+        }
+        innerResult = call(innerResult, iterator);
+      } catch (error) {
+        innerError = true;
+        innerResult = error;
+      }
+      if (kind === "throw")
+        throw value;
+      if (innerError)
+        throw innerResult;
+      anObject(innerResult);
+      return value;
+    };
+  }
+});
+
+// node_modules/core-js/internals/call-with-safe-iteration-closing.js
+var require_call_with_safe_iteration_closing = __commonJS({
+  "node_modules/core-js/internals/call-with-safe-iteration-closing.js"(exports, module) {
+    var anObject = require_an_object();
+    var iteratorClose = require_iterator_close();
+    module.exports = function(iterator, fn, value, ENTRIES) {
+      try {
+        return ENTRIES ? fn(anObject(value)[0], value[1]) : fn(value);
+      } catch (error) {
+        iteratorClose(iterator, "throw", error);
+      }
+    };
+  }
+});
+
+// node_modules/core-js/internals/is-array-iterator-method.js
+var require_is_array_iterator_method = __commonJS({
+  "node_modules/core-js/internals/is-array-iterator-method.js"(exports, module) {
+    var wellKnownSymbol = require_well_known_symbol();
+    var Iterators = require_iterators();
+    var ITERATOR = wellKnownSymbol("iterator");
+    var ArrayPrototype = Array.prototype;
+    module.exports = function(it) {
+      return it !== void 0 && (Iterators.Array === it || ArrayPrototype[ITERATOR] === it);
+    };
+  }
+});
+
+// node_modules/core-js/internals/is-constructor.js
+var require_is_constructor = __commonJS({
+  "node_modules/core-js/internals/is-constructor.js"(exports, module) {
+    var uncurryThis = require_function_uncurry_this();
+    var fails = require_fails();
+    var isCallable = require_is_callable();
+    var classof = require_classof();
+    var getBuiltIn = require_get_built_in();
+    var inspectSource = require_inspect_source();
+    var noop = function() {
+    };
+    var empty = [];
+    var construct = getBuiltIn("Reflect", "construct");
+    var constructorRegExp = /^\s*(?:class|function)\b/;
+    var exec = uncurryThis(constructorRegExp.exec);
+    var INCORRECT_TO_STRING = !constructorRegExp.exec(noop);
+    var isConstructorModern = function isConstructor(argument) {
+      if (!isCallable(argument))
+        return false;
+      try {
+        construct(noop, empty, argument);
+        return true;
+      } catch (error) {
+        return false;
+      }
+    };
+    var isConstructorLegacy = function isConstructor(argument) {
+      if (!isCallable(argument))
+        return false;
+      switch (classof(argument)) {
+        case "AsyncFunction":
+        case "GeneratorFunction":
+        case "AsyncGeneratorFunction":
+          return false;
+      }
+      try {
+        return INCORRECT_TO_STRING || !!exec(constructorRegExp, inspectSource(argument));
+      } catch (error) {
+        return true;
+      }
+    };
+    isConstructorLegacy.sham = true;
+    module.exports = !construct || fails(function() {
+      var called;
+      return isConstructorModern(isConstructorModern.call) || !isConstructorModern(Object) || !isConstructorModern(function() {
+        called = true;
+      }) || called;
+    }) ? isConstructorLegacy : isConstructorModern;
+  }
+});
+
+// node_modules/core-js/internals/create-property.js
+var require_create_property = __commonJS({
+  "node_modules/core-js/internals/create-property.js"(exports, module) {
+    "use strict";
+    var toPropertyKey = require_to_property_key();
+    var definePropertyModule = require_object_define_property();
+    var createPropertyDescriptor = require_create_property_descriptor();
+    module.exports = function(object, key, value) {
+      var propertyKey = toPropertyKey(key);
+      if (propertyKey in object)
+        definePropertyModule.f(object, propertyKey, createPropertyDescriptor(0, value));
+      else
+        object[propertyKey] = value;
+    };
+  }
+});
+
+// node_modules/core-js/internals/get-iterator-method.js
+var require_get_iterator_method = __commonJS({
+  "node_modules/core-js/internals/get-iterator-method.js"(exports, module) {
+    var classof = require_classof();
+    var getMethod = require_get_method();
+    var Iterators = require_iterators();
+    var wellKnownSymbol = require_well_known_symbol();
+    var ITERATOR = wellKnownSymbol("iterator");
+    module.exports = function(it) {
+      if (it != void 0)
+        return getMethod(it, ITERATOR) || getMethod(it, "@@iterator") || Iterators[classof(it)];
+    };
+  }
+});
+
+// node_modules/core-js/internals/get-iterator.js
+var require_get_iterator = __commonJS({
+  "node_modules/core-js/internals/get-iterator.js"(exports, module) {
+    var global2 = require_global();
+    var call = require_function_call();
+    var aCallable = require_a_callable();
+    var anObject = require_an_object();
+    var tryToString = require_try_to_string();
+    var getIteratorMethod = require_get_iterator_method();
+    var TypeError2 = global2.TypeError;
+    module.exports = function(argument, usingIterator) {
+      var iteratorMethod = arguments.length < 2 ? getIteratorMethod(argument) : usingIterator;
+      if (aCallable(iteratorMethod))
+        return anObject(call(iteratorMethod, argument));
+      throw TypeError2(tryToString(argument) + " is not iterable");
+    };
+  }
+});
+
+// node_modules/core-js/internals/array-from.js
+var require_array_from = __commonJS({
+  "node_modules/core-js/internals/array-from.js"(exports, module) {
+    "use strict";
+    var global2 = require_global();
+    var bind = require_function_bind_context();
+    var call = require_function_call();
+    var toObject = require_to_object();
+    var callWithSafeIterationClosing = require_call_with_safe_iteration_closing();
+    var isArrayIteratorMethod = require_is_array_iterator_method();
+    var isConstructor = require_is_constructor();
+    var lengthOfArrayLike = require_length_of_array_like();
+    var createProperty = require_create_property();
+    var getIterator = require_get_iterator();
+    var getIteratorMethod = require_get_iterator_method();
+    var Array2 = global2.Array;
+    module.exports = function from(arrayLike) {
+      var O2 = toObject(arrayLike);
+      var IS_CONSTRUCTOR = isConstructor(this);
+      var argumentsLength = arguments.length;
+      var mapfn = argumentsLength > 1 ? arguments[1] : void 0;
+      var mapping = mapfn !== void 0;
+      if (mapping)
+        mapfn = bind(mapfn, argumentsLength > 2 ? arguments[2] : void 0);
+      var iteratorMethod = getIteratorMethod(O2);
+      var index = 0;
+      var length, result, step, iterator, next, value;
+      if (iteratorMethod && !(this == Array2 && isArrayIteratorMethod(iteratorMethod))) {
+        iterator = getIterator(O2, iteratorMethod);
+        next = iterator.next;
+        result = IS_CONSTRUCTOR ? new this() : [];
+        for (; !(step = call(next, iterator)).done; index++) {
+          value = mapping ? callWithSafeIterationClosing(iterator, mapfn, [step.value, index], true) : step.value;
+          createProperty(result, index, value);
+        }
+      } else {
+        length = lengthOfArrayLike(O2);
+        result = IS_CONSTRUCTOR ? new this(length) : Array2(length);
+        for (; length > index; index++) {
+          value = mapping ? mapfn(O2[index], index) : O2[index];
+          createProperty(result, index, value);
+        }
+      }
+      result.length = index;
+      return result;
+    };
+  }
+});
+
+// node_modules/core-js/internals/array-slice-simple.js
+var require_array_slice_simple = __commonJS({
+  "node_modules/core-js/internals/array-slice-simple.js"(exports, module) {
+    var global2 = require_global();
+    var toAbsoluteIndex = require_to_absolute_index();
+    var lengthOfArrayLike = require_length_of_array_like();
+    var createProperty = require_create_property();
+    var Array2 = global2.Array;
+    var max = Math.max;
+    module.exports = function(O2, start, end) {
+      var length = lengthOfArrayLike(O2);
+      var k2 = toAbsoluteIndex(start, length);
+      var fin = toAbsoluteIndex(end === void 0 ? length : end, length);
+      var result = Array2(max(fin - k2, 0));
+      for (var n2 = 0; k2 < fin; k2++, n2++)
+        createProperty(result, n2, O2[k2]);
+      result.length = n2;
+      return result;
+    };
+  }
+});
+
+// node_modules/core-js/internals/string-punycode-to-ascii.js
+var require_string_punycode_to_ascii = __commonJS({
+  "node_modules/core-js/internals/string-punycode-to-ascii.js"(exports, module) {
+    "use strict";
+    var global2 = require_global();
+    var uncurryThis = require_function_uncurry_this();
+    var maxInt = 2147483647;
+    var base = 36;
+    var tMin = 1;
+    var tMax = 26;
+    var skew = 38;
+    var damp = 700;
+    var initialBias = 72;
+    var initialN = 128;
+    var delimiter = "-";
+    var regexNonASCII = /[^\0-\u007E]/;
+    var regexSeparators = /[.\u3002\uFF0E\uFF61]/g;
+    var OVERFLOW_ERROR = "Overflow: input needs wider integers to process";
+    var baseMinusTMin = base - tMin;
+    var RangeError2 = global2.RangeError;
+    var exec = uncurryThis(regexSeparators.exec);
+    var floor = Math.floor;
+    var fromCharCode = String.fromCharCode;
+    var charCodeAt = uncurryThis("".charCodeAt);
+    var join = uncurryThis([].join);
+    var push = uncurryThis([].push);
+    var replace = uncurryThis("".replace);
+    var split = uncurryThis("".split);
+    var toLowerCase = uncurryThis("".toLowerCase);
+    var ucs2decode = function(string) {
+      var output = [];
+      var counter = 0;
+      var length = string.length;
+      while (counter < length) {
+        var value = charCodeAt(string, counter++);
+        if (value >= 55296 && value <= 56319 && counter < length) {
+          var extra = charCodeAt(string, counter++);
+          if ((extra & 64512) == 56320) {
+            push(output, ((value & 1023) << 10) + (extra & 1023) + 65536);
+          } else {
+            push(output, value);
+            counter--;
+          }
+        } else {
+          push(output, value);
+        }
+      }
+      return output;
+    };
+    var digitToBasic = function(digit) {
+      return digit + 22 + 75 * (digit < 26);
+    };
+    var adapt = function(delta, numPoints, firstTime) {
+      var k2 = 0;
+      delta = firstTime ? floor(delta / damp) : delta >> 1;
+      delta += floor(delta / numPoints);
+      while (delta > baseMinusTMin * tMax >> 1) {
+        delta = floor(delta / baseMinusTMin);
+        k2 += base;
+      }
+      return floor(k2 + (baseMinusTMin + 1) * delta / (delta + skew));
+    };
+    var encode = function(input) {
+      var output = [];
+      input = ucs2decode(input);
+      var inputLength = input.length;
+      var n2 = initialN;
+      var delta = 0;
+      var bias = initialBias;
+      var i2, currentValue;
+      for (i2 = 0; i2 < input.length; i2++) {
+        currentValue = input[i2];
+        if (currentValue < 128) {
+          push(output, fromCharCode(currentValue));
+        }
+      }
+      var basicLength = output.length;
+      var handledCPCount = basicLength;
+      if (basicLength) {
+        push(output, delimiter);
+      }
+      while (handledCPCount < inputLength) {
+        var m2 = maxInt;
+        for (i2 = 0; i2 < input.length; i2++) {
+          currentValue = input[i2];
+          if (currentValue >= n2 && currentValue < m2) {
+            m2 = currentValue;
+          }
+        }
+        var handledCPCountPlusOne = handledCPCount + 1;
+        if (m2 - n2 > floor((maxInt - delta) / handledCPCountPlusOne)) {
+          throw RangeError2(OVERFLOW_ERROR);
+        }
+        delta += (m2 - n2) * handledCPCountPlusOne;
+        n2 = m2;
+        for (i2 = 0; i2 < input.length; i2++) {
+          currentValue = input[i2];
+          if (currentValue < n2 && ++delta > maxInt) {
+            throw RangeError2(OVERFLOW_ERROR);
+          }
+          if (currentValue == n2) {
+            var q = delta;
+            var k2 = base;
+            while (true) {
+              var t2 = k2 <= bias ? tMin : k2 >= bias + tMax ? tMax : k2 - bias;
+              if (q < t2)
+                break;
+              var qMinusT = q - t2;
+              var baseMinusT = base - t2;
+              push(output, fromCharCode(digitToBasic(t2 + qMinusT % baseMinusT)));
+              q = floor(qMinusT / baseMinusT);
+              k2 += base;
+            }
+            push(output, fromCharCode(digitToBasic(q)));
+            bias = adapt(delta, handledCPCountPlusOne, handledCPCount == basicLength);
+            delta = 0;
+            handledCPCount++;
+          }
+        }
+        delta++;
+        n2++;
+      }
+      return join(output, "");
+    };
+    module.exports = function(input) {
+      var encoded = [];
+      var labels = split(replace(toLowerCase(input), regexSeparators, "."), ".");
+      var i2, label;
+      for (i2 = 0; i2 < labels.length; i2++) {
+        label = labels[i2];
+        push(encoded, exec(regexNonASCII, label) ? "xn--" + encode(label) : label);
+      }
+      return join(encoded, ".");
+    };
+  }
+});
+
+// node_modules/core-js/internals/add-to-unscopables.js
+var require_add_to_unscopables = __commonJS({
+  "node_modules/core-js/internals/add-to-unscopables.js"(exports, module) {
+    var wellKnownSymbol = require_well_known_symbol();
+    var create = require_object_create();
+    var definePropertyModule = require_object_define_property();
+    var UNSCOPABLES = wellKnownSymbol("unscopables");
+    var ArrayPrototype = Array.prototype;
+    if (ArrayPrototype[UNSCOPABLES] == void 0) {
+      definePropertyModule.f(ArrayPrototype, UNSCOPABLES, {
+        configurable: true,
+        value: create(null)
+      });
+    }
+    module.exports = function(key) {
+      ArrayPrototype[UNSCOPABLES][key] = true;
+    };
+  }
+});
+
+// node_modules/core-js/modules/es.array.iterator.js
+var require_es_array_iterator = __commonJS({
+  "node_modules/core-js/modules/es.array.iterator.js"(exports, module) {
+    "use strict";
+    var toIndexedObject = require_to_indexed_object();
+    var addToUnscopables = require_add_to_unscopables();
+    var Iterators = require_iterators();
+    var InternalStateModule = require_internal_state();
+    var defineProperty = require_object_define_property().f;
+    var defineIterator = require_define_iterator();
+    var IS_PURE = require_is_pure();
+    var DESCRIPTORS = require_descriptors();
+    var ARRAY_ITERATOR = "Array Iterator";
+    var setInternalState = InternalStateModule.set;
+    var getInternalState = InternalStateModule.getterFor(ARRAY_ITERATOR);
+    module.exports = defineIterator(Array, "Array", function(iterated, kind) {
+      setInternalState(this, {
+        type: ARRAY_ITERATOR,
+        target: toIndexedObject(iterated),
+        index: 0,
+        kind
+      });
+    }, function() {
+      var state = getInternalState(this);
+      var target = state.target;
+      var kind = state.kind;
+      var index = state.index++;
+      if (!target || index >= target.length) {
+        state.target = void 0;
+        return { value: void 0, done: true };
+      }
+      if (kind == "keys")
+        return { value: index, done: false };
+      if (kind == "values")
+        return { value: target[index], done: false };
+      return { value: [index, target[index]], done: false };
+    }, "values");
+    var values = Iterators.Arguments = Iterators.Array;
+    addToUnscopables("keys");
+    addToUnscopables("values");
+    addToUnscopables("entries");
+    if (!IS_PURE && DESCRIPTORS && values.name !== "values")
+      try {
+        defineProperty(values, "name", { value: "values" });
+      } catch (error) {
+      }
+  }
+});
+
+// node_modules/core-js/internals/redefine-all.js
+var require_redefine_all = __commonJS({
+  "node_modules/core-js/internals/redefine-all.js"(exports, module) {
+    var redefine = require_redefine();
+    module.exports = function(target, src, options) {
+      for (var key in src)
+        redefine(target, key, src[key], options);
+      return target;
+    };
+  }
+});
+
+// node_modules/core-js/internals/validate-arguments-length.js
+var require_validate_arguments_length = __commonJS({
+  "node_modules/core-js/internals/validate-arguments-length.js"(exports, module) {
+    var global2 = require_global();
+    var TypeError2 = global2.TypeError;
+    module.exports = function(passed, required) {
+      if (passed < required)
+        throw TypeError2("Not enough arguments");
+      return passed;
+    };
+  }
+});
+
+// node_modules/core-js/internals/array-sort.js
+var require_array_sort = __commonJS({
+  "node_modules/core-js/internals/array-sort.js"(exports, module) {
+    var arraySlice = require_array_slice_simple();
+    var floor = Math.floor;
+    var mergeSort = function(array, comparefn) {
+      var length = array.length;
+      var middle = floor(length / 2);
+      return length < 8 ? insertionSort(array, comparefn) : merge(array, mergeSort(arraySlice(array, 0, middle), comparefn), mergeSort(arraySlice(array, middle), comparefn), comparefn);
+    };
+    var insertionSort = function(array, comparefn) {
+      var length = array.length;
+      var i2 = 1;
+      var element, j;
+      while (i2 < length) {
+        j = i2;
+        element = array[i2];
+        while (j && comparefn(array[j - 1], element) > 0) {
+          array[j] = array[--j];
+        }
+        if (j !== i2++)
+          array[j] = element;
+      }
+      return array;
+    };
+    var merge = function(array, left, right, comparefn) {
+      var llength = left.length;
+      var rlength = right.length;
+      var lindex = 0;
+      var rindex = 0;
+      while (lindex < llength || rindex < rlength) {
+        array[lindex + rindex] = lindex < llength && rindex < rlength ? comparefn(left[lindex], right[rindex]) <= 0 ? left[lindex++] : right[rindex++] : lindex < llength ? left[lindex++] : right[rindex++];
+      }
+      return array;
+    };
+    module.exports = mergeSort;
+  }
+});
+
+// node_modules/core-js/modules/web.url-search-params.js
+var require_web_url_search_params = __commonJS({
+  "node_modules/core-js/modules/web.url-search-params.js"(exports, module) {
+    "use strict";
+    require_es_array_iterator();
+    var $ = require_export();
+    var global2 = require_global();
+    var getBuiltIn = require_get_built_in();
+    var call = require_function_call();
+    var uncurryThis = require_function_uncurry_this();
+    var USE_NATIVE_URL = require_native_url();
+    var redefine = require_redefine();
+    var redefineAll = require_redefine_all();
+    var setToStringTag = require_set_to_string_tag();
+    var createIteratorConstructor = require_create_iterator_constructor();
+    var InternalStateModule = require_internal_state();
+    var anInstance = require_an_instance();
+    var isCallable = require_is_callable();
+    var hasOwn = require_has_own_property();
+    var bind = require_function_bind_context();
+    var classof = require_classof();
+    var anObject = require_an_object();
+    var isObject2 = require_is_object();
+    var $toString = require_to_string();
+    var create = require_object_create();
+    var createPropertyDescriptor = require_create_property_descriptor();
+    var getIterator = require_get_iterator();
+    var getIteratorMethod = require_get_iterator_method();
+    var validateArgumentsLength = require_validate_arguments_length();
+    var wellKnownSymbol = require_well_known_symbol();
+    var arraySort = require_array_sort();
+    var ITERATOR = wellKnownSymbol("iterator");
+    var URL_SEARCH_PARAMS = "URLSearchParams";
+    var URL_SEARCH_PARAMS_ITERATOR = URL_SEARCH_PARAMS + "Iterator";
+    var setInternalState = InternalStateModule.set;
+    var getInternalParamsState = InternalStateModule.getterFor(URL_SEARCH_PARAMS);
+    var getInternalIteratorState = InternalStateModule.getterFor(URL_SEARCH_PARAMS_ITERATOR);
+    var n$Fetch = getBuiltIn("fetch");
+    var N$Request = getBuiltIn("Request");
+    var Headers = getBuiltIn("Headers");
+    var RequestPrototype = N$Request && N$Request.prototype;
+    var HeadersPrototype = Headers && Headers.prototype;
+    var RegExp2 = global2.RegExp;
+    var TypeError2 = global2.TypeError;
+    var decodeURIComponent2 = global2.decodeURIComponent;
+    var encodeURIComponent2 = global2.encodeURIComponent;
+    var charAt = uncurryThis("".charAt);
+    var join = uncurryThis([].join);
+    var push = uncurryThis([].push);
+    var replace = uncurryThis("".replace);
+    var shift = uncurryThis([].shift);
+    var splice = uncurryThis([].splice);
+    var split = uncurryThis("".split);
+    var stringSlice = uncurryThis("".slice);
+    var plus = /\+/g;
+    var sequences = Array(4);
+    var percentSequence = function(bytes) {
+      return sequences[bytes - 1] || (sequences[bytes - 1] = RegExp2("((?:%[\\da-f]{2}){" + bytes + "})", "gi"));
+    };
+    var percentDecode = function(sequence) {
+      try {
+        return decodeURIComponent2(sequence);
+      } catch (error) {
+        return sequence;
+      }
+    };
+    var deserialize = function(it) {
+      var result = replace(it, plus, " ");
+      var bytes = 4;
+      try {
+        return decodeURIComponent2(result);
+      } catch (error) {
+        while (bytes) {
+          result = replace(result, percentSequence(bytes--), percentDecode);
+        }
+        return result;
+      }
+    };
+    var find = /[!'()~]|%20/g;
+    var replacements = {
+      "!": "%21",
+      "'": "%27",
+      "(": "%28",
+      ")": "%29",
+      "~": "%7E",
+      "%20": "+"
+    };
+    var replacer = function(match) {
+      return replacements[match];
+    };
+    var serialize = function(it) {
+      return replace(encodeURIComponent2(it), find, replacer);
+    };
+    var URLSearchParamsIterator = createIteratorConstructor(function Iterator(params, kind) {
+      setInternalState(this, {
+        type: URL_SEARCH_PARAMS_ITERATOR,
+        iterator: getIterator(getInternalParamsState(params).entries),
+        kind
+      });
+    }, "Iterator", function next() {
+      var state = getInternalIteratorState(this);
+      var kind = state.kind;
+      var step = state.iterator.next();
+      var entry = step.value;
+      if (!step.done) {
+        step.value = kind === "keys" ? entry.key : kind === "values" ? entry.value : [entry.key, entry.value];
+      }
+      return step;
+    }, true);
+    var URLSearchParamsState = function(init) {
+      this.entries = [];
+      this.url = null;
+      if (init !== void 0) {
+        if (isObject2(init))
+          this.parseObject(init);
+        else
+          this.parseQuery(typeof init == "string" ? charAt(init, 0) === "?" ? stringSlice(init, 1) : init : $toString(init));
+      }
+    };
+    URLSearchParamsState.prototype = {
+      type: URL_SEARCH_PARAMS,
+      bindURL: function(url) {
+        this.url = url;
+        this.update();
+      },
+      parseObject: function(object) {
+        var iteratorMethod = getIteratorMethod(object);
+        var iterator, next, step, entryIterator, entryNext, first, second;
+        if (iteratorMethod) {
+          iterator = getIterator(object, iteratorMethod);
+          next = iterator.next;
+          while (!(step = call(next, iterator)).done) {
+            entryIterator = getIterator(anObject(step.value));
+            entryNext = entryIterator.next;
+            if ((first = call(entryNext, entryIterator)).done || (second = call(entryNext, entryIterator)).done || !call(entryNext, entryIterator).done)
+              throw TypeError2("Expected sequence with length 2");
+            push(this.entries, { key: $toString(first.value), value: $toString(second.value) });
+          }
+        } else
+          for (var key in object)
+            if (hasOwn(object, key)) {
+              push(this.entries, { key, value: $toString(object[key]) });
+            }
+      },
+      parseQuery: function(query) {
+        if (query) {
+          var attributes = split(query, "&");
+          var index = 0;
+          var attribute, entry;
+          while (index < attributes.length) {
+            attribute = attributes[index++];
+            if (attribute.length) {
+              entry = split(attribute, "=");
+              push(this.entries, {
+                key: deserialize(shift(entry)),
+                value: deserialize(join(entry, "="))
+              });
+            }
+          }
+        }
+      },
+      serialize: function() {
+        var entries = this.entries;
+        var result = [];
+        var index = 0;
+        var entry;
+        while (index < entries.length) {
+          entry = entries[index++];
+          push(result, serialize(entry.key) + "=" + serialize(entry.value));
+        }
+        return join(result, "&");
+      },
+      update: function() {
+        this.entries.length = 0;
+        this.parseQuery(this.url.query);
+      },
+      updateURL: function() {
+        if (this.url)
+          this.url.update();
+      }
+    };
+    var URLSearchParamsConstructor = function URLSearchParams2() {
+      anInstance(this, URLSearchParamsPrototype);
+      var init = arguments.length > 0 ? arguments[0] : void 0;
+      setInternalState(this, new URLSearchParamsState(init));
+    };
+    var URLSearchParamsPrototype = URLSearchParamsConstructor.prototype;
+    redefineAll(URLSearchParamsPrototype, {
+      append: function append(name, value) {
+        validateArgumentsLength(arguments.length, 2);
+        var state = getInternalParamsState(this);
+        push(state.entries, { key: $toString(name), value: $toString(value) });
+        state.updateURL();
+      },
+      "delete": function(name) {
+        validateArgumentsLength(arguments.length, 1);
+        var state = getInternalParamsState(this);
+        var entries = state.entries;
+        var key = $toString(name);
+        var index = 0;
+        while (index < entries.length) {
+          if (entries[index].key === key)
+            splice(entries, index, 1);
+          else
+            index++;
+        }
+        state.updateURL();
+      },
+      get: function get(name) {
+        validateArgumentsLength(arguments.length, 1);
+        var entries = getInternalParamsState(this).entries;
+        var key = $toString(name);
+        var index = 0;
+        for (; index < entries.length; index++) {
+          if (entries[index].key === key)
+            return entries[index].value;
+        }
+        return null;
+      },
+      getAll: function getAll(name) {
+        validateArgumentsLength(arguments.length, 1);
+        var entries = getInternalParamsState(this).entries;
+        var key = $toString(name);
+        var result = [];
+        var index = 0;
+        for (; index < entries.length; index++) {
+          if (entries[index].key === key)
+            push(result, entries[index].value);
+        }
+        return result;
+      },
+      has: function has(name) {
+        validateArgumentsLength(arguments.length, 1);
+        var entries = getInternalParamsState(this).entries;
+        var key = $toString(name);
+        var index = 0;
+        while (index < entries.length) {
+          if (entries[index++].key === key)
+            return true;
+        }
+        return false;
+      },
+      set: function set(name, value) {
+        validateArgumentsLength(arguments.length, 1);
+        var state = getInternalParamsState(this);
+        var entries = state.entries;
+        var found = false;
+        var key = $toString(name);
+        var val = $toString(value);
+        var index = 0;
+        var entry;
+        for (; index < entries.length; index++) {
+          entry = entries[index];
+          if (entry.key === key) {
+            if (found)
+              splice(entries, index--, 1);
+            else {
+              found = true;
+              entry.value = val;
+            }
+          }
+        }
+        if (!found)
+          push(entries, { key, value: val });
+        state.updateURL();
+      },
+      sort: function sort() {
+        var state = getInternalParamsState(this);
+        arraySort(state.entries, function(a2, b2) {
+          return a2.key > b2.key ? 1 : -1;
+        });
+        state.updateURL();
+      },
+      forEach: function forEach(callback) {
+        var entries = getInternalParamsState(this).entries;
+        var boundFunction = bind(callback, arguments.length > 1 ? arguments[1] : void 0);
+        var index = 0;
+        var entry;
+        while (index < entries.length) {
+          entry = entries[index++];
+          boundFunction(entry.value, entry.key, this);
+        }
+      },
+      keys: function keys() {
+        return new URLSearchParamsIterator(this, "keys");
+      },
+      values: function values() {
+        return new URLSearchParamsIterator(this, "values");
+      },
+      entries: function entries() {
+        return new URLSearchParamsIterator(this, "entries");
+      }
+    }, { enumerable: true });
+    redefine(URLSearchParamsPrototype, ITERATOR, URLSearchParamsPrototype.entries, { name: "entries" });
+    redefine(URLSearchParamsPrototype, "toString", function toString() {
+      return getInternalParamsState(this).serialize();
+    }, { enumerable: true });
+    setToStringTag(URLSearchParamsConstructor, URL_SEARCH_PARAMS);
+    $({ global: true, forced: !USE_NATIVE_URL }, {
+      URLSearchParams: URLSearchParamsConstructor
+    });
+    if (!USE_NATIVE_URL && isCallable(Headers)) {
+      headersHas = uncurryThis(HeadersPrototype.has);
+      headersSet = uncurryThis(HeadersPrototype.set);
+      wrapRequestOptions = function(init) {
+        if (isObject2(init)) {
+          var body = init.body;
+          var headers;
+          if (classof(body) === URL_SEARCH_PARAMS) {
+            headers = init.headers ? new Headers(init.headers) : new Headers();
+            if (!headersHas(headers, "content-type")) {
+              headersSet(headers, "content-type", "application/x-www-form-urlencoded;charset=UTF-8");
+            }
+            return create(init, {
+              body: createPropertyDescriptor(0, $toString(body)),
+              headers: createPropertyDescriptor(0, headers)
+            });
+          }
+        }
+        return init;
+      };
+      if (isCallable(n$Fetch)) {
+        $({ global: true, enumerable: true, forced: true }, {
+          fetch: function fetch(input) {
+            return n$Fetch(input, arguments.length > 1 ? wrapRequestOptions(arguments[1]) : {});
+          }
+        });
+      }
+      if (isCallable(N$Request)) {
+        RequestConstructor = function Request(input) {
+          anInstance(this, RequestPrototype);
+          return new N$Request(input, arguments.length > 1 ? wrapRequestOptions(arguments[1]) : {});
+        };
+        RequestPrototype.constructor = RequestConstructor;
+        RequestConstructor.prototype = RequestPrototype;
+        $({ global: true, forced: true }, {
+          Request: RequestConstructor
+        });
+      }
+    }
+    var headersHas;
+    var headersSet;
+    var wrapRequestOptions;
+    var RequestConstructor;
+    module.exports = {
+      URLSearchParams: URLSearchParamsConstructor,
+      getState: getInternalParamsState
+    };
+  }
+});
+
+// node_modules/core-js/modules/web.url.js
+var require_web_url = __commonJS({
+  "node_modules/core-js/modules/web.url.js"() {
+    "use strict";
+    require_es_string_iterator();
+    var $ = require_export();
+    var DESCRIPTORS = require_descriptors();
+    var USE_NATIVE_URL = require_native_url();
+    var global2 = require_global();
+    var bind = require_function_bind_context();
+    var uncurryThis = require_function_uncurry_this();
+    var defineProperties = require_object_define_properties().f;
+    var redefine = require_redefine();
+    var anInstance = require_an_instance();
+    var hasOwn = require_has_own_property();
+    var assign = require_object_assign();
+    var arrayFrom = require_array_from();
+    var arraySlice = require_array_slice_simple();
+    var codeAt = require_string_multibyte().codeAt;
+    var toASCII = require_string_punycode_to_ascii();
+    var $toString = require_to_string();
+    var setToStringTag = require_set_to_string_tag();
+    var URLSearchParamsModule = require_web_url_search_params();
+    var InternalStateModule = require_internal_state();
+    var setInternalState = InternalStateModule.set;
+    var getInternalURLState = InternalStateModule.getterFor("URL");
+    var URLSearchParams2 = URLSearchParamsModule.URLSearchParams;
+    var getInternalSearchParamsState = URLSearchParamsModule.getState;
+    var NativeURL = global2.URL;
+    var TypeError2 = global2.TypeError;
+    var parseInt2 = global2.parseInt;
+    var floor = Math.floor;
+    var pow = Math.pow;
+    var charAt = uncurryThis("".charAt);
+    var exec = uncurryThis(/./.exec);
+    var join = uncurryThis([].join);
+    var numberToString = uncurryThis(1 .toString);
+    var pop = uncurryThis([].pop);
+    var push = uncurryThis([].push);
+    var replace = uncurryThis("".replace);
+    var shift = uncurryThis([].shift);
+    var split = uncurryThis("".split);
+    var stringSlice = uncurryThis("".slice);
+    var toLowerCase = uncurryThis("".toLowerCase);
+    var unshift = uncurryThis([].unshift);
+    var INVALID_AUTHORITY = "Invalid authority";
+    var INVALID_SCHEME = "Invalid scheme";
+    var INVALID_HOST = "Invalid host";
+    var INVALID_PORT = "Invalid port";
+    var ALPHA = /[a-z]/i;
+    var ALPHANUMERIC = /[\d+-.a-z]/i;
+    var DIGIT = /\d/;
+    var HEX_START = /^0x/i;
+    var OCT = /^[0-7]+$/;
+    var DEC = /^\d+$/;
+    var HEX = /^[\da-f]+$/i;
+    var FORBIDDEN_HOST_CODE_POINT = /[\0\t\n\r #%/:<>?@[\\\]^|]/;
+    var FORBIDDEN_HOST_CODE_POINT_EXCLUDING_PERCENT = /[\0\t\n\r #/:<>?@[\\\]^|]/;
+    var LEADING_AND_TRAILING_C0_CONTROL_OR_SPACE = /^[\u0000-\u0020]+|[\u0000-\u0020]+$/g;
+    var TAB_AND_NEW_LINE = /[\t\n\r]/g;
+    var EOF;
+    var parseIPv4 = function(input) {
+      var parts = split(input, ".");
+      var partsLength, numbers, index, part, radix, number, ipv4;
+      if (parts.length && parts[parts.length - 1] == "") {
+        parts.length--;
+      }
+      partsLength = parts.length;
+      if (partsLength > 4)
+        return input;
+      numbers = [];
+      for (index = 0; index < partsLength; index++) {
+        part = parts[index];
+        if (part == "")
+          return input;
+        radix = 10;
+        if (part.length > 1 && charAt(part, 0) == "0") {
+          radix = exec(HEX_START, part) ? 16 : 8;
+          part = stringSlice(part, radix == 8 ? 1 : 2);
+        }
+        if (part === "") {
+          number = 0;
+        } else {
+          if (!exec(radix == 10 ? DEC : radix == 8 ? OCT : HEX, part))
+            return input;
+          number = parseInt2(part, radix);
+        }
+        push(numbers, number);
+      }
+      for (index = 0; index < partsLength; index++) {
+        number = numbers[index];
+        if (index == partsLength - 1) {
+          if (number >= pow(256, 5 - partsLength))
+            return null;
+        } else if (number > 255)
+          return null;
+      }
+      ipv4 = pop(numbers);
+      for (index = 0; index < numbers.length; index++) {
+        ipv4 += numbers[index] * pow(256, 3 - index);
+      }
+      return ipv4;
+    };
+    var parseIPv6 = function(input) {
+      var address = [0, 0, 0, 0, 0, 0, 0, 0];
+      var pieceIndex = 0;
+      var compress = null;
+      var pointer = 0;
+      var value, length, numbersSeen, ipv4Piece, number, swaps, swap;
+      var chr = function() {
+        return charAt(input, pointer);
+      };
+      if (chr() == ":") {
+        if (charAt(input, 1) != ":")
+          return;
+        pointer += 2;
+        pieceIndex++;
+        compress = pieceIndex;
+      }
+      while (chr()) {
+        if (pieceIndex == 8)
+          return;
+        if (chr() == ":") {
+          if (compress !== null)
+            return;
+          pointer++;
+          pieceIndex++;
+          compress = pieceIndex;
+          continue;
+        }
+        value = length = 0;
+        while (length < 4 && exec(HEX, chr())) {
+          value = value * 16 + parseInt2(chr(), 16);
+          pointer++;
+          length++;
+        }
+        if (chr() == ".") {
+          if (length == 0)
+            return;
+          pointer -= length;
+          if (pieceIndex > 6)
+            return;
+          numbersSeen = 0;
+          while (chr()) {
+            ipv4Piece = null;
+            if (numbersSeen > 0) {
+              if (chr() == "." && numbersSeen < 4)
+                pointer++;
+              else
+                return;
+            }
+            if (!exec(DIGIT, chr()))
+              return;
+            while (exec(DIGIT, chr())) {
+              number = parseInt2(chr(), 10);
+              if (ipv4Piece === null)
+                ipv4Piece = number;
+              else if (ipv4Piece == 0)
+                return;
+              else
+                ipv4Piece = ipv4Piece * 10 + number;
+              if (ipv4Piece > 255)
+                return;
+              pointer++;
+            }
+            address[pieceIndex] = address[pieceIndex] * 256 + ipv4Piece;
+            numbersSeen++;
+            if (numbersSeen == 2 || numbersSeen == 4)
+              pieceIndex++;
+          }
+          if (numbersSeen != 4)
+            return;
+          break;
+        } else if (chr() == ":") {
+          pointer++;
+          if (!chr())
+            return;
+        } else if (chr())
+          return;
+        address[pieceIndex++] = value;
+      }
+      if (compress !== null) {
+        swaps = pieceIndex - compress;
+        pieceIndex = 7;
+        while (pieceIndex != 0 && swaps > 0) {
+          swap = address[pieceIndex];
+          address[pieceIndex--] = address[compress + swaps - 1];
+          address[compress + --swaps] = swap;
+        }
+      } else if (pieceIndex != 8)
+        return;
+      return address;
+    };
+    var findLongestZeroSequence = function(ipv6) {
+      var maxIndex = null;
+      var maxLength = 1;
+      var currStart = null;
+      var currLength = 0;
+      var index = 0;
+      for (; index < 8; index++) {
+        if (ipv6[index] !== 0) {
+          if (currLength > maxLength) {
+            maxIndex = currStart;
+            maxLength = currLength;
+          }
+          currStart = null;
+          currLength = 0;
+        } else {
+          if (currStart === null)
+            currStart = index;
+          ++currLength;
+        }
+      }
+      if (currLength > maxLength) {
+        maxIndex = currStart;
+        maxLength = currLength;
+      }
+      return maxIndex;
+    };
+    var serializeHost = function(host) {
+      var result, index, compress, ignore0;
+      if (typeof host == "number") {
+        result = [];
+        for (index = 0; index < 4; index++) {
+          unshift(result, host % 256);
+          host = floor(host / 256);
+        }
+        return join(result, ".");
+      } else if (typeof host == "object") {
+        result = "";
+        compress = findLongestZeroSequence(host);
+        for (index = 0; index < 8; index++) {
+          if (ignore0 && host[index] === 0)
+            continue;
+          if (ignore0)
+            ignore0 = false;
+          if (compress === index) {
+            result += index ? ":" : "::";
+            ignore0 = true;
+          } else {
+            result += numberToString(host[index], 16);
+            if (index < 7)
+              result += ":";
+          }
+        }
+        return "[" + result + "]";
+      }
+      return host;
+    };
+    var C0ControlPercentEncodeSet = {};
+    var fragmentPercentEncodeSet = assign({}, C0ControlPercentEncodeSet, {
+      " ": 1,
+      '"': 1,
+      "<": 1,
+      ">": 1,
+      "`": 1
+    });
+    var pathPercentEncodeSet = assign({}, fragmentPercentEncodeSet, {
+      "#": 1,
+      "?": 1,
+      "{": 1,
+      "}": 1
+    });
+    var userinfoPercentEncodeSet = assign({}, pathPercentEncodeSet, {
+      "/": 1,
+      ":": 1,
+      ";": 1,
+      "=": 1,
+      "@": 1,
+      "[": 1,
+      "\\": 1,
+      "]": 1,
+      "^": 1,
+      "|": 1
+    });
+    var percentEncode = function(chr, set) {
+      var code = codeAt(chr, 0);
+      return code > 32 && code < 127 && !hasOwn(set, chr) ? chr : encodeURIComponent(chr);
+    };
+    var specialSchemes = {
+      ftp: 21,
+      file: null,
+      http: 80,
+      https: 443,
+      ws: 80,
+      wss: 443
+    };
+    var isWindowsDriveLetter = function(string, normalized) {
+      var second;
+      return string.length == 2 && exec(ALPHA, charAt(string, 0)) && ((second = charAt(string, 1)) == ":" || !normalized && second == "|");
+    };
+    var startsWithWindowsDriveLetter = function(string) {
+      var third;
+      return string.length > 1 && isWindowsDriveLetter(stringSlice(string, 0, 2)) && (string.length == 2 || ((third = charAt(string, 2)) === "/" || third === "\\" || third === "?" || third === "#"));
+    };
+    var isSingleDot = function(segment) {
+      return segment === "." || toLowerCase(segment) === "%2e";
+    };
+    var isDoubleDot = function(segment) {
+      segment = toLowerCase(segment);
+      return segment === ".." || segment === "%2e." || segment === ".%2e" || segment === "%2e%2e";
+    };
+    var SCHEME_START = {};
+    var SCHEME = {};
+    var NO_SCHEME = {};
+    var SPECIAL_RELATIVE_OR_AUTHORITY = {};
+    var PATH_OR_AUTHORITY = {};
+    var RELATIVE = {};
+    var RELATIVE_SLASH = {};
+    var SPECIAL_AUTHORITY_SLASHES = {};
+    var SPECIAL_AUTHORITY_IGNORE_SLASHES = {};
+    var AUTHORITY = {};
+    var HOST = {};
+    var HOSTNAME = {};
+    var PORT = {};
+    var FILE = {};
+    var FILE_SLASH = {};
+    var FILE_HOST = {};
+    var PATH_START = {};
+    var PATH = {};
+    var CANNOT_BE_A_BASE_URL_PATH = {};
+    var QUERY = {};
+    var FRAGMENT = {};
+    var URLState = function(url, isBase, base) {
+      var urlString = $toString(url);
+      var baseState, failure, searchParams;
+      if (isBase) {
+        failure = this.parse(urlString);
+        if (failure)
+          throw TypeError2(failure);
+        this.searchParams = null;
+      } else {
+        if (base !== void 0)
+          baseState = new URLState(base, true);
+        failure = this.parse(urlString, null, baseState);
+        if (failure)
+          throw TypeError2(failure);
+        searchParams = getInternalSearchParamsState(new URLSearchParams2());
+        searchParams.bindURL(this);
+        this.searchParams = searchParams;
+      }
+    };
+    URLState.prototype = {
+      type: "URL",
+      parse: function(input, stateOverride, base) {
+        var url = this;
+        var state = stateOverride || SCHEME_START;
+        var pointer = 0;
+        var buffer = "";
+        var seenAt = false;
+        var seenBracket = false;
+        var seenPasswordToken = false;
+        var codePoints, chr, bufferCodePoints, failure;
+        input = $toString(input);
+        if (!stateOverride) {
+          url.scheme = "";
+          url.username = "";
+          url.password = "";
+          url.host = null;
+          url.port = null;
+          url.path = [];
+          url.query = null;
+          url.fragment = null;
+          url.cannotBeABaseURL = false;
+          input = replace(input, LEADING_AND_TRAILING_C0_CONTROL_OR_SPACE, "");
+        }
+        input = replace(input, TAB_AND_NEW_LINE, "");
+        codePoints = arrayFrom(input);
+        while (pointer <= codePoints.length) {
+          chr = codePoints[pointer];
+          switch (state) {
+            case SCHEME_START:
+              if (chr && exec(ALPHA, chr)) {
+                buffer += toLowerCase(chr);
+                state = SCHEME;
+              } else if (!stateOverride) {
+                state = NO_SCHEME;
+                continue;
+              } else
+                return INVALID_SCHEME;
+              break;
+            case SCHEME:
+              if (chr && (exec(ALPHANUMERIC, chr) || chr == "+" || chr == "-" || chr == ".")) {
+                buffer += toLowerCase(chr);
+              } else if (chr == ":") {
+                if (stateOverride && (url.isSpecial() != hasOwn(specialSchemes, buffer) || buffer == "file" && (url.includesCredentials() || url.port !== null) || url.scheme == "file" && !url.host))
+                  return;
+                url.scheme = buffer;
+                if (stateOverride) {
+                  if (url.isSpecial() && specialSchemes[url.scheme] == url.port)
+                    url.port = null;
+                  return;
+                }
+                buffer = "";
+                if (url.scheme == "file") {
+                  state = FILE;
+                } else if (url.isSpecial() && base && base.scheme == url.scheme) {
+                  state = SPECIAL_RELATIVE_OR_AUTHORITY;
+                } else if (url.isSpecial()) {
+                  state = SPECIAL_AUTHORITY_SLASHES;
+                } else if (codePoints[pointer + 1] == "/") {
+                  state = PATH_OR_AUTHORITY;
+                  pointer++;
+                } else {
+                  url.cannotBeABaseURL = true;
+                  push(url.path, "");
+                  state = CANNOT_BE_A_BASE_URL_PATH;
+                }
+              } else if (!stateOverride) {
+                buffer = "";
+                state = NO_SCHEME;
+                pointer = 0;
+                continue;
+              } else
+                return INVALID_SCHEME;
+              break;
+            case NO_SCHEME:
+              if (!base || base.cannotBeABaseURL && chr != "#")
+                return INVALID_SCHEME;
+              if (base.cannotBeABaseURL && chr == "#") {
+                url.scheme = base.scheme;
+                url.path = arraySlice(base.path);
+                url.query = base.query;
+                url.fragment = "";
+                url.cannotBeABaseURL = true;
+                state = FRAGMENT;
+                break;
+              }
+              state = base.scheme == "file" ? FILE : RELATIVE;
+              continue;
+            case SPECIAL_RELATIVE_OR_AUTHORITY:
+              if (chr == "/" && codePoints[pointer + 1] == "/") {
+                state = SPECIAL_AUTHORITY_IGNORE_SLASHES;
+                pointer++;
+              } else {
+                state = RELATIVE;
+                continue;
+              }
+              break;
+            case PATH_OR_AUTHORITY:
+              if (chr == "/") {
+                state = AUTHORITY;
+                break;
+              } else {
+                state = PATH;
+                continue;
+              }
+            case RELATIVE:
+              url.scheme = base.scheme;
+              if (chr == EOF) {
+                url.username = base.username;
+                url.password = base.password;
+                url.host = base.host;
+                url.port = base.port;
+                url.path = arraySlice(base.path);
+                url.query = base.query;
+              } else if (chr == "/" || chr == "\\" && url.isSpecial()) {
+                state = RELATIVE_SLASH;
+              } else if (chr == "?") {
+                url.username = base.username;
+                url.password = base.password;
+                url.host = base.host;
+                url.port = base.port;
+                url.path = arraySlice(base.path);
+                url.query = "";
+                state = QUERY;
+              } else if (chr == "#") {
+                url.username = base.username;
+                url.password = base.password;
+                url.host = base.host;
+                url.port = base.port;
+                url.path = arraySlice(base.path);
+                url.query = base.query;
+                url.fragment = "";
+                state = FRAGMENT;
+              } else {
+                url.username = base.username;
+                url.password = base.password;
+                url.host = base.host;
+                url.port = base.port;
+                url.path = arraySlice(base.path);
+                url.path.length--;
+                state = PATH;
+                continue;
+              }
+              break;
+            case RELATIVE_SLASH:
+              if (url.isSpecial() && (chr == "/" || chr == "\\")) {
+                state = SPECIAL_AUTHORITY_IGNORE_SLASHES;
+              } else if (chr == "/") {
+                state = AUTHORITY;
+              } else {
+                url.username = base.username;
+                url.password = base.password;
+                url.host = base.host;
+                url.port = base.port;
+                state = PATH;
+                continue;
+              }
+              break;
+            case SPECIAL_AUTHORITY_SLASHES:
+              state = SPECIAL_AUTHORITY_IGNORE_SLASHES;
+              if (chr != "/" || charAt(buffer, pointer + 1) != "/")
+                continue;
+              pointer++;
+              break;
+            case SPECIAL_AUTHORITY_IGNORE_SLASHES:
+              if (chr != "/" && chr != "\\") {
+                state = AUTHORITY;
+                continue;
+              }
+              break;
+            case AUTHORITY:
+              if (chr == "@") {
+                if (seenAt)
+                  buffer = "%40" + buffer;
+                seenAt = true;
+                bufferCodePoints = arrayFrom(buffer);
+                for (var i2 = 0; i2 < bufferCodePoints.length; i2++) {
+                  var codePoint = bufferCodePoints[i2];
+                  if (codePoint == ":" && !seenPasswordToken) {
+                    seenPasswordToken = true;
+                    continue;
+                  }
+                  var encodedCodePoints = percentEncode(codePoint, userinfoPercentEncodeSet);
+                  if (seenPasswordToken)
+                    url.password += encodedCodePoints;
+                  else
+                    url.username += encodedCodePoints;
+                }
+                buffer = "";
+              } else if (chr == EOF || chr == "/" || chr == "?" || chr == "#" || chr == "\\" && url.isSpecial()) {
+                if (seenAt && buffer == "")
+                  return INVALID_AUTHORITY;
+                pointer -= arrayFrom(buffer).length + 1;
+                buffer = "";
+                state = HOST;
+              } else
+                buffer += chr;
+              break;
+            case HOST:
+            case HOSTNAME:
+              if (stateOverride && url.scheme == "file") {
+                state = FILE_HOST;
+                continue;
+              } else if (chr == ":" && !seenBracket) {
+                if (buffer == "")
+                  return INVALID_HOST;
+                failure = url.parseHost(buffer);
+                if (failure)
+                  return failure;
+                buffer = "";
+                state = PORT;
+                if (stateOverride == HOSTNAME)
+                  return;
+              } else if (chr == EOF || chr == "/" || chr == "?" || chr == "#" || chr == "\\" && url.isSpecial()) {
+                if (url.isSpecial() && buffer == "")
+                  return INVALID_HOST;
+                if (stateOverride && buffer == "" && (url.includesCredentials() || url.port !== null))
+                  return;
+                failure = url.parseHost(buffer);
+                if (failure)
+                  return failure;
+                buffer = "";
+                state = PATH_START;
+                if (stateOverride)
+                  return;
+                continue;
+              } else {
+                if (chr == "[")
+                  seenBracket = true;
+                else if (chr == "]")
+                  seenBracket = false;
+                buffer += chr;
+              }
+              break;
+            case PORT:
+              if (exec(DIGIT, chr)) {
+                buffer += chr;
+              } else if (chr == EOF || chr == "/" || chr == "?" || chr == "#" || chr == "\\" && url.isSpecial() || stateOverride) {
+                if (buffer != "") {
+                  var port = parseInt2(buffer, 10);
+                  if (port > 65535)
+                    return INVALID_PORT;
+                  url.port = url.isSpecial() && port === specialSchemes[url.scheme] ? null : port;
+                  buffer = "";
+                }
+                if (stateOverride)
+                  return;
+                state = PATH_START;
+                continue;
+              } else
+                return INVALID_PORT;
+              break;
+            case FILE:
+              url.scheme = "file";
+              if (chr == "/" || chr == "\\")
+                state = FILE_SLASH;
+              else if (base && base.scheme == "file") {
+                if (chr == EOF) {
+                  url.host = base.host;
+                  url.path = arraySlice(base.path);
+                  url.query = base.query;
+                } else if (chr == "?") {
+                  url.host = base.host;
+                  url.path = arraySlice(base.path);
+                  url.query = "";
+                  state = QUERY;
+                } else if (chr == "#") {
+                  url.host = base.host;
+                  url.path = arraySlice(base.path);
+                  url.query = base.query;
+                  url.fragment = "";
+                  state = FRAGMENT;
+                } else {
+                  if (!startsWithWindowsDriveLetter(join(arraySlice(codePoints, pointer), ""))) {
+                    url.host = base.host;
+                    url.path = arraySlice(base.path);
+                    url.shortenPath();
+                  }
+                  state = PATH;
+                  continue;
+                }
+              } else {
+                state = PATH;
+                continue;
+              }
+              break;
+            case FILE_SLASH:
+              if (chr == "/" || chr == "\\") {
+                state = FILE_HOST;
+                break;
+              }
+              if (base && base.scheme == "file" && !startsWithWindowsDriveLetter(join(arraySlice(codePoints, pointer), ""))) {
+                if (isWindowsDriveLetter(base.path[0], true))
+                  push(url.path, base.path[0]);
+                else
+                  url.host = base.host;
+              }
+              state = PATH;
+              continue;
+            case FILE_HOST:
+              if (chr == EOF || chr == "/" || chr == "\\" || chr == "?" || chr == "#") {
+                if (!stateOverride && isWindowsDriveLetter(buffer)) {
+                  state = PATH;
+                } else if (buffer == "") {
+                  url.host = "";
+                  if (stateOverride)
+                    return;
+                  state = PATH_START;
+                } else {
+                  failure = url.parseHost(buffer);
+                  if (failure)
+                    return failure;
+                  if (url.host == "localhost")
+                    url.host = "";
+                  if (stateOverride)
+                    return;
+                  buffer = "";
+                  state = PATH_START;
+                }
+                continue;
+              } else
+                buffer += chr;
+              break;
+            case PATH_START:
+              if (url.isSpecial()) {
+                state = PATH;
+                if (chr != "/" && chr != "\\")
+                  continue;
+              } else if (!stateOverride && chr == "?") {
+                url.query = "";
+                state = QUERY;
+              } else if (!stateOverride && chr == "#") {
+                url.fragment = "";
+                state = FRAGMENT;
+              } else if (chr != EOF) {
+                state = PATH;
+                if (chr != "/")
+                  continue;
+              }
+              break;
+            case PATH:
+              if (chr == EOF || chr == "/" || chr == "\\" && url.isSpecial() || !stateOverride && (chr == "?" || chr == "#")) {
+                if (isDoubleDot(buffer)) {
+                  url.shortenPath();
+                  if (chr != "/" && !(chr == "\\" && url.isSpecial())) {
+                    push(url.path, "");
+                  }
+                } else if (isSingleDot(buffer)) {
+                  if (chr != "/" && !(chr == "\\" && url.isSpecial())) {
+                    push(url.path, "");
+                  }
+                } else {
+                  if (url.scheme == "file" && !url.path.length && isWindowsDriveLetter(buffer)) {
+                    if (url.host)
+                      url.host = "";
+                    buffer = charAt(buffer, 0) + ":";
+                  }
+                  push(url.path, buffer);
+                }
+                buffer = "";
+                if (url.scheme == "file" && (chr == EOF || chr == "?" || chr == "#")) {
+                  while (url.path.length > 1 && url.path[0] === "") {
+                    shift(url.path);
+                  }
+                }
+                if (chr == "?") {
+                  url.query = "";
+                  state = QUERY;
+                } else if (chr == "#") {
+                  url.fragment = "";
+                  state = FRAGMENT;
+                }
+              } else {
+                buffer += percentEncode(chr, pathPercentEncodeSet);
+              }
+              break;
+            case CANNOT_BE_A_BASE_URL_PATH:
+              if (chr == "?") {
+                url.query = "";
+                state = QUERY;
+              } else if (chr == "#") {
+                url.fragment = "";
+                state = FRAGMENT;
+              } else if (chr != EOF) {
+                url.path[0] += percentEncode(chr, C0ControlPercentEncodeSet);
+              }
+              break;
+            case QUERY:
+              if (!stateOverride && chr == "#") {
+                url.fragment = "";
+                state = FRAGMENT;
+              } else if (chr != EOF) {
+                if (chr == "'" && url.isSpecial())
+                  url.query += "%27";
+                else if (chr == "#")
+                  url.query += "%23";
+                else
+                  url.query += percentEncode(chr, C0ControlPercentEncodeSet);
+              }
+              break;
+            case FRAGMENT:
+              if (chr != EOF)
+                url.fragment += percentEncode(chr, fragmentPercentEncodeSet);
+              break;
+          }
+          pointer++;
+        }
+      },
+      parseHost: function(input) {
+        var result, codePoints, index;
+        if (charAt(input, 0) == "[") {
+          if (charAt(input, input.length - 1) != "]")
+            return INVALID_HOST;
+          result = parseIPv6(stringSlice(input, 1, -1));
+          if (!result)
+            return INVALID_HOST;
+          this.host = result;
+        } else if (!this.isSpecial()) {
+          if (exec(FORBIDDEN_HOST_CODE_POINT_EXCLUDING_PERCENT, input))
+            return INVALID_HOST;
+          result = "";
+          codePoints = arrayFrom(input);
+          for (index = 0; index < codePoints.length; index++) {
+            result += percentEncode(codePoints[index], C0ControlPercentEncodeSet);
+          }
+          this.host = result;
+        } else {
+          input = toASCII(input);
+          if (exec(FORBIDDEN_HOST_CODE_POINT, input))
+            return INVALID_HOST;
+          result = parseIPv4(input);
+          if (result === null)
+            return INVALID_HOST;
+          this.host = result;
+        }
+      },
+      cannotHaveUsernamePasswordPort: function() {
+        return !this.host || this.cannotBeABaseURL || this.scheme == "file";
+      },
+      includesCredentials: function() {
+        return this.username != "" || this.password != "";
+      },
+      isSpecial: function() {
+        return hasOwn(specialSchemes, this.scheme);
+      },
+      shortenPath: function() {
+        var path = this.path;
+        var pathSize = path.length;
+        if (pathSize && (this.scheme != "file" || pathSize != 1 || !isWindowsDriveLetter(path[0], true))) {
+          path.length--;
+        }
+      },
+      serialize: function() {
+        var url = this;
+        var scheme = url.scheme;
+        var username = url.username;
+        var password = url.password;
+        var host = url.host;
+        var port = url.port;
+        var path = url.path;
+        var query = url.query;
+        var fragment = url.fragment;
+        var output = scheme + ":";
+        if (host !== null) {
+          output += "//";
+          if (url.includesCredentials()) {
+            output += username + (password ? ":" + password : "") + "@";
+          }
+          output += serializeHost(host);
+          if (port !== null)
+            output += ":" + port;
+        } else if (scheme == "file")
+          output += "//";
+        output += url.cannotBeABaseURL ? path[0] : path.length ? "/" + join(path, "/") : "";
+        if (query !== null)
+          output += "?" + query;
+        if (fragment !== null)
+          output += "#" + fragment;
+        return output;
+      },
+      setHref: function(href) {
+        var failure = this.parse(href);
+        if (failure)
+          throw TypeError2(failure);
+        this.searchParams.update();
+      },
+      getOrigin: function() {
+        var scheme = this.scheme;
+        var port = this.port;
+        if (scheme == "blob")
+          try {
+            return new URLConstructor(scheme.path[0]).origin;
+          } catch (error) {
+            return "null";
+          }
+        if (scheme == "file" || !this.isSpecial())
+          return "null";
+        return scheme + "://" + serializeHost(this.host) + (port !== null ? ":" + port : "");
+      },
+      getProtocol: function() {
+        return this.scheme + ":";
+      },
+      setProtocol: function(protocol) {
+        this.parse($toString(protocol) + ":", SCHEME_START);
+      },
+      getUsername: function() {
+        return this.username;
+      },
+      setUsername: function(username) {
+        var codePoints = arrayFrom($toString(username));
+        if (this.cannotHaveUsernamePasswordPort())
+          return;
+        this.username = "";
+        for (var i2 = 0; i2 < codePoints.length; i2++) {
+          this.username += percentEncode(codePoints[i2], userinfoPercentEncodeSet);
+        }
+      },
+      getPassword: function() {
+        return this.password;
+      },
+      setPassword: function(password) {
+        var codePoints = arrayFrom($toString(password));
+        if (this.cannotHaveUsernamePasswordPort())
+          return;
+        this.password = "";
+        for (var i2 = 0; i2 < codePoints.length; i2++) {
+          this.password += percentEncode(codePoints[i2], userinfoPercentEncodeSet);
+        }
+      },
+      getHost: function() {
+        var host = this.host;
+        var port = this.port;
+        return host === null ? "" : port === null ? serializeHost(host) : serializeHost(host) + ":" + port;
+      },
+      setHost: function(host) {
+        if (this.cannotBeABaseURL)
+          return;
+        this.parse(host, HOST);
+      },
+      getHostname: function() {
+        var host = this.host;
+        return host === null ? "" : serializeHost(host);
+      },
+      setHostname: function(hostname) {
+        if (this.cannotBeABaseURL)
+          return;
+        this.parse(hostname, HOSTNAME);
+      },
+      getPort: function() {
+        var port = this.port;
+        return port === null ? "" : $toString(port);
+      },
+      setPort: function(port) {
+        if (this.cannotHaveUsernamePasswordPort())
+          return;
+        port = $toString(port);
+        if (port == "")
+          this.port = null;
+        else
+          this.parse(port, PORT);
+      },
+      getPathname: function() {
+        var path = this.path;
+        return this.cannotBeABaseURL ? path[0] : path.length ? "/" + join(path, "/") : "";
+      },
+      setPathname: function(pathname) {
+        if (this.cannotBeABaseURL)
+          return;
+        this.path = [];
+        this.parse(pathname, PATH_START);
+      },
+      getSearch: function() {
+        var query = this.query;
+        return query ? "?" + query : "";
+      },
+      setSearch: function(search) {
+        search = $toString(search);
+        if (search == "") {
+          this.query = null;
+        } else {
+          if (charAt(search, 0) == "?")
+            search = stringSlice(search, 1);
+          this.query = "";
+          this.parse(search, QUERY);
+        }
+        this.searchParams.update();
+      },
+      getSearchParams: function() {
+        return this.searchParams.facade;
+      },
+      getHash: function() {
+        var fragment = this.fragment;
+        return fragment ? "#" + fragment : "";
+      },
+      setHash: function(hash) {
+        hash = $toString(hash);
+        if (hash == "") {
+          this.fragment = null;
+          return;
+        }
+        if (charAt(hash, 0) == "#")
+          hash = stringSlice(hash, 1);
+        this.fragment = "";
+        this.parse(hash, FRAGMENT);
+      },
+      update: function() {
+        this.query = this.searchParams.serialize() || null;
+      }
+    };
+    var URLConstructor = function URL2(url) {
+      var that = anInstance(this, URLPrototype);
+      var base = arguments.length > 1 ? arguments[1] : void 0;
+      var state = setInternalState(that, new URLState(url, false, base));
+      if (!DESCRIPTORS) {
+        that.href = state.serialize();
+        that.origin = state.getOrigin();
+        that.protocol = state.getProtocol();
+        that.username = state.getUsername();
+        that.password = state.getPassword();
+        that.host = state.getHost();
+        that.hostname = state.getHostname();
+        that.port = state.getPort();
+        that.pathname = state.getPathname();
+        that.search = state.getSearch();
+        that.searchParams = state.getSearchParams();
+        that.hash = state.getHash();
+      }
+    };
+    var URLPrototype = URLConstructor.prototype;
+    var accessorDescriptor = function(getter, setter) {
+      return {
+        get: function() {
+          return getInternalURLState(this)[getter]();
+        },
+        set: setter && function(value) {
+          return getInternalURLState(this)[setter](value);
+        },
+        configurable: true,
+        enumerable: true
+      };
+    };
+    if (DESCRIPTORS) {
+      defineProperties(URLPrototype, {
+        href: accessorDescriptor("serialize", "setHref"),
+        origin: accessorDescriptor("getOrigin"),
+        protocol: accessorDescriptor("getProtocol", "setProtocol"),
+        username: accessorDescriptor("getUsername", "setUsername"),
+        password: accessorDescriptor("getPassword", "setPassword"),
+        host: accessorDescriptor("getHost", "setHost"),
+        hostname: accessorDescriptor("getHostname", "setHostname"),
+        port: accessorDescriptor("getPort", "setPort"),
+        pathname: accessorDescriptor("getPathname", "setPathname"),
+        search: accessorDescriptor("getSearch", "setSearch"),
+        searchParams: accessorDescriptor("getSearchParams"),
+        hash: accessorDescriptor("getHash", "setHash")
+      });
+    }
+    redefine(URLPrototype, "toJSON", function toJSON() {
+      return getInternalURLState(this).serialize();
+    }, { enumerable: true });
+    redefine(URLPrototype, "toString", function toString() {
+      return getInternalURLState(this).serialize();
+    }, { enumerable: true });
+    if (NativeURL) {
+      nativeCreateObjectURL = NativeURL.createObjectURL;
+      nativeRevokeObjectURL = NativeURL.revokeObjectURL;
+      if (nativeCreateObjectURL)
+        redefine(URLConstructor, "createObjectURL", bind(nativeCreateObjectURL, NativeURL));
+      if (nativeRevokeObjectURL)
+        redefine(URLConstructor, "revokeObjectURL", bind(nativeRevokeObjectURL, NativeURL));
+    }
+    var nativeCreateObjectURL;
+    var nativeRevokeObjectURL;
+    setToStringTag(URLConstructor, "URL");
+    $({ global: true, forced: !USE_NATIVE_URL, sham: !DESCRIPTORS }, {
+      URL: URLConstructor
+    });
+  }
+});
+
+// node_modules/core-js/modules/web.url.to-json.js
+var require_web_url_to_json = __commonJS({
+  "node_modules/core-js/modules/web.url.to-json.js"() {
+    "use strict";
+    var $ = require_export();
+    var call = require_function_call();
+    $({ target: "URL", proto: true, enumerable: true }, {
+      toJSON: function toJSON() {
+        return call(URL.prototype.toString, this);
+      }
+    });
+  }
+});
+
+// node_modules/core-js/internals/path.js
+var require_path = __commonJS({
+  "node_modules/core-js/internals/path.js"(exports, module) {
+    var global2 = require_global();
+    module.exports = global2;
+  }
+});
+
+// node_modules/core-js/web/url.js
+var require_url = __commonJS({
+  "node_modules/core-js/web/url.js"(exports, module) {
+    require_web_url();
+    require_web_url_to_json();
+    require_web_url_search_params();
+    var path = require_path();
+    module.exports = path.URL;
+  }
+});
+
+// node_modules/core-js/stable/url/index.js
+var require_url2 = __commonJS({
+  "node_modules/core-js/stable/url/index.js"(exports, module) {
+    var parent = require_url();
+    module.exports = parent;
+  }
+});
+
+// node_modules/core-js/actual/url/index.js
+var require_url3 = __commonJS({
+  "node_modules/core-js/actual/url/index.js"(exports, module) {
+    var parent = require_url2();
+    module.exports = parent;
+  }
+});
+
+// node_modules/core-js/stable/url/to-json.js
+var require_to_json = __commonJS({
+  "node_modules/core-js/stable/url/to-json.js"() {
+    require_web_url_to_json();
+  }
+});
+
+// node_modules/core-js/actual/url/to-json.js
+var require_to_json2 = __commonJS({
+  "node_modules/core-js/actual/url/to-json.js"(exports, module) {
+    var parent = require_to_json();
+    module.exports = parent;
+  }
+});
+
+// node_modules/core-js/web/url-search-params.js
+var require_url_search_params = __commonJS({
+  "node_modules/core-js/web/url-search-params.js"(exports, module) {
+    require_web_url_search_params();
+    var path = require_path();
+    module.exports = path.URLSearchParams;
+  }
+});
+
+// node_modules/core-js/internals/dom-iterables.js
+var require_dom_iterables = __commonJS({
+  "node_modules/core-js/internals/dom-iterables.js"(exports, module) {
+    module.exports = {
+      CSSRuleList: 0,
+      CSSStyleDeclaration: 0,
+      CSSValueList: 0,
+      ClientRectList: 0,
+      DOMRectList: 0,
+      DOMStringList: 0,
+      DOMTokenList: 1,
+      DataTransferItemList: 0,
+      FileList: 0,
+      HTMLAllCollection: 0,
+      HTMLCollection: 0,
+      HTMLFormElement: 0,
+      HTMLSelectElement: 0,
+      MediaList: 0,
+      MimeTypeArray: 0,
+      NamedNodeMap: 0,
+      NodeList: 1,
+      PaintRequestList: 0,
+      Plugin: 0,
+      PluginArray: 0,
+      SVGLengthList: 0,
+      SVGNumberList: 0,
+      SVGPathSegList: 0,
+      SVGPointList: 0,
+      SVGStringList: 0,
+      SVGTransformList: 0,
+      SourceBufferList: 0,
+      StyleSheetList: 0,
+      TextTrackCueList: 0,
+      TextTrackList: 0,
+      TouchList: 0
+    };
+  }
+});
+
+// node_modules/core-js/internals/dom-token-list-prototype.js
+var require_dom_token_list_prototype = __commonJS({
+  "node_modules/core-js/internals/dom-token-list-prototype.js"(exports, module) {
+    var documentCreateElement = require_document_create_element();
+    var classList = documentCreateElement("span").classList;
+    var DOMTokenListPrototype = classList && classList.constructor && classList.constructor.prototype;
+    module.exports = DOMTokenListPrototype === Object.prototype ? void 0 : DOMTokenListPrototype;
+  }
+});
+
+// node_modules/core-js/modules/web.dom-collections.iterator.js
+var require_web_dom_collections_iterator = __commonJS({
+  "node_modules/core-js/modules/web.dom-collections.iterator.js"() {
+    var global2 = require_global();
+    var DOMIterables = require_dom_iterables();
+    var DOMTokenListPrototype = require_dom_token_list_prototype();
+    var ArrayIteratorMethods = require_es_array_iterator();
+    var createNonEnumerableProperty = require_create_non_enumerable_property();
+    var wellKnownSymbol = require_well_known_symbol();
+    var ITERATOR = wellKnownSymbol("iterator");
+    var TO_STRING_TAG = wellKnownSymbol("toStringTag");
+    var ArrayValues = ArrayIteratorMethods.values;
+    var handlePrototype = function(CollectionPrototype, COLLECTION_NAME2) {
+      if (CollectionPrototype) {
+        if (CollectionPrototype[ITERATOR] !== ArrayValues)
+          try {
+            createNonEnumerableProperty(CollectionPrototype, ITERATOR, ArrayValues);
+          } catch (error) {
+            CollectionPrototype[ITERATOR] = ArrayValues;
+          }
+        if (!CollectionPrototype[TO_STRING_TAG]) {
+          createNonEnumerableProperty(CollectionPrototype, TO_STRING_TAG, COLLECTION_NAME2);
+        }
+        if (DOMIterables[COLLECTION_NAME2])
+          for (var METHOD_NAME in ArrayIteratorMethods) {
+            if (CollectionPrototype[METHOD_NAME] !== ArrayIteratorMethods[METHOD_NAME])
+              try {
+                createNonEnumerableProperty(CollectionPrototype, METHOD_NAME, ArrayIteratorMethods[METHOD_NAME]);
+              } catch (error) {
+                CollectionPrototype[METHOD_NAME] = ArrayIteratorMethods[METHOD_NAME];
+              }
+          }
+      }
+    };
+    for (COLLECTION_NAME in DOMIterables) {
+      handlePrototype(global2[COLLECTION_NAME] && global2[COLLECTION_NAME].prototype, COLLECTION_NAME);
+    }
+    var COLLECTION_NAME;
+    handlePrototype(DOMTokenListPrototype, "DOMTokenList");
+  }
+});
+
+// node_modules/core-js/stable/url-search-params/index.js
+var require_url_search_params2 = __commonJS({
+  "node_modules/core-js/stable/url-search-params/index.js"(exports, module) {
+    var parent = require_url_search_params();
+    require_web_dom_collections_iterator();
+    module.exports = parent;
+  }
+});
+
+// node_modules/core-js/actual/url-search-params/index.js
+var require_url_search_params3 = __commonJS({
+  "node_modules/core-js/actual/url-search-params/index.js"(exports, module) {
+    var parent = require_url_search_params2();
+    module.exports = parent;
+  }
+});
+
 // node_modules/whatwg-fetch/dist/fetch.umd.js
 var require_fetch_umd = __commonJS({
   "node_modules/whatwg-fetch/dist/fetch.umd.js"(exports, module) {
@@ -40,7 +3794,7 @@ var require_fetch_umd = __commonJS({
           try {
             new Blob();
             return true;
-          } catch (e) {
+          } catch (e2) {
             return false;
           }
         }(),
@@ -192,8 +3946,8 @@ var require_fetch_umd = __commonJS({
       function readArrayBufferAsText(buf) {
         var view = new Uint8Array(buf);
         var chars = new Array(view.length);
-        for (var i = 0; i < view.length; i++) {
-          chars[i] = String.fromCharCode(view[i]);
+        for (var i2 = 0; i2 < view.length; i2++) {
+          chars[i2] = String.fromCharCode(view[i2]);
         }
         return chars.join("");
       }
@@ -470,7 +4224,7 @@ var require_fetch_umd = __commonJS({
           function fixUrl(url) {
             try {
               return url === "" && global2.location.href ? global2.location.href : url;
-            } catch (e) {
+            } catch (e2) {
               return url;
             }
           }
@@ -578,65 +4332,65 @@ var require_encoding = __commonJS({
       if (typeof module !== "undefined" && module.exports && !global2["encoding-indexes"]) {
         global2["encoding-indexes"] = require_encoding_indexes()["encoding-indexes"];
       }
-      function inRange(a, min, max) {
-        return min <= a && a <= max;
+      function inRange(a2, min, max) {
+        return min <= a2 && a2 <= max;
       }
       function includes(array, item) {
         return array.indexOf(item) !== -1;
       }
       var floor = Math.floor;
-      function ToDictionary(o) {
-        if (o === void 0)
+      function ToDictionary(o2) {
+        if (o2 === void 0)
           return {};
-        if (o === Object(o))
-          return o;
+        if (o2 === Object(o2))
+          return o2;
         throw TypeError("Could not convert argument to dictionary");
       }
       function stringToCodePoints(string) {
-        var s = String(string);
-        var n = s.length;
-        var i = 0;
-        var u = [];
-        while (i < n) {
-          var c = s.charCodeAt(i);
-          if (c < 55296 || c > 57343) {
-            u.push(c);
-          } else if (56320 <= c && c <= 57343) {
-            u.push(65533);
-          } else if (55296 <= c && c <= 56319) {
-            if (i === n - 1) {
-              u.push(65533);
+        var s2 = String(string);
+        var n2 = s2.length;
+        var i2 = 0;
+        var u2 = [];
+        while (i2 < n2) {
+          var c2 = s2.charCodeAt(i2);
+          if (c2 < 55296 || c2 > 57343) {
+            u2.push(c2);
+          } else if (56320 <= c2 && c2 <= 57343) {
+            u2.push(65533);
+          } else if (55296 <= c2 && c2 <= 56319) {
+            if (i2 === n2 - 1) {
+              u2.push(65533);
             } else {
-              var d = s.charCodeAt(i + 1);
-              if (56320 <= d && d <= 57343) {
-                var a = c & 1023;
-                var b = d & 1023;
-                u.push(65536 + (a << 10) + b);
-                i += 1;
+              var d2 = s2.charCodeAt(i2 + 1);
+              if (56320 <= d2 && d2 <= 57343) {
+                var a2 = c2 & 1023;
+                var b2 = d2 & 1023;
+                u2.push(65536 + (a2 << 10) + b2);
+                i2 += 1;
               } else {
-                u.push(65533);
+                u2.push(65533);
               }
             }
           }
-          i += 1;
+          i2 += 1;
         }
-        return u;
+        return u2;
       }
       function codePointsToString(code_points) {
-        var s = "";
-        for (var i = 0; i < code_points.length; ++i) {
-          var cp = code_points[i];
+        var s2 = "";
+        for (var i2 = 0; i2 < code_points.length; ++i2) {
+          var cp = code_points[i2];
           if (cp <= 65535) {
-            s += String.fromCharCode(cp);
+            s2 += String.fromCharCode(cp);
           } else {
             cp -= 65536;
-            s += String.fromCharCode((cp >> 10) + 55296, (cp & 1023) + 56320);
+            s2 += String.fromCharCode((cp >> 10) + 55296, (cp & 1023) + 56320);
           }
         }
-        return s;
+        return s2;
       }
-      function isASCIIByte(a) {
-        return 0 <= a && a <= 127;
+      function isASCIIByte(a2) {
+        return 0 <= a2 && a2 <= 127;
       }
       var isASCIICodePoint = isASCIIByte;
       var end_of_stream = -1;
@@ -1188,9 +4942,9 @@ var require_encoding = __commonJS({
         var offset = 0;
         var code_point_offset = 0;
         var idx = index("gb18030-ranges");
-        var i;
-        for (i = 0; i < idx.length; ++i) {
-          var entry = idx[i];
+        var i2;
+        for (i2 = 0; i2 < idx.length; ++i2) {
+          var entry = idx[i2];
           if (entry[0] <= pointer) {
             offset = entry[0];
             code_point_offset = entry[1];
@@ -1206,9 +4960,9 @@ var require_encoding = __commonJS({
         var offset = 0;
         var pointer_offset = 0;
         var idx = index("gb18030-ranges");
-        var i;
-        for (i = 0; i < idx.length; ++i) {
-          var entry = idx[i];
+        var i2;
+        for (i2 = 0; i2 < idx.length; ++i2) {
+          var entry = idx[i2];
           if (entry[1] <= code_point) {
             offset = entry[1];
             pointer_offset = entry[0];
@@ -2393,8 +6147,8 @@ var listenersMap = /* @__PURE__ */ new WeakMap();
 var CAPTURE = 1;
 var BUBBLE = 2;
 var ATTRIBUTE = 3;
-function isObject(x) {
-  return x !== null && typeof x === "object";
+function isObject(x2) {
+  return x2 !== null && typeof x2 === "object";
 }
 function getListeners(eventTarget) {
   const listeners = listenersMap.get(eventTarget);
@@ -2659,6 +6413,668 @@ defineEventAttribute(windowProto, "load");
 defineEventAttribute(windowProto, "unhandledrejection");
 EventTarget2.__defineEventAttribute = defineEventAttribute;
 
+// polyfills/url-polyfill.js
+var import_url = __toESM(require_url3());
+var import_to_json = __toESM(require_to_json2());
+var import_url_search_params = __toESM(require_url_search_params3());
+
+// node_modules/urlpattern-polyfill/dist/index.js
+function u(u2, D2) {
+  for (var t2 = 0; t2 < D2.length; t2++) {
+    var F2 = D2[t2];
+    F2.enumerable = F2.enumerable || false, F2.configurable = true, "value" in F2 && (F2.writable = true), Object.defineProperty(u2, F2.key, F2);
+  }
+}
+function D(D2, t2, F2) {
+  return t2 && u(D2.prototype, t2), F2 && u(D2, F2), D2;
+}
+function t(u2, D2) {
+  (D2 == null || D2 > u2.length) && (D2 = u2.length);
+  for (var t2 = 0, F2 = new Array(D2); t2 < D2; t2++)
+    F2[t2] = u2[t2];
+  return F2;
+}
+function F(u2, D2) {
+  var F2 = typeof Symbol != "undefined" && u2[Symbol.iterator] || u2["@@iterator"];
+  if (F2)
+    return (F2 = F2.call(u2)).next.bind(F2);
+  if (Array.isArray(u2) || (F2 = function(u3, D3) {
+    if (u3) {
+      if (typeof u3 == "string")
+        return t(u3, D3);
+      var F3 = Object.prototype.toString.call(u3).slice(8, -1);
+      return F3 === "Object" && u3.constructor && (F3 = u3.constructor.name), F3 === "Map" || F3 === "Set" ? Array.from(u3) : F3 === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(F3) ? t(u3, D3) : void 0;
+    }
+  }(u2)) || D2 && u2 && typeof u2.length == "number") {
+    F2 && (u2 = F2);
+    var e2 = 0;
+    return function() {
+      return e2 >= u2.length ? { done: true } : { done: false, value: u2[e2++] };
+    };
+  }
+  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+var e = /(?:[\$A-Z_a-z\xAA\xB5\xBA\xC0-\xD6\xD8-\xF6\xF8-\u02C1\u02C6-\u02D1\u02E0-\u02E4\u02EC\u02EE\u0370-\u0374\u0376\u0377\u037A-\u037D\u037F\u0386\u0388-\u038A\u038C\u038E-\u03A1\u03A3-\u03F5\u03F7-\u0481\u048A-\u052F\u0531-\u0556\u0559\u0560-\u0588\u05D0-\u05EA\u05EF-\u05F2\u0620-\u064A\u066E\u066F\u0671-\u06D3\u06D5\u06E5\u06E6\u06EE\u06EF\u06FA-\u06FC\u06FF\u0710\u0712-\u072F\u074D-\u07A5\u07B1\u07CA-\u07EA\u07F4\u07F5\u07FA\u0800-\u0815\u081A\u0824\u0828\u0840-\u0858\u0860-\u086A\u08A0-\u08B4\u08B6-\u08C7\u0904-\u0939\u093D\u0950\u0958-\u0961\u0971-\u0980\u0985-\u098C\u098F\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BD\u09CE\u09DC\u09DD\u09DF-\u09E1\u09F0\u09F1\u09FC\u0A05-\u0A0A\u0A0F\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32\u0A33\u0A35\u0A36\u0A38\u0A39\u0A59-\u0A5C\u0A5E\u0A72-\u0A74\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2\u0AB3\u0AB5-\u0AB9\u0ABD\u0AD0\u0AE0\u0AE1\u0AF9\u0B05-\u0B0C\u0B0F\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32\u0B33\u0B35-\u0B39\u0B3D\u0B5C\u0B5D\u0B5F-\u0B61\u0B71\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99\u0B9A\u0B9C\u0B9E\u0B9F\u0BA3\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BD0\u0C05-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C39\u0C3D\u0C58-\u0C5A\u0C60\u0C61\u0C80\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBD\u0CDE\u0CE0\u0CE1\u0CF1\u0CF2\u0D04-\u0D0C\u0D0E-\u0D10\u0D12-\u0D3A\u0D3D\u0D4E\u0D54-\u0D56\u0D5F-\u0D61\u0D7A-\u0D7F\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0E01-\u0E30\u0E32\u0E33\u0E40-\u0E46\u0E81\u0E82\u0E84\u0E86-\u0E8A\u0E8C-\u0EA3\u0EA5\u0EA7-\u0EB0\u0EB2\u0EB3\u0EBD\u0EC0-\u0EC4\u0EC6\u0EDC-\u0EDF\u0F00\u0F40-\u0F47\u0F49-\u0F6C\u0F88-\u0F8C\u1000-\u102A\u103F\u1050-\u1055\u105A-\u105D\u1061\u1065\u1066\u106E-\u1070\u1075-\u1081\u108E\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u1380-\u138F\u13A0-\u13F5\u13F8-\u13FD\u1401-\u166C\u166F-\u167F\u1681-\u169A\u16A0-\u16EA\u16EE-\u16F8\u1700-\u170C\u170E-\u1711\u1720-\u1731\u1740-\u1751\u1760-\u176C\u176E-\u1770\u1780-\u17B3\u17D7\u17DC\u1820-\u1878\u1880-\u18A8\u18AA\u18B0-\u18F5\u1900-\u191E\u1950-\u196D\u1970-\u1974\u1980-\u19AB\u19B0-\u19C9\u1A00-\u1A16\u1A20-\u1A54\u1AA7\u1B05-\u1B33\u1B45-\u1B4B\u1B83-\u1BA0\u1BAE\u1BAF\u1BBA-\u1BE5\u1C00-\u1C23\u1C4D-\u1C4F\u1C5A-\u1C7D\u1C80-\u1C88\u1C90-\u1CBA\u1CBD-\u1CBF\u1CE9-\u1CEC\u1CEE-\u1CF3\u1CF5\u1CF6\u1CFA\u1D00-\u1DBF\u1E00-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FBC\u1FBE\u1FC2-\u1FC4\u1FC6-\u1FCC\u1FD0-\u1FD3\u1FD6-\u1FDB\u1FE0-\u1FEC\u1FF2-\u1FF4\u1FF6-\u1FFC\u2071\u207F\u2090-\u209C\u2102\u2107\u210A-\u2113\u2115\u2118-\u211D\u2124\u2126\u2128\u212A-\u2139\u213C-\u213F\u2145-\u2149\u214E\u2160-\u2188\u2C00-\u2C2E\u2C30-\u2C5E\u2C60-\u2CE4\u2CEB-\u2CEE\u2CF2\u2CF3\u2D00-\u2D25\u2D27\u2D2D\u2D30-\u2D67\u2D6F\u2D80-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\u3005-\u3007\u3021-\u3029\u3031-\u3035\u3038-\u303C\u3041-\u3096\u309B-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312F\u3131-\u318E\u31A0-\u31BF\u31F0-\u31FF\u3400-\u4DBF\u4E00-\u9FFC\uA000-\uA48C\uA4D0-\uA4FD\uA500-\uA60C\uA610-\uA61F\uA62A\uA62B\uA640-\uA66E\uA67F-\uA69D\uA6A0-\uA6EF\uA717-\uA71F\uA722-\uA788\uA78B-\uA7BF\uA7C2-\uA7CA\uA7F5-\uA801\uA803-\uA805\uA807-\uA80A\uA80C-\uA822\uA840-\uA873\uA882-\uA8B3\uA8F2-\uA8F7\uA8FB\uA8FD\uA8FE\uA90A-\uA925\uA930-\uA946\uA960-\uA97C\uA984-\uA9B2\uA9CF\uA9E0-\uA9E4\uA9E6-\uA9EF\uA9FA-\uA9FE\uAA00-\uAA28\uAA40-\uAA42\uAA44-\uAA4B\uAA60-\uAA76\uAA7A\uAA7E-\uAAAF\uAAB1\uAAB5\uAAB6\uAAB9-\uAABD\uAAC0\uAAC2\uAADB-\uAADD\uAAE0-\uAAEA\uAAF2-\uAAF4\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E\uAB30-\uAB5A\uAB5C-\uAB69\uAB70-\uABE2\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uF900-\uFA6D\uFA70-\uFAD9\uFB00-\uFB06\uFB13-\uFB17\uFB1D\uFB1F-\uFB28\uFB2A-\uFB36\uFB38-\uFB3C\uFB3E\uFB40\uFB41\uFB43\uFB44\uFB46-\uFBB1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFB\uFE70-\uFE74\uFE76-\uFEFC\uFF21-\uFF3A\uFF41-\uFF5A\uFF66-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC]|\uD800[\uDC00-\uDC0B\uDC0D-\uDC26\uDC28-\uDC3A\uDC3C\uDC3D\uDC3F-\uDC4D\uDC50-\uDC5D\uDC80-\uDCFA\uDD40-\uDD74\uDE80-\uDE9C\uDEA0-\uDED0\uDF00-\uDF1F\uDF2D-\uDF4A\uDF50-\uDF75\uDF80-\uDF9D\uDFA0-\uDFC3\uDFC8-\uDFCF\uDFD1-\uDFD5]|\uD801[\uDC00-\uDC9D\uDCB0-\uDCD3\uDCD8-\uDCFB\uDD00-\uDD27\uDD30-\uDD63\uDE00-\uDF36\uDF40-\uDF55\uDF60-\uDF67]|\uD802[\uDC00-\uDC05\uDC08\uDC0A-\uDC35\uDC37\uDC38\uDC3C\uDC3F-\uDC55\uDC60-\uDC76\uDC80-\uDC9E\uDCE0-\uDCF2\uDCF4\uDCF5\uDD00-\uDD15\uDD20-\uDD39\uDD80-\uDDB7\uDDBE\uDDBF\uDE00\uDE10-\uDE13\uDE15-\uDE17\uDE19-\uDE35\uDE60-\uDE7C\uDE80-\uDE9C\uDEC0-\uDEC7\uDEC9-\uDEE4\uDF00-\uDF35\uDF40-\uDF55\uDF60-\uDF72\uDF80-\uDF91]|\uD803[\uDC00-\uDC48\uDC80-\uDCB2\uDCC0-\uDCF2\uDD00-\uDD23\uDE80-\uDEA9\uDEB0\uDEB1\uDF00-\uDF1C\uDF27\uDF30-\uDF45\uDFB0-\uDFC4\uDFE0-\uDFF6]|\uD804[\uDC03-\uDC37\uDC83-\uDCAF\uDCD0-\uDCE8\uDD03-\uDD26\uDD44\uDD47\uDD50-\uDD72\uDD76\uDD83-\uDDB2\uDDC1-\uDDC4\uDDDA\uDDDC\uDE00-\uDE11\uDE13-\uDE2B\uDE80-\uDE86\uDE88\uDE8A-\uDE8D\uDE8F-\uDE9D\uDE9F-\uDEA8\uDEB0-\uDEDE\uDF05-\uDF0C\uDF0F\uDF10\uDF13-\uDF28\uDF2A-\uDF30\uDF32\uDF33\uDF35-\uDF39\uDF3D\uDF50\uDF5D-\uDF61]|\uD805[\uDC00-\uDC34\uDC47-\uDC4A\uDC5F-\uDC61\uDC80-\uDCAF\uDCC4\uDCC5\uDCC7\uDD80-\uDDAE\uDDD8-\uDDDB\uDE00-\uDE2F\uDE44\uDE80-\uDEAA\uDEB8\uDF00-\uDF1A]|\uD806[\uDC00-\uDC2B\uDCA0-\uDCDF\uDCFF-\uDD06\uDD09\uDD0C-\uDD13\uDD15\uDD16\uDD18-\uDD2F\uDD3F\uDD41\uDDA0-\uDDA7\uDDAA-\uDDD0\uDDE1\uDDE3\uDE00\uDE0B-\uDE32\uDE3A\uDE50\uDE5C-\uDE89\uDE9D\uDEC0-\uDEF8]|\uD807[\uDC00-\uDC08\uDC0A-\uDC2E\uDC40\uDC72-\uDC8F\uDD00-\uDD06\uDD08\uDD09\uDD0B-\uDD30\uDD46\uDD60-\uDD65\uDD67\uDD68\uDD6A-\uDD89\uDD98\uDEE0-\uDEF2\uDFB0]|\uD808[\uDC00-\uDF99]|\uD809[\uDC00-\uDC6E\uDC80-\uDD43]|[\uD80C\uD81C-\uD820\uD822\uD840-\uD868\uD86A-\uD86C\uD86F-\uD872\uD874-\uD879\uD880-\uD883][\uDC00-\uDFFF]|\uD80D[\uDC00-\uDC2E]|\uD811[\uDC00-\uDE46]|\uD81A[\uDC00-\uDE38\uDE40-\uDE5E\uDED0-\uDEED\uDF00-\uDF2F\uDF40-\uDF43\uDF63-\uDF77\uDF7D-\uDF8F]|\uD81B[\uDE40-\uDE7F\uDF00-\uDF4A\uDF50\uDF93-\uDF9F\uDFE0\uDFE1\uDFE3]|\uD821[\uDC00-\uDFF7]|\uD823[\uDC00-\uDCD5\uDD00-\uDD08]|\uD82C[\uDC00-\uDD1E\uDD50-\uDD52\uDD64-\uDD67\uDD70-\uDEFB]|\uD82F[\uDC00-\uDC6A\uDC70-\uDC7C\uDC80-\uDC88\uDC90-\uDC99]|\uD835[\uDC00-\uDC54\uDC56-\uDC9C\uDC9E\uDC9F\uDCA2\uDCA5\uDCA6\uDCA9-\uDCAC\uDCAE-\uDCB9\uDCBB\uDCBD-\uDCC3\uDCC5-\uDD05\uDD07-\uDD0A\uDD0D-\uDD14\uDD16-\uDD1C\uDD1E-\uDD39\uDD3B-\uDD3E\uDD40-\uDD44\uDD46\uDD4A-\uDD50\uDD52-\uDEA5\uDEA8-\uDEC0\uDEC2-\uDEDA\uDEDC-\uDEFA\uDEFC-\uDF14\uDF16-\uDF34\uDF36-\uDF4E\uDF50-\uDF6E\uDF70-\uDF88\uDF8A-\uDFA8\uDFAA-\uDFC2\uDFC4-\uDFCB]|\uD838[\uDD00-\uDD2C\uDD37-\uDD3D\uDD4E\uDEC0-\uDEEB]|\uD83A[\uDC00-\uDCC4\uDD00-\uDD43\uDD4B]|\uD83B[\uDE00-\uDE03\uDE05-\uDE1F\uDE21\uDE22\uDE24\uDE27\uDE29-\uDE32\uDE34-\uDE37\uDE39\uDE3B\uDE42\uDE47\uDE49\uDE4B\uDE4D-\uDE4F\uDE51\uDE52\uDE54\uDE57\uDE59\uDE5B\uDE5D\uDE5F\uDE61\uDE62\uDE64\uDE67-\uDE6A\uDE6C-\uDE72\uDE74-\uDE77\uDE79-\uDE7C\uDE7E\uDE80-\uDE89\uDE8B-\uDE9B\uDEA1-\uDEA3\uDEA5-\uDEA9\uDEAB-\uDEBB]|\uD869[\uDC00-\uDEDD\uDF00-\uDFFF]|\uD86D[\uDC00-\uDF34\uDF40-\uDFFF]|\uD86E[\uDC00-\uDC1D\uDC20-\uDFFF]|\uD873[\uDC00-\uDEA1\uDEB0-\uDFFF]|\uD87A[\uDC00-\uDFE0]|\uD87E[\uDC00-\uDE1D]|\uD884[\uDC00-\uDF4A])/;
+var C = /(?:[\$0-9A-Z_a-z\xAA\xB5\xB7\xBA\xC0-\xD6\xD8-\xF6\xF8-\u02C1\u02C6-\u02D1\u02E0-\u02E4\u02EC\u02EE\u0300-\u0374\u0376\u0377\u037A-\u037D\u037F\u0386-\u038A\u038C\u038E-\u03A1\u03A3-\u03F5\u03F7-\u0481\u0483-\u0487\u048A-\u052F\u0531-\u0556\u0559\u0560-\u0588\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7\u05D0-\u05EA\u05EF-\u05F2\u0610-\u061A\u0620-\u0669\u066E-\u06D3\u06D5-\u06DC\u06DF-\u06E8\u06EA-\u06FC\u06FF\u0710-\u074A\u074D-\u07B1\u07C0-\u07F5\u07FA\u07FD\u0800-\u082D\u0840-\u085B\u0860-\u086A\u08A0-\u08B4\u08B6-\u08C7\u08D3-\u08E1\u08E3-\u0963\u0966-\u096F\u0971-\u0983\u0985-\u098C\u098F\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BC-\u09C4\u09C7\u09C8\u09CB-\u09CE\u09D7\u09DC\u09DD\u09DF-\u09E3\u09E6-\u09F1\u09FC\u09FE\u0A01-\u0A03\u0A05-\u0A0A\u0A0F\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32\u0A33\u0A35\u0A36\u0A38\u0A39\u0A3C\u0A3E-\u0A42\u0A47\u0A48\u0A4B-\u0A4D\u0A51\u0A59-\u0A5C\u0A5E\u0A66-\u0A75\u0A81-\u0A83\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2\u0AB3\u0AB5-\u0AB9\u0ABC-\u0AC5\u0AC7-\u0AC9\u0ACB-\u0ACD\u0AD0\u0AE0-\u0AE3\u0AE6-\u0AEF\u0AF9-\u0AFF\u0B01-\u0B03\u0B05-\u0B0C\u0B0F\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32\u0B33\u0B35-\u0B39\u0B3C-\u0B44\u0B47\u0B48\u0B4B-\u0B4D\u0B55-\u0B57\u0B5C\u0B5D\u0B5F-\u0B63\u0B66-\u0B6F\u0B71\u0B82\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99\u0B9A\u0B9C\u0B9E\u0B9F\u0BA3\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BBE-\u0BC2\u0BC6-\u0BC8\u0BCA-\u0BCD\u0BD0\u0BD7\u0BE6-\u0BEF\u0C00-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C39\u0C3D-\u0C44\u0C46-\u0C48\u0C4A-\u0C4D\u0C55\u0C56\u0C58-\u0C5A\u0C60-\u0C63\u0C66-\u0C6F\u0C80-\u0C83\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBC-\u0CC4\u0CC6-\u0CC8\u0CCA-\u0CCD\u0CD5\u0CD6\u0CDE\u0CE0-\u0CE3\u0CE6-\u0CEF\u0CF1\u0CF2\u0D00-\u0D0C\u0D0E-\u0D10\u0D12-\u0D44\u0D46-\u0D48\u0D4A-\u0D4E\u0D54-\u0D57\u0D5F-\u0D63\u0D66-\u0D6F\u0D7A-\u0D7F\u0D81-\u0D83\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0DCA\u0DCF-\u0DD4\u0DD6\u0DD8-\u0DDF\u0DE6-\u0DEF\u0DF2\u0DF3\u0E01-\u0E3A\u0E40-\u0E4E\u0E50-\u0E59\u0E81\u0E82\u0E84\u0E86-\u0E8A\u0E8C-\u0EA3\u0EA5\u0EA7-\u0EBD\u0EC0-\u0EC4\u0EC6\u0EC8-\u0ECD\u0ED0-\u0ED9\u0EDC-\u0EDF\u0F00\u0F18\u0F19\u0F20-\u0F29\u0F35\u0F37\u0F39\u0F3E-\u0F47\u0F49-\u0F6C\u0F71-\u0F84\u0F86-\u0F97\u0F99-\u0FBC\u0FC6\u1000-\u1049\u1050-\u109D\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u135D-\u135F\u1369-\u1371\u1380-\u138F\u13A0-\u13F5\u13F8-\u13FD\u1401-\u166C\u166F-\u167F\u1681-\u169A\u16A0-\u16EA\u16EE-\u16F8\u1700-\u170C\u170E-\u1714\u1720-\u1734\u1740-\u1753\u1760-\u176C\u176E-\u1770\u1772\u1773\u1780-\u17D3\u17D7\u17DC\u17DD\u17E0-\u17E9\u180B-\u180D\u1810-\u1819\u1820-\u1878\u1880-\u18AA\u18B0-\u18F5\u1900-\u191E\u1920-\u192B\u1930-\u193B\u1946-\u196D\u1970-\u1974\u1980-\u19AB\u19B0-\u19C9\u19D0-\u19DA\u1A00-\u1A1B\u1A20-\u1A5E\u1A60-\u1A7C\u1A7F-\u1A89\u1A90-\u1A99\u1AA7\u1AB0-\u1ABD\u1ABF\u1AC0\u1B00-\u1B4B\u1B50-\u1B59\u1B6B-\u1B73\u1B80-\u1BF3\u1C00-\u1C37\u1C40-\u1C49\u1C4D-\u1C7D\u1C80-\u1C88\u1C90-\u1CBA\u1CBD-\u1CBF\u1CD0-\u1CD2\u1CD4-\u1CFA\u1D00-\u1DF9\u1DFB-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FBC\u1FBE\u1FC2-\u1FC4\u1FC6-\u1FCC\u1FD0-\u1FD3\u1FD6-\u1FDB\u1FE0-\u1FEC\u1FF2-\u1FF4\u1FF6-\u1FFC\u200C\u200D\u203F\u2040\u2054\u2071\u207F\u2090-\u209C\u20D0-\u20DC\u20E1\u20E5-\u20F0\u2102\u2107\u210A-\u2113\u2115\u2118-\u211D\u2124\u2126\u2128\u212A-\u2139\u213C-\u213F\u2145-\u2149\u214E\u2160-\u2188\u2C00-\u2C2E\u2C30-\u2C5E\u2C60-\u2CE4\u2CEB-\u2CF3\u2D00-\u2D25\u2D27\u2D2D\u2D30-\u2D67\u2D6F\u2D7F-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\u2DE0-\u2DFF\u3005-\u3007\u3021-\u302F\u3031-\u3035\u3038-\u303C\u3041-\u3096\u3099-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312F\u3131-\u318E\u31A0-\u31BF\u31F0-\u31FF\u3400-\u4DBF\u4E00-\u9FFC\uA000-\uA48C\uA4D0-\uA4FD\uA500-\uA60C\uA610-\uA62B\uA640-\uA66F\uA674-\uA67D\uA67F-\uA6F1\uA717-\uA71F\uA722-\uA788\uA78B-\uA7BF\uA7C2-\uA7CA\uA7F5-\uA827\uA82C\uA840-\uA873\uA880-\uA8C5\uA8D0-\uA8D9\uA8E0-\uA8F7\uA8FB\uA8FD-\uA92D\uA930-\uA953\uA960-\uA97C\uA980-\uA9C0\uA9CF-\uA9D9\uA9E0-\uA9FE\uAA00-\uAA36\uAA40-\uAA4D\uAA50-\uAA59\uAA60-\uAA76\uAA7A-\uAAC2\uAADB-\uAADD\uAAE0-\uAAEF\uAAF2-\uAAF6\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E\uAB30-\uAB5A\uAB5C-\uAB69\uAB70-\uABEA\uABEC\uABED\uABF0-\uABF9\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uF900-\uFA6D\uFA70-\uFAD9\uFB00-\uFB06\uFB13-\uFB17\uFB1D-\uFB28\uFB2A-\uFB36\uFB38-\uFB3C\uFB3E\uFB40\uFB41\uFB43\uFB44\uFB46-\uFBB1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFB\uFE00-\uFE0F\uFE20-\uFE2F\uFE33\uFE34\uFE4D-\uFE4F\uFE70-\uFE74\uFE76-\uFEFC\uFF10-\uFF19\uFF21-\uFF3A\uFF3F\uFF41-\uFF5A\uFF66-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC]|\uD800[\uDC00-\uDC0B\uDC0D-\uDC26\uDC28-\uDC3A\uDC3C\uDC3D\uDC3F-\uDC4D\uDC50-\uDC5D\uDC80-\uDCFA\uDD40-\uDD74\uDDFD\uDE80-\uDE9C\uDEA0-\uDED0\uDEE0\uDF00-\uDF1F\uDF2D-\uDF4A\uDF50-\uDF7A\uDF80-\uDF9D\uDFA0-\uDFC3\uDFC8-\uDFCF\uDFD1-\uDFD5]|\uD801[\uDC00-\uDC9D\uDCA0-\uDCA9\uDCB0-\uDCD3\uDCD8-\uDCFB\uDD00-\uDD27\uDD30-\uDD63\uDE00-\uDF36\uDF40-\uDF55\uDF60-\uDF67]|\uD802[\uDC00-\uDC05\uDC08\uDC0A-\uDC35\uDC37\uDC38\uDC3C\uDC3F-\uDC55\uDC60-\uDC76\uDC80-\uDC9E\uDCE0-\uDCF2\uDCF4\uDCF5\uDD00-\uDD15\uDD20-\uDD39\uDD80-\uDDB7\uDDBE\uDDBF\uDE00-\uDE03\uDE05\uDE06\uDE0C-\uDE13\uDE15-\uDE17\uDE19-\uDE35\uDE38-\uDE3A\uDE3F\uDE60-\uDE7C\uDE80-\uDE9C\uDEC0-\uDEC7\uDEC9-\uDEE6\uDF00-\uDF35\uDF40-\uDF55\uDF60-\uDF72\uDF80-\uDF91]|\uD803[\uDC00-\uDC48\uDC80-\uDCB2\uDCC0-\uDCF2\uDD00-\uDD27\uDD30-\uDD39\uDE80-\uDEA9\uDEAB\uDEAC\uDEB0\uDEB1\uDF00-\uDF1C\uDF27\uDF30-\uDF50\uDFB0-\uDFC4\uDFE0-\uDFF6]|\uD804[\uDC00-\uDC46\uDC66-\uDC6F\uDC7F-\uDCBA\uDCD0-\uDCE8\uDCF0-\uDCF9\uDD00-\uDD34\uDD36-\uDD3F\uDD44-\uDD47\uDD50-\uDD73\uDD76\uDD80-\uDDC4\uDDC9-\uDDCC\uDDCE-\uDDDA\uDDDC\uDE00-\uDE11\uDE13-\uDE37\uDE3E\uDE80-\uDE86\uDE88\uDE8A-\uDE8D\uDE8F-\uDE9D\uDE9F-\uDEA8\uDEB0-\uDEEA\uDEF0-\uDEF9\uDF00-\uDF03\uDF05-\uDF0C\uDF0F\uDF10\uDF13-\uDF28\uDF2A-\uDF30\uDF32\uDF33\uDF35-\uDF39\uDF3B-\uDF44\uDF47\uDF48\uDF4B-\uDF4D\uDF50\uDF57\uDF5D-\uDF63\uDF66-\uDF6C\uDF70-\uDF74]|\uD805[\uDC00-\uDC4A\uDC50-\uDC59\uDC5E-\uDC61\uDC80-\uDCC5\uDCC7\uDCD0-\uDCD9\uDD80-\uDDB5\uDDB8-\uDDC0\uDDD8-\uDDDD\uDE00-\uDE40\uDE44\uDE50-\uDE59\uDE80-\uDEB8\uDEC0-\uDEC9\uDF00-\uDF1A\uDF1D-\uDF2B\uDF30-\uDF39]|\uD806[\uDC00-\uDC3A\uDCA0-\uDCE9\uDCFF-\uDD06\uDD09\uDD0C-\uDD13\uDD15\uDD16\uDD18-\uDD35\uDD37\uDD38\uDD3B-\uDD43\uDD50-\uDD59\uDDA0-\uDDA7\uDDAA-\uDDD7\uDDDA-\uDDE1\uDDE3\uDDE4\uDE00-\uDE3E\uDE47\uDE50-\uDE99\uDE9D\uDEC0-\uDEF8]|\uD807[\uDC00-\uDC08\uDC0A-\uDC36\uDC38-\uDC40\uDC50-\uDC59\uDC72-\uDC8F\uDC92-\uDCA7\uDCA9-\uDCB6\uDD00-\uDD06\uDD08\uDD09\uDD0B-\uDD36\uDD3A\uDD3C\uDD3D\uDD3F-\uDD47\uDD50-\uDD59\uDD60-\uDD65\uDD67\uDD68\uDD6A-\uDD8E\uDD90\uDD91\uDD93-\uDD98\uDDA0-\uDDA9\uDEE0-\uDEF6\uDFB0]|\uD808[\uDC00-\uDF99]|\uD809[\uDC00-\uDC6E\uDC80-\uDD43]|[\uD80C\uD81C-\uD820\uD822\uD840-\uD868\uD86A-\uD86C\uD86F-\uD872\uD874-\uD879\uD880-\uD883][\uDC00-\uDFFF]|\uD80D[\uDC00-\uDC2E]|\uD811[\uDC00-\uDE46]|\uD81A[\uDC00-\uDE38\uDE40-\uDE5E\uDE60-\uDE69\uDED0-\uDEED\uDEF0-\uDEF4\uDF00-\uDF36\uDF40-\uDF43\uDF50-\uDF59\uDF63-\uDF77\uDF7D-\uDF8F]|\uD81B[\uDE40-\uDE7F\uDF00-\uDF4A\uDF4F-\uDF87\uDF8F-\uDF9F\uDFE0\uDFE1\uDFE3\uDFE4\uDFF0\uDFF1]|\uD821[\uDC00-\uDFF7]|\uD823[\uDC00-\uDCD5\uDD00-\uDD08]|\uD82C[\uDC00-\uDD1E\uDD50-\uDD52\uDD64-\uDD67\uDD70-\uDEFB]|\uD82F[\uDC00-\uDC6A\uDC70-\uDC7C\uDC80-\uDC88\uDC90-\uDC99\uDC9D\uDC9E]|\uD834[\uDD65-\uDD69\uDD6D-\uDD72\uDD7B-\uDD82\uDD85-\uDD8B\uDDAA-\uDDAD\uDE42-\uDE44]|\uD835[\uDC00-\uDC54\uDC56-\uDC9C\uDC9E\uDC9F\uDCA2\uDCA5\uDCA6\uDCA9-\uDCAC\uDCAE-\uDCB9\uDCBB\uDCBD-\uDCC3\uDCC5-\uDD05\uDD07-\uDD0A\uDD0D-\uDD14\uDD16-\uDD1C\uDD1E-\uDD39\uDD3B-\uDD3E\uDD40-\uDD44\uDD46\uDD4A-\uDD50\uDD52-\uDEA5\uDEA8-\uDEC0\uDEC2-\uDEDA\uDEDC-\uDEFA\uDEFC-\uDF14\uDF16-\uDF34\uDF36-\uDF4E\uDF50-\uDF6E\uDF70-\uDF88\uDF8A-\uDFA8\uDFAA-\uDFC2\uDFC4-\uDFCB\uDFCE-\uDFFF]|\uD836[\uDE00-\uDE36\uDE3B-\uDE6C\uDE75\uDE84\uDE9B-\uDE9F\uDEA1-\uDEAF]|\uD838[\uDC00-\uDC06\uDC08-\uDC18\uDC1B-\uDC21\uDC23\uDC24\uDC26-\uDC2A\uDD00-\uDD2C\uDD30-\uDD3D\uDD40-\uDD49\uDD4E\uDEC0-\uDEF9]|\uD83A[\uDC00-\uDCC4\uDCD0-\uDCD6\uDD00-\uDD4B\uDD50-\uDD59]|\uD83B[\uDE00-\uDE03\uDE05-\uDE1F\uDE21\uDE22\uDE24\uDE27\uDE29-\uDE32\uDE34-\uDE37\uDE39\uDE3B\uDE42\uDE47\uDE49\uDE4B\uDE4D-\uDE4F\uDE51\uDE52\uDE54\uDE57\uDE59\uDE5B\uDE5D\uDE5F\uDE61\uDE62\uDE64\uDE67-\uDE6A\uDE6C-\uDE72\uDE74-\uDE77\uDE79-\uDE7C\uDE7E\uDE80-\uDE89\uDE8B-\uDE9B\uDEA1-\uDEA3\uDEA5-\uDEA9\uDEAB-\uDEBB]|\uD83E[\uDFF0-\uDFF9]|\uD869[\uDC00-\uDEDD\uDF00-\uDFFF]|\uD86D[\uDC00-\uDF34\uDF40-\uDFFF]|\uD86E[\uDC00-\uDC1D\uDC20-\uDFFF]|\uD873[\uDC00-\uDEA1\uDEB0-\uDFFF]|\uD87A[\uDC00-\uDFE0]|\uD87E[\uDC00-\uDE1D]|\uD884[\uDC00-\uDF4A]|\uDB40[\uDD00-\uDDEF])/;
+function A(u2, D2) {
+  return (D2 ? /^[\x00-\xFF]*$/ : /^[\x00-\x7F]*$/).test(u2);
+}
+function E(u2, D2) {
+  D2 === void 0 && (D2 = false);
+  for (var t2 = [], F2 = 0; F2 < u2.length; ) {
+    var E2 = u2[F2], n2 = function(e2) {
+      if (!D2)
+        throw new TypeError(e2);
+      t2.push({ type: "INVALID_CHAR", index: F2, value: u2[F2++] });
+    };
+    if (E2 !== "*")
+      if (E2 !== "+" && E2 !== "?")
+        if (E2 !== "\\")
+          if (E2 !== "{")
+            if (E2 !== "}")
+              if (E2 !== ":")
+                if (E2 !== "(")
+                  t2.push({ type: "CHAR", index: F2, value: u2[F2++] });
+                else {
+                  var r2 = 1, i2 = "", s2 = F2 + 1, a2 = false;
+                  if (u2[s2] === "?") {
+                    n2('Pattern cannot start with "?" at ' + s2);
+                    continue;
+                  }
+                  for (; s2 < u2.length; ) {
+                    if (!A(u2[s2], false)) {
+                      n2("Invalid character '" + u2[s2] + "' at " + s2 + "."), a2 = true;
+                      break;
+                    }
+                    if (u2[s2] !== "\\") {
+                      if (u2[s2] === ")") {
+                        if (--r2 == 0) {
+                          s2++;
+                          break;
+                        }
+                      } else if (u2[s2] === "(" && (r2++, u2[s2 + 1] !== "?")) {
+                        n2("Capturing groups are not allowed at " + s2), a2 = true;
+                        break;
+                      }
+                      i2 += u2[s2++];
+                    } else
+                      i2 += u2[s2++] + u2[s2++];
+                  }
+                  if (a2)
+                    continue;
+                  if (r2) {
+                    n2("Unbalanced pattern at " + F2);
+                    continue;
+                  }
+                  if (!i2) {
+                    n2("Missing pattern at " + F2);
+                    continue;
+                  }
+                  t2.push({ type: "PATTERN", index: F2, value: i2 }), F2 = s2;
+                }
+              else {
+                for (var B2 = "", o2 = F2 + 1; o2 < u2.length; ) {
+                  var h2 = u2.substr(o2, 1);
+                  if (!(o2 === F2 + 1 && e.test(h2) || o2 !== F2 + 1 && C.test(h2)))
+                    break;
+                  B2 += u2[o2++];
+                }
+                if (!B2) {
+                  n2("Missing parameter name at " + F2);
+                  continue;
+                }
+                t2.push({ type: "NAME", index: F2, value: B2 }), F2 = o2;
+              }
+            else
+              t2.push({ type: "CLOSE", index: F2, value: u2[F2++] });
+          else
+            t2.push({ type: "OPEN", index: F2, value: u2[F2++] });
+        else
+          t2.push({ type: "ESCAPED_CHAR", index: F2++, value: u2[F2++] });
+      else
+        t2.push({ type: "MODIFIER", index: F2, value: u2[F2++] });
+    else
+      t2.push({ type: "ASTERISK", index: F2, value: u2[F2++] });
+  }
+  return t2.push({ type: "END", index: F2, value: "" }), t2;
+}
+function n(u2, D2) {
+  D2 === void 0 && (D2 = {});
+  for (var t2 = E(u2), F2 = D2.prefixes, e2 = F2 === void 0 ? "./" : F2, C2 = "[^" + r(D2.delimiter || "/#?") + "]+?", A2 = [], n2 = 0, i2 = 0, s2 = "", a2 = /* @__PURE__ */ new Set(), B2 = function(u3) {
+    if (i2 < t2.length && t2[i2].type === u3)
+      return t2[i2++].value;
+  }, o2 = function() {
+    return B2("MODIFIER") || B2("ASTERISK");
+  }, h2 = function(u3) {
+    var D3 = B2(u3);
+    if (D3 !== void 0)
+      return D3;
+    var F3 = t2[i2];
+    throw new TypeError("Unexpected " + F3.type + " at " + F3.index + ", expected " + u3);
+  }, p2 = function() {
+    for (var u3, D3 = ""; u3 = B2("CHAR") || B2("ESCAPED_CHAR"); )
+      D3 += u3;
+    return D3;
+  }, c2 = D2.encodePart || function(u3) {
+    return u3;
+  }; i2 < t2.length; ) {
+    var f2 = B2("CHAR"), l2 = B2("NAME"), m2 = B2("PATTERN");
+    if (l2 || m2 || !B2("ASTERISK") || (m2 = ".*"), l2 || m2) {
+      var d2 = f2 || "";
+      e2.indexOf(d2) === -1 && (s2 += d2, d2 = ""), s2 && (A2.push(c2(s2)), s2 = "");
+      var g2 = l2 || n2++;
+      if (a2.has(g2))
+        throw new TypeError("Duplicate name '" + g2 + "'.");
+      a2.add(g2), A2.push({ name: g2, prefix: c2(d2), suffix: "", pattern: m2 || C2, modifier: o2() || "" });
+    } else {
+      var x2 = f2 || B2("ESCAPED_CHAR");
+      if (x2)
+        s2 += x2;
+      else if (B2("OPEN")) {
+        var S2 = p2(), v2 = B2("NAME") || "", y2 = B2("PATTERN") || "";
+        v2 || y2 || !B2("ASTERISK") || (y2 = ".*");
+        var R2 = p2();
+        h2("CLOSE");
+        var k2 = o2() || "";
+        if (!v2 && !y2 && !k2) {
+          s2 += S2;
+          continue;
+        }
+        if (!v2 && !y2 && !S2)
+          continue;
+        s2 && (A2.push(c2(s2)), s2 = ""), A2.push({ name: v2 || (y2 ? n2++ : ""), pattern: v2 && !y2 ? C2 : y2, prefix: c2(S2), suffix: c2(R2), modifier: k2 });
+      } else
+        s2 && (A2.push(c2(s2)), s2 = ""), h2("END");
+    }
+  }
+  return A2;
+}
+function r(u2) {
+  return u2.replace(/([.+*?^${}()[\]|/\\])/g, "\\$1");
+}
+function i(u2) {
+  return u2 && u2.sensitive ? "u" : "ui";
+}
+function s(u2, D2, t2) {
+  t2 === void 0 && (t2 = {});
+  for (var e2, C2 = t2.strict, A2 = C2 !== void 0 && C2, E2 = t2.start, n2 = E2 === void 0 || E2, s2 = t2.end, a2 = s2 === void 0 || s2, B2 = t2.encode, o2 = B2 === void 0 ? function(u3) {
+    return u3;
+  } : B2, h2 = "[" + r(t2.endsWith || "") + "]|$", p2 = "[" + r(t2.delimiter || "/#?") + "]", c2 = n2 ? "^" : "", f2 = F(u2); !(e2 = f2()).done; ) {
+    var l2 = e2.value;
+    if (typeof l2 == "string")
+      c2 += r(o2(l2));
+    else {
+      var m2 = r(o2(l2.prefix)), d2 = r(o2(l2.suffix));
+      l2.pattern ? (D2 && D2.push(l2), c2 += m2 || d2 ? l2.modifier === "+" || l2.modifier === "*" ? "(?:" + m2 + "((?:" + l2.pattern + ")(?:" + d2 + m2 + "(?:" + l2.pattern + "))*)" + d2 + ")" + (l2.modifier === "*" ? "?" : "") : "(?:" + m2 + "(" + l2.pattern + ")" + d2 + ")" + l2.modifier : l2.modifier === "+" || l2.modifier === "*" ? "((?:" + l2.pattern + ")" + l2.modifier + ")" : "(" + l2.pattern + ")" + l2.modifier) : c2 += "(?:" + m2 + d2 + ")" + l2.modifier;
+    }
+  }
+  if (a2)
+    A2 || (c2 += p2 + "?"), c2 += t2.endsWith ? "(?=" + h2 + ")" : "$";
+  else {
+    var g2 = u2[u2.length - 1], x2 = typeof g2 == "string" ? p2.indexOf(g2[g2.length - 1]) > -1 : g2 === void 0;
+    A2 || (c2 += "(?:" + p2 + "(?=" + h2 + "))?"), x2 || (c2 += "(?=" + p2 + "|" + h2 + ")");
+  }
+  return new RegExp(c2, i(t2));
+}
+function a(u2, D2, t2) {
+  return u2 instanceof RegExp ? function(u3, D3) {
+    if (!D3)
+      return u3;
+    for (var t3 = /\((?:\?<(.*?)>)?(?!\?)/g, F2 = 0, e2 = t3.exec(u3.source); e2; )
+      D3.push({ name: e2[1] || F2++, prefix: "", suffix: "", modifier: "", pattern: "" }), e2 = t3.exec(u3.source);
+    return u3;
+  }(u2, D2) : Array.isArray(u2) ? function(u3, D3, t3) {
+    var F2 = u3.map(function(u4) {
+      return a(u4, D3, t3).source;
+    });
+    return new RegExp("(?:" + F2.join("|") + ")", i(t3));
+  }(u2, D2, t2) : function(u3, D3, t3) {
+    return s(n(u3, t3), D3, t3);
+  }(u2, D2, t2);
+}
+var B = { delimiter: "", prefixes: "", sensitive: true, strict: true };
+var o = { delimiter: ".", prefixes: "", sensitive: true, strict: true };
+var h = { delimiter: "/", prefixes: "/", sensitive: true, strict: true };
+function p(u2, D2) {
+  return u2.startsWith(D2) ? u2.substring(D2.length, u2.length) : u2;
+}
+function c(u2) {
+  return !(!u2 || u2.length < 2 || u2[0] !== "[" && (u2[0] !== "\\" && u2[0] !== "{" || u2[1] !== "["));
+}
+var f;
+var l = ["ftp", "file", "http", "https", "ws", "wss"];
+function m(u2) {
+  if (!u2)
+    return true;
+  for (var D2, t2 = F(l); !(D2 = t2()).done; )
+    if (u2.test(D2.value))
+      return true;
+  return false;
+}
+function d(u2) {
+  switch (u2) {
+    case "ws":
+    case "http":
+      return "80";
+    case "wws":
+    case "https":
+      return "443";
+    case "ftp":
+      return "21";
+    default:
+      return "";
+  }
+}
+function g(u2) {
+  if (u2 === "")
+    return u2;
+  if (/^[-+.A-Za-z0-9]*$/.test(u2))
+    return u2.toLowerCase();
+  throw new TypeError("Invalid protocol '" + u2 + "'.");
+}
+function x(u2) {
+  if (u2 === "")
+    return u2;
+  var D2 = new URL("https://example.com");
+  return D2.username = u2, D2.username;
+}
+function S(u2) {
+  if (u2 === "")
+    return u2;
+  var D2 = new URL("https://example.com");
+  return D2.password = u2, D2.password;
+}
+function v(u2) {
+  if (u2 === "")
+    return u2;
+  if (/[\t\n\r #%/:<>?@[\]^\\|]/g.test(u2))
+    throw new TypeError("Invalid hostname '" + u2 + "'");
+  var D2 = new URL("https://example.com");
+  return D2.hostname = u2, D2.hostname;
+}
+function y(u2) {
+  if (u2 === "")
+    return u2;
+  if (/[^0-9a-fA-F[\]:]/g.test(u2))
+    throw new TypeError("Invalid IPv6 hostname '" + u2 + "'");
+  return u2.toLowerCase();
+}
+function R(u2) {
+  if (u2 === "")
+    return u2;
+  if (/^[0-9]*$/.test(u2) && parseInt(u2) <= 65535)
+    return u2;
+  throw new TypeError("Invalid port '" + u2 + "'.");
+}
+function k(u2) {
+  if (u2 === "")
+    return u2;
+  var D2 = new URL("https://example.com");
+  return D2.pathname = u2[0] !== "/" ? "/-" + u2 : u2, u2[0] !== "/" ? D2.pathname.substring(2, D2.pathname.length) : D2.pathname;
+}
+function w(u2) {
+  return u2 === "" ? u2 : new URL("data:" + u2).pathname;
+}
+function P(u2) {
+  if (u2 === "")
+    return u2;
+  var D2 = new URL("https://example.com");
+  return D2.search = u2, D2.search.substring(1, D2.search.length);
+}
+function T(u2) {
+  if (u2 === "")
+    return u2;
+  var D2 = new URL("https://example.com");
+  return D2.hash = u2, D2.hash.substring(1, D2.hash.length);
+}
+!function(u2) {
+  u2[u2.INIT = 0] = "INIT", u2[u2.PROTOCOL = 1] = "PROTOCOL", u2[u2.AUTHORITY = 2] = "AUTHORITY", u2[u2.USERNAME = 3] = "USERNAME", u2[u2.PASSWORD = 4] = "PASSWORD", u2[u2.HOSTNAME = 5] = "HOSTNAME", u2[u2.PORT = 6] = "PORT", u2[u2.PATHNAME = 7] = "PATHNAME", u2[u2.SEARCH = 8] = "SEARCH", u2[u2.HASH = 9] = "HASH", u2[u2.DONE = 10] = "DONE";
+}(f || (f = {}));
+var b = function() {
+  function u2(u3) {
+    this.input = void 0, this.tokenList = [], this.internalResult = {}, this.tokenIndex = 0, this.tokenIncrement = 1, this.componentStart = 0, this.state = f.INIT, this.groupDepth = 0, this.hostnameIPv6BracketDepth = 0, this.shouldTreatAsStandardURL = false, this.input = u3;
+  }
+  var t2 = u2.prototype;
+  return t2.parse = function() {
+    for (this.tokenList = E(this.input, true); this.tokenIndex < this.tokenList.length; this.tokenIndex += this.tokenIncrement) {
+      if (this.tokenIncrement = 1, this.tokenList[this.tokenIndex].type === "END") {
+        if (this.state === f.INIT) {
+          this.rewind(), this.isHashPrefix() ? this.changeState(f.HASH, 1) : this.isSearchPrefix() ? (this.changeState(f.SEARCH, 1), this.internalResult.hash = "") : (this.changeState(f.PATHNAME, 0), this.internalResult.search = "", this.internalResult.hash = "");
+          continue;
+        }
+        if (this.state === f.AUTHORITY) {
+          this.rewindAndSetState(f.HOSTNAME);
+          continue;
+        }
+        this.changeState(f.DONE, 0);
+        break;
+      }
+      if (this.groupDepth > 0) {
+        if (!this.isGroupClose())
+          continue;
+        this.groupDepth -= 1;
+      }
+      if (this.isGroupOpen())
+        this.groupDepth += 1;
+      else
+        switch (this.state) {
+          case f.INIT:
+            this.isProtocolSuffix() && (this.internalResult.username = "", this.internalResult.password = "", this.internalResult.hostname = "", this.internalResult.port = "", this.internalResult.pathname = "", this.internalResult.search = "", this.internalResult.hash = "", this.rewindAndSetState(f.PROTOCOL));
+            break;
+          case f.PROTOCOL:
+            if (this.isProtocolSuffix()) {
+              this.computeShouldTreatAsStandardURL();
+              var u3 = f.PATHNAME, D2 = 1;
+              this.shouldTreatAsStandardURL && (this.internalResult.pathname = "/"), this.nextIsAuthoritySlashes() ? (u3 = f.AUTHORITY, D2 = 3) : this.shouldTreatAsStandardURL && (u3 = f.AUTHORITY), this.changeState(u3, D2);
+            }
+            break;
+          case f.AUTHORITY:
+            this.isIdentityTerminator() ? this.rewindAndSetState(f.USERNAME) : (this.isPathnameStart() || this.isSearchPrefix() || this.isHashPrefix()) && this.rewindAndSetState(f.HOSTNAME);
+            break;
+          case f.USERNAME:
+            this.isPasswordPrefix() ? this.changeState(f.PASSWORD, 1) : this.isIdentityTerminator() && this.changeState(f.HOSTNAME, 1);
+            break;
+          case f.PASSWORD:
+            this.isIdentityTerminator() && this.changeState(f.HOSTNAME, 1);
+            break;
+          case f.HOSTNAME:
+            this.isIPv6Open() ? this.hostnameIPv6BracketDepth += 1 : this.isIPv6Close() && (this.hostnameIPv6BracketDepth -= 1), this.isPortPrefix() && !this.hostnameIPv6BracketDepth ? this.changeState(f.PORT, 1) : this.isPathnameStart() ? this.changeState(f.PATHNAME, 0) : this.isSearchPrefix() ? this.changeState(f.SEARCH, 1) : this.isHashPrefix() && this.changeState(f.HASH, 1);
+            break;
+          case f.PORT:
+            this.isPathnameStart() ? this.changeState(f.PATHNAME, 0) : this.isSearchPrefix() ? this.changeState(f.SEARCH, 1) : this.isHashPrefix() && this.changeState(f.HASH, 1);
+            break;
+          case f.PATHNAME:
+            this.isSearchPrefix() ? this.changeState(f.SEARCH, 1) : this.isHashPrefix() && this.changeState(f.HASH, 1);
+            break;
+          case f.SEARCH:
+            this.isHashPrefix() && this.changeState(f.HASH, 1);
+        }
+    }
+  }, t2.changeState = function(u3, D2) {
+    switch (this.state) {
+      case f.INIT:
+        break;
+      case f.PROTOCOL:
+        this.internalResult.protocol = this.makeComponentString();
+        break;
+      case f.AUTHORITY:
+        break;
+      case f.USERNAME:
+        this.internalResult.username = this.makeComponentString();
+        break;
+      case f.PASSWORD:
+        this.internalResult.password = this.makeComponentString();
+        break;
+      case f.HOSTNAME:
+        this.internalResult.hostname = this.makeComponentString();
+        break;
+      case f.PORT:
+        this.internalResult.port = this.makeComponentString();
+        break;
+      case f.PATHNAME:
+        this.internalResult.pathname = this.makeComponentString();
+        break;
+      case f.SEARCH:
+        this.internalResult.search = this.makeComponentString();
+        break;
+      case f.HASH:
+        this.internalResult.hash = this.makeComponentString();
+    }
+    this.changeStateWithoutSettingComponent(u3, D2);
+  }, t2.changeStateWithoutSettingComponent = function(u3, D2) {
+    this.state = u3, this.componentStart = this.tokenIndex + D2, this.tokenIndex += D2, this.tokenIncrement = 0;
+  }, t2.rewind = function() {
+    this.tokenIndex = this.componentStart, this.tokenIncrement = 0;
+  }, t2.rewindAndSetState = function(u3) {
+    this.rewind(), this.state = u3;
+  }, t2.safeToken = function(u3) {
+    return u3 < 0 && (u3 = this.tokenList.length - u3), u3 < this.tokenList.length ? this.tokenList[u3] : this.tokenList[this.tokenList.length - 1];
+  }, t2.isNonSpecialPatternChar = function(u3, D2) {
+    var t3 = this.safeToken(u3);
+    return t3.value === D2 && (t3.type === "CHAR" || t3.type === "ESCAPED_CHAR" || t3.type === "INVALID_CHAR");
+  }, t2.isProtocolSuffix = function() {
+    return this.isNonSpecialPatternChar(this.tokenIndex, ":");
+  }, t2.nextIsAuthoritySlashes = function() {
+    return this.isNonSpecialPatternChar(this.tokenIndex + 1, "/") && this.isNonSpecialPatternChar(this.tokenIndex + 2, "/");
+  }, t2.isIdentityTerminator = function() {
+    return this.isNonSpecialPatternChar(this.tokenIndex, "@");
+  }, t2.isPasswordPrefix = function() {
+    return this.isNonSpecialPatternChar(this.tokenIndex, ":");
+  }, t2.isPortPrefix = function() {
+    return this.isNonSpecialPatternChar(this.tokenIndex, ":");
+  }, t2.isPathnameStart = function() {
+    return this.isNonSpecialPatternChar(this.tokenIndex, "/");
+  }, t2.isSearchPrefix = function() {
+    if (this.isNonSpecialPatternChar(this.tokenIndex, "?"))
+      return true;
+    if (this.tokenList[this.tokenIndex].value !== "?")
+      return false;
+    var u3 = this.safeToken(this.tokenIndex - 1);
+    return u3.type !== "NAME" && u3.type !== "PATTERN" && u3.type !== "CLOSE" && u3.type !== "ASTERISK";
+  }, t2.isHashPrefix = function() {
+    return this.isNonSpecialPatternChar(this.tokenIndex, "#");
+  }, t2.isGroupOpen = function() {
+    return this.tokenList[this.tokenIndex].type == "OPEN";
+  }, t2.isGroupClose = function() {
+    return this.tokenList[this.tokenIndex].type == "CLOSE";
+  }, t2.isIPv6Open = function() {
+    return this.isNonSpecialPatternChar(this.tokenIndex, "[");
+  }, t2.isIPv6Close = function() {
+    return this.isNonSpecialPatternChar(this.tokenIndex, "]");
+  }, t2.makeComponentString = function() {
+    var u3 = this.tokenList[this.tokenIndex], D2 = this.safeToken(this.componentStart).index;
+    return this.input.substring(D2, u3.index);
+  }, t2.computeShouldTreatAsStandardURL = function() {
+    var u3 = {};
+    Object.assign(u3, B), u3.encodePart = g;
+    var D2 = a(this.makeComponentString(), void 0, u3);
+    this.shouldTreatAsStandardURL = m(D2);
+  }, D(u2, [{ key: "result", get: function() {
+    return this.internalResult;
+  } }]), u2;
+}();
+var I = ["protocol", "username", "password", "hostname", "port", "pathname", "search", "hash"];
+function O(u2, D2) {
+  if (typeof u2 != "string")
+    throw new TypeError("parameter 1 is not of type 'string'.");
+  var t2 = new URL(u2, D2);
+  return { protocol: t2.protocol.substring(0, t2.protocol.length - 1), username: t2.username, password: t2.password, hostname: t2.hostname, port: t2.port, pathname: t2.pathname, search: t2.search != "" ? t2.search.substring(1, t2.search.length) : void 0, hash: t2.hash != "" ? t2.hash.substring(1, t2.hash.length) : void 0 };
+}
+function H(u2, D2, t2) {
+  var F2;
+  if (typeof D2.baseURL == "string")
+    try {
+      F2 = new URL(D2.baseURL), u2.protocol = F2.protocol ? F2.protocol.substring(0, F2.protocol.length - 1) : "", u2.username = F2.username, u2.password = F2.password, u2.hostname = F2.hostname, u2.port = F2.port, u2.pathname = F2.pathname, u2.search = F2.search ? F2.search.substring(1, F2.search.length) : "", u2.hash = F2.hash ? F2.hash.substring(1, F2.hash.length) : "";
+    } catch (u3) {
+      throw new TypeError("invalid baseURL '" + D2.baseURL + "'.");
+    }
+  if (typeof D2.protocol == "string" && (u2.protocol = function(u3, D3) {
+    var t3;
+    return u3 = (t3 = u3).endsWith(":") ? t3.substr(0, t3.length - ":".length) : t3, D3 || u3 === "" ? u3 : g(u3);
+  }(D2.protocol, t2)), typeof D2.username == "string" && (u2.username = function(u3, D3) {
+    if (D3 || u3 === "")
+      return u3;
+    var t3 = new URL("https://example.com");
+    return t3.username = u3, t3.username;
+  }(D2.username, t2)), typeof D2.password == "string" && (u2.password = function(u3, D3) {
+    if (D3 || u3 === "")
+      return u3;
+    var t3 = new URL("https://example.com");
+    return t3.password = u3, t3.password;
+  }(D2.password, t2)), typeof D2.hostname == "string" && (u2.hostname = function(u3, D3) {
+    return D3 || u3 === "" ? u3 : c(u3) ? y(u3) : v(u3);
+  }(D2.hostname, t2)), typeof D2.port == "string" && (u2.port = function(u3, D3, t3) {
+    return d(D3) === u3 && (u3 = ""), t3 || u3 === "" ? u3 : R(u3);
+  }(D2.port, u2.protocol, t2)), typeof D2.pathname == "string") {
+    if (u2.pathname = D2.pathname, F2 && !function(u3, D3) {
+      return !(!u3.length || u3[0] !== "/" && (!D3 || u3.length < 2 || u3[0] != "\\" && u3[0] != "{" || u3[1] != "/"));
+    }(u2.pathname, t2)) {
+      var e2 = F2.pathname.lastIndexOf("/");
+      e2 >= 0 && (u2.pathname = F2.pathname.substring(0, e2 + 1) + u2.pathname);
+    }
+    u2.pathname = function(u3, D3, t3) {
+      if (t3 || u3 === "")
+        return u3;
+      if (D3 && !l.includes(D3))
+        return new URL(D3 + ":" + u3).pathname;
+      var F3 = u3[0] == "/";
+      return u3 = new URL(F3 ? u3 : "/-" + u3, "https://example.com").pathname, F3 || (u3 = u3.substring(2, u3.length)), u3;
+    }(u2.pathname, u2.protocol, t2);
+  }
+  return typeof D2.search == "string" && (u2.search = function(u3, D3) {
+    if (u3 = p(u3, "?"), D3 || u3 === "")
+      return u3;
+    var t3 = new URL("https://example.com");
+    return t3.search = u3, t3.search ? t3.search.substring(1, t3.search.length) : "";
+  }(D2.search, t2)), typeof D2.hash == "string" && (u2.hash = function(u3, D3) {
+    if (u3 = p(u3, "#"), D3 || u3 === "")
+      return u3;
+    var t3 = new URL("https://example.com");
+    return t3.hash = u3, t3.hash ? t3.hash.substring(1, t3.hash.length) : "";
+  }(D2.hash, t2)), u2;
+}
+function N(u2) {
+  return u2.replace(/([+*?:{}()\\])/g, "\\$1");
+}
+function L(u2, D2) {
+  for (var t2 = "[^" + (D2.delimiter || "/#?").replace(/([.+*?^${}()[\]|/\\])/g, "\\$1") + "]+?", F2 = /(?:[\$0-9A-Z_a-z\xAA\xB5\xB7\xBA\xC0-\xD6\xD8-\xF6\xF8-\u02C1\u02C6-\u02D1\u02E0-\u02E4\u02EC\u02EE\u0300-\u0374\u0376\u0377\u037A-\u037D\u037F\u0386-\u038A\u038C\u038E-\u03A1\u03A3-\u03F5\u03F7-\u0481\u0483-\u0487\u048A-\u052F\u0531-\u0556\u0559\u0560-\u0588\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7\u05D0-\u05EA\u05EF-\u05F2\u0610-\u061A\u0620-\u0669\u066E-\u06D3\u06D5-\u06DC\u06DF-\u06E8\u06EA-\u06FC\u06FF\u0710-\u074A\u074D-\u07B1\u07C0-\u07F5\u07FA\u07FD\u0800-\u082D\u0840-\u085B\u0860-\u086A\u08A0-\u08B4\u08B6-\u08C7\u08D3-\u08E1\u08E3-\u0963\u0966-\u096F\u0971-\u0983\u0985-\u098C\u098F\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BC-\u09C4\u09C7\u09C8\u09CB-\u09CE\u09D7\u09DC\u09DD\u09DF-\u09E3\u09E6-\u09F1\u09FC\u09FE\u0A01-\u0A03\u0A05-\u0A0A\u0A0F\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32\u0A33\u0A35\u0A36\u0A38\u0A39\u0A3C\u0A3E-\u0A42\u0A47\u0A48\u0A4B-\u0A4D\u0A51\u0A59-\u0A5C\u0A5E\u0A66-\u0A75\u0A81-\u0A83\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2\u0AB3\u0AB5-\u0AB9\u0ABC-\u0AC5\u0AC7-\u0AC9\u0ACB-\u0ACD\u0AD0\u0AE0-\u0AE3\u0AE6-\u0AEF\u0AF9-\u0AFF\u0B01-\u0B03\u0B05-\u0B0C\u0B0F\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32\u0B33\u0B35-\u0B39\u0B3C-\u0B44\u0B47\u0B48\u0B4B-\u0B4D\u0B55-\u0B57\u0B5C\u0B5D\u0B5F-\u0B63\u0B66-\u0B6F\u0B71\u0B82\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99\u0B9A\u0B9C\u0B9E\u0B9F\u0BA3\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BBE-\u0BC2\u0BC6-\u0BC8\u0BCA-\u0BCD\u0BD0\u0BD7\u0BE6-\u0BEF\u0C00-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C39\u0C3D-\u0C44\u0C46-\u0C48\u0C4A-\u0C4D\u0C55\u0C56\u0C58-\u0C5A\u0C60-\u0C63\u0C66-\u0C6F\u0C80-\u0C83\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBC-\u0CC4\u0CC6-\u0CC8\u0CCA-\u0CCD\u0CD5\u0CD6\u0CDE\u0CE0-\u0CE3\u0CE6-\u0CEF\u0CF1\u0CF2\u0D00-\u0D0C\u0D0E-\u0D10\u0D12-\u0D44\u0D46-\u0D48\u0D4A-\u0D4E\u0D54-\u0D57\u0D5F-\u0D63\u0D66-\u0D6F\u0D7A-\u0D7F\u0D81-\u0D83\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0DCA\u0DCF-\u0DD4\u0DD6\u0DD8-\u0DDF\u0DE6-\u0DEF\u0DF2\u0DF3\u0E01-\u0E3A\u0E40-\u0E4E\u0E50-\u0E59\u0E81\u0E82\u0E84\u0E86-\u0E8A\u0E8C-\u0EA3\u0EA5\u0EA7-\u0EBD\u0EC0-\u0EC4\u0EC6\u0EC8-\u0ECD\u0ED0-\u0ED9\u0EDC-\u0EDF\u0F00\u0F18\u0F19\u0F20-\u0F29\u0F35\u0F37\u0F39\u0F3E-\u0F47\u0F49-\u0F6C\u0F71-\u0F84\u0F86-\u0F97\u0F99-\u0FBC\u0FC6\u1000-\u1049\u1050-\u109D\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u135D-\u135F\u1369-\u1371\u1380-\u138F\u13A0-\u13F5\u13F8-\u13FD\u1401-\u166C\u166F-\u167F\u1681-\u169A\u16A0-\u16EA\u16EE-\u16F8\u1700-\u170C\u170E-\u1714\u1720-\u1734\u1740-\u1753\u1760-\u176C\u176E-\u1770\u1772\u1773\u1780-\u17D3\u17D7\u17DC\u17DD\u17E0-\u17E9\u180B-\u180D\u1810-\u1819\u1820-\u1878\u1880-\u18AA\u18B0-\u18F5\u1900-\u191E\u1920-\u192B\u1930-\u193B\u1946-\u196D\u1970-\u1974\u1980-\u19AB\u19B0-\u19C9\u19D0-\u19DA\u1A00-\u1A1B\u1A20-\u1A5E\u1A60-\u1A7C\u1A7F-\u1A89\u1A90-\u1A99\u1AA7\u1AB0-\u1ABD\u1ABF\u1AC0\u1B00-\u1B4B\u1B50-\u1B59\u1B6B-\u1B73\u1B80-\u1BF3\u1C00-\u1C37\u1C40-\u1C49\u1C4D-\u1C7D\u1C80-\u1C88\u1C90-\u1CBA\u1CBD-\u1CBF\u1CD0-\u1CD2\u1CD4-\u1CFA\u1D00-\u1DF9\u1DFB-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FBC\u1FBE\u1FC2-\u1FC4\u1FC6-\u1FCC\u1FD0-\u1FD3\u1FD6-\u1FDB\u1FE0-\u1FEC\u1FF2-\u1FF4\u1FF6-\u1FFC\u200C\u200D\u203F\u2040\u2054\u2071\u207F\u2090-\u209C\u20D0-\u20DC\u20E1\u20E5-\u20F0\u2102\u2107\u210A-\u2113\u2115\u2118-\u211D\u2124\u2126\u2128\u212A-\u2139\u213C-\u213F\u2145-\u2149\u214E\u2160-\u2188\u2C00-\u2C2E\u2C30-\u2C5E\u2C60-\u2CE4\u2CEB-\u2CF3\u2D00-\u2D25\u2D27\u2D2D\u2D30-\u2D67\u2D6F\u2D7F-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\u2DE0-\u2DFF\u3005-\u3007\u3021-\u302F\u3031-\u3035\u3038-\u303C\u3041-\u3096\u3099-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312F\u3131-\u318E\u31A0-\u31BF\u31F0-\u31FF\u3400-\u4DBF\u4E00-\u9FFC\uA000-\uA48C\uA4D0-\uA4FD\uA500-\uA60C\uA610-\uA62B\uA640-\uA66F\uA674-\uA67D\uA67F-\uA6F1\uA717-\uA71F\uA722-\uA788\uA78B-\uA7BF\uA7C2-\uA7CA\uA7F5-\uA827\uA82C\uA840-\uA873\uA880-\uA8C5\uA8D0-\uA8D9\uA8E0-\uA8F7\uA8FB\uA8FD-\uA92D\uA930-\uA953\uA960-\uA97C\uA980-\uA9C0\uA9CF-\uA9D9\uA9E0-\uA9FE\uAA00-\uAA36\uAA40-\uAA4D\uAA50-\uAA59\uAA60-\uAA76\uAA7A-\uAAC2\uAADB-\uAADD\uAAE0-\uAAEF\uAAF2-\uAAF6\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E\uAB30-\uAB5A\uAB5C-\uAB69\uAB70-\uABEA\uABEC\uABED\uABF0-\uABF9\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uF900-\uFA6D\uFA70-\uFAD9\uFB00-\uFB06\uFB13-\uFB17\uFB1D-\uFB28\uFB2A-\uFB36\uFB38-\uFB3C\uFB3E\uFB40\uFB41\uFB43\uFB44\uFB46-\uFBB1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFB\uFE00-\uFE0F\uFE20-\uFE2F\uFE33\uFE34\uFE4D-\uFE4F\uFE70-\uFE74\uFE76-\uFEFC\uFF10-\uFF19\uFF21-\uFF3A\uFF3F\uFF41-\uFF5A\uFF66-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC]|\uD800[\uDC00-\uDC0B\uDC0D-\uDC26\uDC28-\uDC3A\uDC3C\uDC3D\uDC3F-\uDC4D\uDC50-\uDC5D\uDC80-\uDCFA\uDD40-\uDD74\uDDFD\uDE80-\uDE9C\uDEA0-\uDED0\uDEE0\uDF00-\uDF1F\uDF2D-\uDF4A\uDF50-\uDF7A\uDF80-\uDF9D\uDFA0-\uDFC3\uDFC8-\uDFCF\uDFD1-\uDFD5]|\uD801[\uDC00-\uDC9D\uDCA0-\uDCA9\uDCB0-\uDCD3\uDCD8-\uDCFB\uDD00-\uDD27\uDD30-\uDD63\uDE00-\uDF36\uDF40-\uDF55\uDF60-\uDF67]|\uD802[\uDC00-\uDC05\uDC08\uDC0A-\uDC35\uDC37\uDC38\uDC3C\uDC3F-\uDC55\uDC60-\uDC76\uDC80-\uDC9E\uDCE0-\uDCF2\uDCF4\uDCF5\uDD00-\uDD15\uDD20-\uDD39\uDD80-\uDDB7\uDDBE\uDDBF\uDE00-\uDE03\uDE05\uDE06\uDE0C-\uDE13\uDE15-\uDE17\uDE19-\uDE35\uDE38-\uDE3A\uDE3F\uDE60-\uDE7C\uDE80-\uDE9C\uDEC0-\uDEC7\uDEC9-\uDEE6\uDF00-\uDF35\uDF40-\uDF55\uDF60-\uDF72\uDF80-\uDF91]|\uD803[\uDC00-\uDC48\uDC80-\uDCB2\uDCC0-\uDCF2\uDD00-\uDD27\uDD30-\uDD39\uDE80-\uDEA9\uDEAB\uDEAC\uDEB0\uDEB1\uDF00-\uDF1C\uDF27\uDF30-\uDF50\uDFB0-\uDFC4\uDFE0-\uDFF6]|\uD804[\uDC00-\uDC46\uDC66-\uDC6F\uDC7F-\uDCBA\uDCD0-\uDCE8\uDCF0-\uDCF9\uDD00-\uDD34\uDD36-\uDD3F\uDD44-\uDD47\uDD50-\uDD73\uDD76\uDD80-\uDDC4\uDDC9-\uDDCC\uDDCE-\uDDDA\uDDDC\uDE00-\uDE11\uDE13-\uDE37\uDE3E\uDE80-\uDE86\uDE88\uDE8A-\uDE8D\uDE8F-\uDE9D\uDE9F-\uDEA8\uDEB0-\uDEEA\uDEF0-\uDEF9\uDF00-\uDF03\uDF05-\uDF0C\uDF0F\uDF10\uDF13-\uDF28\uDF2A-\uDF30\uDF32\uDF33\uDF35-\uDF39\uDF3B-\uDF44\uDF47\uDF48\uDF4B-\uDF4D\uDF50\uDF57\uDF5D-\uDF63\uDF66-\uDF6C\uDF70-\uDF74]|\uD805[\uDC00-\uDC4A\uDC50-\uDC59\uDC5E-\uDC61\uDC80-\uDCC5\uDCC7\uDCD0-\uDCD9\uDD80-\uDDB5\uDDB8-\uDDC0\uDDD8-\uDDDD\uDE00-\uDE40\uDE44\uDE50-\uDE59\uDE80-\uDEB8\uDEC0-\uDEC9\uDF00-\uDF1A\uDF1D-\uDF2B\uDF30-\uDF39]|\uD806[\uDC00-\uDC3A\uDCA0-\uDCE9\uDCFF-\uDD06\uDD09\uDD0C-\uDD13\uDD15\uDD16\uDD18-\uDD35\uDD37\uDD38\uDD3B-\uDD43\uDD50-\uDD59\uDDA0-\uDDA7\uDDAA-\uDDD7\uDDDA-\uDDE1\uDDE3\uDDE4\uDE00-\uDE3E\uDE47\uDE50-\uDE99\uDE9D\uDEC0-\uDEF8]|\uD807[\uDC00-\uDC08\uDC0A-\uDC36\uDC38-\uDC40\uDC50-\uDC59\uDC72-\uDC8F\uDC92-\uDCA7\uDCA9-\uDCB6\uDD00-\uDD06\uDD08\uDD09\uDD0B-\uDD36\uDD3A\uDD3C\uDD3D\uDD3F-\uDD47\uDD50-\uDD59\uDD60-\uDD65\uDD67\uDD68\uDD6A-\uDD8E\uDD90\uDD91\uDD93-\uDD98\uDDA0-\uDDA9\uDEE0-\uDEF6\uDFB0]|\uD808[\uDC00-\uDF99]|\uD809[\uDC00-\uDC6E\uDC80-\uDD43]|[\uD80C\uD81C-\uD820\uD822\uD840-\uD868\uD86A-\uD86C\uD86F-\uD872\uD874-\uD879\uD880-\uD883][\uDC00-\uDFFF]|\uD80D[\uDC00-\uDC2E]|\uD811[\uDC00-\uDE46]|\uD81A[\uDC00-\uDE38\uDE40-\uDE5E\uDE60-\uDE69\uDED0-\uDEED\uDEF0-\uDEF4\uDF00-\uDF36\uDF40-\uDF43\uDF50-\uDF59\uDF63-\uDF77\uDF7D-\uDF8F]|\uD81B[\uDE40-\uDE7F\uDF00-\uDF4A\uDF4F-\uDF87\uDF8F-\uDF9F\uDFE0\uDFE1\uDFE3\uDFE4\uDFF0\uDFF1]|\uD821[\uDC00-\uDFF7]|\uD823[\uDC00-\uDCD5\uDD00-\uDD08]|\uD82C[\uDC00-\uDD1E\uDD50-\uDD52\uDD64-\uDD67\uDD70-\uDEFB]|\uD82F[\uDC00-\uDC6A\uDC70-\uDC7C\uDC80-\uDC88\uDC90-\uDC99\uDC9D\uDC9E]|\uD834[\uDD65-\uDD69\uDD6D-\uDD72\uDD7B-\uDD82\uDD85-\uDD8B\uDDAA-\uDDAD\uDE42-\uDE44]|\uD835[\uDC00-\uDC54\uDC56-\uDC9C\uDC9E\uDC9F\uDCA2\uDCA5\uDCA6\uDCA9-\uDCAC\uDCAE-\uDCB9\uDCBB\uDCBD-\uDCC3\uDCC5-\uDD05\uDD07-\uDD0A\uDD0D-\uDD14\uDD16-\uDD1C\uDD1E-\uDD39\uDD3B-\uDD3E\uDD40-\uDD44\uDD46\uDD4A-\uDD50\uDD52-\uDEA5\uDEA8-\uDEC0\uDEC2-\uDEDA\uDEDC-\uDEFA\uDEFC-\uDF14\uDF16-\uDF34\uDF36-\uDF4E\uDF50-\uDF6E\uDF70-\uDF88\uDF8A-\uDFA8\uDFAA-\uDFC2\uDFC4-\uDFCB\uDFCE-\uDFFF]|\uD836[\uDE00-\uDE36\uDE3B-\uDE6C\uDE75\uDE84\uDE9B-\uDE9F\uDEA1-\uDEAF]|\uD838[\uDC00-\uDC06\uDC08-\uDC18\uDC1B-\uDC21\uDC23\uDC24\uDC26-\uDC2A\uDD00-\uDD2C\uDD30-\uDD3D\uDD40-\uDD49\uDD4E\uDEC0-\uDEF9]|\uD83A[\uDC00-\uDCC4\uDCD0-\uDCD6\uDD00-\uDD4B\uDD50-\uDD59]|\uD83B[\uDE00-\uDE03\uDE05-\uDE1F\uDE21\uDE22\uDE24\uDE27\uDE29-\uDE32\uDE34-\uDE37\uDE39\uDE3B\uDE42\uDE47\uDE49\uDE4B\uDE4D-\uDE4F\uDE51\uDE52\uDE54\uDE57\uDE59\uDE5B\uDE5D\uDE5F\uDE61\uDE62\uDE64\uDE67-\uDE6A\uDE6C-\uDE72\uDE74-\uDE77\uDE79-\uDE7C\uDE7E\uDE80-\uDE89\uDE8B-\uDE9B\uDEA1-\uDEA3\uDEA5-\uDEA9\uDEAB-\uDEBB]|\uD83E[\uDFF0-\uDFF9]|\uD869[\uDC00-\uDEDD\uDF00-\uDFFF]|\uD86D[\uDC00-\uDF34\uDF40-\uDFFF]|\uD86E[\uDC00-\uDC1D\uDC20-\uDFFF]|\uD873[\uDC00-\uDEA1\uDEB0-\uDFFF]|\uD87A[\uDC00-\uDFE0]|\uD87E[\uDC00-\uDE1D]|\uD884[\uDC00-\uDF4A]|\uDB40[\uDD00-\uDDEF])/, e2 = "", C2 = 0; C2 < u2.length; ++C2) {
+    var A2 = u2[C2], E2 = C2 > 0 ? u2[C2 - 1] : null, n2 = C2 < u2.length - 1 ? u2[C2 + 1] : null;
+    if (typeof A2 != "string")
+      if (A2.pattern !== "") {
+        var r2 = typeof A2.name != "number", i2 = D2.prefixes !== void 0 ? D2.prefixes : "./", s2 = A2.suffix !== "" || A2.prefix !== "" && (A2.prefix.length !== 1 || !i2.includes(A2.prefix));
+        s2 || A2.prefix !== "" || !r2 || A2.pattern !== t2 || A2.modifier !== "" || !n2 || n2.prefix || n2.suffix || (s2 = typeof n2 == "string" ? F2.test(n2.length > 0 ? n2[0] : "") : typeof n2.name == "number"), !s2 && A2.prefix === "" && E2 && typeof E2 == "string" && E2.length > 0 && (s2 = i2.includes(E2[E2.length - 1])), s2 && (e2 += "{"), e2 += N(A2.prefix), r2 && (e2 += ":" + A2.name), A2.pattern === ".*" ? e2 += r2 || E2 && typeof E2 != "string" && !E2.modifier && !s2 && A2.prefix === "" ? "(.*)" : "*" : A2.pattern === t2 ? r2 || (e2 += "(" + t2 + ")") : e2 += "(" + A2.pattern + ")", A2.pattern === t2 && r2 && A2.suffix !== "" && F2.test(A2.suffix[0]) && (e2 += "\\"), e2 += N(A2.suffix), s2 && (e2 += "}"), e2 += A2.modifier;
+      } else {
+        if (A2.modifier === "") {
+          e2 += N(A2.prefix);
+          continue;
+        }
+        e2 += "{" + N(A2.prefix) + "}" + A2.modifier;
+      }
+    else
+      e2 += N(A2);
+  }
+  return e2;
+}
+var U = function() {
+  function u2(u3, D2) {
+    u3 === void 0 && (u3 = {}), this.pattern = void 0, this.regexp = {}, this.keys = {}, this.component_pattern = {};
+    try {
+      if (typeof u3 == "string") {
+        var t3 = new b(u3);
+        if (t3.parse(), u3 = t3.result, D2) {
+          if (typeof D2 != "string")
+            throw new TypeError("'baseURL' parameter is not of type 'string'.");
+          u3.baseURL = D2;
+        } else if (typeof u3.protocol != "string")
+          throw new TypeError("A base URL must be provided for a relative constructor string.");
+      } else if (D2)
+        throw new TypeError("parameter 1 is not of type 'string'.");
+      if (!u3 || typeof u3 != "object")
+        throw new TypeError("parameter 1 is not of type 'string' and cannot convert to dictionary.");
+      var e2;
+      this.pattern = H({ pathname: "*", protocol: "*", username: "*", password: "*", hostname: "*", port: "*", search: "*", hash: "*" }, u3, true), d(this.pattern.protocol) === this.pattern.port && (this.pattern.port = "");
+      for (var C2, A2 = F(I); !(C2 = A2()).done; )
+        if ((e2 = C2.value) in this.pattern) {
+          var E2 = {}, r2 = this.pattern[e2];
+          switch (this.keys[e2] = [], e2) {
+            case "protocol":
+              Object.assign(E2, B), E2.encodePart = g;
+              break;
+            case "username":
+              Object.assign(E2, B), E2.encodePart = x;
+              break;
+            case "password":
+              Object.assign(E2, B), E2.encodePart = S;
+              break;
+            case "hostname":
+              Object.assign(E2, o), E2.encodePart = c(r2) ? y : v;
+              break;
+            case "port":
+              Object.assign(E2, B), E2.encodePart = R;
+              break;
+            case "pathname":
+              m(this.regexp.protocol) ? (Object.assign(E2, h), E2.encodePart = k) : (Object.assign(E2, B), E2.encodePart = w);
+              break;
+            case "search":
+              Object.assign(E2, B), E2.encodePart = P;
+              break;
+            case "hash":
+              Object.assign(E2, B), E2.encodePart = T;
+          }
+          try {
+            var i2 = n(r2, E2);
+            this.regexp[e2] = s(i2, this.keys[e2], E2), this.component_pattern[e2] = L(i2, E2);
+          } catch (u4) {
+            throw new TypeError("invalid " + e2 + " pattern '" + this.pattern[e2] + "'.");
+          }
+        }
+    } catch (u4) {
+      throw new TypeError("Failed to construct 'URLPattern': " + u4.message);
+    }
+  }
+  var t2 = u2.prototype;
+  return t2.test = function(u3, D2) {
+    u3 === void 0 && (u3 = {});
+    var t3, F2 = { pathname: "", protocol: "", username: "", password: "", hostname: "", port: "", search: "", hash: "" };
+    if (typeof u3 != "string" && D2)
+      throw new TypeError("parameter 1 is not of type 'string'.");
+    if (u3 === void 0)
+      return false;
+    try {
+      F2 = H(F2, typeof u3 == "object" ? u3 : O(u3, D2), false);
+    } catch (u4) {
+      return false;
+    }
+    for (t3 in this.pattern)
+      if (!this.regexp[t3].exec(F2[t3]))
+        return false;
+    return true;
+  }, t2.exec = function(u3, D2) {
+    u3 === void 0 && (u3 = {});
+    var t3 = { pathname: "", protocol: "", username: "", password: "", hostname: "", port: "", search: "", hash: "" };
+    if (typeof u3 != "string" && D2)
+      throw new TypeError("parameter 1 is not of type 'string'.");
+    if (u3 !== void 0) {
+      try {
+        t3 = H(t3, typeof u3 == "object" ? u3 : O(u3, D2), false);
+      } catch (u4) {
+        return null;
+      }
+      var e2, C2 = {};
+      for (e2 in C2.inputs = D2 ? [u3, D2] : [u3], this.pattern) {
+        var A2 = this.regexp[e2].exec(t3[e2]);
+        if (!A2)
+          return null;
+        for (var E2, n2 = {}, r2 = F(this.keys[e2].entries()); !(E2 = r2()).done; ) {
+          var i2 = E2.value, s2 = i2[1];
+          typeof s2.name != "string" && typeof s2.name != "number" || (n2[s2.name] = A2[i2[0] + 1] || "");
+        }
+        C2[e2] = { input: t3[e2] || "", groups: n2 };
+      }
+      return C2;
+    }
+  }, D(u2, [{ key: "protocol", get: function() {
+    return this.component_pattern.protocol;
+  } }, { key: "username", get: function() {
+    return this.component_pattern.username;
+  } }, { key: "password", get: function() {
+    return this.component_pattern.password;
+  } }, { key: "hostname", get: function() {
+    return this.component_pattern.hostname;
+  } }, { key: "port", get: function() {
+    return this.component_pattern.port;
+  } }, { key: "pathname", get: function() {
+    return this.component_pattern.pathname;
+  } }, { key: "search", get: function() {
+    return this.component_pattern.search;
+  } }, { key: "hash", get: function() {
+    return this.component_pattern.hash;
+  } }]), u2;
+}();
+
+// polyfills/url-polyfill.js
+window.URLPattern = U;
+
 // polyfills/xhr.js
 import { XMLHttpRequest as XHR } from "@tjs/core";
 var kXHR = Symbol("kXHR");
@@ -2686,8 +7102,8 @@ var XMLHttpRequest2 = class extends EventTarget {
     xhr.onloadstart = () => {
       this.dispatchEvent(new Event("loadstart"));
     };
-    xhr.onprogress = (p) => {
-      this.dispatchEvent(new Event("progress", p));
+    xhr.onprogress = (p2) => {
+      this.dispatchEvent(new Event("progress", p2));
     };
     xhr.onreadystatechange = () => {
       this.dispatchEvent(new Event("readystatechange"));
@@ -2793,8 +7209,8 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
     }
   }
   function _defineProperties(target, props) {
-    for (var i = 0; i < props.length; i++) {
-      var descriptor = props[i];
+    for (var i2 = 0; i2 < props.length; i2++) {
+      var descriptor = props[i2];
       descriptor.enumerable = descriptor.enumerable || false;
       descriptor.configurable = true;
       if ("value" in descriptor)
@@ -2823,18 +7239,18 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
     if (superClass)
       _setPrototypeOf(subClass, superClass);
   }
-  function _getPrototypeOf(o) {
-    _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf2(o2) {
-      return o2.__proto__ || Object.getPrototypeOf(o2);
+  function _getPrototypeOf(o2) {
+    _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf2(o3) {
+      return o3.__proto__ || Object.getPrototypeOf(o3);
     };
-    return _getPrototypeOf(o);
+    return _getPrototypeOf(o2);
   }
-  function _setPrototypeOf(o, p) {
-    _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf2(o2, p2) {
-      o2.__proto__ = p2;
-      return o2;
+  function _setPrototypeOf(o2, p2) {
+    _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf2(o3, p3) {
+      o3.__proto__ = p3;
+      return o3;
     };
-    return _setPrototypeOf(o, p);
+    return _setPrototypeOf(o2, p2);
   }
   function _isNativeReflectConstruct() {
     if (typeof Reflect === "undefined" || !Reflect.construct)
@@ -2847,7 +7263,7 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
       Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function() {
       }));
       return true;
-    } catch (e) {
+    } catch (e2) {
       return false;
     }
   }
@@ -2928,9 +7344,9 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
           return;
         }
         var stack = this.listeners[type];
-        for (var i = 0, l = stack.length; i < l; i++) {
-          if (stack[i].callback === callback) {
-            stack.splice(i, 1);
+        for (var i2 = 0, l2 = stack.length; i2 < l2; i2++) {
+          if (stack[i2].callback === callback) {
+            stack.splice(i2, 1);
             return;
           }
         }
@@ -2943,13 +7359,13 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
         }
         var stack = this.listeners[event.type];
         var stackToCall = stack.slice();
-        for (var i = 0, l = stackToCall.length; i < l; i++) {
-          var listener = stackToCall[i];
+        for (var i2 = 0, l2 = stackToCall.length; i2 < l2; i2++) {
+          var listener = stackToCall[i2];
           try {
             listener.callback.call(this, event);
-          } catch (e) {
+          } catch (e2) {
             Promise.resolve().then(function() {
-              throw e;
+              throw e2;
             });
           }
           if (listener.options && listener.options.once) {
@@ -3017,7 +7433,7 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
         var event;
         try {
           event = new Event("abort");
-        } catch (e) {
+        } catch (e2) {
           if (typeof document !== "undefined") {
             if (!document.createEvent) {
               event = document.createEventObject();
@@ -3161,42 +7577,42 @@ window.TextDecoder = import_text_encoding.TextDecoder;
 // polyfills/console.js
 var format = function() {
   var formatRegExp = /%[sdj%]/g;
-  function format2(f) {
-    if (!isString(f)) {
+  function format2(f2) {
+    if (!isString(f2)) {
       var objects = [];
-      for (var i = 0; i < arguments.length; i++) {
-        objects.push(inspect(arguments[i], {}));
+      for (var i2 = 0; i2 < arguments.length; i2++) {
+        objects.push(inspect(arguments[i2], {}));
       }
       return objects.join(" ");
     }
-    var i = 1;
+    var i2 = 1;
     var args2 = arguments;
     var len = args2.length;
-    var str = String(f).replace(formatRegExp, function(x2) {
-      if (x2 === "%%")
+    var str = String(f2).replace(formatRegExp, function(x3) {
+      if (x3 === "%%")
         return "%";
-      if (i >= len)
-        return x2;
-      switch (x2) {
+      if (i2 >= len)
+        return x3;
+      switch (x3) {
         case "%s":
-          return String(args2[i++]);
+          return String(args2[i2++]);
         case "%d":
-          return Number(args2[i++]);
+          return Number(args2[i2++]);
         case "%j":
           try {
-            return JSON.stringify(args2[i++]);
+            return JSON.stringify(args2[i2++]);
           } catch (_) {
             return "[Circular]";
           }
         default:
-          return x2;
+          return x3;
       }
     });
-    for (var x = args2[i]; i < len; x = args2[++i]) {
-      if (isNull(x) || !isObject2(x)) {
-        str += " " + x;
+    for (var x2 = args2[i2]; i2 < len; x2 = args2[++i2]) {
+      if (isNull(x2) || !isObject2(x2)) {
+        str += " " + x2;
       } else {
-        str += " " + inspect(x, {});
+        str += " " + inspect(x2, {});
       }
     }
     return str;
@@ -3249,8 +7665,8 @@ var format = function() {
       braces = ["[", "]"];
     }
     if (isFunction(value)) {
-      var n = value.name ? ": " + value.name : "";
-      base = " [Function" + n + "]";
+      var n2 = value.name ? ": " + value.name : "";
+      base = " [Function" + n2 + "]";
     }
     if (isRegExp(value)) {
       base = " " + RegExp.prototype.toString.call(value);
@@ -3314,9 +7730,9 @@ ${value.stack}`;
   }
   function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
     var output = [];
-    for (var i = 0, l = value.length; i < l; ++i) {
-      if (hasOwnProperty2(value, String(i))) {
-        output.push(formatProperty(ctx, value, recurseTimes, visibleKeys, String(i), true));
+    for (var i2 = 0, l2 = value.length; i2 < l2; ++i2) {
+      if (hasOwnProperty2(value, String(i2))) {
+        output.push(formatProperty(ctx, value, recurseTimes, visibleKeys, String(i2), true));
       } else {
         output.push("");
       }
@@ -3431,17 +7847,17 @@ ${value.stack}`;
   function isObject2(arg) {
     return typeof arg === "object" && arg !== null;
   }
-  function isDate(d) {
-    return isObject2(d) && objectToString(d) === "[object Date]";
+  function isDate(d2) {
+    return isObject2(d2) && objectToString(d2) === "[object Date]";
   }
-  function isError(e) {
-    return isObject2(e) && (objectToString(e) === "[object Error]" || e instanceof Error);
+  function isError(e2) {
+    return isObject2(e2) && (objectToString(e2) === "[object Error]" || e2 instanceof Error);
   }
   function isFunction(arg) {
     return typeof arg === "function";
   }
-  function objectToString(o) {
-    return Object.prototype.toString.call(o);
+  function objectToString(o2) {
+    return Object.prototype.toString.call(o2);
   }
   function hasOwnProperty2(obj, prop) {
     return Object.prototype.hasOwnProperty.call(obj, prop);
@@ -3454,11 +7870,11 @@ function print() {
 function printError() {
   tjs.printError(format.apply(null, arguments));
 }
-function hasOwnProperty(obj, v) {
+function hasOwnProperty(obj, v2) {
   if (obj == null) {
     return false;
   }
-  return Object.prototype.hasOwnProperty.call(obj, v);
+  return Object.prototype.hasOwnProperty.call(obj, v2);
 }
 var encoder = new TextEncoder();
 var tableChars = {
@@ -3486,12 +7902,12 @@ function countBytes(str) {
 }
 function renderRow(row, columnWidths) {
   let out = tableChars.left;
-  for (let i = 0; i < row.length; i++) {
-    const cell = row[i];
+  for (let i2 = 0; i2 < row.length; i2++) {
+    const cell = row[i2];
     const len = countBytes(cell);
-    const needed = (columnWidths[i] - len) / 2;
+    const needed = (columnWidths[i2] - len) / 2;
     out += `${" ".repeat(needed)}${cell}${" ".repeat(Math.ceil(needed))}`;
-    if (i !== row.length - 1) {
+    if (i2 !== row.length - 1) {
       out += tableChars.middle;
     }
   }
@@ -3500,21 +7916,21 @@ function renderRow(row, columnWidths) {
 }
 function cliTable(head, columns) {
   const rows = [];
-  const columnWidths = head.map((h) => countBytes(h));
-  const longestColumn = columns.reduce((n, a) => Math.max(n, a.length), 0);
-  for (let i = 0; i < head.length; i++) {
-    const column = columns[i];
+  const columnWidths = head.map((h2) => countBytes(h2));
+  const longestColumn = columns.reduce((n2, a2) => Math.max(n2, a2.length), 0);
+  for (let i2 = 0; i2 < head.length; i2++) {
+    const column = columns[i2];
     for (let j = 0; j < longestColumn; j++) {
       if (rows[j] === void 0) {
         rows[j] = [];
       }
-      const value = rows[j][i] = hasOwnProperty(column, j) ? column[j] : "";
-      const width = columnWidths[i] || 0;
+      const value = rows[j][i2] = hasOwnProperty(column, j) ? column[j] : "";
+      const width = columnWidths[i2] || 0;
       const counted = countBytes(value);
-      columnWidths[i] = Math.max(width, counted);
+      columnWidths[i2] = Math.max(width, counted);
     }
   }
-  const divider = columnWidths.map((i) => tableChars.middleMiddle.repeat(i + 2));
+  const divider = columnWidths.map((i2) => tableChars.middleMiddle.repeat(i2 + 2));
   let result = `${tableChars.topLeft}${divider.join(tableChars.topMiddle)}${tableChars.topRight}
 ${renderRow(head, columnWidths)}
 ${tableChars.leftMiddle}${divider.join(tableChars.rowMiddle)}${tableChars.rightMiddle}
@@ -3544,11 +7960,11 @@ var Console = class {
       this.error(...args2);
     }
   }
-  dir(o) {
-    this.log(o);
+  dir(o2) {
+    this.log(o2);
   }
-  dirxml(o) {
-    this.dir(o);
+  dirxml(o2) {
+    this.dir(o2);
   }
   table(data, properties) {
     if (properties !== void 0 && !Array.isArray(properties)) {
@@ -3576,31 +7992,31 @@ var Console = class {
     } else if (data instanceof Map) {
       let idx = 0;
       resultData = {};
-      data.forEach((v, k) => {
-        resultData[idx] = { Key: k, Values: v };
+      data.forEach((v2, k2) => {
+        resultData[idx] = { Key: k2, Values: v2 };
         idx++;
       });
     } else {
       resultData = data;
     }
-    Object.keys(resultData).forEach((k, idx) => {
-      const value = resultData[k];
+    Object.keys(resultData).forEach((k2, idx) => {
+      const value = resultData[k2];
       if (value !== null && typeof value === "object") {
-        Object.entries(value).forEach(([k2, v]) => {
-          if (properties && !properties.includes(k2)) {
+        Object.entries(value).forEach(([k3, v2]) => {
+          if (properties && !properties.includes(k3)) {
             return;
           }
-          if (objectValues[k2]) {
-            objectValues[k2].push(stringifyValue(v));
+          if (objectValues[k3]) {
+            objectValues[k3].push(stringifyValue(v2));
           } else {
-            objectValues[k2] = createColumn(v, idx);
+            objectValues[k3] = createColumn(v2, idx);
           }
         });
         values.push("");
       } else {
         values.push(stringifyValue(value));
       }
-      indexKeys.push(k);
+      indexKeys.push(k2);
     });
     const headerKeys = Object.keys(objectValues);
     const bodyValues = Object.values(objectValues);
@@ -3649,9 +8065,9 @@ function getRandomValues(obj) {
       throw new TypeError("Argument 1 of Crypto.getRandomValues does not implement interface ArrayBufferView");
   }
   if (obj.byteLength > 65536) {
-    const e = new Error();
-    e.name = "QuotaExceededError";
-    throw e;
+    const e2 = new Error();
+    e2.name = "QuotaExceededError";
+    throw e2;
   }
   core2.random(obj.buffer, obj.byteOffset, obj.byteLength);
   return obj;
@@ -3728,7 +8144,7 @@ var Performance = class {
     if (typeof name === "undefined") {
       this._entries = this._entries.filter((entry) => entry.entryType !== "mark");
     } else {
-      const entry = this._entries.find((e) => e.entryType === "mark" && e.name === name);
+      const entry = this._entries.find((e2) => e2.entryType === "mark" && e2.name === name);
       this._entries.splice(this._entries.indexOf(entry), 1);
       delete this._marksIndex[name];
     }
@@ -3737,7 +8153,7 @@ var Performance = class {
     if (typeof name === "undefined") {
       this._entries = this._entries.filter((entry) => entry.entryType !== "measure");
     } else {
-      const entry = this._entries.find((e) => e.entryType === "measure" && e.name === name);
+      const entry = this._entries.find((e2) => e2.entryType === "measure" && e2.name === name);
       this._entries.splice(this._entries.indexOf(entry), 1);
     }
   }
@@ -3777,60 +8193,60 @@ var RuntimeError = class extends Error {
     this.name = "RuntimeError";
   }
 };
-function getWasmError(e) {
-  switch (e.wasmError) {
+function getWasmError(e2) {
+  switch (e2.wasmError) {
     case "CompileError":
-      return new CompileError(e.message);
+      return new CompileError(e2.message);
     case "LinkError":
-      return new LinkError(e.message);
+      return new LinkError(e2.message);
     case "RuntimeError":
-      return new RuntimeError(e.message);
+      return new RuntimeError(e2.message);
     default:
-      return new TypeError(`Invalid WASM error: ${e.wasmError}`);
+      return new TypeError(`Invalid WASM error: ${e2.wasmError}`);
   }
 }
 function callWasmFunction(name, ...args2) {
   const instance = this;
   try {
     return instance.callFunction(name, ...args2);
-  } catch (e) {
-    if (e.wasmError) {
-      throw getWasmError(e);
+  } catch (e2) {
+    if (e2.wasmError) {
+      throw getWasmError(e2);
     } else {
-      throw e;
+      throw e2;
     }
   }
 }
 function buildInstance(mod) {
   try {
     return wasm.buildInstance(mod);
-  } catch (e) {
-    if (e.wasmError) {
-      throw getWasmError(e);
+  } catch (e2) {
+    if (e2.wasmError) {
+      throw getWasmError(e2);
     } else {
-      throw e;
+      throw e2;
     }
   }
 }
 function linkWasi(instance) {
   try {
     instance.linkWasi();
-  } catch (e) {
-    if (e.wasmError) {
-      throw getWasmError(e);
+  } catch (e2) {
+    if (e2.wasmError) {
+      throw getWasmError(e2);
     } else {
-      throw e;
+      throw e2;
     }
   }
 }
 function parseModule(buf) {
   try {
     return wasm.parseModule(buf);
-  } catch (e) {
-    if (e.wasmError) {
-      throw getWasmError(e);
+  } catch (e2) {
+    if (e2.wasmError) {
+      throw getWasmError(e2);
     } else {
-      throw e;
+      throw e2;
     }
   }
 }
