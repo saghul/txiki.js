@@ -10735,7 +10735,7 @@ var require_util = __commonJS({
     };
     var debugs = {};
     var debugEnvRegex = /^$/;
-    if (process.env.NODE_DEBUG) {
+    if (typeof process !== "undefined" && process.env.NODE_DEBUG) {
       debugEnv = process.env.NODE_DEBUG;
       debugEnv = debugEnv.replace(/[|\\{}()[\]^$+?.]/g, "\\$&").replace(/\*/g, ".*").replace(/,/g, "$|^").toUpperCase();
       debugEnvRegex = new RegExp("^" + debugEnv + "$", "i");
@@ -11232,7 +11232,6 @@ Object.defineProperty(globalThis, "self", {
   set() {
   }
 });
-globalThis.process = { env: {} };
 
 // polyfills/event-target.js
 var privateData = /* @__PURE__ */ new WeakMap();
@@ -13286,9 +13285,6 @@ Object.defineProperty(window, "Worker", {
   writable: true,
   value: Worker
 });
-
-// polyfills/cleanup.js
-delete window.process;
 
 // tjs.js
 import * as core3 from "@tjs/core";

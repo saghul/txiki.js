@@ -25,5 +25,3 @@ Object.defineProperty(globalThis, 'self', {
     set() {}
 });
 
-// For node-util.
-globalThis.process = { env: {} };
