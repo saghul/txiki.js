@@ -62,11 +62,7 @@ typedef struct {
     union {
         uv_handle_t handle;
         uv_stream_t stream;
-#if defined(_WIN32)
         uv_tcp_t tcp;
-#else
-        uv_pipe_t pipe;
-#endif
     } h;
     JSValue events[WORKER_EVENT_MAX];
     uv_thread_t tid;
@@ -254,13 +250,8 @@ static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_m
     w->is_main = is_main;
     w->h.handle.data = w;
 
-#if defined(_WIN32)
     CHECK_EQ(uv_tcp_init(tjs_get_loop(ctx), &w->h.tcp), 0);
     CHECK_EQ(uv_tcp_open(&w->h.tcp, channel_fd), 0);
-#else
-    CHECK_EQ(uv_pipe_init(tjs_get_loop(ctx), &w->h.pipe, 0), 0);
-    CHECK_EQ(uv_pipe_open(&w->h.pipe, channel_fd), 0);
-#endif
     CHECK_EQ(uv_read_start(&w->h.stream, uv__alloc_cb, uv__read_cb), 0);
 
     w->events[0] = JS_UNDEFINED;
@@ -271,64 +262,13 @@ static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_m
     return obj;
 }
 
-static int tjs__worker_channel(uv_os_sock_t fds[2]) {
-#if defined(_WIN32)
-    union {
-        struct sockaddr_in inaddr;
-        struct sockaddr addr;
-    } a;
-    socklen_t addrlen = sizeof(a.inaddr);
-    SOCKET listener;
-
-    listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (listener == INVALID_SOCKET)
-        return -1;
-
-    memset(&a, 0, sizeof(a));
-    a.inaddr.sin_family = AF_INET;
-    a.inaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    a.inaddr.sin_port = 0;
-
-    fds[0] = fds[1] = INVALID_SOCKET;
-
-    if (bind(listener, &a.addr, sizeof(a.inaddr)) == SOCKET_ERROR)
-        goto error;
-    if (getsockname(listener, &a.addr, &addrlen) == SOCKET_ERROR)
-        goto error;
-    if (listen(listener, 1) == SOCKET_ERROR)
-        goto error;
-
-    fds[0] = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
-    if (fds[0] == INVALID_SOCKET)
-        goto error;
-    if (connect(fds[0], &a.addr, sizeof(a.inaddr)) == SOCKET_ERROR)
-        goto error;
-    fds[1] = accept(listener, NULL, NULL);
-    if (fds[1] == INVALID_SOCKET)
-        goto error;
-
-    closesocket(listener);
-    return 0;
-
-error:
-    closesocket(listener);
-    closesocket(fds[0]);
-    closesocket(fds[1]);
-    return -1;
-#else
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
-        return -errno;
-    return 0;
-#endif
-}
-
 static JSValue tjs_worker_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
 
     uv_os_sock_t fds[2];
-    int r = tjs__worker_channel(fds);
+    int r = uv_socketpair(SOCK_STREAM, 0, fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE);
     if (r != 0) {
         JS_FreeCString(ctx, path);
         return tjs_throw_errno(ctx, r);
