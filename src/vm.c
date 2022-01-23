@@ -28,7 +28,7 @@
 
 #include <string.h>
 
-#define TJS__DEFAULT_STACK_SIZE 10 * 1024 * 1024
+#define TJS__DEFAULT_STACK_SIZE 1048576
 
 INCTXT(repl, "repl.js");
 
