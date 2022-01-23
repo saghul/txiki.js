@@ -1,6 +1,4 @@
 
-import * as uv from 'uv';
-
 function logStatus(s) {
     console.log(JSON.stringify(s));
 }
@@ -36,18 +34,17 @@ const exe = tjs.exepath();
     status = await proc.wait();
     logStatus(status);
 
-    const buf = new ArrayBuffer(1024);
-    let nread;
+    let data;
     proc = tjs.spawn('cat', { stdin: 'pipe', stdout: 'pipe' });
     console.log(`proc PID: ${proc.pid}`);
     console.log(proc.stdin.fileno());
     console.log(proc.stdout.fileno());
     proc.stdin.write('hello!');
-    nread = await proc.stdout.read(buf);
-    console.log(String.fromCharCode.apply(null, new Uint8Array(buf, 0, nread)));
+    data = await proc.stdout.read();
+    console.log(String.fromCharCode.apply(null, data));
     proc.stdin.write('hello again!');
-    nread = await proc.stdout.read(buf);
-    console.log(String.fromCharCode.apply(null, new Uint8Array(buf, 0, nread)));
+    data = await proc.stdout.read();
+    console.log(String.fromCharCode.apply(null, data));
     proc.kill(tjs.SIGTERM);
     status = await proc.wait();
     logStatus(status);
