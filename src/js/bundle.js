@@ -25,6 +25,16 @@ var __publicField = (obj, key, value) => {
   return value;
 };
 
+// node_modules/queue-microtask/index.js
+var require_queue_microtask = __commonJS({
+  "node_modules/queue-microtask/index.js"(exports, module) {
+    var promise;
+    module.exports = typeof queueMicrotask === "function" ? queueMicrotask.bind(typeof window !== "undefined" ? window : global) : (cb) => (promise || (promise = Promise.resolve())).then(cb).catch((err) => setTimeout(() => {
+      throw err;
+    }, 0));
+  }
+});
+
 // node_modules/core-js/internals/fails.js
 var require_fails = __commonJS({
   "node_modules/core-js/internals/fails.js"(exports, module) {
@@ -4334,7 +4344,7 @@ var require_polyfill_es2018 = __commonJS({
       function setPromiseIsHandledToTrue(promise) {
         PerformPromiseThen(promise, void 0, rethrowAssertionErrorRejection);
       }
-      const queueMicrotask = (() => {
+      const queueMicrotask3 = (() => {
         const globalQueueMicrotask = globals && globals.queueMicrotask;
         if (typeof globalQueueMicrotask === "function") {
           return globalQueueMicrotask;
@@ -4719,7 +4729,7 @@ var require_polyfill_es2018 = __commonJS({
           const readRequest = {
             _chunkSteps: (chunk) => {
               this._ongoingPromise = void 0;
-              queueMicrotask(() => resolvePromise({ value: chunk, done: false }));
+              queueMicrotask3(() => resolvePromise({ value: chunk, done: false }));
             },
             _closeSteps: () => {
               this._ongoingPromise = void 0;
@@ -6864,7 +6874,7 @@ var require_polyfill_es2018 = __commonJS({
           reading = true;
           const readRequest = {
             _chunkSteps: (chunk) => {
-              queueMicrotask(() => {
+              queueMicrotask3(() => {
                 readAgain = false;
                 const chunk1 = chunk;
                 const chunk2 = chunk;
@@ -6967,7 +6977,7 @@ var require_polyfill_es2018 = __commonJS({
           }
           const readRequest = {
             _chunkSteps: (chunk) => {
-              queueMicrotask(() => {
+              queueMicrotask3(() => {
                 readAgainForBranch1 = false;
                 readAgainForBranch2 = false;
                 const chunk1 = chunk;
@@ -7030,7 +7040,7 @@ var require_polyfill_es2018 = __commonJS({
           const otherBranch = forBranch2 ? branch1 : branch2;
           const readIntoRequest = {
             _chunkSteps: (chunk) => {
-              queueMicrotask(() => {
+              queueMicrotask3(() => {
                 readAgainForBranch1 = false;
                 readAgainForBranch2 = false;
                 const byobCanceled = forBranch2 ? canceled2 : canceled1;
@@ -11201,6 +11211,7 @@ var require_util = __commonJS({
 });
 
 // polyfills/base.js
+var import_queue_microtask = __toESM(require_queue_microtask());
 import * as core from "@tjs/core";
 globalThis.setTimeout = core.setTimeout;
 globalThis.clearTimeout = core.clearTimeout;
@@ -11208,6 +11219,7 @@ globalThis.setInterval = core.setInterval;
 globalThis.clearInterval = core.clearInterval;
 globalThis.alert = core.alert;
 globalThis.prompt = core.prompt;
+globalThis.queueMicrotask = import_queue_microtask.default;
 Object.defineProperty(globalThis, "global", {
   enumerable: true,
   get() {
@@ -13384,3 +13396,4 @@ Object.defineProperty(globalThis, "tjs", {
   writable: false,
   value: tjs2
 });
+/*! queue-microtask. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
