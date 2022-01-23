@@ -1,4 +1,5 @@
 import * as core from '@tjs/core';
+import { v4 } from 'uuid';
 
 const TypedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
 const TypedArrayProto_toStringTag = Object.getOwnPropertyDescriptor(TypedArrayPrototype, Symbol.toStringTag).get;
@@ -29,9 +30,14 @@ function getRandomValues(obj) {
     return obj;
 }
 
+function randomUUID() {
+    return v4();
+}
+
 
 const crypto = Object.freeze({
     getRandomValues,
+    randomUUID,
     subtle: undefined
 });
 
@@ -41,3 +47,4 @@ Object.defineProperty(window, 'crypto', {
     writable: true,
     value: crypto
 });
+
