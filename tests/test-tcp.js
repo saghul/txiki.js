@@ -1,5 +1,8 @@
 import assert from './assert.js';
 
+const encoder = new TextEncoder();
+const decoer = new TextDecoder();
+
 
 async function doEchoServer(server) {
     const conn = await server.accept();
@@ -8,13 +11,13 @@ async function doEchoServer(server) {
         return;
     }
 
-    let data;
+    const buf = new Uint8Array(4096);
     while (true) {
-        data = await conn.read();
-        if (!data) {
+        const nread = await conn.read(buf);
+        if (!nread) {
             break;
         }
-        conn.write(data);
+        conn.write(buf.slice(0, nread));
     }
 }
 
@@ -24,17 +27,15 @@ async function doEchoServer(server) {
     server.listen();
     doEchoServer(server);
 
+    const readBuf = new Uint8Array(4096);
     const client = new tjs.TCP();
     await client.connect(server.getsockname());
-    client.write("PING");
-    let data, dataStr;
-    data = await client.read();
-    dataStr = new TextDecoder().decode(data);
-    assert.eq(dataStr, "PING", "sending strings works");
-    client.write(data);
-    data = await client.read();
-    dataStr = new TextDecoder().decode(data);
-    assert.eq(dataStr, "PING", "sending a Uint8Array works");
+    client.write(encoder.encode('PING'));
+    let dataStr, nread;
+    nread = await client.read(readBuf);
+    dataStr = decoer.decode(readBuf.subarray(0, nread));
+    assert.eq(dataStr, "PING", "sending works");
+    assert.throws(() => { client.write("PING"); }, TypeError, "sending anything else gives TypeError");
     assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
     client.close();
     server.close();
