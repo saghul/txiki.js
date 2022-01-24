@@ -84,17 +84,10 @@ typedef struct {
     JSContext *ctx;
     JSValue obj;
     TJSPromise result;
+    struct {
+        JSValue tarray;
+    } rw;
 } TJSFsReq;
-
-typedef struct {
-    TJSFsReq base;
-    char *buf;
-} TJSFsReadReq;
-
-typedef struct {
-    TJSFsReq base;
-    char data[];
-} TJSFsWriteReq;
 
 typedef struct {
     uv_work_t req;
@@ -193,6 +186,7 @@ static JSValue tjs_fsreq_init(JSContext *ctx, TJSFsReq *fr, JSValue obj) {
     fr->ctx = ctx;
     fr->req.data = fr;
     fr->obj = JS_DupValue(ctx, obj);
+    fr->rw.tarray = JS_UNDEFINED;
 
     return TJS_InitPromise(ctx, &fr->result);
 }
@@ -203,7 +197,6 @@ static void uv__fs_req_cb(uv_fs_t *req) {
         return;
 
     JSContext *ctx = fr->ctx;
-    TJSFsReadReq *rr;
     JSValue arg;
     TJSFile *f;
     TJSDir *d;
@@ -212,10 +205,6 @@ static void uv__fs_req_cb(uv_fs_t *req) {
     if (req->result < 0) {
         arg = tjs_new_error(ctx, fr->req.result);
         is_reject = true;
-        if (req->fs_type == UV_FS_READ) {
-            rr = (TJSFsReadReq *) fr;
-            js_free(ctx, rr->buf);
-        }
         goto skip;
     }
 
@@ -232,9 +221,6 @@ static void uv__fs_req_cb(uv_fs_t *req) {
             f->path = JS_UNDEFINED;
             break;
         case UV_FS_READ:
-            rr = (TJSFsReadReq *) fr;
-            arg = TJS_NewUint8Array(ctx, (uint8_t *) rr->buf, req->result);
-            break;
         case UV_FS_WRITE:
             arg = JS_NewInt32(ctx, fr->req.result);
             break;
@@ -298,6 +284,7 @@ skip:
     TJS_SettlePromise(ctx, &fr->result, is_reject, 1, (JSValueConst *) &arg);
 
     JS_FreeValue(ctx, fr->obj);
+    JS_FreeValue(ctx, fr->rw.tarray);
 
     uv_fs_req_cleanup(&fr->req);
     js_free(ctx, fr);
@@ -305,100 +292,40 @@ skip:
 
 /* File functions */
 
-static JSValue tjs_file_read(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
     TJSFile *f = tjs_file_get(ctx, this_val);
     if (!f)
         return JS_EXCEPTION;
 
-    /* arg 1: length to read */
-    uint64_t len = kDefaultReadSize;
-    if (!JS_IsUndefined(argv[0]) && JS_ToIndex(ctx, &len, argv[0]))
+    /* arg 0: buffer */
+    size_t size;
+    uint8_t *buf = JS_GetUint8Array(ctx, &size, argv[0]);
+    if (!buf)
         return JS_EXCEPTION;
 
-    /* arg 2: position (on the file) */
+    /* arg 1: position (on the file) */
     int64_t pos = -1;
     if (!JS_IsUndefined(argv[1]) && JS_ToInt64(ctx, &pos, argv[1]))
         return JS_EXCEPTION;
 
-    TJSFsReadReq *rr = js_malloc(ctx, sizeof(*rr));
-    if (!rr)
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
         return JS_EXCEPTION;
-    rr->buf = js_malloc(ctx, len);
-    if (!rr->buf) {
-        js_free(ctx, rr);
-        return JS_EXCEPTION;
-    }
 
-    TJSFsReq *fr = (TJSFsReq *) &rr->base;
-    uv_buf_t b = uv_buf_init(rr->buf, len);
-    int r = uv_fs_read(tjs_get_loop(ctx), &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
+    uv_buf_t b = uv_buf_init((char *)buf, size);
+
+    int r;
+    if (magic)
+        r = uv_fs_write(tjs_get_loop(ctx), &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
+    else
+        r = uv_fs_read(tjs_get_loop(ctx), &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
     if (r != 0) {
-        js_free(ctx, rr->buf);
-        js_free(ctx, rr);
+        js_free(ctx, fr);
         return tjs_throw_errno(ctx, r);
     }
 
     tjs_fsreq_init(ctx, fr, this_val);
-    return fr->result.p;
-}
-
-static JSValue tjs_file_write(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    TJSFile *f = tjs_file_get(ctx, this_val);
-    if (!f)
-        return JS_EXCEPTION;
-
-    JSValue jsData = argv[0];
-    bool is_string = false;
-    size_t size;
-    char *buf;
-
-    if (JS_IsString(jsData)) {
-        is_string = true;
-        buf = (char*) JS_ToCStringLen(ctx, &size, jsData);
-        if (!buf)
-            return JS_EXCEPTION;
-    } else {
-        size_t aoffset, asize;
-        JSValue abuf = JS_GetTypedArrayBuffer(ctx, jsData, &aoffset, &asize, NULL);
-        if (JS_IsException(abuf))
-            return abuf;
-        buf = (char*) JS_GetArrayBuffer(ctx, &size, abuf);
-        JS_FreeValue(ctx, abuf);
-        if (!buf)
-            return JS_EXCEPTION;
-        buf += aoffset;
-        size = asize;
-    }
-
-    /* arg 2: position (on the file) */
-    int64_t pos = -1;
-    if (!JS_IsUndefined(argv[1]) && JS_ToInt64(ctx, &pos, argv[1])) {
-        if (is_string)
-            JS_FreeCString(ctx, buf);
-        return JS_EXCEPTION;
-    }
-
-    TJSFsWriteReq *wr = js_malloc(ctx, sizeof(*wr) + size);
-    if (!wr) {
-        if (is_string)
-            JS_FreeCString(ctx, buf);
-        return JS_EXCEPTION;
-    }
-
-    memcpy(wr->data, buf, size);
-
-    if (is_string)
-        JS_FreeCString(ctx, buf);
-
-    TJSFsReq *fr = (TJSFsReq *) &wr->base;
-    uv_buf_t b = uv_buf_init(wr->data, size);
-    int r = uv_fs_write(tjs_get_loop(ctx), &fr->req, f->fd, &b, 1, pos, uv__fs_req_cb);
-    if (r != 0) {
-        js_free(ctx, wr);
-        return tjs_throw_errno(ctx, r);
-    }
-
-    tjs_fsreq_init(ctx, fr, this_val);
+    fr->rw.tarray = JS_DupValue(ctx, argv[0]);
     return fr->result.p;
 }
 
@@ -869,8 +796,8 @@ static JSValue tjs_fs_readfile(JSContext *ctx, JSValueConst this_val, int argc, 
 }
 
 static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
-    JS_CFUNC_DEF("read", 2, tjs_file_read),
-    JS_CFUNC_DEF("write", 2, tjs_file_write),
+    JS_CFUNC_MAGIC_DEF("read", 2, tjs_file_rw, 0),
+    JS_CFUNC_MAGIC_DEF("write", 2, tjs_file_rw, 1),
     JS_CFUNC_DEF("close", 0, tjs_file_close),
     JS_CFUNC_DEF("fileno", 0, tjs_file_fileno),
     JS_CFUNC_DEF("stat", 0, tjs_file_stat),

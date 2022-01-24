@@ -38,7 +38,6 @@
 #include <curl/curl.h>
 #endif
 
-#define kDefaultReadSize 65536
 
 struct TJSRuntime {
     TJSRunOptions options;

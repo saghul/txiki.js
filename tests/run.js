@@ -63,16 +63,18 @@ class Test {
     }
 
     async _slurpStdio(s) {
+        const decoder = new TextDecoder();
         const chunks = [];
+        const buf = new Uint8Array(4096);
         while (true) {
-            const chunk = await s.read(4096);
-            if (!chunk) {
+            const nread = await s.read(buf);
+            if (!nread) {
                 break;
             }
-            chunks.push(chunk);
+            chunks.push(buf.slice(0, nread));
         }
 
-        return chunks.map(chunk => new TextDecoder().decode(chunk)).join('');
+        return chunks.map(chunk => decoder.decode(chunk)).join('');
     }
 }
 
