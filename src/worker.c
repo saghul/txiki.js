@@ -121,7 +121,7 @@ static void worker_entry(void *arg) {
     JSValue worker_obj = tjs_new_worker(ctx, wd->channel_fd, false);
     JS_SetPropertyStr(ctx, global_obj, "workerThis", worker_obj);
     JS_FreeValue(ctx, global_obj);
-    CHECK_EQ(0, tjs__eval_binary(ctx, tjs__code_worker_bootstrap_data, tjs__code_worker_bootstrap_size));
+    CHECK_EQ(0, tjs__eval_text(ctx, tjs__code_worker_bootstrap_data, tjs__code_worker_bootstrap_size, "worker-bootstrap.js"));
 
     /* End the worker bootstrap. */
     wrt->in_bootstrap = false;

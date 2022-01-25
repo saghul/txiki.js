@@ -49,9 +49,9 @@ INCTXT(std, "std.js");
  *
  */
 
-int tjs__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
+int tjs__eval_text(JSContext *ctx, const char *buf, size_t buf_len, const char *filename) {
     int ret = 0;
-    JSValue val = JS_Eval(ctx, buf, buf_len - 1, "<internal>", JS_EVAL_TYPE_MODULE);
+    JSValue val = JS_Eval(ctx, buf, buf_len - 1, filename, JS_EVAL_TYPE_MODULE);
     if (JS_IsException(val)) {
         tjs_dump_error(ctx);
         ret = -1;
@@ -61,10 +61,10 @@ int tjs__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
 }
 
 void tjs__bootstrap_globals(JSContext *ctx) {
-    CHECK_EQ(0, tjs__eval_binary(ctx, tjs__code_bundle_data, tjs__code_bundle_size));
+    CHECK_EQ(0, tjs__eval_text(ctx, tjs__code_bundle_data, tjs__code_bundle_size, "bundle.js"));
 }
 
-static int tjs__add_builtin_module(JSContext *ctx, const char *name, const uint8_t *buf, size_t buf_len) {
+static int tjs__add_builtin_module(JSContext *ctx, const char *name, const char *buf, size_t buf_len) {
     JSValue obj = JS_Eval(ctx, buf, buf_len - 1, name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     if (JS_IsException(obj))
         goto error;

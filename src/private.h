@@ -112,7 +112,7 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
 
 JSValue tjs__get_args(JSContext *ctx);
 
-int tjs__eval_binary(JSContext *ctx, const uint8_t *buf, size_t buf_len);
+int tjs__eval_text(JSContext *ctx, const char *buf, size_t buf_len, const char *filename);
 void tjs__bootstrap_globals(JSContext *ctx);
 void tjs__add_stdlib(JSContext *ctx);
 
