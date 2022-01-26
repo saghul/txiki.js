@@ -25,6 +25,7 @@
 #include "private.h"
 #include "utils.h"
 #include "version.h"
+#include "wasm.h"
 
 #include <string.h>
 #include <unistd.h>
@@ -405,6 +406,9 @@ void tjs_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
 #endif
 #else
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_UNDEFINED, JS_PROP_C_W_E);
+#endif
+#ifdef TJS_HAVE_WASM
+    JS_DefinePropertyValueStr(ctx, versions, "wasm3", JS_NewString(ctx, M3_VERSION), JS_PROP_C_W_E);
 #endif
     JS_SetModuleExport(ctx, m, "versions", versions);
 }
