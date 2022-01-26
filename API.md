@@ -5,13 +5,9 @@
 - `global`: reference to the global object.
 - `globalThis`: same as `global`.
 - `window`: same as `global`.
-- `console`: a minimal JS console object.
 - `window.alert`: sames as `console.log`.
-- `window.prompt`: User input function with line-editing.
-- `TextEncoder` / `TextDecoder`: WHATWG [Encoding API].
-- `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval`: standard timer functions.
+- `window.prompt`: simple user input function.
 - `tjs`: reference to the main global module.
-- `workerThis`: reference to the worker global state (inside a worker).
 
 ## `tjs` global
 
@@ -21,11 +17,13 @@
 - `evalScript(code)`: evals the given code in the global scope.
 - `loadScript(jsFile)`: loads and evaulates the file at the given path.
 - `platform`: string with the platform name.
+- `version`: string with the `txiki.js` version.
+- `versions`: object with the bundled library versions.
 
 These APIs are almost always a 1-to-1 mapping of the matching [libuv] API, please
 check the libuv documentation.
 
-All synchronous APIs return a Promise, there are no callbacks.
+All asynchronous APIs return a Promise, there are no callbacks.
 
 - `cwd()`
 - `environ()`
@@ -34,6 +32,7 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `gettimeofday()`
 - `homedir()`
 - `hrtime()`
+- `hrtimeMs()`
 - `isatty()`
 - `setenv(name, value)`
 - `signal(signum, cb)`
@@ -51,9 +50,9 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `getpeername()`
 - `getsockname()`
 - `listen([backlog])`
-- `read([size])`
+- `read(Uint8Array)`
 - `shutdown()`
-- `write(String|Uint8Array)`
+- `write(Uint8Array)`
 
 ### UDP([family])
 
@@ -63,8 +62,8 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `fileno()`
 - `getpeername()`
 - `getsockname()`
-- `recv([size])`
-- `send(String|Uint8Array, [addr])`
+- `recv(Uint8Array)`
+- `send(Uint8Array, [addr])`
 
 ### Pipe()
 
@@ -76,18 +75,9 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `getpeername()`
 - `getsockname()`
 - `listen([backlog])`
-- `read([size])`
+- `read(Uint8Array)`
 - `shutdown()`
-- `write(String|Uint8Array)`
-
-### TTY(fd, readable)
-
-- `close()`
-- `fileno()`
-- `getWinSize()`
-- `read([size])`
-- `setMode(mode)`
-- `write(String|Uint8Array)`
+- `write(Uint8Array)`
 
 ### Constants
 
@@ -101,11 +91,6 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `UV_TTY_MODE_IO`
 - `UV_TTY_MODE_NORMAL`
 - `UV_TTY_MODE_RAW`
-
-### Worker(path)
-
-- `postMessage(obj)`
-- `terminate()`
 
 ### Process
 
@@ -136,9 +121,9 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `close()`
 - `fileno()`
 - `path`
-- `read([size, [offset]])`
+- `read(Uint8Array, [offset])`
 - `stat()`
-- `write(String|Uint8Array, [offset])`
+- `write(Uint8Array, [offset])`
 
 #### Dir
 
@@ -166,14 +151,4 @@ All synchronous APIs return a Promise, there are no callbacks.
 - `AI_ADDRCONFIG`
 - `AI_NUMERICSERV`
 
-## Other builtins
-
-All builtin modules are part of the **@tjs/xxx** namespace. Currently the following builtin
-modules are provided:
-
-- `@tjs/getopts`: https://github.com/jorgebucaran/getopts
-- `@tjs/path`: https://github.com/browserify/path-browserify
-
-
-[Encoding API]: https://encoding.spec.whatwg.org/
 [libuv]: https://github.com/libuv/libuv

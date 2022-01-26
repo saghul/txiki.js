@@ -8,39 +8,41 @@
 > **txikia** (basque): small, tiny.
 
 *txiki.js* is a small and powerful JavaScript runtime. It's built on the shoulders of
-giants: it uses [QuickJS] as its JavaScript engine and [libuv] as the platform layer.
-
-It was formerly named *quv*.
+giants: it uses [QuickJS] as its JavaScript engine, [libuv] as the platform layer,
+[wasm3] as the WebAssembly engine and [curl] as the HTTP client.
 
 ## Features
 
-### Browser-like APIs
+### Web Platform APIs
 
-- Console API
-- URL & URLSearchParams
-- TextEncoder / TextDecoder APIs
-- EventTarget / Event / CustomEvent
-- XMLHttpRequest & fetch (including AbortController)
-- Performance API
-- Worker API
-- Crypto API (just getRandomValues)
-- WebAssembly (no tables, globals or memory support yet)
+- [fetch]
+- [EventTarget]
+- [Console]
+- [Crypto] \*
+- [Encoding API]
+- [Performance]
+- [setTimeout, setInterval]
+- [Streams API]
+- [URL]
+- [URLPattern]
+- [URLSearchParams]
+- [WebAssembly] \*\*
+- [Web Workers API]
 
-### Custom features
+\*: No subtle support.
+
+\*\*: No tables, globals or memory support.
+
+### Runtime features
 
 - TCP and UDP sockets
-- TTY handles
 - Unix sockets / named pipes
-- Timers
-- Signals
+- Signal handling
 - File operations
-- Event loop
-- High-resolution time
-- Miscellaneous utility functions
-- Worker threads
 - Child processes
 - DNS (getaddrinfo)
-- WASI (no memory support yet)
+- WASI
+- Miscellaneous utility functions
 
 See the [full API].
 
@@ -48,10 +50,16 @@ Other extras:
 
 - Import directly from HTTP(S) URLs
 - Import JSON files
-- path module
-- uuid module
-- hashlib module
 - BigFloat and BigDecimal extensions
+
+### Standard library
+
+The builtin `@tjs/std` module exports the following:
+
+- [getopts] module
+- [path] module
+- [uuid] module
+- `createHash` function
 
 ## Supported platforms
 
@@ -73,7 +81,9 @@ make
 ./build/tjs
 ```
 
-*NOTE:* The txiki.js build depends on a number of git submodules (e.g. [curl], [libuv]). If you didn't already clone this repository recursively, make sure you initialize these submodules with `git submodule update --init` before proceeding to the build.
+*NOTE:* The txiki.js build depends on a number of git submodules (e.g. [curl], [libuv]).
+If you didn't already clone this repository recursively, make sure you initialize these
+submodules with `git submodule update --init` before proceeding to the build.
 
 ## Thanks
 
@@ -96,3 +106,19 @@ Thank you all for making this project possible!
 [CMake]: https://cmake.org/
 [wasm3]: https://github.com/wasm3/wasm3
 [contributors]: https://github.com/saghul/txiki.js/graphs/contributors
+[fetch]: https://fetch.spec.whatwg.org/
+[EventTarget]: https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
+[Console]: https://developer.mozilla.org/en-US/docs/Web/API/Console
+[Crypto]: https://developer.mozilla.org/en-US/docs/Web/API/Crypto
+[Encoding API]: https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API
+[Performance]: https://developer.mozilla.org/en-US/docs/Web/API/Performance
+[setTimeout, setInterval]: https://developer.mozilla.org/en-US/docs/Web/API/setTimeout
+[Streams API]: https://developer.mozilla.org/en-US/docs/Web/API/Streams_API
+[URL]: https://developer.mozilla.org/en-US/docs/Web/API/URL
+[URLPattern]: https://developer.mozilla.org/en-US/docs/Web/API/URLPattern
+[URLSearchParams]: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+[Web Workers API]: https://developer.mozilla.org/en-US/docs/Web/API/Worker
+[WebAssembly]: https://developer.mozilla.org/en-US/docs/WebAssembly
+[getopts]: https://github.com/jorgebucaran/getopts
+[path]: https://github.com/browserify/path-browserify
+[uuid]: https://github.com/uuidjs/uuid
