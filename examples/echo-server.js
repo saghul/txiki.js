@@ -8,15 +8,14 @@ import { addr } from './utils.js';
 async function handleConnection(conn) {
     console.log(`Accepted connection! ${addr(conn.getpeername())} <-> ${addr(conn.getsockname())}`);
 
-    let data;
+    const buf = new Uint8Array(65536);
     while (true) {
-        data = await conn.read();
-        //console.log(String.fromCharCode.apply(null, new Uint8Array(buf, 0, nread)));
-        if (!data) {
+        const nread = await conn.read(buf);
+        if (!nread) {
             console.log('connection closed!');
             break;
         }
-        conn.write(data);
+        await conn.write(buf.subarray(0, nread));
     }
 }
 
