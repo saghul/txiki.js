@@ -165,8 +165,7 @@ static const JSCFunctionListEntry tjs_timer_funcs[] = {
     JS_CFUNC_MAGIC_DEF("setTimeout", 2, tjs_setTimeout, 0),
     JS_CFUNC_DEF("clearTimeout", 1, tjs_clearTimeout),
     JS_CFUNC_MAGIC_DEF("setInterval", 2, tjs_setTimeout, 1),
-    JS_CFUNC_DEF("clearInterval", 1, tjs_clearTimeout),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Timer", JS_PROP_CONFIGURABLE),
+    JS_CFUNC_DEF("clearInterval", 1, tjs_clearTimeout)
 };
 
 void tjs_mod_timers_init(JSContext *ctx, JSModuleDef *m) {
