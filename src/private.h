@@ -76,6 +76,8 @@ void tjs_mod_fs_init(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_fs_export(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_misc_init(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_misc_export(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_os_init(JSContext *ctx, JSModuleDef *m);
+void tjs_mod_os_export(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_process_init(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_process_export(JSContext *ctx, JSModuleDef *m);
 void tjs_mod_signals_init(JSContext *ctx, JSModuleDef *m);

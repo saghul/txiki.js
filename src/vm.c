@@ -50,6 +50,7 @@ static int tjs_init(JSContext *ctx, JSModuleDef *m) {
     tjs_mod_error_init(ctx, m);
     tjs_mod_fs_init(ctx, m);
     tjs_mod_misc_init(ctx, m);
+    tjs_mod_os_init(ctx, m);
     tjs_mod_process_init(ctx, m);
     tjs_mod_signals_init(ctx, m);
     tjs_mod_std_init(ctx, m);
@@ -77,6 +78,7 @@ JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
     tjs_mod_error_export(ctx, m);
     tjs_mod_fs_export(ctx, m);
     tjs_mod_misc_export(ctx, m);
+    tjs_mod_os_export(ctx, m);
     tjs_mod_process_export(ctx, m);
     tjs_mod_std_export(ctx, m);
     tjs_mod_streams_export(ctx, m);
