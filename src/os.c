@@ -23,10 +23,21 @@
  */
 
 #include "private.h"
-#include "utils.h"
-#include "version.h"
-#include "wasm.h"
 
+
+static JSValue tjs_loadavg(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    double avg[3] = { -1, -1, -1 };
+
+    uv_loadavg(avg);
+
+    JSValue val = JS_NewArray(ctx);
+
+    JS_SetPropertyUint32(ctx, val, 0, JS_NewFloat64(ctx, avg[0]));
+    JS_SetPropertyUint32(ctx, val, 1, JS_NewFloat64(ctx, avg[1]));
+    JS_SetPropertyUint32(ctx, val, 2, JS_NewFloat64(ctx, avg[2]));
+
+    return val;
+}
 
 static JSValue tjs_network_interfaces(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     uv_interface_address_t *interfaces;
@@ -83,6 +94,7 @@ static JSValue tjs_network_interfaces(JSContext *ctx, JSValueConst this_val, int
 }
 
 static const JSCFunctionListEntry tjs_os_funcs[] = {
+    JS_CFUNC_DEF("loadavg", 0, tjs_loadavg),
     JS_CFUNC_DEF("networkInterfaces", 0, tjs_network_interfaces),
 };
 
