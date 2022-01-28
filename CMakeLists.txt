@@ -103,6 +103,7 @@ add_executable(tjs
     src/fs.c
     src/misc.c
     src/modules.c
+    src/os.c
     src/process.c
     src/std.c
     src/streams.c
