@@ -25,6 +25,39 @@
 #include "private.h"
 
 
+static JSValue tjs_cpu_info(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uv_cpu_info_t *infos;
+    int count;
+    int r = uv_cpu_info(&infos, &count);
+    if (r != 0)
+        return tjs_throw_errno(ctx, r);
+
+    JSValue val = JS_NewArray(ctx);
+
+    for (int i = 0; i < count; i++) {
+        uv_cpu_info_t info = infos[i];
+
+        JSValue v = JS_NewObjectProto(ctx, JS_NULL);
+
+        JS_DefinePropertyValueStr(ctx, v, "model", JS_NewString(ctx, info.model), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, v, "speed", JS_NewInt64(ctx, info.speed), JS_PROP_C_W_E);
+
+        JSValue t = JS_NewObjectProto(ctx, JS_NULL);
+        JS_DefinePropertyValueStr(ctx, t, "user", JS_NewFloat64(ctx, info.cpu_times.user), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, t, "nice", JS_NewFloat64(ctx, info.cpu_times.nice), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, t, "sys", JS_NewFloat64(ctx, info.cpu_times.sys), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, t, "idle", JS_NewFloat64(ctx, info.cpu_times.idle), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, t, "irq", JS_NewFloat64(ctx, info.cpu_times.irq), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, v, "times", t, JS_PROP_C_W_E);
+
+        JS_SetPropertyUint32(ctx, val, i, v);
+    }
+
+    uv_free_cpu_info(infos, count);
+
+    return val;
+}
+
 static JSValue tjs_loadavg(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     double avg[3] = { -1, -1, -1 };
 
@@ -94,6 +127,7 @@ static JSValue tjs_network_interfaces(JSContext *ctx, JSValueConst this_val, int
 }
 
 static const JSCFunctionListEntry tjs_os_funcs[] = {
+    JS_CFUNC_DEF("cpuInfo", 0, tjs_cpu_info),
     JS_CFUNC_DEF("loadavg", 0, tjs_loadavg),
     JS_CFUNC_DEF("networkInterfaces", 0, tjs_network_interfaces),
 };
