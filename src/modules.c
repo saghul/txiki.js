@@ -30,8 +30,6 @@
 #include <string.h>
 
 
-#ifdef TJS_HAVE_CURL
-
 JSModuleDef *tjs__load_http(JSContext *ctx, const char *url) {
     JSModuleDef *m;
     DynBuf dbuf;
@@ -66,8 +64,6 @@ end:
     return m;
 }
 
-#endif
-
 JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *opaque) {
     static const char http[] = "http://";
     static const char https[] = "https://";
@@ -80,12 +76,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     DynBuf dbuf;
 
     if (strncmp(http, module_name, strlen(http)) == 0 || strncmp(https, module_name, strlen(https)) == 0) {
-#ifdef TJS_HAVE_CURL
         return tjs__load_http(ctx, module_name);
-#else
-        JS_ThrowReferenceError(ctx, "could not load '%s', libcurl support not enabled", module_name);
-        return NULL;
-#endif
     }
 
     dbuf_init(&dbuf);

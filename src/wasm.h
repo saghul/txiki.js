@@ -25,11 +25,9 @@
 #ifndef TJS_WASM_H
 #define TJS_WASM_H
 
-#ifdef TJS_HAVE_WASM
 #include <wasm3.h>
 #include <m3_api_wasi.h>
 // XXX: Needed for enumerating a module's functions
 #include <m3_env.h>
-#endif
 
 #endif

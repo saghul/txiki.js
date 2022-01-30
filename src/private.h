@@ -30,13 +30,10 @@
 #include "tjs.h"
 #include "wasm.h"
 
+#include <curl/curl.h>
 #include <quickjs.h>
 #include <stdbool.h>
 #include <uv.h>
-
-#ifdef TJS_HAVE_CURL
-#include <curl/curl.h>
-#endif
 
 
 struct TJSRuntime {
@@ -52,17 +49,13 @@ struct TJSRuntime {
     uv_async_t stop;
     bool is_worker;
     bool in_bootstrap;
-#ifdef TJS_HAVE_CURL
     struct {
         CURLM *curlm_h;
         uv_timer_t timer;
     } curl_ctx;
-#endif
-#ifdef TJS_HAVE_WASM
     struct {
         IM3Environment env;
     } wasm_ctx;
-#endif
     struct {
         JSValue u8array_ctor;
     } builtins;

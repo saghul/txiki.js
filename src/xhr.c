@@ -28,8 +28,6 @@
 #include <ctype.h>
 #include <string.h>
 
-#ifdef TJS_HAVE_CURL
-
 
 enum {
     XHR_EVENT_ABORT = 0,
@@ -787,5 +785,3 @@ void tjs_mod_xhr_init(JSContext *ctx, JSModuleDef *m) {
 void tjs_mod_xhr_export(JSContext *ctx, JSModuleDef *m) {
     JS_AddModuleExport(ctx, m, "XMLHttpRequest");
 }
-
-#endif

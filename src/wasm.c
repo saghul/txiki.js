@@ -28,8 +28,6 @@
 #include "tjs.h"
 #include "utils.h"
 
-#ifdef TJS_HAVE_WASM
-
 #define TJS__WASM_MAX_ARGS 32
 
 static JSClassID tjs_wasm_module_class_id;
@@ -379,5 +377,3 @@ void tjs_mod_wasm_init(JSContext *ctx, JSModuleDef *m) {
 void tjs_mod_wasm_export(JSContext *ctx, JSModuleDef *m) {
     JS_AddModuleExport(ctx, m, "wasm");
 }
-
-#endif

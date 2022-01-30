@@ -25,8 +25,6 @@
 #include "curl-utils.h"
 
 
-#ifdef TJS_HAVE_CURL
-
 static uv_once_t curl__init_once = UV_ONCE_INIT;
 
 void tjs__curl_init_once(void) {
@@ -250,5 +248,3 @@ CURLM *tjs__get_curlm(JSContext *ctx) {
 
     return qrt->curl_ctx.curlm_h;
 }
-
-#endif

@@ -30,9 +30,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef TJS_HAVE_CURL
 #include <curl/curl.h>
-#endif
 
 
 static JSValue tjs_hrtime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -398,18 +396,8 @@ void tjs_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
     JS_DefinePropertyValueStr(ctx, versions, "quickjs", JS_NewString(ctx, QJS_VERSION_STR), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "tjs", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "uv", JS_NewString(ctx, uv_version_string()), JS_PROP_C_W_E);
-#ifdef TJS_HAVE_CURL
-#ifdef TJS_HAVE_SYSTEM_CURL
-    JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, "system"), JS_PROP_C_W_E);
-#else
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, curl_version()), JS_PROP_C_W_E);
-#endif
-#else
-    JS_DefinePropertyValueStr(ctx, versions, "curl", JS_UNDEFINED, JS_PROP_C_W_E);
-#endif
-#ifdef TJS_HAVE_WASM
     JS_DefinePropertyValueStr(ctx, versions, "wasm3", JS_NewString(ctx, M3_VERSION), JS_PROP_C_W_E);
-#endif
     JS_SetModuleExport(ctx, m, "versions", versions);
 }
 
