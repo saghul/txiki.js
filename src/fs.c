@@ -872,7 +872,7 @@ void tjs_mod_fs_init(JSContext *ctx, JSModuleDef *m) {
     JS_SetPropertyFunctionList(ctx, proto, tjs_dir_proto_funcs, countof(tjs_dir_proto_funcs));
     JS_SetClassProto(ctx, tjs_dir_class_id, proto);
 
-    obj = JS_NewObject(ctx);
+    obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyFunctionList(ctx, obj, tjs_fs_funcs, countof(tjs_fs_funcs));
     JS_SetModuleExport(ctx, m, "fs", obj);
 }
