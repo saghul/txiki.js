@@ -57,13 +57,9 @@ static int tjs_init(JSContext *ctx, JSModuleDef *m) {
     tjs_mod_streams_init(ctx, m);
     tjs_mod_timers_init(ctx, m);
     tjs_mod_udp_init(ctx, m);
-#ifdef TJS_HAVE_WASM
     tjs_mod_wasm_init(ctx, m);
-#endif
     tjs_mod_worker_init(ctx, m);
-#ifdef TJS_HAVE_CURL
     tjs_mod_xhr_init(ctx, m);
-#endif
 
     return 0;
 }
@@ -85,13 +81,9 @@ JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
     tjs_mod_signals_export(ctx, m);
     tjs_mod_timers_export(ctx, m);
     tjs_mod_udp_export(ctx, m);
-#ifdef TJS_HAVE_WASM
     tjs_mod_wasm_export(ctx, m);
-#endif
     tjs_mod_worker_export(ctx, m);
-#ifdef TJS_HAVE_CURL
     tjs_mod_xhr_export(ctx, m);
-#endif
 
     return m;
 }
@@ -246,9 +238,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     qrt->in_bootstrap = false;
 
     /* WASM */
-#ifdef TJS_HAVE_WASM
     qrt->wasm_ctx.env = m3_NewEnvironment();
-#endif
 
     /* Load some builtin references for easy access */
     JSValue global_obj = JS_GetGlobalObject(qrt->ctx);
@@ -271,18 +261,14 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
 
-    /* Destroy CURLM hande. */
-#ifdef TJS_HAVE_CURL
+    /* Destroy CURLM handle. */
     if (qrt->curl_ctx.curlm_h) {
         curl_multi_cleanup(qrt->curl_ctx.curlm_h);
         uv_close((uv_handle_t *) &qrt->curl_ctx.timer, NULL);
     }
-#endif
 
     /* Destroy WASM runtime. */
-#ifdef TJS_HAVE_WASM
     m3_FreeEnvironment(qrt->wasm_ctx.env);
-#endif
 
     /* Cleanup loop. All handles should be closed. */
     int closed = 0;

@@ -64,34 +64,27 @@ add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 
-cpr_option(DISABLE_WASM "If ON, WASM support will be disabled" OFF)
-if (NOT DISABLE_WASM)
-    set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
-    add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
-endif()
+set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
+add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
-cpr_option(DISABLE_CURL "If ON, curl support will be disabled" OFF)
 cpr_option(USE_SYSTEM_CURL "If ON, this project will look in the system paths for an installed curl library" ON)
-
-if(NOT DISABLE_CURL)
-    if(USE_SYSTEM_CURL)
-        find_package(CURL)
+if(USE_SYSTEM_CURL)
+    find_package(CURL)
+endif()
+if(NOT USE_SYSTEM_CURL OR NOT CURL_FOUND)
+    message(STATUS "Not using system curl, using built-in curl project instead.")
+    option(HTTP_ONLY "disables all protocols except HTTP" ON)
+    option(BUILD_TESTING "Set to ON to build cURL tests." OFF)
+    option(BUILD_CURL_EXE "Set to ON to build cURL executable." OFF)
+    if(APPLE)
+        option(CMAKE_USE_SECTRANSP "Enable Apple OS native SSL/TLS" ON)
     endif()
-    if(NOT USE_SYSTEM_CURL OR NOT CURL_FOUND)
-        message(STATUS "Not using system Curl, using built-in curl project instead.")
-        option(HTTP_ONLY "disables all protocols except HTTP" ON)
-        option(BUILD_TESTING "Set to ON to build cURL tests." OFF)
-        option(BUILD_CURL_EXE "Set to ON to build cURL executable." OFF)
-        if(APPLE)
-            option(CMAKE_USE_SECTRANSP "Enable Apple OS native SSL/TLS" ON)
-        endif()
-        add_subdirectory(deps/curl)
-        set(CURL_FOUND TRUE)
-        set(CURL_LIBRARIES libcurl)
-        set(CURL_INCLUDE_DIRS
-            ${CURL_SOURCE_DIR}/include
-            ${CURL_BINARY_DIR}/include/curl)
-    endif()
+    add_subdirectory(deps/curl)
+    set(CURL_FOUND TRUE)
+    set(CURL_LIBRARIES libcurl)
+    set(CURL_INCLUDE_DIRS
+        ${CURL_SOURCE_DIR}/include
+        ${CURL_BINARY_DIR}/include/curl)
 endif()
 
 add_executable(tjs
@@ -124,27 +117,7 @@ set_target_properties(tjs PROPERTIES
     C_STANDARD_REQUIRED ON
 )
 
-if (CURL_FOUND)
-    if (USE_SYSTEM_CURL)
-        target_compile_definitions(tjs PRIVATE
-            TJS_HAVE_SYSTEM_CURL
-        )
-    endif()
-    target_compile_definitions(tjs PRIVATE
-        TJS_HAVE_CURL
-    )
-    target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
-    target_link_libraries(tjs ${CURL_LIBRARIES})
-endif()
-
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
-
-if (NOT DISABLE_WASM)
-    target_compile_definitions(tjs PRIVATE
-        TJS_HAVE_WASM
-    )
-    target_link_libraries(tjs m3)
-endif()
-
-target_link_libraries(tjs qjs uv_a m)
+target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
+target_link_libraries(tjs qjs uv_a m3 m ${CURL_LIBRARIES})
