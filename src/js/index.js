@@ -1,2 +1,2 @@
 import './polyfills/index.js';
-import './tjs.js';
+import './tjs/index.js';

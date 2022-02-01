@@ -12793,11 +12793,10 @@ window.TextDecoder = import_text_encoding.TextDecoder;
 
 // polyfills/console.js
 var import_util = __toESM(require_util());
+var encoder = new TextEncoder();
 function print() {
-  tjs.print(import_util.default.format.apply(null, arguments));
-}
-function printError() {
-  tjs.printError(import_util.default.format.apply(null, arguments));
+  const text = import_util.default.format.apply(null, arguments) + "\n";
+  tjs.stdout.write(encoder.encode(text));
 }
 function hasOwnProperty(obj, v2) {
   if (obj == null) {
@@ -12805,7 +12804,6 @@ function hasOwnProperty(obj, v2) {
   }
   return Object.prototype.hasOwnProperty.call(obj, v2);
 }
-var encoder = new TextEncoder();
 var tableChars = {
   middleMiddle: "\u2500",
   rowMiddle: "\u253C",
@@ -12879,10 +12877,10 @@ var Console = class {
     print(...args2);
   }
   warn(...args2) {
-    printError(...args2);
+    print(...args2);
   }
   error(...args2) {
-    printError(...args2);
+    print(...args2);
   }
   assert(expression, ...args2) {
     if (!expression) {
@@ -13359,14 +13357,87 @@ Object.defineProperty(window, "Worker", {
   value: Worker
 });
 
-// tjs.js
+// tjs/index.js
+import * as core4 from "@tjs/core";
+
+// tjs/stdio.js
 import * as core3 from "@tjs/core";
+var kStdioHandle = Symbol("kStdioHandle");
+var kStdioHandleType = Symbol("kStdioHandleType");
+var BaseIOStream = class {
+  constructor(handle, type) {
+    this[kStdioHandle] = handle;
+    this[kStdioHandleType] = type;
+  }
+  get isTTY() {
+    return this[kStdioHandleType] === "tty";
+  }
+};
+var InputStream = class extends BaseIOStream {
+  async read(buf) {
+    return this[kStdioHandle].read(buf);
+  }
+  setMode(mode) {
+    if (!this.isTTY) {
+      throw new Error("not a TTY");
+    }
+    this[kStdioHandle].setMode(mode);
+  }
+};
+var OutputStream = class extends BaseIOStream {
+  async write(buf) {
+    return this[kStdioHandle].write(buf);
+  }
+  get height() {
+    if (!this.isTTY) {
+      throw new Error("not a TTY");
+    }
+    return this[kStdioHandle].getWinSize().height;
+  }
+  get width() {
+    if (!this.isTTY) {
+      throw new Error("not a TTY");
+    }
+    return this[kStdioHandle].getWinSize().width;
+  }
+};
+function createStdioStream(fd) {
+  const isStdin = fd === core3.STDIN_FILENO;
+  const StreamType = isStdin ? InputStream : OutputStream;
+  const type = core3.guessHandle(fd);
+  switch (type) {
+    case "tty": {
+      const handle = new core3.TTY(fd, isStdin);
+      return new StreamType(handle, type);
+    }
+    case "pipe": {
+      const handle = new core3.Pipe();
+      handle.open(fd);
+      return new StreamType(handle, type);
+    }
+    case "file":
+    default:
+      return void 0;
+  }
+}
+function createStdin() {
+  return createStdioStream(core3.STDIN_FILENO);
+}
+function createStdout() {
+  return createStdioStream(core3.STDOUT_FILENO);
+}
+function createStderr() {
+  return createStdioStream(core3.STDERR_FILENO);
+}
+
+// tjs/index.js
 var tjs2 = /* @__PURE__ */ Object.create(null);
 var noExport = [
   "setTimeout",
   "setInterval",
   "clearTimeout",
   "clearInterval",
+  "guessHandleType",
   "alert",
   "prompt",
   "XMLHttpRequest",
@@ -13377,8 +13448,8 @@ var noExport = [
   "versions",
   "wasm"
 ];
-tjs2.signal = core3.signal;
-for (const [key, value] of Object.entries(core3)) {
+tjs2.signal = core4.signal;
+for (const [key, value] of Object.entries(core4)) {
   if (noExport.indexOf(key) !== -1) {
     continue;
   }
@@ -13388,12 +13459,30 @@ for (const [key, value] of Object.entries(core3)) {
   }
   tjs2[key] = value;
 }
-tjs2.args = Object.freeze(core3.args);
-tjs2.versions = Object.freeze(core3.versions);
+tjs2.args = Object.freeze(core4.args);
+tjs2.versions = Object.freeze(core4.versions);
+Object.defineProperty(tjs2, "stdin", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: createStdin()
+});
+Object.defineProperty(tjs2, "stdout", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: createStdout()
+});
+Object.defineProperty(tjs2, "stderr", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: createStderr()
+});
 Object.defineProperty(globalThis, "tjs", {
   enumerable: true,
   configurable: false,
   writable: false,
-  value: tjs2
+  value: Object.freeze(tjs2)
 });
 /*! queue-microtask. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
