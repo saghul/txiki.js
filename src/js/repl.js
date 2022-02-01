@@ -99,8 +99,6 @@ import * as std from '@tjs/std';
     var utf8_state = 0;
     var utf8_val = 0;
 
-    var stdin;
-    var stdout;
     var term_width;
     /* current X position of the cursor in the terminal */
     var term_cursor_x = 0; 
@@ -108,23 +106,20 @@ import * as std from '@tjs/std';
     var sigint_h;
 
     var encoder = new TextEncoder();
+
     function stdout_write(data) {
-        stdout.write(encoder.encode(data));
+        tjs.stdout.write(encoder.encode(data));
     }
 
     function termInit() {
-        if (!tjs.isatty(tjs.STDIN_FILENO))
+        if (!tjs.stdin.isTTY)
             throw new Error('stdin is not a TTY');
 
-        stdin = new tjs.TTY(tjs.STDIN_FILENO, true);
-        stdout = new tjs.TTY(tjs.STDOUT_FILENO, false);
-        
         /* get the terminal size */
-        var size = stdout.getWinSize();
-        term_width = size.width;
+        term_width = tjs.stdout.width;
 
         /* set the TTY to raw mode */
-        stdin.setMode(tjs.TTY.MODE_RAW);
+        tjs.stdin.setMode(tjs.TTY.MODE_RAW);
 
         /* install a Ctrl-C signal handler */
         sigint_h = tjs.signal(tjs.signal.SIGINT, sigint_handler);
@@ -134,7 +129,7 @@ import * as std from '@tjs/std';
     }
 
     function exit(code) {
-        stdin.setMode(tjs.TTY.MODE_NORMAL);
+        tjs.stdin.setMode(tjs.TTY.MODE_NORMAL);
         tjs.exit(code);
     }
 
@@ -147,7 +142,7 @@ import * as std from '@tjs/std';
         var buf = new Uint8Array(4096);
         var nread;
         while (true) {
-            nread = await stdin.read(buf);
+            nread = await tjs.stdin.read(buf);
             for(var i = 0; i < nread; i++)
                 handle_byte(buf[i]);
         }
@@ -1015,11 +1010,14 @@ import * as std from '@tjs/std';
         } catch (error) {
             stdout_write(colors[styles.error_msg]);
             if (error instanceof Error) {
-                console.log(error);
+                stdout_write(error);
+                stdout_write("\n");
+                stdout_write(error.stack);
             } else {
                 stdout_write("Throw: ");
-                console.log(error);
+                stdout_write(error);
             }
+            stdout_write("\n");
             stdout_write(colors.none);
         }
     }

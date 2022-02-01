@@ -802,6 +802,22 @@ static JSValue tjs_pipe_bind(JSContext *ctx, JSValueConst this_val, int argc, JS
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_pipe_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSStream *t = tjs_pipe_get(ctx, this_val);
+    if (!t)
+        return JS_EXCEPTION;
+
+    int fd;
+    if (JS_ToInt32(ctx, &fd, argv[0]))
+        return JS_EXCEPTION;
+
+    int r = uv_pipe_open(&t->h.pipe, fd);
+    if (r != 0)
+        return tjs_throw_errno(ctx, r);
+
+    return JS_UNDEFINED;
+}
+
 static JSValue tjs_pipe_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     TJSStream *t = tjs_pipe_get(ctx, this_val);
     return tjs_stream_close(ctx, t, argc, argv);
@@ -879,6 +895,7 @@ static const JSCFunctionListEntry tjs_pipe_proto_funcs[] = {
     JS_CFUNC_DEF("fileno", 0, tjs_pipe_fileno),
     JS_CFUNC_DEF("listen", 1, tjs_pipe_listen),
     JS_CFUNC_DEF("accept", 0, tjs_pipe_accept),
+    JS_CFUNC_DEF("open", 1, tjs_pipe_open),
     /* Pipe functions */
     JS_CFUNC_MAGIC_DEF("getsockname", 0, tjs_pipe_getsockpeername, 0),
     JS_CFUNC_MAGIC_DEF("getpeername", 0, tjs_pipe_getsockpeername, 1),

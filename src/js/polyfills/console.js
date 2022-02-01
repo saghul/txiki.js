@@ -1,12 +1,10 @@
 import util from 'util';
 
+const encoder = new TextEncoder();
 
 function print() {
-    tjs.print(util.format.apply(null, arguments));
-}
-
-function printError() {
-  tjs.printError(util.format.apply(null, arguments));
+  const text = util.format.apply(null, arguments) + '\n';
+  tjs.stdout.write(encoder.encode(text));
 }
 
 
@@ -19,8 +17,6 @@ function hasOwnProperty(obj, v) {
     }
     return Object.prototype.hasOwnProperty.call(obj, v);
 }
-
-const encoder = new TextEncoder();
 
 const tableChars = {
   middleMiddle: "─",
@@ -119,11 +115,11 @@ class Console {
     }
 
     warn(...args) {
-        printError(...args);
+        print(...args);
     }
 
     error(...args) {
-        printError(...args);
+        print(...args);
     }
 
     assert(expression, ...args) {

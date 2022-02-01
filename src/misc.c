@@ -67,13 +67,25 @@ static JSValue tjs_uname(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return obj;
 }
 
-static JSValue tjs_isatty(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    int fd, type;
+static JSValue tjs_guess_handle(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    int fd;
     if (JS_ToInt32(ctx, &fd, argv[0]))
         return JS_EXCEPTION;
 
-    type = uv_guess_handle(fd);
-    return JS_NewBool(ctx, type == UV_TTY);
+    switch (uv_guess_handle(fd)) {
+        case UV_TTY:
+            return JS_NewString(ctx, "tty");
+        case UV_NAMED_PIPE:
+            return JS_NewString(ctx, "pipe");
+        case UV_FILE:
+            return JS_NewString(ctx, "file");
+        case UV_TCP:
+            return JS_NewString(ctx, "tcp");
+        case UV_UDP:
+            return JS_NewString(ctx, "udp");
+        default:
+            return JS_NewString(ctx, "unknown");
+    }
 }
 
 static JSValue tjs_environ(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -368,7 +380,7 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
     JS_CFUNC_DEF("hrtimeMs", 0, tjs_hrtime_ms),
     JS_CFUNC_DEF("gettimeofday", 0, tjs_gettimeofday),
     JS_CFUNC_DEF("uname", 0, tjs_uname),
-    JS_CFUNC_DEF("isatty", 1, tjs_isatty),
+    JS_CFUNC_DEF("guessHandle", 1, tjs_guess_handle),
     JS_CFUNC_DEF("environ", 0, tjs_environ),
     JS_CFUNC_DEF("getenv", 0, tjs_getenv),
     JS_CFUNC_DEF("setenv", 2, tjs_setenv),
