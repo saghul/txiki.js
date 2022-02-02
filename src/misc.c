@@ -279,72 +279,6 @@ static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return ret;
 }
 
-static JSValue tjs_print(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
-    int i;
-    const char *str;
-    FILE *f = magic == 0 ? stdout : stderr;
-
-    for (i = 0; i < argc; i++) {
-        if (i != 0)
-            fputc(' ', f);
-        str = JS_ToCString(ctx, argv[i]);
-        if (!str)
-            return JS_EXCEPTION;
-        fputs(str, f);
-        JS_FreeCString(ctx, str);
-    }
-    fputc('\n', f);
-
-    return JS_UNDEFINED;
-}
-
-static JSValue tjs_prompt(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSValue str;
-
-    const char *message = NULL;
-    const char *default_value = NULL;
-    char buf[4096];
-
-    if (argc > 0) {
-        message = JS_ToCString(ctx, argv[0]);
-        if (!message) {
-            return JS_EXCEPTION;
-        }
-    }
-
-    if (argc > 1) {
-        default_value = JS_ToCString(ctx, argv[1]);
-    }
-
-    if (message) {
-        fputs(message, stdout);
-    }
-
-    if (fgets(buf, sizeof(buf), stdin) != NULL) {
-        size_t len = strcspn(buf, "\r\n"); /* skip newline */
-        if (len == 0) {
-            goto use_default;
-        }
-        str = JS_NewStringLen(ctx, buf, len);
-    } else {
-use_default:
-        if (default_value != NULL) {
-            str = JS_NewString(ctx, default_value);
-        } else {
-            str = JS_UNDEFINED;
-        }
-    }
-
-    if (message) {
-        JS_FreeCString(ctx, message);
-    }
-    if (default_value) {
-        JS_FreeCString(ctx, default_value);
-    }
-
-    return str;
-}
-
 static JSValue tjs_random(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     size_t size;
     uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
@@ -389,10 +323,6 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
     JS_CFUNC_DEF("homedir", 0, tjs_homedir),
     JS_CFUNC_DEF("tmpdir", 0, tjs_tmpdir),
     JS_CFUNC_DEF("exepath", 0, tjs_exepath),
-    JS_CFUNC_MAGIC_DEF("print", 1, tjs_print, 0),
-    JS_CFUNC_MAGIC_DEF("printError", 1, tjs_print, 1),
-    JS_CFUNC_MAGIC_DEF("alert", 1, tjs_print, 1),
-    JS_CFUNC_DEF("prompt", 2, tjs_prompt),
     JS_CFUNC_DEF("random", 3, tjs_random),
 };
 

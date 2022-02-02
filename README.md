@@ -15,23 +15,26 @@ giants: it uses [QuickJS] as its JavaScript engine, [libuv] as the platform laye
 
 ### Web Platform APIs
 
-- [fetch]
-- [EventTarget]
+- [alert, confirm, prompt] (1)
 - [Console]
-- [Crypto] \*
+- [Crypto] (2)
 - [Encoding API]
+- [EventTarget]
+- [fetch]
 - [Performance]
 - [setTimeout, setInterval]
 - [Streams API]
 - [URL]
 - [URLPattern]
 - [URLSearchParams]
-- [WebAssembly] \*\*
+- [WebAssembly] (3)
 - [Web Workers API]
 
-\*: No subtle support.
+(1): All of them are async.
 
-\*\*: No tables, globals or memory support.
+(2): No subtle support.
+
+(3): No tables, globals or memory support.
 
 ### Runtime features
 
@@ -106,6 +109,7 @@ Thank you all for making this project possible!
 [CMake]: https://cmake.org/
 [wasm3]: https://github.com/wasm3/wasm3
 [contributors]: https://github.com/saghul/txiki.js/graphs/contributors
+[alert, confirm, prompt]: https://developer.mozilla.org/en-US/docs/Web/API/Window/alert
 [fetch]: https://fetch.spec.whatwg.org/
 [EventTarget]: https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
 [Console]: https://developer.mozilla.org/en-US/docs/Web/API/Console

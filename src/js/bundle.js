@@ -8613,8 +8613,8 @@ var require_encoding = __commonJS({
       }
       var big5_index_no_hkscs;
       var DEFAULT_ENCODING = "utf-8";
-      function TextDecoder2(label, options) {
-        if (!(this instanceof TextDecoder2))
+      function TextDecoder3(label, options) {
+        if (!(this instanceof TextDecoder3))
           throw TypeError("Called as a function. Did you forget 'new'?");
         label = label !== void 0 ? String(label) : DEFAULT_ENCODING;
         options = ToDictionary(options);
@@ -8644,23 +8644,23 @@ var require_encoding = __commonJS({
         return dec;
       }
       if (Object.defineProperty) {
-        Object.defineProperty(TextDecoder2.prototype, "encoding", {
+        Object.defineProperty(TextDecoder3.prototype, "encoding", {
           get: function() {
             return this._encoding.name.toLowerCase();
           }
         });
-        Object.defineProperty(TextDecoder2.prototype, "fatal", {
+        Object.defineProperty(TextDecoder3.prototype, "fatal", {
           get: function() {
             return this._error_mode === "fatal";
           }
         });
-        Object.defineProperty(TextDecoder2.prototype, "ignoreBOM", {
+        Object.defineProperty(TextDecoder3.prototype, "ignoreBOM", {
           get: function() {
             return this._ignoreBOM;
           }
         });
       }
-      TextDecoder2.prototype.decode = function decode(input, options) {
+      TextDecoder3.prototype.decode = function decode(input, options) {
         var bytes;
         if (typeof input === "object" && input instanceof ArrayBuffer) {
           bytes = new Uint8Array(input);
@@ -9596,7 +9596,7 @@ var require_encoding = __commonJS({
       if (!global2["TextEncoder"])
         global2["TextEncoder"] = TextEncoder3;
       if (!global2["TextDecoder"])
-        global2["TextDecoder"] = TextDecoder2;
+        global2["TextDecoder"] = TextDecoder3;
       if (typeof module !== "undefined" && module.exports) {
         module.exports = {
           TextEncoder: global2["TextEncoder"],
@@ -11217,8 +11217,6 @@ globalThis.setTimeout = core.setTimeout;
 globalThis.clearTimeout = core.clearTimeout;
 globalThis.setInterval = core.setInterval;
 globalThis.clearInterval = core.clearInterval;
-globalThis.alert = core.alert;
-globalThis.prompt = core.prompt;
 globalThis.queueMicrotask = import_queue_microtask.default;
 Object.defineProperty(globalThis, "global", {
   enumerable: true,
@@ -12791,12 +12789,68 @@ var import_text_encoding = __toESM(require_text_encoding());
 window.TextEncoder = import_text_encoding.TextEncoder;
 window.TextDecoder = import_text_encoding.TextDecoder;
 
+// polyfills/alert-confirm-prompt.js
+var encoder = new TextEncoder();
+var decoder = new TextDecoder();
+var LF = "\n".charCodeAt();
+var CR = "\r".charCodeAt();
+async function readStdinLine() {
+  const c2 = new Uint8Array(1);
+  const buf = [];
+  while (true) {
+    const n2 = await tjs.stdin.read(c2);
+    if (n2 === 0) {
+      break;
+    }
+    if (c2[0] === CR) {
+      const n3 = await tjs.stdin.read(c2);
+      if (c2[0] === LF) {
+        break;
+      }
+      buf.push(CR);
+      if (n3 === 0) {
+        break;
+      }
+    }
+    if (c2[0] === LF) {
+      break;
+    }
+    buf.push(c2[0]);
+  }
+  return decoder.decode(new Uint8Array(buf));
+}
+async function alert(msg) {
+  if (!tjs.stdin.isTTY) {
+    return;
+  }
+  await tjs.stdout.write(encoder.encode(msg + " [Enter] "));
+  await readStdinLine();
+}
+async function confirm(msg = "Confirm") {
+  if (!tjs.stdin.isTTY) {
+    return false;
+  }
+  await tjs.stdout.write(encoder.encode(msg + " [y/N] "));
+  const answer = await readStdinLine();
+  return answer.toLowerCase()[0] === "y";
+}
+async function prompt(msg = "Prompt", def = null) {
+  if (!tjs.stdin.isTTY) {
+    return null;
+  }
+  await tjs.stdout.write(encoder.encode(msg + " "));
+  return await readStdinLine() || def;
+}
+globalThis.alert = alert;
+globalThis.confirm = confirm;
+globalThis.prompt = prompt;
+
 // polyfills/console.js
 var import_util = __toESM(require_util());
-var encoder = new TextEncoder();
+var encoder2 = new TextEncoder();
 function print() {
   const text = import_util.default.format.apply(null, arguments) + "\n";
-  tjs.stdout.write(encoder.encode(text));
+  tjs.stdout.write(encoder2.encode(text));
 }
 function hasOwnProperty(obj, v2) {
   if (obj == null) {
@@ -12825,7 +12879,7 @@ function removeColors(str) {
 }
 function countBytes(str) {
   const normalized = removeColors(String(str)).normalize("NFC");
-  return encoder.encode(normalized).byteLength;
+  return encoder2.encode(normalized).byteLength;
 }
 function renderRow(row, columnWidths) {
   let out = tableChars.left;
