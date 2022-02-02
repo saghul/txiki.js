@@ -462,6 +462,6 @@ JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_ma
     return ret;
 }
 
-void TJS_RunRepl(JSContext *ctx) {
-    CHECK_EQ(0, tjs__eval_text(ctx, tjs__code_repl_data, tjs__code_repl_size, "repl.js"));
+int TJS_RunRepl(JSContext *ctx) {
+    return tjs__eval_text(ctx, tjs__code_repl_data, tjs__code_repl_size, "repl.js");
 }

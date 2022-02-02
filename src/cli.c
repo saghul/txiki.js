@@ -329,7 +329,10 @@ int main(int argc, char **argv) {
     }
 
     if (flags.interactive) {
-        TJS_RunRepl(ctx);
+        if (TJS_RunRepl(ctx)) {
+            exit_code = EXIT_FAILURE;
+            goto exit;
+        }
     }
     TJS_Run(qrt);
 
