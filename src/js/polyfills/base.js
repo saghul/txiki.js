@@ -5,8 +5,6 @@ globalThis.setTimeout = core.setTimeout;
 globalThis.clearTimeout = core.clearTimeout;
 globalThis.setInterval = core.setInterval;
 globalThis.clearInterval = core.clearInterval;
-globalThis.alert = core.alert;
-globalThis.prompt = core.prompt;
 globalThis.queueMicrotask = queueMicrotask;
 
 Object.defineProperty(globalThis, 'global', {
@@ -26,4 +24,3 @@ Object.defineProperty(globalThis, 'self', {
     get() { return globalThis },
     set() {}
 });
-

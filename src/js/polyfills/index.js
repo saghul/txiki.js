@@ -12,9 +12,9 @@ import 'web-streams-polyfill/es2018';
 
 import './text-encoding.js';
 
+import './alert-confirm-prompt.js';
 import './console.js';
 import './crypto.js';
 import './performance.js';
 import './wasm.js';
 import './worker.js';
-
