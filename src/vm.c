@@ -102,16 +102,16 @@ static void tjs__promise_rejection_tracker(JSContext *ctx,
 
         if (JS_IsException(ret)) {
             tjs_dump_error(ctx);
-        } else if (JS_ToBool(ctx, ret)) {
-            // The event wasn't cancelled, log the error and maybe abort.
+        } else {
             fprintf(stderr, "Unhandled promise rejection: ");
             tjs_dump_error1(ctx, reason);
-            TJSRuntime *qrt = TJS_GetRuntime(ctx);
-            CHECK_NOT_NULL(qrt);
-            if (!qrt->options.no_abort_on_unhandled_rejection) {
-                fprintf(stderr, "Unhandled promise rejected, aborting!\n");
-                fflush(stderr);
-                abort();
+
+            if (JS_ToBool(ctx, ret)) {
+                // The event wasn't cancelled, maybe abort.
+                TJSRuntime *qrt = TJS_GetRuntime(ctx);
+                CHECK_NOT_NULL(qrt);
+                JS_Throw(qrt->ctx, JS_DupValue(qrt->ctx, reason));
+                TJS_Stop(qrt);
             }
         }
 
@@ -128,7 +128,6 @@ static void uv__stop(uv_async_t *handle) {
 
 void TJS_DefaultOptions(TJSRunOptions *options) {
     static TJSRunOptions default_options = {
-        .no_abort_on_unhandled_rejection = false,
         .stack_size = TJS__DEFAULT_STACK_SIZE
     };
 

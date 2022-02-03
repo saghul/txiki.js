@@ -118,7 +118,6 @@ static void print_help(void) {
            "  -l, --load FILENAME             module to preload (option can be repeated)\n"
            "  -i, --interactive               go to interactive mode\n"
            "  -q, --quit                      just instantiate the interpreter and quit\n"
-           "  --abort-on-unhandled-rejection  abort when a rejected promise is not caught\n"
            "  --override-filename FILENAME    override filename in error messages\n"
            "  --stack-size STACKSIZE          set max stack size\n"
            "  --strict-module-detection       only run code as a module if its extension is \".mjs\"\n");
@@ -281,10 +280,6 @@ int main(int argc, char **argv) {
             }
             if (is_longopt(opt, "strict-module-detection")) {
                 flags.strict_module_detection = true;
-                break;
-            }
-            if (is_longopt(opt, "no-abort-on-unhandled-rejection")) {
-                runOptions.no_abort_on_unhandled_rejection = true;
                 break;
             }
             report_unknown_option(&opt);
