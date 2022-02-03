@@ -129,6 +129,7 @@ static void uv__stop(uv_async_t *handle) {
 
 void TJS_DefaultOptions(TJSRunOptions *options) {
     static TJSRunOptions default_options = {
+        .mem_limit = -1,
         .stack_size = TJS__DEFAULT_STACK_SIZE
     };
 
@@ -165,7 +166,10 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JS_SetRuntimeOpaque(qrt->rt, qrt);
     JS_SetContextOpaque(qrt->ctx, qrt);
 
-    /* Increase stack size */
+    /* Set memory limit */
+    JS_SetMemoryLimit(qrt->rt, options->mem_limit);
+
+    /* Set stack size */
     JS_SetMaxStackSize(qrt->rt, options->stack_size);
 
     /* Enable BigFloat and BigDecimal */
