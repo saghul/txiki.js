@@ -325,7 +325,7 @@ static void uv__check_cb(uv_check_t *handle) {
 }
 
 /* main loop which calls the user JS callbacks */
-void TJS_Run(TJSRuntime *qrt) {
+int TJS_Run(TJSRuntime *qrt) {
     CHECK_EQ(uv_prepare_start(&qrt->jobs.prepare, uv__prepare_cb), 0);
     uv_unref((uv_handle_t *) &qrt->jobs.prepare);
     CHECK_EQ(uv_check_start(&qrt->jobs.check, uv__check_cb), 0);
@@ -338,6 +338,17 @@ void TJS_Run(TJSRuntime *qrt) {
     uv__maybe_idle(qrt);
 
     uv_run(&qrt->loop, UV_RUN_DEFAULT);
+
+    int ret = 0;
+    JSValue exc = JS_GetException(qrt->ctx);
+    if (!JS_IsNull(exc)) {
+        tjs_dump_error1(qrt->ctx, exc);
+        ret = 1;
+    }
+
+    JS_FreeValue(qrt->ctx, exc);
+
+    return ret;
 }
 
 void TJS_Stop(TJSRuntime *qrt) {
