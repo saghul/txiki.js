@@ -21,6 +21,7 @@ giants: it uses [QuickJS] as its JavaScript engine, [libuv] as the platform laye
 - [Encoding API]
 - [EventTarget]
 - [fetch]
+- [JSON imports]
 - [Performance]
 - [setTimeout, setInterval]
 - [Streams API]
@@ -115,6 +116,7 @@ Thank you all for making this project possible!
 [Console]: https://developer.mozilla.org/en-US/docs/Web/API/Console
 [Crypto]: https://developer.mozilla.org/en-US/docs/Web/API/Crypto
 [Encoding API]: https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API
+[JSON imports]: https://github.com/tc39/proposal-json-modules
 [Performance]: https://developer.mozilla.org/en-US/docs/Web/API/Performance
 [setTimeout, setInterval]: https://developer.mozilla.org/en-US/docs/Web/API/setTimeout
 [Streams API]: https://developer.mozilla.org/en-US/docs/Web/API/Streams_API
