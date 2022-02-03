@@ -1,5 +1,5 @@
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -80,7 +80,7 @@ static JSClassDef tjs_signal_handler_class = {
 static void uv__signal_cb(uv_signal_t *handle, int sig_num) {
     TJSSignalHandler *sh = handle->data;
     CHECK_NOT_NULL(sh);
-    tjs_call_handler(sh->ctx, sh->func);
+    tjs_call_handler(sh->ctx, sh->func, 0, NULL);
 }
 
 static JSValue tjs_signal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {

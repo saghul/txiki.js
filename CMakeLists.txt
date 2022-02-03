@@ -94,6 +94,7 @@ add_executable(tjs
     src/dns.c
     src/error.c
     src/fs.c
+    src/fswatch.c
     src/misc.c
     src/modules.c
     src/os.c

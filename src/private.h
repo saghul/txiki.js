@@ -63,6 +63,7 @@ struct TJSRuntime {
 void tjs__mod_dns_init(JSContext *ctx, JSValue ns);
 void tjs__mod_error_init(JSContext *ctx, JSValue ns);
 void tjs__mod_fs_init(JSContext *ctx, JSValue ns);
+void tjs__mod_fswatch_init(JSContext *ctx, JSValue ns);
 void tjs__mod_misc_init(JSContext *ctx, JSValue ns);
 void tjs__mod_os_init(JSContext *ctx, JSValue ns);
 void tjs__mod_process_init(JSContext *ctx, JSValue ns);
