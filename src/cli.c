@@ -118,6 +118,7 @@ static void print_help(void) {
            "  -l, --load FILENAME             module to preload (option can be repeated)\n"
            "  -i, --interactive               go to interactive mode\n"
            "  -q, --quit                      just instantiate the interpreter and quit\n"
+           "  --memory-limit LIMIT            set the memory limit\n"
            "  --override-filename FILENAME    override filename in error messages\n"
            "  --stack-size STACKSIZE          set max stack size\n"
            "  --strict-module-detection       only run code as a module if its extension is \".mjs\"\n");
@@ -248,6 +249,19 @@ int main(int argc, char **argv) {
                 file->path = filepath;
                 list_add_tail(&file->link, &flags.preload_modules);
                 break;
+            }
+            if (is_longopt(opt, "memory-limit")) {
+                char *mem_limit = get_option_value(arg, argc, argv, &optind);
+                if (mem_limit) {
+                    long n = strtol(mem_limit, NULL, 10);
+                    if (n > 0) {
+                        runOptions.mem_limit = (size_t) n;
+                        break;
+                    }
+                }
+                report_missing_argument(&opt);
+                exit_code = EXIT_INVALID_ARG;
+                goto exit;
             }
             if (is_longopt(opt, "override-filename")) {
                 flags.override_filename = get_option_value(arg, argc, argv, &optind);

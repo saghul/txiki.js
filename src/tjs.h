@@ -34,6 +34,7 @@
 typedef struct TJSRuntime TJSRuntime;
 
 typedef struct TJSRunOptions {
+    size_t mem_limit;
     size_t stack_size;
 } TJSRunOptions;
 
