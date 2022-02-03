@@ -25,6 +25,11 @@
 
 import * as std from '@tjs/std';
 
+window.addEventListener('unhandledrejection', event => {
+    // Avoid aborting in unhandled promised on the REPL.
+    event.preventDefault();
+});
+
 (function(g) {
     /* expose stdlib */
     g.std = std;
