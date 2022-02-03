@@ -48,7 +48,6 @@ typedef struct CLIOption {
 } CLIOption;
 
 typedef struct Flags {
-    bool interactive;
     bool strict_module_detection;
     char *eval_expr;
     char *override_filename;
@@ -108,7 +107,6 @@ static void print_help(void) {
            "  -v, --version                   print tjs version\n"
            "  -h, --help                      list options\n"
            "  -e, --eval EXPR                 evaluate EXPR\n"
-           "  -i, --interactive               go to interactive mode\n"
            "  --memory-limit LIMIT            set the memory limit\n"
            "  --override-filename FILENAME    override filename in error messages\n"
            "  --stack-size STACKSIZE          set max stack size\n"
@@ -184,8 +182,7 @@ int main(int argc, char **argv) {
 
     TJS_DefaultOptions(&runOptions);
 
-    Flags flags = { .interactive = false,
-                    .strict_module_detection = false,
+    Flags flags = { .strict_module_detection = false,
                     .eval_expr = NULL,
                     .override_filename = NULL };
 
@@ -256,10 +253,6 @@ int main(int argc, char **argv) {
                 exit_code = EXIT_INVALID_ARG;
                 goto exit;
             }
-            if (opt.key == 'i' || is_longopt(opt, "interactive")) {
-                flags.interactive = true;
-                break;
-            }
             if (is_longopt(opt, "strict-module-detection")) {
                 flags.strict_module_detection = true;
                 break;
@@ -280,18 +273,14 @@ int main(int argc, char **argv) {
         }
     } else if (optind >= argc) {
         /* interactive mode */
-        flags.interactive = true;
+        if (TJS_RunRepl(ctx)) {
+            exit_code = EXIT_FAILURE;
+            goto exit;
+        }
     } else {
         const char *filepath = argv[optind];
         int eval_flags = get_eval_flags(filepath, flags.strict_module_detection);
         if (eval_module(ctx, filepath, flags.override_filename, eval_flags)) {
-            exit_code = EXIT_FAILURE;
-            goto exit;
-        }
-    }
-
-    if (flags.interactive) {
-        if (TJS_RunRepl(ctx)) {
             exit_code = EXIT_FAILURE;
             goto exit;
         }
