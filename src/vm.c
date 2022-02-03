@@ -82,10 +82,11 @@ static void tjs__promise_rejection_tracker(JSContext *ctx,
         CHECK_EQ(JS_IsUndefined(event_ctor), 0);
 
         JSValue event_name = JS_NewString(ctx, "unhandledrejection");
-        JSValueConst args[2];
+        JSValueConst args[3];
         args[0] = event_name;
-        args[1] = reason;
-        JSValue event = JS_CallConstructor(ctx, event_ctor, 2, args);
+        args[1] = promise;
+        args[2] = reason;
+        JSValue event = JS_CallConstructor(ctx, event_ctor, countof(args), args);
         CHECK_EQ(JS_IsException(event), 0);
 
         JSValue dispatch_func = JS_GetPropertyStr(ctx, global_obj, "dispatchEvent");

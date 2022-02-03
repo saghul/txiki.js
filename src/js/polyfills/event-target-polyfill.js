@@ -44,13 +44,19 @@ class MessageEvent extends Event {
     }
 }
 
+const kPromise = Symbol('kPromise');
 const kPromiseRejectionReason = Symbol('kPromiseRejectionReason');
 
 class PromiseRejectionEvent extends Event {
-    constructor(eventTye, reason) {
+    constructor(eventTye, promise, reason) {
         super(eventTye, { cancelable: true });
 
+        this[kPromise] = promise;
         this[kPromiseRejectionReason] = reason;
+    }
+
+    get promise() {
+        return this[kPromise];
     }
 
     get reason() {
