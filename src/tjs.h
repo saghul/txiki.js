@@ -45,7 +45,7 @@ void TJS_FreeRuntime(TJSRuntime *qrt);
 void TJS_SetupArgs(int argc, char **argv);
 JSContext *TJS_GetJSContext(TJSRuntime *qrt);
 TJSRuntime *TJS_GetRuntime(JSContext *ctx);
-void TJS_Run(TJSRuntime *qrt);
+int TJS_Run(TJSRuntime *qrt);
 void TJS_Stop(TJSRuntime *qrt);
 JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int eval_flags, bool is_main, char *override_filename);
 int TJS_RunRepl(JSContext *ctx);

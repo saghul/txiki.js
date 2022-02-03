@@ -334,7 +334,8 @@ int main(int argc, char **argv) {
             goto exit;
         }
     }
-    TJS_Run(qrt);
+
+    exit_code = TJS_Run(qrt);
 
 exit:
     list_for_each_safe(el, el1, &flags.preload_modules) {
