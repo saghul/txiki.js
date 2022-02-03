@@ -48,7 +48,6 @@ struct TJSRuntime {
     } jobs;
     uv_async_t stop;
     bool is_worker;
-    bool in_bootstrap;
     struct {
         CURLM *curlm_h;
         uv_timer_t timer;
@@ -61,34 +60,20 @@ struct TJSRuntime {
     } builtins;
 };
 
-void tjs_mod_dns_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_dns_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_error_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_error_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_fs_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_fs_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_misc_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_misc_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_os_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_os_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_process_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_process_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_signals_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_signals_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_std_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_std_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_streams_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_streams_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_timers_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_timers_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_udp_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_udp_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_wasm_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_wasm_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_worker_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_worker_export(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_xhr_init(JSContext *ctx, JSModuleDef *m);
-void tjs_mod_xhr_export(JSContext *ctx, JSModuleDef *m);
+void tjs__mod_dns_init(JSContext *ctx, JSValue ns);
+void tjs__mod_error_init(JSContext *ctx, JSValue ns);
+void tjs__mod_fs_init(JSContext *ctx, JSValue ns);
+void tjs__mod_misc_init(JSContext *ctx, JSValue ns);
+void tjs__mod_os_init(JSContext *ctx, JSValue ns);
+void tjs__mod_process_init(JSContext *ctx, JSValue ns);
+void tjs__mod_signals_init(JSContext *ctx, JSValue ns);
+void tjs__mod_std_init(JSContext *ctx, JSValue ns);
+void tjs__mod_streams_init(JSContext *ctx, JSValue ns);
+void tjs__mod_timers_init(JSContext *ctx, JSValue ns);
+void tjs__mod_udp_init(JSContext *ctx, JSValue ns);
+void tjs__mod_wasm_init(JSContext *ctx, JSValue ns);
+void tjs__mod_worker_init(JSContext *ctx, JSValue ns);
+void tjs__mod_xhr_init(JSContext *ctx, JSValue ns);
 
 JSValue tjs_new_error(JSContext *ctx, int err);
 JSValue tjs_throw_errno(JSContext *ctx, int err);

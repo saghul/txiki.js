@@ -1,4 +1,5 @@
-import { XMLHttpRequest as XHR } from '@tjs/core';
+const { XMLHttpRequest: XHR } = globalThis.__bootstrap;
+
 import { defineEventAttribute } from './event-target.js';
 
 const kXHR = Symbol('kXHR');

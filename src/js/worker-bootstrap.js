@@ -1,4 +1,4 @@
-// `workerThis` is a reference to a tjs/core `Worker` objet.
+// `workerThis` is a reference to a in internal `Worker` objet.
 
 const kWorkerSelf = Symbol('kWorkerSelf');
 

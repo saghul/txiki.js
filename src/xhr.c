@@ -757,16 +757,16 @@ static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
     JS_CGETSET_DEF("timeout", tjs_xhr_timeout_get, tjs_xhr_timeout_set),
     JS_CGETSET_DEF("upload", tjs_xhr_upload_get, NULL),
     JS_CGETSET_DEF("withCcredentials", tjs_xhr_withcredentials_get, tjs_xhr_withcredentials_set),
-    JS_CFUNC_DEF("abort", 0, tjs_xhr_abort),
-    JS_CFUNC_DEF("getAllResponseHeaders", 0, tjs_xhr_getallresponseheaders),
-    JS_CFUNC_DEF("getResponseHeader", 1, tjs_xhr_getresponseheader),
-    JS_CFUNC_DEF("open", 5, tjs_xhr_open),
-    JS_CFUNC_DEF("overrideMimeType", 1, tjs_xhr_overridemimetype),
-    JS_CFUNC_DEF("send", 1, tjs_xhr_send),
-    JS_CFUNC_DEF("setRequestHeader", 2, tjs_xhr_setrequestheader),
+    TJS_CFUNC_DEF("abort", 0, tjs_xhr_abort),
+    TJS_CFUNC_DEF("getAllResponseHeaders", 0, tjs_xhr_getallresponseheaders),
+    TJS_CFUNC_DEF("getResponseHeader", 1, tjs_xhr_getresponseheader),
+    TJS_CFUNC_DEF("open", 5, tjs_xhr_open),
+    TJS_CFUNC_DEF("overrideMimeType", 1, tjs_xhr_overridemimetype),
+    TJS_CFUNC_DEF("send", 1, tjs_xhr_send),
+    TJS_CFUNC_DEF("setRequestHeader", 2, tjs_xhr_setrequestheader),
 };
 
-void tjs_mod_xhr_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_xhr_init(JSContext *ctx,JSValue ns) {
     JSValue proto, obj;
 
     /* XHR class */
@@ -779,9 +779,5 @@ void tjs_mod_xhr_init(JSContext *ctx, JSModuleDef *m) {
     /* XHR object */
     obj = JS_NewCFunction2(ctx, tjs_xhr_constructor, "XMLHttpRequest", 1, JS_CFUNC_constructor, 0);
     JS_SetPropertyFunctionList(ctx, obj, tjs_xhr_class_funcs, countof(tjs_xhr_class_funcs));
-    JS_SetModuleExport(ctx, m, "XMLHttpRequest", obj);
-}
-
-void tjs_mod_xhr_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExport(ctx, m, "XMLHttpRequest");
+    JS_DefinePropertyValueStr(ctx, ns, "XMLHttpRequest", obj, JS_PROP_C_W_E);
 }

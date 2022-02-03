@@ -127,18 +127,13 @@ static JSValue tjs_network_interfaces(JSContext *ctx, JSValueConst this_val, int
 }
 
 static const JSCFunctionListEntry tjs_os_funcs[] = {
-    JS_CFUNC_DEF("cpuInfo", 0, tjs_cpu_info),
-    JS_CFUNC_DEF("loadavg", 0, tjs_loadavg),
-    JS_CFUNC_DEF("networkInterfaces", 0, tjs_network_interfaces),
+    TJS_CFUNC_DEF("cpuInfo", 0, tjs_cpu_info),
+    TJS_CFUNC_DEF("loadavg", 0, tjs_loadavg),
+    TJS_CFUNC_DEF("networkInterfaces", 0, tjs_network_interfaces),
 };
 
-void tjs_mod_os_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_os_init(JSContext *ctx, JSValue ns) {
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyFunctionList(ctx, obj, tjs_os_funcs, countof(tjs_os_funcs));
-    JS_SetModuleExport(ctx, m, "os", obj);
+    JS_DefinePropertyValueStr(ctx, ns, "os", obj, JS_PROP_C_W_E);
 }
-
-void tjs_mod_os_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExport(ctx, m, "os");
-}
-

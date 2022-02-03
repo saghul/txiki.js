@@ -310,43 +310,32 @@ static const JSCFunctionListEntry tjs_misc_funcs[] = {
     TJS_CONST(STDIN_FILENO),
     TJS_CONST(STDOUT_FILENO),
     TJS_CONST(STDERR_FILENO),
-    JS_CFUNC_DEF("hrtime", 0, tjs_hrtime),
-    JS_CFUNC_DEF("hrtimeMs", 0, tjs_hrtime_ms),
-    JS_CFUNC_DEF("gettimeofday", 0, tjs_gettimeofday),
-    JS_CFUNC_DEF("uname", 0, tjs_uname),
-    JS_CFUNC_DEF("guessHandle", 1, tjs_guess_handle),
-    JS_CFUNC_DEF("environ", 0, tjs_environ),
-    JS_CFUNC_DEF("getenv", 0, tjs_getenv),
-    JS_CFUNC_DEF("setenv", 2, tjs_setenv),
-    JS_CFUNC_DEF("unsetenv", 1, tjs_unsetenv),
-    JS_CFUNC_DEF("cwd", 0, tjs_cwd),
-    JS_CFUNC_DEF("homedir", 0, tjs_homedir),
-    JS_CFUNC_DEF("tmpdir", 0, tjs_tmpdir),
-    JS_CFUNC_DEF("exepath", 0, tjs_exepath),
-    JS_CFUNC_DEF("random", 3, tjs_random),
+    TJS_CFUNC_DEF("hrtime", 0, tjs_hrtime),
+    TJS_CFUNC_DEF("hrtimeMs", 0, tjs_hrtime_ms),
+    TJS_CFUNC_DEF("gettimeofday", 0, tjs_gettimeofday),
+    TJS_CFUNC_DEF("uname", 0, tjs_uname),
+    TJS_CFUNC_DEF("guessHandle", 1, tjs_guess_handle),
+    TJS_CFUNC_DEF("environ", 0, tjs_environ),
+    TJS_CFUNC_DEF("getenv", 0, tjs_getenv),
+    TJS_CFUNC_DEF("setenv", 2, tjs_setenv),
+    TJS_CFUNC_DEF("unsetenv", 1, tjs_unsetenv),
+    TJS_CFUNC_DEF("cwd", 0, tjs_cwd),
+    TJS_CFUNC_DEF("homedir", 0, tjs_homedir),
+    TJS_CFUNC_DEF("tmpdir", 0, tjs_tmpdir),
+    TJS_CFUNC_DEF("exepath", 0, tjs_exepath),
+    TJS_CFUNC_DEF("random", 3, tjs_random),
 };
 
-void tjs_mod_misc_init(JSContext *ctx, JSModuleDef *m) {
-    JS_SetModuleExportList(ctx, m, tjs_misc_funcs, countof(tjs_misc_funcs));
-
-    JS_SetModuleExport(ctx, m, "args", tjs__get_args(ctx));
-
-    JS_SetModuleExport(ctx, m, "platform", JS_NewString(ctx, TJS__PLATFORM));
-
-    JS_SetModuleExport(ctx, m, "version", JS_NewString(ctx, tjs_version()));
+void tjs__mod_misc_init(JSContext *ctx, JSValue ns) {
+    JS_SetPropertyFunctionList(ctx, ns, tjs_misc_funcs, countof(tjs_misc_funcs));
+    JS_DefinePropertyValueStr(ctx, ns, "args", tjs__get_args(ctx), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, ns, "platform", JS_NewString(ctx, TJS__PLATFORM), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, ns, "version", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
     JSValue versions = JS_NewObjectProto(ctx, JS_NULL);
     JS_DefinePropertyValueStr(ctx, versions, "quickjs", JS_NewString(ctx, QJS_VERSION_STR), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "tjs", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "uv", JS_NewString(ctx, uv_version_string()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, curl_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "wasm3", JS_NewString(ctx, M3_VERSION), JS_PROP_C_W_E);
-    JS_SetModuleExport(ctx, m, "versions", versions);
-}
-
-void tjs_mod_misc_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExportList(ctx, m, tjs_misc_funcs, countof(tjs_misc_funcs));
-    JS_AddModuleExport(ctx, m, "args");
-    JS_AddModuleExport(ctx, m, "platform");
-    JS_AddModuleExport(ctx, m, "version");
-    JS_AddModuleExport(ctx, m, "versions");
+    JS_DefinePropertyValueStr(ctx, ns, "versions", versions, JS_PROP_C_W_E);
 }

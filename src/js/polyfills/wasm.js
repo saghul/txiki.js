@@ -1,4 +1,4 @@
-import { wasm } from '@tjs/core';
+const { wasm } = globalThis.__bootstrap;
 
 const kWasmModule = Symbol('kWasmModule');
 const kWasmModuleRef = Symbol('kWasmModuleRef');

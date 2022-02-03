@@ -1,4 +1,5 @@
-import * as core from '@tjs/core';
+const core = globalThis.__bootstrap;
+
 import { createStdin, createStdout, createStderr } from './stdio.js';
 
 // The "tjs" global.
@@ -11,8 +12,6 @@ const noExport = [
     'clearTimeout',
     'clearInterval',
     'guessHandleType',
-    'alert',
-    'prompt',
     'XMLHttpRequest',
     'Worker',
     'signal',
@@ -25,7 +24,7 @@ const noExport = [
 tjs.signal = core.signal;
 
 for (const [key, value] of Object.entries(core)) {
-    if (noExport.indexOf(key) !== -1) {
+    if (noExport.includes(key)) {
         continue;
     }
 

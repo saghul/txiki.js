@@ -135,7 +135,7 @@ static JSValue tjs_dns_getaddrinfo(JSContext *ctx, JSValueConst this_val, int ar
 }
 
 static const JSCFunctionListEntry tjs_dns_funcs[] = {
-    JS_CFUNC_DEF("getaddrinfo", 2, tjs_dns_getaddrinfo),
+    TJS_CFUNC_DEF("getaddrinfo", 2, tjs_dns_getaddrinfo),
 #ifdef AI_PASSIVE
     TJS_CONST(AI_PASSIVE),
 #endif
@@ -159,12 +159,8 @@ static const JSCFunctionListEntry tjs_dns_funcs[] = {
 #endif
 };
 
-void tjs_mod_dns_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_dns_init(JSContext *ctx, JSValue ns) {
     JSValue obj = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, obj, tjs_dns_funcs, countof(tjs_dns_funcs));
-    JS_SetModuleExport(ctx, m, "dns", obj);
-}
-
-void tjs_mod_dns_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExport(ctx, m, "dns");
+    JS_DefinePropertyValueStr(ctx, ns, "dns", obj, JS_PROP_C_W_E);
 }

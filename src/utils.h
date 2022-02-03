@@ -76,7 +76,9 @@ struct AssertionInfo {
 
 void tjs_assert(const struct AssertionInfo info);
 
-#define TJS_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_CONFIGURABLE)
+#define TJS_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE)
+#define TJS_CONST2(name, val) JS_PROP_INT32_DEF(name, val, JS_PROP_ENUMERABLE)
+#define TJS_CFUNC_DEF(name, length, func1) { name, JS_PROP_C_W_E, JS_DEF_CFUNC, 0, .u = { .func = { length, JS_CFUNC_generic, { .generic = func1 } } } }
 
 uv_loop_t *tjs_get_loop(JSContext *ctx);
 int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);

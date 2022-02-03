@@ -241,8 +241,8 @@ var require_engine_v8_version = __commonJS({
     var userAgent = require_engine_user_agent();
     var process2 = global2.process;
     var Deno = global2.Deno;
-    var versions2 = process2 && process2.versions || Deno && Deno.version;
-    var v8 = versions2 && versions2.v8;
+    var versions = process2 && process2.versions || Deno && Deno.version;
+    var v8 = versions && versions.v8;
     var match;
     var version;
     if (v8) {
@@ -4352,15 +4352,15 @@ var require_polyfill_es2018 = __commonJS({
         const resolvedPromise = promiseResolvedWith(void 0);
         return (fn) => PerformPromiseThen(resolvedPromise, fn);
       })();
-      function reflectCall(F2, V, args2) {
+      function reflectCall(F2, V, args) {
         if (typeof F2 !== "function") {
           throw new TypeError("Argument is not a function");
         }
-        return Function.prototype.apply.call(F2, V, args2);
+        return Function.prototype.apply.call(F2, V, args);
       }
-      function promiseCall(F2, V, args2) {
+      function promiseCall(F2, V, args) {
         try {
-          return promiseResolvedWith(reflectCall(F2, V, args2));
+          return promiseResolvedWith(reflectCall(F2, V, args));
         } catch (value) {
           return promiseRejectedWith(value);
         }
@@ -6465,7 +6465,7 @@ var require_polyfill_es2018 = __commonJS({
         return ctor;
       }
       const DOMException$1 = isDOMExceptionConstructor(NativeDOMException) ? NativeDOMException : createDOMExceptionPolyfill();
-      function ReadableStreamPipeTo(source, dest, preventClose, preventAbort, preventCancel, signal2) {
+      function ReadableStreamPipeTo(source, dest, preventClose, preventAbort, preventCancel, signal) {
         const reader = AcquireReadableStreamDefaultReader(source);
         const writer = AcquireWritableStreamDefaultWriter(dest);
         source._disturbed = true;
@@ -6473,7 +6473,7 @@ var require_polyfill_es2018 = __commonJS({
         let currentWrite = promiseResolvedWith(void 0);
         return newPromise((resolve, reject) => {
           let abortAlgorithm;
-          if (signal2 !== void 0) {
+          if (signal !== void 0) {
             abortAlgorithm = () => {
               const error = new DOMException$1("Aborted", "AbortError");
               const actions = [];
@@ -6495,11 +6495,11 @@ var require_polyfill_es2018 = __commonJS({
               }
               shutdownWithAction(() => Promise.all(actions.map((action) => action())), true, error);
             };
-            if (signal2.aborted) {
+            if (signal.aborted) {
               abortAlgorithm();
               return;
             }
-            signal2.addEventListener("abort", abortAlgorithm);
+            signal.addEventListener("abort", abortAlgorithm);
           }
           function pipeLoop() {
             return newPromise((resolveLoop, rejectLoop) => {
@@ -6606,8 +6606,8 @@ var require_polyfill_es2018 = __commonJS({
           function finalize(isError, error) {
             WritableStreamDefaultWriterRelease(writer);
             ReadableStreamReaderGenericRelease(reader);
-            if (signal2 !== void 0) {
-              signal2.removeEventListener("abort", abortAlgorithm);
+            if (signal !== void 0) {
+              signal.removeEventListener("abort", abortAlgorithm);
             }
             if (isError) {
               reject(error);
@@ -7213,19 +7213,19 @@ var require_polyfill_es2018 = __commonJS({
         const preventAbort = options === null || options === void 0 ? void 0 : options.preventAbort;
         const preventCancel = options === null || options === void 0 ? void 0 : options.preventCancel;
         const preventClose = options === null || options === void 0 ? void 0 : options.preventClose;
-        const signal2 = options === null || options === void 0 ? void 0 : options.signal;
-        if (signal2 !== void 0) {
-          assertAbortSignal(signal2, `${context} has member 'signal' that`);
+        const signal = options === null || options === void 0 ? void 0 : options.signal;
+        if (signal !== void 0) {
+          assertAbortSignal(signal, `${context} has member 'signal' that`);
         }
         return {
           preventAbort: Boolean(preventAbort),
           preventCancel: Boolean(preventCancel),
           preventClose: Boolean(preventClose),
-          signal: signal2
+          signal
         };
       }
-      function assertAbortSignal(signal2, context) {
-        if (!isAbortSignal(signal2)) {
+      function assertAbortSignal(signal, context) {
+        if (!isAbortSignal(signal)) {
           throw new TypeError(`${context} is not an AbortSignal.`);
         }
       }
@@ -9719,20 +9719,20 @@ var require_implementation = __commonJS({
       if (typeof target !== "function" || toStr.call(target) !== funcType) {
         throw new TypeError(ERROR_MESSAGE + target);
       }
-      var args2 = slice.call(arguments, 1);
+      var args = slice.call(arguments, 1);
       var bound;
       var binder = function() {
         if (this instanceof bound) {
-          var result = target.apply(this, args2.concat(slice.call(arguments)));
+          var result = target.apply(this, args.concat(slice.call(arguments)));
           if (Object(result) === result) {
             return result;
           }
           return this;
         } else {
-          return target.apply(that, args2.concat(slice.call(arguments)));
+          return target.apply(that, args.concat(slice.call(arguments)));
         }
       };
-      var boundLength = Math.max(0, target.length - args2.length);
+      var boundLength = Math.max(0, target.length - args.length);
       var boundArgs = [];
       for (var i2 = 0; i2 < boundLength; i2++) {
         boundArgs.push("$" + i2);
@@ -10687,8 +10687,8 @@ var require_util = __commonJS({
         return objects.join(" ");
       }
       var i2 = 1;
-      var args2 = arguments;
-      var len = args2.length;
+      var args = arguments;
+      var len = args.length;
       var str = String(f2).replace(formatRegExp, function(x3) {
         if (x3 === "%%")
           return "%";
@@ -10696,12 +10696,12 @@ var require_util = __commonJS({
           return x3;
         switch (x3) {
           case "%s":
-            return String(args2[i2++]);
+            return String(args[i2++]);
           case "%d":
-            return Number(args2[i2++]);
+            return Number(args[i2++]);
           case "%j":
             try {
-              return JSON.stringify(args2[i2++]);
+              return JSON.stringify(args[i2++]);
             } catch (_) {
               return "[Circular]";
             }
@@ -10709,7 +10709,7 @@ var require_util = __commonJS({
             return x3;
         }
       });
-      for (var x2 = args2[i2]; i2 < len; x2 = args2[++i2]) {
+      for (var x2 = args[i2]; i2 < len; x2 = args[++i2]) {
         if (isNull(x2) || !isObject2(x2)) {
           str += " " + x2;
         } else {
@@ -11142,11 +11142,11 @@ var require_util = __commonJS({
           promiseResolve = resolve;
           promiseReject = reject;
         });
-        var args2 = [];
+        var args = [];
         for (var i2 = 0; i2 < arguments.length; i2++) {
-          args2.push(arguments[i2]);
+          args.push(arguments[i2]);
         }
-        args2.push(function(err, value) {
+        args.push(function(err, value) {
           if (err) {
             promiseReject(err);
           } else {
@@ -11154,7 +11154,7 @@ var require_util = __commonJS({
           }
         });
         try {
-          original.apply(this, args2);
+          original.apply(this, args);
         } catch (err) {
           promiseReject(err);
         }
@@ -11184,11 +11184,11 @@ var require_util = __commonJS({
         throw new TypeError('The "original" argument must be of type Function');
       }
       function callbackified() {
-        var args2 = [];
+        var args = [];
         for (var i2 = 0; i2 < arguments.length; i2++) {
-          args2.push(arguments[i2]);
+          args.push(arguments[i2]);
         }
-        var maybeCb = args2.pop();
+        var maybeCb = args.pop();
         if (typeof maybeCb !== "function") {
           throw new TypeError("The last argument must be of type Function");
         }
@@ -11196,7 +11196,7 @@ var require_util = __commonJS({
         var cb = function() {
           return maybeCb.apply(self2, arguments);
         };
-        original.apply(this, args2).then(function(ret) {
+        original.apply(this, args).then(function(ret) {
           process.nextTick(cb.bind(null, null, ret));
         }, function(rej) {
           process.nextTick(callbackifyOnRejected.bind(null, rej, cb));
@@ -11212,7 +11212,7 @@ var require_util = __commonJS({
 
 // polyfills/base.js
 var import_queue_microtask = __toESM(require_queue_microtask());
-import * as core from "@tjs/core";
+var core = globalThis.__bootstrap;
 globalThis.setTimeout = core.setTimeout;
 globalThis.clearTimeout = core.clearTimeout;
 globalThis.setInterval = core.setInterval;
@@ -12288,7 +12288,7 @@ var U = function() {
 window.URLPattern = U;
 
 // polyfills/xhr.js
-import { XMLHttpRequest as XHR } from "@tjs/core";
+var { XMLHttpRequest: XHR } = globalThis.__bootstrap;
 var kXHR = Symbol("kXHR");
 var XMLHttpRequest2 = class extends EventTarget {
   constructor() {
@@ -12373,8 +12373,8 @@ var XMLHttpRequest2 = class extends EventTarget {
   getResponseHeader(name) {
     return this[kXHR].getResponseHeader(name);
   }
-  open(...args2) {
-    return this[kXHR].open(...args2);
+  open(...args) {
+    return this[kXHR].open(...args);
   }
   overrideMimeType(mimeType) {
     return this[kXHR].overrideMimeType(mimeType);
@@ -12704,18 +12704,18 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
     var Request = NativeRequest;
     if (Request && !Request.prototype.hasOwnProperty("signal") || __FORCE_INSTALL_ABORTCONTROLLER_POLYFILL) {
       Request = function Request2(input, init) {
-        var signal2;
+        var signal;
         if (init && init.signal) {
-          signal2 = init.signal;
+          signal = init.signal;
           delete init.signal;
         }
         var request = new NativeRequest(input, init);
-        if (signal2) {
+        if (signal) {
           Object.defineProperty(request, "signal", {
             writable: false,
             enumerable: false,
             configurable: true,
-            value: signal2
+            value: signal
           });
         }
         return request;
@@ -12724,8 +12724,8 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
     }
     var realFetch = fetch;
     var abortableFetch = function abortableFetch2(input, init) {
-      var signal2 = Request && Request.prototype.isPrototypeOf(input) ? input.signal : init ? init.signal : void 0;
-      if (signal2) {
+      var signal = Request && Request.prototype.isPrototypeOf(input) ? input.signal : init ? init.signal : void 0;
+      if (signal) {
         var abortError;
         try {
           abortError = new DOMException("Aborted", "AbortError");
@@ -12733,11 +12733,11 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
           abortError = new Error("Aborted");
           abortError.name = "AbortError";
         }
-        if (signal2.aborted) {
+        if (signal.aborted) {
           return Promise.reject(abortError);
         }
         var cancellation = new Promise(function(_, reject) {
-          signal2.addEventListener("abort", function() {
+          signal.addEventListener("abort", function() {
             return reject(abortError);
           }, {
             once: true
@@ -12924,21 +12924,21 @@ ${tableChars.leftMiddle}${divider.join(tableChars.rowMiddle)}${tableChars.rightM
   return result;
 }
 var Console = class {
-  log(...args2) {
-    print(...args2);
+  log(...args) {
+    print(...args);
   }
-  info(...args2) {
-    print(...args2);
+  info(...args) {
+    print(...args);
   }
-  warn(...args2) {
-    print(...args2);
+  warn(...args) {
+    print(...args);
   }
-  error(...args2) {
-    print(...args2);
+  error(...args) {
+    print(...args);
   }
-  assert(expression, ...args2) {
+  assert(expression, ...args) {
     if (!expression) {
-      this.error(...args2);
+      this.error(...args);
     }
   }
   dir(o2) {
@@ -13011,10 +13011,10 @@ var Console = class {
     const body = [indexKeys, ...bodyValues, values];
     toTable(header, body);
   }
-  trace(...args2) {
+  trace(...args) {
     const err = new Error();
     err.name = "Trace";
-    err.message = args2.map(String).join(" ");
+    err.message = args.map(String).join(" ");
     const tmpStack = err.stack.split("\n");
     tmpStack.splice(0, 1);
     err.stack = tmpStack.join("\n");
@@ -13027,9 +13027,6 @@ Object.defineProperty(window, "console", {
   writable: true,
   value: new Console()
 });
-
-// polyfills/crypto.js
-import * as core2 from "@tjs/core";
 
 // node_modules/uuid/dist/esm-browser/rng.js
 var getRandomValues;
@@ -13087,6 +13084,7 @@ function v4(options, buf, offset) {
 var v4_default = v4;
 
 // polyfills/crypto.js
+var core2 = globalThis.__bootstrap;
 var TypedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
 var TypedArrayProto_toStringTag = Object.getOwnPropertyDescriptor(TypedArrayPrototype, Symbol.toStringTag).get;
 function getRandomValues2(obj) {
@@ -13126,7 +13124,7 @@ Object.defineProperty(window, "crypto", {
 });
 
 // polyfills/performance.js
-import { hrtimeMs } from "@tjs/core";
+var { hrtimeMs } = globalThis.__bootstrap;
 var Performance = class {
   constructor() {
     this._startTime = hrtimeMs();
@@ -13208,7 +13206,7 @@ Object.defineProperty(window, "performance", {
 });
 
 // polyfills/wasm.js
-import { wasm } from "@tjs/core";
+var { wasm } = globalThis.__bootstrap;
 var kWasmModule = Symbol("kWasmModule");
 var kWasmModuleRef = Symbol("kWasmModuleRef");
 var kWasmExports = Symbol("kWasmExports");
@@ -13218,20 +13216,20 @@ var kWasiLinked = Symbol("kWasiLinked");
 var kWasiStarted = Symbol("kWasiStarted");
 var kWasiOptions = Symbol("kWasiOptions");
 var CompileError = class extends Error {
-  constructor(...args2) {
-    super(...args2);
+  constructor(...args) {
+    super(...args);
     this.name = "CompileError";
   }
 };
 var LinkError = class extends Error {
-  constructor(...args2) {
-    super(...args2);
+  constructor(...args) {
+    super(...args);
     this.name = "LinkError";
   }
 };
 var RuntimeError = class extends Error {
-  constructor(...args2) {
-    super(...args2);
+  constructor(...args) {
+    super(...args);
     this.name = "RuntimeError";
   }
 };
@@ -13247,10 +13245,10 @@ function getWasmError(e2) {
       return new TypeError(`Invalid WASM error: ${e2.wasmError}`);
   }
 }
-function callWasmFunction(name, ...args2) {
+function callWasmFunction(name, ...args) {
   const instance = this;
   try {
-    return instance.callFunction(name, ...args2);
+    return instance.callFunction(name, ...args);
   } catch (e2) {
     if (e2.wasmError) {
       throw getWasmError(e2);
@@ -13376,7 +13374,7 @@ Object.defineProperty(globalThis, "WebAssembly", {
 });
 
 // polyfills/worker.js
-import { Worker as _Worker } from "@tjs/core";
+var { Worker: _Worker } = globalThis.__bootstrap;
 var kWorker = Symbol("kWorker");
 var Worker = class extends EventTarget {
   constructor(path) {
@@ -13393,8 +13391,8 @@ var Worker = class extends EventTarget {
     };
     this[kWorker] = worker;
   }
-  postMessage(...args2) {
-    this[kWorker].postMessage(args2);
+  postMessage(...args) {
+    this[kWorker].postMessage(args);
   }
   terminate() {
     this[kWorker].terminate();
@@ -13411,11 +13409,8 @@ Object.defineProperty(window, "Worker", {
   value: Worker
 });
 
-// tjs/index.js
-import * as core4 from "@tjs/core";
-
 // tjs/stdio.js
-import * as core3 from "@tjs/core";
+var core3 = globalThis.__bootstrap;
 var kStdioHandle = Symbol("kStdioHandle");
 var kStdioHandleType = Symbol("kStdioHandleType");
 var BaseIOStream = class {
@@ -13485,6 +13480,7 @@ function createStderr() {
 }
 
 // tjs/index.js
+var core4 = globalThis.__bootstrap;
 var tjs2 = /* @__PURE__ */ Object.create(null);
 var noExport = [
   "setTimeout",
@@ -13492,8 +13488,6 @@ var noExport = [
   "clearTimeout",
   "clearInterval",
   "guessHandleType",
-  "alert",
-  "prompt",
   "XMLHttpRequest",
   "Worker",
   "signal",
@@ -13504,7 +13498,7 @@ var noExport = [
 ];
 tjs2.signal = core4.signal;
 for (const [key, value] of Object.entries(core4)) {
-  if (noExport.indexOf(key) !== -1) {
+  if (noExport.includes(key)) {
     continue;
   }
   if (key.startsWith("SIG")) {

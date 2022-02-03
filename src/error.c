@@ -60,19 +60,15 @@ JSValue tjs_throw_errno(JSContext *ctx, int err) {
     return JS_Throw(ctx, obj);
 }
 
-static const JSCFunctionListEntry tjs_error_funcs[] = { JS_CFUNC_DEF("strerror", 1, tjs_error_strerror),
+static const JSCFunctionListEntry tjs_error_funcs[] = { TJS_CFUNC_DEF("strerror", 1, tjs_error_strerror),
 /* various errno values */
 #define DEF(x, s) JS_PROP_INT32_DEF(STRINGIFY(UV_##x), UV_##x, JS_PROP_CONFIGURABLE),
                                                         UV_ERRNO_MAP(DEF)
 #undef DEF
 };
 
-void tjs_mod_error_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_error_init(JSContext *ctx, JSValue ns) {
     JSValue obj = JS_NewCFunction2(ctx, tjs_error_constructor, "Error", 1, JS_CFUNC_constructor, 0);
     JS_SetPropertyFunctionList(ctx, obj, tjs_error_funcs, countof(tjs_error_funcs));
-    JS_SetModuleExport(ctx, m, "Error", obj);
-}
-
-void tjs_mod_error_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExport(ctx, m, "Error");
+    JS_DefinePropertyValueStr(ctx, ns, "Error", obj, JS_PROP_C_W_E);
 }

@@ -850,18 +850,18 @@ static JSValue tjs_pipe_accept(JSContext *ctx, JSValueConst this_val, int argc, 
 
 static const JSCFunctionListEntry tjs_tcp_proto_funcs[] = {
     /* Stream functions */
-    JS_CFUNC_DEF("close", 0, tjs_tcp_close),
-    JS_CFUNC_DEF("read", 1, tjs_tcp_read),
-    JS_CFUNC_DEF("write", 1, tjs_tcp_write),
-    JS_CFUNC_DEF("shutdown", 0, tjs_tcp_shutdown),
-    JS_CFUNC_DEF("fileno", 0, tjs_tcp_fileno),
-    JS_CFUNC_DEF("listen", 1, tjs_tcp_listen),
-    JS_CFUNC_DEF("accept", 0, tjs_tcp_accept),
+    TJS_CFUNC_DEF("close", 0, tjs_tcp_close),
+    TJS_CFUNC_DEF("read", 1, tjs_tcp_read),
+    TJS_CFUNC_DEF("write", 1, tjs_tcp_write),
+    TJS_CFUNC_DEF("shutdown", 0, tjs_tcp_shutdown),
+    TJS_CFUNC_DEF("fileno", 0, tjs_tcp_fileno),
+    TJS_CFUNC_DEF("listen", 1, tjs_tcp_listen),
+    TJS_CFUNC_DEF("accept", 0, tjs_tcp_accept),
     /* TCP functions */
     JS_CFUNC_MAGIC_DEF("getsockname", 0, tjs_tcp_getsockpeername, 0),
     JS_CFUNC_MAGIC_DEF("getpeername", 0, tjs_tcp_getsockpeername, 1),
-    JS_CFUNC_DEF("connect", 1, tjs_tcp_connect),
-    JS_CFUNC_DEF("bind", 1, tjs_tcp_bind),
+    TJS_CFUNC_DEF("connect", 1, tjs_tcp_connect),
+    TJS_CFUNC_DEF("bind", 1, tjs_tcp_bind),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "TCP", JS_PROP_CONFIGURABLE),
 };
 
@@ -871,40 +871,40 @@ static const JSCFunctionListEntry tjs_tcp_class_funcs[] = {
 
 static const JSCFunctionListEntry tjs_tty_proto_funcs[] = {
     /* Stream functions */
-    JS_CFUNC_DEF("close", 0, tjs_tty_close),
-    JS_CFUNC_DEF("read", 1, tjs_tty_read),
-    JS_CFUNC_DEF("write", 1, tjs_tty_write),
-    JS_CFUNC_DEF("fileno", 0, tjs_tty_fileno),
+    TJS_CFUNC_DEF("close", 0, tjs_tty_close),
+    TJS_CFUNC_DEF("read", 1, tjs_tty_read),
+    TJS_CFUNC_DEF("write", 1, tjs_tty_write),
+    TJS_CFUNC_DEF("fileno", 0, tjs_tty_fileno),
     /* TTY functions */
-    JS_CFUNC_DEF("setMode", 1, tjs_tty_setMode),
-    JS_CFUNC_DEF("getWinSize", 0, tjs_tty_getWinSize),
+    TJS_CFUNC_DEF("setMode", 1, tjs_tty_setMode),
+    TJS_CFUNC_DEF("getWinSize", 0, tjs_tty_getWinSize),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "TTY", JS_PROP_CONFIGURABLE),
 };
 
 static const JSCFunctionListEntry tjs_tty_class_funcs[] = {
-    JS_PROP_INT32_DEF("MODE_NORMAL", UV_TTY_MODE_NORMAL, 0),
-    JS_PROP_INT32_DEF("MODE_RAW", UV_TTY_MODE_RAW, 0),
-    JS_PROP_INT32_DEF("MODE_IO", UV_TTY_MODE_IO, 0),
+    TJS_CONST2("MODE_NORMAL", UV_TTY_MODE_NORMAL),
+    TJS_CONST2("MODE_RAW", UV_TTY_MODE_RAW),
+    TJS_CONST2("MODE_IO", UV_TTY_MODE_IO),
 };
 
 static const JSCFunctionListEntry tjs_pipe_proto_funcs[] = {
     /* Stream functions */
-    JS_CFUNC_DEF("close", 0, tjs_pipe_close),
-    JS_CFUNC_DEF("read", 1, tjs_pipe_read),
-    JS_CFUNC_DEF("write", 1, tjs_pipe_write),
-    JS_CFUNC_DEF("fileno", 0, tjs_pipe_fileno),
-    JS_CFUNC_DEF("listen", 1, tjs_pipe_listen),
-    JS_CFUNC_DEF("accept", 0, tjs_pipe_accept),
-    JS_CFUNC_DEF("open", 1, tjs_pipe_open),
+    TJS_CFUNC_DEF("close", 0, tjs_pipe_close),
+    TJS_CFUNC_DEF("read", 1, tjs_pipe_read),
+    TJS_CFUNC_DEF("write", 1, tjs_pipe_write),
+    TJS_CFUNC_DEF("fileno", 0, tjs_pipe_fileno),
+    TJS_CFUNC_DEF("listen", 1, tjs_pipe_listen),
+    TJS_CFUNC_DEF("accept", 0, tjs_pipe_accept),
+    TJS_CFUNC_DEF("open", 1, tjs_pipe_open),
     /* Pipe functions */
     JS_CFUNC_MAGIC_DEF("getsockname", 0, tjs_pipe_getsockpeername, 0),
     JS_CFUNC_MAGIC_DEF("getpeername", 0, tjs_pipe_getsockpeername, 1),
-    JS_CFUNC_DEF("connect", 1, tjs_pipe_connect),
-    JS_CFUNC_DEF("bind", 1, tjs_pipe_bind),
+    TJS_CFUNC_DEF("connect", 1, tjs_pipe_connect),
+    TJS_CFUNC_DEF("bind", 1, tjs_pipe_bind),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Pipe", JS_PROP_CONFIGURABLE),
 };
 
-void tjs_mod_streams_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
     JSValue proto, obj;
 
     /* TCP class */
@@ -917,7 +917,7 @@ void tjs_mod_streams_init(JSContext *ctx, JSModuleDef *m) {
     /* TCP object */
     obj = JS_NewCFunction2(ctx, tjs_tcp_constructor, "TCP", 1, JS_CFUNC_constructor, 0);
     JS_SetPropertyFunctionList(ctx, obj, tjs_tcp_class_funcs, countof(tjs_tcp_class_funcs));
-    JS_SetModuleExport(ctx, m, "TCP", obj);
+    JS_DefinePropertyValueStr(ctx, ns, "TCP", obj, JS_PROP_C_W_E);
 
     /* TTY class */
     JS_NewClassID(&tjs_tty_class_id);
@@ -929,7 +929,7 @@ void tjs_mod_streams_init(JSContext *ctx, JSModuleDef *m) {
     /* TTY object */
     obj = JS_NewCFunction2(ctx, tjs_tty_constructor, "TTY", 1, JS_CFUNC_constructor, 0);
     JS_SetPropertyFunctionList(ctx, obj, tjs_tty_class_funcs, countof(tjs_tty_class_funcs));
-    JS_SetModuleExport(ctx, m, "TTY", obj);
+    JS_DefinePropertyValueStr(ctx, ns, "TTY", obj, JS_PROP_C_W_E);
 
     /* Pipe class */
     JS_NewClassID(&tjs_pipe_class_id);
@@ -940,11 +940,5 @@ void tjs_mod_streams_init(JSContext *ctx, JSModuleDef *m) {
 
     /* Pipe object */
     obj = JS_NewCFunction2(ctx, tjs_pipe_constructor, "Pipe", 1, JS_CFUNC_constructor, 0);
-    JS_SetModuleExport(ctx, m, "Pipe", obj);
-}
-
-void tjs_mod_streams_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExport(ctx, m, "TCP");
-    JS_AddModuleExport(ctx, m, "TTY");
-    JS_AddModuleExport(ctx, m, "Pipe");
+    JS_DefinePropertyValueStr(ctx, ns, "Pipe", obj, JS_PROP_C_W_E);
 }

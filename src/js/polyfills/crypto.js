@@ -1,4 +1,5 @@
-import * as core from '@tjs/core';
+const core = globalThis.__bootstrap;
+
 import { v4 } from 'uuid';
 
 const TypedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);

@@ -146,7 +146,7 @@ static JSValue tjs_signal_handler_signum_get(JSContext *ctx, JSValueConst this_v
 }
 
 static const JSCFunctionListEntry tjs_signal_handler_proto_funcs[] = {
-    JS_CFUNC_DEF("close", 0, tjs_signal_handler_close),
+    TJS_CFUNC_DEF("close", 0, tjs_signal_handler_close),
     JS_CGETSET_DEF("signum", tjs_signal_handler_signum_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Signal Handler", JS_PROP_CONFIGURABLE),
 };
@@ -261,18 +261,15 @@ static const JSCFunctionListEntry tjs_signal_funcs[] = {
 #ifdef SIGUNUSED
     TJS_CONST(SIGUNUSED),
 #endif
-    JS_CFUNC_DEF("signal", 2, tjs_signal),
+    TJS_CFUNC_DEF("signal", 2, tjs_signal),
 };
 
-void tjs_mod_signals_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_signals_init(JSContext *ctx, JSValue ns) {
     JS_NewClassID(&tjs_signal_handler_class_id);
     JS_NewClass(JS_GetRuntime(ctx), tjs_signal_handler_class_id, &tjs_signal_handler_class);
     JSValue proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_signal_handler_proto_funcs, countof(tjs_signal_handler_proto_funcs));
     JS_SetClassProto(ctx, tjs_signal_handler_class_id, proto);
-    JS_SetModuleExportList(ctx, m, tjs_signal_funcs, countof(tjs_signal_funcs));
-}
 
-void tjs_mod_signals_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExportList(ctx, m, tjs_signal_funcs, countof(tjs_signal_funcs));
+    JS_SetPropertyFunctionList(ctx, ns, tjs_signal_funcs, countof(tjs_signal_funcs));
 }
