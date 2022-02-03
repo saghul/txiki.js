@@ -49,7 +49,6 @@ typedef struct CLIOption {
 
 typedef struct Flags {
     bool interactive;
-    bool empty_run;
     bool strict_module_detection;
     char *eval_expr;
     char *override_filename;
@@ -110,7 +109,6 @@ static void print_help(void) {
            "  -h, --help                      list options\n"
            "  -e, --eval EXPR                 evaluate EXPR\n"
            "  -i, --interactive               go to interactive mode\n"
-           "  -q, --quit                      just instantiate the interpreter and quit\n"
            "  --memory-limit LIMIT            set the memory limit\n"
            "  --override-filename FILENAME    override filename in error messages\n"
            "  --stack-size STACKSIZE          set max stack size\n"
@@ -187,7 +185,6 @@ int main(int argc, char **argv) {
     TJS_DefaultOptions(&runOptions);
 
     Flags flags = { .interactive = false,
-                    .empty_run = false,
                     .strict_module_detection = false,
                     .eval_expr = NULL,
                     .override_filename = NULL };
@@ -263,10 +260,6 @@ int main(int argc, char **argv) {
                 flags.interactive = true;
                 break;
             }
-            if (opt.key == 'q' || is_longopt(opt, "quit")) {
-                flags.empty_run = true;
-                break;
-            }
             if (is_longopt(opt, "strict-module-detection")) {
                 flags.strict_module_detection = true;
                 break;
@@ -279,9 +272,6 @@ int main(int argc, char **argv) {
 
     qrt = TJS_NewRuntimeOptions(&runOptions);
     ctx = TJS_GetJSContext(qrt);
-
-    if (flags.empty_run)
-        goto exit;
 
     if (flags.eval_expr) {
         if (eval_buf(ctx, flags.eval_expr, "<cmdline>", JS_EVAL_TYPE_GLOBAL)) {
