@@ -47,16 +47,10 @@ typedef struct CLIOption {
     size_t length;
 } CLIOption;
 
-typedef struct FileItem {
-    struct list_head link;
-    char *path;
-} FileItem;
-
 typedef struct Flags {
     bool interactive;
     bool empty_run;
     bool strict_module_detection;
-    struct list_head preload_modules;
     char *eval_expr;
     char *override_filename;
 } Flags;
@@ -115,7 +109,6 @@ static void print_help(void) {
            "  -v, --version                   print tjs version\n"
            "  -h, --help                      list options\n"
            "  -e, --eval EXPR                 evaluate EXPR\n"
-           "  -l, --load FILENAME             module to preload (option can be repeated)\n"
            "  -i, --interactive               go to interactive mode\n"
            "  -q, --quit                      just instantiate the interpreter and quit\n"
            "  --memory-limit LIMIT            set the memory limit\n"
@@ -197,8 +190,7 @@ int main(int argc, char **argv) {
                     .empty_run = false,
                     .strict_module_detection = false,
                     .eval_expr = NULL,
-                    .override_filename = NULL,
-                    .preload_modules = LIST_HEAD_INIT(flags.preload_modules) };
+                    .override_filename = NULL };
 
     TJS_SetupArgs(argc, argv);
 
@@ -232,23 +224,6 @@ int main(int argc, char **argv) {
                 report_missing_argument(&opt);
                 exit_code = EXIT_INVALID_ARG;
                 goto exit;
-            }
-            if (opt.key == 'l' || is_longopt(opt, "load")) {
-                char *filepath = get_option_value(arg, argc, argv, &optind);
-                if (!filepath) {
-                    report_missing_argument(&opt);
-                    exit_code = EXIT_INVALID_ARG;
-                    goto exit;
-                }
-                FileItem *file = malloc(sizeof(*file));
-                if (!file) {
-                    eprintf("could not allocate memory\n");
-                    exit_code = EXIT_FAILURE;
-                    goto exit;
-                }
-                file->path = filepath;
-                list_add_tail(&file->link, &flags.preload_modules);
-                break;
             }
             if (is_longopt(opt, "memory-limit")) {
                 char *mem_limit = get_option_value(arg, argc, argv, &optind);
@@ -308,18 +283,6 @@ int main(int argc, char **argv) {
     if (flags.empty_run)
         goto exit;
 
-    /* preload modules specified using `-l, --load FILENAME` */
-    struct list_head *el = NULL;
-    struct list_head *el1 = NULL;
-    list_for_each(el, &flags.preload_modules) {
-        FileItem *file = list_entry(el, FileItem, link);
-        int eval_flags = get_eval_flags(file->path, flags.strict_module_detection);
-        if (eval_module(ctx, file->path, NULL, eval_flags)) {
-            exit_code = EXIT_FAILURE;
-            goto exit;
-        }
-    }
-
     if (flags.eval_expr) {
         if (eval_buf(ctx, flags.eval_expr, "<cmdline>", JS_EVAL_TYPE_GLOBAL)) {
             exit_code = EXIT_FAILURE;
@@ -347,11 +310,6 @@ int main(int argc, char **argv) {
     exit_code = TJS_Run(qrt);
 
 exit:
-    list_for_each_safe(el, el1, &flags.preload_modules) {
-        FileItem *file = list_entry(el, FileItem, link);
-        list_del(&file->link);
-        free(file);
-    }
     if (qrt) {
         TJS_FreeRuntime(qrt);
     }
