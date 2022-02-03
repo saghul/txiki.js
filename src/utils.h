@@ -76,6 +76,7 @@ struct AssertionInfo {
 
 void tjs_assert(const struct AssertionInfo info);
 
+#define TJS_UVCONST(x) JS_PROP_INT32_DEF(#x, UV_ ## x, JS_PROP_ENUMERABLE)
 #define TJS_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE)
 #define TJS_CONST2(name, val) JS_PROP_INT32_DEF(name, val, JS_PROP_ENUMERABLE)
 #define TJS_CFUNC_DEF(name, length, func1) { name, JS_PROP_C_W_E, JS_DEF_CFUNC, 0, .u = { .func = { length, JS_CFUNC_generic, { .generic = func1 } } } }
@@ -83,7 +84,7 @@ void tjs_assert(const struct AssertionInfo info);
 uv_loop_t *tjs_get_loop(JSContext *ctx);
 int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);
 JSValue tjs_addr2obj(JSContext *ctx, const struct sockaddr *sa);
-void tjs_call_handler(JSContext *ctx, JSValueConst func);
+void tjs_call_handler(JSContext *ctx, JSValueConst func, int argc, JSValue *argv);
 void tjs_dump_error(JSContext *ctx);
 void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val);
 void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len);

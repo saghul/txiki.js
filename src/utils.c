@@ -157,12 +157,12 @@ void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val) {
     }
 }
 
-void tjs_call_handler(JSContext *ctx, JSValueConst func) {
+void tjs_call_handler(JSContext *ctx, JSValueConst func, int argc, JSValue *argv) {
     JSValue ret, func1;
     /* 'func' might be destroyed when calling itself (if it frees the
        handler), so must take extra care */
     func1 = JS_DupValue(ctx, func);
-    ret = JS_Call(ctx, func1, JS_UNDEFINED, 0, NULL);
+    ret = JS_Call(ctx, func1, JS_UNDEFINED, argc, argv);
     JS_FreeValue(ctx, func1);
     if (JS_IsException(ret))
         tjs_dump_error(ctx);
