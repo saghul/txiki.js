@@ -69,16 +69,12 @@ static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val, int argc, JS
 }
 
 static const JSCFunctionListEntry js_std_funcs[] = {
-    JS_CFUNC_DEF("exit", 1, js_std_exit),
-    JS_CFUNC_DEF("gc", 0, js_std_gc),
-    JS_CFUNC_DEF("evalScript", 1, js_evalScript),
-    JS_CFUNC_DEF("loadScript", 1, js_loadScript),
+    TJS_CFUNC_DEF("exit", 1, js_std_exit),
+    TJS_CFUNC_DEF("gc", 0, js_std_gc),
+    TJS_CFUNC_DEF("evalScript", 1, js_evalScript),
+    TJS_CFUNC_DEF("loadScript", 1, js_loadScript),
 };
 
-void tjs_mod_std_init(JSContext *ctx, JSModuleDef *m) {
-    JS_SetModuleExportList(ctx, m, js_std_funcs, countof(js_std_funcs));
-}
-
-void tjs_mod_std_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExportList(ctx, m, js_std_funcs, countof(js_std_funcs));
+void tjs__mod_std_init(JSContext *ctx, JSValue ns) {
+    JS_SetPropertyFunctionList(ctx, ns, js_std_funcs, countof(js_std_funcs));
 }

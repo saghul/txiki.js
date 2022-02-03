@@ -1,4 +1,5 @@
-import { Worker as _Worker } from '@tjs/core';
+const { Worker: _Worker } = globalThis.__bootstrap;
+
 import { defineEventAttribute } from './event-target';
 
 const kWorker = Symbol('kWorker');

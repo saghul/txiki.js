@@ -1,4 +1,5 @@
-import * as core from '@tjs/core';
+const core = globalThis.__bootstrap;
+
 import queueMicrotask from 'queue-microtask';
 
 globalThis.setTimeout = core.setTimeout;

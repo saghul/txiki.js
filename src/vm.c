@@ -45,47 +45,21 @@ static int tjs__argc = 0;
 static char **tjs__argv = NULL;
 
 
-static int tjs_init(JSContext *ctx, JSModuleDef *m) {
-    tjs_mod_dns_init(ctx, m);
-    tjs_mod_error_init(ctx, m);
-    tjs_mod_fs_init(ctx, m);
-    tjs_mod_misc_init(ctx, m);
-    tjs_mod_os_init(ctx, m);
-    tjs_mod_process_init(ctx, m);
-    tjs_mod_signals_init(ctx, m);
-    tjs_mod_std_init(ctx, m);
-    tjs_mod_streams_init(ctx, m);
-    tjs_mod_timers_init(ctx, m);
-    tjs_mod_udp_init(ctx, m);
-    tjs_mod_wasm_init(ctx, m);
-    tjs_mod_worker_init(ctx, m);
-    tjs_mod_xhr_init(ctx, m);
-
-    return 0;
-}
-
-JSModuleDef *js_init_module_uv(JSContext *ctx, const char *name) {
-    JSModuleDef *m;
-    m = JS_NewCModule(ctx, name, tjs_init);
-    if (!m)
-        return NULL;
-
-    tjs_mod_dns_export(ctx, m);
-    tjs_mod_error_export(ctx, m);
-    tjs_mod_fs_export(ctx, m);
-    tjs_mod_misc_export(ctx, m);
-    tjs_mod_os_export(ctx, m);
-    tjs_mod_process_export(ctx, m);
-    tjs_mod_std_export(ctx, m);
-    tjs_mod_streams_export(ctx, m);
-    tjs_mod_signals_export(ctx, m);
-    tjs_mod_timers_export(ctx, m);
-    tjs_mod_udp_export(ctx, m);
-    tjs_mod_wasm_export(ctx, m);
-    tjs_mod_worker_export(ctx, m);
-    tjs_mod_xhr_export(ctx, m);
-
-    return m;
+static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
+    tjs__mod_dns_init(ctx, ns);
+    tjs__mod_error_init(ctx, ns);
+    tjs__mod_fs_init(ctx, ns);
+    tjs__mod_misc_init(ctx, ns);
+    tjs__mod_os_init(ctx, ns);
+    tjs__mod_process_init(ctx, ns);
+    tjs__mod_signals_init(ctx, ns);
+    tjs__mod_std_init(ctx, ns);
+    tjs__mod_streams_init(ctx, ns);
+    tjs__mod_timers_init(ctx, ns);
+    tjs__mod_udp_init(ctx, ns);
+    tjs__mod_wasm_init(ctx, ns);
+    tjs__mod_worker_init(ctx, ns);
+    tjs__mod_xhr_init(ctx, ns);
 }
 
 JSValue tjs__get_args(JSContext *ctx) {
@@ -224,26 +198,30 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JS_SetHostPromiseRejectionTracker(qrt->rt, tjs__promise_rejection_tracker, NULL);
 
     /* start bootstrap */
-    qrt->in_bootstrap = true;
+    JSValue global_obj = JS_GetGlobalObject(qrt->ctx);
+    JSAtom bootstrap_ns_atom = JS_NewAtom(qrt->ctx, "__bootstrap");
+    JSValue bootstrap_ns = JS_NewObjectProto(qrt->ctx, JS_NULL);
+    JS_DupValue(qrt->ctx, bootstrap_ns); // JS_SetProperty frees the value.
+    JS_SetProperty(qrt->ctx, global_obj, bootstrap_ns_atom, bootstrap_ns);
 
-    /* core module */
-    js_init_module_uv(qrt->ctx, "@tjs/core");
-
+    tjs__bootstrap_core(qrt->ctx, bootstrap_ns);
     tjs__bootstrap_globals(qrt->ctx);
 
     /* standard library */
     tjs__add_stdlib(qrt->ctx);
 
     /* end bootstrap */
-    qrt->in_bootstrap = false;
+    JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);
+    JS_FreeAtom(qrt->ctx, bootstrap_ns_atom);
+    JS_FreeValue(qrt->ctx, bootstrap_ns);
 
     /* WASM */
     qrt->wasm_ctx.env = m3_NewEnvironment();
 
     /* Load some builtin references for easy access */
-    JSValue global_obj = JS_GetGlobalObject(qrt->ctx);
     qrt->builtins.u8array_ctor = JS_GetPropertyStr(qrt->ctx, global_obj, "Uint8Array");
     CHECK_EQ(JS_IsUndefined(qrt->builtins.u8array_ctor), 0);
+
     JS_FreeValue(qrt->ctx, global_obj);
 
     return qrt;

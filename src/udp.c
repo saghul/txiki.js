@@ -376,14 +376,14 @@ static JSValue tjs_udp_bind(JSContext *ctx, JSValueConst this_val, int argc, JSV
 }
 
 static const JSCFunctionListEntry tjs_udp_proto_funcs[] = {
-    JS_CFUNC_DEF("close", 0, tjs_udp_close),
-    JS_CFUNC_DEF("recv", 1, tjs_udp_recv),
-    JS_CFUNC_DEF("send", 2, tjs_udp_send),
-    JS_CFUNC_DEF("fileno", 0, tjs_udp_fileno),
+    TJS_CFUNC_DEF("close", 0, tjs_udp_close),
+    TJS_CFUNC_DEF("recv", 1, tjs_udp_recv),
+    TJS_CFUNC_DEF("send", 2, tjs_udp_send),
+    TJS_CFUNC_DEF("fileno", 0, tjs_udp_fileno),
     JS_CFUNC_MAGIC_DEF("getsockname", 0, tjs_udp_getsockpeername, 0),
     JS_CFUNC_MAGIC_DEF("getpeername", 0, tjs_udp_getsockpeername, 1),
-    JS_CFUNC_DEF("connect", 1, tjs_udp_connect),
-    JS_CFUNC_DEF("bind", 2, tjs_udp_bind),
+    TJS_CFUNC_DEF("connect", 1, tjs_udp_connect),
+    TJS_CFUNC_DEF("bind", 2, tjs_udp_bind),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "UDP", JS_PROP_CONFIGURABLE),
 };
 
@@ -393,7 +393,7 @@ static const JSCFunctionListEntry tjs_udp_class_funcs[] = {
     JS_PROP_INT32_DEF("REUSEADDR", UV_UDP_REUSEADDR, 0),
 };
 
-void tjs_mod_udp_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_udp_init(JSContext *ctx, JSValue ns) {
     JSValue proto, obj;
 
     /* UDP class */
@@ -406,9 +406,5 @@ void tjs_mod_udp_init(JSContext *ctx, JSModuleDef *m) {
     /* UDP object */
     obj = JS_NewCFunction2(ctx, tjs_udp_constructor, "UDP", 1, JS_CFUNC_constructor, 0);
     JS_SetPropertyFunctionList(ctx, obj, tjs_udp_class_funcs, countof(tjs_udp_class_funcs));
-    JS_SetModuleExport(ctx, m, "UDP", obj);
-}
-
-void tjs_mod_udp_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExport(ctx, m, "UDP");
+    JS_DefinePropertyValueStr(ctx, ns, "UDP", obj, JS_PROP_C_W_E);
 }

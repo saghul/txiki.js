@@ -1,4 +1,4 @@
-import * as core from '@tjs/core';
+const core = globalThis.__bootstrap;
 
 const kStdioHandle = Symbol('kStdioHandle');
 const kStdioHandleType = Symbol('kStdioHandleType');

@@ -798,19 +798,19 @@ static JSValue tjs_fs_readfile(JSContext *ctx, JSValueConst this_val, int argc, 
 static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
     JS_CFUNC_MAGIC_DEF("read", 2, tjs_file_rw, 0),
     JS_CFUNC_MAGIC_DEF("write", 2, tjs_file_rw, 1),
-    JS_CFUNC_DEF("close", 0, tjs_file_close),
-    JS_CFUNC_DEF("fileno", 0, tjs_file_fileno),
-    JS_CFUNC_DEF("stat", 0, tjs_file_stat),
+    TJS_CFUNC_DEF("close", 0, tjs_file_close),
+    TJS_CFUNC_DEF("fileno", 0, tjs_file_fileno),
+    TJS_CFUNC_DEF("stat", 0, tjs_file_stat),
     JS_CGETSET_DEF("path", tjs_file_path_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "File", JS_PROP_CONFIGURABLE),
 };
 
 static const JSCFunctionListEntry tjs_dir_proto_funcs[] = {
-    JS_CFUNC_DEF("close", 0, tjs_dir_close),
+    TJS_CFUNC_DEF("close", 0, tjs_dir_close),
     JS_CGETSET_DEF("path", tjs_dir_path_get, NULL),
-    JS_CFUNC_DEF("next", 0, tjs_dir_next),
+    TJS_CFUNC_DEF("next", 0, tjs_dir_next),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Dir", JS_PROP_CONFIGURABLE),
-    JS_CFUNC_DEF("[Symbol.asyncIterator]", 0, tjs_dir_iterator),
+    TJS_CFUNC_DEF("[Symbol.asyncIterator]", 0, tjs_dir_iterator),
 };
 
 static const JSCFunctionListEntry tjs_fs_funcs[] = {
@@ -841,21 +841,21 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
 #ifdef S_ISUID
     TJS_CONST(S_ISUID),
 #endif
-    JS_CFUNC_DEF("open", 3, tjs_fs_open),
+    TJS_CFUNC_DEF("open", 3, tjs_fs_open),
     JS_CFUNC_MAGIC_DEF("stat", 1, tjs_fs_stat, 0),
     JS_CFUNC_MAGIC_DEF("lstat", 1, tjs_fs_stat, 1),
-    JS_CFUNC_DEF("realpath", 1, tjs_fs_realpath),
-    JS_CFUNC_DEF("unlink", 1, tjs_fs_unlink),
-    JS_CFUNC_DEF("rename", 2, tjs_fs_rename),
-    JS_CFUNC_DEF("mkdtemp", 1, tjs_fs_mkdtemp),
-    JS_CFUNC_DEF("mkstemp", 1, tjs_fs_mkstemp),
-    JS_CFUNC_DEF("rmdir", 1, tjs_fs_rmdir),
-    JS_CFUNC_DEF("copyfile", 3, tjs_fs_copyfile),
-    JS_CFUNC_DEF("readdir", 1, tjs_fs_readdir),
-    JS_CFUNC_DEF("readFile", 1, tjs_fs_readfile),
+    TJS_CFUNC_DEF("realpath", 1, tjs_fs_realpath),
+    TJS_CFUNC_DEF("unlink", 1, tjs_fs_unlink),
+    TJS_CFUNC_DEF("rename", 2, tjs_fs_rename),
+    TJS_CFUNC_DEF("mkdtemp", 1, tjs_fs_mkdtemp),
+    TJS_CFUNC_DEF("mkstemp", 1, tjs_fs_mkstemp),
+    TJS_CFUNC_DEF("rmdir", 1, tjs_fs_rmdir),
+    TJS_CFUNC_DEF("copyfile", 3, tjs_fs_copyfile),
+    TJS_CFUNC_DEF("readdir", 1, tjs_fs_readdir),
+    TJS_CFUNC_DEF("readFile", 1, tjs_fs_readfile),
 };
 
-void tjs_mod_fs_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_fs_init(JSContext *ctx, JSValue ns) {
     JSValue proto, obj;
 
     /* File object */
@@ -874,9 +874,5 @@ void tjs_mod_fs_init(JSContext *ctx, JSModuleDef *m) {
 
     obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyFunctionList(ctx, obj, tjs_fs_funcs, countof(tjs_fs_funcs));
-    JS_SetModuleExport(ctx, m, "fs", obj);
-}
-
-void tjs_mod_fs_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExport(ctx, m, "fs");
+    JS_DefinePropertyValueStr(ctx, ns, "fs", obj, JS_PROP_C_W_E);
 }

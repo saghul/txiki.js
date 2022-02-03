@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "postinstall": "patch-package",
-    "bundle": "esbuild index.js --bundle --outfile=bundle.js --target=es2020 --platform=neutral --format=esm --external:'@tjs/core' --main-fields=main,module",
+    "bundle": "esbuild index.js --bundle --outfile=bundle.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module",
     "stdlib": "esbuild stdlib/index.js --bundle --outfile=std.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module"
   },
   "author": "",

@@ -403,8 +403,8 @@ cleanup:
 }
 
 static const JSCFunctionListEntry tjs_process_proto_funcs[] = {
-    JS_CFUNC_DEF("kill", 1, tjs_process_kill),
-    JS_CFUNC_DEF("wait", 0, tjs_process_wait),
+    TJS_CFUNC_DEF("kill", 1, tjs_process_kill),
+    TJS_CFUNC_DEF("wait", 0, tjs_process_wait),
     JS_CGETSET_DEF("pid", tjs_process_pid_get, NULL),
     JS_CGETSET_MAGIC_DEF("stdin", tjs_process_stdio_get, NULL, 0),
     JS_CGETSET_MAGIC_DEF("stdout", tjs_process_stdio_get, NULL, 1),
@@ -413,19 +413,15 @@ static const JSCFunctionListEntry tjs_process_proto_funcs[] = {
 };
 
 static const JSCFunctionListEntry tjs_process_funcs[] = {
-    JS_CFUNC_DEF("spawn", 2, tjs_spawn),
+    TJS_CFUNC_DEF("spawn", 2, tjs_spawn),
 };
 
-void tjs_mod_process_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_process_init(JSContext *ctx, JSValue ns) {
     JS_NewClassID(&tjs_process_class_id);
     JS_NewClass(JS_GetRuntime(ctx), tjs_process_class_id, &tjs_process_class);
     JSValue proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_process_proto_funcs, countof(tjs_process_proto_funcs));
     JS_SetClassProto(ctx, tjs_process_class_id, proto);
 
-    JS_SetModuleExportList(ctx, m, tjs_process_funcs, countof(tjs_process_funcs));
-}
-
-void tjs_mod_process_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExportList(ctx, m, tjs_process_funcs, countof(tjs_process_funcs));
+    JS_SetPropertyFunctionList(ctx, ns, tjs_process_funcs, countof(tjs_process_funcs));
 }

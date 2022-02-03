@@ -1,5 +1,5 @@
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -163,17 +163,13 @@ static JSValue tjs_clearTimeout(JSContext *ctx, JSValueConst this_val, int argc,
 
 static const JSCFunctionListEntry tjs_timer_funcs[] = {
     JS_CFUNC_MAGIC_DEF("setTimeout", 2, tjs_setTimeout, 0),
-    JS_CFUNC_DEF("clearTimeout", 1, tjs_clearTimeout),
+    TJS_CFUNC_DEF("clearTimeout", 1, tjs_clearTimeout),
     JS_CFUNC_MAGIC_DEF("setInterval", 2, tjs_setTimeout, 1),
-    JS_CFUNC_DEF("clearInterval", 1, tjs_clearTimeout)
+    TJS_CFUNC_DEF("clearInterval", 1, tjs_clearTimeout)
 };
 
-void tjs_mod_timers_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_timers_init(JSContext *ctx, JSValue ns) {
     JS_NewClassID(&tjs_timer_class_id);
     JS_NewClass(JS_GetRuntime(ctx), tjs_timer_class_id, &tjs_timer_class);
-    JS_SetModuleExportList(ctx, m, tjs_timer_funcs, countof(tjs_timer_funcs));
-}
-
-void tjs_mod_timers_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExportList(ctx, m, tjs_timer_funcs, countof(tjs_timer_funcs));
+    JS_SetPropertyFunctionList(ctx, ns, tjs_timer_funcs, countof(tjs_timer_funcs));
 }

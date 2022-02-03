@@ -113,18 +113,12 @@ static void worker_entry(void *arg) {
     CHECK_NOT_NULL(wrt);
     JSContext *ctx = TJS_GetJSContext(wrt);
 
-    /* Start the worker bootstrap. */
-    wrt->in_bootstrap = true;
-
     /* Bootstrap the worker scope. */
     JSValue global_obj = JS_GetGlobalObject(ctx);
     JSValue worker_obj = tjs_new_worker(ctx, wd->channel_fd, false);
-    JS_SetPropertyStr(ctx, global_obj, "workerThis", worker_obj);
+    JS_DefinePropertyValueStr(ctx, global_obj, "workerThis", worker_obj, JS_PROP_C_W_E);
     JS_FreeValue(ctx, global_obj);
     CHECK_EQ(0, tjs__eval_text(ctx, tjs__code_worker_bootstrap_data, tjs__code_worker_bootstrap_size, "worker-bootstrap.js"));
-
-    /* End the worker bootstrap. */
-    wrt->in_bootstrap = false;
 
     /* Load the file and eval the file when the loop runs. */
     JSValue filename = JS_NewString(ctx, wd->path);
@@ -388,15 +382,15 @@ static JSValue tjs_worker_event_set(JSContext *ctx, JSValueConst this_val, JSVal
 }
 
 static const JSCFunctionListEntry tjs_worker_proto_funcs[] = {
-    JS_CFUNC_DEF("postMessage", 1, tjs_worker_postmessage),
-    JS_CFUNC_DEF("terminate", 0, tjs_worker_terminate),
+    TJS_CFUNC_DEF("postMessage", 1, tjs_worker_postmessage),
+    TJS_CFUNC_DEF("terminate", 0, tjs_worker_terminate),
     JS_CGETSET_MAGIC_DEF("onmessage", tjs_worker_event_get, tjs_worker_event_set, WORKER_EVENT_MESSAGE),
     JS_CGETSET_MAGIC_DEF("onmessageerror", tjs_worker_event_get, tjs_worker_event_set, WORKER_EVENT_MESSAGE_ERROR),
     JS_CGETSET_MAGIC_DEF("onerror", tjs_worker_event_get, tjs_worker_event_set, WORKER_EVENT_ERROR),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Worker", JS_PROP_CONFIGURABLE),
 };
 
-void tjs_mod_worker_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_worker_init(JSContext *ctx, JSValue ns) {
     JSValue proto, obj;
 
     /* Worker class */
@@ -408,9 +402,5 @@ void tjs_mod_worker_init(JSContext *ctx, JSModuleDef *m) {
 
     /* Worker object */
     obj = JS_NewCFunction2(ctx, tjs_worker_constructor, "Worker", 1, JS_CFUNC_constructor, 0);
-    JS_SetModuleExport(ctx, m, "Worker", obj);
-}
-
-void tjs_mod_worker_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExport(ctx, m, "Worker");
+    JS_DefinePropertyValueStr(ctx, ns, "Worker", obj, JS_PROP_C_W_E);
 }

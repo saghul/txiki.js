@@ -1,4 +1,4 @@
-import { hrtimeMs } from '@tjs/core';
+const { hrtimeMs } = globalThis.__bootstrap;
 
 // https://www.w3.org/TR/user-timing/
 // Derived from: https://github.com/blackswanny/performance-polyfill

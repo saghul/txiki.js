@@ -292,8 +292,8 @@ static JSValue tjs_wasm_moduleexports(JSContext *ctx, JSValueConst this_val, int
         const char *name = m3_GetFunctionName(f);
         if (name) {
             JSValue item = JS_NewObjectProto(ctx, JS_NULL);
-            JS_SetPropertyStr(ctx, item, "name", JS_NewString(ctx, name));
-            JS_SetPropertyStr(ctx, item, "kind", JS_NewString(ctx, "function"));
+            JS_DefinePropertyValueStr(ctx, item, "name", JS_NewString(ctx, name), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, item, "kind", JS_NewString(ctx, "function"), JS_PROP_C_W_E);
             JS_DefinePropertyValueUint32(ctx, exports, j, item, JS_PROP_C_W_E);
             j++;
         }
@@ -345,17 +345,17 @@ static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValueConst this_val, int a
 }
 
 static const JSCFunctionListEntry tjs_wasm_funcs[] = {
-    JS_CFUNC_DEF("buildInstance", 1, tjs_wasm_buildinstance),
-    JS_CFUNC_DEF("moduleExports", 1, tjs_wasm_moduleexports),
-    JS_CFUNC_DEF("parseModule", 1, tjs_wasm_parsemodule),
+    TJS_CFUNC_DEF("buildInstance", 1, tjs_wasm_buildinstance),
+    TJS_CFUNC_DEF("moduleExports", 1, tjs_wasm_moduleexports),
+    TJS_CFUNC_DEF("parseModule", 1, tjs_wasm_parsemodule),
 };
 
 static const JSCFunctionListEntry tjs_wasm_instance_funcs[] = {
-    JS_CFUNC_DEF("callFunction", 1, tjs_wasm_callfunction),
-    JS_CFUNC_DEF("linkWasi", 0, tjs_wasm_linkwasi),
+    TJS_CFUNC_DEF("callFunction", 1, tjs_wasm_callfunction),
+    TJS_CFUNC_DEF("linkWasi", 0, tjs_wasm_linkwasi),
 };
 
-void tjs_mod_wasm_init(JSContext *ctx, JSModuleDef *m) {
+void tjs__mod_wasm_init(JSContext *ctx, JSValue ns) {
     /* Module object */
     JS_NewClassID(&tjs_wasm_module_class_id);
     JS_NewClass(JS_GetRuntime(ctx), tjs_wasm_module_class_id, &tjs_wasm_module_class);
@@ -371,9 +371,5 @@ void tjs_mod_wasm_init(JSContext *ctx, JSModuleDef *m) {
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyFunctionList(ctx, obj, tjs_wasm_funcs, countof(tjs_wasm_funcs));
 
-    JS_SetModuleExport(ctx, m, "wasm", obj);
-}
-
-void tjs_mod_wasm_export(JSContext *ctx, JSModuleDef *m) {
-    JS_AddModuleExport(ctx, m, "wasm");
+    JS_DefinePropertyValueStr(ctx, ns, "wasm", obj, JS_PROP_C_W_E);
 }
