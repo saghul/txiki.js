@@ -11570,11 +11570,16 @@ var MessageEvent2 = class extends Event2 {
     return this[kMessageEventData];
   }
 };
+var kPromise = Symbol("kPromise");
 var kPromiseRejectionReason = Symbol("kPromiseRejectionReason");
 var PromiseRejectionEvent = class extends Event2 {
-  constructor(eventTye, reason) {
+  constructor(eventTye, promise, reason) {
     super(eventTye, { cancelable: true });
+    this[kPromise] = promise;
     this[kPromiseRejectionReason] = reason;
+  }
+  get promise() {
+    return this[kPromise];
   }
   get reason() {
     return this[kPromiseRejectionReason];
