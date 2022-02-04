@@ -107,7 +107,7 @@ Thank you all for making this project possible!
 [QuickJS]: https://bellard.org/quickjs/
 [libuv]: https://libuv.org/
 [curl]: https://github.com/curl/curl
-[full API]: API.md
+[full API]: docs/API.md
 [CMake]: https://cmake.org/
 [wasm3]: https://github.com/wasm3/wasm3
 [contributors]: https://github.com/saghul/txiki.js/graphs/contributors

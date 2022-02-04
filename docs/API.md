@@ -5,42 +5,17 @@
 - `global`: reference to the global object.
 - `globalThis`: same as `global`.
 - `window`: same as `global`.
-- `window.alert`: sames as `console.log`.
-- `window.prompt`: simple user input function.
 - `tjs`: reference to the main global module.
 
 ## `tjs` global
 
-- `args`: array with the arguments passed to the executable.
-- `exit([code])`: exits the program with the given code.
-- `gc()`: triggers a garbage collection cycle.
-- `evalScript(code)`: evals the given code in the global scope.
-- `loadScript(jsFile)`: loads and evaulates the file at the given path.
-- `platform`: string with the platform name.
-- `version`: string with the `txiki.js` version.
-- `versions`: object with the bundled library versions.
-
+All custom APIs provided by txiki.js are exposed at the top level inside the `tjs global.
 These APIs are almost always a 1-to-1 mapping of the matching [libuv] API, please
 check the libuv documentation.
 
-All asynchronous APIs return a Promise, there are no callbacks.
+### Sockets
 
-- `cwd()`
-- `environ()`
-- `exepath()`
-- `getenv(name)`
-- `gettimeofday()`
-- `homedir()`
-- `hrtime()`
-- `hrtimeMs()`
-- `isatty()`
-- `setenv(name, value)`
-- `signal(signum, cb)`
-- `spawn(args, options)`
-- `tmpdir()`
-- `unsetenv(name)`
-
-### TCP([family])
+#### TCP([family])
 
 - `accept()`
 - `bind({ ip, port }, [flags])`
@@ -54,7 +29,7 @@ All asynchronous APIs return a Promise, there are no callbacks.
 - `shutdown()`
 - `write(Uint8Array)`
 
-### UDP([family])
+#### UDP([family])
 
 - `bind({ ip, port }, [flags])`
 - `close()`
@@ -65,7 +40,7 @@ All asynchronous APIs return a Promise, there are no callbacks.
 - `recv(Uint8Array)`
 - `send(Uint8Array, [addr])`
 
-### Pipe()
+#### Pipe()
 
 - `accept()`
 - `bind({ ip, port })`
@@ -79,30 +54,25 @@ All asynchronous APIs return a Promise, there are no callbacks.
 - `shutdown()`
 - `write(Uint8Array)`
 
-### Constants
+### Basic DNS resolution
 
-- `AF_INET`
-- `AF_INET6`
-- `AF_UNSPEC`
-- `STDERR_FILENO`
-- `STDIN_FILENO`
-- `STDOUT_FILENO`
-- `SIG*`
-- `UV_TTY_MODE_IO`
-- `UV_TTY_MODE_NORMAL`
-- `UV_TTY_MODE_RAW`
+- `getaddrinfo(node, [options])`
 
-### Process
+### Operating system facilities
 
-- `pid`
-- `stdin`
-- `stdout`
-- `stderr`
-- `kill(signum)`
-- `wait()`
-
-### `tjs.fs` submodule
-
+- `cwd()`
+- `environ`
+- `exepath`
+- `getenv(name)`
+- `gettimeofday()`
+- `homedir()`
+- `hrtime()`
+- `hrtimeMs()`
+- `isatty()`
+- `setenv(name, value)`
+- `signal(signum, cb)`
+- `tmpdir()`
+- `unsetenv(name)`
 - `copyfile(path, newPath)`
 - `readdir(path)`
 - `rename(path, newPath)`
@@ -115,6 +85,7 @@ All asynchronous APIs return a Promise, there are no callbacks.
 - `readFile(path)`
 - `realpath(path)`
 - `unlink(path)`
+- `exit(code)`
 
 #### File
 
@@ -131,18 +102,36 @@ All asynchronous APIs return a Promise, there are no callbacks.
 - `close()`
 - `next()`
 
-#### Constants
+#### Filesystem watching
 
-- `UV_FS_COPYFILE_EXCL`
-- `UV_FS_COPYFILE_FICLONE`
-- `UV_FS_COPYFILE_FICLONE_FORCE`
+- `watch(path, cb)`
 
-### `tjs.dns` submodule
+#### Child processes
 
-- `getaddrinfo(node, [options])`
+- `spawn(args, options)`
 
-#### Constants
+##### Process
 
+- `pid`
+- `stdin`
+- `stdout`
+- `stderr`
+- `kill(signum)`
+- `wait()`
+
+### Platform functions
+
+- `args`: array with the arguments passed to the executable.
+- `gc()`: triggers a garbage collection cycle.
+- `platform`: string with the platform name.
+- `version`: string with the `txiki.js` version.
+- `versions`: object with the bundled library versions.
+
+### Constants
+
+- `AF_INET`
+- `AF_INET6`
+- `AF_UNSPEC`
 - `AI_PASSIVE`
 - `AI_CANONNAME`
 - `AI_NUMERICHOST`
@@ -150,5 +139,32 @@ All asynchronous APIs return a Promise, there are no callbacks.
 - `AI_ALL`
 - `AI_ADDRCONFIG`
 - `AI_NUMERICSERV`
+- `COPYFILE_EXCL`
+- `COPYFILE_FICLONE`
+- `COPYFILE_FICLONE_FORCE`
+- `DIRENT_BLOCK`
+- `DIRENT_CHAR`
+- `DIRENT_DIR`
+- `DIRENT_FIFO`
+- `DIRENT_FILE`
+- `DIRENT_LINK`
+- `DIRENT_SOCKET`
+- `DIRENT_UNKNOWN`
+- `FS_EVENT_CHANGE`
+- `FS_EVENT_RENAME`
+- `SIG*`
+- `S_IFBLK`
+- `S_IFCHR`
+- `S_IFDIR`
+- `S_IFIFO`
+- `S_IFLNK`
+- `S_IFMT`
+- `S_IFREG`
+- `S_IFSOCK`
+- `S_ISGID`
+- `S_ISUID`
+- `STDERR_FILENO`
+- `STDIN_FILENO`
+- `STDOUT_FILENO`
 
 [libuv]: https://github.com/libuv/libuv
