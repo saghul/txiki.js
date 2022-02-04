@@ -21,9 +21,9 @@ message(STATUS "C Debug flags:   ${CMAKE_C_FLAGS_DEBUG}")
 message(STATUS "C Release flags: ${CMAKE_C_FLAGS_RELEASE}")
 
 set(TJS__VERSION_MAJOR 22)
-set(TJS__VERSION_MINOR 0)
+set(TJS__VERSION_MINOR 2)
 set(TJS__VERSION_PATCH 0)
-set(TJS__VERSION_SUFFIX "-alpha")
+set(TJS__VERSION_SUFFIX "")
 configure_file(
     "${CMAKE_SOURCE_DIR}/src/version.h.in"
     "${CMAKE_SOURCE_DIR}/src/version.h"
