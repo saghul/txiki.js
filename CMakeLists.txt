@@ -95,13 +95,12 @@ add_executable(tjs
     src/error.c
     src/fs.c
     src/fswatch.c
-    src/misc.c
     src/modules.c
     src/os.c
     src/process.c
-    src/std.c
     src/streams.c
     src/signals.c
+    src/sys.c
     src/timers.c
     src/udp.c
     src/utils.c

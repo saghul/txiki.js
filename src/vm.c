@@ -50,12 +50,11 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_error_init(ctx, ns);
     tjs__mod_fs_init(ctx, ns);
     tjs__mod_fswatch_init(ctx, ns);
-    tjs__mod_misc_init(ctx, ns);
     tjs__mod_os_init(ctx, ns);
     tjs__mod_process_init(ctx, ns);
     tjs__mod_signals_init(ctx, ns);
-    tjs__mod_std_init(ctx, ns);
     tjs__mod_streams_init(ctx, ns);
+    tjs__mod_sys_init(ctx, ns);
     tjs__mod_timers_init(ctx, ns);
     tjs__mod_udp_init(ctx, ns);
     tjs__mod_wasm_init(ctx, ns);

@@ -1,8 +1,7 @@
 /*
- * QuickJS C library
+ * txiki.js
  *
- * Copyright (c) 2017-2019 Fabrice Bellard
- * Copyright (c) 2017-2019 Charlie Gordon
+ * Copyright (c) 2022-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +23,7 @@
  */
 
 #include "private.h"
-#include "tjs.h"
+#include "version.h"
 
 #include <string.h>
 #include <uv.h>
@@ -41,16 +40,6 @@ static JSValue js_loadScript(JSContext *ctx, JSValueConst this_val, int argc, JS
     ret = TJS_EvalFile(ctx, filename, JS_EVAL_TYPE_GLOBAL, false);
     JS_FreeCString(ctx, filename);
     return ret;
-}
-
-static JSValue js_std_exit(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    int status;
-    if (JS_ToInt32(ctx, &status, argv[0]))
-        status = -1;
-    // Reset TTY state  (if it had changed) before exiting.
-    uv_tty_reset_mode();
-    exit(status);
-    return JS_UNDEFINED;
 }
 
 static JSValue js_std_gc(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -70,13 +59,52 @@ static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val, int argc, JS
     return ret;
 }
 
-static const JSCFunctionListEntry js_std_funcs[] = {
-    TJS_CFUNC_DEF("exit", 1, js_std_exit),
+static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    char buf[1024];
+    size_t size = sizeof(buf);
+    char *dbuf = buf;
+    int r;
+
+    r = uv_exepath(dbuf, &size);
+    if (r != 0) {
+        if (r != UV_ENOBUFS)
+            return tjs_throw_errno(ctx, r);
+        dbuf = js_malloc(ctx, size);
+        if (!dbuf)
+            return JS_EXCEPTION;
+        r = uv_exepath(dbuf, &size);
+        if (r != 0) {
+            js_free(ctx, dbuf);
+            return tjs_throw_errno(ctx, r);
+        }
+    }
+
+    JSValue ret = JS_NewStringLen(ctx, dbuf, size);
+
+    if (dbuf != buf)
+        js_free(ctx, dbuf);
+
+    return ret;
+}
+
+static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("gc", 0, js_std_gc),
     TJS_CFUNC_DEF("evalScript", 1, js_evalScript),
     TJS_CFUNC_DEF("loadScript", 1, js_loadScript),
 };
 
-void tjs__mod_std_init(JSContext *ctx, JSValue ns) {
-    JS_SetPropertyFunctionList(ctx, ns, js_std_funcs, countof(js_std_funcs));
+void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {
+    JS_SetPropertyFunctionList(ctx, ns, tjs_sys_funcs, countof(tjs_sys_funcs));
+    JS_DefinePropertyValueStr(ctx, ns, "args", tjs__get_args(ctx), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, ns, "version", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
+    JSValue versions = JS_NewObjectProto(ctx, JS_NULL);
+    JS_DefinePropertyValueStr(ctx, versions, "quickjs", JS_NewString(ctx, QJS_VERSION_STR), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, versions, "tjs", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, versions, "uv", JS_NewString(ctx, uv_version_string()), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, curl_version()), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, versions, "wasm3", JS_NewString(ctx, M3_VERSION), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, ns, "versions", versions, JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, ns, "platform", JS_NewString(ctx, TJS__PLATFORM), JS_PROP_C_W_E);
+    // We want exepath to be a getter, not a function.
+    CHECK_EQ(TJS_DefineGetter(ctx, ns, tjs_exepath, "exepath"), 1);
 }

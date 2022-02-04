@@ -160,7 +160,5 @@ static const JSCFunctionListEntry tjs_dns_funcs[] = {
 };
 
 void tjs__mod_dns_init(JSContext *ctx, JSValue ns) {
-    JSValue obj = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, obj, tjs_dns_funcs, countof(tjs_dns_funcs));
-    JS_DefinePropertyValueStr(ctx, ns, "dns", obj, JS_PROP_C_W_E);
+    JS_SetPropertyFunctionList(ctx, ns, tjs_dns_funcs, countof(tjs_dns_funcs));
 }

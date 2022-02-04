@@ -13129,10 +13129,10 @@ Object.defineProperty(window, "crypto", {
 });
 
 // polyfills/performance.js
-var { hrtimeMs } = globalThis.__bootstrap;
+var core3 = globalThis.__bootstrap;
 var Performance = class {
   constructor() {
-    this._startTime = hrtimeMs();
+    this._startTime = core3.hrtimeMs();
     this._entries = [];
     this._marksIndex = /* @__PURE__ */ Object.create(null);
   }
@@ -13140,7 +13140,7 @@ var Performance = class {
     return this._startTime;
   }
   now() {
-    return hrtimeMs() - this._startTime;
+    return core3.hrtimeMs() - this._startTime;
   }
   mark(name) {
     const mark = {
@@ -13415,7 +13415,7 @@ Object.defineProperty(window, "Worker", {
 });
 
 // tjs/stdio.js
-var core3 = globalThis.__bootstrap;
+var core4 = globalThis.__bootstrap;
 var kStdioHandle = Symbol("kStdioHandle");
 var kStdioHandleType = Symbol("kStdioHandleType");
 var BaseIOStream = class {
@@ -13435,7 +13435,7 @@ var InputStream = class extends BaseIOStream {
     if (!this.isTTY) {
       throw new Error("not a TTY");
     }
-    const ttyMode = rawMode ? core3.TTY.TTY_MODE_RAW : core3.TTY.TTY_MODE_NORMAL;
+    const ttyMode = rawMode ? core4.TTY.TTY_MODE_RAW : core4.TTY.TTY_MODE_NORMAL;
     this[kStdioHandle].setMode(ttyMode);
   }
 };
@@ -13457,16 +13457,16 @@ var OutputStream = class extends BaseIOStream {
   }
 };
 function createStdioStream(fd) {
-  const isStdin = fd === core3.STDIN_FILENO;
+  const isStdin = fd === core4.STDIN_FILENO;
   const StreamType = isStdin ? InputStream : OutputStream;
-  const type = core3.guessHandle(fd);
+  const type = core4.guessHandle(fd);
   switch (type) {
     case "tty": {
-      const handle = new core3.TTY(fd, isStdin);
+      const handle = new core4.TTY(fd, isStdin);
       return new StreamType(handle, type);
     }
     case "pipe": {
-      const handle = new core3.Pipe();
+      const handle = new core4.Pipe();
       handle.open(fd);
       return new StreamType(handle, type);
     }
@@ -13476,45 +13476,53 @@ function createStdioStream(fd) {
   }
 }
 function createStdin() {
-  return createStdioStream(core3.STDIN_FILENO);
+  return createStdioStream(core4.STDIN_FILENO);
 }
 function createStdout() {
-  return createStdioStream(core3.STDOUT_FILENO);
+  return createStdioStream(core4.STDOUT_FILENO);
 }
 function createStderr() {
-  return createStdioStream(core3.STDERR_FILENO);
+  return createStdioStream(core4.STDERR_FILENO);
 }
 
 // tjs/index.js
-var core4 = globalThis.__bootstrap;
+var core5 = globalThis.__bootstrap;
 var tjs2 = /* @__PURE__ */ Object.create(null);
 var noExport = [
-  "setTimeout",
-  "setInterval",
-  "clearTimeout",
-  "clearInterval",
-  "guessHandleType",
-  "XMLHttpRequest",
+  "TTY",
   "Worker",
-  "signal",
+  "XMLHttpRequest",
+  "clearInterval",
+  "clearTimeout",
+  "evalScript",
+  "guessHandle",
+  "hrtimeMs",
+  "loadScript",
   "random",
-  "args",
-  "versions",
+  "setInterval",
+  "setTimeout",
   "wasm"
 ];
-tjs2.signal = core4.signal;
-for (const [key, value] of Object.entries(core4)) {
+for (const [key, value] of Object.entries(core5)) {
   if (noExport.includes(key)) {
-    continue;
-  }
-  if (key.startsWith("SIG")) {
-    tjs2.signal[key] = value;
     continue;
   }
   tjs2[key] = value;
 }
-tjs2.args = Object.freeze(core4.args);
-tjs2.versions = Object.freeze(core4.versions);
+tjs2.args = Object.freeze(core5.args);
+tjs2.versions = Object.freeze(core5.versions);
+Object.defineProperty(tjs2, "__evalScript", {
+  enumerable: false,
+  configurable: false,
+  writable: false,
+  value: core5.evalScript
+});
+Object.defineProperty(tjs2, "__loadScript", {
+  enumerable: false,
+  configurable: false,
+  writable: false,
+  value: core5.loadScript
+});
 Object.defineProperty(tjs2, "stdin", {
   enumerable: true,
   configurable: false,

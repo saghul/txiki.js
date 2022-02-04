@@ -1,10 +1,10 @@
-const { hrtimeMs } = globalThis.__bootstrap;
+const core = globalThis.__bootstrap;
 
 // https://www.w3.org/TR/user-timing/
 // Derived from: https://github.com/blackswanny/performance-polyfill
 class Performance {
     constructor() {
-        this._startTime = hrtimeMs();
+        this._startTime = core.hrtimeMs();
         this._entries = [];
         this._marksIndex = Object.create(null);
     }
@@ -14,7 +14,7 @@ class Performance {
     }
 
     now() {
-        return hrtimeMs() - this._startTime;
+        return core.hrtimeMs() - this._startTime;
     }
 
     mark(name) {

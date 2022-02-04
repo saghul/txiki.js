@@ -274,3 +274,12 @@ JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size) {
     JS_FreeValue(ctx, abuf);
     return buf;
 }
+
+int TJS_DefineGetter(JSContext *ctx, JSValue this_obj, JSCFunction *func, const char *name) {
+    JSValue f = JS_NewCFunction2(ctx, func, name, 0, JS_CFUNC_getter, 0);
+    JSAtom atom = JS_NewAtom(ctx, name);
+    int r = JS_DefineProperty(ctx, this_obj, atom, JS_UNDEFINED, f, JS_UNDEFINED, JS_PROP_HAS_GET | JS_PROP_C_W_E);
+    JS_FreeAtom(ctx, atom);
+    JS_FreeValue(ctx, f);
+    return r;
+}
