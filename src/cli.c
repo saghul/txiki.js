@@ -60,11 +60,10 @@ static int eprintf(const char *format, ...) {
     return ret;
 }
 
-static int eval_buf(JSContext *ctx, const char *buf, const char *filename, int eval_flags) {
-    JSValue val;
+static int eval_expr(JSContext *ctx, const char *buf) {
     int ret = 0;
+    JSValue val = JS_Eval(ctx, buf, strlen(buf), "<cmdline>", JS_EVAL_TYPE_GLOBAL);
 
-    val = JS_Eval(ctx, buf, strlen(buf), filename, eval_flags);
     if (JS_IsException(val)) {
         tjs_dump_error(ctx);
         ret = -1;
@@ -74,10 +73,9 @@ static int eval_buf(JSContext *ctx, const char *buf, const char *filename, int e
 }
 
 static int eval_module(JSContext *ctx, const char *filepath) {
-    JSValue val;
     int ret = 0;
+    JSValue val = TJS_EvalFile(ctx, filepath, JS_EVAL_TYPE_MODULE, true);
 
-    val = TJS_EvalFile(ctx, filepath, JS_EVAL_TYPE_MODULE, true);
     if (JS_IsException(val)) {
         tjs_dump_error(ctx);
         ret = -1;
@@ -237,7 +235,7 @@ int main(int argc, char **argv) {
     ctx = TJS_GetJSContext(qrt);
 
     if (flags.eval_expr) {
-        if (eval_buf(ctx, flags.eval_expr, "<cmdline>", JS_EVAL_TYPE_GLOBAL)) {
+        if (eval_expr(ctx, flags.eval_expr)) {
             exit_code = EXIT_FAILURE;
             goto exit;
         }
