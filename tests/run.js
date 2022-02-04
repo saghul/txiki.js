@@ -1,8 +1,5 @@
 import { path } from '@tjs/std';
 
-const { basename, dirname, join } = path;
-
-const thisFile = import.meta.url.slice(7);  // strip "file://"
 
 const TIMEOUT = 10 * 1000;
 
@@ -53,7 +50,7 @@ class Test {
         const status = status_.value;
 
         return {
-            name: basename(this._fileName),
+            name: path.basename(this._fileName),
             failed: status.exit_status !== 0 || status.term_signal !== 0,
             status,
             stdout: stdout.value,
@@ -96,13 +93,13 @@ function printResult(result) {
 }
 
 (async function() {
-    const dir = await tjs.fs.realpath(tjs.args[2] || dirname(thisFile));
+    const dir = await tjs.fs.realpath(tjs.args[2] || import.meta.dirname);
     const dirIter = await tjs.fs.readdir(dir);
     const tests = [];
     for await (const item of dirIter) {
         const { name } = item;
         if (name.startsWith('test-') && name.endsWith('.js')) {
-            tests.push(new Test(join(dir, name)));
+            tests.push(new Test(path.join(dir, name)));
         }
     }
 

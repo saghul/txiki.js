@@ -117,13 +117,23 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     return m;
 }
 
+#if defined(_WIN32)
+#define TJS__PATHSEP  '\\'
+#define TJS__PATHSEPS "\\"
+#else
+#define TJS__PATHSEP  '/'
+#define TJS__PATHSEPS "/"
+#endif
+
 int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use_realpath, JS_BOOL is_main) {
     JSModuleDef *m;
-    char buf[PATH_MAX + 16];
+    char buf[PATH_MAX + 16] = {0};
     int r;
     JSValue meta_obj;
     JSAtom module_name_atom;
     const char *module_name;
+    char module_dirname[PATH_MAX] = {0};
+    char module_basename[PATH_MAX] = {0};
 
     CHECK_EQ(JS_VALUE_GET_TAG(func_val), JS_TAG_MODULE);
     m = JS_VALUE_GET_PTR(func_val);
@@ -152,6 +162,14 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
             }
             pstrcat(buf, sizeof(buf), req.ptr);
             uv_fs_req_cleanup(&req);
+
+            // When using realpath we have the opportunity to extract the dirname
+            // and basename and add them to the meta. Since the path is now absolute
+            // all we need to do is split on the last path separator.
+            const char *start = buf + 7; /* skip file:// */
+            char *p = strrchr(start, TJS__PATHSEP);
+            strncpy(module_dirname, start , p - start);
+            strcpy(module_basename, p + 1);
         } else {
             pstrcat(buf, sizeof(buf), module_name);
         }
@@ -165,17 +183,13 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
         return -1;
     JS_DefinePropertyValueStr(ctx, meta_obj, "url", JS_NewString(ctx, buf), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, meta_obj, "main", JS_NewBool(ctx, is_main), JS_PROP_C_W_E);
+    if (use_realpath) {
+        JS_DefinePropertyValueStr(ctx, meta_obj, "dirname", JS_NewString(ctx, module_dirname), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, meta_obj, "basename", JS_NewString(ctx, module_basename), JS_PROP_C_W_E);
+    }
     JS_FreeValue(ctx, meta_obj);
     return 0;
 }
-
-#if defined(_WIN32)
-#define TJS__PATHSEP  '\\'
-#define TJS__PATHSEPS "\\"
-#else
-#define TJS__PATHSEP  '/'
-#define TJS__PATHSEPS "/"
-#endif
 
 char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque) {
     TJSRuntime *qrt = opaque;
