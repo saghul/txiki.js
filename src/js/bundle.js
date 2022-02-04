@@ -13431,11 +13431,12 @@ var InputStream = class extends BaseIOStream {
   async read(buf) {
     return this[kStdioHandle].read(buf);
   }
-  setMode(mode) {
+  setRawMode(rawMode) {
     if (!this.isTTY) {
       throw new Error("not a TTY");
     }
-    this[kStdioHandle].setMode(mode);
+    const ttyMode = rawMode ? core3.TTY.TTY_MODE_RAW : core3.TTY.TTY_MODE_NORMAL;
+    this[kStdioHandle].setMode(ttyMode);
   }
 };
 var OutputStream = class extends BaseIOStream {

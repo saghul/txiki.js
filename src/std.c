@@ -47,6 +47,8 @@ static JSValue js_std_exit(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     int status;
     if (JS_ToInt32(ctx, &status, argv[0]))
         status = -1;
+    // Reset TTY state  (if it had changed) before exiting.
+    uv_tty_reset_mode();
     exit(status);
     return JS_UNDEFINED;
 }
