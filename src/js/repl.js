@@ -127,7 +127,7 @@ window.addEventListener('unhandledrejection', event => {
         tjs.stdin.setRawMode(true);
 
         /* install a Ctrl-C signal handler */
-        sigint_h = tjs.signal(tjs.signal.SIGINT, sigint_handler);
+        sigint_h = tjs.signal(tjs.SIGINT, sigint_handler);
 
         /* handler to read stdin */
         term_read_handler();
@@ -972,7 +972,7 @@ window.addEventListener('unhandledrejection', event => {
             var filename = expr.substring(cmd.length + 1).trim();
             if (filename.lastIndexOf(".") <= filename.lastIndexOf("/"))
                 filename += ".js";
-            tjs.loadScript(filename);
+            tjs.__loadScript(filename);
             return false;
         } else if (cmd === "t") {
             show_time = !show_time;
@@ -1003,7 +1003,7 @@ window.addEventListener('unhandledrejection', event => {
         try {
             var now = (new Date).getTime();
             /* eval as a script */
-            result = tjs.evalScript(expr);
+            result = tjs.__evalScript(expr);
             eval_time = (new Date).getTime() - now;
             stdout_write(colors[styles.result]);
             print(result);

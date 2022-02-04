@@ -856,7 +856,7 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
 };
 
 void tjs__mod_fs_init(JSContext *ctx, JSValue ns) {
-    JSValue proto, obj;
+    JSValue proto;
 
     /* File object */
     JS_NewClassID(&tjs_file_class_id);
@@ -872,7 +872,5 @@ void tjs__mod_fs_init(JSContext *ctx, JSValue ns) {
     JS_SetPropertyFunctionList(ctx, proto, tjs_dir_proto_funcs, countof(tjs_dir_proto_funcs));
     JS_SetClassProto(ctx, tjs_dir_class_id, proto);
 
-    obj = JS_NewObjectProto(ctx, JS_NULL);
-    JS_SetPropertyFunctionList(ctx, obj, tjs_fs_funcs, countof(tjs_fs_funcs));
-    JS_DefinePropertyValueStr(ctx, ns, "fs", obj, JS_PROP_C_W_E);
+    JS_SetPropertyFunctionList(ctx, ns, tjs_fs_funcs, countof(tjs_fs_funcs));
 }

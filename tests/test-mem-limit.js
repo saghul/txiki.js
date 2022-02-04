@@ -2,7 +2,7 @@ import assert from './assert.js';
 
 (async () => {
     const args = [
-        tjs.exepath(),
+        tjs.exepath,
         '--memory-limit',
         '10485760',
         '-e',

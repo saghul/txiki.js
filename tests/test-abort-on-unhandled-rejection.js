@@ -4,7 +4,7 @@ import { path } from '@tjs/std';
 
 (async () => {
     const args = [
-        tjs.exepath(),
+        tjs.exepath,
         path.join(import.meta.dirname, 'helpers', 'unhandled-rejection.js')
     ];
     const proc = tjs.spawn(args, { stdout: 'ignore', stderr: 'pipe' });

@@ -3,7 +3,7 @@ import { path } from '@tjs/std';
 
 
 (async () => {
-    const data = await tjs.fs.readFile(path.join(import.meta.dirname, 'wasm', 'multi.wasm'));
+    const data = await tjs.readFile(path.join(import.meta.dirname, 'wasm', 'multi.wasm'));
     const { instance } = await WebAssembly.instantiate(data);
     const { exports } = instance;
 

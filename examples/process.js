@@ -3,7 +3,7 @@ function logStatus(s) {
     console.log(JSON.stringify(s));
 }
 
-const exe = tjs.exepath();
+const exe = tjs.exepath;
 
 (async () => {
     let args, status, proc;
@@ -28,7 +28,7 @@ const exe = tjs.exepath();
     status = await proc.wait();
     logStatus(status);
 
-    args = [exe, '-e', 'console.log(JSON.stringify(tjs.environ()))'];
+    args = [exe, '-e', 'console.log(JSON.stringify(tjs.environ))'];
     proc = tjs.spawn(args, { env: { FOO: 'BAR', SPAM: 'EGGS'} });
     console.log(`proc PID: ${proc.pid}`);
     status = await proc.wait();

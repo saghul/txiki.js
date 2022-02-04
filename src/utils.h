@@ -108,4 +108,6 @@ JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 
 JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size);
 
+int TJS_DefineGetter(JSContext *ctx, JSValue this_obj, JSCFunction *func, const char *name);
+
 #endif

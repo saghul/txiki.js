@@ -192,8 +192,8 @@ static const JSCFunctionListEntry tjs_fswatch_proto_funcs[] = {
 };
 
 static const JSCFunctionListEntry tjs_fswatch_funcs[] = {
-    TJS_UVCONST(CHANGE),
-    TJS_UVCONST(RENAME),
+    TJS_CONST2("FS_EVENT_CHANGE", UV_CHANGE),
+    TJS_CONST2("FS_EVENT_RENAME", UV_RENAME),
     TJS_CFUNC_DEF("watch", 2, tjs_fs_watch),
 };
 
@@ -204,7 +204,5 @@ void tjs__mod_fswatch_init(JSContext *ctx, JSValue ns) {
     JS_SetPropertyFunctionList(ctx, proto, tjs_fswatch_proto_funcs, countof(tjs_fswatch_proto_funcs));
     JS_SetClassProto(ctx, tjs_fswatch_class_id, proto);
 
-    JSValue fs = JS_GetPropertyStr(ctx, ns, "fs");
-    JS_SetPropertyFunctionList(ctx, fs, tjs_fswatch_funcs, countof(tjs_fswatch_funcs));
-    JS_FreeValue(ctx, fs);
+    JS_SetPropertyFunctionList(ctx, ns, tjs_fswatch_funcs, countof(tjs_fswatch_funcs));
 }
