@@ -20,11 +20,12 @@ class InputStream extends BaseIOStream {
         return this[kStdioHandle].read(buf);
     }
 
-    setMode(mode) {
+    setRawMode(rawMode) {
         if (!this.isTTY) {
             throw new Error('not a TTY')
         }
-        this[kStdioHandle].setMode(mode);
+        const ttyMode = rawMode ? core.TTY.TTY_MODE_RAW : core.TTY.TTY_MODE_NORMAL;
+        this[kStdioHandle].setMode(ttyMode);
     }
 }
 

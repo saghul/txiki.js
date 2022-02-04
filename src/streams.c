@@ -882,9 +882,8 @@ static const JSCFunctionListEntry tjs_tty_proto_funcs[] = {
 };
 
 static const JSCFunctionListEntry tjs_tty_class_funcs[] = {
-    TJS_CONST2("MODE_NORMAL", UV_TTY_MODE_NORMAL),
-    TJS_CONST2("MODE_RAW", UV_TTY_MODE_RAW),
-    TJS_CONST2("MODE_IO", UV_TTY_MODE_IO),
+    TJS_UVCONST(TTY_MODE_NORMAL),
+    TJS_UVCONST(TTY_MODE_RAW),
 };
 
 static const JSCFunctionListEntry tjs_pipe_proto_funcs[] = {

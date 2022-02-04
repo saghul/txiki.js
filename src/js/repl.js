@@ -124,7 +124,7 @@ window.addEventListener('unhandledrejection', event => {
         term_width = tjs.stdout.width;
 
         /* set the TTY to raw mode */
-        tjs.stdin.setMode(tjs.TTY.MODE_RAW);
+        tjs.stdin.setRawMode(true);
 
         /* install a Ctrl-C signal handler */
         sigint_h = tjs.signal(tjs.signal.SIGINT, sigint_handler);
@@ -134,7 +134,6 @@ window.addEventListener('unhandledrejection', event => {
     }
 
     function exit(code) {
-        tjs.stdin.setMode(tjs.TTY.MODE_NORMAL);
         tjs.exit(code);
     }
 
