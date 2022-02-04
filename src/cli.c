@@ -49,7 +49,6 @@ typedef struct CLIOption {
 
 typedef struct Flags {
     char *eval_expr;
-    char *override_filename;
 } Flags;
 
 static int eprintf(const char *format, ...) {
@@ -74,11 +73,11 @@ static int eval_buf(JSContext *ctx, const char *buf, const char *filename, int e
     return ret;
 }
 
-static int eval_module(JSContext *ctx, const char *filepath, char *override_filename) {
+static int eval_module(JSContext *ctx, const char *filepath) {
     JSValue val;
     int ret = 0;
 
-    val = TJS_EvalFile(ctx, filepath, JS_EVAL_TYPE_MODULE, true, override_filename);
+    val = TJS_EvalFile(ctx, filepath, JS_EVAL_TYPE_MODULE, true);
     if (JS_IsException(val)) {
         tjs_dump_error(ctx);
         ret = -1;
@@ -95,7 +94,6 @@ static void print_help(void) {
            "  -h, --help                      list options\n"
            "  -e, --eval EXPR                 evaluate EXPR\n"
            "  --memory-limit LIMIT            set the memory limit\n"
-           "  --override-filename FILENAME    override filename in error messages\n"
            "  --stack-size STACKSIZE          set max stack size\n");
 }
 
@@ -168,8 +166,7 @@ int main(int argc, char **argv) {
 
     TJS_DefaultOptions(&runOptions);
 
-    Flags flags = { .eval_expr = NULL,
-                    .override_filename = NULL };
+    Flags flags = { .eval_expr = NULL };
 
     TJS_SetupArgs(argc, argv);
 
@@ -217,14 +214,6 @@ int main(int argc, char **argv) {
                 exit_code = EXIT_INVALID_ARG;
                 goto exit;
             }
-            if (is_longopt(opt, "override-filename")) {
-                flags.override_filename = get_option_value(arg, argc, argv, &optind);
-                if (flags.override_filename)
-                    break;
-                report_missing_argument(&opt);
-                exit_code = EXIT_INVALID_ARG;
-                goto exit;
-            }
             if (is_longopt(opt, "stack-size")) {
                 char *stack_size = get_option_value(arg, argc, argv, &optind);
                 if (stack_size) {
@@ -261,7 +250,7 @@ int main(int argc, char **argv) {
     } else {
         /* evaluate file */
         const char *filepath = argv[optind];
-        if (eval_module(ctx, filepath, flags.override_filename)) {
+        if (eval_module(ctx, filepath)) {
             exit_code = EXIT_FAILURE;
             goto exit;
         }
