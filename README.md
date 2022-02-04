@@ -61,6 +61,7 @@ Other extras:
 The builtin `@tjs/std` module exports the following:
 
 - [getopts] module
+- [ipaddr] module
 - [path] module
 - [uuid] module
 - `createHash` function
@@ -126,5 +127,6 @@ Thank you all for making this project possible!
 [Web Workers API]: https://developer.mozilla.org/en-US/docs/Web/API/Worker
 [WebAssembly]: https://developer.mozilla.org/en-US/docs/WebAssembly
 [getopts]: https://github.com/jorgebucaran/getopts
+[ipaddr]: https://github.com/whitequark/ipaddr.js
 [path]: https://github.com/browserify/path-browserify
 [uuid]: https://github.com/uuidjs/uuid
