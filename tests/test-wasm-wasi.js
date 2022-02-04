@@ -1,15 +1,11 @@
 import assert from './assert.js';
 import { path } from '@tjs/std';
 
-const { dirname, join } = path;
-
-const thisFile = import.meta.url.slice(7);   // strip "file://"
-
 
 (async () => {
     const args = [
         tjs.exepath(),
-        join(dirname(thisFile), 'wasi', 'launcher.js'),
+        path.join(import.meta.dirname, 'wasi', 'launcher.js'),
         'test.wasm'
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe' });
