@@ -1,5 +1,5 @@
 /*
- * QuickJS + libuv stand alone interpreter
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé
  * Copyright (c) 2017-2018 Fabrice Bellard
@@ -48,7 +48,6 @@ typedef struct CLIOption {
 } CLIOption;
 
 typedef struct Flags {
-    bool strict_module_detection;
     char *eval_expr;
     char *override_filename;
 } Flags;
@@ -60,18 +59,6 @@ static int eprintf(const char *format, ...) {
     ret += vfprintf(stderr, format, argp);
     va_end(argp);
     return ret;
-}
-
-static int get_eval_flags(const char *filepath, bool strict_module_detection) {
-    int is_mjs = has_suffix(filepath, ".mjs");
-
-    if (strict_module_detection)
-        return is_mjs ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL;
-
-    if (is_mjs)
-        return JS_EVAL_TYPE_MODULE;
-
-    return -1 /* autodetect */;
 }
 
 static int eval_buf(JSContext *ctx, const char *buf, const char *filename, int eval_flags) {
@@ -87,11 +74,11 @@ static int eval_buf(JSContext *ctx, const char *buf, const char *filename, int e
     return ret;
 }
 
-static int eval_module(JSContext *ctx, const char *filepath, char *override_filename, int eval_flags) {
+static int eval_module(JSContext *ctx, const char *filepath, char *override_filename) {
     JSValue val;
     int ret = 0;
 
-    val = TJS_EvalFile(ctx, filepath, eval_flags, true, override_filename);
+    val = TJS_EvalFile(ctx, filepath, JS_EVAL_TYPE_MODULE, true, override_filename);
     if (JS_IsException(val)) {
         tjs_dump_error(ctx);
         ret = -1;
@@ -109,8 +96,7 @@ static void print_help(void) {
            "  -e, --eval EXPR                 evaluate EXPR\n"
            "  --memory-limit LIMIT            set the memory limit\n"
            "  --override-filename FILENAME    override filename in error messages\n"
-           "  --stack-size STACKSIZE          set max stack size\n"
-           "  --strict-module-detection       only run code as a module if its extension is \".mjs\"\n");
+           "  --stack-size STACKSIZE          set max stack size\n");
 }
 
 static void print_version() {
@@ -182,8 +168,7 @@ int main(int argc, char **argv) {
 
     TJS_DefaultOptions(&runOptions);
 
-    Flags flags = { .strict_module_detection = false,
-                    .eval_expr = NULL,
+    Flags flags = { .eval_expr = NULL,
                     .override_filename = NULL };
 
     TJS_SetupArgs(argc, argv);
@@ -253,10 +238,6 @@ int main(int argc, char **argv) {
                 exit_code = EXIT_INVALID_ARG;
                 goto exit;
             }
-            if (is_longopt(opt, "strict-module-detection")) {
-                flags.strict_module_detection = true;
-                break;
-            }
             report_unknown_option(&opt);
             exit_code = EXIT_INVALID_ARG;
             goto exit;
@@ -278,9 +259,9 @@ int main(int argc, char **argv) {
             goto exit;
         }
     } else {
+        /* evaluate file */
         const char *filepath = argv[optind];
-        int eval_flags = get_eval_flags(filepath, flags.strict_module_detection);
-        if (eval_module(ctx, filepath, flags.override_filename, eval_flags)) {
+        if (eval_module(ctx, filepath, flags.override_filename)) {
             exit_code = EXIT_FAILURE;
             goto exit;
         }
