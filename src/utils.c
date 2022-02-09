@@ -54,8 +54,9 @@ int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) 
     JSValue js_ip;
     JSValue js_port;
     const char *ip;
-    uint32_t port;
+    uint32_t port = 0;
     int r;
+    int ret = 0;
 
     js_ip = JS_GetPropertyStr(ctx, obj, "ip");
     ip = JS_ToCString(ctx, js_ip);
@@ -68,7 +69,8 @@ int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) 
     r = JS_ToUint32(ctx, &port, js_port);
     JS_FreeValue(ctx, js_port);
     if (r != 0) {
-        return -1;
+        ret = -1;
+        goto end;
     }
 
     memset(ss, 0, sizeof(*ss));
@@ -81,12 +83,12 @@ int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) 
         ((struct sockaddr_in6 *) ss)->sin6_port = htons(port);
     } else {
         tjs_throw_errno(ctx, UV_EAFNOSUPPORT);
-        JS_FreeCString(ctx, ip);
-        return -1;
+        ret = -1;
     }
 
+end:
     JS_FreeCString(ctx, ip);
-    return 0;
+    return ret;
 }
 
 void tjs_addr2obj(JSContext *ctx, JSValue obj, const struct sockaddr *sa) {

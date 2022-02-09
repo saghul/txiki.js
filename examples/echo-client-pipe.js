@@ -3,20 +3,18 @@
 
 
 (async () => {
-    const p = new tjs.Pipe();
+    const p = await tjs.connect('pipe', tjs.args[2] || '/tmp/fooPipe');
     
-    await p.connect(tjs.args[2] || '/tmp/fooPipe');
-    
-    console.log(`Connected to ${p.getpeername()}`);
+    console.log(`Connected to ${p.remoteAddress}`);
 
-    let data;
+    const buf = new Uint8Array(4096);
     while (true) {
-        data = await p.read();
-        if (!data) {
+        const nread = await p.read(buf);
+        if (!nread) {
             console.log('connection closed!');
             break;
         }
         //console.log(`Received: ${new TextDecoder().decode(data)}`);
-        p.write(data);
+        p.write(buf.slice(0, nread));
     }
 })();

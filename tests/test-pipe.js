@@ -6,6 +6,11 @@ const decoder = new TextDecoder();
 
 async function doEchoServer(server) {
     const conn = await server.accept();
+
+    if (!conn) {
+        return;
+    }
+
     const buf = new Uint8Array(4096);
     while (true) {
         const nread = await conn.read(buf);
@@ -17,21 +22,18 @@ async function doEchoServer(server) {
 }
 
 (async () => {
-    const server = new tjs.Pipe();
-    server.bind('testPipe');
-    server.listen();
+    const server = await tjs.listen('pipe', 'testPipe');
+
     doEchoServer(server);
 
-    const client = new tjs.Pipe();
-    await client.connect(server.getsockname());
+    const client = await tjs.connect('pipe', server.localAddress);
+
     client.write(encoder.encode('PING'));
     const buf = new Uint8Array(4096);
     let dataStr, nread;
     nread = await client.read(buf);
     dataStr = decoder.decode(buf.subarray(0, nread));
     assert.eq(dataStr, "PING", "sending works");
-    assert.throws(() => { client.write('PING'); }, TypeError, "sending anything else gives TypeError");
-    assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
     client.close();
     server.close();
 })();

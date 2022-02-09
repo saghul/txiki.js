@@ -798,6 +798,7 @@ static JSValue tjs_pipe_bind(JSContext *ctx, JSValueConst this_val, int argc, JS
         return JS_EXCEPTION;
 
     int r = uv_pipe_bind(&t->h.pipe, name);
+    JS_FreeCString(ctx, name);
     if (r != 0)
         return tjs_throw_errno(ctx, r);
 

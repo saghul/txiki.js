@@ -13414,8 +13414,155 @@ Object.defineProperty(window, "Worker", {
   value: Worker
 });
 
-// tjs/stdio.js
+// tjs/sockets.js
 var core4 = globalThis.__bootstrap;
+async function connect(transport, host, port, options = {}) {
+  const addr = await prepareAddress(transport, host, port);
+  switch (transport) {
+    case "tcp": {
+      const handle = new core4.TCP();
+      if (options.bindAddr) {
+        handle.bind(options.bindAddr);
+      }
+      await handle.connect(addr);
+      return new Connection(handle);
+    }
+    case "pipe": {
+      const handle = new core4.Pipe();
+      await handle.connect(addr);
+      return new Connection(handle);
+    }
+    case "udp": {
+      const handle = new core4.UDP();
+      if (options.bindAddr) {
+        handle.bind(options.bindAddr);
+      }
+      await handle.connect(addr);
+      return new DatagramEndpoint(handle);
+    }
+  }
+}
+async function listen(transport, host, port, options = {}) {
+  const addr = await prepareAddress(transport, host, port);
+  switch (transport) {
+    case "tcp": {
+      const handle = new core4.TCP();
+      handle.bind(addr);
+      handle.listen(options.backlog);
+      return new Listener(handle);
+    }
+    case "pipe": {
+      const handle = new core4.Pipe();
+      handle.bind(addr);
+      handle.listen(options.backlog);
+      return new Listener(handle);
+    }
+    case "udp": {
+      const handle = new core4.UDP();
+      handle.bind(addr);
+      return new DatagramEndpoint(handle);
+    }
+  }
+}
+async function prepareAddress(transport, host = "0.0.0.0", port = 0) {
+  switch (transport) {
+    case "tcp": {
+      const opts = {
+        socktype: tjs.SOCK_STREAM,
+        protocol: tjs.IPPROTO_TCP
+      };
+      const r2 = await tjs.getaddrinfo(host, port, opts);
+      return r2[0];
+    }
+    case "pipe":
+      return host;
+    case "udp": {
+      const opts = {
+        socktype: tjs.SOCK_DGRAM,
+        protocol: tjs.IPPROTO_UDP
+      };
+      const r2 = await tjs.getaddrinfo(host, port, opts);
+      return r2[0];
+    }
+    default:
+      throw new Error("invalid transport");
+  }
+}
+var kHandle = Symbol("kHandle");
+var Connection = class {
+  constructor(handle) {
+    this[kHandle] = handle;
+  }
+  async read(buf) {
+    return this[kHandle].read(buf);
+  }
+  async write(buf) {
+    return this[kHandle].write(buf);
+  }
+  get localAddress() {
+    return this[kHandle].getsockname();
+  }
+  get remoteAddress() {
+    return this[kHandle].getpeername();
+  }
+  shutdown() {
+    this[kHandle].shutdown();
+  }
+  close() {
+    this[kHandle].close();
+  }
+};
+var Listener = class {
+  constructor(handle) {
+    this[kHandle] = handle;
+  }
+  get localAddress() {
+    return this[kHandle].getsockname();
+  }
+  async accept() {
+    const handle = await this[kHandle].accept();
+    if (typeof handle === "undefined") {
+      return;
+    }
+    return new Connection(handle);
+  }
+  close() {
+    this[kHandle].close();
+  }
+  [Symbol.asyncIterator]() {
+    return this;
+  }
+  async next() {
+    const value = await this.accept();
+    return {
+      value,
+      done: typeof value === "undefined"
+    };
+  }
+};
+var DatagramEndpoint = class {
+  constructor(handle) {
+    this[kHandle] = handle;
+  }
+  async recv(buf) {
+    return this[kHandle].recv(buf);
+  }
+  async send(buf, taddr) {
+    return this[kHandle].send(buf, taddr);
+  }
+  get localAddress() {
+    return this[kHandle].getsockname();
+  }
+  get remoteAddress() {
+    return this[kHandle].getpeername();
+  }
+  close() {
+    this[kHandle].close();
+  }
+};
+
+// tjs/stdio.js
+var core5 = globalThis.__bootstrap;
 var kStdioHandle = Symbol("kStdioHandle");
 var kStdioHandleType = Symbol("kStdioHandleType");
 var BaseIOStream = class {
@@ -13435,7 +13582,7 @@ var InputStream = class extends BaseIOStream {
     if (!this.isTTY) {
       throw new Error("not a TTY");
     }
-    const ttyMode = rawMode ? core4.TTY.TTY_MODE_RAW : core4.TTY.TTY_MODE_NORMAL;
+    const ttyMode = rawMode ? core5.TTY.TTY_MODE_RAW : core5.TTY.TTY_MODE_NORMAL;
     this[kStdioHandle].setMode(ttyMode);
   }
 };
@@ -13457,16 +13604,16 @@ var OutputStream = class extends BaseIOStream {
   }
 };
 function createStdioStream(fd) {
-  const isStdin = fd === core4.STDIN_FILENO;
+  const isStdin = fd === core5.STDIN_FILENO;
   const StreamType = isStdin ? InputStream : OutputStream;
-  const type = core4.guessHandle(fd);
+  const type = core5.guessHandle(fd);
   switch (type) {
     case "tty": {
-      const handle = new core4.TTY(fd, isStdin);
+      const handle = new core5.TTY(fd, isStdin);
       return new StreamType(handle, type);
     }
     case "pipe": {
-      const handle = new core4.Pipe();
+      const handle = new core5.Pipe();
       handle.open(fd);
       return new StreamType(handle, type);
     }
@@ -13476,20 +13623,23 @@ function createStdioStream(fd) {
   }
 }
 function createStdin() {
-  return createStdioStream(core4.STDIN_FILENO);
+  return createStdioStream(core5.STDIN_FILENO);
 }
 function createStdout() {
-  return createStdioStream(core4.STDOUT_FILENO);
+  return createStdioStream(core5.STDOUT_FILENO);
 }
 function createStderr() {
-  return createStdioStream(core4.STDERR_FILENO);
+  return createStdioStream(core5.STDERR_FILENO);
 }
 
 // tjs/index.js
-var core5 = globalThis.__bootstrap;
+var core6 = globalThis.__bootstrap;
 var tjs2 = /* @__PURE__ */ Object.create(null);
 var noExport = [
+  "Pipe",
+  "TCP",
   "TTY",
+  "UDP",
   "Worker",
   "XMLHttpRequest",
   "clearInterval",
@@ -13503,25 +13653,37 @@ var noExport = [
   "setTimeout",
   "wasm"
 ];
-for (const [key, value] of Object.entries(core5)) {
+for (const [key, value] of Object.entries(core6)) {
   if (noExport.includes(key)) {
     continue;
   }
   tjs2[key] = value;
 }
-tjs2.args = Object.freeze(core5.args);
-tjs2.versions = Object.freeze(core5.versions);
+tjs2.args = Object.freeze(core6.args);
+tjs2.versions = Object.freeze(core6.versions);
 Object.defineProperty(tjs2, "__evalScript", {
   enumerable: false,
   configurable: false,
   writable: false,
-  value: core5.evalScript
+  value: core6.evalScript
 });
 Object.defineProperty(tjs2, "__loadScript", {
   enumerable: false,
   configurable: false,
   writable: false,
-  value: core5.loadScript
+  value: core6.loadScript
+});
+Object.defineProperty(tjs2, "connect", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: connect
+});
+Object.defineProperty(tjs2, "listen", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: listen
 });
 Object.defineProperty(tjs2, "stdin", {
   enumerable: true,

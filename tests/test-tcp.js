@@ -22,27 +22,23 @@ async function doEchoServer(server) {
 }
 
 (async () => {
-    const server = new tjs.TCP();
-    server.bind({ ip: '127.0.0.1' });
-    server.listen();
+    const server = await tjs.listen('tcp', '127.0.0.1');
+
     doEchoServer(server);
 
     const readBuf = new Uint8Array(4096);
-    const client = new tjs.TCP();
-    await client.connect(server.getsockname());
+
+    const serverAddr = server.localAddress;
+    const client = await tjs.connect('tcp', serverAddr.ip, serverAddr.port);
     client.write(encoder.encode('PING'));
     let dataStr, nread;
     nread = await client.read(readBuf);
     dataStr = decoer.decode(readBuf.subarray(0, nread));
     assert.eq(dataStr, "PING", "sending works");
-    assert.throws(() => { client.write("PING"); }, TypeError, "sending anything else gives TypeError");
-    assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
     client.close();
     server.close();
 
-    const server1 = new tjs.TCP();
-    server1.bind({ ip: '127.0.0.1' });
-    server1.listen();
+    const server1 = await tjs.listen('tcp', '127.0.0.1');
     doEchoServer(server1);
     server1.close();
 })();

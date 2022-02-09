@@ -3,27 +3,24 @@
 
 
 async function handleConnection(conn) {
-    console.log(`Accepted connection! ${conn.getpeername()} <-> ${conn.getsockname()}`);
+    console.log('Accepted connection!');
 
-    let data;
+    const buf = new Uint8Array(4096);
     while (true) {
-        data = await conn.read();
-        if (!data) {
+        const nread = await conn.read(buf);
+        if (!nread) {
             console.log('connection closed!');
             break;
         }
         //console.log(`Received: ${new TextDecoder().decode(data)}`);
-        conn.write(data);
+        conn.write(buf.slice(0, nread));
     }
 }
 
 (async () => {
-    const p = new tjs.Pipe();
+    const p = await tjs.listen('pipe', tjs.args[2] || '/tmp/fooPipe');
 
-    p.bind(tjs.args[2] || '/tmp/fooPipe');
-    p.listen();
-
-    console.log(`Listening on ${p.getsockname()}`); 
+    console.log(`Listening on ${p.localAddress}`);
 
     let conn;
     while (true) {

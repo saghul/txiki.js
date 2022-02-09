@@ -6,7 +6,7 @@ import { addr } from './utils.js';
 
 
 async function handleConnection(conn) {
-    console.log(`Accepted connection! ${addr(conn.getpeername())} <-> ${addr(conn.getsockname())}`);
+    console.log(`Accepted connection! ${addr(conn.localAddress)} <-> ${addr(conn.remoteAddress)}`);
 
     const buf = new Uint8Array(65536);
     while (true) {
@@ -31,16 +31,11 @@ async function handleConnection(conn) {
         }
     });
 
-    const t = new tjs.TCP();
+    const l = await tjs.listen('tcp', options.listen, options.port);
 
-    t.bind({ip: options.listen, port: options.port});
-    t.listen();
+    console.log(`Listening on ${addr(l.localAddress)}`); 
 
-    console.log(`Listening on ${addr(t.getsockname())}`); 
-
-    let conn;
-    while (true) {
-        conn = await t.accept();
+    for await (let conn of l) {
         handleConnection(conn);
         conn = undefined;
     }
