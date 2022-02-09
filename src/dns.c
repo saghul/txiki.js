@@ -107,25 +107,38 @@ static JSValue tjs_dns_getaddrinfo(JSContext *ctx, JSValueConst this_val, int ar
     if (!node)
         return JS_EXCEPTION;
 
+    if (!JS_IsUndefined(argv[1])) {
+        service = JS_ToCString(ctx, argv[1]);
+
+        if (!service) {
+            JS_FreeCString(ctx, node);
+            return JS_EXCEPTION;
+        }
+    }
+
     TJSGetAddrInfoReq *gr = js_malloc(ctx, sizeof(*gr));
-    if (!gr)
+    if (!gr) {
+        JS_FreeCString(ctx, node);
+        JS_FreeCString(ctx, service);
         return JS_EXCEPTION;
+    }
 
     gr->ctx = ctx;
     gr->req.data = gr;
 
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
-    JSValue opts = argv[1];
+
+    JSValue opts = argv[2];
     if (JS_IsObject(opts)) {
         tjs_obj2addrinfo(ctx, opts, &hints);
-        JSValue js_service = JS_GetPropertyStr(ctx, opts, "service");
-        if (!JS_IsUndefined(js_service))
-            service = JS_ToCString(ctx, js_service);
-        JS_FreeValue(ctx, js_service);
     }
 
     int r = uv_getaddrinfo(tjs_get_loop(ctx), &gr->req, uv__getaddrinfo_cb, node, service, &hints);
+
+    JS_FreeCString(ctx, node);
+    JS_FreeCString(ctx, service);
+
     if (r != 0) {
         js_free(ctx, gr);
         return tjs_throw_errno(ctx, r);
@@ -136,6 +149,10 @@ static JSValue tjs_dns_getaddrinfo(JSContext *ctx, JSValueConst this_val, int ar
 
 static const JSCFunctionListEntry tjs_dns_funcs[] = {
     TJS_CFUNC_DEF("getaddrinfo", 2, tjs_dns_getaddrinfo),
+    TJS_CONST(SOCK_STREAM),
+    TJS_CONST(SOCK_DGRAM),
+    TJS_CONST(IPPROTO_TCP),
+    TJS_CONST(IPPROTO_UDP),
 #ifdef AI_PASSIVE
     TJS_CONST(AI_PASSIVE),
 #endif
