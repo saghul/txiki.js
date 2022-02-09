@@ -44,7 +44,7 @@ static JSValue tjs_addrinfo2obj(JSContext *ctx, struct addrinfo *ai) {
             continue;
 
         JSValue item = JS_NewObjectProto(ctx, JS_NULL);
-        JS_DefinePropertyValueStr(ctx, item, "addr", tjs_addr2obj(ctx, ptr->ai_addr), JS_PROP_C_W_E);
+        tjs_addr2obj(ctx, item, ptr->ai_addr);
         JS_DefinePropertyValueStr(ctx, item, "socktype", JS_NewInt32(ctx, ptr->ai_socktype), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, item, "protocol", JS_NewInt32(ctx, ptr->ai_protocol), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx,

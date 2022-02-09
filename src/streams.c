@@ -487,7 +487,9 @@ static JSValue tjs_tcp_getsockpeername(JSContext *ctx, JSValueConst this_val, in
         return tjs_throw_errno(ctx, r);
     }
 
-    return tjs_addr2obj(ctx, (struct sockaddr *) &addr);
+    JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
+    tjs_addr2obj(ctx, obj, (struct sockaddr *) &addr);
+    return obj;
 }
 
 static JSValue tjs_tcp_connect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
