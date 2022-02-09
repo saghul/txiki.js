@@ -136,7 +136,9 @@ static void uv__udp_recv_cb(uv_udp_t *handle,
         arg = JS_NewObjectProto(ctx, JS_NULL);
         JS_DefinePropertyValueStr(ctx, arg, "nread", JS_NewInt32(ctx, nread), JS_PROP_C_W_E);
         JS_DefinePropertyValueStr(ctx, arg, "flags", JS_NewInt32(ctx, flags), JS_PROP_C_W_E);
-        JS_DefinePropertyValueStr(ctx, arg, "addr", tjs_addr2obj(ctx, addr), JS_PROP_C_W_E);
+        JSValue addrobj = JS_NewObjectProto(ctx, JS_NULL);
+        tjs_addr2obj(ctx, addrobj, addr);
+        JS_DefinePropertyValueStr(ctx, arg, "addr", addrobj, JS_PROP_C_W_E);
     }
 
     TJS_SettlePromise(ctx, &u->read.result, is_reject, 1, (JSValueConst *) &arg);
@@ -332,7 +334,9 @@ static JSValue tjs_udp_getsockpeername(JSContext *ctx, JSValueConst this_val, in
     if (r != 0)
         return tjs_throw_errno(ctx, r);
 
-    return tjs_addr2obj(ctx, (struct sockaddr *) &addr);
+    JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
+    tjs_addr2obj(ctx, obj, (struct sockaddr *) &addr);
+    return obj;
 }
 
 static JSValue tjs_udp_connect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
