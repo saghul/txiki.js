@@ -103,9 +103,13 @@ static void uv__getaddrinfo_cb(uv_getaddrinfo_t *req, int status, struct addrinf
 
 static JSValue tjs_dns_getaddrinfo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *service = NULL;
-    const char *node = JS_ToCString(ctx, argv[0]);
-    if (!node)
-        return JS_EXCEPTION;
+    const char *node = NULL;
+
+    if (!JS_IsUndefined(argv[0])) {
+        node = JS_ToCString(ctx, argv[0]);
+        if (!node)
+            return JS_EXCEPTION;
+    }
 
     if (!JS_IsUndefined(argv[1])) {
         service = JS_ToCString(ctx, argv[1]);

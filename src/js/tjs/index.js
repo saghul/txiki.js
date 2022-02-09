@@ -1,5 +1,6 @@
 const core = globalThis.__bootstrap;
 
+import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
 
 // The "tjs" global.
@@ -7,7 +8,10 @@ import { createStdin, createStdout, createStderr } from './stdio.js';
 
 const tjs = Object.create(null);
 const noExport = [
+    'Pipe',
+    'TCP',
     'TTY',
+    'UDP',
     'Worker',
     'XMLHttpRequest',
     'clearInterval',
@@ -46,6 +50,20 @@ Object.defineProperty(tjs, '__loadScript', {
     configurable: false,
     writable: false,
     value: core.loadScript
+});
+
+// Sockets.
+Object.defineProperty(tjs, 'connect', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: connect
+});
+Object.defineProperty(tjs, 'listen', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: listen
 });
 
 // Stdio.

@@ -5,10 +5,9 @@ import { addr } from './utils.js';
 
 
 (async () => {
-    const u = new tjs.UDP();
+    const u = await tjs.listen('udp', tjs.args[2] || '127.0.0.1', tjs.args[3] || 1234);
 
-    u.bind({ip: tjs.args[2] || '127.0.0.1', port: tjs.args[3] || 1234});
-    console.log(`Listening on ${addr(u.getsockname())}`); 
+    console.log(`Listening on ${addr(u.localAddress)}`); 
 
     const decoder = new TextDecoder();
     const dataBuf = new Uint8Array(1024);
