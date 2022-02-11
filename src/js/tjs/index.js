@@ -19,7 +19,6 @@ const noExport = [
     'evalScript',
     'guessHandle',
     'hrtimeMs',
-    'loadScript',
     'random',
     'setInterval',
     'setTimeout',
@@ -44,12 +43,6 @@ Object.defineProperty(tjs, '__evalScript', {
     configurable: false,
     writable: false,
     value: core.evalScript
-});
-Object.defineProperty(tjs, '__loadScript', {
-    enumerable: false,
-    configurable: false,
-    writable: false,
-    value: core.loadScript
 });
 
 // Sockets.

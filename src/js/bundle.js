@@ -13647,7 +13647,6 @@ var noExport = [
   "evalScript",
   "guessHandle",
   "hrtimeMs",
-  "loadScript",
   "random",
   "setInterval",
   "setTimeout",
@@ -13666,12 +13665,6 @@ Object.defineProperty(tjs2, "__evalScript", {
   configurable: false,
   writable: false,
   value: core6.evalScript
-});
-Object.defineProperty(tjs2, "__loadScript", {
-  enumerable: false,
-  configurable: false,
-  writable: false,
-  value: core6.loadScript
 });
 Object.defineProperty(tjs2, "connect", {
   enumerable: true,

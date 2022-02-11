@@ -29,19 +29,6 @@
 #include <uv.h>
 
 
-/* load and evaluate a file */
-static JSValue js_loadScript(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    const char *filename;
-    JSValue ret;
-
-    filename = JS_ToCString(ctx, argv[0]);
-    if (!filename)
-        return JS_EXCEPTION;
-    ret = TJS_EvalFile(ctx, filename, JS_EVAL_TYPE_GLOBAL, false);
-    JS_FreeCString(ctx, filename);
-    return ret;
-}
-
 static JSValue js_std_gc(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JS_RunGC(JS_GetRuntime(ctx));
     return JS_UNDEFINED;
@@ -90,7 +77,6 @@ static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("gc", 0, js_std_gc),
     TJS_CFUNC_DEF("evalScript", 1, js_evalScript),
-    TJS_CFUNC_DEF("loadScript", 1, js_loadScript),
 };
 
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {

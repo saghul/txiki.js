@@ -968,12 +968,6 @@ window.addEventListener('unhandledrejection', event => {
     function handle_directive(cmd, expr) {        
         if (cmd === "h" || cmd === "?" || cmd == "help") {
             help();
-        } else if (cmd === "load") {
-            var filename = expr.substring(cmd.length + 1).trim();
-            if (filename.lastIndexOf(".") <= filename.lastIndexOf("/"))
-                filename += ".js";
-            tjs.__loadScript(filename);
-            return false;
         } else if (cmd === "t") {
             show_time = !show_time;
         } else if (cmd === "clear") {
