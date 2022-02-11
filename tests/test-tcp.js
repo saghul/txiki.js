@@ -22,7 +22,7 @@ async function doEchoServer(server) {
 }
 
 (async () => {
-    const server = await tjs.listen('tcp', '127.0.0.1');
+    const server = await tjs.listen('tcp', '0.0.0.0');
 
     doEchoServer(server);
 
