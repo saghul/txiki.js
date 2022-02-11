@@ -770,6 +770,9 @@ static JSValue tjs_pipe_connect(JSContext *ctx, JSValueConst this_val, int argc,
     if (!t)
         return JS_EXCEPTION;
 
+    if (!JS_IsString(argv[0]))
+        return JS_ThrowTypeError(ctx, "the pipe name must be a string");
+
     const char *name = JS_ToCString(ctx, argv[0]);
     if (!name)
         return JS_EXCEPTION;
@@ -792,6 +795,9 @@ static JSValue tjs_pipe_bind(JSContext *ctx, JSValueConst this_val, int argc, JS
     TJSStream *t = tjs_pipe_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;
+
+    if (!JS_IsString(argv[0]))
+        return JS_ThrowTypeError(ctx, "the pipe name must be a string");
 
     const char *name = JS_ToCString(ctx, argv[0]);
     if (!name)

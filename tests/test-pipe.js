@@ -36,4 +36,23 @@ async function doEchoServer(server) {
     assert.eq(dataStr, "PING", "sending works");
     client.close();
     server.close();
+
+    let error;
+    try {
+        await tjs.listen('pipe');
+    } catch (e) {
+        error = e;
+    }
+    assert.isNot(error, undefined);
+    assert.eq(error.name, 'TypeError');
+
+    error = undefined;
+
+    try {
+        await tjs.connect('pipe');
+    } catch (e) {
+        error = e;
+    }
+    assert.isNot(error, undefined);
+    assert.eq(error.name, 'TypeError');
 })();

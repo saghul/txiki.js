@@ -53,14 +53,14 @@ export async function listen(transport, host, port, options = {}) {
     }
 }
 
-async function prepareAddress(transport, host='0.0.0.0', port=0) {
+async function prepareAddress(transport, host, port) {
     switch (transport) {
         case 'tcp': {
             const opts = {
                 socktype: tjs.SOCK_STREAM,
                 protocol: tjs.IPPROTO_TCP
             };
-            const r = await tjs.getaddrinfo(host, port, opts);
+            const r = await tjs.getaddrinfo(host ?? '0.0.0.0', port ?? 0, opts);
             return r[0];
         }
         case 'pipe':
@@ -70,7 +70,7 @@ async function prepareAddress(transport, host='0.0.0.0', port=0) {
                 socktype: tjs.SOCK_DGRAM,
                 protocol: tjs.IPPROTO_UDP
             };
-            const r = await tjs.getaddrinfo(host, port, opts);
+            const r = await tjs.getaddrinfo(host ?? '0.0.0.0', port ?? 0, opts);
             return r[0];
         }
         default:
