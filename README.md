@@ -90,6 +90,10 @@ make
 If you didn't already clone this repository recursively, make sure you initialize these
 submodules with `git submodule update --init` before proceeding to the build.
 
+## Versioning
+
+At this time txiki.js uses [calendar versioning] with the form YY.MM.MICRO.
+
 ## Thanks
 
 txiki.js stands on shoulders of giants. It wouldn't be what it is today without these libraries:
@@ -130,3 +134,4 @@ Thank you all for making this project possible!
 [ipaddr]: https://github.com/whitequark/ipaddr.js
 [path]: https://github.com/browserify/path-browserify
 [uuid]: https://github.com/uuidjs/uuid
+[calendar versioning]: https://calver.org/
