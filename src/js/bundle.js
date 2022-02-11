@@ -13493,10 +13493,10 @@ var Connection = class {
   constructor(handle) {
     this[kHandle] = handle;
   }
-  async read(buf) {
+  read(buf) {
     return this[kHandle].read(buf);
   }
-  async write(buf) {
+  write(buf) {
     return this[kHandle].write(buf);
   }
   get localAddress() {
@@ -13544,10 +13544,10 @@ var DatagramEndpoint = class {
   constructor(handle) {
     this[kHandle] = handle;
   }
-  async recv(buf) {
+  recv(buf) {
     return this[kHandle].recv(buf);
   }
-  async send(buf, taddr) {
+  send(buf, taddr) {
     return this[kHandle].send(buf, taddr);
   }
   get localAddress() {

@@ -32,6 +32,8 @@ async function doEchoServer(server) {
     dataStr = decoder.decode(rcvBuf.subarray(0, rinfo.nread));
     assert.eq(dataStr, 'PING', 'sending works');
     assert.eq(serverAddr, rinfo.addr, "source address matches");
+    assert.throws(() => { client.send('PING', serverAddr); }, TypeError, "sending anything else gives TypeError");
+    assert.throws(() => { client.send(1234, serverAddr); }, TypeError, "sending anything else gives TypeError");
     client.close();
     server.close();
 })();

@@ -34,6 +34,8 @@ async function doEchoServer(server) {
     nread = await client.read(buf);
     dataStr = decoder.decode(buf.subarray(0, nread));
     assert.eq(dataStr, "PING", "sending works");
+    assert.throws(() => { client.write('PING'); }, TypeError, "sending anything else gives TypeError");
+    assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
     client.close();
     server.close();
 
