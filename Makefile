@@ -6,13 +6,13 @@ all: build
 build:
 	@mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR); cmake ../ -DCMAKE_BUILD_TYPE=$(BUILDTYPE)
-	$(MAKE) -C $(BUILD_DIR) -j8
+	cmake --build $(BUILD_DIR)
 
 install:
-	@$(MAKE) -C $(BUILD_DIR) install
+	cmake --build $(BUILD_DIR) --target install
 
 clean:
-	@$(MAKE) -C $(BUILD_DIR) clean
+	cmake --build $(BUILD_DIR) --target clean
 
 debug:
 	BUILDTYPE=Debug $(MAKE)
