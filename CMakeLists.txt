@@ -67,25 +67,7 @@ add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
 add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
-cpr_option(USE_SYSTEM_CURL "If ON, this project will look in the system paths for an installed curl library" ON)
-if(USE_SYSTEM_CURL)
-    find_package(CURL)
-endif()
-if(NOT USE_SYSTEM_CURL OR NOT CURL_FOUND)
-    message(STATUS "Not using system curl, using built-in curl project instead.")
-    option(HTTP_ONLY "disables all protocols except HTTP" ON)
-    option(BUILD_TESTING "Set to ON to build cURL tests." OFF)
-    option(BUILD_CURL_EXE "Set to ON to build cURL executable." OFF)
-    if(APPLE)
-        option(CMAKE_USE_SECTRANSP "Enable Apple OS native SSL/TLS" ON)
-    endif()
-    add_subdirectory(deps/curl)
-    set(CURL_FOUND TRUE)
-    set(CURL_LIBRARIES libcurl)
-    set(CURL_INCLUDE_DIRS
-        ${CURL_SOURCE_DIR}/include
-        ${CURL_BINARY_DIR}/include/curl)
-endif()
+find_package(CURL REQUIRED)
 
 add_executable(tjs
     src/bootstrap.c
