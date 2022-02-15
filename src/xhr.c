@@ -341,9 +341,6 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValueConst new_target, int 
     curl_easy_setopt(x->curl_h, CURLOPT_WRITEDATA, x);
     curl_easy_setopt(x->curl_h, CURLOPT_HEADERFUNCTION, curl__header_cb);
     curl_easy_setopt(x->curl_h, CURLOPT_HEADERDATA, x);
-#if defined(_WIN32)
-    curl_easy_setopt(x->curl_h, CURLOPT_CAINFO, "cacert.pem");
-#endif
 
     JS_SetOpaque(obj, x);
     return obj;
