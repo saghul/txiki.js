@@ -72,3 +72,36 @@ jobs:
       run: make
     - name: Test it
       run: make test
+  build-windows:
+    name: Windows
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sys:
+          - mingw64
+          - clang64
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{matrix.sys}}
+        update: true
+        install: >-
+          git
+          make
+        pacboy: >-
+          curl-winssl:p
+          toolchain:p
+          cmake:p
+          ninja:p
+    - name: Build it
+      run: make
+    - name: Test it
+      run: make test
