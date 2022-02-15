@@ -119,10 +119,8 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
 
 #if defined(_WIN32)
 #define TJS__PATHSEP  '\\'
-#define TJS__PATHSEPS "\\"
 #else
 #define TJS__PATHSEP  '/'
-#define TJS__PATHSEPS "/"
 #endif
 
 int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use_realpath, JS_BOOL is_main) {
@@ -206,7 +204,10 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
         return js_strdup(ctx, name);
     }
 
-    p = strrchr(base_name, TJS__PATHSEP);
+    /* Here we check the unix style path separator, since that's how import
+     * paths are written.
+     */
+    p = strrchr(base_name, '/');
     if (p)
         len = p - base_name;
     else
