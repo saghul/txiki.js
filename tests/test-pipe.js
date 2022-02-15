@@ -3,6 +3,12 @@ import assert from './assert.js';
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+let pipeName;
+if (tjs.platform === 'windows') {
+    pipeName = '\\\\?\\pipe\\testPipe';
+} else {
+    pipeName = 'testPipe';
+}
 
 async function doEchoServer(server) {
     const conn = await server.accept();
@@ -22,7 +28,7 @@ async function doEchoServer(server) {
 }
 
 (async () => {
-    const server = await tjs.listen('pipe', 'testPipe');
+    const server = await tjs.listen('pipe', pipeName);
 
     doEchoServer(server);
 
