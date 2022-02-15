@@ -144,36 +144,34 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
     JS_FreeAtom(ctx, module_name_atom);
     if (!module_name)
         return -1;
-    if (!strchr(module_name, ':')) {
-        pstrcpy(buf, sizeof(buf), "file://");
-        /* realpath() cannot be used with modules compiled with qjsc
-           because the corresponding module source code is not
-           necessarily present */
-        if (use_realpath) {
-            uv_fs_t req;
-            r = uv_fs_realpath(NULL, &req, module_name, NULL);
-            if (r != 0) {
-                uv_fs_req_cleanup(&req);
-                JS_ThrowTypeError(ctx, "realpath failure");
-                JS_FreeCString(ctx, module_name);
-                return -1;
-            }
-            pstrcat(buf, sizeof(buf), req.ptr);
-            uv_fs_req_cleanup(&req);
 
-            // When using realpath we have the opportunity to extract the dirname
-            // and basename and add them to the meta. Since the path is now absolute
-            // all we need to do is split on the last path separator.
-            const char *start = buf + 7; /* skip file:// */
-            char *p = strrchr(start, TJS__PATHSEP);
-            strncpy(module_dirname, start , p - start);
-            strcpy(module_basename, p + 1);
-        } else {
-            pstrcat(buf, sizeof(buf), module_name);
+    /* realpath() cannot be used with builtin modules
+        because the corresponding module source code is not
+        necessarily present */
+    if (use_realpath) {
+        uv_fs_t req;
+        r = uv_fs_realpath(NULL, &req, module_name, NULL);
+        if (r != 0) {
+            uv_fs_req_cleanup(&req);
+            JS_ThrowTypeError(ctx, "realpath failure");
+            JS_FreeCString(ctx, module_name);
+            return -1;
         }
+        pstrcpy(buf, sizeof(buf), "file://");
+        pstrcat(buf, sizeof(buf), req.ptr);
+        uv_fs_req_cleanup(&req);
+
+        // When using realpath we have the opportunity to extract the dirname
+        // and basename and add them to the meta. Since the path is now absolute
+        // all we need to do is split on the last path separator.
+        const char *start = buf + 7; /* skip file:// */
+        char *p = strrchr(start, TJS__PATHSEP);
+        strncpy(module_dirname, start , p - start);
+        strcpy(module_basename, p + 1);
     } else {
-        pstrcpy(buf, sizeof(buf), module_name);
+        pstrcat(buf, sizeof(buf), module_name);
     }
+
     JS_FreeCString(ctx, module_name);
 
     meta_obj = JS_GetImportMeta(ctx, m);
