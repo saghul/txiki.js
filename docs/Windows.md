@@ -1,36 +1,39 @@
 # Windows support
 
-Windows support it's currently experimental. Tests do pass, but building is not
+Windows support it's currently considered beta. Tests do pass, but building it is not
 as easy as it should be.
 
 ## Building
 
-Building has only been tested in 64bits.
+Building has only been tested in 64bit Windows.
 
 ### Prerequisites
 
-- [MSYS2]
-- MSYS2 packages: git make mingw-w64-x86_64-clang mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+First make sure you have [MSYS2] installed. The `mingw64` and `clang64` environments are currently tested.
+
+Then install the required dependencies:
+
+```bash
+pacman -S git make pactoys
+pacboy -S curl-winssl:p toolchain:p cmake:p ninja:p
+```
 
 ### Build
 
-These commands must be run in the "MSYS2 MinGW 64-bit" shell.
+These commands must be run in a MinGW64 or clang64 shell.
 
 ```bash
 make
-curl --remote-name --time-cond cacert.pem https://curl.haxx.se/ca/cacert.pem
-cp cacert.pem build
-ldd build/tjs.exe | grep mingw | awk '{ print $3 }' | xargs -I{} cp -u {} build/
 ```
 
-This will build the executable and copy all the required filed (DLLs and CA bundle) into the build directory.
+This will build the executable just like on Unix. Note that at this point there are a number of dynamically linked libraries, so if you want to use the executable on a different system you'll need to copy those too. Check the list with `ldd build/tjs.exe`.
 
 ## Running the tests
 
-Make sure these commands are run from PowerShell or Windows Terminal (mintty, what MSYS2 uses is not yet supported).
+Make sure these commands are run from Windows Terminal (mintty, what MSYS2 provides is not supported).
 
-```
-.\build\tjs.exe .\tests\run.js
+```bash
+make test
 ```
 
 [MSYS2]: https://www.msys2.org

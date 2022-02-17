@@ -70,7 +70,7 @@ The builtin `@tjs/std` module exports the following:
 
 * GNU/Linux
 * macOS
-* Windows (experimental)
+* Windows (beta)
 * Other Unixes (please test!)
 
 ## Building
