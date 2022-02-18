@@ -48,7 +48,7 @@ giants: it uses [QuickJS] as its JavaScript engine, [libuv] as the platform laye
 - WASI
 - Miscellaneous utility functions
 
-See the [full API].
+See the [full API documentation].
 
 Other extras:
 
@@ -77,6 +77,12 @@ The builtin `@tjs/std` module exports the following:
 
 [CMake] is necessary.
 
+*NOTE:* The txiki.js build depends on a number of git submodules (e.g. [curl], [libuv]).
+If you didn't already clone this repository recursively, make sure you initialize these
+submodules with `git submodule update --init` before proceeding to the build.
+
+### Unix systems
+
 ```bash
 # Get the code
 git clone --recursive https://github.com/saghul/txiki.js --shallow-submodules && cd txiki.js
@@ -86,9 +92,43 @@ make
 ./build/tjs
 ```
 
-*NOTE:* The txiki.js build depends on a number of git submodules (e.g. [curl], [libuv]).
-If you didn't already clone this repository recursively, make sure you initialize these
-submodules with `git submodule update --init` before proceeding to the build.
+### Windows (beta)
+
+<details>
+Windows support it's currently considered beta. Tests do pass, but building it is not as easy as it should be.
+
+Building has only been tested in 64bit Windows.
+
+#### Prerequisites
+
+First make sure you have [MSYS2](https://www.msys2.org) installed. The `mingw64` and `clang64` environments are currently tested.
+
+Then install the required dependencies:
+
+```bash
+pacman -S git make pactoys
+pacboy -S curl-winssl:p toolchain:p cmake:p ninja:p
+```
+
+#### Build
+
+These commands must be run in a MinGW64 or clang64 shell.
+
+```bash
+make
+```
+
+This will build the executable just like on Unix. Note that at this point there are a number of dynamically linked libraries, so if you want to use the executable on a different system you'll need to copy those too. Check the list with `ldd build/tjs.exe`.
+
+#### Running the tests
+
+Make sure these commands are run from Windows Terminal (mintty, what MSYS2 provides is not supported).
+
+```bash
+make test
+```
+
+</details>
 
 ## Versioning
 
@@ -111,7 +151,7 @@ Thank you all for making this project possible!
 [QuickJS]: https://bellard.org/quickjs/
 [libuv]: https://libuv.org/
 [curl]: https://github.com/curl/curl
-[full API]: docs/API.md
+[full API documentation]: https://bettercallsaghul.com/txiki.js/api/
 [CMake]: https://cmake.org/
 [wasm3]: https://github.com/wasm3/wasm3
 [contributors]: https://github.com/saghul/txiki.js/graphs/contributors

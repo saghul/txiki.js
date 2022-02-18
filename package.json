@@ -6,7 +6,10 @@
   "scripts": {
     "postinstall": "patch-package",
     "bundle": "esbuild src/js/index.js --bundle --outfile=src/js/bundle.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module",
-    "stdlib": "esbuild src/js/stdlib/index.js --bundle --outfile=src/js/std.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module"
+    "stdlib": "esbuild src/js/stdlib/index.js --bundle --outfile=src/js/std.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module",
+    "api-docs": "typedoc --tsconfig docs/tsconfig.doc.json",
+    "api-docs-watch": "typedoc --tsconfig docs/tsconfig.doc.json --watch",
+    "deploy-api-docs": "gh-pages -d docs/api -e api -u \"github-actions-bot <support+actions@github.com>\""
   },
   "license": "MIT",
   "dependencies": {
@@ -14,6 +17,7 @@
     "core-js": "^3.20.3",
     "esbuild": "^0.14.11",
     "getopts": "^2.3.0",
+    "gh-pages": "^3.2.3",
     "ipaddr.js": "^2.0.1",
     "js-md5": "^0.7.3",
     "js-sha1": "^0.6.0",
@@ -24,6 +28,7 @@
     "path-browserify": "^1.0.1",
     "queue-microtask": "^1.2.3",
     "text-encoding": "^0.7.0",
+    "typedoc": "^0.22.12",
     "urlpattern-polyfill": "^1.0.0-rc4",
     "util": "^0.12.4",
     "uuid": "^8.3.2",
