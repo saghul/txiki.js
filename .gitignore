@@ -4,5 +4,6 @@
 build/
 src/version.h
 node_modules/
+docs/api/
 
 .DS_Store
