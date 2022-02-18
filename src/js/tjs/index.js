@@ -16,7 +16,6 @@ const noExport = [
     'XMLHttpRequest',
     'clearInterval',
     'clearTimeout',
-    'evalScript',
     'guessHandle',
     'hrtimeMs',
     'random',
@@ -36,14 +35,6 @@ for (const [key, value] of Object.entries(core)) {
 // These values should be immutable.
 tjs.args = Object.freeze(core.args);
 tjs.versions = Object.freeze(core.versions);
-
-// For the REPL.
-Object.defineProperty(tjs, '__evalScript', {
-    enumerable: false,
-    configurable: false,
-    writable: false,
-    value: core.evalScript
-});
 
 // Sockets.
 Object.defineProperty(tjs, 'connect', {

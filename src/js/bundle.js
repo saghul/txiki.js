@@ -13644,7 +13644,6 @@ var noExport = [
   "XMLHttpRequest",
   "clearInterval",
   "clearTimeout",
-  "evalScript",
   "guessHandle",
   "hrtimeMs",
   "random",
@@ -13660,12 +13659,6 @@ for (const [key, value] of Object.entries(core6)) {
 }
 tjs2.args = Object.freeze(core6.args);
 tjs2.versions = Object.freeze(core6.versions);
-Object.defineProperty(tjs2, "__evalScript", {
-  enumerable: false,
-  configurable: false,
-  writable: false,
-  value: core6.evalScript
-});
 Object.defineProperty(tjs2, "connect", {
   enumerable: true,
   configurable: false,
