@@ -11210,7 +11210,7 @@ var require_util = __commonJS({
   }
 });
 
-// polyfills/base.js
+// src/js/polyfills/base.js
 var import_queue_microtask = __toESM(require_queue_microtask());
 var core = globalThis.__bootstrap;
 globalThis.setTimeout = core.setTimeout;
@@ -11243,7 +11243,7 @@ Object.defineProperty(globalThis, "self", {
   }
 });
 
-// polyfills/event-target.js
+// src/js/polyfills/event-target.js
 var privateData = /* @__PURE__ */ new WeakMap();
 function pd(event) {
   const retv = privateData.get(event);
@@ -11537,7 +11537,7 @@ var EventTarget2 = class {
   }
 };
 
-// polyfills/event-target-polyfill.js
+// src/js/polyfills/event-target-polyfill.js
 var kErrorEventData = Symbol("kErrorEventData");
 var ErrorEvent2 = class extends Event2 {
   constructor(error) {
@@ -11630,7 +11630,7 @@ defineEventAttribute(windowProto, "load");
 defineEventAttribute(windowProto, "unhandledrejection");
 EventTarget2.__defineEventAttribute = defineEventAttribute;
 
-// polyfills/url-polyfill.js
+// src/js/polyfills/url-polyfill.js
 var import_url = __toESM(require_url3());
 var import_to_json = __toESM(require_to_json2());
 var import_url_search_params = __toESM(require_url_search_params3());
@@ -12289,10 +12289,10 @@ var U = function() {
   } }]), u2;
 }();
 
-// polyfills/url-polyfill.js
+// src/js/polyfills/url-polyfill.js
 window.URLPattern = U;
 
-// polyfills/xhr.js
+// src/js/polyfills/xhr.js
 var { XMLHttpRequest: XHR } = globalThis.__bootstrap;
 var kXHR = Symbol("kXHR");
 var XMLHttpRequest2 = class extends EventTarget {
@@ -12412,7 +12412,7 @@ Object.defineProperty(window, "XMLHttpRequest", {
   value: XMLHttpRequest2
 });
 
-// polyfills/index.js
+// src/js/polyfills/index.js
 var import_whatwg_fetch = __toESM(require_fetch_umd());
 
 // node_modules/abortcontroller-polyfill/dist/polyfill-patch-fetch.js
@@ -12786,15 +12786,15 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
   })(typeof self !== "undefined" ? self : global);
 });
 
-// polyfills/index.js
+// src/js/polyfills/index.js
 var import_es2018 = __toESM(require_polyfill_es2018());
 
-// polyfills/text-encoding.js
+// src/js/polyfills/text-encoding.js
 var import_text_encoding = __toESM(require_text_encoding());
 window.TextEncoder = import_text_encoding.TextEncoder;
 window.TextDecoder = import_text_encoding.TextDecoder;
 
-// polyfills/alert-confirm-prompt.js
+// src/js/polyfills/alert-confirm-prompt.js
 var encoder = new TextEncoder();
 var decoder = new TextDecoder();
 var LF = "\n".charCodeAt();
@@ -12850,7 +12850,7 @@ globalThis.alert = alert;
 globalThis.confirm = confirm;
 globalThis.prompt = prompt;
 
-// polyfills/console.js
+// src/js/polyfills/console.js
 var import_util = __toESM(require_util());
 var encoder2 = new TextEncoder();
 function print() {
@@ -13088,7 +13088,7 @@ function v4(options, buf, offset) {
 }
 var v4_default = v4;
 
-// polyfills/crypto.js
+// src/js/polyfills/crypto.js
 var core2 = globalThis.__bootstrap;
 var TypedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
 var TypedArrayProto_toStringTag = Object.getOwnPropertyDescriptor(TypedArrayPrototype, Symbol.toStringTag).get;
@@ -13128,7 +13128,7 @@ Object.defineProperty(window, "crypto", {
   value: crypto2
 });
 
-// polyfills/performance.js
+// src/js/polyfills/performance.js
 var core3 = globalThis.__bootstrap;
 var Performance = class {
   constructor() {
@@ -13210,7 +13210,7 @@ Object.defineProperty(window, "performance", {
   value: new Performance()
 });
 
-// polyfills/wasm.js
+// src/js/polyfills/wasm.js
 var { wasm } = globalThis.__bootstrap;
 var kWasmModule = Symbol("kWasmModule");
 var kWasmModuleRef = Symbol("kWasmModuleRef");
@@ -13378,7 +13378,7 @@ Object.defineProperty(globalThis, "WebAssembly", {
   value: new WebAssembly()
 });
 
-// polyfills/worker.js
+// src/js/polyfills/worker.js
 var { Worker: _Worker } = globalThis.__bootstrap;
 var kWorker = Symbol("kWorker");
 var Worker = class extends EventTarget {
@@ -13414,7 +13414,7 @@ Object.defineProperty(window, "Worker", {
   value: Worker
 });
 
-// tjs/sockets.js
+// src/js/tjs/sockets.js
 var core4 = globalThis.__bootstrap;
 async function connect(transport, host, port, options = {}) {
   const addr = await prepareAddress(transport, host, port);
@@ -13561,7 +13561,7 @@ var DatagramEndpoint = class {
   }
 };
 
-// tjs/stdio.js
+// src/js/tjs/stdio.js
 var core5 = globalThis.__bootstrap;
 var kStdioHandle = Symbol("kStdioHandle");
 var kStdioHandleType = Symbol("kStdioHandleType");
@@ -13632,7 +13632,7 @@ function createStderr() {
   return createStdioStream(core5.STDERR_FILENO);
 }
 
-// tjs/index.js
+// src/js/tjs/index.js
 var core6 = globalThis.__bootstrap;
 var tjs2 = /* @__PURE__ */ Object.create(null);
 var noExport = [

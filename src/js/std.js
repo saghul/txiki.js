@@ -4076,7 +4076,7 @@ function getopts_default(argv, opts) {
   return out;
 }
 
-// stdlib/index.js
+// src/js/stdlib/index.js
 var import_ipaddr = __toESM(require_ipaddr());
 var import_path_browserify = __toESM(require_path_browserify());
 
@@ -4515,7 +4515,7 @@ function version(uuid) {
 }
 var version_default = version;
 
-// stdlib/hashlib.js
+// src/js/stdlib/hashlib.js
 var import_js_md5 = __toESM(require_md5());
 var import_js_sha1 = __toESM(require_sha1());
 var import_js_sha256 = __toESM(require_sha256());
