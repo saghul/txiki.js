@@ -123,18 +123,24 @@ static JSValue tjs_getenv(JSContext *ctx, JSValueConst this_val, int argc, JSVal
 
     r = uv_os_getenv(name, dbuf, &size);
     if (r != 0) {
-        if (r != UV_ENOBUFS)
+        if (r != UV_ENOBUFS) {
+            JS_FreeCString(ctx, name);
             return tjs_throw_errno(ctx, r);
+        }
         dbuf = js_malloc(ctx, size);
-        if (!dbuf)
+        if (!dbuf) {
+            JS_FreeCString(ctx, name);
             return JS_EXCEPTION;
+        }
         r = uv_os_getenv(name, dbuf, &size);
         if (r != 0) {
+            JS_FreeCString(ctx, name);
             js_free(ctx, dbuf);
             return tjs_throw_errno(ctx, r);
         }
     }
 
+    JS_FreeCString(ctx, name);
     JSValue ret = JS_NewStringLen(ctx, dbuf, size);
 
     if (dbuf != buf)
@@ -153,6 +159,8 @@ static JSValue tjs_setenv(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         return JS_EXCEPTION;
 
     int r = uv_os_setenv(name, value);
+    JS_FreeCString(ctx, name);
+    JS_FreeCString(ctx, value);
     if (r != 0)
         return tjs_throw_errno(ctx, r);
 
@@ -165,6 +173,7 @@ static JSValue tjs_unsetenv(JSContext *ctx, JSValueConst this_val, int argc, JSV
         return JS_EXCEPTION;
 
     int r = uv_os_unsetenv(name);
+    JS_FreeCString(ctx, name);
     if (r != 0)
         return tjs_throw_errno(ctx, r);
 

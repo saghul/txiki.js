@@ -203,7 +203,13 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
         options.args = js_mallocz(ctx, sizeof(*options.args) * 2);
         if (!options.args)
             goto fail;
-        options.args[0] = js_strdup(ctx, JS_ToCString(ctx, arg0));
+        const char *arg0_str = JS_ToCString(ctx, arg0);
+        if (!arg0_str)
+            goto fail;
+        options.args[0] = js_strdup(ctx, arg0_str);
+        JS_FreeCString(ctx, arg0_str);
+        if (!options.args[0])
+            goto fail;
     } else if (JS_IsArray(ctx, arg0)) {
         JSValue js_length = JS_GetPropertyStr(ctx, arg0, "length");
         uint64_t len;
@@ -219,7 +225,13 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
             JSValue v = JS_GetPropertyUint32(ctx, arg0, i);
             if (JS_IsException(v))
                 goto fail;
-            options.args[i] = js_strdup(ctx, JS_ToCString(ctx, v));
+            const char *arg_str = JS_ToCString(ctx, v);
+            if (!arg_str)
+                goto fail;
+            options.args[i] = js_strdup(ctx, arg_str);
+            JS_FreeCString(ctx, arg_str);
+            if (!options.args[i])
+                goto fail;
         }
     } else {
         JS_ThrowTypeError(ctx, "only string and array are allowed");
@@ -257,7 +269,16 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
                 const char *value = JS_ToCString(ctx, prop);
                 size_t len = strlen(key) + strlen(value) + 2; /* KEY=VALUE\0 */
                 options.env[i] = js_malloc(ctx, len);
+                if (!options.env[i]) {
+                    JS_FreeCString(ctx, key);
+                    JS_FreeCString(ctx, value);
+                    JS_FreePropEnum(ctx, ptab, plen);
+                    JS_FreeValue(ctx, js_env);
+                    goto fail;
+                }
                 snprintf(options.env[i], len, "%s=%s", key, value);
+                JS_FreeCString(ctx, key);
+                JS_FreeCString(ctx, value);
             }
             JS_FreePropEnum(ctx, ptab, plen);
         }
@@ -267,8 +288,19 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
         JSValue js_cwd = JS_GetPropertyStr(ctx, arg1, "cwd");
         if (JS_IsException(js_cwd))
             goto fail;
-        if (!JS_IsUndefined(js_cwd))
-            options.cwd = js_strdup(ctx, JS_ToCString(ctx, js_cwd));
+        if (!JS_IsUndefined(js_cwd)) {
+            const char *cwd_str = JS_ToCString(ctx, js_cwd);
+            if (!cwd_str) {
+                JS_FreeValue(ctx, js_cwd);
+                goto fail;
+            }
+            options.cwd = js_strdup(ctx, cwd_str);
+            JS_FreeCString(ctx, cwd_str);
+            if (!options.cwd) {
+                JS_FreeValue(ctx, js_cwd);
+                goto fail;
+            }
+        }
         JS_FreeValue(ctx, js_cwd);
 
         /* uid */
@@ -305,6 +337,10 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
         JSValue js_stdin = JS_GetPropertyStr(ctx, arg1, "stdin");
         if (!JS_IsException(js_stdin) && !JS_IsUndefined(js_stdin)) {
             const char *in = JS_ToCString(ctx, js_stdin);
+            if (!in) {
+                JS_FreeValue(ctx, js_stdin);
+                goto fail;
+            }
             if (strcmp(in, "inherit") == 0) {
                 stdio[0].flags = UV_INHERIT_FD;
                 stdio[0].data.fd = STDIN_FILENO;
@@ -320,12 +356,17 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
             } else if (strcmp(in, "ignore") == 0) {
                 stdio[0].flags = UV_IGNORE;
             }
+            JS_FreeCString(ctx, in);
         }
         JS_FreeValue(ctx, js_stdin);
 
         JSValue js_stdout = JS_GetPropertyStr(ctx, arg1, "stdout");
         if (!JS_IsException(js_stdout) && !JS_IsUndefined(js_stdout)) {
             const char *out = JS_ToCString(ctx, js_stdout);
+            if (!out) {
+                JS_FreeValue(ctx, js_stdout);
+                goto fail;
+            }
             if (strcmp(out, "inherit") == 0) {
                 stdio[1].flags = UV_INHERIT_FD;
                 stdio[1].data.fd = STDOUT_FILENO;
@@ -341,12 +382,17 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
             } else if (strcmp(out, "ignore") == 0) {
                 stdio[1].flags = UV_IGNORE;
             }
+            JS_FreeCString(ctx, out);
         }
         JS_FreeValue(ctx, js_stdout);
 
         JSValue js_stderr = JS_GetPropertyStr(ctx, arg1, "stderr");
         if (!JS_IsException(js_stderr) && !JS_IsUndefined(js_stderr)) {
             const char *err = JS_ToCString(ctx, js_stderr);
+            if (!err) {
+                JS_FreeValue(ctx, js_stderr);
+                goto fail;
+            }
             if (strcmp(err, "inherit") == 0) {
                 stdio[2].flags = UV_INHERIT_FD;
                 stdio[2].data.fd = STDERR_FILENO;
@@ -362,6 +408,7 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
             } else if (strcmp(err, "ignore") == 0) {
                 stdio[2].flags = UV_IGNORE;
             }
+            JS_FreeCString(ctx, err);
         }
         JS_FreeValue(ctx, js_stderr);
     }
