@@ -312,6 +312,9 @@ static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValueConst this_val, int a
     uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
 
     if (!buf) {
+        /* Reset the exception. */
+        JS_FreeValue(ctx, JS_GetException(ctx));
+
         /* Check if it's a typed array. */
         size_t aoffset, asize;
         JSValue abuf = JS_GetTypedArrayBuffer(ctx, argv[0], &aoffset, &asize, NULL);
