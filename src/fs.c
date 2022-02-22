@@ -727,15 +727,6 @@ static JSValue tjs_fs_readdir(JSContext *ctx, JSValueConst this_val, int argc, J
     return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
-static void tjs__readfile_free(JSRuntime *rt, void *opaque, void *ptr) {
-    TJSReadFileReq *fr = opaque;
-    CHECK_NOT_NULL(fr);
-
-    dbuf_free(&fr->dbuf);
-    js_free_rt(rt, fr->filename);
-    js_free_rt(rt, fr);
-}
-
 static void tjs__readfile_work_cb(uv_work_t *req) {
     TJSReadFileReq *fr = req->data;
     CHECK_NOT_NULL(fr);
@@ -754,17 +745,21 @@ static void tjs__readfile_after_work_cb(uv_work_t *req, int status) {
     if (status != 0) {
         arg = tjs_new_error(ctx, status);
         is_reject = true;
+        dbuf_free(&fr->dbuf);
     } else if (fr->r < 0) {
         arg = tjs_new_error(ctx, fr->r);
         is_reject = true;
+        dbuf_free(&fr->dbuf);
     } else {
-        arg = JS_NewArrayBuffer(ctx, fr->dbuf.buf, fr->dbuf.size, tjs__readfile_free, (void *) fr, false);
+        arg = TJS_NewUint8Array(ctx, fr->dbuf.buf, fr->dbuf.size);
+        if (JS_IsException(arg))
+            dbuf_free(&fr->dbuf);
     }
 
     TJS_SettlePromise(ctx, &fr->result, is_reject, 1, (JSValueConst *) &arg);
 
-    if (is_reject)
-        tjs__readfile_free(JS_GetRuntime(ctx), (void *) fr, NULL);
+    js_free(ctx, fr->filename);
+    js_free(ctx, fr);
 }
 
 static JSValue tjs_fs_readfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
