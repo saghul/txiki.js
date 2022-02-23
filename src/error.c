@@ -62,7 +62,7 @@ JSValue tjs_throw_errno(JSContext *ctx, int err) {
 
 static const JSCFunctionListEntry tjs_error_funcs[] = { TJS_CFUNC_DEF("strerror", 1, tjs_error_strerror),
 /* various errno values */
-#define DEF(x, s) JS_PROP_INT32_DEF(STRINGIFY(UV_##x), UV_##x, JS_PROP_CONFIGURABLE),
+#define DEF(x, s) JS_PROP_INT32_DEF(#x, UV_##x, JS_PROP_C_W_E),
                                                         UV_ERRNO_MAP(DEF)
 #undef DEF
 };
