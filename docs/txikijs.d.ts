@@ -341,18 +341,18 @@ declare namespace tjs {
     }
 
     interface StatResult {
-        st_dev: bigint;
-        st_mode: bigint;
-        st_nlink: bigint;
-        st_uid: bigint;
-        st_gid: bigint;
-        st_rdev: bigint;
-        st_ino: bigint;
-        st_size: bigint;
-        st_blksize: bigint;
-        st_blocks: bigint;
-        st_flags: bigint;
-        st_gen: bigint;
+        st_dev: number;
+        st_mode: number;
+        st_nlink: number;
+        st_uid: number;
+        st_gid: number;
+        st_rdev: number;
+        st_ino: number;
+        st_size: number;
+        st_blksize: number;
+        st_blocks: number;
+        st_flags: number;
+        st_gen: number;
         st_atim: number;
         st_mtim: number;
         st_ctim: number;
@@ -360,7 +360,7 @@ declare namespace tjs {
     }
 
     /**
-     * Flag used to check in {@link StatResult}'s `st_flags` field.
+     * Flag used to check in {@link StatResult}'s `st_mode` field.
      * See [stat(2)](https://man7.org/linux/man-pages/man2/lstat.2.html)
      * Available values:
      *
@@ -376,6 +376,23 @@ declare namespace tjs {
      *   - S_ISUID
      */
     const S_XXX: number;
+
+    /**
+     * Gets file status information.
+     * See [stat(2)](https://man7.org/linux/man-pages/man2/stat.2.html)
+     *
+     * @param path Path to the file.
+     */
+    function stat(path: string): Promise<StatResult>;
+
+    /**
+     * Gets file status information. If the path is a link it returns information
+     * about the link itself.
+     * See [stat(2)](https://man7.org/linux/man-pages/man2/stat.2.html)
+     *
+     * @param path Path to the file.
+     */
+    function lstat(path: string): Promise<StatResult>;
 
     /**
      * Opens the file at the given path. Opening modes:
