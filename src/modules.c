@@ -191,68 +191,8 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
     TJSRuntime *qrt = opaque;
     CHECK_NOT_NULL(qrt);
 
-    // printf("normalize: %s %s\n", base_name, name);
-
-    char *filename, *p;
-    const char *r;
-    int len;
-
-    if (name[0] != '.') {
-        /* if no initial dot, the module name is not modified */
-        return js_strdup(ctx, name);
-    }
-
-    /* Here we check the unix style path separator, since that's how import
-     * paths are written.
-     */
-    p = strrchr(base_name, '/');
-    if (p)
-        len = p - base_name;
-    else
-        len = 0;
-
-    filename = js_malloc(ctx, len + strlen(name) + 1 + 1);
-    if (!filename)
-        return NULL;
-    memcpy(filename, base_name, len);
-    filename[len] = '\0';
-
-    /* we only normalize the leading '..' or '.' */
-    r = name;
-    for (;;) {
-        if (r[0] == '.' && r[1] == '/') {
-            r += 2;
-        } else if (r[0] == '.' && r[1] == '.' && r[2] == '/') {
-            /* remove the last path element of filename, except if "."
-               or ".." */
-            if (filename[0] == '\0')
-                break;
-            p = strrchr(filename, '/');
-            if (!p)
-                p = filename;
-            else
-                p++;
-            if (!strcmp(p, ".") || !strcmp(p, ".."))
-                break;
-            if (p > filename)
-                p--;
-            *p = '\0';
-            r += 3;
-        } else {
-            break;
-        }
-    }
-    if (filename[0] != '\0')
-        strcat(filename, "/");
-    strcat(filename, r);
-#if defined(_WIN32)
-    for (p = filename; *p; p++) {
-        if (p[0] == '/')
-            p[0] = '\\';
-    }
-    // printf("normalize: %s %s -> %s\n", base_name, name, filename);
-#endif
-    return filename;
+    /* Don't do anything, the loader will take care of it. */
+    return js_strdup(ctx, name);
 }
 
 #undef TJS__PATHSEP
