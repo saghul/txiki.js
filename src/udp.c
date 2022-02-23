@@ -391,10 +391,10 @@ static const JSCFunctionListEntry tjs_udp_proto_funcs[] = {
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "UDP", JS_PROP_CONFIGURABLE),
 };
 
-static const JSCFunctionListEntry tjs_udp_class_funcs[] = {
-    JS_PROP_INT32_DEF("IPV6ONLY", UV_UDP_IPV6ONLY, 0),
-    JS_PROP_INT32_DEF("PARTIAL", UV_UDP_PARTIAL, 0),
-    JS_PROP_INT32_DEF("REUSEADDR", UV_UDP_REUSEADDR, 0),
+static const JSCFunctionListEntry tjs_udp_funcs[] = {
+    TJS_UVCONST(UDP_IPV6ONLY),
+    TJS_UVCONST(UDP_PARTIAL),
+    TJS_UVCONST(UDP_REUSEADDR),
 };
 
 void tjs__mod_udp_init(JSContext *ctx, JSValue ns) {
@@ -409,6 +409,7 @@ void tjs__mod_udp_init(JSContext *ctx, JSValue ns) {
 
     /* UDP object */
     obj = JS_NewCFunction2(ctx, tjs_udp_constructor, "UDP", 1, JS_CFUNC_constructor, 0);
-    JS_SetPropertyFunctionList(ctx, obj, tjs_udp_class_funcs, countof(tjs_udp_class_funcs));
     JS_DefinePropertyValueStr(ctx, ns, "UDP", obj, JS_PROP_C_W_E);
+
+    JS_SetPropertyFunctionList(ctx, ns, tjs_udp_funcs, countof(tjs_udp_funcs));
 }
