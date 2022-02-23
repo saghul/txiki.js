@@ -381,6 +381,17 @@ static JSValue tjs_network_interfaces(JSContext *ctx, JSValueConst this_val, int
     return val;
 }
 
+static JSValue tjs_gethostname(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    char buf[UV_MAXHOSTNAMESIZE];
+    size_t size = sizeof(buf);
+
+    int r = uv_os_gethostname(buf, &size);
+    if (r != 0)
+        return tjs_throw_errno(ctx, r);
+
+    return JS_NewStringLen(ctx, buf, size);
+}
+
 static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CONST(AF_INET),
     TJS_CONST(AF_INET6),
@@ -402,6 +413,7 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("cpuInfo", 0, tjs_cpu_info),
     TJS_CFUNC_DEF("loadavg", 0, tjs_loadavg),
     TJS_CFUNC_DEF("networkInterfaces", 0, tjs_network_interfaces),
+    TJS_CFUNC_DEF("gethostname", 0, tjs_gethostname),
 };
 
 void tjs__mod_os_init(JSContext *ctx, JSValue ns) {
