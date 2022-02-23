@@ -641,6 +641,25 @@ declare namespace tjs {
         remoteAddress: Address;
     }
 
+    /**
+     * Indicates dual stack mode will be disabled. Can be passed when
+     * selecting the bind address.
+     */
+    const UDP_IPV6ONLY: number;
+
+    /**
+     * Indicates message was truncated because read buffer was too small.
+     */
+    const UDP_PARTIAL: number;
+
+    /**
+     * Enable address reusing (when binding). What that means is that
+     * multiple threads or processes can bind to the same address without error
+     * (provided they all set the flag) but only the last one to bind will receive
+     * any traffic, in effect "stealing" the port from the previous listener.
+     */
+    const UDP_REUSEADDR: number;
+
     interface DatagramData {
         nread: number;
         flags: number;
