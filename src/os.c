@@ -104,6 +104,9 @@ static JSValue tjs_environ(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 }
 
 static JSValue tjs_getenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (!JS_IsString(argv[0]))
+        return JS_ThrowTypeError(ctx, "expected a string");
+
     const char *name = JS_ToCString(ctx, argv[0]);
     if (!name)
         return JS_EXCEPTION;
@@ -142,6 +145,11 @@ static JSValue tjs_getenv(JSContext *ctx, JSValueConst this_val, int argc, JSVal
 }
 
 static JSValue tjs_setenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (!JS_IsString(argv[0]))
+        return JS_ThrowTypeError(ctx, "expected a string");
+    if (JS_IsUndefined(argv[1]))
+        return JS_ThrowTypeError(ctx, "expected a value");
+
     const char *name = JS_ToCString(ctx, argv[0]);
     if (!name)
         return JS_EXCEPTION;
@@ -160,6 +168,9 @@ static JSValue tjs_setenv(JSContext *ctx, JSValueConst this_val, int argc, JSVal
 }
 
 static JSValue tjs_unsetenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (!JS_IsString(argv[0]))
+        return JS_ThrowTypeError(ctx, "expected a string");
+
     const char *name = JS_ToCString(ctx, argv[0]);
     if (!name)
         return JS_EXCEPTION;
