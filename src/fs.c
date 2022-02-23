@@ -101,7 +101,7 @@ typedef struct {
 static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
 #define SET_UINT64_FIELD(x)                                                                                            \
-    JS_DefinePropertyValueStr(ctx, obj, STRINGIFY(x), JS_NewBigUint64(ctx, st->x), JS_PROP_C_W_E)
+    JS_DefinePropertyValueStr(ctx, obj, STRINGIFY(x), JS_NewUint32(ctx, st->x), JS_PROP_C_W_E)
     SET_UINT64_FIELD(st_dev);
     SET_UINT64_FIELD(st_mode);
     SET_UINT64_FIELD(st_nlink);
@@ -837,8 +837,8 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CONST(S_ISUID),
 #endif
     TJS_CFUNC_DEF("open", 3, tjs_fs_open),
-    JS_CFUNC_MAGIC_DEF("stat", 1, tjs_fs_stat, 0),
-    JS_CFUNC_MAGIC_DEF("lstat", 1, tjs_fs_stat, 1),
+    TJS_CFUNC_MAGIC_DEF("stat", 1, tjs_fs_stat, 0),
+    TJS_CFUNC_MAGIC_DEF("lstat", 1, tjs_fs_stat, 1),
     TJS_CFUNC_DEF("realpath", 1, tjs_fs_realpath),
     TJS_CFUNC_DEF("unlink", 1, tjs_fs_unlink),
     TJS_CFUNC_DEF("rename", 2, tjs_fs_rename),
