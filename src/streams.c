@@ -870,7 +870,7 @@ static const JSCFunctionListEntry tjs_tcp_proto_funcs[] = {
     JS_CFUNC_MAGIC_DEF("getsockname", 0, tjs_tcp_getsockpeername, 0),
     JS_CFUNC_MAGIC_DEF("getpeername", 0, tjs_tcp_getsockpeername, 1),
     TJS_CFUNC_DEF("connect", 1, tjs_tcp_connect),
-    TJS_CFUNC_DEF("bind", 1, tjs_tcp_bind),
+    TJS_CFUNC_DEF("bind", 2, tjs_tcp_bind),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "TCP", JS_PROP_CONFIGURABLE),
 };
 
@@ -912,6 +912,10 @@ static const JSCFunctionListEntry tjs_pipe_proto_funcs[] = {
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Pipe", JS_PROP_CONFIGURABLE),
 };
 
+static const JSCFunctionListEntry tjs_streams_funcs[] = {
+    TJS_UVCONST(TCP_IPV6ONLY),
+};
+
 void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
     JSValue proto, obj;
 
@@ -949,4 +953,6 @@ void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
     /* Pipe object */
     obj = JS_NewCFunction2(ctx, tjs_pipe_constructor, "Pipe", 1, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx, ns, "Pipe", obj, JS_PROP_C_W_E);
+
+    JS_SetPropertyFunctionList(ctx, ns, tjs_streams_funcs, countof(tjs_streams_funcs));
 }

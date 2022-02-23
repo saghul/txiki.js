@@ -643,7 +643,7 @@ declare namespace tjs {
 
     /**
      * Indicates dual stack mode will be disabled. Can be passed when
-     * selecting the bind address.
+     * selecting the bind address, as a bind flag.
      */
     const UDP_IPV6ONLY: number;
 
@@ -674,6 +674,12 @@ declare namespace tjs {
         remoteAddress: Address;
     }
 
+    /**
+     * Indicates dual stack mode will be disabled. Can be passed when
+     * selecting the bind address, as a bind flag.
+     */
+    const TCP_IPV6ONLY: number;
+
     type Transport = 'tcp' | 'udp' | 'pipe';
 
     interface ConnectOptions {
@@ -681,6 +687,11 @@ declare namespace tjs {
          * Local address to bind to.
          */
         bindAddr: Address;
+
+        /**
+         * Bind flags.
+         */
+        bindFlags: number;
     }
 
     /**
@@ -701,6 +712,11 @@ declare namespace tjs {
 
     interface ListenOptions {
         backlog: number;
+
+        /**
+         * Bind flags.
+         */
+        bindFlags: number;
     }
 
     /**

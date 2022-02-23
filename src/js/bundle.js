@@ -13419,7 +13419,7 @@ async function connect(transport, host, port, options = {}) {
     case "tcp": {
       const handle = new core4.TCP();
       if (options.bindAddr) {
-        handle.bind(options.bindAddr);
+        handle.bind(options.bindAddr), options.bindFlags;
       }
       await handle.connect(addr);
       return new Connection(handle);
@@ -13432,7 +13432,7 @@ async function connect(transport, host, port, options = {}) {
     case "udp": {
       const handle = new core4.UDP();
       if (options.bindAddr) {
-        handle.bind(options.bindAddr);
+        handle.bind(options.bindAddr, options.bindFlags);
       }
       await handle.connect(addr);
       return new DatagramEndpoint(handle);
@@ -13444,7 +13444,7 @@ async function listen(transport, host, port, options = {}) {
   switch (transport) {
     case "tcp": {
       const handle = new core4.TCP();
-      handle.bind(addr);
+      handle.bind(addr, options.bindFlags);
       handle.listen(options.backlog);
       return new Listener(handle);
     }
@@ -13456,7 +13456,7 @@ async function listen(transport, host, port, options = {}) {
     }
     case "udp": {
       const handle = new core4.UDP();
-      handle.bind(addr);
+      handle.bind(addr, options.bindFlags);
       return new DatagramEndpoint(handle);
     }
   }
