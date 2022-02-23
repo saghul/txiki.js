@@ -35,7 +35,7 @@ async function readStdinLine() {
     return decoder.decode(new Uint8Array(buf));
 }
 
-async function alert(msg) {
+export async function alert(msg) {
     if (!tjs.stdin.isTTY) {
         return;
     }
@@ -44,7 +44,7 @@ async function alert(msg) {
     await readStdinLine();
 }
 
-async function confirm(msg = 'Confirm') {
+export async function confirm(msg = 'Confirm') {
     if (!tjs.stdin.isTTY) {
         return false;
     }
@@ -56,7 +56,7 @@ async function confirm(msg = 'Confirm') {
     return answer.toLowerCase()[0] === 'y';
 }
 
-async function prompt(msg = 'Prompt', def = null) {
+export async function prompt(msg = 'Prompt', def = null) {
     if (!tjs.stdin.isTTY) {
         return null;
     }
@@ -65,7 +65,3 @@ async function prompt(msg = 'Prompt', def = null) {
 
     return await readStdinLine() || def;
 }
-
-globalThis.alert = alert;
-globalThis.confirm = confirm;
-globalThis.prompt = prompt;

@@ -1,5 +1,6 @@
 const core = globalThis.__bootstrap;
 
+import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
 
@@ -35,6 +36,27 @@ for (const [key, value] of Object.entries(core)) {
 // These values should be immutable.
 tjs.args = Object.freeze(core.args);
 tjs.versions = Object.freeze(core.versions);
+
+// Alert, confirm, prompt.
+// These differ slightly from browsers, they are async.
+Object.defineProperty(tjs, 'alert', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: alert
+});
+Object.defineProperty(tjs, 'confirm', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: confirm
+});
+Object.defineProperty(tjs, 'prompt', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: prompt
+});
 
 // Sockets.
 Object.defineProperty(tjs, 'connect', {

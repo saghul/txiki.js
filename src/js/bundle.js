@@ -12794,68 +12794,12 @@ var import_text_encoding = __toESM(require_text_encoding());
 window.TextEncoder = import_text_encoding.TextEncoder;
 window.TextDecoder = import_text_encoding.TextDecoder;
 
-// src/js/polyfills/alert-confirm-prompt.js
-var encoder = new TextEncoder();
-var decoder = new TextDecoder();
-var LF = "\n".charCodeAt();
-var CR = "\r".charCodeAt();
-async function readStdinLine() {
-  const c2 = new Uint8Array(1);
-  const buf = [];
-  while (true) {
-    const n2 = await tjs.stdin.read(c2);
-    if (n2 === 0) {
-      break;
-    }
-    if (c2[0] === CR) {
-      const n3 = await tjs.stdin.read(c2);
-      if (c2[0] === LF) {
-        break;
-      }
-      buf.push(CR);
-      if (n3 === 0) {
-        break;
-      }
-    }
-    if (c2[0] === LF) {
-      break;
-    }
-    buf.push(c2[0]);
-  }
-  return decoder.decode(new Uint8Array(buf));
-}
-async function alert(msg) {
-  if (!tjs.stdin.isTTY) {
-    return;
-  }
-  await tjs.stdout.write(encoder.encode(msg + " [Enter] "));
-  await readStdinLine();
-}
-async function confirm(msg = "Confirm") {
-  if (!tjs.stdin.isTTY) {
-    return false;
-  }
-  await tjs.stdout.write(encoder.encode(msg + " [y/N] "));
-  const answer = await readStdinLine();
-  return answer.toLowerCase()[0] === "y";
-}
-async function prompt(msg = "Prompt", def = null) {
-  if (!tjs.stdin.isTTY) {
-    return null;
-  }
-  await tjs.stdout.write(encoder.encode(msg + " "));
-  return await readStdinLine() || def;
-}
-globalThis.alert = alert;
-globalThis.confirm = confirm;
-globalThis.prompt = prompt;
-
 // src/js/polyfills/console.js
 var import_util = __toESM(require_util());
-var encoder2 = new TextEncoder();
+var encoder = new TextEncoder();
 function print() {
   const text = import_util.default.format.apply(null, arguments) + "\n";
-  tjs.stdout.write(encoder2.encode(text));
+  tjs.stdout.write(encoder.encode(text));
 }
 function hasOwnProperty(obj, v2) {
   if (obj == null) {
@@ -12884,7 +12828,7 @@ function removeColors(str) {
 }
 function countBytes(str) {
   const normalized = removeColors(String(str)).normalize("NFC");
-  return encoder2.encode(normalized).byteLength;
+  return encoder.encode(normalized).byteLength;
 }
 function renderRow(row, columnWidths) {
   let out = tableChars.left;
@@ -13414,6 +13358,59 @@ Object.defineProperty(window, "Worker", {
   value: Worker
 });
 
+// src/js/tjs/alert-confirm-prompt.js
+var encoder2 = new TextEncoder();
+var decoder = new TextDecoder();
+var LF = "\n".charCodeAt();
+var CR = "\r".charCodeAt();
+async function readStdinLine() {
+  const c2 = new Uint8Array(1);
+  const buf = [];
+  while (true) {
+    const n2 = await tjs.stdin.read(c2);
+    if (n2 === 0) {
+      break;
+    }
+    if (c2[0] === CR) {
+      const n3 = await tjs.stdin.read(c2);
+      if (c2[0] === LF) {
+        break;
+      }
+      buf.push(CR);
+      if (n3 === 0) {
+        break;
+      }
+    }
+    if (c2[0] === LF) {
+      break;
+    }
+    buf.push(c2[0]);
+  }
+  return decoder.decode(new Uint8Array(buf));
+}
+async function alert(msg) {
+  if (!tjs.stdin.isTTY) {
+    return;
+  }
+  await tjs.stdout.write(encoder2.encode(msg + " [Enter] "));
+  await readStdinLine();
+}
+async function confirm(msg = "Confirm") {
+  if (!tjs.stdin.isTTY) {
+    return false;
+  }
+  await tjs.stdout.write(encoder2.encode(msg + " [y/N] "));
+  const answer = await readStdinLine();
+  return answer.toLowerCase()[0] === "y";
+}
+async function prompt(msg = "Prompt", def = null) {
+  if (!tjs.stdin.isTTY) {
+    return null;
+  }
+  await tjs.stdout.write(encoder2.encode(msg + " "));
+  return await readStdinLine() || def;
+}
+
 // src/js/tjs/sockets.js
 var core4 = globalThis.__bootstrap;
 async function connect(transport, host, port, options = {}) {
@@ -13659,6 +13656,24 @@ for (const [key, value] of Object.entries(core6)) {
 }
 tjs2.args = Object.freeze(core6.args);
 tjs2.versions = Object.freeze(core6.versions);
+Object.defineProperty(tjs2, "alert", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: alert
+});
+Object.defineProperty(tjs2, "confirm", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: confirm
+});
+Object.defineProperty(tjs2, "prompt", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: prompt
+});
 Object.defineProperty(tjs2, "connect", {
   enumerable: true,
   configurable: false,
