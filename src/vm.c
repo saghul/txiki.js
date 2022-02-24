@@ -395,10 +395,10 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
     return r;
 }
 
-JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_main) {
+JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     DynBuf dbuf;
     size_t dbuf_size;
-    int r, eval_flags;
+    int r;
     JSValue ret;
 
     dbuf_init(&dbuf);
@@ -414,32 +414,15 @@ JSValue TJS_EvalFile(JSContext *ctx, const char *filename, int flags, bool is_ma
     /* Add null termination, required by JS_Eval. */
     dbuf_putc(&dbuf, '\0');
 
-    if (flags == -1) {
-        if (JS_DetectModule((const char *) dbuf.buf, dbuf_size))
-            eval_flags = JS_EVAL_TYPE_MODULE;
-        else
-            eval_flags = JS_EVAL_TYPE_GLOBAL;
-    } else {
-        eval_flags = flags;
-    }
-
-    if ((eval_flags & JS_EVAL_TYPE_MASK) == JS_EVAL_TYPE_MODULE) {
-        /* for the modules, we compile then run to be able to set import.meta */
-        ret = JS_Eval(ctx,
-                      (char *) dbuf.buf,
-                      dbuf_size,
-                      filename,
-                      eval_flags | JS_EVAL_FLAG_COMPILE_ONLY);
-        if (!JS_IsException(ret)) {
-            js_module_set_import_meta(ctx, ret, TRUE, is_main);
-            ret = JS_EvalFunction(ctx, ret);
-        }
-    } else {
-        ret = JS_Eval(ctx,
-                      (char *) dbuf.buf,
-                      dbuf_size,
-                      filename,
-                      eval_flags);
+    /* Compile then run to be able to set import.meta */
+    ret = JS_Eval(ctx,
+                  (char *) dbuf.buf,
+                  dbuf_size,
+                  filename,
+                  JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    if (!JS_IsException(ret)) {
+        js_module_set_import_meta(ctx, ret, TRUE, is_main);
+        ret = JS_EvalFunction(ctx, ret);
     }
 
     /* Emit window 'load' event. */
