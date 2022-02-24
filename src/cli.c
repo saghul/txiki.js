@@ -74,7 +74,7 @@ static int eval_expr(JSContext *ctx, const char *buf) {
 
 static int eval_module(JSContext *ctx, const char *filepath) {
     int ret = 0;
-    JSValue val = TJS_EvalFile(ctx, filepath, JS_EVAL_TYPE_MODULE, true);
+    JSValue val = TJS_EvalModule(ctx, filepath, true);
 
     if (JS_IsException(val)) {
         tjs_dump_error(ctx);
