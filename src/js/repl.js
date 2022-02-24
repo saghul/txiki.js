@@ -149,9 +149,13 @@ window.addEventListener('unhandledrejection', event => {
         var buf = new Uint8Array(4096);
         var nread;
         while (true) {
-            nread = await tjs.stdin.read(buf);
-            for(var i = 0; i < nread; i++)
-                handle_byte(buf[i]);
+            try {
+                nread = await tjs.stdin.read(buf);
+                for(var i = 0; i < nread; i++)
+                    handle_byte(buf[i]);
+            } catch (error) {
+                dump_error(error);
+            }
         }
     }
     
@@ -1008,18 +1012,22 @@ window.addEventListener('unhandledrejection', event => {
             /* set the last result */
             g._ = result;
         } catch (error) {
-            stdout_write(colors[styles.error_msg]);
-            if (error instanceof Error) {
-                stdout_write(error);
-                stdout_write("\n");
-                stdout_write(error.stack);
-            } else {
-                stdout_write("Throw: ");
-                stdout_write(error);
-            }
-            stdout_write("\n");
-            stdout_write(colors.none);
+            dump_error(error);
         }
+    }
+
+    function dump_error(error) {
+        stdout_write(colors[styles.error_msg]);
+        if (error instanceof Error) {
+            stdout_write(error);
+            stdout_write("\n");
+            stdout_write(error.stack);
+        } else {
+            stdout_write("Throw: ");
+            stdout_write(error);
+        }
+        stdout_write("\n");
+        stdout_write(colors.none);
     }
 
     function cmd_start() {
