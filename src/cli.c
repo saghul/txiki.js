@@ -72,18 +72,6 @@ static int eval_expr(JSContext *ctx, const char *buf) {
     return ret;
 }
 
-static int eval_module(JSContext *ctx, const char *filepath) {
-    int ret = 0;
-    JSValue val = TJS_EvalModule(ctx, filepath, true);
-
-    if (JS_IsException(val)) {
-        tjs_dump_error(ctx);
-        ret = -1;
-    }
-    JS_FreeValue(ctx, val);
-    return ret;
-}
-
 static void print_help(void) {
     printf("Usage: tjs [options] [file]\n"
            "\n"
@@ -239,16 +227,13 @@ int main(int argc, char **argv) {
             exit_code = EXIT_FAILURE;
             goto exit;
         }
-    } else if (optind >= argc) {
-        /* interactive mode */
-        if (TJS_RunRepl(ctx)) {
-            exit_code = EXIT_FAILURE;
-            goto exit;
-        }
     } else {
-        /* evaluate file */
-        const char *filepath = argv[optind];
-        if (eval_module(ctx, filepath)) {
+        const char *filepath = NULL;
+        if (optind < argc) {
+            filepath = argv[optind];
+        }
+
+        if (TJS_RunMain(qrt, filepath)) {
             exit_code = EXIT_FAILURE;
             goto exit;
         }

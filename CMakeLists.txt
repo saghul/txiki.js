@@ -47,6 +47,10 @@ configure_file(
         ${CMAKE_CURRENT_BINARY_DIR}/bundle.js
         COPYONLY)
 configure_file(
+        ${CMAKE_SOURCE_DIR}/src/js/eval-stdin.js
+        ${CMAKE_CURRENT_BINARY_DIR}/eval-stdin.js
+        COPYONLY)
+configure_file(
         ${CMAKE_SOURCE_DIR}/src/js/repl.js
         ${CMAKE_CURRENT_BINARY_DIR}/repl.js
         COPYONLY)
