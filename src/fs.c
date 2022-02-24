@@ -511,6 +511,26 @@ static JSValue tjs_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
+static JSValue tjs_fs_new_stdio_file(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    const char *path;
+    uv_file fd;
+
+    path = JS_ToCString(ctx, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    if (JS_ToInt32(ctx, &fd, argv[1])) {
+        JS_FreeCString(ctx, path);
+        return JS_EXCEPTION;
+    }
+
+    JSValue obj = tjs_new_file(ctx, fd, path);
+
+    JS_FreeCString(ctx, path);
+
+    return obj;
+}
+
 static JSValue tjs_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
@@ -837,6 +857,7 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CONST(S_ISUID),
 #endif
     TJS_CFUNC_DEF("open", 3, tjs_fs_open),
+    TJS_CFUNC_DEF("newStdioFile", 2, tjs_fs_new_stdio_file),
     TJS_CFUNC_MAGIC_DEF("stat", 1, tjs_fs_stat, 0),
     TJS_CFUNC_MAGIC_DEF("lstat", 1, tjs_fs_stat, 1),
     TJS_CFUNC_DEF("realpath", 1, tjs_fs_realpath),

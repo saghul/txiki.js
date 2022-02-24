@@ -13614,9 +13614,24 @@ function createStdioStream(fd) {
       handle.open(fd);
       return new StreamType(handle, type);
     }
-    case "file":
+    case "file": {
+      const handle = core5.newStdioFile(pathByFd(fd), fd);
+      return new StreamType(handle, type);
+    }
     default:
       return void 0;
+  }
+}
+function pathByFd(fd) {
+  switch (fd) {
+    case core5.STDIN_FILENO:
+      return "<stdin>";
+    case core5.STDOUT_FILENO:
+      return "<stdout>";
+    case core5.STDERR_FILENO:
+      return "<stderr>";
+    default:
+      return "";
   }
 }
 function createStdin() {
@@ -13633,6 +13648,9 @@ function createStderr() {
 var core6 = globalThis.__bootstrap;
 var tjs2 = /* @__PURE__ */ Object.create(null);
 var noExport = [
+  "STDIN_FILENO",
+  "STDOUT_FILENO",
+  "STDERR_FILENO",
   "Pipe",
   "TCP",
   "TTY",
@@ -13643,6 +13661,7 @@ var noExport = [
   "clearTimeout",
   "guessHandle",
   "hrtimeMs",
+  "newStdioFile",
   "random",
   "setInterval",
   "setTimeout",

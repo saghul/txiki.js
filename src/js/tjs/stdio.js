@@ -66,13 +66,28 @@ function createStdioStream(fd) {
 
             return new StreamType(handle, type);
         }
-        case 'file':
-            // TODO.
+        case 'file': {
+            const handle = core.newStdioFile(pathByFd(fd), fd);
+
+            return new StreamType(handle, type);
+        }
         default:
             return undefined;
     }
 }
 
+function pathByFd(fd) {
+    switch (fd) {
+        case core.STDIN_FILENO:
+            return '<stdin>';
+        case core.STDOUT_FILENO:
+            return '<stdout>';
+        case core.STDERR_FILENO:
+            return '<stderr>';
+        default:
+            return '';
+    }
+}
 export function createStdin() {
     return createStdioStream(core.STDIN_FILENO);
 }
