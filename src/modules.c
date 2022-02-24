@@ -187,12 +187,4 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
     return 0;
 }
 
-char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque) {
-    TJSRuntime *qrt = opaque;
-    CHECK_NOT_NULL(qrt);
-
-    /* Don't do anything, the loader will take care of it. */
-    return js_strdup(ctx, name);
-}
-
 #undef TJS__PATHSEP

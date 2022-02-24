@@ -195,8 +195,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(uv_async_init(&qrt->loop, &qrt->stop, uv__stop), 0);
     qrt->stop.data = qrt;
 
-    /* loader for ES6 modules */
-    JS_SetModuleLoaderFunc(qrt->rt, tjs_module_normalizer, tjs_module_loader, qrt);
+    /* loader for ES modules */
+    JS_SetModuleLoaderFunc(qrt->rt, NULL, tjs_module_loader, qrt);
 
     /* unhandled promise rejection tracker */
     JS_SetHostPromiseRejectionTracker(qrt->rt, tjs__promise_rejection_tracker, NULL);
