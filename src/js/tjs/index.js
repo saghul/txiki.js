@@ -9,6 +9,9 @@ import { createStdin, createStdout, createStderr } from './stdio.js';
 
 const tjs = Object.create(null);
 const noExport = [
+    'STDIN_FILENO',
+    'STDOUT_FILENO',
+    'STDERR_FILENO',
     'Pipe',
     'TCP',
     'TTY',
@@ -19,6 +22,7 @@ const noExport = [
     'clearTimeout',
     'guessHandle',
     'hrtimeMs',
+    'newStdioFile',
     'random',
     'setInterval',
     'setTimeout',
