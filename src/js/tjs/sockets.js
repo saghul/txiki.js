@@ -79,6 +79,8 @@ async function prepareAddress(transport, host, port) {
 }
 
 const kHandle = Symbol('kHandle');
+const kLocalAddress = Symbol('kLocalAddress');
+const kRemoteAddress = Symbol('kRemoteAddress');
 
 class Connection {
     constructor(handle) {
@@ -94,11 +96,17 @@ class Connection {
     }
 
     get localAddress() {
-        return this[kHandle].getsockname();
+        if (!this[kLocalAddress]) {
+            this[kLocalAddress] = this[kHandle].getsockname();
+        }
+        return this[kLocalAddress];
     }
 
     get remoteAddress() {
-        return this[kHandle].getpeername();
+        if (!this[kRemoteAddress]) {
+            this[kRemoteAddress] = this[kHandle].getpeername();
+        }
+        return this[kRemoteAddress];
     }
 
     shutdown() {
@@ -116,7 +124,10 @@ class Listener {
     }
 
     get localAddress() {
-        return this[kHandle].getsockname();
+        if (!this[kLocalAddress]) {
+            this[kLocalAddress] = this[kHandle].getsockname();
+        }
+        return this[kLocalAddress];
     }
 
     async accept() {
@@ -164,10 +175,14 @@ class DatagramEndpoint {
     }
 
     get localAddress() {
-        return this[kHandle].getsockname();
+        if (!this[kLocalAddress]) {
+            this[kLocalAddress] = this[kHandle].getsockname();
+        }
+        return this[kLocalAddress];
     }
 
     get remoteAddress() {
+        // Don't cache remote address since the socket might not be connected, ever.
         return this[kHandle].getpeername();
     }
 
