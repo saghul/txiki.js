@@ -34,9 +34,6 @@ window.addEventListener('unhandledrejection', event => {
     /* expose stdlib */
     g.std = std;
 
-    /* for indirect eval */
-    var gEval = g.eval;
-
     /* close global objects */
     var Object = g.Object;
     var String = g.String;
@@ -1003,7 +1000,8 @@ window.addEventListener('unhandledrejection', event => {
         
         try {
             var now = (new Date).getTime();
-            result = gEval(expr);
+            /* eval as a script */
+            result = tjs._evalScript(expr);
             eval_time = (new Date).getTime() - now;
             stdout_write(colors[styles.result]);
             print(result);

@@ -20,6 +20,7 @@ const noExport = [
     'XMLHttpRequest',
     'clearInterval',
     'clearTimeout',
+    'evalScript',
     'guessHandle',
     'hrtimeMs',
     'newStdioFile',
@@ -60,6 +61,14 @@ Object.defineProperty(tjs, 'prompt', {
     configurable: false,
     writable: false,
     value: prompt
+});
+
+// For the REPL.
+Object.defineProperty(tjs, '_evalScript', {
+    enumerable: false,
+    configurable: false,
+    writable: false,
+    value: core.evalScript
 });
 
 // Sockets.

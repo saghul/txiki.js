@@ -34,6 +34,18 @@ static JSValue js_std_gc(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
+static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    const char *str;
+    size_t len;
+    JSValue ret;
+    str = JS_ToCStringLen(ctx, &len, argv[0]);
+    if (!str)
+        return JS_EXCEPTION;
+    ret = JS_Eval(ctx, str, len, "<evalScript>", JS_EVAL_TYPE_GLOBAL);
+    JS_FreeCString(ctx, str);
+    return ret;
+}
+
 static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     char buf[1024];
     size_t size = sizeof(buf);
@@ -64,6 +76,7 @@ static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("gc", 0, js_std_gc),
+    TJS_CFUNC_DEF("evalScript", 1, js_evalScript),
 };
 
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {
