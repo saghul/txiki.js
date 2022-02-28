@@ -13486,6 +13486,8 @@ async function prepareAddress(transport, host, port) {
   }
 }
 var kHandle = Symbol("kHandle");
+var kLocalAddress = Symbol("kLocalAddress");
+var kRemoteAddress = Symbol("kRemoteAddress");
 var Connection = class {
   constructor(handle) {
     this[kHandle] = handle;
@@ -13497,10 +13499,16 @@ var Connection = class {
     return this[kHandle].write(buf);
   }
   get localAddress() {
-    return this[kHandle].getsockname();
+    if (!this[kLocalAddress]) {
+      this[kLocalAddress] = this[kHandle].getsockname();
+    }
+    return this[kLocalAddress];
   }
   get remoteAddress() {
-    return this[kHandle].getpeername();
+    if (!this[kRemoteAddress]) {
+      this[kRemoteAddress] = this[kHandle].getpeername();
+    }
+    return this[kRemoteAddress];
   }
   shutdown() {
     this[kHandle].shutdown();
@@ -13514,7 +13522,10 @@ var Listener = class {
     this[kHandle] = handle;
   }
   get localAddress() {
-    return this[kHandle].getsockname();
+    if (!this[kLocalAddress]) {
+      this[kLocalAddress] = this[kHandle].getsockname();
+    }
+    return this[kLocalAddress];
   }
   async accept() {
     const handle = await this[kHandle].accept();
@@ -13548,7 +13559,10 @@ var DatagramEndpoint = class {
     return this[kHandle].send(buf, taddr);
   }
   get localAddress() {
-    return this[kHandle].getsockname();
+    if (!this[kLocalAddress]) {
+      this[kLocalAddress] = this[kHandle].getsockname();
+    }
+    return this[kLocalAddress];
   }
   get remoteAddress() {
     return this[kHandle].getpeername();
