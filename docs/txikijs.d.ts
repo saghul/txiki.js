@@ -656,6 +656,8 @@ declare namespace tjs {
         close(): void;
         localAddress: Address;
         remoteAddress: Address;
+        readable: ReadableStream<Uint8Array>;
+        writable: WritableStream<Uint8Array>;
     }
 
     /**
