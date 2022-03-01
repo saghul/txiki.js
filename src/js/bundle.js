@@ -5666,7 +5666,7 @@ var require_polyfill_es2018 = __commonJS({
         }
         return void 0;
       }
-      class WritableStream {
+      class WritableStream2 {
         constructor(rawUnderlyingSink = {}, rawStrategy = {}) {
           if (rawUnderlyingSink === void 0) {
             rawUnderlyingSink = null;
@@ -5718,14 +5718,14 @@ var require_polyfill_es2018 = __commonJS({
           return AcquireWritableStreamDefaultWriter(this);
         }
       }
-      Object.defineProperties(WritableStream.prototype, {
+      Object.defineProperties(WritableStream2.prototype, {
         abort: { enumerable: true },
         close: { enumerable: true },
         getWriter: { enumerable: true },
         locked: { enumerable: true }
       });
       if (typeof SymbolPolyfill.toStringTag === "symbol") {
-        Object.defineProperty(WritableStream.prototype, SymbolPolyfill.toStringTag, {
+        Object.defineProperty(WritableStream2.prototype, SymbolPolyfill.toStringTag, {
           value: "WritableStream",
           configurable: true
         });
@@ -5734,7 +5734,7 @@ var require_polyfill_es2018 = __commonJS({
         return new WritableStreamDefaultWriter(stream);
       }
       function CreateWritableStream(startAlgorithm, writeAlgorithm, closeAlgorithm, abortAlgorithm, highWaterMark = 1, sizeAlgorithm = () => 1) {
-        const stream = Object.create(WritableStream.prototype);
+        const stream = Object.create(WritableStream2.prototype);
         InitializeWritableStream(stream);
         const controller = Object.create(WritableStreamDefaultController.prototype);
         SetUpWritableStreamDefaultController(stream, controller, startAlgorithm, writeAlgorithm, closeAlgorithm, abortAlgorithm, highWaterMark, sizeAlgorithm);
@@ -5759,7 +5759,7 @@ var require_polyfill_es2018 = __commonJS({
         if (!Object.prototype.hasOwnProperty.call(x2, "_writableStreamController")) {
           return false;
         }
-        return x2 instanceof WritableStream;
+        return x2 instanceof WritableStream2;
       }
       function IsWritableStreamLocked(stream) {
         if (stream._writer === void 0) {
@@ -7239,7 +7239,7 @@ var require_polyfill_es2018 = __commonJS({
         assertWritableStream(writable, `${context} has member 'writable' that`);
         return { readable, writable };
       }
-      class ReadableStream {
+      class ReadableStream2 {
         constructor(rawUnderlyingSource = {}, rawStrategy = {}) {
           if (rawUnderlyingSource === void 0) {
             rawUnderlyingSource = null;
@@ -7342,7 +7342,7 @@ var require_polyfill_es2018 = __commonJS({
           return AcquireReadableStreamAsyncIterator(this, options.preventCancel);
         }
       }
-      Object.defineProperties(ReadableStream.prototype, {
+      Object.defineProperties(ReadableStream2.prototype, {
         cancel: { enumerable: true },
         getReader: { enumerable: true },
         pipeThrough: { enumerable: true },
@@ -7352,27 +7352,27 @@ var require_polyfill_es2018 = __commonJS({
         locked: { enumerable: true }
       });
       if (typeof SymbolPolyfill.toStringTag === "symbol") {
-        Object.defineProperty(ReadableStream.prototype, SymbolPolyfill.toStringTag, {
+        Object.defineProperty(ReadableStream2.prototype, SymbolPolyfill.toStringTag, {
           value: "ReadableStream",
           configurable: true
         });
       }
       if (typeof SymbolPolyfill.asyncIterator === "symbol") {
-        Object.defineProperty(ReadableStream.prototype, SymbolPolyfill.asyncIterator, {
-          value: ReadableStream.prototype.values,
+        Object.defineProperty(ReadableStream2.prototype, SymbolPolyfill.asyncIterator, {
+          value: ReadableStream2.prototype.values,
           writable: true,
           configurable: true
         });
       }
       function CreateReadableStream(startAlgorithm, pullAlgorithm, cancelAlgorithm, highWaterMark = 1, sizeAlgorithm = () => 1) {
-        const stream = Object.create(ReadableStream.prototype);
+        const stream = Object.create(ReadableStream2.prototype);
         InitializeReadableStream(stream);
         const controller = Object.create(ReadableStreamDefaultController.prototype);
         SetUpReadableStreamDefaultController(stream, controller, startAlgorithm, pullAlgorithm, cancelAlgorithm, highWaterMark, sizeAlgorithm);
         return stream;
       }
       function CreateReadableByteStream(startAlgorithm, pullAlgorithm, cancelAlgorithm) {
-        const stream = Object.create(ReadableStream.prototype);
+        const stream = Object.create(ReadableStream2.prototype);
         InitializeReadableStream(stream);
         const controller = Object.create(ReadableByteStreamController.prototype);
         SetUpReadableByteStreamController(stream, controller, startAlgorithm, pullAlgorithm, cancelAlgorithm, 0, void 0);
@@ -7391,7 +7391,7 @@ var require_polyfill_es2018 = __commonJS({
         if (!Object.prototype.hasOwnProperty.call(x2, "_readableStreamController")) {
           return false;
         }
-        return x2 instanceof ReadableStream;
+        return x2 instanceof ReadableStream2;
       }
       function IsReadableStreamLocked(stream) {
         if (stream._reader === void 0) {
@@ -7855,13 +7855,13 @@ var require_polyfill_es2018 = __commonJS({
         return new TypeError(`TransformStream.prototype.${name} can only be used on a TransformStream`);
       }
       const exports$1 = {
-        ReadableStream,
+        ReadableStream: ReadableStream2,
         ReadableStreamDefaultController,
         ReadableByteStreamController,
         ReadableStreamBYOBRequest,
         ReadableStreamDefaultReader,
         ReadableStreamBYOBReader,
-        WritableStream,
+        WritableStream: WritableStream2,
         WritableStreamDefaultController,
         WritableStreamDefaultWriter,
         ByteLengthQueuingStrategy,
@@ -7883,14 +7883,14 @@ var require_polyfill_es2018 = __commonJS({
       exports2.ByteLengthQueuingStrategy = ByteLengthQueuingStrategy;
       exports2.CountQueuingStrategy = CountQueuingStrategy;
       exports2.ReadableByteStreamController = ReadableByteStreamController;
-      exports2.ReadableStream = ReadableStream;
+      exports2.ReadableStream = ReadableStream2;
       exports2.ReadableStreamBYOBReader = ReadableStreamBYOBReader;
       exports2.ReadableStreamBYOBRequest = ReadableStreamBYOBRequest;
       exports2.ReadableStreamDefaultController = ReadableStreamDefaultController;
       exports2.ReadableStreamDefaultReader = ReadableStreamDefaultReader;
       exports2.TransformStream = TransformStream;
       exports2.TransformStreamDefaultController = TransformStreamDefaultController;
-      exports2.WritableStream = WritableStream;
+      exports2.WritableStream = WritableStream2;
       exports2.WritableStreamDefaultController = WritableStreamDefaultController;
       exports2.WritableStreamDefaultWriter = WritableStreamDefaultWriter;
       Object.defineProperty(exports2, "__esModule", { value: true });
@@ -13488,6 +13488,8 @@ async function prepareAddress(transport, host, port) {
 var kHandle = Symbol("kHandle");
 var kLocalAddress = Symbol("kLocalAddress");
 var kRemoteAddress = Symbol("kRemoteAddress");
+var kReadable = Symbol("kReadable");
+var kWritable = Symbol("kWritable");
 var Connection = class {
   constructor(handle) {
     this[kHandle] = handle;
@@ -13509,6 +13511,18 @@ var Connection = class {
       this[kRemoteAddress] = this[kHandle].getpeername();
     }
     return this[kRemoteAddress];
+  }
+  get readable() {
+    if (!this[kReadable]) {
+      this[kReadable] = readableStreamForHandle(this[kHandle]);
+    }
+    return this[kReadable];
+  }
+  get writable() {
+    if (!this[kWritable]) {
+      this[kWritable] = writableStreamForHandle(this[kHandle]);
+    }
+    return this[kWritable];
   }
   shutdown() {
     this[kHandle].shutdown();
@@ -13571,6 +13585,56 @@ var DatagramEndpoint = class {
     this[kHandle].close();
   }
 };
+function silentClose(handle) {
+  try {
+    handle.close();
+  } catch {
+  }
+}
+var CHUNK_SIZE = 16640;
+function readableStreamForHandle(handle) {
+  return new ReadableStream({
+    autoAllocateChunkSize: CHUNK_SIZE,
+    type: "bytes",
+    async pull(controller) {
+      const buf = controller.byobRequest.view;
+      try {
+        const nread = await handle.read(buf);
+        if (!nread) {
+          silentClose(handle);
+          controller.close();
+          controller.byobRequest.respond(0);
+        } else {
+          controller.byobRequest.respond(nread);
+        }
+      } catch (e2) {
+        controller.error(e2);
+        silentClose(handle);
+      }
+    },
+    cancel() {
+      silentClose(handle);
+    }
+  });
+}
+function writableStreamForHandle(handle) {
+  return new WritableStream({
+    async write(chunk, controller) {
+      try {
+        await handle.write(chunk);
+      } catch (e2) {
+        controller.error(e2);
+        silentClose(handle);
+      }
+    },
+    close() {
+      silentClose(handle);
+    },
+    abort() {
+      silentClose(handle);
+    }
+  });
+}
 
 // src/js/tjs/stdio.js
 var core5 = globalThis.__bootstrap;
