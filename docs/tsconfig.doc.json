@@ -1,7 +1,7 @@
 {
     "include": ["txikijs.d.ts"],
     "compilerOptions": {
-        "lib": ["ES2020"],
+        "lib": ["ES2020", "dom"],
         "noImplicitAny": true
     },
     "typedocOptions": {
