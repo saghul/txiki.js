@@ -13411,180 +13411,7 @@ async function prompt(msg = "Prompt", def = null) {
   return await readStdinLine() || def;
 }
 
-// src/js/tjs/sockets.js
-var core4 = globalThis.__bootstrap;
-async function connect(transport, host, port, options = {}) {
-  const addr = await prepareAddress(transport, host, port);
-  switch (transport) {
-    case "tcp": {
-      const handle = new core4.TCP();
-      if (options.bindAddr) {
-        handle.bind(options.bindAddr), options.bindFlags;
-      }
-      await handle.connect(addr);
-      return new Connection(handle);
-    }
-    case "pipe": {
-      const handle = new core4.Pipe();
-      await handle.connect(addr);
-      return new Connection(handle);
-    }
-    case "udp": {
-      const handle = new core4.UDP();
-      if (options.bindAddr) {
-        handle.bind(options.bindAddr, options.bindFlags);
-      }
-      await handle.connect(addr);
-      return new DatagramEndpoint(handle);
-    }
-  }
-}
-async function listen(transport, host, port, options = {}) {
-  const addr = await prepareAddress(transport, host, port);
-  switch (transport) {
-    case "tcp": {
-      const handle = new core4.TCP();
-      handle.bind(addr, options.bindFlags);
-      handle.listen(options.backlog);
-      return new Listener(handle);
-    }
-    case "pipe": {
-      const handle = new core4.Pipe();
-      handle.bind(addr);
-      handle.listen(options.backlog);
-      return new Listener(handle);
-    }
-    case "udp": {
-      const handle = new core4.UDP();
-      handle.bind(addr, options.bindFlags);
-      return new DatagramEndpoint(handle);
-    }
-  }
-}
-async function prepareAddress(transport, host, port) {
-  switch (transport) {
-    case "tcp": {
-      const opts = {
-        socktype: tjs.SOCK_STREAM,
-        protocol: tjs.IPPROTO_TCP
-      };
-      const r2 = await tjs.getaddrinfo(host ?? "0.0.0.0", port ?? 0, opts);
-      return r2[0];
-    }
-    case "pipe":
-      return host;
-    case "udp": {
-      const opts = {
-        socktype: tjs.SOCK_DGRAM,
-        protocol: tjs.IPPROTO_UDP
-      };
-      const r2 = await tjs.getaddrinfo(host ?? "0.0.0.0", port ?? 0, opts);
-      return r2[0];
-    }
-    default:
-      throw new Error("invalid transport");
-  }
-}
-var kHandle = Symbol("kHandle");
-var kLocalAddress = Symbol("kLocalAddress");
-var kRemoteAddress = Symbol("kRemoteAddress");
-var kReadable = Symbol("kReadable");
-var kWritable = Symbol("kWritable");
-var Connection = class {
-  constructor(handle) {
-    this[kHandle] = handle;
-  }
-  read(buf) {
-    return this[kHandle].read(buf);
-  }
-  write(buf) {
-    return this[kHandle].write(buf);
-  }
-  get localAddress() {
-    if (!this[kLocalAddress]) {
-      this[kLocalAddress] = this[kHandle].getsockname();
-    }
-    return this[kLocalAddress];
-  }
-  get remoteAddress() {
-    if (!this[kRemoteAddress]) {
-      this[kRemoteAddress] = this[kHandle].getpeername();
-    }
-    return this[kRemoteAddress];
-  }
-  get readable() {
-    if (!this[kReadable]) {
-      this[kReadable] = readableStreamForHandle(this[kHandle]);
-    }
-    return this[kReadable];
-  }
-  get writable() {
-    if (!this[kWritable]) {
-      this[kWritable] = writableStreamForHandle(this[kHandle]);
-    }
-    return this[kWritable];
-  }
-  shutdown() {
-    this[kHandle].shutdown();
-  }
-  close() {
-    this[kHandle].close();
-  }
-};
-var Listener = class {
-  constructor(handle) {
-    this[kHandle] = handle;
-  }
-  get localAddress() {
-    if (!this[kLocalAddress]) {
-      this[kLocalAddress] = this[kHandle].getsockname();
-    }
-    return this[kLocalAddress];
-  }
-  async accept() {
-    const handle = await this[kHandle].accept();
-    if (typeof handle === "undefined") {
-      return;
-    }
-    return new Connection(handle);
-  }
-  close() {
-    this[kHandle].close();
-  }
-  [Symbol.asyncIterator]() {
-    return this;
-  }
-  async next() {
-    const value = await this.accept();
-    return {
-      value,
-      done: typeof value === "undefined"
-    };
-  }
-};
-var DatagramEndpoint = class {
-  constructor(handle) {
-    this[kHandle] = handle;
-  }
-  recv(buf) {
-    return this[kHandle].recv(buf);
-  }
-  send(buf, taddr) {
-    return this[kHandle].send(buf, taddr);
-  }
-  get localAddress() {
-    if (!this[kLocalAddress]) {
-      this[kLocalAddress] = this[kHandle].getsockname();
-    }
-    return this[kLocalAddress];
-  }
-  get remoteAddress() {
-    return this[kHandle].getpeername();
-  }
-  close() {
-    this[kHandle].close();
-  }
-};
+// src/js/tjs/stream-utils.js
 function silentClose(handle) {
   try {
     handle.close();
@@ -13636,8 +13463,229 @@ function writableStreamForHandle(handle) {
   });
 }
 
-// src/js/tjs/stdio.js
+// src/js/tjs/fs.js
+var core4 = globalThis.__bootstrap;
+async function open(path, mode) {
+  const handle = await core4.open(path, mode);
+  return new FileHandle(handle);
+}
+async function mkstemp(template) {
+  const handle = await core4.mkstemp(template);
+  return new FileHandle(handle);
+}
+var kHandle = Symbol("kHandle");
+var kReadable = Symbol("kReadable");
+var kWritable = Symbol("kWritable");
+var FileHandle = class {
+  constructor(handle) {
+    this[kHandle] = handle;
+  }
+  get path() {
+    return this[kHandle].path;
+  }
+  get readable() {
+    if (!this[kReadable]) {
+      this[kReadable] = readableStreamForHandle(this[kHandle]);
+    }
+    return this[kReadable];
+  }
+  get writable() {
+    if (!this[kWritable]) {
+      this[kWritable] = writableStreamForHandle(this[kHandle]);
+    }
+    return this[kWritable];
+  }
+  read(buf, offset) {
+    return this[kHandle].read(buf, offset);
+  }
+  write(buf, offset) {
+    return this[kHandle].write(buf, offset);
+  }
+  stat() {
+    return this[kHandle].stat();
+  }
+  close() {
+    this[kHandle].close();
+  }
+};
+
+// src/js/tjs/sockets.js
 var core5 = globalThis.__bootstrap;
+async function connect(transport, host, port, options = {}) {
+  const addr = await prepareAddress(transport, host, port);
+  switch (transport) {
+    case "tcp": {
+      const handle = new core5.TCP();
+      if (options.bindAddr) {
+        handle.bind(options.bindAddr), options.bindFlags;
+      }
+      await handle.connect(addr);
+      return new Connection(handle);
+    }
+    case "pipe": {
+      const handle = new core5.Pipe();
+      await handle.connect(addr);
+      return new Connection(handle);
+    }
+    case "udp": {
+      const handle = new core5.UDP();
+      if (options.bindAddr) {
+        handle.bind(options.bindAddr, options.bindFlags);
+      }
+      await handle.connect(addr);
+      return new DatagramEndpoint(handle);
+    }
+  }
+}
+async function listen(transport, host, port, options = {}) {
+  const addr = await prepareAddress(transport, host, port);
+  switch (transport) {
+    case "tcp": {
+      const handle = new core5.TCP();
+      handle.bind(addr, options.bindFlags);
+      handle.listen(options.backlog);
+      return new Listener(handle);
+    }
+    case "pipe": {
+      const handle = new core5.Pipe();
+      handle.bind(addr);
+      handle.listen(options.backlog);
+      return new Listener(handle);
+    }
+    case "udp": {
+      const handle = new core5.UDP();
+      handle.bind(addr, options.bindFlags);
+      return new DatagramEndpoint(handle);
+    }
+  }
+}
+async function prepareAddress(transport, host, port) {
+  switch (transport) {
+    case "tcp": {
+      const opts = {
+        socktype: tjs.SOCK_STREAM,
+        protocol: tjs.IPPROTO_TCP
+      };
+      const r2 = await tjs.getaddrinfo(host ?? "0.0.0.0", port ?? 0, opts);
+      return r2[0];
+    }
+    case "pipe":
+      return host;
+    case "udp": {
+      const opts = {
+        socktype: tjs.SOCK_DGRAM,
+        protocol: tjs.IPPROTO_UDP
+      };
+      const r2 = await tjs.getaddrinfo(host ?? "0.0.0.0", port ?? 0, opts);
+      return r2[0];
+    }
+    default:
+      throw new Error("invalid transport");
+  }
+}
+var kHandle2 = Symbol("kHandle");
+var kLocalAddress = Symbol("kLocalAddress");
+var kRemoteAddress = Symbol("kRemoteAddress");
+var kReadable2 = Symbol("kReadable");
+var kWritable2 = Symbol("kWritable");
+var Connection = class {
+  constructor(handle) {
+    this[kHandle2] = handle;
+  }
+  read(buf) {
+    return this[kHandle2].read(buf);
+  }
+  write(buf) {
+    return this[kHandle2].write(buf);
+  }
+  get localAddress() {
+    if (!this[kLocalAddress]) {
+      this[kLocalAddress] = this[kHandle2].getsockname();
+    }
+    return this[kLocalAddress];
+  }
+  get remoteAddress() {
+    if (!this[kRemoteAddress]) {
+      this[kRemoteAddress] = this[kHandle2].getpeername();
+    }
+    return this[kRemoteAddress];
+  }
+  get readable() {
+    if (!this[kReadable2]) {
+      this[kReadable2] = readableStreamForHandle(this[kHandle2]);
+    }
+    return this[kReadable2];
+  }
+  get writable() {
+    if (!this[kWritable2]) {
+      this[kWritable2] = writableStreamForHandle(this[kHandle2]);
+    }
+    return this[kWritable2];
+  }
+  shutdown() {
+    this[kHandle2].shutdown();
+  }
+  close() {
+    this[kHandle2].close();
+  }
+};
+var Listener = class {
+  constructor(handle) {
+    this[kHandle2] = handle;
+  }
+  get localAddress() {
+    if (!this[kLocalAddress]) {
+      this[kLocalAddress] = this[kHandle2].getsockname();
+    }
+    return this[kLocalAddress];
+  }
+  async accept() {
+    const handle = await this[kHandle2].accept();
+    if (typeof handle === "undefined") {
+      return;
+    }
+    return new Connection(handle);
+  }
+  close() {
+    this[kHandle2].close();
+  }
+  [Symbol.asyncIterator]() {
+    return this;
+  }
+  async next() {
+    const value = await this.accept();
+    return {
+      value,
+      done: typeof value === "undefined"
+    };
+  }
+};
+var DatagramEndpoint = class {
+  constructor(handle) {
+    this[kHandle2] = handle;
+  }
+  recv(buf) {
+    return this[kHandle2].recv(buf);
+  }
+  send(buf, taddr) {
+    return this[kHandle2].send(buf, taddr);
+  }
+  get localAddress() {
+    if (!this[kLocalAddress]) {
+      this[kLocalAddress] = this[kHandle2].getsockname();
+    }
+    return this[kLocalAddress];
+  }
+  get remoteAddress() {
+    return this[kHandle2].getpeername();
+  }
+  close() {
+    this[kHandle2].close();
+  }
+};
+
+// src/js/tjs/stdio.js
+var core6 = globalThis.__bootstrap;
 var kStdioHandle = Symbol("kStdioHandle");
 var kStdioHandleType = Symbol("kStdioHandleType");
 var BaseIOStream = class {
@@ -13657,7 +13705,7 @@ var InputStream = class extends BaseIOStream {
     if (!this.isTTY) {
       throw new Error("not a TTY");
     }
-    const ttyMode = rawMode ? core5.TTY.TTY_MODE_RAW : core5.TTY.TTY_MODE_NORMAL;
+    const ttyMode = rawMode ? core6.TTY.TTY_MODE_RAW : core6.TTY.TTY_MODE_NORMAL;
     this[kStdioHandle].setMode(ttyMode);
   }
 };
@@ -13679,21 +13727,21 @@ var OutputStream = class extends BaseIOStream {
   }
 };
 function createStdioStream(fd) {
-  const isStdin = fd === core5.STDIN_FILENO;
+  const isStdin = fd === core6.STDIN_FILENO;
   const StreamType = isStdin ? InputStream : OutputStream;
-  const type = core5.guessHandle(fd);
+  const type = core6.guessHandle(fd);
   switch (type) {
     case "tty": {
-      const handle = new core5.TTY(fd, isStdin);
+      const handle = new core6.TTY(fd, isStdin);
       return new StreamType(handle, type);
     }
     case "pipe": {
-      const handle = new core5.Pipe();
+      const handle = new core6.Pipe();
       handle.open(fd);
       return new StreamType(handle, type);
     }
     case "file": {
-      const handle = core5.newStdioFile(pathByFd(fd), fd);
+      const handle = core6.newStdioFile(pathByFd(fd), fd);
       return new StreamType(handle, type);
     }
     default:
@@ -13702,28 +13750,28 @@ function createStdioStream(fd) {
 }
 function pathByFd(fd) {
   switch (fd) {
-    case core5.STDIN_FILENO:
+    case core6.STDIN_FILENO:
       return "<stdin>";
-    case core5.STDOUT_FILENO:
+    case core6.STDOUT_FILENO:
       return "<stdout>";
-    case core5.STDERR_FILENO:
+    case core6.STDERR_FILENO:
       return "<stderr>";
     default:
       return "";
   }
 }
 function createStdin() {
-  return createStdioStream(core5.STDIN_FILENO);
+  return createStdioStream(core6.STDIN_FILENO);
 }
 function createStdout() {
-  return createStdioStream(core5.STDOUT_FILENO);
+  return createStdioStream(core6.STDOUT_FILENO);
 }
 function createStderr() {
-  return createStdioStream(core5.STDERR_FILENO);
+  return createStdioStream(core6.STDERR_FILENO);
 }
 
 // src/js/tjs/index.js
-var core6 = globalThis.__bootstrap;
+var core7 = globalThis.__bootstrap;
 var tjs2 = /* @__PURE__ */ Object.create(null);
 var noExport = [
   "STDIN_FILENO",
@@ -13740,20 +13788,22 @@ var noExport = [
   "evalScript",
   "guessHandle",
   "hrtimeMs",
+  "mkstemp",
   "newStdioFile",
+  "open",
   "random",
   "setInterval",
   "setTimeout",
   "wasm"
 ];
-for (const [key, value] of Object.entries(core6)) {
+for (const [key, value] of Object.entries(core7)) {
   if (noExport.includes(key)) {
     continue;
   }
   tjs2[key] = value;
 }
-tjs2.args = Object.freeze(core6.args);
-tjs2.versions = Object.freeze(core6.versions);
+tjs2.args = Object.freeze(core7.args);
+tjs2.versions = Object.freeze(core7.versions);
 Object.defineProperty(tjs2, "alert", {
   enumerable: true,
   configurable: false,
@@ -13776,7 +13826,19 @@ Object.defineProperty(tjs2, "_evalScript", {
   enumerable: false,
   configurable: false,
   writable: false,
-  value: core6.evalScript
+  value: core7.evalScript
+});
+Object.defineProperty(tjs2, "open", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: open
+});
+Object.defineProperty(tjs2, "mkstemp", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: mkstemp
 });
 Object.defineProperty(tjs2, "connect", {
   enumerable: true,

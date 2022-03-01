@@ -324,11 +324,6 @@ declare namespace tjs {
         close(): Promise<void>;
 
         /**
-         * Gets the file descriptor.
-         */
-        fileno(): number;
-
-        /**
          * Get the file status information.
          * See [stat(2)](https://man7.org/linux/man-pages/man2/lstat.2.html)
          */
@@ -338,6 +333,9 @@ declare namespace tjs {
          * The file path.
          */
         path: string;
+
+        readable: ReadableStream<Uint8Array>;
+        writable: WritableStream<Uint8Array>;
     }
 
     interface StatResult {

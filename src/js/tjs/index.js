@@ -1,6 +1,7 @@
 const core = globalThis.__bootstrap;
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
+import { open, mkstemp } from './fs.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
 
@@ -23,7 +24,9 @@ const noExport = [
     'evalScript',
     'guessHandle',
     'hrtimeMs',
+    'mkstemp',
     'newStdioFile',
+    'open',
     'random',
     'setInterval',
     'setTimeout',
@@ -69,6 +72,20 @@ Object.defineProperty(tjs, '_evalScript', {
     configurable: false,
     writable: false,
     value: core.evalScript
+});
+
+// FS.
+Object.defineProperty(tjs, 'open', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: open
+});
+Object.defineProperty(tjs, 'mkstemp', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: mkstemp
 });
 
 // Sockets.
