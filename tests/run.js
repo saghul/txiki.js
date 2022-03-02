@@ -96,6 +96,7 @@ function printResult(result) {
     const dir = await tjs.realpath(tjs.args[2] || import.meta.dirname);
     const dirIter = await tjs.readdir(dir);
     const tests = [];
+
     for await (const item of dirIter) {
         const { name } = item;
         if (name.startsWith('test-') && name.endsWith('.js')) {
@@ -104,10 +105,27 @@ function printResult(result) {
     }
 
     let failed = 0;
-    for (const test of tests) {
-        // TODO: run tests concurrently...
-        test.run();
-        const result = await test.wait();
+    const testConcurrency = tjs.environ.TJS_TEST_CONCURRENCY ?? tjs.cpuInfo().length;
+    const running = new Set();
+
+    while (true) {
+        if (tests.length === 0 && running.size === 0) {
+            break;
+        }
+
+        const n = testConcurrency - running.size;
+        const willRun = tests.splice(0, n);
+
+        for (const test of willRun) {
+            test.run();
+            const p = test.wait().then(r => {
+                running.delete(p);
+                return r;
+            })
+            running.add(p);
+        }
+
+        const result = await Promise.race(running);
         printResult(result);
         if (result.failed) {
             failed += 1;
