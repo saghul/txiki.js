@@ -30,6 +30,8 @@ async function doEchoServer(server) {
 
     const serverAddr = server.localAddress;
     const client = await tjs.connect('tcp', serverAddr.ip, serverAddr.port);
+    client.setKeepAlive();
+    client.setNoDelay(true);
     client.write(encoder.encode('PING'));
     let dataStr, nread;
     nread = await client.read(readBuf);
