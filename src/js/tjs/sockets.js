@@ -91,14 +91,6 @@ class Connection {
         this[kHandle] = handle;
     }
 
-    read(buf) {
-        return this[kHandle].read(buf);
-    }
-
-    write(buf) {
-        return this[kHandle].write(buf);
-    }
-
     get localAddress() {
         if (!this[kLocalAddress]) {
             this[kLocalAddress] = this[kHandle].getsockname();
@@ -125,6 +117,22 @@ class Connection {
             this[kWritable] = writableStreamForHandle(this[kHandle]);
         }
         return this[kWritable];
+    }
+
+    read(buf) {
+        return this[kHandle].read(buf);
+    }
+
+    write(buf) {
+        return this[kHandle].write(buf);
+    }
+
+    setKeepAlive(enable = true) {
+        this[kHandle].setKeepAlive(enable);
+    }
+
+    setNoDelay(enable = true) {
+        this[kHandle].setNoDelay(enable);
     }
 
     shutdown() {

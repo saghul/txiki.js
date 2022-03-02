@@ -650,6 +650,8 @@ declare namespace tjs {
     interface Connection {
         read(buf: Uint8Array): Promise<number>;
         write(buf: Uint8Array): Promise<number>;
+        setKeepAlive(enable?: boolean): void;
+        setNoDelay(enable?: boolean): void;
         shutdown(): void;
         close(): void;
         localAddress: Address;
