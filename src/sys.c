@@ -46,7 +46,7 @@ static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val, int argc, JS
     return ret;
 }
 
-static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -77,6 +77,7 @@ static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("gc", 0, js_std_gc),
     TJS_CFUNC_DEF("evalScript", 1, js_evalScript),
+    TJS_CGETSET_DEF("exepath", tjs_exepath, NULL),
 };
 
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {
@@ -91,6 +92,4 @@ void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {
     JS_DefinePropertyValueStr(ctx, versions, "wasm3", JS_NewString(ctx, M3_VERSION), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "versions", versions, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "platform", JS_NewString(ctx, TJS__PLATFORM), JS_PROP_C_W_E);
-    // We want exepath to be a getter, not a function.
-    CHECK_EQ(TJS_DefineGetter(ctx, ns, tjs_exepath, "exepath"), 1);
 }
