@@ -84,7 +84,7 @@ static JSValue tjs_guess_handle(JSContext *ctx, JSValueConst this_val, int argc,
     }
 }
 
-static JSValue tjs_environ(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_environ(JSContext *ctx, JSValueConst this_val) {
     uv_env_item_t *env;
     int envcount, r;
 
@@ -425,10 +425,9 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("loadavg", 0, tjs_loadavg),
     TJS_CFUNC_DEF("networkInterfaces", 0, tjs_network_interfaces),
     TJS_CFUNC_DEF("gethostname", 0, tjs_gethostname),
+    TJS_CGETSET_DEF("environ", tjs_environ, NULL),
 };
 
 void tjs__mod_os_init(JSContext *ctx, JSValue ns) {
     JS_SetPropertyFunctionList(ctx, ns, tjs_os_funcs, countof(tjs_os_funcs));
-    // We want environ to be a getter, not a function.
-    CHECK_EQ(TJS_DefineGetter(ctx, ns, tjs_environ, "environ"), 1);
 }

@@ -81,6 +81,7 @@ void tjs_assert(const struct AssertionInfo info);
 #define TJS_CONST2(name, val) JS_PROP_INT32_DEF(name, val, JS_PROP_ENUMERABLE)
 #define TJS_CFUNC_DEF(name, length, func1) { name, JS_PROP_C_W_E, JS_DEF_CFUNC, 0, .u = { .func = { length, JS_CFUNC_generic, { .generic = func1 } } } }
 #define TJS_CFUNC_MAGIC_DEF(name, length, func1, magic) { name, JS_PROP_C_W_E, JS_DEF_CFUNC, magic, .u = { .func = { length, JS_CFUNC_generic_magic, { .generic_magic = func1 } } } }
+#define TJS_CGETSET_DEF(name, fgetter, fsetter) { name, JS_PROP_C_W_E, JS_DEF_CGETSET, 0, .u = { .getset = { .get = { .getter = fgetter }, .set = { .setter = fsetter } } } }
 
 uv_loop_t *tjs_get_loop(JSContext *ctx);
 int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);
@@ -108,7 +109,5 @@ JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 
 JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size);
-
-int TJS_DefineGetter(JSContext *ctx, JSValue this_obj, JSCFunction *func, const char *name);
 
 #endif
