@@ -430,6 +430,10 @@ static JSValue tjs_userInfo(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return obj;
 }
 
+static JSValue tjs_availableParallelism(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    return JS_NewUint32(ctx, uv_available_parallelism());
+}
+
 static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CONST(AF_INET),
     TJS_CONST(AF_INET6),
@@ -456,6 +460,7 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CGETSET_DEF("pid", tjs_getpid, NULL),
     TJS_CGETSET_DEF("ppid", tjs_getppid, NULL),
     TJS_CFUNC_DEF("userInfo", 0, tjs_userInfo),
+    TJS_CFUNC_DEF("availableParallelism", 0, tjs_availableParallelism),
 };
 
 void tjs__mod_os_init(JSContext *ctx, JSValue ns) {

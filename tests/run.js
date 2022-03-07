@@ -105,7 +105,7 @@ function printResult(result) {
     }
 
     let failed = 0;
-    const testConcurrency = tjs.environ.TJS_TEST_CONCURRENCY ?? tjs.cpuInfo().length;
+    const testConcurrency = tjs.environ.TJS_TEST_CONCURRENCY ?? tjs.availableParallelism();
     const running = new Set();
 
     while (true) {

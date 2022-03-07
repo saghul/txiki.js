@@ -770,4 +770,9 @@ declare namespace tjs {
      * Retrieves user information from the password database.
      */
     function userInfo(): UserInfo;
+
+    /**
+     * Returns an estimate of the default amount of parallelism a program should use.
+     */
+    function availableParallelism(): number;
 }
