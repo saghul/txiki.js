@@ -757,4 +757,17 @@ declare namespace tjs {
      * Parent process ID.
      */
     const ppid: number;
+
+    interface UserInfo {
+        username: string;
+        uid: number;
+        gid: number;
+        shell: string | null;
+        homedir: string | null;
+    }
+
+    /**
+     * Retrieves user information from the password database.
+     */
+    function userInfo(): UserInfo;
 }

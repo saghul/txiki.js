@@ -411,6 +411,25 @@ static JSValue tjs_getppid(JSContext *ctx, JSValueConst this_val) {
     return JS_NewInt32(ctx, uv_os_getppid());
 }
 
+static JSValue tjs_userInfo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uv_passwd_t p;
+
+    int r = uv_os_get_passwd(&p);
+    if (r != 0)
+        return tjs_throw_errno(ctx, r);
+
+    JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
+    JS_DefinePropertyValueStr(ctx, obj, "username", JS_NewString(ctx, p.username), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, obj, "uid", JS_NewInt32(ctx, p.uid), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, obj, "gid", JS_NewInt32(ctx, p.gid), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, obj, "shell", p.shell ? JS_NewString(ctx, p.shell) : JS_NULL, JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, obj, "homedir", p.homedir ? JS_NewString(ctx, p.homedir) : JS_NULL, JS_PROP_C_W_E);
+
+    uv_os_free_passwd(&p);
+
+    return obj;
+}
+
 static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CONST(AF_INET),
     TJS_CONST(AF_INET6),
@@ -436,6 +455,7 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CGETSET_DEF("environ", tjs_environ, NULL),
     TJS_CGETSET_DEF("pid", tjs_getpid, NULL),
     TJS_CGETSET_DEF("ppid", tjs_getppid, NULL),
+    TJS_CFUNC_DEF("userInfo", 0, tjs_userInfo),
 };
 
 void tjs__mod_os_init(JSContext *ctx, JSValue ns) {
