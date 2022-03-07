@@ -403,6 +403,14 @@ static JSValue tjs_gethostname(JSContext *ctx, JSValueConst this_val, int argc, 
     return JS_NewStringLen(ctx, buf, size);
 }
 
+static JSValue tjs_getpid(JSContext *ctx, JSValueConst this_val) {
+    return JS_NewInt32(ctx, uv_os_getpid());
+}
+
+static JSValue tjs_getppid(JSContext *ctx, JSValueConst this_val) {
+    return JS_NewInt32(ctx, uv_os_getppid());
+}
+
 static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CONST(AF_INET),
     TJS_CONST(AF_INET6),
@@ -426,6 +434,8 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("networkInterfaces", 0, tjs_network_interfaces),
     TJS_CFUNC_DEF("gethostname", 0, tjs_gethostname),
     TJS_CGETSET_DEF("environ", tjs_environ, NULL),
+    TJS_CGETSET_DEF("pid", tjs_getpid, NULL),
+    TJS_CGETSET_DEF("ppid", tjs_getppid, NULL),
 };
 
 void tjs__mod_os_init(JSContext *ctx, JSValue ns) {

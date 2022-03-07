@@ -747,4 +747,14 @@ declare namespace tjs {
      * @param options Extra listen options.
      */
     function listen(transport: Transport, host: string, port?: string | number, options?: ListenOptions): Promise<Listener | DatagramEndpoint>;
+
+    /**
+     * Current process ID.
+     */
+    const pid: number;
+
+    /**
+     * Parent process ID.
+     */
+    const ppid: number;
 }
