@@ -106,7 +106,8 @@ set_target_properties(tjs PROPERTIES
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
-target_link_libraries(tjs qjs uv_a m3 m ${CURL_LIBRARIES})
-if(MINGW)
+target_link_libraries(tjs qjs uv_a m3 ${qjs_libs} ${uv_libraries} ${CURL_LIBRARIES})
+if(MINGW AND CLANG)
+    # Fix linking error because clock_getres is missing.
     target_link_libraries(tjs pthread)
 endif()
