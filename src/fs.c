@@ -236,6 +236,7 @@ static void uv__fs_req_cb(uv_fs_t *req) {
             break;
 
         case UV_FS_COPYFILE:
+        case UV_FS_FTRUNCATE:
         case UV_FS_RENAME:
         case UV_FS_RMDIR:
         case UV_FS_UNLINK:
@@ -357,6 +358,28 @@ static JSValue tjs_file_stat(JSContext *ctx, JSValueConst this_val, int argc, JS
         return JS_EXCEPTION;
 
     int r = uv_fs_fstat(tjs_get_loop(ctx), &fr->req, f->fd, uv__fs_req_cb);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return tjs_fsreq_init(ctx, fr, this_val);
+}
+
+static JSValue tjs_file_truncate(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSFile *f = tjs_file_get(ctx, this_val);
+    if (!f)
+        return JS_EXCEPTION;
+
+    int64_t offset = 0;
+    if (!JS_IsUndefined(argv[0]) && JS_ToInt64(ctx, &offset, argv[0]))
+        return JS_EXCEPTION;
+
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
+        return JS_EXCEPTION;
+
+    int r = uv_fs_ftruncate(tjs_get_loop(ctx), &fr->req, f->fd, offset, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return tjs_throw_errno(ctx, r);
@@ -816,6 +839,7 @@ static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
     TJS_CFUNC_DEF("close", 0, tjs_file_close),
     TJS_CFUNC_DEF("fileno", 0, tjs_file_fileno),
     TJS_CFUNC_DEF("stat", 0, tjs_file_stat),
+    TJS_CFUNC_DEF("truncate", 0, tjs_file_truncate),
     JS_CGETSET_DEF("path", tjs_file_path_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "File", JS_PROP_CONFIGURABLE),
 };
