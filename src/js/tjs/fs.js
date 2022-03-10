@@ -54,6 +54,10 @@ class FileHandle {
         return this[kHandle].stat();
     }
 
+    truncate(offset) {
+        return this[kHandle].truncate(offset);
+    }
+
     close() {
         this[kHandle].close();
     }

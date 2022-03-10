@@ -330,6 +330,13 @@ declare namespace tjs {
         stat(): Promise<StatResult>;
 
         /**
+         * Truncates the file to the given length.
+         *
+         * @param offset Length to truncate the file to.
+         */
+        truncate(offset?: number): Promise<void>;
+
+        /**
          * The file path.
          */
         path: string;
