@@ -2,6 +2,7 @@ const core = globalThis.__bootstrap;
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import { open, mkstemp } from './fs.js';
+import { signal } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
 
@@ -30,6 +31,8 @@ const noExport = [
     'random',
     'setInterval',
     'setTimeout',
+    'signal',
+    'signals',
     'wasm'
 ];
 
@@ -86,6 +89,14 @@ Object.defineProperty(tjs, 'mkstemp', {
     configurable: false,
     writable: false,
     value: mkstemp
+});
+
+// Signals.
+Object.defineProperty(tjs, 'signal', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: signal
 });
 
 // Sockets.

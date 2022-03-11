@@ -127,7 +127,7 @@ window.addEventListener('unhandledrejection', event => {
         tjs.stdin.setRawMode(true);
 
         /* install a Ctrl-C signal handler */
-        sigint_h = tjs.signal(tjs.SIGINT, sigint_handler);
+        sigint_h = tjs.signal('SIGINT', sigint_handler);
 
         /* handler to read stdin */
         term_read_handler();
