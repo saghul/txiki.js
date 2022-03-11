@@ -6465,7 +6465,7 @@ var require_polyfill_es2018 = __commonJS({
         return ctor;
       }
       const DOMException$1 = isDOMExceptionConstructor(NativeDOMException) ? NativeDOMException : createDOMExceptionPolyfill();
-      function ReadableStreamPipeTo(source, dest, preventClose, preventAbort, preventCancel, signal) {
+      function ReadableStreamPipeTo(source, dest, preventClose, preventAbort, preventCancel, signal2) {
         const reader = AcquireReadableStreamDefaultReader(source);
         const writer = AcquireWritableStreamDefaultWriter(dest);
         source._disturbed = true;
@@ -6473,7 +6473,7 @@ var require_polyfill_es2018 = __commonJS({
         let currentWrite = promiseResolvedWith(void 0);
         return newPromise((resolve, reject) => {
           let abortAlgorithm;
-          if (signal !== void 0) {
+          if (signal2 !== void 0) {
             abortAlgorithm = () => {
               const error = new DOMException$1("Aborted", "AbortError");
               const actions = [];
@@ -6495,11 +6495,11 @@ var require_polyfill_es2018 = __commonJS({
               }
               shutdownWithAction(() => Promise.all(actions.map((action) => action())), true, error);
             };
-            if (signal.aborted) {
+            if (signal2.aborted) {
               abortAlgorithm();
               return;
             }
-            signal.addEventListener("abort", abortAlgorithm);
+            signal2.addEventListener("abort", abortAlgorithm);
           }
           function pipeLoop() {
             return newPromise((resolveLoop, rejectLoop) => {
@@ -6606,8 +6606,8 @@ var require_polyfill_es2018 = __commonJS({
           function finalize(isError, error) {
             WritableStreamDefaultWriterRelease(writer);
             ReadableStreamReaderGenericRelease(reader);
-            if (signal !== void 0) {
-              signal.removeEventListener("abort", abortAlgorithm);
+            if (signal2 !== void 0) {
+              signal2.removeEventListener("abort", abortAlgorithm);
             }
             if (isError) {
               reject(error);
@@ -7213,19 +7213,19 @@ var require_polyfill_es2018 = __commonJS({
         const preventAbort = options === null || options === void 0 ? void 0 : options.preventAbort;
         const preventCancel = options === null || options === void 0 ? void 0 : options.preventCancel;
         const preventClose = options === null || options === void 0 ? void 0 : options.preventClose;
-        const signal = options === null || options === void 0 ? void 0 : options.signal;
-        if (signal !== void 0) {
-          assertAbortSignal(signal, `${context} has member 'signal' that`);
+        const signal2 = options === null || options === void 0 ? void 0 : options.signal;
+        if (signal2 !== void 0) {
+          assertAbortSignal(signal2, `${context} has member 'signal' that`);
         }
         return {
           preventAbort: Boolean(preventAbort),
           preventCancel: Boolean(preventCancel),
           preventClose: Boolean(preventClose),
-          signal
+          signal: signal2
         };
       }
-      function assertAbortSignal(signal, context) {
-        if (!isAbortSignal(signal)) {
+      function assertAbortSignal(signal2, context) {
+        if (!isAbortSignal(signal2)) {
           throw new TypeError(`${context} is not an AbortSignal.`);
         }
       }
@@ -12709,18 +12709,18 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
     var Request = NativeRequest;
     if (Request && !Request.prototype.hasOwnProperty("signal") || __FORCE_INSTALL_ABORTCONTROLLER_POLYFILL) {
       Request = function Request2(input, init) {
-        var signal;
+        var signal2;
         if (init && init.signal) {
-          signal = init.signal;
+          signal2 = init.signal;
           delete init.signal;
         }
         var request = new NativeRequest(input, init);
-        if (signal) {
+        if (signal2) {
           Object.defineProperty(request, "signal", {
             writable: false,
             enumerable: false,
             configurable: true,
-            value: signal
+            value: signal2
           });
         }
         return request;
@@ -12729,8 +12729,8 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
     }
     var realFetch = fetch;
     var abortableFetch = function abortableFetch2(input, init) {
-      var signal = Request && Request.prototype.isPrototypeOf(input) ? input.signal : init ? init.signal : void 0;
-      if (signal) {
+      var signal2 = Request && Request.prototype.isPrototypeOf(input) ? input.signal : init ? init.signal : void 0;
+      if (signal2) {
         var abortError;
         try {
           abortError = new DOMException("Aborted", "AbortError");
@@ -12738,11 +12738,11 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
           abortError = new Error("Aborted");
           abortError.name = "AbortError";
         }
-        if (signal.aborted) {
+        if (signal2.aborted) {
           return Promise.reject(abortError);
         }
         var cancellation = new Promise(function(_, reject) {
-          signal.addEventListener("abort", function() {
+          signal2.addEventListener("abort", function() {
             return reject(abortError);
           }, {
             once: true
@@ -13512,13 +13512,23 @@ var FileHandle = class {
   }
 };
 
-// src/js/tjs/sockets.js
+// src/js/tjs/signal.js
 var core5 = globalThis.__bootstrap;
+function signal(sig, handler) {
+  const signum = core5.signals[sig];
+  if (typeof signum === "undefined") {
+    throw new Error(`invalid signal: ${sig}`);
+  }
+  return core5.signal(signum, handler);
+}
+
+// src/js/tjs/sockets.js
+var core6 = globalThis.__bootstrap;
 async function connect(transport, host, port, options = {}) {
   const addr = await prepareAddress(transport, host, port);
   switch (transport) {
     case "tcp": {
-      const handle = new core5.TCP();
+      const handle = new core6.TCP();
       if (options.bindAddr) {
         handle.bind(options.bindAddr), options.bindFlags;
       }
@@ -13526,12 +13536,12 @@ async function connect(transport, host, port, options = {}) {
       return new Connection(handle);
     }
     case "pipe": {
-      const handle = new core5.Pipe();
+      const handle = new core6.Pipe();
       await handle.connect(addr);
       return new Connection(handle);
     }
     case "udp": {
-      const handle = new core5.UDP();
+      const handle = new core6.UDP();
       if (options.bindAddr) {
         handle.bind(options.bindAddr, options.bindFlags);
       }
@@ -13544,19 +13554,19 @@ async function listen(transport, host, port, options = {}) {
   const addr = await prepareAddress(transport, host, port);
   switch (transport) {
     case "tcp": {
-      const handle = new core5.TCP();
+      const handle = new core6.TCP();
       handle.bind(addr, options.bindFlags);
       handle.listen(options.backlog);
       return new Listener(handle);
     }
     case "pipe": {
-      const handle = new core5.Pipe();
+      const handle = new core6.Pipe();
       handle.bind(addr);
       handle.listen(options.backlog);
       return new Listener(handle);
     }
     case "udp": {
-      const handle = new core5.UDP();
+      const handle = new core6.UDP();
       handle.bind(addr, options.bindFlags);
       return new DatagramEndpoint(handle);
     }
@@ -13694,7 +13704,7 @@ var DatagramEndpoint = class {
 };
 
 // src/js/tjs/stdio.js
-var core6 = globalThis.__bootstrap;
+var core7 = globalThis.__bootstrap;
 var kStdioHandle = Symbol("kStdioHandle");
 var kStdioHandleType = Symbol("kStdioHandleType");
 var BaseIOStream = class {
@@ -13714,7 +13724,7 @@ var InputStream = class extends BaseIOStream {
     if (!this.isTTY) {
       throw new Error("not a TTY");
     }
-    const ttyMode = rawMode ? core6.TTY.TTY_MODE_RAW : core6.TTY.TTY_MODE_NORMAL;
+    const ttyMode = rawMode ? core7.TTY.TTY_MODE_RAW : core7.TTY.TTY_MODE_NORMAL;
     this[kStdioHandle].setMode(ttyMode);
   }
 };
@@ -13736,21 +13746,21 @@ var OutputStream = class extends BaseIOStream {
   }
 };
 function createStdioStream(fd) {
-  const isStdin = fd === core6.STDIN_FILENO;
+  const isStdin = fd === core7.STDIN_FILENO;
   const StreamType = isStdin ? InputStream : OutputStream;
-  const type = core6.guessHandle(fd);
+  const type = core7.guessHandle(fd);
   switch (type) {
     case "tty": {
-      const handle = new core6.TTY(fd, isStdin);
+      const handle = new core7.TTY(fd, isStdin);
       return new StreamType(handle, type);
     }
     case "pipe": {
-      const handle = new core6.Pipe();
+      const handle = new core7.Pipe();
       handle.open(fd);
       return new StreamType(handle, type);
     }
     case "file": {
-      const handle = core6.newStdioFile(pathByFd(fd), fd);
+      const handle = core7.newStdioFile(pathByFd(fd), fd);
       return new StreamType(handle, type);
     }
     default:
@@ -13759,28 +13769,28 @@ function createStdioStream(fd) {
 }
 function pathByFd(fd) {
   switch (fd) {
-    case core6.STDIN_FILENO:
+    case core7.STDIN_FILENO:
       return "<stdin>";
-    case core6.STDOUT_FILENO:
+    case core7.STDOUT_FILENO:
       return "<stdout>";
-    case core6.STDERR_FILENO:
+    case core7.STDERR_FILENO:
       return "<stderr>";
     default:
       return "";
   }
 }
 function createStdin() {
-  return createStdioStream(core6.STDIN_FILENO);
+  return createStdioStream(core7.STDIN_FILENO);
 }
 function createStdout() {
-  return createStdioStream(core6.STDOUT_FILENO);
+  return createStdioStream(core7.STDOUT_FILENO);
 }
 function createStderr() {
-  return createStdioStream(core6.STDERR_FILENO);
+  return createStdioStream(core7.STDERR_FILENO);
 }
 
 // src/js/tjs/index.js
-var core7 = globalThis.__bootstrap;
+var core8 = globalThis.__bootstrap;
 var tjs2 = /* @__PURE__ */ Object.create(null);
 var noExport = [
   "STDIN_FILENO",
@@ -13803,16 +13813,18 @@ var noExport = [
   "random",
   "setInterval",
   "setTimeout",
+  "signal",
+  "signals",
   "wasm"
 ];
-for (const [key, value] of Object.entries(core7)) {
+for (const [key, value] of Object.entries(core8)) {
   if (noExport.includes(key)) {
     continue;
   }
   tjs2[key] = value;
 }
-tjs2.args = Object.freeze(core7.args);
-tjs2.versions = Object.freeze(core7.versions);
+tjs2.args = Object.freeze(core8.args);
+tjs2.versions = Object.freeze(core8.versions);
 Object.defineProperty(tjs2, "alert", {
   enumerable: true,
   configurable: false,
@@ -13835,7 +13847,7 @@ Object.defineProperty(tjs2, "_evalScript", {
   enumerable: false,
   configurable: false,
   writable: false,
-  value: core7.evalScript
+  value: core8.evalScript
 });
 Object.defineProperty(tjs2, "open", {
   enumerable: true,
@@ -13848,6 +13860,12 @@ Object.defineProperty(tjs2, "mkstemp", {
   configurable: false,
   writable: false,
   value: mkstemp
+});
+Object.defineProperty(tjs2, "signal", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: signal
 });
 Object.defineProperty(tjs2, "connect", {
   enumerable: true,

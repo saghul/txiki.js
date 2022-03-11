@@ -54,26 +54,21 @@ declare namespace tjs {
     const args: string[];
 
     /**
-     * Signal types. They may vary across platforms, though some common ones are available everywhere like `SIGINT`.
-     *
-     * ```js
-     * tjs.signal(tjs.SIGINT, handleSigint);
-     * ```
-     */
-    const SIGXXX: number;
-
-    /**
      * Signal handler function.
      */
-    type SignalHandler = (signum: number) => void;
+    type SignalHandler = () => void;
 
     /**
      * Registers a handler for the given signal.
      *
-     * @param signum Which signal to register a handler for.
+     * ```js
+     * const h = tjs.signal('SIGINT', handleSigint);
+     * ```
+     *
+     * @param sig Which signal to register a handler for.
      * @param handler Handler function.
      */
-    function signal(signum: number, handler: SignalHandler): void;
+    function signal(sig: string, handler: SignalHandler): void;
 
     /**
      * Triggers a garbage collection cycle.

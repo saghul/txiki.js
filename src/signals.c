@@ -151,7 +151,7 @@ static const JSCFunctionListEntry tjs_signal_handler_proto_funcs[] = {
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Signal Handler", JS_PROP_CONFIGURABLE),
 };
 
-static const JSCFunctionListEntry tjs_signal_funcs[] = {
+static const JSCFunctionListEntry tjs_signals[] = {
 #ifdef SIGHUP
     TJS_CONST(SIGHUP),
 #endif
@@ -261,6 +261,9 @@ static const JSCFunctionListEntry tjs_signal_funcs[] = {
 #ifdef SIGUNUSED
     TJS_CONST(SIGUNUSED),
 #endif
+};
+
+static const JSCFunctionListEntry tjs_signal_funcs[] = {
     TJS_CFUNC_DEF("signal", 2, tjs_signal),
 };
 
@@ -270,6 +273,10 @@ void tjs__mod_signals_init(JSContext *ctx, JSValue ns) {
     JSValue proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_signal_handler_proto_funcs, countof(tjs_signal_handler_proto_funcs));
     JS_SetClassProto(ctx, tjs_signal_handler_class_id, proto);
+
+    JSValue signals = JS_NewObjectProto(ctx, JS_NULL);
+    JS_SetPropertyFunctionList(ctx, signals, tjs_signals, countof(tjs_signals));
+    JS_SetPropertyStr(ctx, ns, "signals", signals);
 
     JS_SetPropertyFunctionList(ctx, ns, tjs_signal_funcs, countof(tjs_signal_funcs));
 }

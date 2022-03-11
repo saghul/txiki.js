@@ -7,3 +7,4 @@ node_modules/
 docs/api/
 
 .DS_Store
+core
