@@ -110,4 +110,8 @@ JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 
 JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size);
 
+extern const char *tjs_signal_map[];
+extern size_t tjs_signal_map_count;
+const char *tjs_getsig(int sig);
+
 #endif

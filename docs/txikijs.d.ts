@@ -609,11 +609,11 @@ declare namespace tjs {
 
     interface ProcessStatus {
         exit_status: number;
-        term_signal: number;
+        term_signal: string;
     }
 
     interface Process {
-        kill(signal?: number): void;
+        kill(signal?: string): void;
         wait(): Promise<ProcessStatus>;
         pid: number;
         stdin?: Writer;

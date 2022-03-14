@@ -269,3 +269,117 @@ JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size) {
     JS_FreeValue(ctx, abuf);
     return buf;
 }
+
+const char *tjs_signal_map[] = {
+#ifdef SIGHUP
+    [SIGHUP] = "SIGHUP",
+#endif
+#ifdef SIGINT
+    [SIGINT] = "SIGINT",
+#endif
+#ifdef SIGQUIT
+    [SIGQUIT] = "SIGQUIT",
+#endif
+#ifdef SIGILL
+    [SIGILL] = "SIGILL",
+#endif
+#ifdef SIGTRAP
+    [SIGTRAP] = "SIGTRAP",
+#endif
+#ifdef SIGABRT
+    [SIGABRT] = "SIGABRT",
+#endif
+#ifdef SIGBUS
+    [SIGBUS] = "SIGBUS",
+#endif
+#ifdef SIGFPE
+    [SIGFPE] = "SIGFPE",
+#endif
+#ifdef SIGKILL
+    [SIGKILL] = "SIGKILL",
+#endif
+#ifdef SIGUSR1
+    [SIGUSR1] = "SIGUSR1",
+#endif
+#ifdef SIGSEGV
+    [SIGSEGV] = "SIGSEGV",
+#endif
+#ifdef SIGUSR2
+    [SIGUSR2] = "SIGUSR2",
+#endif
+#ifdef SIGPIPE
+    [SIGPIPE] = "SIGPIPE",
+#endif
+#ifdef SIGALRM
+    [SIGALRM] = "SIGALRM",
+#endif
+#ifdef SIGTERM
+    [SIGTERM] = "SIGTERM",
+#endif
+#ifdef SIGSTKFLT
+    [SIGSTKFLT] = "SIGSTKFLT",
+#endif
+#ifdef SIGCHLD
+    [SIGCHLD] = "SIGCHLD",
+#endif
+#ifdef SIGCONT
+    [SIGCONT] = "SIGCONT",
+#endif
+#ifdef SIGSTOP
+    [SIGSTOP] = "SIGSTOP",
+#endif
+#ifdef SIGTSTP
+    [SIGTSTP] = "SIGTSTP",
+#endif
+#ifdef SIGBREAK
+    [SIGBREAK] = "SIGBREAK",
+#endif
+#ifdef SIGTTIN
+    [SIGTTIN] = "SIGTTIN",
+#endif
+#ifdef SIGTTOU
+    [SIGTTOU] = "SIGTTOU",
+#endif
+#ifdef SIGURG
+    [SIGURG] = "SIGURG",
+#endif
+#ifdef SIGXCPU
+    [SIGXCPU] = "SIGXCPU",
+#endif
+#ifdef SIGXFSZ
+    [SIGXFSZ] = "SIGXFSZ",
+#endif
+#ifdef SIGVTALRM
+    [SIGVTALRM] = "SIGVTALRM",
+#endif
+#ifdef SIGPROF
+    [SIGPROF] = "SIGPROF",
+#endif
+#ifdef SIGWINCH
+    [SIGWINCH] = "SIGWINCH",
+#endif
+#ifdef SIGPOLL
+    [SIGPOLL] = "SIGPOLL",
+#endif
+#ifdef SIGLOST
+    [SIGLOST] = "SIGLOST",
+#endif
+#ifdef SIGPWR
+    [SIGPWR] = "SIGPWR",
+#endif
+#ifdef SIGINFO
+    [SIGINFO] = "SIGINFO",
+#endif
+#ifdef SIGSYS
+    [SIGSYS] = "SIGSYS",
+#endif
+};
+
+size_t tjs_signal_map_count = ARRAY_SIZE(tjs_signal_map);
+
+const char *tjs_getsig(int sig) {
+    if (sig < 0 || sig >= tjs_signal_map_count || !tjs_signal_map[sig])
+        return NULL;
+
+    return tjs_signal_map[sig];
+}
