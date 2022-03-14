@@ -11,7 +11,7 @@ import { path } from '@tjs/std';
     const proc = tjs.spawn(args, { stdout: 'pipe' });
     const status = await proc.wait();
     assert.eq(status.exit_status, 0, 'WASI ran succesfully');
-    assert.eq(status.term_signal, 0, 'WASI ran succesfully 2');
+    assert.eq(status.term_signal, null, 'WASI ran succesfully 2');
     const buf = new Uint8Array(4096);
     const nread = await proc.stdout.read(buf);
     assert.ok(nread > 0, 'stdout was read');

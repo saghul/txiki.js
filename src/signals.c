@@ -151,118 +151,6 @@ static const JSCFunctionListEntry tjs_signal_handler_proto_funcs[] = {
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Signal Handler", JS_PROP_CONFIGURABLE),
 };
 
-static const JSCFunctionListEntry tjs_signals[] = {
-#ifdef SIGHUP
-    TJS_CONST(SIGHUP),
-#endif
-#ifdef SIGINT
-    TJS_CONST(SIGINT),
-#endif
-#ifdef SIGQUIT
-    TJS_CONST(SIGQUIT),
-#endif
-#ifdef SIGILL
-    TJS_CONST(SIGILL),
-#endif
-#ifdef SIGTRAP
-    TJS_CONST(SIGTRAP),
-#endif
-#ifdef SIGABRT
-    TJS_CONST(SIGABRT),
-#endif
-#ifdef SIGIOT
-    TJS_CONST(SIGIOT),
-#endif
-#ifdef SIGBUS
-    TJS_CONST(SIGBUS),
-#endif
-#ifdef SIGFPE
-    TJS_CONST(SIGFPE),
-#endif
-#ifdef SIGKILL
-    TJS_CONST(SIGKILL),
-#endif
-#ifdef SIGUSR1
-    TJS_CONST(SIGUSR1),
-#endif
-#ifdef SIGSEGV
-    TJS_CONST(SIGSEGV),
-#endif
-#ifdef SIGUSR2
-    TJS_CONST(SIGUSR2),
-#endif
-#ifdef SIGPIPE
-    TJS_CONST(SIGPIPE),
-#endif
-#ifdef SIGALRM
-    TJS_CONST(SIGALRM),
-#endif
-    TJS_CONST(SIGTERM),
-#ifdef SIGCHLD
-    TJS_CONST(SIGCHLD),
-#endif
-#ifdef SIGSTKFLT
-    TJS_CONST(SIGSTKFLT),
-#endif
-#ifdef SIGCONT
-    TJS_CONST(SIGCONT),
-#endif
-#ifdef SIGSTOP
-    TJS_CONST(SIGSTOP),
-#endif
-#ifdef SIGTSTP
-    TJS_CONST(SIGTSTP),
-#endif
-#ifdef SIGBREAK
-    TJS_CONST(SIGBREAK),
-#endif
-#ifdef SIGTTIN
-    TJS_CONST(SIGTTIN),
-#endif
-#ifdef SIGTTOU
-    TJS_CONST(SIGTTOU),
-#endif
-#ifdef SIGURG
-    TJS_CONST(SIGURG),
-#endif
-#ifdef SIGXCPU
-    TJS_CONST(SIGXCPU),
-#endif
-#ifdef SIGXFSZ
-    TJS_CONST(SIGXFSZ),
-#endif
-#ifdef SIGVTALRM
-    TJS_CONST(SIGVTALRM),
-#endif
-#ifdef SIGPROF
-    TJS_CONST(SIGPROF),
-#endif
-#ifdef SIGWINCH
-    TJS_CONST(SIGWINCH),
-#endif
-#ifdef SIGIO
-    TJS_CONST(SIGIO),
-#endif
-#ifdef SIGPOLL
-    TJS_CONST(SIGPOLL),
-#endif
-#ifdef SIGLOST
-    TJS_CONST(SIGLOST),
-#endif
-#ifdef SIGPWR
-    TJS_CONST(SIGPWR),
-#endif
-#ifdef SIGINFO
-    TJS_CONST(SIGINFO),
-#endif
-#ifdef SIGSYS
-    TJS_CONST(SIGSYS),
-#endif
-#ifdef SIGUNUSED
-    TJS_CONST(SIGUNUSED),
-#endif
-};
-
 static const JSCFunctionListEntry tjs_signal_funcs[] = {
     TJS_CFUNC_DEF("signal", 2, tjs_signal),
 };
@@ -275,7 +163,12 @@ void tjs__mod_signals_init(JSContext *ctx, JSValue ns) {
     JS_SetClassProto(ctx, tjs_signal_handler_class_id, proto);
 
     JSValue signals = JS_NewObjectProto(ctx, JS_NULL);
-    JS_SetPropertyFunctionList(ctx, signals, tjs_signals, countof(tjs_signals));
+    for (int i = 0; i < tjs_signal_map_count; i++) {
+        const char *signame = tjs_signal_map[i];
+        if (signame) {
+            JS_SetPropertyStr(ctx, signals, signame, JS_NewInt32(ctx, i));
+        }
+    }
     JS_SetPropertyStr(ctx, ns, "signals", signals);
 
     JS_SetPropertyFunctionList(ctx, ns, tjs_signal_funcs, countof(tjs_signal_funcs));

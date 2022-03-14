@@ -51,7 +51,7 @@ class Test {
 
         return {
             name: path.basename(this._fileName),
-            failed: status.exit_status !== 0 || status.term_signal !== 0,
+            failed: status.exit_status !== 0 || status.term_signal !== null,
             status,
             stdout: stdout.value,
             stderr: stderr.value,

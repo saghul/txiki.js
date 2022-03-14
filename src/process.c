@@ -98,9 +98,22 @@ static JSValue tjs_process_kill(JSContext *ctx, JSValueConst this_val, int argc,
     if (!p)
         return JS_EXCEPTION;
 
-    int32_t sig_num = SIGTERM;
-    if (!JS_IsUndefined(argv[0]) && JS_ToInt32(ctx, &sig_num, argv[0]))
-        return JS_EXCEPTION;
+    int sig_num = SIGTERM;
+    if (!JS_IsUndefined(argv[0])) {
+        sig_num = -1;
+        const char *sig_str = JS_ToCString(ctx, argv[0]);
+        for (int i = 0; i < tjs_signal_map_count; i++) {
+            const char *s = tjs_signal_map[i];
+            if (s && strcmp(sig_str, s) == 0) {
+                sig_num = i;
+                break;
+            }
+        }
+        JS_FreeCString(ctx, sig_str);
+
+        if (sig_num == -1)
+            return JS_ThrowRangeError(ctx, "Invalid signal specified");
+    }
 
     int r = uv_process_kill(&p->process, sig_num);
     if (r != 0)
@@ -117,7 +130,8 @@ static JSValue tjs_process_wait(JSContext *ctx, JSValueConst this_val, int argc,
     if (p->status.exited) {
         JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
         JS_DefinePropertyValueStr(ctx, obj, "exit_status", JS_NewInt32(ctx, p->status.exit_status), JS_PROP_C_W_E);
-        JS_DefinePropertyValueStr(ctx, obj, "term_signal", JS_NewInt32(ctx, p->status.term_signal), JS_PROP_C_W_E);
+        JSValue term_signal = p->status.term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(p->status.term_signal));
+        JS_DefinePropertyValueStr(ctx, obj, "term_signal", term_signal, JS_PROP_C_W_E);
         return TJS_NewResolvedPromise(ctx, 1, &obj);
     } else if (p->closed) {
         return JS_UNDEFINED;
@@ -152,7 +166,8 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
         JSContext *ctx = p->ctx;
         JSValue arg = JS_NewObjectProto(ctx, JS_NULL);
         JS_DefinePropertyValueStr(ctx, arg, "exit_status", JS_NewInt32(ctx, exit_status), JS_PROP_C_W_E);
-        JS_DefinePropertyValueStr(ctx, arg, "term_signal", JS_NewInt32(ctx, term_signal), JS_PROP_C_W_E);
+        JSValue term_signal = p->status.term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(p->status.term_signal));
+        JS_DefinePropertyValueStr(ctx, arg, "term_signal", term_signal, JS_PROP_C_W_E);
 
         TJS_SettlePromise(ctx, &p->status.result, false, 1, (JSValueConst *) &arg);
         TJS_ClearPromise(ctx, &p->status.result);
