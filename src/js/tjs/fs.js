@@ -58,6 +58,14 @@ class FileHandle {
         return this[kHandle].truncate(offset);
     }
 
+    sync() {
+        return this[kHandle].sync();
+    }
+
+    datasync() {
+        return this[kHandle].datasync();
+    }
+
     close() {
         this[kHandle].close();
     }

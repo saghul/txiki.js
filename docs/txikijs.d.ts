@@ -332,6 +332,16 @@ declare namespace tjs {
         truncate(offset?: number): Promise<void>;
 
         /**
+         * See [fdatasync(2)](https://man7.org/linux/man-pages/man2/fdatasync.2.html)
+         */
+        datasync(): Promise<void>;
+
+        /**
+         * See [fsync(2)](https://man7.org/linux/man-pages/man2/fdatasync.2.html)
+         */
+        sync(): Promise<void>;
+
+        /**
          * The file path.
          */
         path: string;
