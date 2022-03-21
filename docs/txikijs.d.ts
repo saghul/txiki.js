@@ -445,25 +445,15 @@ declare namespace tjs {
      */
     function copyfile(path: string, newPath: string, flags?: number): Promise<void>;
 
-    /**
-     * Constants representing directory entry types. To be used with {@link DirEnt}'s
-     * `type` field.
-     * Available values:
-     *
-     *   - DIRENT_UNKNOWN
-     *   - DIRENT_FILE
-     *   - DIRENT_DIR
-     *   - DIRENT_LINK
-     *   - DIRENT_FIFO
-     *   - DIRENT_SOCKET
-     *   - DIRENT_CHAR
-     *   - DIRENT_BLOCK
-     */
-    const DIRENT_XXX: number;
-
     interface DirEnt {
-        name: string;
-        type: number;
+        readonly name: string;
+        isBlockDevice(): boolean;
+        isCharacterDevice(): boolean;
+        isDirectory(): boolean;
+        isFIFO(): boolean;
+        isFile(): boolean;
+        isSocket(): boolean;
+        isSymbolicLink(): boolean;
     }
 
     /**
