@@ -872,16 +872,16 @@ static JSValue tjs_fs_readfile(JSContext *ctx, JSValueConst this_val, int argc, 
 }
 
 static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
-    JS_CFUNC_MAGIC_DEF("read", 2, tjs_file_rw, 0),
-    JS_CFUNC_MAGIC_DEF("write", 2, tjs_file_rw, 1),
+    TJS_CFUNC_MAGIC_DEF("read", 2, tjs_file_rw, 0),
+    TJS_CFUNC_MAGIC_DEF("write", 2, tjs_file_rw, 1),
     TJS_CFUNC_DEF("close", 0, tjs_file_close),
     TJS_CFUNC_DEF("fileno", 0, tjs_file_fileno),
     TJS_CFUNC_DEF("stat", 0, tjs_file_stat),
     TJS_CFUNC_DEF("truncate", 1, tjs_file_truncate),
     TJS_CFUNC_DEF("sync", 0, tjs_file_sync),
     TJS_CFUNC_DEF("datasync", 0, tjs_file_datasync),
-    JS_CGETSET_DEF("path", tjs_file_path_get, NULL),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "File", JS_PROP_CONFIGURABLE),
+    TJS_CGETSET_DEF("path", tjs_file_path_get, NULL),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "FileHandle", JS_PROP_C_W_E),
 };
 
 static const JSCFunctionListEntry tjs_dir_proto_funcs[] = {

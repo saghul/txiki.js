@@ -13465,58 +13465,42 @@ function writableStreamForHandle(handle) {
 
 // src/js/tjs/fs.js
 var core4 = globalThis.__bootstrap;
+var kReadable = Symbol("kReadable");
+var kWritable = Symbol("kWritable");
+var fhProxyHandler = {
+  get(target, prop) {
+    switch (prop) {
+      case "readable": {
+        if (!target[kReadable]) {
+          target[kReadable] = readableStreamForHandle(target);
+        }
+        return target[kReadable];
+      }
+      case "writable": {
+        if (!target[kWritable]) {
+          target[kWritable] = writableStreamForHandle(target);
+        }
+        return target[kWritable];
+      }
+      default: {
+        if (typeof target[prop] == "function") {
+          return (...args) => {
+            return target[prop].apply(target, args);
+          };
+        }
+        return target[prop];
+      }
+    }
+  }
+};
 async function open(path, mode) {
   const handle = await core4.open(path, mode);
-  return new FileHandle(handle);
+  return new Proxy(handle, fhProxyHandler);
 }
 async function mkstemp(template) {
   const handle = await core4.mkstemp(template);
-  return new FileHandle(handle);
+  return new Proxy(handle, fhProxyHandler);
 }
-var kHandle = Symbol("kHandle");
-var kReadable = Symbol("kReadable");
-var kWritable = Symbol("kWritable");
-var FileHandle = class {
-  constructor(handle) {
-    this[kHandle] = handle;
-  }
-  get path() {
-    return this[kHandle].path;
-  }
-  get readable() {
-    if (!this[kReadable]) {
-      this[kReadable] = readableStreamForHandle(this[kHandle]);
-    }
-    return this[kReadable];
-  }
-  get writable() {
-    if (!this[kWritable]) {
-      this[kWritable] = writableStreamForHandle(this[kHandle]);
-    }
-    return this[kWritable];
-  }
-  read(buf, offset) {
-    return this[kHandle].read(buf, offset);
-  }
-  write(buf, offset) {
-    return this[kHandle].write(buf, offset);
-  }
-  stat() {
-    return this[kHandle].stat();
-  }
-  truncate(offset) {
-    return this[kHandle].truncate(offset);
-  }
-  sync() {
-    return this[kHandle].sync();
-  }
-  datasync() {
-    return this[kHandle].datasync();
-  }
-  close() {
-    this[kHandle].close();
-  }
-};
 
 // src/js/tjs/signal.js
 var core5 = globalThis.__bootstrap;
@@ -13602,77 +13586,77 @@ async function prepareAddress(transport, host, port) {
       throw new Error("invalid transport");
   }
 }
-var kHandle2 = Symbol("kHandle");
+var kHandle = Symbol("kHandle");
 var kLocalAddress = Symbol("kLocalAddress");
 var kRemoteAddress = Symbol("kRemoteAddress");
 var kReadable2 = Symbol("kReadable");
 var kWritable2 = Symbol("kWritable");
 var Connection = class {
   constructor(handle) {
-    this[kHandle2] = handle;
+    this[kHandle] = handle;
   }
   get localAddress() {
     if (!this[kLocalAddress]) {
-      this[kLocalAddress] = this[kHandle2].getsockname();
+      this[kLocalAddress] = this[kHandle].getsockname();
     }
     return this[kLocalAddress];
   }
   get remoteAddress() {
     if (!this[kRemoteAddress]) {
-      this[kRemoteAddress] = this[kHandle2].getpeername();
+      this[kRemoteAddress] = this[kHandle].getpeername();
     }
     return this[kRemoteAddress];
   }
   get readable() {
     if (!this[kReadable2]) {
-      this[kReadable2] = readableStreamForHandle(this[kHandle2]);
+      this[kReadable2] = readableStreamForHandle(this[kHandle]);
     }
     return this[kReadable2];
   }
   get writable() {
     if (!this[kWritable2]) {
-      this[kWritable2] = writableStreamForHandle(this[kHandle2]);
+      this[kWritable2] = writableStreamForHandle(this[kHandle]);
     }
     return this[kWritable2];
   }
   read(buf) {
-    return this[kHandle2].read(buf);
+    return this[kHandle].read(buf);
   }
   write(buf) {
-    return this[kHandle2].write(buf);
+    return this[kHandle].write(buf);
   }
   setKeepAlive(enable = true) {
-    this[kHandle2].setKeepAlive(enable);
+    this[kHandle].setKeepAlive(enable);
   }
   setNoDelay(enable = true) {
-    this[kHandle2].setNoDelay(enable);
+    this[kHandle].setNoDelay(enable);
   }
   shutdown() {
-    this[kHandle2].shutdown();
+    this[kHandle].shutdown();
   }
   close() {
-    this[kHandle2].close();
+    this[kHandle].close();
   }
 };
 var Listener = class {
   constructor(handle) {
-    this[kHandle2] = handle;
+    this[kHandle] = handle;
   }
   get localAddress() {
     if (!this[kLocalAddress]) {
-      this[kLocalAddress] = this[kHandle2].getsockname();
+      this[kLocalAddress] = this[kHandle].getsockname();
     }
     return this[kLocalAddress];
   }
   async accept() {
-    const handle = await this[kHandle2].accept();
+    const handle = await this[kHandle].accept();
     if (typeof handle === "undefined") {
       return;
     }
     return new Connection(handle);
   }
   close() {
-    this[kHandle2].close();
+    this[kHandle].close();
   }
   [Symbol.asyncIterator]() {
     return this;
@@ -13687,25 +13671,25 @@ var Listener = class {
 };
 var DatagramEndpoint = class {
   constructor(handle) {
-    this[kHandle2] = handle;
+    this[kHandle] = handle;
   }
   recv(buf) {
-    return this[kHandle2].recv(buf);
+    return this[kHandle].recv(buf);
   }
   send(buf, taddr) {
-    return this[kHandle2].send(buf, taddr);
+    return this[kHandle].send(buf, taddr);
   }
   get localAddress() {
     if (!this[kLocalAddress]) {
-      this[kLocalAddress] = this[kHandle2].getsockname();
+      this[kLocalAddress] = this[kHandle].getsockname();
     }
     return this[kLocalAddress];
   }
   get remoteAddress() {
-    return this[kHandle2].getpeername();
+    return this[kHandle].getpeername();
   }
   close() {
-    this[kHandle2].close();
+    this[kHandle].close();
   }
 };
 
