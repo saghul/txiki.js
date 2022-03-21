@@ -59,7 +59,7 @@ static JSClassID tjs_dir_class_id;
 typedef struct {
     JSContext *ctx;
     uv_dir_t *dir;
-    uv_dirent_t dirent;
+    uv_dirent_t dirent; // TODO: Use an array and an index.
     JSValue path;
     bool done;
 } TJSDir;
@@ -78,6 +78,23 @@ static void tjs_dir_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static JSClassDef tjs_dir_class = { "Directory", .finalizer = tjs_dir_finalizer };
+
+static JSClassID tjs_dirent_class_id;
+
+typedef struct {
+    JSValue name;
+    uv_dirent_type_t type;
+} TJSDirEnt;
+
+static void tjs_dirent_finalizer(JSRuntime *rt, JSValue val) {
+    TJSDirEnt *de = JS_GetOpaque(val, tjs_dirent_class_id);
+    if (de) {
+        JS_FreeValueRT(rt, de->name);
+        js_free_rt(rt, de);
+    }
+}
+
+static JSClassDef tjs_dirent_class = { "DirEnt", .finalizer = tjs_dirent_finalizer };
 
 typedef struct {
     uv_fs_t req;
@@ -182,6 +199,28 @@ static TJSDir *tjs_dir_get(JSContext *ctx, JSValueConst obj) {
     return JS_GetOpaque2(ctx, obj, tjs_dir_class_id);
 }
 
+static JSValue tjs_new_dirent(JSContext *ctx, uv_dirent_t *dent) {
+    JSValue obj = JS_NewObjectClass(ctx, tjs_dirent_class_id);
+    if (JS_IsException(obj))
+        return obj;
+
+    TJSDirEnt *de = js_malloc(ctx, sizeof(*de));
+    if (!de) {
+        JS_FreeValue(ctx, obj);
+        return JS_EXCEPTION;
+    }
+
+    de->name = JS_NewString(ctx, dent->name);
+    de->type = dent->type;
+
+    JS_SetOpaque(obj, de);
+    return obj;
+}
+
+static TJSDirEnt *tjs_dirent_get(JSContext *ctx, JSValueConst obj) {
+    return JS_GetOpaque2(ctx, obj, tjs_dirent_class_id);
+}
+
 static JSValue tjs_fsreq_init(JSContext *ctx, TJSFsReq *fr, JSValue obj) {
     fr->ctx = ctx;
     fr->req.data = fr;
@@ -272,9 +311,7 @@ static void uv__fs_req_cb(uv_fs_t *req) {
             arg = JS_NewObjectProto(ctx, JS_NULL);
             JS_DefinePropertyValueStr(ctx, arg, "done", JS_NewBool(ctx, d->done), JS_PROP_C_W_E);
             if (fr->req.result != 0) {
-                JSValue item = JS_NewObjectProto(ctx, JS_NULL);
-                JS_DefinePropertyValueStr(ctx, item, "name", JS_NewString(ctx, d->dirent.name), JS_PROP_C_W_E);
-                JS_DefinePropertyValueStr(ctx, item, "type", JS_NewInt32(ctx, d->dirent.type), JS_PROP_C_W_E);
+                JSValue item = tjs_new_dirent(ctx, &d->dirent);
                 JS_DefinePropertyValueStr(ctx, arg, "value", item, JS_PROP_C_W_E);
             }
             break;
@@ -494,6 +531,71 @@ static JSValue tjs_dir_next(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
 static JSValue tjs_dir_iterator(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     return JS_DupValue(ctx, this_val);
+}
+
+/* DirEnt functions */
+
+static JSValue tjs_dirent_name_get(JSContext *ctx, JSValueConst this_val) {
+    TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
+    if (!de)
+        return JS_EXCEPTION;
+    return JS_DupValue(ctx, de->name);
+}
+
+static JSValue tjs_dirent_isblockdevice(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
+    if (!de)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, de->type == UV_DIRENT_BLOCK);
+}
+
+static JSValue tjs_dirent_ischaracterdevice(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
+    if (!de)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, de->type == UV_DIRENT_CHAR);
+}
+
+static JSValue tjs_dirent_isdirectory(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
+    if (!de)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, de->type == UV_DIRENT_DIR);
+}
+
+static JSValue tjs_dirent_isfifo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
+    if (!de)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, de->type == UV_DIRENT_FIFO);
+}
+
+static JSValue tjs_dirent_isfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
+    if (!de)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, de->type == UV_DIRENT_FILE);
+}
+
+static JSValue tjs_dirent_issocket(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
+    if (!de)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, de->type == UV_DIRENT_SOCKET);
+}
+
+static JSValue tjs_dirent_issymlink(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
+    if (!de)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, de->type == UV_DIRENT_LINK);
 }
 
 /* Module functions */
@@ -892,15 +994,19 @@ static const JSCFunctionListEntry tjs_dir_proto_funcs[] = {
     TJS_CFUNC_DEF("[Symbol.asyncIterator]", 0, tjs_dir_iterator),
 };
 
+static const JSCFunctionListEntry tjs_dirent_proto_funcs[] = {
+    TJS_CFUNC_DEF("isBlockDevice", 0, tjs_dirent_isblockdevice),
+    TJS_CFUNC_DEF("isCharacterDevice", 0, tjs_dirent_ischaracterdevice),
+    TJS_CFUNC_DEF("isDirectory", 0, tjs_dirent_isdirectory),
+    TJS_CFUNC_DEF("isFIFO", 0, tjs_dirent_isfifo),
+    TJS_CFUNC_DEF("isFile", 0, tjs_dirent_isfile),
+    TJS_CFUNC_DEF("isSocket", 0, tjs_dirent_issocket),
+    TJS_CFUNC_DEF("isSymbolicLink", 0, tjs_dirent_issymlink),
+    TJS_CGETSET_DEF("name", tjs_dirent_name_get, NULL),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "DirEnt", JS_PROP_C_W_E),
+};
+
 static const JSCFunctionListEntry tjs_fs_funcs[] = {
-    TJS_UVCONST(DIRENT_UNKNOWN),
-    TJS_UVCONST(DIRENT_FILE),
-    TJS_UVCONST(DIRENT_DIR),
-    TJS_UVCONST(DIRENT_LINK),
-    TJS_UVCONST(DIRENT_FIFO),
-    TJS_UVCONST(DIRENT_SOCKET),
-    TJS_UVCONST(DIRENT_CHAR),
-    TJS_UVCONST(DIRENT_BLOCK),
     TJS_CONST2("COPYFILE_EXCL", UV_FS_COPYFILE_EXCL),
     TJS_CONST2("COPYFILE_FICLONE", UV_FS_COPYFILE_FICLONE),
     TJS_CONST2("COPYFILE_FICLONE_FORCE", UV_FS_COPYFILE_FICLONE_FORCE),
@@ -951,6 +1057,13 @@ void tjs__mod_fs_init(JSContext *ctx, JSValue ns) {
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_dir_proto_funcs, countof(tjs_dir_proto_funcs));
     JS_SetClassProto(ctx, tjs_dir_class_id, proto);
+
+    /* DirEnt object */
+    JS_NewClassID(&tjs_dirent_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), tjs_dirent_class_id, &tjs_dirent_class);
+    proto = JS_NewObject(ctx);
+    JS_SetPropertyFunctionList(ctx, proto, tjs_dirent_proto_funcs, countof(tjs_dirent_proto_funcs));
+    JS_SetClassProto(ctx, tjs_dirent_class_id, proto);
 
     JS_SetPropertyFunctionList(ctx, ns, tjs_fs_funcs, countof(tjs_fs_funcs));
 }
