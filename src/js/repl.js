@@ -920,6 +920,8 @@ window.addEventListener('unhandledrejection', event => {
                             }
                         }
                         stdout_write(" ]");
+                    } else if (Object.__getClass(a) === "Date") {
+                        stdout_write(a.toString());
                     } else if (Object.__getClass(a) === "RegExp") {
                         stdout_write(a.toString());
                     } else {
