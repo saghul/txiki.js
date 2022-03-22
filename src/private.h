@@ -56,6 +56,7 @@ struct TJSRuntime {
         IM3Environment env;
     } wasm_ctx;
     struct {
+        JSValue date_ctor;
         JSValue u8array_ctor;
     } builtins;
 };

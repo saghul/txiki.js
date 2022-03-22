@@ -26,6 +26,7 @@
 #include "utils.h"
 
 #include <string.h>
+#include <uv.h>
 
 
 static JSClassID tjs_file_class_id;
@@ -96,6 +97,21 @@ static void tjs_dirent_finalizer(JSRuntime *rt, JSValue val) {
 
 static JSClassDef tjs_dirent_class = { "DirEnt", .finalizer = tjs_dirent_finalizer };
 
+static JSClassID tjs_stat_class_id;
+
+typedef struct {
+    uint64_t st_mode;
+} TJSStatResult;
+
+static void tjs_stat_finalizer(JSRuntime *rt, JSValue val) {
+    TJSStatResult *sr = JS_GetOpaque(val, tjs_stat_class_id);
+    if (sr) {
+        js_free_rt(rt, sr);
+    }
+}
+
+static JSClassDef tjs_stat_class = { "StatResult", .finalizer = tjs_stat_finalizer };
+
 typedef struct {
     uv_fs_t req;
     JSContext *ctx;
@@ -114,37 +130,6 @@ typedef struct {
     char *filename;
     TJSPromise result;
 } TJSReadFileReq;
-
-static JSValue js__stat2obj(JSContext *ctx, uv_stat_t *st) {
-    JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
-#define SET_UINT64_FIELD(x)                                                                                            \
-    JS_DefinePropertyValueStr(ctx, obj, STRINGIFY(x), JS_NewUint32(ctx, st->x), JS_PROP_C_W_E)
-    SET_UINT64_FIELD(st_dev);
-    SET_UINT64_FIELD(st_mode);
-    SET_UINT64_FIELD(st_nlink);
-    SET_UINT64_FIELD(st_uid);
-    SET_UINT64_FIELD(st_gid);
-    SET_UINT64_FIELD(st_rdev);
-    SET_UINT64_FIELD(st_ino);
-    SET_UINT64_FIELD(st_size);
-    SET_UINT64_FIELD(st_blksize);
-    SET_UINT64_FIELD(st_blocks);
-    SET_UINT64_FIELD(st_flags);
-    SET_UINT64_FIELD(st_gen);
-#undef SET_UINT64_FIELD
-#define SET_TIMESPEC_FIELD(x)                                                                                          \
-    JS_DefinePropertyValueStr(ctx,                                                                                     \
-                              obj,                                                                                     \
-                              STRINGIFY(x),                                                                            \
-                              JS_NewFloat64(ctx, st->x.tv_sec + 1e-9 * st->x.tv_nsec),                                 \
-                              JS_PROP_C_W_E)
-    SET_TIMESPEC_FIELD(st_atim);
-    SET_TIMESPEC_FIELD(st_mtim);
-    SET_TIMESPEC_FIELD(st_ctim);
-    SET_TIMESPEC_FIELD(st_birthtim);
-#undef SET_TIMESPEC_FIELD
-    return obj;
-}
 
 static JSValue tjs_new_file(JSContext *ctx, uv_file fd, const char *path) {
     TJSFile *f;
@@ -221,6 +206,59 @@ static TJSDirEnt *tjs_dirent_get(JSContext *ctx, JSValueConst obj) {
     return JS_GetOpaque2(ctx, obj, tjs_dirent_class_id);
 }
 
+static JSValue tjs_new_stat(JSContext *ctx, uv_stat_t *st) {
+    JSValue obj = JS_NewObjectClass(ctx, tjs_stat_class_id);
+    if (JS_IsException(obj))
+        return obj;
+
+    TJSStatResult *sr = js_malloc(ctx, sizeof(*sr));
+    if (!sr) {
+        JS_FreeValue(ctx, obj);
+        return JS_EXCEPTION;
+    }
+
+    sr->st_mode = st->st_mode;
+
+#define SET_UINT64_FIELD(x) \
+    JS_DefinePropertyValueStr(ctx, \
+        obj, \
+        STRINGIFY(x), \
+        JS_NewUint32(ctx, st->st_##x), \
+        JS_PROP_C_W_E);
+    
+    SET_UINT64_FIELD(dev);
+    SET_UINT64_FIELD(mode);
+    SET_UINT64_FIELD(nlink);
+    SET_UINT64_FIELD(uid);
+    SET_UINT64_FIELD(gid);
+    SET_UINT64_FIELD(rdev);
+    SET_UINT64_FIELD(ino);
+    SET_UINT64_FIELD(size);
+    SET_UINT64_FIELD(blksize);
+    SET_UINT64_FIELD(blocks);
+    SET_UINT64_FIELD(flags);
+#undef SET_UINT64_FIELD
+
+#define SET_TIMESPEC_FIELD(x) \
+    JS_DefinePropertyValueStr(ctx, \
+        obj, \
+        STRINGIFY(x), \
+        TJS_NewDate(ctx, st->st_##x.tv_sec * 1e3 + st->st_##x.tv_nsec / 1e6), \
+        JS_PROP_C_W_E);
+    SET_TIMESPEC_FIELD(atim);
+    SET_TIMESPEC_FIELD(mtim);
+    SET_TIMESPEC_FIELD(ctim);
+    SET_TIMESPEC_FIELD(birthtim);
+#undef SET_TIMESPEC_FIELD
+
+    JS_SetOpaque(obj, sr);
+    return obj;
+}
+
+static TJSStatResult *tjs_stat_get(JSContext *ctx, JSValueConst obj) {
+    return JS_GetOpaque2(ctx, obj, tjs_stat_class_id);
+}
+
 static JSValue tjs_fsreq_init(JSContext *ctx, TJSFsReq *fr, JSValue obj) {
     fr->ctx = ctx;
     fr->req.data = fr;
@@ -267,7 +305,7 @@ static void uv__fs_req_cb(uv_fs_t *req) {
         case UV_FS_STAT:
         case UV_FS_LSTAT:
         case UV_FS_FSTAT:
-            arg = js__stat2obj(ctx, &fr->req.statbuf);
+            arg = tjs_new_stat(ctx, &fr->req.statbuf);
             break;
 
         case UV_FS_REALPATH:
@@ -596,6 +634,68 @@ static JSValue tjs_dirent_issymlink(JSContext *ctx, JSValueConst this_val, int a
         return JS_EXCEPTION;
 
     return JS_NewBool(ctx, de->type == UV_DIRENT_LINK);
+}
+
+/* StatResult functions */
+
+static JSValue tjs_stat_isblockdevice(JSContext *ctx, JSValueConst this_val) {
+    TJSStatResult *sr = tjs_stat_get(ctx, this_val);
+    if (!sr)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, (sr->st_mode & S_IFMT) == S_IFBLK);
+}
+
+static JSValue tjs_stat_ischaracterdevice(JSContext *ctx, JSValueConst this_val) {
+    TJSStatResult *sr = tjs_stat_get(ctx, this_val);
+    if (!sr)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, (sr->st_mode & S_IFMT) == S_IFCHR);
+}
+
+static JSValue tjs_stat_isdirectory(JSContext *ctx, JSValueConst this_val) {
+    TJSStatResult *sr = tjs_stat_get(ctx, this_val);
+    if (!sr)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, (sr->st_mode & S_IFMT) == S_IFDIR);
+}
+
+static JSValue tjs_stat_isfifo(JSContext *ctx, JSValueConst this_val) {
+    TJSStatResult *sr = tjs_stat_get(ctx, this_val);
+    if (!sr)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, (sr->st_mode & S_IFMT) == S_IFIFO);
+}
+
+static JSValue tjs_stat_isfile(JSContext *ctx, JSValueConst this_val) {
+    TJSStatResult *sr = tjs_stat_get(ctx, this_val);
+    if (!sr)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, (sr->st_mode & S_IFMT) == S_IFREG);
+}
+
+static JSValue tjs_stat_issocket(JSContext *ctx, JSValueConst this_val) {
+    TJSStatResult *sr = tjs_stat_get(ctx, this_val);
+    if (!sr)
+        return JS_EXCEPTION;
+
+#if defined(S_IFSOCK)
+    return JS_NewBool(ctx, (sr->st_mode & S_IFMT) == S_IFSOCK);
+#else
+    return JS_FALSE;
+#endif
+}
+
+static JSValue tjs_stat_issymlink(JSContext *ctx, JSValueConst this_val) {
+    TJSStatResult *sr = tjs_stat_get(ctx, this_val);
+    if (!sr)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, (sr->st_mode & S_IFMT) == S_IFLNK);
 }
 
 /* Module functions */
@@ -1006,26 +1106,21 @@ static const JSCFunctionListEntry tjs_dirent_proto_funcs[] = {
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "DirEnt", JS_PROP_C_W_E),
 };
 
+static const JSCFunctionListEntry tjs_stat_proto_funcs[] = {
+    TJS_CGETSET_DEF("isBlockDevice", tjs_stat_isblockdevice, NULL),
+    TJS_CGETSET_DEF("isCharacterDevice", tjs_stat_ischaracterdevice, NULL),
+    TJS_CGETSET_DEF("isDirectory", tjs_stat_isdirectory, NULL),
+    TJS_CGETSET_DEF("isFIFO", tjs_stat_isfifo, NULL),
+    TJS_CGETSET_DEF("isFile", tjs_stat_isfile, NULL),
+    TJS_CGETSET_DEF("isSocket", tjs_stat_issocket, NULL),
+    TJS_CGETSET_DEF("isSymbolicLink", tjs_stat_issymlink, NULL),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "StatResult", JS_PROP_C_W_E),
+};
+
 static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CONST2("COPYFILE_EXCL", UV_FS_COPYFILE_EXCL),
     TJS_CONST2("COPYFILE_FICLONE", UV_FS_COPYFILE_FICLONE),
     TJS_CONST2("COPYFILE_FICLONE_FORCE", UV_FS_COPYFILE_FICLONE_FORCE),
-    TJS_CONST(S_IFMT),
-    TJS_CONST(S_IFIFO),
-    TJS_CONST(S_IFCHR),
-    TJS_CONST(S_IFDIR),
-    TJS_CONST(S_IFBLK),
-    TJS_CONST(S_IFREG),
-#ifdef S_IFSOCK
-    TJS_CONST(S_IFSOCK),
-#endif
-    TJS_CONST(S_IFLNK),
-#ifdef S_ISGID
-    TJS_CONST(S_ISGID),
-#endif
-#ifdef S_ISUID
-    TJS_CONST(S_ISUID),
-#endif
     TJS_CFUNC_DEF("open", 3, tjs_fs_open),
     TJS_CFUNC_DEF("newStdioFile", 2, tjs_fs_new_stdio_file),
     TJS_CFUNC_MAGIC_DEF("stat", 1, tjs_fs_stat, 0),
@@ -1064,6 +1159,13 @@ void tjs__mod_fs_init(JSContext *ctx, JSValue ns) {
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_dirent_proto_funcs, countof(tjs_dirent_proto_funcs));
     JS_SetClassProto(ctx, tjs_dirent_class_id, proto);
+
+    /* StatResult object */
+    JS_NewClassID(&tjs_stat_class_id);
+    JS_NewClass(JS_GetRuntime(ctx), tjs_stat_class_id, &tjs_stat_class);
+    proto = JS_NewObject(ctx);
+    JS_SetPropertyFunctionList(ctx, proto, tjs_stat_proto_funcs, countof(tjs_stat_proto_funcs));
+    JS_SetClassProto(ctx, tjs_stat_class_id, proto);
 
     JS_SetPropertyFunctionList(ctx, ns, tjs_fs_funcs, countof(tjs_fs_funcs));
 }
