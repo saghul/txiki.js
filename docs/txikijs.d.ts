@@ -351,22 +351,27 @@ declare namespace tjs {
     }
 
     interface StatResult {
-        st_dev: number;
-        st_mode: number;
-        st_nlink: number;
-        st_uid: number;
-        st_gid: number;
-        st_rdev: number;
-        st_ino: number;
-        st_size: number;
-        st_blksize: number;
-        st_blocks: number;
-        st_flags: number;
-        st_gen: number;
-        st_atim: number;
-        st_mtim: number;
-        st_ctim: number;
-        st_birthtim: number;
+        dev: number;
+        mode: number;
+        nlink: number;
+        uid: number;
+        gid: number;
+        rdev: number;
+        ino: number;
+        size: number;
+        blksize: number;
+        blocks: number;
+        atim: Date;
+        mtim: Date;
+        ctim: Date;
+        birthtim: Date;
+        isBlockDevice: boolean;
+        isCharacterDevice: boolean;
+        isDirectory: boolean;
+        isFIFO: boolean;
+        isFile: boolean;
+        isSocket: boolean;
+        isSymbolicLink: boolean;
     }
 
     /**

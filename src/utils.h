@@ -109,6 +109,7 @@ JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 
 JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size);
+JSValue TJS_NewDate(JSContext *ctx, double epoch_ms);
 
 extern const char *tjs_signal_map[];
 extern size_t tjs_signal_map_count;

@@ -270,6 +270,15 @@ JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size) {
     return buf;
 }
 
+JSValue TJS_NewDate(JSContext *ctx, double epoch_ms) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+    JSValue data = JS_NewFloat64(ctx, epoch_ms);
+    JSValue d = JS_CallConstructor(ctx, qrt->builtins.date_ctor, 1, &data);
+    JS_FreeValue(ctx, data);
+    return d;
+}
+
 const char *tjs_signal_map[] = {
 #ifdef SIGHUP
     [SIGHUP] = "SIGHUP",
