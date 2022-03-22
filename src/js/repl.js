@@ -893,7 +893,7 @@ window.addEventListener('unhandledrejection', event => {
         var stack = [];
 
         function print_rec(a) {
-            var n, i, keys, key, type, s;
+            var n, i, keys, key, type;
             
             type = typeof a;
             if (type === "object") {
@@ -940,10 +940,7 @@ window.addEventListener('unhandledrejection', event => {
                     stack.pop(a);
                 }
             } else if (type === "string") {
-                s = a.__quote();
-                if (s.length > 79)
-                    s = s.substring(0, 75) + "...\"";
-                stdout_write(s);
+                stdout_write(a.__quote());
             } else if (type === "number" || type === "bigfloat") {
                 stdout_write(number_to_string(a, 10));
             } else if (type === "bigint") {
