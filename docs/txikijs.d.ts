@@ -451,14 +451,14 @@ declare namespace tjs {
     function copyfile(path: string, newPath: string, flags?: number): Promise<void>;
 
     interface DirEnt {
-        readonly name: string;
-        isBlockDevice(): boolean;
-        isCharacterDevice(): boolean;
-        isDirectory(): boolean;
-        isFIFO(): boolean;
-        isFile(): boolean;
-        isSocket(): boolean;
-        isSymbolicLink(): boolean;
+        name: string;
+        isBlockDevice: boolean;
+        isCharacterDevice: boolean;
+        isDirectory: boolean;
+        isFIFO: boolean;
+        isFile: boolean;
+        isSocket: boolean;
+        isSymbolicLink: boolean;
     }
 
     /**

@@ -580,7 +580,7 @@ static JSValue tjs_dirent_name_get(JSContext *ctx, JSValueConst this_val) {
     return JS_DupValue(ctx, de->name);
 }
 
-static JSValue tjs_dirent_isblockdevice(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_dirent_isblockdevice(JSContext *ctx, JSValueConst this_val) {
     TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
     if (!de)
         return JS_EXCEPTION;
@@ -588,7 +588,7 @@ static JSValue tjs_dirent_isblockdevice(JSContext *ctx, JSValueConst this_val, i
     return JS_NewBool(ctx, de->type == UV_DIRENT_BLOCK);
 }
 
-static JSValue tjs_dirent_ischaracterdevice(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_dirent_ischaracterdevice(JSContext *ctx, JSValueConst this_val) {
     TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
     if (!de)
         return JS_EXCEPTION;
@@ -596,7 +596,7 @@ static JSValue tjs_dirent_ischaracterdevice(JSContext *ctx, JSValueConst this_va
     return JS_NewBool(ctx, de->type == UV_DIRENT_CHAR);
 }
 
-static JSValue tjs_dirent_isdirectory(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_dirent_isdirectory(JSContext *ctx, JSValueConst this_val) {
     TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
     if (!de)
         return JS_EXCEPTION;
@@ -604,7 +604,7 @@ static JSValue tjs_dirent_isdirectory(JSContext *ctx, JSValueConst this_val, int
     return JS_NewBool(ctx, de->type == UV_DIRENT_DIR);
 }
 
-static JSValue tjs_dirent_isfifo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_dirent_isfifo(JSContext *ctx, JSValueConst this_val) {
     TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
     if (!de)
         return JS_EXCEPTION;
@@ -612,7 +612,7 @@ static JSValue tjs_dirent_isfifo(JSContext *ctx, JSValueConst this_val, int argc
     return JS_NewBool(ctx, de->type == UV_DIRENT_FIFO);
 }
 
-static JSValue tjs_dirent_isfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_dirent_isfile(JSContext *ctx, JSValueConst this_val) {
     TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
     if (!de)
         return JS_EXCEPTION;
@@ -620,7 +620,7 @@ static JSValue tjs_dirent_isfile(JSContext *ctx, JSValueConst this_val, int argc
     return JS_NewBool(ctx, de->type == UV_DIRENT_FILE);
 }
 
-static JSValue tjs_dirent_issocket(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_dirent_issocket(JSContext *ctx, JSValueConst this_val) {
     TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
     if (!de)
         return JS_EXCEPTION;
@@ -628,7 +628,7 @@ static JSValue tjs_dirent_issocket(JSContext *ctx, JSValueConst this_val, int ar
     return JS_NewBool(ctx, de->type == UV_DIRENT_SOCKET);
 }
 
-static JSValue tjs_dirent_issymlink(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_dirent_issymlink(JSContext *ctx, JSValueConst this_val) {
     TJSDirEnt *de = tjs_dirent_get(ctx, this_val);
     if (!de)
         return JS_EXCEPTION;
@@ -1090,18 +1090,18 @@ static const JSCFunctionListEntry tjs_dir_proto_funcs[] = {
     TJS_CFUNC_DEF("close", 0, tjs_dir_close),
     JS_CGETSET_DEF("path", tjs_dir_path_get, NULL),
     TJS_CFUNC_DEF("next", 0, tjs_dir_next),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Dir", JS_PROP_CONFIGURABLE),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "DirHandle", JS_PROP_C_W_E),
     TJS_CFUNC_DEF("[Symbol.asyncIterator]", 0, tjs_dir_iterator),
 };
 
 static const JSCFunctionListEntry tjs_dirent_proto_funcs[] = {
-    TJS_CFUNC_DEF("isBlockDevice", 0, tjs_dirent_isblockdevice),
-    TJS_CFUNC_DEF("isCharacterDevice", 0, tjs_dirent_ischaracterdevice),
-    TJS_CFUNC_DEF("isDirectory", 0, tjs_dirent_isdirectory),
-    TJS_CFUNC_DEF("isFIFO", 0, tjs_dirent_isfifo),
-    TJS_CFUNC_DEF("isFile", 0, tjs_dirent_isfile),
-    TJS_CFUNC_DEF("isSocket", 0, tjs_dirent_issocket),
-    TJS_CFUNC_DEF("isSymbolicLink", 0, tjs_dirent_issymlink),
+    TJS_CGETSET_DEF("isBlockDevice", tjs_dirent_isblockdevice, NULL),
+    TJS_CGETSET_DEF("isCharacterDevice", tjs_dirent_ischaracterdevice, NULL),
+    TJS_CGETSET_DEF("isDirectory", tjs_dirent_isdirectory, NULL),
+    TJS_CGETSET_DEF("isFIFO", tjs_dirent_isfifo, NULL),
+    TJS_CGETSET_DEF("isFile", tjs_dirent_isfile, NULL),
+    TJS_CGETSET_DEF("isSocket", tjs_dirent_issocket, NULL),
+    TJS_CGETSET_DEF("isSymbolicLink", tjs_dirent_issymlink, NULL),
     TJS_CGETSET_DEF("name", tjs_dirent_name_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "DirEnt", JS_PROP_C_W_E),
 };
