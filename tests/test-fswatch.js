@@ -2,11 +2,13 @@ import { path } from '@tjs/std';
 import assert from './assert.js';
 
 const encoder = new TextEncoder();
+const eventTypes = [ 'change', 'rename' ];
 
 let eventCount = 0;
 
-function watchCb(path, flags) {
+function watchCb(path, event) {
     eventCount++;
+    assert.ok(eventTypes.includes(event));
 }
 
 async function sleep(ms) {

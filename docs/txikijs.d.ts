@@ -499,12 +499,9 @@ declare namespace tjs {
     function readFile(path: string): Promise<Uint8Array>;
 
     /**
-     * File watch event handler function. Event types:
-     *
-     *   - FS_EVENT_CHANGE
-     *   - FS_EVENT_RENAME
+     * File watch event handler function.
      */
-    type WatchEventHandler = (filename: string, events: number) => void;
+    type WatchEventHandler = (filename: string, event: 'change' | 'rename') => void;
 
     interface FileWatcher {
         /**
