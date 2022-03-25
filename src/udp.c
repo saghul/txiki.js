@@ -135,7 +135,7 @@ static void uv__udp_recv_cb(uv_udp_t *handle,
     } else {
         arg = JS_NewObjectProto(ctx, JS_NULL);
         JS_DefinePropertyValueStr(ctx, arg, "nread", JS_NewInt32(ctx, nread), JS_PROP_C_W_E);
-        JS_DefinePropertyValueStr(ctx, arg, "flags", JS_NewInt32(ctx, flags), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, arg, "partial", JS_NewBool(ctx, flags & UV_UDP_PARTIAL), JS_PROP_C_W_E);
         JSValue addrobj = JS_NewObjectProto(ctx, JS_NULL);
         tjs_addr2obj(ctx, addrobj, addr);
         JS_DefinePropertyValueStr(ctx, arg, "addr", addrobj, JS_PROP_C_W_E);
@@ -393,7 +393,6 @@ static const JSCFunctionListEntry tjs_udp_proto_funcs[] = {
 
 static const JSCFunctionListEntry tjs_udp_funcs[] = {
     TJS_UVCONST(UDP_IPV6ONLY),
-    TJS_UVCONST(UDP_PARTIAL),
     TJS_UVCONST(UDP_REUSEADDR),
 };
 

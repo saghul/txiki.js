@@ -10,6 +10,8 @@ async function doEchoServer(server) {
     while (true) {
         rinfo = await server.recv(dataBuf);
         if (rinfo.nread !== null) {
+            assert.ok(typeof rinfo.partial === 'boolean');
+            assert.is(rinfo.partial, false);
             server.send(dataBuf.subarray(0, rinfo.nread), rinfo.addr);
         } else {
             // Handle closed!

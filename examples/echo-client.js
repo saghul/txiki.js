@@ -17,7 +17,7 @@ import { addr } from './utils.js';
         }
     });
 
-    const conn = await tjs.connect('tcp', {ip: options.connect, port: options.port});
+    const conn = await tjs.connect('tcp', options.connect, options.port);
     
     console.log(`Connected to ${addr(conn.remoteAddress)}`);
 

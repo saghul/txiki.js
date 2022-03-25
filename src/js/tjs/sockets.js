@@ -10,7 +10,11 @@ export async function connect(transport, host, port, options = {}) {
         case 'tcp': {
             const handle = new core.TCP();
             if (options.bindAddr) {
-                handle.bind(options.bindAddr), options.bindFlags;
+                let flags = 0;
+                if (options.ipv6Only) {
+                    flags |= core.TCP_IPV6ONLY;
+                }
+                handle.bind(options.bindAddr, flags);
             }
             await handle.connect(addr);
             return new Connection(handle);
@@ -23,7 +27,11 @@ export async function connect(transport, host, port, options = {}) {
         case 'udp': {
             const handle = new core.UDP();
             if (options.bindAddr) {
-                handle.bind(options.bindAddr, options.bindFlags);
+                let flags = 0;
+                if (options.ipv6Only) {
+                    flags |= core.UDP_IPV6ONLY;
+                }
+                handle.bind(options.bindAddr, flags);
             }
             await handle.connect(addr);
             return new DatagramEndpoint(handle);
@@ -37,7 +45,11 @@ export async function listen(transport, host, port, options = {}) {
     switch (transport) {
         case 'tcp': {
             const handle = new core.TCP();
-            handle.bind(addr, options.bindFlags);
+            let flags = 0;
+            if (options.ipv6Only) {
+                flags |= core.TCP_IPV6ONLY;
+            }
+            handle.bind(addr, flags);
             handle.listen(options.backlog);
             return new Listener(handle);
         }
@@ -49,6 +61,13 @@ export async function listen(transport, host, port, options = {}) {
         }
         case 'udp': {
             const handle = new core.UDP();
+            let flags = 0;
+            if (options.reuseAddr) {
+                flags |= core.UDP_REUSEADDR;
+            }
+            if (options.ipv6Only) {
+                flags |= core.UDP_IPV6ONLY;
+            }
             handle.bind(addr, options.bindFlags);
             return new DatagramEndpoint(handle);
         }
