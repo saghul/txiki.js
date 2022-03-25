@@ -4,7 +4,7 @@ import assert from './assert.js';
     let server, error;
 
     try  {
-        server = await tjs.listen('tcp', '127.0.0.1', 0, { bindFlags: tjs.TCP_IPV6ONLY });
+        server = await tjs.listen('tcp', '127.0.0.1', 0, { ipv6Only: true });
     } catch (err) {
         error = err;
     }

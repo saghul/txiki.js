@@ -664,28 +664,9 @@ declare namespace tjs {
         writable: WritableStream<Uint8Array>;
     }
 
-    /**
-     * Indicates dual stack mode will be disabled. Can be passed when
-     * selecting the bind address, as a bind flag.
-     */
-    const UDP_IPV6ONLY: number;
-
-    /**
-     * Indicates message was truncated because read buffer was too small.
-     */
-    const UDP_PARTIAL: number;
-
-    /**
-     * Enable address reusing (when binding). What that means is that
-     * multiple threads or processes can bind to the same address without error
-     * (provided they all set the flag) but only the last one to bind will receive
-     * any traffic, in effect "stealing" the port from the previous listener.
-     */
-    const UDP_REUSEADDR: number;
-
     interface DatagramData {
         nread: number;
-        flags: number;
+        partial: boolean;
         addr: Address;
     }
 
@@ -697,12 +678,6 @@ declare namespace tjs {
         remoteAddress: Address;
     }
 
-    /**
-     * Indicates dual stack mode will be disabled. Can be passed when
-     * selecting the bind address, as a bind flag.
-     */
-    const TCP_IPV6ONLY: number;
-
     type Transport = 'tcp' | 'udp' | 'pipe';
 
     interface ConnectOptions {
@@ -712,9 +687,9 @@ declare namespace tjs {
         bindAddr: Address;
 
         /**
-         * Bind flags.
+         * Disables dual stack mode.
          */
-        bindFlags: number;
+        ipv6Only?: boolean;
     }
 
     /**
@@ -734,12 +709,21 @@ declare namespace tjs {
     }
 
     interface ListenOptions {
-        backlog: number;
+        backlog?: number;
 
         /**
-         * Bind flags.
+         * Disables dual stack mode.
          */
-        bindFlags: number;
+        ipv6Only?: boolean;
+
+        /**
+         * Used on UDP only.
+         * Enable address reusing (when binding). What that means is that
+         * multiple threads or processes can bind to the same address without error
+         * (provided they all set the flag) but only the last one to bind will receive
+         * any traffic, in effect "stealing" the port from the previous listener.
+         */
+        reuseAddr?: boolean;
     }
 
     /**
