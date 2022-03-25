@@ -121,19 +121,33 @@ static JSValue tjs_fswatch_path_get(JSContext *ctx, JSValueConst this_val) {
 static void uv__fs_event_cb(uv_fs_event_t* handle, const char* filename, int events, int status) {
     TJSFsWatch *fw = handle->data;
     CHECK_NOT_NULL(fw);
+    JSContext *ctx = fw->ctx;
 
+    // TODO: handle error case?
     if (status != 0)
         return;
 
+    // libuv could set both, if we get rename, ignroe change.
+
+    JSValue event;
+    if (events & UV_RENAME) {
+        event = JS_NewString(ctx, "rename");
+    } else if (events & UV_CHANGE) {
+        event = JS_NewString(ctx, "change");
+    } else {
+        // This shouldn't happen.
+        CHECK(0 && "invalid fs events");
+    }
+
     JSValue args[2] = {
-        JS_NewString(fw->ctx, filename),
-        JS_NewInt32(fw->ctx, events),
+        JS_NewString(ctx, filename),
+        event,
     };
 
-    tjs_call_handler(fw->ctx, fw->callback, countof(args), args);
+    tjs_call_handler(ctx, fw->callback, countof(args), args);
 
-    JS_FreeValue(fw->ctx, args[0]);
-    JS_FreeValue(fw->ctx, args[1]);
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
 }
 
 static JSValue tjs_fs_watch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -192,8 +206,6 @@ static const JSCFunctionListEntry tjs_fswatch_proto_funcs[] = {
 };
 
 static const JSCFunctionListEntry tjs_fswatch_funcs[] = {
-    TJS_CONST2("FS_EVENT_CHANGE", UV_CHANGE),
-    TJS_CONST2("FS_EVENT_RENAME", UV_RENAME),
     TJS_CFUNC_DEF("watch", 2, tjs_fs_watch),
 };
 
