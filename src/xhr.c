@@ -105,7 +105,8 @@ static void tjs_xhr_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, x->result.headers);
         JS_FreeValueRT(rt, x->result.response);
         JS_FreeValueRT(rt, x->result.response_text);
-
+        dbuf_free(&x->result.hbuf);
+        dbuf_free(&x->result.bbuf);
         free(x);
     }
 }
