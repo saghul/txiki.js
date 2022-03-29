@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.14)
 
 project(tjs LANGUAGES C)
 
@@ -41,6 +41,8 @@ macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
     endif()
     message(STATUS "  ${OPTION_NAME}: ${${OPTION_NAME}}")
 endmacro()
+
+cpr_option(BUILD_WITH_ASAN "If ON, build with the address sanitizer enabled" OFF)
 
 configure_file(
         ${CMAKE_SOURCE_DIR}/src/js/bundle.js
@@ -109,4 +111,9 @@ target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
 target_link_libraries(tjs qjs uv_a m3 m ${CURL_LIBRARIES})
 if(MINGW)
     target_link_libraries(tjs pthread)
+endif()
+
+if (BUILD_WITH_ASAN)
+    target_compile_options(tjs PRIVATE -fsanitize=address)
+    target_link_options(tjs PRIVATE -fsanitize=address)
 endif()
