@@ -316,6 +316,7 @@ static void uv__fs_req_cb(uv_fs_t *req) {
         case UV_FS_FDATASYNC:
         case UV_FS_FSYNC:
         case UV_FS_FTRUNCATE:
+        case UV_FS_MKDIR:
         case UV_FS_RENAME:
         case UV_FS_RMDIR:
         case UV_FS_UNLINK:
@@ -953,6 +954,35 @@ static JSValue tjs_fs_rmdir(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
+static JSValue tjs_fs_mkdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    int32_t mode = 0777;
+    if (argc >= 2 && !JS_IsUndefined(argv[1])) {
+        if (JS_ToInt32(ctx, &mode, argv[1])) {
+            JS_FreeCString(ctx, path);
+            return JS_EXCEPTION;
+        }
+    }
+
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr) {
+        JS_FreeCString(ctx, path);
+        return JS_EXCEPTION;
+    }
+
+    int r = uv_fs_mkdir(tjs_get_loop(ctx), &fr->req, path, mode, uv__fs_req_cb);
+    JS_FreeCString(ctx, path);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
+}
+
 static JSValue tjs_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
@@ -1131,6 +1161,7 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CFUNC_DEF("mkdtemp", 1, tjs_fs_mkdtemp),
     TJS_CFUNC_DEF("mkstemp", 1, tjs_fs_mkstemp),
     TJS_CFUNC_DEF("rmdir", 1, tjs_fs_rmdir),
+    TJS_CFUNC_DEF("mkdir", 2, tjs_fs_mkdir),
     TJS_CFUNC_DEF("copyfile", 3, tjs_fs_copyfile),
     TJS_CFUNC_DEF("readdir", 1, tjs_fs_readdir),
     TJS_CFUNC_DEF("readFile", 1, tjs_fs_readfile),

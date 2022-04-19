@@ -434,6 +434,14 @@ declare namespace tjs {
     function rmdir(path: string): Promise<void>;
 
     /**
+     * Create a directory at the given path.
+     *
+     * @param path The path to of the directory to be created.
+     * @param mode The file mode for the new directory.
+     */
+    function mkdir(path: string, mode?: number): Promise<void>;
+
+    /**
      * Copies the source file into the target.
      *
      * If `COPYFILE_EXCL` is specified the operation will fail if the target exists.
