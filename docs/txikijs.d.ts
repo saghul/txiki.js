@@ -53,6 +53,13 @@ declare namespace tjs {
      */
     const args: string[];
 
+    type Signal = 'SIGHUP' | 'SIGINT' | 'SIGQUIT' | 'SIGILL' | 'SIGTRAP'
+      | 'SIGABRT' | 'SIGBUS' | 'SIGFPE' | 'SIGKILL' | 'SIGUSR1' | 'SIGSEGV'
+      | 'SIGUSR2' | 'SIGPIPE' | 'SIGALRM' | 'SIGTERM' | 'SIGSTKFLT'
+      | 'SIGCHLD' | 'SIGCONT' | 'SIGSTOP' | 'SIGTSTP' | 'SIGTTIN' | 'SIGTTOU'
+      | 'SIGURG' | 'SIGXCPU' | 'SIGXFSZ' | 'SIGVTALRM' | 'SIGPROF' | 'SIGWINCH'
+      | 'SIGPOLL' | 'SIGPWR' | 'SIGSYS';
+
     /**
      * Signal handler function.
      */
@@ -81,7 +88,7 @@ declare namespace tjs {
      * @param sig Which signal to register a handler for.
      * @param handler Handler function.
      */
-    function signal(sig: string, handler: SignalHandlerFunction): SignalHandler;
+    function signal(sig: Signal, handler: SignalHandlerFunction): SignalHandler;
 
     /**
      * Send a signal to a process.
@@ -89,7 +96,7 @@ declare namespace tjs {
      * @param pid The pid of the process to send a signal to.
      * @param sig The name of the signal to send. Defaults to "SIGTERM".
      */
-    function kill(pid: number, sig?: string): void;
+    function kill(pid: number, sig?: Signal): void;
 
     /**
      * Triggers a garbage collection cycle.
@@ -753,11 +760,11 @@ declare namespace tjs {
 
     interface ProcessStatus {
         exit_status: number;
-        term_signal: string;
+        term_signal: Signal|null;
     }
 
     interface Process {
-        kill(signal?: string): void;
+        kill(signal?: Signal): void;
         wait(): Promise<ProcessStatus>;
         pid: number;
         stdin?: Writer;
