@@ -21,7 +21,7 @@ message(STATUS "C Debug flags:   ${CMAKE_C_FLAGS_DEBUG}")
 message(STATUS "C Release flags: ${CMAKE_C_FLAGS_RELEASE}")
 
 set(TJS__VERSION_MAJOR 22)
-set(TJS__VERSION_MINOR 2)
+set(TJS__VERSION_MINOR 4)
 set(TJS__VERSION_PATCH 1)
 set(TJS__VERSION_SUFFIX "")
 configure_file(
