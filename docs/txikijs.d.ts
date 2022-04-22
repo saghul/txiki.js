@@ -71,6 +71,14 @@ declare namespace tjs {
     function signal(sig: string, handler: SignalHandler): void;
 
     /**
+     * Send a signal to a process.
+     *
+     * @param pid The pid of the process to send a signal to.
+     * @param sig The name of the signal to send. Defaults to "SIGTERM".
+     */
+    function kill(pid: number, sig?: string): void;
+
+    /**
      * Triggers a garbage collection cycle.
      */
     function gc(): void;

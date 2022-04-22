@@ -392,3 +392,13 @@ const char *tjs_getsig(int sig) {
 
     return tjs_signal_map[sig];
 }
+
+int tjs_getsignum(const char *sig_str) {
+    for (int i = 0; i < tjs_signal_map_count; i++) {
+        const char *s = tjs_signal_map[i];
+        if (s && strcmp(sig_str, s) == 0)
+            return i;
+    }
+
+    return -1;
+}
