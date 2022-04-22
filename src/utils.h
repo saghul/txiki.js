@@ -114,5 +114,6 @@ JSValue TJS_NewDate(JSContext *ctx, double epoch_ms);
 extern const char *tjs_signal_map[];
 extern size_t tjs_signal_map_count;
 const char *tjs_getsig(int sig);
+int tjs_getsignum(const char *sig_str);
 
 #endif

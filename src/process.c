@@ -100,15 +100,8 @@ static JSValue tjs_process_kill(JSContext *ctx, JSValueConst this_val, int argc,
 
     int sig_num = SIGTERM;
     if (!JS_IsUndefined(argv[0])) {
-        sig_num = -1;
         const char *sig_str = JS_ToCString(ctx, argv[0]);
-        for (int i = 0; i < tjs_signal_map_count; i++) {
-            const char *s = tjs_signal_map[i];
-            if (s && strcmp(sig_str, s) == 0) {
-                sig_num = i;
-                break;
-            }
-        }
+        sig_num = tjs_getsignum(sig_str);
         JS_FreeCString(ctx, sig_str);
 
         if (sig_num == -1)
@@ -464,6 +457,28 @@ cleanup:
     return ret;
 }
 
+static JSValue tjs_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    int32_t pid;
+    if (JS_IsUndefined(argv[0]) || JS_ToInt32(ctx, &pid, argv[0]))
+        return JS_ThrowTypeError(ctx, "expected an integer");
+
+    int sig_num = SIGTERM;
+    if (!JS_IsUndefined(argv[1])) {
+        const char *sig_str = JS_ToCString(ctx, argv[1]);
+        sig_num = tjs_getsignum(sig_str);
+        JS_FreeCString(ctx, sig_str);
+
+        if (sig_num == -1)
+            return JS_ThrowRangeError(ctx, "Invalid signal specified");
+    }
+
+    int r = uv_kill(pid, sig_num);
+    if (r != 0)
+        return tjs_throw_errno(ctx, r);
+
+    return JS_UNDEFINED;
+}
+
 static const JSCFunctionListEntry tjs_process_proto_funcs[] = {
     TJS_CFUNC_DEF("kill", 1, tjs_process_kill),
     TJS_CFUNC_DEF("wait", 0, tjs_process_wait),
@@ -476,6 +491,7 @@ static const JSCFunctionListEntry tjs_process_proto_funcs[] = {
 
 static const JSCFunctionListEntry tjs_process_funcs[] = {
     TJS_CFUNC_DEF("spawn", 2, tjs_spawn),
+    TJS_CFUNC_DEF("kill", 2, tjs_kill),
 };
 
 void tjs__mod_process_init(JSContext *ctx, JSValue ns) {
