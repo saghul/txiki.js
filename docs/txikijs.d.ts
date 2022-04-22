@@ -251,7 +251,7 @@ declare namespace tjs {
         /**
          * On a specific instance, the represented error code.
          */
-        code: number;
+        errno: number;
 
         /**
          * On a specific instance, the error string representation.
