@@ -322,6 +322,7 @@ static void uv__fs_req_cb(uv_fs_t *req) {
         case UV_FS_UNLINK:
         case UV_FS_CHOWN:
         case UV_FS_LCHOWN:
+        case UV_FS_CHMOD:
             arg = JS_UNDEFINED;
             break;
 
@@ -1145,6 +1146,34 @@ static JSValue tjs_fs_lchown(JSContext *ctx, JSValueConst this_val, int argc, JS
     return tjs_fs_xchown(ctx, this_val, argc, argv, false);
 }
 
+static JSValue tjs_fs_chmod(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (!JS_IsString(argv[0]))
+        return JS_ThrowTypeError(ctx, "expected a string for path parameter");
+
+    int mode;
+    if (JS_IsUndefined(argv[1]) || JS_ToInt32(ctx, &mode, argv[1]))
+        return JS_ThrowTypeError(ctx, "expected a number for mode parameter");
+
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr) {
+        JS_FreeCString(ctx, path);
+        return JS_EXCEPTION;
+    }
+
+    int r = uv_fs_chmod(tjs_get_loop(ctx), &fr->req, path, mode, uv__fs_req_cb);
+    JS_FreeCString(ctx, path);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
+}
+
 static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
     TJS_CFUNC_MAGIC_DEF("read", 2, tjs_file_rw, 0),
     TJS_CFUNC_MAGIC_DEF("write", 2, tjs_file_rw, 1),
@@ -1209,6 +1238,7 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CFUNC_DEF("readFile", 1, tjs_fs_readfile),
     TJS_CFUNC_DEF("chown", 3, tjs_fs_chown),
     TJS_CFUNC_DEF("lchown", 3, tjs_fs_lchown),
+    TJS_CFUNC_DEF("chmod", 2, tjs_fs_chmod),
 };
 
 void tjs__mod_fs_init(JSContext *ctx, JSValue ns) {

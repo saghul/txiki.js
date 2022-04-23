@@ -410,6 +410,15 @@ declare namespace tjs {
     function lstat(path: string): Promise<StatResult>;
 
     /**
+     * Change permissions of a file.
+     * See [chmod(2)](https://man7.org/linux/man-pages/man2/chmod.2.html)
+     *
+     * @param path Path to the file.
+     * @param mode The file mode consisting of permission, suid, sgid, and sticky bits.
+     */
+    function chmod(path: string, mode: number): Promise<void>;
+
+    /**
      * Change the ownership of a file.
      * See [chown(2)](https://man7.org/linux/man-pages/man2/chown.2.html)
      *
