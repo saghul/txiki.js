@@ -410,6 +410,27 @@ declare namespace tjs {
     function lstat(path: string): Promise<StatResult>;
 
     /**
+     * Change the ownership of a file.
+     * See [chown(2)](https://man7.org/linux/man-pages/man2/chown.2.html)
+     *
+     * @param path Path to the file.
+     * @param owner The uid to change the file's owner to.
+     * @param group The gid to change the file's group to.
+     */
+    function chown(path: string, owner: number, group: number): Promise<void>;
+
+    /**
+     * Change the ownership of a file. If the path is a link it changes
+     * the ownership of the link itself.
+     * See [lchown(2)](https://man7.org/linux/man-pages/man2/lchown.2.html)
+     *
+     * @param path Path to the file.
+     * @param owner The uid to change the file's owner to.
+     * @param group The gid to change the file's group to.
+     */
+    function lchown(path: string, owner: number, group: number): Promise<void>;
+
+    /**
      * Opens the file at the given path. Opening modes:
      *
      *   - r: open for reading
