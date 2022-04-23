@@ -138,16 +138,16 @@ static JSValue tjs_signal_handler_close(JSContext *ctx, JSValueConst this_val, i
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_signal_handler_signum_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_signal_handler_signal_get(JSContext *ctx, JSValueConst this_val) {
     TJSSignalHandler *sh = tjs_signal_handler_get(ctx, this_val);
     if (!sh)
         return JS_EXCEPTION;
-    return JS_NewInt32(ctx, sh->sig_num);
+    return sh->sig_num == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(sh->sig_num));
 }
 
 static const JSCFunctionListEntry tjs_signal_handler_proto_funcs[] = {
     TJS_CFUNC_DEF("close", 0, tjs_signal_handler_close),
-    JS_CGETSET_DEF("signum", tjs_signal_handler_signum_get, NULL),
+    JS_CGETSET_DEF("signal", tjs_signal_handler_signal_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Signal Handler", JS_PROP_CONFIGURABLE),
 };
 
