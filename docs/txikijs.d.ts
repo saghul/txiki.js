@@ -69,7 +69,7 @@ declare namespace tjs {
         /**
          * The signal that this signal handler was registered for.
          */
-        signum: number;
+        signal: Signal;
 
         /**
          * Stop the signal handler. The registered signal handler function
