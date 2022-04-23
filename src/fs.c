@@ -320,6 +320,8 @@ static void uv__fs_req_cb(uv_fs_t *req) {
         case UV_FS_RENAME:
         case UV_FS_RMDIR:
         case UV_FS_UNLINK:
+        case UV_FS_CHOWN:
+        case UV_FS_LCHOWN:
             arg = JS_UNDEFINED;
             break;
 
@@ -1103,6 +1105,46 @@ static JSValue tjs_fs_readfile(JSContext *ctx, JSValueConst this_val, int argc, 
     return TJS_InitPromise(ctx, &fr->result);
 }
 
+static JSValue tjs_fs_xchown(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, bool symlinks) {
+    if (!JS_IsString(argv[0]))
+        return JS_ThrowTypeError(ctx, "expected a string for path parameter");
+
+    int uid;
+    if (JS_IsUndefined(argv[1]) || JS_ToInt32(ctx, &uid, argv[1]))
+        return JS_ThrowTypeError(ctx, "expected a number for uid parameter");
+
+    int gid;
+    if (JS_IsUndefined(argv[2]) || JS_ToInt32(ctx, &gid, argv[2]))
+        return JS_ThrowTypeError(ctx, "expected a number for gid parameter");
+
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr) {
+        JS_FreeCString(ctx, path);
+        return JS_EXCEPTION;
+    }
+
+    int r = (symlinks ? uv_fs_chown : uv_fs_lchown)(tjs_get_loop(ctx), &fr->req, path, uid, gid, uv__fs_req_cb);
+    JS_FreeCString(ctx, path);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
+}
+
+static JSValue tjs_fs_chown(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    return tjs_fs_xchown(ctx, this_val, argc, argv, true);
+}
+
+static JSValue tjs_fs_lchown(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    return tjs_fs_xchown(ctx, this_val, argc, argv, false);
+}
+
 static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
     TJS_CFUNC_MAGIC_DEF("read", 2, tjs_file_rw, 0),
     TJS_CFUNC_MAGIC_DEF("write", 2, tjs_file_rw, 1),
@@ -1165,6 +1207,8 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CFUNC_DEF("copyfile", 3, tjs_fs_copyfile),
     TJS_CFUNC_DEF("readdir", 1, tjs_fs_readdir),
     TJS_CFUNC_DEF("readFile", 1, tjs_fs_readfile),
+    TJS_CFUNC_DEF("chown", 3, tjs_fs_chown),
+    TJS_CFUNC_DEF("lchown", 3, tjs_fs_lchown),
 };
 
 void tjs__mod_fs_init(JSContext *ctx, JSValue ns) {
