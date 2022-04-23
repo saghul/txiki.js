@@ -56,7 +56,20 @@ declare namespace tjs {
     /**
      * Signal handler function.
      */
-    type SignalHandler = () => void;
+    type SignalHandlerFunction = () => void;
+
+    interface SignalHandler {
+        /**
+         * The signal that this signal handler was registered for.
+         */
+        signum: number;
+
+        /**
+         * Stop the signal handler. The registered signal handler function
+         * will no longer be called.
+         */
+        close(): void;
+    }
 
     /**
      * Registers a handler for the given signal.
@@ -68,7 +81,7 @@ declare namespace tjs {
      * @param sig Which signal to register a handler for.
      * @param handler Handler function.
      */
-    function signal(sig: string, handler: SignalHandler): void;
+    function signal(sig: string, handler: SignalHandlerFunction): SignalHandler;
 
     /**
      * Send a signal to a process.
