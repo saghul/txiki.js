@@ -119,14 +119,21 @@ static JSValue tjs_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
     if (!JS_IsFunction(ctx, func))
         return JS_ThrowTypeError(ctx, "not a function");
 
-    if (JS_ToInt64(ctx, &delay, argv[1]))
-        return JS_EXCEPTION;
+    if (argc <= 1) {
+        delay = 0;
+    } else {
+        if (JS_ToInt64(ctx, &delay, argv[1]))
+            return JS_EXCEPTION;
+    }
 
     obj = JS_NewObjectClass(ctx, tjs_timer_class_id);
     if (JS_IsException(obj))
         return obj;
 
     int nargs = argc - 2;
+    if (nargs < 0) {
+        nargs = 0;
+    }
 
     th = calloc(1, sizeof(*th) + nargs * sizeof(JSValue));
     if (!th) {
