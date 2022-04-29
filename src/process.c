@@ -457,6 +457,68 @@ cleanup:
     return ret;
 }
 
+static JSValue tjs_exec(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue ret;
+
+    char **args = NULL;
+
+    /* args */
+    JSValue arg0 = argv[0];
+
+    if (JS_IsString(arg0)) {
+        args = js_mallocz(ctx, sizeof(*args) * 2);
+        if (!args)
+            goto fail;
+        const char *arg0_str = JS_ToCString(ctx, arg0);
+        if (!arg0_str)
+            goto fail;
+        args[0] = js_strdup(ctx, arg0_str);
+        JS_FreeCString(ctx, arg0_str);
+        if (!args[0])
+            goto fail;
+    } else if (JS_IsArray(ctx, arg0)) {
+        JSValue js_length = JS_GetPropertyStr(ctx, arg0, "length");
+        uint64_t len;
+        if (JS_ToIndex(ctx, &len, js_length)) {
+            JS_FreeValue(ctx, js_length);
+            goto fail;
+        }
+        JS_FreeValue(ctx, js_length);
+        args = js_mallocz(ctx, sizeof(*args) * (len + 1));
+        if (!args)
+            goto fail;
+        for (int i = 0; i < len; i++) {
+            JSValue v = JS_GetPropertyUint32(ctx, arg0, i);
+            if (JS_IsException(v))
+                goto fail;
+            const char *arg_str = JS_ToCString(ctx, v);
+            if (!arg_str)
+                goto fail;
+            args[i] = js_strdup(ctx, arg_str);
+            JS_FreeCString(ctx, arg_str);
+            if (!args[i])
+                goto fail;
+        }
+    } else {
+        JS_ThrowTypeError(ctx, "only string and array are allowed");
+        goto fail;
+    }
+
+    int r = execvp(args[0], args);
+    tjs_throw_errno(ctx, r);
+
+fail:
+    ret = JS_EXCEPTION;
+
+    if (args) {
+        for (int i = 0; args[i] != NULL; i++)
+            js_free(ctx, args[i]);
+        js_free(ctx, args);
+    }
+
+    return ret;
+}
+
 static JSValue tjs_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     int32_t pid;
     if (JS_IsUndefined(argv[0]) || JS_ToInt32(ctx, &pid, argv[0]))
@@ -492,6 +554,7 @@ static const JSCFunctionListEntry tjs_process_proto_funcs[] = {
 static const JSCFunctionListEntry tjs_process_funcs[] = {
     TJS_CFUNC_DEF("spawn", 2, tjs_spawn),
     TJS_CFUNC_DEF("kill", 2, tjs_kill),
+    TJS_CFUNC_DEF("exec", 1, tjs_exec),
 };
 
 void tjs__mod_process_init(JSContext *ctx, JSValue ns) {

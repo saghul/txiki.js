@@ -792,6 +792,16 @@ declare namespace tjs {
      */
     function spawn(args: string | string[], options?: ProcessOptions): Process;
 
+    /**
+     * Replace the current process image with a new process image.
+     * This function does not return if successful.
+     *
+     * See [execvp(3)](https://man7.org/linux/man-pages/man3/execvp.3.html)
+     *
+     * @param args Command argument list for the new process image.
+     */
+    function exec(args: string | string[]): void;
+
     interface Address {
         family: number;
         ip: string;
