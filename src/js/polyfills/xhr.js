@@ -36,7 +36,7 @@ class XMLHttpRequest extends EventTarget {
             this.dispatchEvent(new Event('loadstart'));
         };
         xhr.onprogress = p => {
-            this.dispatchEvent(new Event('progress', p));
+            this.dispatchEvent(new ProgressEvent('progress', p));
         };
         xhr.onreadystatechange = () => {
             this.dispatchEvent(new Event('readystatechange'));
