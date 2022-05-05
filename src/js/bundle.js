@@ -11585,6 +11585,26 @@ var PromiseRejectionEvent = class extends Event2 {
     return this[kPromiseRejectionReason];
   }
 };
+var kProgressEventLengthComputable = Symbol("kProgressEventLengthComputable");
+var kProgressEventLoaded = Symbol("kProgressEventLoaded");
+var kProgressEventTotal = Symbol("kProgressEventTotal");
+var ProgressEvent2 = class extends Event2 {
+  constructor(eventTye, init) {
+    super(eventTye, init);
+    this[kProgressEventLengthComputable] = init?.lengthComputable || false;
+    this[kProgressEventLoaded] = init?.loaded || 0;
+    this[kProgressEventTotal] = init?.total || 0;
+  }
+  get lengthComputable() {
+    return this[kProgressEventLengthComputable];
+  }
+  get loaded() {
+    return this[kProgressEventLoaded];
+  }
+  get total() {
+    return this[kProgressEventTotal];
+  }
+};
 Object.defineProperties(window, {
   EventTarget: {
     enumerable: true,
@@ -11615,6 +11635,12 @@ Object.defineProperties(window, {
     configurable: true,
     writable: true,
     value: PromiseRejectionEvent
+  },
+  ProgressEvent: {
+    enumerable: true,
+    configurable: true,
+    writable: true,
+    value: ProgressEvent2
   },
   CustomEvent: {
     enumerable: true,
@@ -12320,7 +12346,7 @@ var XMLHttpRequest2 = class extends EventTarget {
       this.dispatchEvent(new Event("loadstart"));
     };
     xhr.onprogress = (p2) => {
-      this.dispatchEvent(new Event("progress", p2));
+      this.dispatchEvent(new ProgressEvent("progress", p2));
     };
     xhr.onreadystatechange = () => {
       this.dispatchEvent(new Event("readystatechange"));

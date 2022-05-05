@@ -64,6 +64,32 @@ class PromiseRejectionEvent extends Event {
     }
 }
 
+const kProgressEventLengthComputable = Symbol('kProgressEventLengthComputable');
+const kProgressEventLoaded = Symbol('kProgressEventLoaded');
+const kProgressEventTotal = Symbol('kProgressEventTotal');
+
+class ProgressEvent extends Event {
+    constructor(eventTye, init) {
+        super(eventTye, init);
+
+        this[kProgressEventLengthComputable] = init?.lengthComputable || false;
+        this[kProgressEventLoaded] = init?.loaded || 0;
+        this[kProgressEventTotal] = init?.total || 0;
+    }
+
+    get lengthComputable() {
+        return this[kProgressEventLengthComputable];
+    }
+
+    get loaded() {
+        return this[kProgressEventLoaded];
+    }
+
+    get total() {
+        return this[kProgressEventTotal];
+    }
+}
+
 Object.defineProperties(window, {
     EventTarget: {
         enumerable: true,
@@ -94,6 +120,12 @@ Object.defineProperties(window, {
         configurable: true,
         writable: true,
         value: PromiseRejectionEvent
+    },
+    ProgressEvent: {
+        enumerable: true,
+        configurable: true,
+        writable: true,
+        value: ProgressEvent
     },
     CustomEvent: {
         enumerable: true,
