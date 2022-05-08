@@ -34,7 +34,7 @@ const exe = tjs.exepath;
     status = await proc.wait();
     logStatus(status);
     
-    let proc = tjs.spawn('cat', { stdin: 'pipe', stdout: 'pipe' });
+    proc = tjs.spawn('cat', { stdin: 'pipe', stdout: 'pipe' });
     console.log(`proc PID: ${proc.pid}`);
     console.log(proc.stdin.fileno());
     console.log(proc.stdout.fileno());
