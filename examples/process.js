@@ -6,7 +6,7 @@ function logStatus(s) {
 const exe = tjs.exepath;
 
 (async () => {
-    let args, status, proc;
+    let args, status, proc, input, data, encoder = new TextEncoder(), decoder = new TextDecoder();
 
     args = [exe, '-e', 'console.log(1+1)'];
     proc = tjs.spawn(args);
@@ -33,21 +33,24 @@ const exe = tjs.exepath;
     console.log(`proc PID: ${proc.pid}`);
     status = await proc.wait();
     logStatus(status);
-
-    let data;
+    
     proc = tjs.spawn('cat', { stdin: 'pipe', stdout: 'pipe' });
     console.log(`proc PID: ${proc.pid}`);
     console.log(proc.stdin.fileno());
     console.log(proc.stdout.fileno());
-    proc.stdin.write('hello!');
-    data = await proc.stdout.read();
-    console.log(String.fromCharCode.apply(null, data));
-    proc.stdin.write('hello again!');
-    data = await proc.stdout.read();
-    console.log(String.fromCharCode.apply(null, data));
+    input = encoder.encode('hello!');
+    proc.stdin.write(input);
+    data = new Uint8Array(input.length);
+    await proc.stdout.read(data);
+    console.log(decoder.decode(data));
+    input = encoder.encode('hello again!');
+    proc.stdin.write(input);
+    data = new Uint8Array(input.length);
+    await proc.stdout.read(data);
+    console.log(decoder.decode(data));
     proc.kill(tjs.SIGTERM);
     status = await proc.wait();
-    logStatus(status);
+    console.log(status);
 
 })().catch(e => {
     console.log(e);
