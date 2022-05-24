@@ -756,7 +756,7 @@ static JSValue tjs_fs_open(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     flags = js__uv_open_flags(strflags, len);
     JS_FreeCString(ctx, strflags);
 
-    mode = 0;
+    mode = 0666;
     if (!JS_IsUndefined(argv[2]) && JS_ToInt32(ctx, &mode, argv[2])) {
         JS_FreeCString(ctx, path);
         return JS_EXCEPTION;
