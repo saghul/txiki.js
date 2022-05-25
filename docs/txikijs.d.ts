@@ -551,7 +551,7 @@ declare namespace tjs {
     function lchown(path: string, owner: number, group: number): Promise<void>;
 
     /**
-     * Opens the file at the given path. Opening modes:
+     * Opens the file at the given path. Opening flags:
      *
      *   - r: open for reading
      *   - w: open for writing, truncating the file if it exists
@@ -563,9 +563,10 @@ declare namespace tjs {
      * const f = await tjs.open('file.txt', 'r');
      * ```
      * @param path The path to the file to be opened.
-     * @param mode Mode in which to open the file.
+     * @param flags Flags with which to open the file.
+     * @param mode File mode bits applied if the file is created. Defaults to `0o666`.
      */
-    function open(path: string, mode: string): Promise<FileHandle>;
+    function open(path: string, flags: string, mode?: number): Promise<FileHandle>;
 
     /**
      * Removes the directory at the given path.
@@ -578,7 +579,7 @@ declare namespace tjs {
      * Create a directory at the given path.
      *
      * @param path The path to of the directory to be created.
-     * @param mode The file mode for the new directory.
+     * @param mode The file mode for the new directory. Defaults to `0o777`.
      */
     function mkdir(path: string, mode?: number): Promise<void>;
 
