@@ -754,7 +754,7 @@ static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
     JS_CGETSET_DEF("statusText", tjs_xhr_statustext_get, NULL),
     JS_CGETSET_DEF("timeout", tjs_xhr_timeout_get, tjs_xhr_timeout_set),
     JS_CGETSET_DEF("upload", tjs_xhr_upload_get, NULL),
-    JS_CGETSET_DEF("withCcredentials", tjs_xhr_withcredentials_get, tjs_xhr_withcredentials_set),
+    JS_CGETSET_DEF("withCredentials", tjs_xhr_withcredentials_get, tjs_xhr_withcredentials_set),
     TJS_CFUNC_DEF("abort", 0, tjs_xhr_abort),
     TJS_CFUNC_DEF("getAllResponseHeaders", 0, tjs_xhr_getallresponseheaders),
     TJS_CFUNC_DEF("getResponseHeader", 1, tjs_xhr_getresponseheader),
