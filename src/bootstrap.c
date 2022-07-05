@@ -49,6 +49,17 @@ INCTXT(std, "std.js");
  *
  */
 
+INCTXT(ffi, "ffi.js");
+
+/**
+ * These are defined now:
+ *
+ * const unsigned char tjs__code_ffi_data[];
+ * const unsigned char *const tjs__code_ffi_end;
+ * const unsigned int tjs__code_ffi_size;
+ *
+ */
+
 int tjs__eval_text(JSContext *ctx, const char *buf, size_t buf_len, const char *filename) {
     int ret = 0;
     JSValue val = JS_Eval(ctx, buf, buf_len - 1, filename, JS_EVAL_TYPE_MODULE);
@@ -85,4 +96,8 @@ error:
 
 void tjs__add_stdlib(JSContext *ctx) {
     CHECK_EQ(0, tjs__add_builtin_module(ctx, "@tjs/std", tjs__code_std_data, tjs__code_std_size));
+}
+
+void tjs__add_ffi(JSContext *ctx) {
+    CHECK_EQ(0, tjs__add_builtin_module(ctx, "@tjs/ffi", tjs__code_ffi_data, tjs__code_ffi_size));
 }

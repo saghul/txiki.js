@@ -66,6 +66,10 @@ The builtin `@tjs/std` module exports the following:
 - [uuid] module
 - `createHash` function
 
+### ffi
+
+The builtin `@tjs/ffi` module provides access to FFI functionality.
+
 ## Supported platforms
 
 * GNU/Linux
@@ -77,7 +81,7 @@ The builtin `@tjs/std` module exports the following:
 
 [CMake] is necessary.
 
-*NOTE:* The txiki.js build depends on a number of git submodules (e.g. [curl], [libuv]).
+*NOTE:* The txiki.js build depends on a number of git submodules (e.g. [libuv], [wasm3]).
 If you didn't already clone this repository recursively, make sure you initialize these
 submodules with `git submodule update --init` before proceeding to the build.
 
@@ -142,6 +146,7 @@ txiki.js stands on shoulders of giants. It wouldn't be what it is today without 
 * [libuv]: platform abstraction layer
 * [wasm3]: WASM engine
 * [curl]: HTTP client
+* [libffi]: Call native functions from C
 
 In addition, txiki.js has these [contributors] to thank for their help.
 

@@ -72,6 +72,7 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_wasm_init(ctx, ns);
     tjs__mod_worker_init(ctx, ns);
     tjs__mod_xhr_init(ctx, ns);
+    tjs__mod_ffi_init(ctx, ns);
 }
 
 JSValue tjs__get_args(JSContext *ctx) {
@@ -225,6 +226,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     /* standard library */
     tjs__add_stdlib(qrt->ctx);
+    tjs__add_ffi(qrt->ctx);
+    
 
     /* end bootstrap */
     JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);

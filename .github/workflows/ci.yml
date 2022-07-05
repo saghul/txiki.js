@@ -22,7 +22,7 @@ jobs:
         ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
       run: |
         sudo apt update
-        sudo apt install -y libcurl4-openssl-dev
+        sudo apt install -y libcurl4-openssl-dev libffi-dev
         if [ "${{ matrix.compiler }}" = "clang" ]; then
           sudo apt install -y clang
           echo "::set-env name=CC::clang"
@@ -68,7 +68,7 @@ jobs:
       with:
         submodules: true
     - name: Prepare
-      run: apk add build-base cmake curl-dev --update-cache
+      run: apk add build-base cmake curl-dev libffi-dev --update-cache
     - name: Build it
       run: make
     - name: Test it
@@ -99,6 +99,7 @@ jobs:
           make
         pacboy: >-
           curl-winssl:p
+          libffi:p
           toolchain:p
           cmake:p
           ninja:p

@@ -44,27 +44,6 @@ endmacro()
 
 cpr_option(BUILD_WITH_ASAN "If ON, build with the address sanitizer enabled" OFF)
 
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/bundle.js
-        ${CMAKE_CURRENT_BINARY_DIR}/bundle.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/eval-stdin.js
-        ${CMAKE_CURRENT_BINARY_DIR}/eval-stdin.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/repl.js
-        ${CMAKE_CURRENT_BINARY_DIR}/repl.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/std.js
-        ${CMAKE_CURRENT_BINARY_DIR}/std.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/worker-bootstrap.js
-        ${CMAKE_CURRENT_BINARY_DIR}/worker-bootstrap.js
-        COPYONLY)
-
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
 option(libuv_buildtests "" OFF)
@@ -74,6 +53,8 @@ set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
 add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
 find_package(CURL REQUIRED)
+find_library(FFI_LIB NAMES libffi ffi)
+find_path(FFI_INCLUDE_DIR NAMES ffi.h)
 
 add_executable(tjs
     src/bootstrap.c
@@ -81,6 +62,7 @@ add_executable(tjs
     src/curl-utils.c
     src/dns.c
     src/error.c
+    src/ffi.c
     src/fs.c
     src/fswatch.c
     src/modules.c
@@ -100,6 +82,14 @@ add_executable(tjs
     ../deps/quickjs/src/cutils.c
 )
 
+set(INCLUDED_JS_FILES "bundle.js;eval-stdin.js;repl.js;std.js;ffi.js;worker-bootstrap.js")
+foreach(jsfile ${INCLUDED_JS_FILES})
+    configure_file(
+        ${CMAKE_SOURCE_DIR}/src/js/${jsfile}
+        ${CMAKE_CURRENT_BINARY_DIR}/${jsfile}
+        COPYONLY)
+endforeach()
+
 set_target_properties(tjs PROPERTIES
     C_STANDARD 11
     C_STANDARD_REQUIRED ON
@@ -107,8 +97,8 @@ set_target_properties(tjs PROPERTIES
 
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
-target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
-target_link_libraries(tjs qjs uv_a m3 m ${CURL_LIBRARIES})
+target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS} ${FFI_INCLUDE_DIR})
+target_link_libraries(tjs qjs uv_a m3 m ${CURL_LIBRARIES} ${FFI_LIB})
 if(MINGW)
     target_link_libraries(tjs pthread)
 endif()
