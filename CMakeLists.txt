@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project(tjs LANGUAGES C)
 
+include(ExternalProject)
 include(GNUInstallDirs)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -15,6 +16,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb -O0 -fno-omit-frame-pointer")
+
+set(USE_EXTERNAL_FFI FALSE CACHE STRING "Specify to use external ffi dependency")
 
 message(STATUS "C flags:         ${CMAKE_C_FLAGS}")
 message(STATUS "C Debug flags:   ${CMAKE_C_FLAGS_DEBUG}")
@@ -53,8 +56,6 @@ set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
 add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
 find_package(CURL REQUIRED)
-find_library(FFI_LIB NAMES libffi ffi)
-find_path(FFI_INCLUDE_DIR NAMES ffi.h)
 
 add_executable(tjs
     src/bootstrap.c
@@ -82,6 +83,33 @@ add_executable(tjs
     ../deps/quickjs/src/cutils.c
 )
 
+
+if(NOT USE_EXTERNAL_FFI)
+    set(LIBFFI_SRC "${CMAKE_SOURCE_DIR}/deps/libffi")
+    set(TMP_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/ffi_root")
+    ExternalProject_Add(
+        libffi
+        BUILD_IN_SOURCE 1
+        SOURCE_DIR "${LIBFFI_SRC}"
+        CONFIGURE_COMMAND ${LIBFFI_SRC}/autogen.sh COMMAND ${LIBFFI_SRC}/configure --enable-static=yes --disable-shared
+        BUILD_COMMAND make
+        INSTALL_DIR ${TMP_INSTALL_DIR}
+        INSTALL_COMMAND make DESTDIR=${TMP_INSTALL_DIR} install
+        EXCLUDE_FROM_ALL TRUE
+    )
+    add_dependencies(tjs libffi)
+    add_library(libffi_a STATIC IMPORTED)
+    set_target_properties(libffi_a PROPERTIES IMPORTED_LOCATION ${TMP_INSTALL_DIR}/usr/local/lib/libffi.a)
+    target_include_directories(tjs PRIVATE ${TMP_INSTALL_DIR}/usr/local/include)
+    target_link_libraries(tjs libffi_a)
+else()
+    find_library(FFI_LIB NAMES libffi ffi)
+    find_path(FFI_INCLUDE_DIR NAMES ffi.h)
+    target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
+    target_link_libraries(tjs ${FFI_LIB})
+endif()
+
+
 set(INCLUDED_JS_FILES "bundle.js;eval-stdin.js;repl.js;std.js;worker-bootstrap.js")
 foreach(jsfile ${INCLUDED_JS_FILES})
     configure_file(
@@ -97,8 +125,8 @@ set_target_properties(tjs PROPERTIES
 
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
-target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS} ${FFI_INCLUDE_DIR})
-target_link_libraries(tjs qjs uv_a m3 m ${CURL_LIBRARIES} ${FFI_LIB})
+target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
+target_link_libraries(tjs qjs uv_a m3 m ${CURL_LIBRARIES})
 if(MINGW)
     target_link_libraries(tjs pthread)
 endif()
