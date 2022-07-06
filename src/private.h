@@ -96,7 +96,6 @@ JSValue tjs__get_args(JSContext *ctx);
 int tjs__eval_text(JSContext *ctx, const char *buf, size_t buf_len, const char *filename);
 void tjs__bootstrap_globals(JSContext *ctx);
 void tjs__add_stdlib(JSContext *ctx);
-void tjs__add_ffi(JSContext *ctx);
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);

@@ -1,3 +1,5 @@
+/// <reference path="./ffi.d.ts" />
+
 /**
  * The single global where all txiki.js APIs are exposed.
  */
@@ -923,4 +925,6 @@ declare namespace tjs {
      * Returns an estimate of the default amount of parallelism a program should use.
      */
     function availableParallelism(): number;
+
+    const ffi: typeof FFI;
 }

@@ -1,5 +1,5 @@
 import assert from './assert.js';
-import { CFunction, freeCif, LIBC_SO } from '@tjs/ffi'
+const { CFunction, freeCif, LIBC_SO } = tjs.ffi;
 
 (function(){
 	let abs = new CFunction(LIBC_SO, 'abs', 1, 'int', 'int');

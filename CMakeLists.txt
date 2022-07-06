@@ -82,7 +82,7 @@ add_executable(tjs
     ../deps/quickjs/src/cutils.c
 )
 
-set(INCLUDED_JS_FILES "bundle.js;eval-stdin.js;repl.js;std.js;ffi.js;worker-bootstrap.js")
+set(INCLUDED_JS_FILES "bundle.js;eval-stdin.js;repl.js;std.js;worker-bootstrap.js")
 foreach(jsfile ${INCLUDED_JS_FILES})
     configure_file(
         ${CMAKE_SOURCE_DIR}/src/js/${jsfile}

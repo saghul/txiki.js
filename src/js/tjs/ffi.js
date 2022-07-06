@@ -19,7 +19,7 @@ SOFTWARE.
 */
 
 const core = globalThis.__bootstrap;
-const ffi = core.ffi_init();
+const ffi = core.ffi;
 
 const dlCache = {}; // {'filename': {handle: ..., symbols: {'...': ...}}}
 

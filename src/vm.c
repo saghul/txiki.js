@@ -226,7 +226,6 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     /* standard library */
     tjs__add_stdlib(qrt->ctx);
-    tjs__add_ffi(qrt->ctx);
     
 
     /* end bootstrap */

@@ -705,18 +705,9 @@ static JSCFunctionListEntry funcs[] = {
 #endif
 };
 
-static JSValue js_ffi_init(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    size_t size;
-	JSValue ffiobj = JS_NewObject(ctx);
-	JS_SetPropertyFunctionList(ctx, ffiobj, funcs, countof(funcs));
-    return ffiobj;
-}
-
-static JSCFunctionListEntry bootstrap_funcs[] = {
-	JS_CFUNC_DEF("ffi_init", 0, js_ffi_init)
-};
-
 void tjs__mod_ffi_init(JSContext *ctx, JSValue ns) {
-	JSAtom ffiatom = JS_NewAtom(ctx, "ffi_init");
-	JS_SetPropertyFunctionList(ctx, ns, bootstrap_funcs, countof(bootstrap_funcs));
+	JSAtom ffiatom = JS_NewAtom(ctx, "ffi");
+    JSValue ffiobj = JS_NewObject(ctx);
+	JS_SetPropertyFunctionList(ctx, ffiobj, funcs, countof(funcs));
+    JS_SetProperty(ctx, ns, ffiatom, ffiobj);
 }

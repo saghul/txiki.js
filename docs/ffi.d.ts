@@ -1,4 +1,4 @@
-declare module "@tjs/ffi"{
+declare namespace FFI{
 	interface typemap{
 		void: void,
 		uint8: number,
