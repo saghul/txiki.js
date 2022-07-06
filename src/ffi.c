@@ -28,7 +28,6 @@ SOFTWARE.
 #define __USE_GNU
 #include <dlfcn.h>
 #include <ffi.h>
-#include <gnu/lib-names.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -96,9 +95,11 @@ enum argtype {
     t_null,
     t_bool,
     t_number,
+    t_bigint,
     t_string,
     t_string_or_null,
     t_function,
+    t_any
 };
 
 static bool check_args(JSContext *ctx, int argc, JSValueConst *argv, enum argtype argtype_list[], int argtype_count) {
@@ -126,6 +127,12 @@ static bool check_args(JSContext *ctx, int argc, JSValueConst *argv, enum argtyp
                     return false;
                 }
                 break;
+            case t_bigint:
+                if (!JS_IsBigInt(ctx, argv[i])) {
+                    JS_ThrowTypeError(ctx, "argv[%d] must be a bigint", i);
+                    return false;
+                }
+                break;
             case t_string:
                 if (!JS_IsString(argv[i])) {
                     JS_ThrowTypeError(ctx, "argv[%d] must be string", i);
@@ -143,6 +150,9 @@ static bool check_args(JSContext *ctx, int argc, JSValueConst *argv, enum argtyp
                     JS_ThrowTypeError(ctx, "argv[%d] must be function", i);
                     return false;
                 }
+                break;
+            case t_any:
+                return true;
                 break;
             default:
                 JS_ThrowTypeError(ctx, "argv[%d] type definition is not yet supported", i);
@@ -267,30 +277,43 @@ static JSValue js_memreadint(JSContext *ctx, JSValueConst this_val, int argc, JS
     size_t offset;
     bool issigned;
     size_t bytewidth;
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_number, t_number, t_number, t_bool, t_number}))
+    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_number, t_number, t_number, t_bool, t_number, t_bool}))
     JS_TO_UINTPTR_T(ctx, &buf, argv[0]);
     JS_TO_SIZE_T(ctx, &buflen, argv[1]);
     JS_TO_SIZE_T(ctx, &offset, argv[2]);
     issigned = JS_ToBool(ctx, argv[3]);
     JS_TO_SIZE_T(ctx, &bytewidth, argv[4]);
+    bool isbigint = JS_ToBool(ctx, argv[5]);
     if ((buflen < 0) || (offset < 0) || (bytewidth < 0) || (offset + bytewidth > buflen)) {
         JS_ThrowRangeError(ctx, "pointer out of bounds");
         return JS_EXCEPTION;
     }
-    // printf("%p %d %d %d %d\n", buf, buflen, offset, issigned, bytewidth);
-    switch (bytewidth) {
-        case 1:
-            return issigned ? JS_NewInt32(ctx, *((int8_t *)(buf + offset))) : JS_NewUint32(ctx, *((uint8_t *)(buf + offset)));
-        case 2:
-            return issigned ? JS_NewInt32(ctx, *((int16_t *)(buf + offset))) : JS_NewUint32(ctx, *((uint16_t *)(buf + offset)));
-        case 4:
-            return issigned ? JS_NewInt32(ctx, *((int32_t *)(buf + offset))) : JS_NewUint32(ctx, *((uint32_t *)(buf + offset)));
-        case 8:
-            // TODO: unsigned int64 ???
-            return issigned ? JS_NewInt64(ctx, *((int64_t *)(buf + offset))) : JS_NewInt64(ctx, *((uint64_t *)(buf + offset)));
-        default:
-            JS_ThrowTypeError(ctx, "bytewidth must only be 1, 2, 4, or 8");
-            return JS_EXCEPTION;
+    if(isbigint){
+        switch (bytewidth) {
+            case 1:
+                return issigned ? JS_NewBigInt64(ctx, *((int8_t *)(buf + offset))) : JS_NewBigUint64(ctx, *((uint8_t *)(buf + offset)));
+            case 2:
+                return issigned ? JS_NewBigInt64(ctx, *((int16_t *)(buf + offset))) : JS_NewBigUint64(ctx, *((uint16_t *)(buf + offset)));
+            case 4:
+                return issigned ? JS_NewBigInt64(ctx, *((int32_t *)(buf + offset))) : JS_NewBigUint64(ctx, *((uint32_t *)(buf + offset)));
+            case 8:
+                return issigned ? JS_NewBigInt64(ctx, *((int32_t *)(buf + offset))) : JS_NewBigUint64(ctx, *((uint32_t *)(buf + offset)));
+            default:
+                JS_ThrowTypeError(ctx, "bytewidth must only be 1, 2, 4, 8");
+                return JS_EXCEPTION;
+        }
+    }else{
+        switch (bytewidth) {
+            case 1:
+                return issigned ? JS_NewInt32(ctx, *((int8_t *)(buf + offset))) : JS_NewUint32(ctx, *((uint8_t *)(buf + offset)));
+            case 2:
+                return issigned ? JS_NewInt32(ctx, *((int16_t *)(buf + offset))) : JS_NewUint32(ctx, *((uint16_t *)(buf + offset)));
+            case 4:
+                return issigned ? JS_NewInt32(ctx, *((int32_t *)(buf + offset))) : JS_NewUint32(ctx, *((uint32_t *)(buf + offset)));
+            default:
+                JS_ThrowTypeError(ctx, "bytewidth must only be 1, 2, 4");
+                return JS_EXCEPTION;
+        }
     }
 }
 
@@ -300,12 +323,20 @@ static JSValue js_memwriteint(JSContext *ctx, JSValueConst this_val, int argc, J
     size_t offset;
     size_t bytewidth;
     int64_t val;
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_number, t_number, t_number, t_number, t_number}))
+    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_number, t_number, t_number, t_number, t_any}))
     JS_TO_UINTPTR_T(ctx, &buf, argv[0]);
     JS_TO_SIZE_T(ctx, &buflen, argv[1]);
     JS_TO_SIZE_T(ctx, &offset, argv[2]);
     JS_TO_SIZE_T(ctx, &bytewidth, argv[3]);
-    JS_ToInt64(ctx, &val, argv[4]);
+    if(JS_IsBigInt(ctx, argv[4])){
+        JS_ToBigInt64(ctx, &val, argv[4]);
+    }else if(JS_IsNumber(argv[4])){
+        JS_ToInt64(ctx, &val, argv[4]);
+    }else{
+        JS_ThrowRangeError(ctx, "value has to be number or bigint");
+        return JS_EXCEPTION;
+    }
+    
     if ((buflen < 0) || (offset < 0) || (bytewidth < 0) || (offset + bytewidth > buflen)) {
         JS_ThrowRangeError(ctx, "pointer out of bounds");
         return JS_EXCEPTION;
@@ -598,6 +629,19 @@ static void ffi_closure_js_func_adapter(ffi_cif *cif, void *ret, void *args[], v
     }
 }
 
+#if defined(_WIN32)
+    #define LIBC_NAME "msvcrt.dll"
+    #define LIBM_NAME "msvcrt.dll"
+#elif defined(__APPLE__)
+    #define LIBC_NAME "libSystem.dylib"
+    #define LIBM_NAME "libSystem.dylib"
+#elif defined(__GLIBC__)
+    #include <gnu/lib-names.h>
+    #define LIBC_NAME LIBC_SO
+    #define LIBM_NAME LIBM_SO
+#else
+#endif
+
 static JSCFunctionListEntry funcs[] = {
     //
     // basic memory handling functions, partly from libc and quickjs itself
@@ -623,8 +667,8 @@ static JSCFunctionListEntry funcs[] = {
     C_SIZEOF_DEF(uintptr_t),
     C_SIZEOF_DEF(int),
     C_SIZEOF_DEF(size_t),
-    C_MACRO_STRING_DEF(LIBC_SO),
-    C_MACRO_STRING_DEF(LIBM_SO),
+    C_MACRO_STRING_DEF(LIBC_NAME),
+    C_MACRO_STRING_DEF(LIBM_NAME),
     //
     // libdl
     //

@@ -926,5 +926,8 @@ declare namespace tjs {
      */
     function availableParallelism(): number;
 
+    /**
+     * gives access to the FFI api.
+     */
     const ffi: typeof FFI;
 }

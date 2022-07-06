@@ -61,7 +61,9 @@ function dlClose(filename) {
 const dummy = () => { }
 
 const rint = (issigned, bytewidth) =>
-    ptr => ffi.memreadint(ptr, bytewidth, 0, issigned, bytewidth);
+    ptr => ffi.memreadint(ptr, bytewidth, 0, issigned, bytewidth, false);
+const rbigint = (issigned, bytewidth) =>
+    ptr => ffi.memreadint(ptr, bytewidth, 0, issigned, bytewidth, true);
 
 const wint = bytewidth =>
     (ptr, val) => ffi.memwriteint(ptr, bytewidth, 0, bytewidth, val);
@@ -80,8 +82,8 @@ const primitiveTypes = { // [ffi_type address, byte width, read function, write 
     sint16: [ffi.ffi_type_sint16, 2, rint(true, 2), wint(2)],
     uint32: [ffi.ffi_type_uint32, 4, rint(false, 4), wint(4)],
     sint32: [ffi.ffi_type_sint32, 4, rint(true, 4), wint(4)],
-    uint64: [ffi.ffi_type_uint64, 8, rint(false, 8), wint(8)],
-    sint64: [ffi.ffi_type_sint64, 8, rint(true, 8), wint(8)],
+    uint64: [ffi.ffi_type_uint64, 8, rbigint(false, 8), wint(8)],
+    sint64: [ffi.ffi_type_sint64, 8, rbigint(true, 8), wint(8)],
     float: [ffi.ffi_type_float, 4, rfloat(false), wfloat(false)],
     double: [ffi.ffi_type_double, 8, rfloat(true), wfloat(true)],
     uchar: [ffi.ffi_type_uchar, 1, rint(false, 1), wint(1)],
@@ -90,10 +92,10 @@ const primitiveTypes = { // [ffi_type address, byte width, read function, write 
     sshort: [ffi.ffi_type_sshort, 2, rint(true, 2), wint(2)],
     uint: [ffi.ffi_type_uint, ffi.sizeof_int, rint(false, ffi.sizeof_int), wint(ffi.sizeof_int)],
     sint: [ffi.ffi_type_sint, ffi.sizeof_int, rint(true, ffi.sizeof_int), wint(ffi.sizeof_int)],
-    ulong: [ffi.ffi_type_ulong, 8, rint(false, 8), wint(8)],
-    slong: [ffi.ffi_type_slong, 8, rint(true, 8), wint(8)],
+    ulong: [ffi.ffi_type_ulong, 8, rbigint(false, 8), wint(8)],
+    slong: [ffi.ffi_type_slong, 8, rbigint(true, 8), wint(8)],
     longdouble: [ffi.ffi_type_longdouble, 8, rfloat(true), wfloat(true)],
-    pointer: [ffi.ffi_type_pointer, ffi.sizeof_uintptr_t, rint(false, ffi.sizeof_uintptr_t), wint(ffi.sizeof_uintptr_t)],
+    pointer: [ffi.ffi_type_pointer, ffi.sizeof_uintptr_t, rbigint(false, ffi.sizeof_uintptr_t), wint(ffi.sizeof_uintptr_t)],
     complex_float: [ffi.ffi_type_complex_float, undefined, undefined, undefined],
     complex_double: [ffi.ffi_type_complex_double, undefined, undefined, undefined],
     complex_longdouble: [ffi.ffi_type_complex_longdouble, undefined, undefined, undefined],
@@ -109,9 +111,9 @@ primitiveTypes.short = primitiveTypes.sshort;
 primitiveTypes.int = primitiveTypes.sint;
 primitiveTypes.long = primitiveTypes.slong;
 primitiveTypes.string = primitiveTypes.pointer;
-primitiveTypes.uintptr_t = [ffi.ffi_type_uintptr_t, ffi.sizeof_uintptr_t, rint(false, ffi.sizeof_uintptr_t), wint(ffi.sizeof_uintptr_t)];
-primitiveTypes.intptr_t = [ffi.ffi_type_intptr_t, ffi.sizeof_uintptr_t, rint(true, ffi.sizeof_uintptr_t), wint(ffi.sizeof_uintptr_t)];
-primitiveTypes.size_t = [ffi.ffi_type_size_t, ffi.sizeof_size_t, rint(false, ffi.sizeof_size_t), wint(ffi.sizeof_size_t)];
+primitiveTypes.uintptr_t = [ffi.ffi_type_uintptr_t, ffi.sizeof_uintptr_t, rbigint(false, ffi.sizeof_uintptr_t), wint(ffi.sizeof_uintptr_t)];
+primitiveTypes.intptr_t = [ffi.ffi_type_intptr_t, ffi.sizeof_uintptr_t, rbigint(true, ffi.sizeof_uintptr_t), wint(ffi.sizeof_uintptr_t)];
+primitiveTypes.size_t = [ffi.ffi_type_size_t, ffi.sizeof_size_t, rbigint(false, ffi.sizeof_size_t), wint(ffi.sizeof_size_t)];
 
 class MemoryAllocator {
     pointers = []
@@ -452,5 +454,5 @@ export class CCallback {
     }
 }
 
-export const LIBC_SO = ffi.LIBC_SO;
-export const LIBM_SO = ffi.LIBM_SO;
+export const LIBC_NAME = ffi.LIBC_NAME;
+export const LIBM_NAME = ffi.LIBC_NAME;
