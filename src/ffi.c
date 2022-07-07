@@ -24,8 +24,10 @@ SOFTWARE.
 
 #include "private.h"
 
+#if defined(__linux__)
 #define _GNU_SOURCE
 #define __USE_GNU
+#endif
 #include <dlfcn.h>
 #include <ffi.h>
 #include <limits.h>
