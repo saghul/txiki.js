@@ -57,6 +57,32 @@ add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
 find_package(CURL REQUIRED)
 
+file(GLOB BUNDLE_SRC_FILES ${PROJECT_SOURCE_DIR}/src/js/tjs/*.js)
+
+set(INCLUDED_JS_FILES "eval-stdin.js;repl.js;std.js;worker-bootstrap.js")
+set(INCLUDED_JS_FILES_PATH "")
+foreach(jsfile ${INCLUDED_JS_FILES})
+    configure_file(
+        ${CMAKE_SOURCE_DIR}/src/js/${jsfile}
+        ${CMAKE_CURRENT_BINARY_DIR}/${jsfile}
+        COPYONLY)
+	list(APPEND INCLUDED_JS_FILES_PATH ${CMAKE_CURRENT_BINARY_DIR}/${jsfile})
+endforeach()
+
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild  ${CMAKE_CURRENT_SOURCE_DIR}/package-lock.json
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/package.json
+	COMMAND npm install
+  	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/bundle.js
+	DEPENDS ${BUNDLE_SRC_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild 
+	COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild src/js/index.js --bundle --outfile=${CMAKE_CURRENT_BINARY_DIR}/bundle.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module
+  	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 add_executable(tjs
     src/bootstrap.c
     src/cli.c
@@ -82,7 +108,11 @@ add_executable(tjs
     src/xhr.c
     ../deps/quickjs/src/cutils.c
 )
+set_property(SOURCE src/bootstrap.c APPEND PROPERTY OBJECT_DEPENDS ${INCLUDED_JS_FILES_PATH} ${CMAKE_CURRENT_BINARY_DIR}/bundle.js)
 
+add_library(ffi-test SHARED
+    tests/fixtures/ffi-test-lib.c
+)
 
 if(NOT USE_EXTERNAL_FFI)
     set(LIBFFI_SRC "${CMAKE_SOURCE_DIR}/deps/libffi")
@@ -108,15 +138,6 @@ else()
     target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
     target_link_libraries(tjs ${FFI_LIB})
 endif()
-
-
-set(INCLUDED_JS_FILES "bundle.js;eval-stdin.js;repl.js;std.js;worker-bootstrap.js")
-foreach(jsfile ${INCLUDED_JS_FILES})
-    configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/${jsfile}
-        ${CMAKE_CURRENT_BINARY_DIR}/${jsfile}
-        COPYONLY)
-endforeach()
 
 set_target_properties(tjs PROPERTIES
     C_STANDARD 11
