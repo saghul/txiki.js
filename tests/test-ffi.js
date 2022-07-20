@@ -103,6 +103,19 @@ const FFI = tjs.ffi;
 		assert.eq(tm.isdst, cmpDate.getTimezoneOffset() != (new Date(2022,1,1,1,1,1)).getTimezoneOffset() ? 1 : 0); // daylight saving time, 0 or 1
 	}
 
+	function testJsCallback(){
+		const testlib = new FFI.Lib('./libffi-test.so');
+		const callCallbackF = new FFI.CFunction(testlib.symbol('call_callback'), FFI.types.sint, [FFI.types.jscallback, FFI.types.sint]);
+		let recv = null;
+		const callback = new FFI.JSCallback(FFI.types.sint, [FFI.types.sint], (a)=>{
+			recv = a;
+			return 2;
+		});
+		const ret = callCallbackF.call(callback, 4);
+		assert.eq(ret, 2);
+		assert.eq(recv, 4);
+	}
+
 	testSimpleCalls();
 	testStructs();
 	testPointersAndStructsOpendir();

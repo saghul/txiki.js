@@ -110,6 +110,10 @@ add_executable(tjs
 )
 set_property(SOURCE src/bootstrap.c APPEND PROPERTY OBJECT_DEPENDS ${INCLUDED_JS_FILES_PATH} ${CMAKE_CURRENT_BINARY_DIR}/bundle.js)
 
+add_library(ffi-test SHARED
+    tests/fixtures/ffi-test-lib.c
+)
+
 if(NOT USE_EXTERNAL_FFI)
     set(LIBFFI_SRC "${CMAKE_SOURCE_DIR}/deps/libffi")
     set(TMP_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/ffi_root")

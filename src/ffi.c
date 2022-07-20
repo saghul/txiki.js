@@ -90,6 +90,7 @@ enum argtype {
     t_string,
     t_string_or_null,
     t_function,
+    t_object,
     t_any
 };
 
@@ -142,6 +143,12 @@ static bool check_args(JSContext *ctx, int argc, JSValueConst *argv, enum argtyp
                     return false;
                 }
                 break;
+            case t_object:
+                if (!JS_IsObject(argv[i])) {
+                    JS_ThrowTypeError(ctx, "argv[%d] must be object", i);
+                    return false;
+                }
+            break;
             case t_any:
                 return true;
                 break;
@@ -310,6 +317,9 @@ static void js_ffi_type_finalizer(JSRuntime *rt, JSValue val) {
     js_ffi_type *u = JS_GetOpaque(val, js_ffi_type_classid);
     if (u) {
         if(u->dynamic){
+            for(unsigned i=0;i<u->elemCount;i++){
+                JS_FreeValueRT(rt, u->deps[i]);
+            }
             if(u->deps != NULL){
                 js_free_rt(rt, u->deps);
             }
@@ -672,9 +682,14 @@ static JSValue js_ffi_cif_create(JSContext *ctx, JSValueConst this_val, int argc
     if (JS_IsException(obj)){
         return obj;
     }
+
+    JS_SetPropertyStr(ctx, obj, "vla", JS_NewInt32(ctx, 0));
     
     js_ffi_cif *js_cif = js_malloc(ctx, sizeof(js_ffi_cif));
-    js_cif->args = js_malloc(ctx, sizeof(ffi_type*) * (ntotalargs));
+    js_cif->args = NULL;
+    if(ntotalargs > 0){
+        js_cif->args = js_malloc(ctx, sizeof(ffi_type*) * (ntotalargs));
+    }
     js_cif->deps = js_malloc(ctx, sizeof(JSValue) * (ntotalargs+1));
     js_cif->depsCount = ntotalargs+1;
     ffi_type* retType;
@@ -687,7 +702,7 @@ static JSValue js_ffi_cif_create(JSContext *ctx, JSValueConst this_val, int argc
     }
 
     for(unsigned i=0;i<js_cif->depsCount;i++){
-        js_cif->deps[i] = argv[i];
+        js_cif->deps[i] = JS_DupValue(ctx, argv[i]);
     }
 
     for(unsigned i=1;i<ntotalargs+1;i++){
@@ -724,7 +739,13 @@ static void js_ffi_cif_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_f
 static void js_ffi_cif_finalizer(JSRuntime *rt, JSValue val) {
     js_ffi_cif *u = JS_GetOpaque(val, js_ffi_cif_classid);
     if (u) {
-        js_free_rt(rt, u->args);
+        for(unsigned i=0;i<u->depsCount;i++){
+            JS_FreeValueRT(rt, u->deps[i]);
+        }
+        js_free_rt(rt, u->deps);
+        if(u->args){
+            js_free_rt(rt, u->args);
+        }
         js_free_rt(rt, u);
     }
 }
@@ -798,6 +819,7 @@ static JSValue js_uv_lib_create(JSContext *ctx, JSValueConst this_val, int argc,
     const char* dlname = JS_ToCString(ctx, argv[0]);
     uv_lib_t* lib = js_malloc(ctx, sizeof(uv_lib_t));
     int ret = uv_dlopen(dlname, lib);
+    JS_FreeCString(ctx, dlname);
     if(ret != 0){
         JS_ThrowInternalError(ctx, "uv_dlopen failed: %s", uv_dlerror(lib));
         js_free(ctx, lib);
@@ -832,7 +854,9 @@ static JSValue js_uv_lib_dlsym(JSContext *ctx, JSValueConst this_val, int argc, 
 
     const char* sym = JS_ToCString(ctx, argv[0]);
     void* ptr;
-    if(uv_dlsym(lib, sym, &ptr) != 0){
+    int ret = uv_dlsym(lib, sym, &ptr);
+    JS_FreeCString(ctx, sym);
+    if(ret != 0){
         JS_ThrowInternalError(ctx, "uv_dlopen failed: %s", uv_dlerror(lib));
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -853,59 +877,6 @@ static JSCFunctionListEntry js_uv_lib_proto_funcs[] = {
 
 #pragma region "Libc helpers"
 // ===========================
-
-static JSValue js_libc_malloc(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    size_t size;
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_number}))
-    JS_TO_SIZE_T(ctx, &size, argv[0]);
-    return JS_NEW_UINTPTR_T(ctx, malloc(size));
-}
-
-static JSValue js_libc_realloc(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    void *ptr;
-    size_t size;
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_number, t_number}))
-    JS_TO_UINTPTR_T(ctx, &ptr, argv[0]);
-    JS_TO_SIZE_T(ctx, &size, argv[1]);
-    return JS_NEW_UINTPTR_T(ctx, realloc(ptr, size));
-}
-
-static JSValue js_libc_free(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    void *ptr;
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_number}))
-    JS_TO_UINTPTR_T(ctx, &ptr, argv[0]);
-    free(ptr);
-    return JS_UNDEFINED;
-}
-
-static JSValue js_libc_memset(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    void *s;
-    int c;
-    size_t n;
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_number, t_number, t_number}))
-    JS_TO_UINTPTR_T(ctx, &s, argv[0]);
-    JS_TO_INT(ctx, &c, argv[1]);
-    JS_TO_SIZE_T(ctx, &n, argv[2]);
-    return JS_NEW_UINTPTR_T(ctx, memset(s, c, n));
-}
-
-static JSValue js_libc_memcpy(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    void *dest;
-    void *src;
-    size_t n;
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_number, t_number, t_number}))
-    JS_TO_UINTPTR_T(ctx, &dest, argv[0]);
-    JS_TO_UINTPTR_T(ctx, &src, argv[1]);
-    JS_TO_SIZE_T(ctx, &n, argv[2]);
-    return JS_NEW_UINTPTR_T(ctx, memcpy(dest, src, n));
-}
-
-static JSValue js_libc_strlen(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    char *s;
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_number}))
-    JS_TO_UINTPTR_T(ctx, &s, argv[0]);
-    return JS_NEW_SIZE_T(ctx, strlen(s));
-}
 
 static JSValue js_libc_errno(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     if(argc != 0){
@@ -1017,14 +988,123 @@ static JSValue js_deref_ptr(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
 #pragma endregion "other helpers"
 
+#pragma region "FfiClosure class definition"
+
+// ======================================
+
+static JSClassID js_ffi_closure_classid;
+typedef struct{
+    ffi_closure closure;
+    void* code;
+    JSValue cif;
+    JSValue func;
+    JSContext* ctx;
+} js_ffi_closure;
+
+void js_ffi_closure_invoke(ffi_cif *cif, void *ret, void **args, void* userptr){
+    js_ffi_closure* jscl = (js_ffi_closure*)userptr;
+    JSContext* ctx = jscl->ctx;
+    JSValueConst* jsargs = js_malloc(ctx, sizeof(JSValue) * cif->nargs);
+
+    for(unsigned i=0;i<cif->nargs;i++){
+        jsargs[i] = JS_NewUint8ArrayShared(ctx, args[i], ffi_type_get_sz(cif->arg_types[i]));
+    }
+    JSValue jsret = JS_Call(ctx, jscl->func, JS_UNDEFINED, cif->nargs, jsargs);
+    for(unsigned i=0;i<cif->nargs;i++){
+        JS_FreeValue(ctx, jsargs[i]);
+    }
+    js_free(ctx, jsargs);
+    if(JS_IsException(jsret)){
+        fprintf(stderr, "js_ffi_closure_invoke: function returned exception\n");
+        tjs_dump_error(ctx);
+        abort();
+    }
+    size_t sz;
+    uint8_t* buf = JS_GetUint8Array(ctx, &sz, jsret);
+    if(buf == NULL){
+        fprintf(stderr, "js_ffi_closure_invoke: function returned non-buffer\n");
+        tjs_dump_error(ctx);
+        abort();
+    }
+    memcpy(ret, buf, sz);
+    JS_FreeValue(ctx, jsret);
+}
+
+static JSValue js_ffi_closure_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_object, t_function}));
+    
+    js_ffi_cif* cif = JS_GetOpaque(argv[0], js_ffi_cif_classid);
+    if(!cif){
+        JS_ThrowTypeError(ctx, "argument 1 is expected to be FfiCif");
+        return JS_EXCEPTION;
+    }
+
+    JSValue obj = JS_NewObjectClass(ctx, js_ffi_closure_classid);
+    if (JS_IsException(obj)){
+        return obj;
+    }
+
+    void* code;
+    js_ffi_closure* jscl = ffi_closure_alloc(sizeof(js_ffi_closure), &code);
+    jscl->code = code;
+    ffi_status ret = ffi_prep_closure_loc(&jscl->closure, &cif->ffi_cif, js_ffi_closure_invoke, jscl, jscl->code);
+    if(ret != FFI_OK){
+        ffi_closure_free(jscl);
+        JS_ThrowTypeError(ctx, "failed to prepare closure");
+        return JS_EXCEPTION;
+    }
+
+    jscl->cif = JS_DupValue(ctx, argv[0]);
+    jscl->func = JS_DupValue(ctx, argv[1]);
+    jscl->ctx = ctx;
+
+    JS_SetOpaque(obj, jscl);
+    return obj;
+}
+
+static void js_ffi_closure_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+    js_ffi_closure *u = JS_GetOpaque(val, js_ffi_closure_classid);
+    if (u) {
+        JS_MarkValue(rt, u->cif, mark_func);
+        JS_MarkValue(rt, u->func, mark_func);
+    }
+}
+
+static void js_ffi_closure_finalizer(JSRuntime *rt, JSValue val) {
+    js_ffi_closure *u = JS_GetOpaque(val, js_ffi_closure_classid);
+    if (u) {
+        JS_FreeValueRT(rt, u->cif);
+        JS_FreeValueRT(rt, u->func);
+        ffi_closure_free(u);
+    }
+}
+
+JSClassDef js_ffi_closure_class = {
+    "FfiClosure",
+    .finalizer = js_ffi_closure_finalizer,
+    .gc_mark = js_ffi_closure_mark
+};
+
+static JSValue js_ffi_closure_get_addr(JSContext *ctx, JSValueConst this_val) {
+    js_ffi_closure* ptr = JS_GetOpaque(this_val, js_ffi_closure_classid);
+    if(ptr == NULL){
+        JS_ThrowTypeError(ctx, "expected this to be FfiClosure");
+        return JS_EXCEPTION;
+    }
+    return JS_NEW_UINTPTR_T(ctx, ptr->code);
+}
+static JSCFunctionListEntry js_ffi_closure_proto_funcs[] = {
+    TJS_CGETSET_DEF("addr", js_ffi_closure_get_addr, NULL),
+};
+
+
+
+
+
+#pragma endregion "FfiClosure class definition"
+
 static JSCFunctionListEntry funcs[] = {
     // basic functions from libc
-    TJS_CFUNC_DEF("malloc", 1, js_libc_malloc),
-    TJS_CFUNC_DEF("realloc", 2, js_libc_realloc),
-    TJS_CFUNC_DEF("free", 1, js_libc_free),
-    TJS_CFUNC_DEF("memset", 3, js_libc_memset),
-    TJS_CFUNC_DEF("memcpy", 3, js_libc_memcpy),
-    TJS_CFUNC_DEF("strlen", 1, js_libc_strlen),
     TJS_CFUNC_DEF("errno", 0, js_libc_errno),
     TJS_CFUNC_DEF("strerror", 1, js_libc_strerror),
 
@@ -1069,6 +1149,9 @@ void tjs__mod_ffi_init(JSContext *ctx, JSValue ns) {
     
     REGISTER_CLASS(ctx, js_uv_lib);
     CLASS_CREATE_CONSTRUCTOR(ctx, js_uv_lib, ffiobj, js_uv_lib_create);
+
+    REGISTER_CLASS(ctx, js_ffi_closure);
+    CLASS_CREATE_CONSTRUCTOR(ctx, js_ffi_closure, ffiobj, js_ffi_closure_create);
 
 
     ADD_SIMPLE_TYPE(ctx, ffiobj, type_void);

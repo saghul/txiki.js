@@ -134,6 +134,19 @@ export const types = {
 		},
 		name: "string"
 	}),
+
+	jscallback: new AdvancedType(ffiInt.type_pointer, {
+		toBuffer: (jsc, ctx)=>{
+			if(!(jsc instanceof JSCallback)){
+				throw new Error('not a JSCallback');
+			}
+			return jsc.addr;
+		}, 
+		fromBuffer: (buf, ctx)=>{
+			throw new Error('JSCallback as a return is not supported!');
+		}, 
+		name: 'jscallback'
+	})
 }
 
 export function bufferToString(buf){
@@ -294,3 +307,33 @@ export class StaticStringType extends ArrayType{
 		return ffiInt.getCString(ffiInt.getArrayBufPtr(buf), buf.length);
 	}
 }
+
+export function errno(){
+	return ffiInt.errno();
+}
+
+export function strerror(err = errno()){
+	return ffiInt.strerror(err);
+}
+
+
+export class JSCallback{
+	constructor(rtype, argtypes, func){
+		this._func = (...args) => {
+			const arr = [];
+			for(let i=0;i<argtypes.length;i++){
+				arr.push(argtypes[i].fromBuffer(args[i]));
+			}
+			const ret = func(...arr);
+			return rtype.toBuffer(ret);
+		};
+		this._rtype = rtype;
+		this._argtypes = argtypes;
+		this._cif = new ffiInt.FfiCif(rtype.ffiType ?? rtype, ...argtypes.map(t => t.ffiType ?? t));
+		this._closure = new ffiInt.FfiClosure(this._cif, this._func);
+	}
+	get addr(){
+		return this._closure.addr;
+	}
+}
+
