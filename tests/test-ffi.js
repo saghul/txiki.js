@@ -5,27 +5,107 @@ const FFI = tjs.ffi;
 	const libm = new FFI.Lib(FFI.Lib.LIBM_NAME);
 	const libc = new FFI.Lib(FFI.Lib.LIBC_NAME);
 	
+	function testSimpleCalls(){
+		
+		const absF = new FFI.CFunction(libm.symbol('abs'), FFI.types.sint, [FFI.types.sint]);
+		assert.eq(absF.call(-9), 9);
 
-	const absF = new FFI.CFunction(libm.symbol('abs'), FFI.types.sint, [FFI.types.sint]);
-	assert.eq(absF.call(-9), 9);
+		const fabsfF = new FFI.CFunction(libm.symbol('fabsf'), FFI.types.float, [FFI.types.float]);
+		assert.ok(Math.abs(fabsfF.call(-3.45) - 3.45) < 0.00001);
+		assert.eq(fabsfF.call(-4), 4);
 
-	const fabsfF = new FFI.CFunction(libm.symbol('fabsf'), FFI.types.float, [FFI.types.float]);
-	assert.ok(Math.abs(fabsfF.call(-3.45) - 3.45) < 0.00001);
-	assert.eq(fabsfF.call(-4), 4);
+		const atoiF = new FFI.CFunction(libc.symbol('atoi'), FFI.types.sint, [FFI.types.string]);
+		assert.eq(atoiF.call("1234"), 1234);
 
-	const atoiF = new FFI.CFunction(libc.symbol('atoi'), FFI.types.sint, [FFI.types.string]);
-	assert.eq(atoiF.call("1234"), 1234);
+		const strerrorF = new FFI.CFunction(libc.symbol('strerror'), FFI.types.string, [FFI.types.sint]);
+		assert.eq(strerrorF.call(0), "Success");
 
-	const strerrorF = new FFI.CFunction(libc.symbol('strerror'), FFI.types.string, [FFI.types.sint]);
-	assert.eq(strerrorF.call(0), "Success");
+		
+		const sprintfF3 = new FFI.CFunction(libc.symbol('sprintf'), FFI.types.sint, [FFI.types.buffer, FFI.types.string, FFI.types.sint], 1);
+		const strbuf = new Uint8Array(14);
+		assert.eq(sprintfF3.call(strbuf, 'printf test %d\n', 5), 14);
+		assert.eq(FFI.bufferToString(strbuf), 'printf test 5\n');
 
-	const sprintfF3 = new FFI.CFunction(libc.symbol('sprintf'), FFI.types.sint, [FFI.types.buffer, FFI.types.string, FFI.types.sint], 1);
-	const strbuf = FFI.types.string.alloc(14);
-	assert.eq(sprintfF3.call(strbuf, 'printf test %d\n', 5), 14);
-	assert.eq((new TextDecoder()).decode(strbuf), 'printf test 5\n');
+		const strcatF = new FFI.CFunction(libc.symbol('strcat'), FFI.types.string, [FFI.types.buffer, FFI.types.string]);
+		const strbuf2 = new Uint8Array(12);
+		strbuf2.set((new TextEncoder()).encode('part1:'));
+		assert.eq(strcatF.call(strbuf2, "part2"), "part1:part2");
+		assert.eq(FFI.bufferToString(strbuf2), "part1:part2");
+	}
+	
+	function testStructs(){
+		const divT = new FFI.StructType([['quot', FFI.types.sint], ['rem', FFI.types.sint]], 'div_t');
+		const divF = new FFI.CFunction(libc.symbol('div'), divT, [FFI.types.sint, FFI.types.sint]);
+		assert.equal(divF.call(10, 3), {quot:3, rem:1});
+	}
 
-	const strcatF = new FFI.CFunction(libc.symbol('strcat'), FFI.types.string, [FFI.types.buffer, FFI.types.string]);
-	const strbuf2 = FFI.types.string.alloc(12, "part1:");
-	assert.eq(strcatF.call(strbuf2, "part2"), "part1:part2");
-	assert.eq((new TextDecoder()).decode(strbuf2), "part1:part2\0");
+	function testPointersAndStructsOpendir(){
+		const opendirF = new FFI.CFunction(libc.symbol('opendir'), FFI.types.pointer, [FFI.types.string]);
+		const direntSt = new FFI.StructType([
+			['ino', FFI.types.size],
+			['type', FFI.types.size],
+			['reclen', FFI.types.uint16],
+			['type', FFI.types.uint8],
+			['name', new FFI.StaticStringType(255, 'char255') ],
+		], 'dirent');
+		const direntPtrT = new FFI.PointerType(direntSt, 1);
+		const readdirF = new FFI.CFunction(libc.symbol('readdir'), direntPtrT, [FFI.types.pointer]);
+		const closedirF = new FFI.CFunction(libc.symbol('closedir'), FFI.types.sint, [FFI.types.pointer]);
+
+		const dirH = opendirF.call('.');
+		assert.ok(dirH !== null);
+		const fileList = [];
+		let direntPtr;
+		do{
+			direntPtr = readdirF.call(dirH);
+			if(!direntPtr.isNull){
+				const obj = direntPtr.deref();
+				assert.eq(typeof obj, 'object');
+				fileList.push(obj);
+			}else{
+				assert.eq(direntPtr.addr, 0n);
+			}
+		}while(!direntPtr.isNull);
+		assert.eq(fileList[0].name, '.');
+		assert.eq(closedirF.call(dirH), 0);
+	}
+
+	function testPointersAndStructsTime(){
+		const tmT = new FFI.StructType([
+			['sec', FFI.types.sint],
+			['min', FFI.types.sint],
+			['hour', FFI.types.sint],
+			['mday', FFI.types.sint],
+			['mon', FFI.types.sint],
+			['year', FFI.types.sint],
+			['wday', FFI.types.sint],
+			['yday', FFI.types.sint],
+			['isdst', FFI.types.sint],
+		], 'tm');
+		const timeF = new FFI.CFunction(libc.symbol('time'), FFI.types.sint64, [FFI.types.pointer]);
+		const timestamp = timeF.call(BigInt('0'));
+		assert.ok(Date.now()/1000 - timestamp < 2);
+		
+		const testTimestamp = 1658319387; // test with 2022-07-20T14:16:27+02:00
+		const localtimeF = new FFI.CFunction(libc.symbol('localtime'), new FFI.PointerType(tmT, 1), [new FFI.PointerType(FFI.types.sint64, 1)]);
+		const tmPtr = localtimeF.call(FFI.Pointer.createRef(FFI.types.sint64, testTimestamp)); // test with 2022-07-20T14:16:27+02:00
+		const tm = tmPtr.deref();
+		assert.eq(tm.year, 122); // years since 1900
+		assert.eq(tm.mon, 6); // month since January, 0-11
+		const cmpDate = new Date(testTimestamp*1000);
+		assert.eq(tm.mday, cmpDate.getDate()); // day of the month, 1-31
+		assert.eq(tm.hour, cmpDate.getHours()); // hours since midnight, 0-23
+		assert.eq(tm.min, cmpDate.getMinutes()); // minutes after the hour, 0-59
+		assert.eq(tm.sec, cmpDate.getSeconds()); // seconds after the minute, 0-59
+		assert.eq(tm.wday, cmpDate.getDay()); // day of the week, Sunday is 0, 0-6
+		const startOf2022 = new Date(2022, 0, 1, 0, 0, 0, 0);
+		assert.eq(tm.yday, Math.floor((cmpDate-startOf2022)/86e6)-1); // day of the year, 0-365
+		assert.eq(tm.isdst, cmpDate.getTimezoneOffset() != (new Date(2022,1,1,1,1,1)).getTimezoneOffset() ? 1 : 0); // daylight saving time, 0 or 1
+	}
+
+	testSimpleCalls();
+	testStructs();
+	testPointersAndStructsOpendir();
+	testPointersAndStructsTime();
+
 })();

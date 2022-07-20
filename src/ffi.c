@@ -29,20 +29,17 @@ SOFTWARE.
 
 #define C_MACRO_STRING_DEF(x) JS_PROP_STRING_DEF(#x, x, JS_PROP_CONFIGURABLE)
 
+#define JS_PTR_TYPE t_bigint
+#define JS_IS_PTR(ctx, x) JS_IsBigInt(ctx, x)
+
 #if UINTPTR_MAX == UINT32_MAX
 #define JS_TO_UINTPTR_T(ctx, pres, val) {uint64_t v; JS_ToBigInt64(ctx, &v, val); *(uint32_t *)(pres) = (uint32_t)v;}
-#define JS_NEW_UINTPTR_T(ctx, val) JS_NewBigUInt64(ctx, (int32_t)(val))
-#define C_MACRO_UINTPTR_T_DEF(x) JS_PROP_INT32_DEF(#x, (int32_t)(x), JS_PROP_CONFIGURABLE)
-#define C_VAR_ADDRESS_DEF(x) JS_PROP_INT32_DEF(#x, (int32_t)(&x), JS_PROP_CONFIGURABLE)
-#define ffi_type_intptr_t ffi_type_sint32
-#define ffi_type_uintptr_t ffi_type_uint32
+#define JS_NEW_UINTPTR_T(ctx, val) JS_NewBigUint64(ctx, (int32_t)(val))
+#define ffi_type_ptr ffi_type_uint32
 #elif UINTPTR_MAX == UINT64_MAX
 #define JS_TO_UINTPTR_T(ctx, pres, val) JS_ToBigInt64(ctx, (int64_t *)(pres), val)
-#define JS_NEW_UINTPTR_T(ctx, val) JS_NewBigInt64(ctx, (int64_t)(val))
-#define C_MACRO_UINTPTR_T_DEF(x) JS_PROP_INT64_DEF(#x, (int64_t)(x), JS_PROP_CONFIGURABLE)
-#define C_VAR_ADDRESS_DEF(x) JS_PROP_INT64_DEF(#x, (int64_t)(&x), JS_PROP_CONFIGURABLE)
-#define ffi_type_intptr_t ffi_type_sint64
-#define ffi_type_uintptr_t ffi_type_uint64
+#define JS_NEW_UINTPTR_T(ctx, val) JS_NewBigUint64(ctx, (int64_t)(val))
+#define ffi_type_ptr ffi_type_uint64
 #else
 #error "'uintptr_t' neither 32bit nor 64 bit, I don't know how to handle it."
 #endif
@@ -188,12 +185,41 @@ typedef struct {
     ffi_type* ffi_type;
 } js_ffi_type;
 
+size_t ffi_type_get_sz(ffi_type* type){
+    if(type->type == FFI_TYPE_STRUCT){
+        size_t sz = 0;
+        unsigned i = 0;
+        while(type->elements[i] != NULL){
+            sz += FFI_ALIGN(ffi_type_get_sz(type->elements[i]), type->alignment);
+            i++;
+        }
+        return sz;
+    }else{
+        return type->size;
+    }
+}
+
 static JSClassID js_ffi_type_classid;
 static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    for(unsigned i=0;i<argc;i++){
-        ffi_type* t = JS_GetOpaque(argv[i], js_ffi_type_classid);
+    JSValueConst* types = argv;
+    size_t typeCnt = argc;
+    int arrSz = 0;
+    if(JS_IsNumber(argv[0])){
+        typeCnt--;
+        types++;
+        if(JS_ToInt32(ctx, &arrSz, argv[0])){
+            JS_ThrowTypeError(ctx, "expected argument 1 to be FfiType or positive integer");
+            return JS_EXCEPTION;
+        }
+        if(argc != 2){
+            JS_ThrowTypeError(ctx, "expected arguments: number, FfiType");
+            return JS_EXCEPTION;
+        }
+    }
+    for(unsigned i=0;i<typeCnt;i++){
+        ffi_type* t = JS_GetOpaque(types[i], js_ffi_type_classid);
         if(t == NULL){
-            JS_ThrowTypeError(ctx, "argument %d is not a FfiType", i+1);
+            JS_ThrowTypeError(ctx, "argument %d is not a FfiType", (types - argv)+i+1);
             return JS_EXCEPTION;
         }
     }
@@ -203,25 +229,59 @@ static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValueConst this_val, 
         return obj;
     }
 
-    ffi_type** elements = js_malloc(ctx, sizeof(ffi_type*) * (argc+1));
-    for(unsigned i=0;i<argc;i++){
-        ffi_type* t = JS_GetOpaque(argv[i], js_ffi_type_classid);
-        elements[i] = t;
+    ffi_type** elements;
+    if(arrSz > 0){
+        elements = js_malloc(ctx, sizeof(ffi_type*) * (arrSz+1));
+        js_ffi_type* jst = JS_GetOpaque(types[0], js_ffi_type_classid);
+        for(unsigned i=0;i<arrSz;i++){
+            elements[i] = jst->ffi_type;
+        }
+        elements[arrSz] = NULL;
+    }else{
+        elements = js_malloc(ctx, sizeof(ffi_type*) * (typeCnt+1));
+        for(unsigned i=0;i<typeCnt;i++){
+            js_ffi_type* jst = JS_GetOpaque(types[i], js_ffi_type_classid);
+            elements[i] = jst->ffi_type;
+        }
+        elements[typeCnt] = NULL;
     }
-    elements[argc] = NULL;
+    
     js_ffi_type* structType = js_malloc(ctx, sizeof(js_ffi_type));
-    structType->elemCount = argc;
+    structType->elemCount = typeCnt;
     structType->dynamic = true;
     structType->ffi_type = js_malloc(ctx, sizeof(ffi_type));
     structType->ffi_type->type = FFI_TYPE_STRUCT;
     structType->ffi_type->size = 0;
     structType->ffi_type->alignment = 0;
+    if(arrSz){
+        structType->ffi_type->size = arrSz * ffi_type_get_sz(elements[0]);
+        structType->ffi_type->alignment = elements[0]->alignment;
+    }
     structType->ffi_type->elements = elements;
-    structType->deps = js_malloc(ctx, sizeof(JSValue) * argc);
 
-    structType->deps = js_malloc(ctx, sizeof(JSValue) * argc);
-    for(unsigned i=0;i<argc;i++){
-        structType->deps[i] = JS_DupValue(ctx, argv[i]);
+    if(arrSz == 0){
+        size_t* offsets = js_malloc(ctx, sizeof(size_t) * typeCnt);
+        ffi_status st = ffi_get_struct_offsets(FFI_DEFAULT_ABI, structType->ffi_type, offsets);
+        if(st != FFI_OK){
+            js_free(ctx, elements);
+            js_free(ctx, structType->ffi_type);
+            js_free(ctx, structType);
+            js_free(ctx, offsets);
+            JS_ThrowTypeError(ctx, "ffi_get_struct_offsets failed: %s", ffi_strerror(st));
+            return JS_EXCEPTION;
+        }
+
+        JSValue arr = JS_NewArray(ctx);
+        for(unsigned i=0;i<typeCnt;i++){
+            JS_SetPropertyUint32(ctx, arr, i, JS_NewInt32(ctx, offsets[i]));
+        }
+        js_free(ctx, offsets);
+        JS_SetPropertyStr(ctx, obj, "offsets", arr);
+    }
+    
+    structType->deps = js_malloc(ctx, sizeof(JSValue) * typeCnt);
+    for(unsigned i=0;i<typeCnt;i++){
+        structType->deps[i] = JS_DupValue(ctx, types[i]);
     }
 
     JS_SetOpaque(obj, structType);
@@ -276,20 +336,6 @@ JSClassDef js_ffi_type_class = {
     .finalizer = js_ffi_type_finalizer,
     .gc_mark = js_ffi_type_mark
 };
-
-size_t ffi_type_get_sz(ffi_type* type){
-    if(type->type == FFI_TYPE_STRUCT){
-        size_t sz = 0;
-        unsigned i = 0;
-        while(type->elements[i] != NULL){
-            sz += FFI_ALIGN(ffi_type_get_sz(type->elements[i]), type->alignment);
-            i++;
-        }
-        return sz;
-    }else{
-        return type->size;
-    }
-}
 
 static JSValue js_ffi_type_get_sz(JSContext *ctx, JSValueConst this_val) {
     js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
@@ -418,6 +464,8 @@ int ffi_type_to_buffer(JSContext *ctx, JSValueConst val, ffi_type* type, uint8_t
                 return sizeof(int64_t);
             break;
             case FFI_TYPE_POINTER:
+                uint64_t bla;
+                JS_TO_UINTPTR_T(ctx, &bla, val);
                 JS_TO_UINTPTR_T(ctx, (void*)buf, val);
                 return sizeof(void*);
             break;
@@ -438,18 +486,24 @@ static JSValue js_ffi_type_to_buffer(JSContext *ctx, JSValueConst this_val, int 
         JS_ThrowTypeError(ctx, "expected this to be FfiType");
         return JS_EXCEPTION;
     }
-    if(argc != 1){
+    if(argc < 1){
         JS_ThrowTypeError(ctx, "expected 1 argument");
         return JS_EXCEPTION;
     }
     size_t sz = ffi_type_get_sz(type->ffi_type);
+    if(JS_IS_PTR(ctx, argv[0])){
+        uint64_t bla;
+        JS_TO_UINTPTR_T(ctx, &bla, argv[0]);
+    }
     uint8_t* buf = js_malloc(ctx, sz);
-    int ret = ffi_type_to_buffer(ctx, argv[0], type->ffi_type, buf);
+    uint8_t* buf2 = js_malloc(ctx, sz);
+    int ret = ffi_type_to_buffer(ctx, argv[0], type->ffi_type, buf2);
     if(ret < 0){
-        js_free(ctx, buf);
+        js_free(ctx, buf2);
         return JS_EXCEPTION;
     }
-    return TJS_NewUint8Array(ctx, buf, sz);
+    js_free(ctx, buf);
+    return TJS_NewUint8Array(ctx, buf2, sz);
 }
 
 static int ffi_type_from_buffer(JSContext *ctx, ffi_type* type, uint8_t* buf, JSValue* val){
@@ -505,7 +559,7 @@ static int ffi_type_from_buffer(JSContext *ctx, ffi_type* type, uint8_t* buf, JS
                 return sizeof(int64_t);
             break;
             case FFI_TYPE_POINTER:
-                *val = JS_NEW_UINTPTR_T(ctx, (void*)buf);
+                *val = JS_NEW_UINTPTR_T(ctx, *(void**)buf);
                 return sizeof(void*);
             break;
             case FFI_TYPE_COMPLEX:
@@ -526,7 +580,7 @@ static JSValue js_ffi_type_from_buffer(JSContext *ctx, JSValueConst this_val, in
         JS_ThrowTypeError(ctx, "expected this to be FfiType");
         return JS_EXCEPTION;
     }
-    if(argc != 1){
+    if(argc < 1){
         JS_ThrowTypeError(ctx, "expected 1 argument");
         return JS_EXCEPTION;
     }
@@ -703,7 +757,7 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValueConst this_val, int argc, 
     void** aval = js_malloc(ctx, ffi_arg_cnt*sizeof(void*)*2);
     for(unsigned i=0;i<ffi_arg_cnt;i++){
         void* ptr;
-        if(JS_IsBigInt(ctx, func_argv[i])){
+        if(JS_IS_PTR(ctx, func_argv[i])){
             ptr = &aval[ffi_arg_cnt+i];
             JS_TO_UINTPTR_T(ctx, ptr, func_argv[i]);
         }else{
@@ -711,7 +765,7 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValueConst this_val, int argc, 
             ptr = JS_GetUint8Array(ctx, &sz, func_argv[i]);
             if(ptr == NULL){
                 js_free(ctx, aval);
-                JS_ThrowTypeError(ctx, "argument %d expected to be ptr (bigint) or buffer", i+1);
+                JS_ThrowTypeError(ctx, "argument %d expected to be ptr or buffer", i+1);
                 return JS_EXCEPTION;
             }
         }
@@ -720,6 +774,7 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValueConst this_val, int argc, 
 
     size_t retsz = ffi_type_get_sz(cif->ffi_cif.rtype);
     void* rptr = js_malloc(ctx, retsz);
+
     ffi_call(&cif->ffi_cif, func, rptr, aval);
     js_free(ctx, aval);
     return TJS_NewUint8Array(ctx, rptr, retsz);
@@ -880,32 +935,56 @@ static JSValue js_array_buffer_get_ptr(JSContext *ctx, JSValueConst this_val, in
     uint8_t *buf = JS_GetUint8Array(ctx, &size, argv[0]);
     if (!buf)
         return JS_EXCEPTION;
-    return JS_NewBigUint64(ctx, (uint64_t)buf);
+    return JS_NEW_UINTPTR_T(ctx, (uint64_t)buf);
 }
 
 static JSValue js_get_cstring(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_bigint}));
+    if(argc == 0 || argc >= 2){
+        CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){JS_PTR_TYPE, t_number}));
+    }else{
+        CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){JS_PTR_TYPE}));
+    }
+    size_t max = 0;
+    if(argc == 2 && JS_IsNumber(argv[1])){
+        if(JS_TO_SIZE_T(ctx, &max, argv[1])){
+            JS_ThrowTypeError(ctx, "expected argument 2 to be a positive integer");
+            return JS_EXCEPTION;
+        }
+    }
     char* ptr;
     JS_TO_UINTPTR_T(ctx, &ptr, argv[0]);
-    return JS_NewString(ctx, ptr);
+    if(max == 0){
+        return JS_NewString(ctx, ptr);
+    }
+    size_t len = strnlen(ptr, max);
+    return JS_NewStringLen(ctx, ptr, len);
 }
 
-static JSValue js_buf_to_ptr(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    if(argc <= 0){
-        JS_ThrowTypeError(ctx, "expected argument 1 to be ArrayBuffer");
-        return JS_EXCEPTION;
-    }
-    size_t size;
-    uint8_t *buf = JS_GetUint8Array(ctx, &size, argv[0]);
-    if (!buf)
-        return JS_EXCEPTION;
-    return JS_NEW_UINTPTR_T(ctx, buf);
+
+static JSValue JS_NewUint8ArrayShared(JSContext *ctx, uint8_t *data, size_t size) {
+    JSValue abuf = JS_NewArrayBuffer(ctx, data, size, NULL, NULL, true);
+    if (JS_IsException(abuf))
+        return abuf;
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+    JSValue buf = JS_CallConstructor(ctx, qrt->builtins.u8array_ctor, 1, &abuf);
+    JS_FreeValue(ctx, abuf);
+    return buf;
+}
+
+static JSValue js_ptr_to_buffer(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){JS_PTR_TYPE, t_number}));
+    uint8_t* ptr;
+    JS_TO_UINTPTR_T(ctx, &ptr, argv[0]);
+    size_t sz;
+    JS_TO_SIZE_T(ctx, &sz, argv[1]);
+    return JS_NewUint8ArrayShared(ctx, ptr, sz);
 }
 
 static JSValue js_deref_ptr(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     unsigned times = 1;
-    if(argc <= 0 || !JS_IsBigInt(ctx, argv[0])){
-        JS_ThrowTypeError(ctx, "expected argument 1 to be bigint");
+    if(argc <= 0 || !JS_IS_PTR(ctx, argv[0])){
+        JS_ThrowTypeError(ctx, "expected argument 1 to be pointer");
         return JS_EXCEPTION;
     }
     if(argc == 2){
@@ -952,8 +1031,8 @@ static JSCFunctionListEntry funcs[] = {
     // other helpers
     TJS_CFUNC_DEF("getArrayBufPtr", 1, js_array_buffer_get_ptr),
     TJS_CFUNC_DEF("getCString", 1, js_get_cstring),
-    TJS_CFUNC_DEF("bufToPtr", 1, js_buf_to_ptr),
     TJS_CFUNC_DEF("derefPtr", 2, js_deref_ptr),
+    TJS_CFUNC_DEF("ptrToBuffer", 2, js_ptr_to_buffer),
     
     C_MACRO_STRING_DEF(LIBC_NAME),
     C_MACRO_STRING_DEF(LIBM_NAME),
