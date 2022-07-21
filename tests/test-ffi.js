@@ -104,7 +104,7 @@ const FFI = tjs.ffi;
 	}
 
 	function testJsCallback(){
-		const testlib = new FFI.Lib('./libffi-test.so');
+		const testlib = new FFI.Lib('./build/libffi-test.so');
 		const callCallbackF = new FFI.CFunction(testlib.symbol('call_callback'), FFI.types.sint, [FFI.types.jscallback, FFI.types.sint]);
 		let recv = null;
 		const callback = new FFI.JSCallback(FFI.types.sint, [FFI.types.sint], (a)=>{
@@ -116,9 +116,506 @@ const FFI = tjs.ffi;
 		assert.eq(recv, 4);
 	}
 
+	function testCProtoParser(){
+		const parseCProto = tjs.ffi._parseCProto;
+
+		const ast1 = parseCProto(`
+			static inline JSValue JS_DupValue(JSContext *ctx, JSValueConst v);
+			static unsigned long long int* bla(JSContext *ctx, const int32_t **pres, JSValueConst val);
+			struct JSCFunctionListEntry {
+				const char *name;
+				uint8_t prop_flags;
+				uint8_t def_type;
+				int16_t magic;
+				char bla[23];
+				char abc[];
+			};
+			typedef int JSModuleInitFunc(JSContext *ctx, JSModuleDef *m);
+			typedef struct JSRuntime JSRuntime;
+			typedef int my_int;
+			typedef unsigned long long int my_int2;
+			struct struct_in_struct{
+				int a;
+				struct asd{
+					int asd_b;
+				} b;
+			};
+			typedef void * (*myfunc)(int* asd);
+		`);
+		const expected = [
+			{
+				"kind": "function",
+				"name": "JS_DupValue",
+				"args": [
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "JSContext",
+							"ptr": 1
+						},
+						"name": "ctx"
+					},
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "JSValueConst",
+							"ptr": 0
+						},
+						"name": "v"
+					}
+				],
+				"modifiers": [
+					"static",
+					"inline"
+				],
+				"ptr": 0,
+				"return": {
+					"kind": "type",
+					"typeModifiers": [],
+					"name": "JSValue",
+					"ptr": 0
+				}
+			},
+			{
+				"kind": "function",
+				"name": "bla",
+				"args": [
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "JSContext",
+							"ptr": 1
+						},
+						"name": "ctx"
+					},
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "int32_t",
+							"ptr": 2,
+							"const": true
+						},
+						"name": "pres"
+					},
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "JSValueConst",
+							"ptr": 0
+						},
+						"name": "val"
+					}
+				],
+				"modifiers": [
+					"static"
+				],
+				"ptr": 0,
+				"return": {
+					"kind": "type",
+					"typeModifiers": [],
+					"name": "unsigned long long int",
+					"ptr": 1
+				}
+			},
+			{
+				"kind": "struct",
+				"name": "JSCFunctionListEntry",
+				"members": [
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "char",
+							"ptr": 1,
+							"const": true
+						},
+						"name": "name"
+					},
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "uint8_t",
+							"ptr": 0
+						},
+						"name": "prop_flags"
+					},
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "uint8_t",
+							"ptr": 0
+						},
+						"name": "def_type"
+					},
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "int16_t",
+							"ptr": 0
+						},
+						"name": "magic"
+					},
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "char",
+							"ptr": 0
+						},
+						"name": "bla",
+						"arr": 23
+					},
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "char",
+							"ptr": 0
+						},
+						"name": "abc",
+						"arr": true
+					}
+				]
+			},
+			{
+				"kind": "typedef",
+				"name": "JSModuleInitFunc",
+				"child": {
+					"kind": "function",
+					"name": "JSModuleInitFunc",
+					"args": [
+						{
+							"kind": "vardef",
+							"type": {
+								"kind": "type",
+								"typeModifiers": [],
+								"name": "JSContext",
+								"ptr": 1
+							},
+							"name": "ctx"
+						},
+						{
+							"kind": "vardef",
+							"type": {
+								"kind": "type",
+								"typeModifiers": [],
+								"name": "JSModuleDef",
+								"ptr": 1
+							},
+							"name": "m"
+						}
+					],
+					"modifiers": [],
+					"ptr": 0,
+					"return": {
+						"kind": "type",
+						"typeModifiers": [],
+						"name": "int",
+						"ptr": 0
+					}
+				}
+			},
+			{
+				"kind": "typedef",
+				"name": "JSRuntime",
+				"child": {
+					"kind": "type",
+					"typeModifiers": [],
+					"name": "struct JSRuntime",
+					"ptr": 0
+				}
+			},
+			{
+				"kind": "typedef",
+				"name": "my_int",
+				"child": {
+					"kind": "type",
+					"typeModifiers": [],
+					"name": "int",
+					"ptr": 0
+				}
+			},
+			{
+				"kind": "typedef",
+				"name": "my_int2",
+				"child": {
+					"kind": "type",
+					"typeModifiers": [],
+					"name": "unsigned long long int",
+					"ptr": 0
+				}
+			},
+			{
+				"kind": "struct",
+				"name": "struct_in_struct",
+				"members": [
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "int",
+							"ptr": 0
+						},
+						"name": "a"
+					},
+					{
+						"kind": "vardef",
+						"type": {
+							"kind": "type",
+							"typeModifiers": [],
+							"name": "",
+							"ptr": 0,
+							"struct": {
+								"kind": "struct",
+								"name": "asd",
+								"members": [
+									{
+										"kind": "vardef",
+										"type": {
+											"kind": "type",
+											"typeModifiers": [],
+											"name": "int",
+											"ptr": 0
+										},
+										"name": "asd_b"
+									}
+								]
+							}
+						},
+						"name": "b"
+					}
+				]
+			},
+			{
+				"kind": "typedef",
+				"name": "myfunc",
+				"child": {
+					"kind": "function",
+					"name": "myfunc",
+					"args": [
+						{
+							"kind": "vardef",
+							"type": {
+								"kind": "type",
+								"typeModifiers": [],
+								"name": "int",
+								"ptr": 1
+							},
+							"name": "asd"
+						}
+					],
+					"modifiers": [],
+					"ptr": 1,
+					"return": {
+						"kind": "type",
+						"typeModifiers": [],
+						"name": "void",
+						"ptr": 1
+					}
+				}
+			}
+		];
+		
+		assert.eq(ast1, expected)
+
+		const ast2 = parseCProto(`
+			typedef struct bla{
+				int a;
+			} bla_t;
+			typedef struct{
+				int a;
+			}* bla2_t;
+			typedef int[32] asd_t;
+			typedef int[] abc_t;
+			typedef struct{
+				int asd[32];
+				int abc[];
+			} bla2_t;
+		`);
+
+		assert.eq(ast2, [
+			{
+			  "kind": "typedef",
+			  "name": "bla_t",
+			  "child": {
+				"kind": "type",
+				"typeModifiers": [],
+				"name": "",
+				"ptr": 0,
+				"struct": {
+				  "kind": "struct",
+				  "name": "bla",
+				  "members": [
+					{
+					  "kind": "vardef",
+					  "type": {
+						"kind": "type",
+						"typeModifiers": [],
+						"name": "int",
+						"ptr": 0
+					  },
+					  "name": "a"
+					}
+				  ]
+				}
+			  }
+			},
+			{
+			  "kind": "typedef",
+			  "name": "bla2_t",
+			  "child": {
+				"kind": "type",
+				"typeModifiers": [],
+				"name": "",
+				"ptr": 1,
+				"struct": {
+				  "kind": "struct",
+				  "members": [
+					{
+					  "kind": "vardef",
+					  "type": {
+						"kind": "type",
+						"typeModifiers": [],
+						"name": "int",
+						"ptr": 0
+					  },
+					  "name": "a"
+					}
+				  ]
+				}
+			  }
+			},
+			{
+			  "kind": "typedef",
+			  "name": "asd_t",
+			  "child": {
+				"kind": "type",
+				"typeModifiers": [],
+				"name": "int",
+				"ptr": 0,
+				"arr": 32
+			  }
+			},
+			{
+			  "kind": "typedef",
+			  "name": "abc_t",
+			  "child": {
+				"kind": "type",
+				"typeModifiers": [],
+				"name": "int",
+				"ptr": 0,
+				"arr": true
+			  }
+			},
+			{
+			  "kind": "typedef",
+			  "name": "bla2_t",
+			  "child": {
+				"kind": "type",
+				"typeModifiers": [],
+				"name": "",
+				"ptr": 0,
+				"struct": {
+				  "kind": "struct",
+				  "members": [
+					{
+					  "kind": "vardef",
+					  "type": {
+						"kind": "type",
+						"typeModifiers": [],
+						"name": "int",
+						"ptr": 0
+					  },
+					  "name": "asd",
+					  "arr": 32
+					},
+					{
+					  "kind": "vardef",
+					  "type": {
+						"kind": "type",
+						"typeModifiers": [],
+						"name": "int",
+						"ptr": 0
+					  },
+					  "name": "abc",
+					  "arr": true
+					}
+				  ]
+				}
+			  }
+			}
+		]);
+	}
+
+	function testLibFromCProto() {
+		const libc = new FFI.Lib(FFI.Lib.LIBC_NAME);
+		libc.parseCProto(`
+			typedef long int time_t;
+			typedef long clock_t;
+			
+			struct tm
+			{
+			int sec;
+			int min;
+			int hour;
+			int mday;
+			int mon;
+			int year;
+			int wday;
+			int yday;
+			int isdst;
+			long int gmtoff;
+			const char *tm_zone;
+			};
+			
+			clock_t clock();
+			time_t time (time_t *__timer);
+			double difftime (time_t __time1, time_t __time0);
+			time_t mktime (struct tm *__tp);
+		`);
+
+		const clockVal = libc.call('clock');
+		assert.ok(typeof clockVal == 'number' && clockVal > 0);
+		assert.ok(libc.call('time', [null]) - Date.now()/1000 + 1 < 2 );
+		assert.eq(libc.call('difftime', 100, 50), 50);
+		const structTmT = libc.getType('struct tm');
+		const tmData = {
+			sec: 0, min: 0, hour: 0,
+			year: 122, mon: 6, mday: 1,
+			isdst: 1, gmtoff: 2
+		};
+		const tmBuf = structTmT.toBuffer(tmData);
+		assert.eq(libc.call('mktime', FFI.Pointer.createRefFromBuf(structTmT, tmBuf)), 1656626400);
+		assert.eq(libc.call('mktime', FFI.Pointer.createRef(structTmT, tmData)), 1656626400);
+	}
+
+
 	testSimpleCalls();
 	testStructs();
 	testPointersAndStructsOpendir();
 	testPointersAndStructsTime();
+	testJsCallback();
+	testCProtoParser();
+	testLibFromCProto();
 
 })();

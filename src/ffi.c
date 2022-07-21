@@ -474,6 +474,10 @@ int ffi_type_to_buffer(JSContext *ctx, JSValueConst val, ffi_type* type, uint8_t
                 return sizeof(int64_t);
             break;
             case FFI_TYPE_POINTER:
+                if(JS_IsNull(val)){
+                    *(void**)buf = NULL;
+                    return sizeof(void*);
+                }
                 uint64_t bla;
                 JS_TO_UINTPTR_T(ctx, &bla, val);
                 JS_TO_UINTPTR_T(ctx, (void*)buf, val);
@@ -775,7 +779,9 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValueConst this_val, int argc, 
         return JS_EXCEPTION;
     }
 
-    void** aval = js_malloc(ctx, ffi_arg_cnt*sizeof(void*)*2);
+    void** aval = NULL;
+    if(ffi_arg_cnt > 0)
+        aval = js_malloc(ctx, ffi_arg_cnt*sizeof(void*)*2);
     for(unsigned i=0;i<ffi_arg_cnt;i++){
         void* ptr;
         if(JS_IS_PTR(ctx, func_argv[i])){
@@ -797,7 +803,8 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValueConst this_val, int argc, 
     void* rptr = js_malloc(ctx, retsz);
 
     ffi_call(&cif->ffi_cif, func, rptr, aval);
-    js_free(ctx, aval);
+    if(aval != NULL)
+        js_free(ctx, aval);
     return TJS_NewUint8Array(ctx, rptr, retsz);
 }
 static JSCFunctionListEntry js_ffi_cif_proto_funcs[] = {

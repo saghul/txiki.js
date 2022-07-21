@@ -16,6 +16,13 @@ export class Lib{
 	constructor(libname){
 		this._libname = libname;
 		this._uvlib = new ffiInt.UvLib(libname);
+		this._funcs = new Map();
+		this._types = new Map();
+		for(const [t, aliases] of typeMap){
+			for(const alias of aliases){
+				this.registerType(alias, t);
+			}
+		}
 	}
 	symbol(name){
 		const symbol = this._uvlib.symbol(name);
@@ -23,6 +30,37 @@ export class Lib{
 	}
 	static LIBC_NAME = ffiInt.LIBC_NAME;
 	static LIBM_NAME = ffiInt.LIBM_NAME;
+
+	registerType(name, type){
+		if(name.includes(' ')){
+			name = name.split(/\s+/).sort().join(' ');
+		}
+		this._types.set(name, type);
+	}
+	getType(name){
+		if(name.includes(' ')){
+			name = name.split(/\s+/).sort().join(' ');
+		}
+		return this._types.get(name);
+	}
+	registerFunction(name, func){
+		this._funcs.set(name, func);
+	}
+	getFunc(name){
+		return this._funcs.get(name);
+	}
+	call(funcname, ...args){
+		const func = this.getFunc(funcname);
+		if(!func){
+			throw new Error(`Function ${funcname} not found`);
+		}
+		return func.call(...args);
+	}
+
+	parseCProto(header){
+		const ast = _parseCProto(header);
+		astToLib(this, ast);
+	}
 };
 
 export class AdvancedType{
@@ -149,6 +187,34 @@ export const types = {
 	})
 }
 
+const typeMap = [
+	[types.uint8, ['uint8_t']],
+	[types.uint16, ['uint16_t']],
+	[types.uint32, ['uint32_t', 'signed long long', 'signed long long int', 'long long', 'long long int']],
+	[types.uint64, ['uint64_t', 'unsigned long long', 'unsigned long long int']],
+	[types.sint8, ['int8_t']],
+	[types.sint16, ['int16_t']],
+	[types.sint32, ['int32_t']],
+	[types.sint64, ['int64_t']],
+	[types.float, ['float']],
+	[types.double, ['double']],
+	[types.pointer, ['void*']],
+	[types.longdouble, ['long double']],
+	[types.uchar, ['unsigned char']],
+	[types.schar, ['signed char', 'char']],
+	[types.ushort, ['unsigned short', 'unsigned short int']],
+	[types.sshort, ['signed short', 'signed short int', 'short int']],
+	[types.uint, ['unsigned int', 'unsigned']],
+	[types.sint, ['signed int', 'int']],
+	[types.ulong, ['unsigned long', 'unsigned long int']],
+	[types.slong, ['signed long', 'signed long int', 'long', 'long int']],
+
+	[types.size, ['size_t']],
+	[types.ssize, ['ssize_t']],
+	[types.string, ['char*']],
+	
+];
+
 export function bufferToString(buf){
 	return ffiInt.getCString(ffiInt.getArrayBufPtr(buf), buf.length)
 }
@@ -229,10 +295,13 @@ export class StructType extends AdvancedType{
 		super(ffitype, {
 			toBuffer: (obj, ctx)=>{
 				const buf = new Uint8Array(this._ffiType.size);
+				const offsets = this._ffiType.offsets;
 				for(let i=0; i<offsets.length; i++){
 					const [field, type] = this._fields[i];
-					let sbuf = type.fromBuffer(obj[field], ctx);
-					buf.set(sbuf, offsets[i]);
+					if(obj.hasOwnProperty(field)){
+						let sbuf = type.toBuffer(obj[field], ctx);
+						buf.set(sbuf, offsets[i]);
+					}
 				}
 				return buf;
 			}, 
@@ -337,3 +406,305 @@ export class JSCallback{
 	}
 }
 
+// export only for test, not for user
+export function _parseCProto(header){
+	let unknownCnt = 0;
+	function tokenize(str){
+		const words = str.split(/\s+/);
+		const tokens = [];
+		const tokenRegex = /(\w+|[^\w])/g;
+		for(const w of words){
+			if(w.length == 0)
+				continue;
+			let m;
+			while((m = tokenRegex.exec(w))){
+				tokens.push(m[1]);
+			}
+			tokenRegex.lastIndex = 0;
+		}
+		return tokens;
+	}
+	
+	function sepStatements(tokens, offs = 0){
+		const statements = [];
+		let index = offs;
+		let sep = ';';
+		const firstToken = tokens[index];
+		if(firstToken == '[' || firstToken == '('){
+			sep = ',';
+			index++;
+			statements._block = firstToken;
+		}else if(firstToken == '{'){
+			sep = ';';
+			index++;
+			statements._block = firstToken;
+		}
+		let stTokens = [];
+		while(index < tokens.length){
+			const t = tokens[index];
+			switch(t){
+				case '{':{
+					const [sst, newOffs] = sepStatements(tokens, index);
+					stTokens.push(sst);
+					index = newOffs;
+				}break;
+				case '(':
+				case '[':{
+					const [sst, newOffs] = sepStatements(tokens, index);
+					stTokens.push(sst);
+					index = newOffs;
+				}break;
+				case '}':
+					if(firstToken != '{'){
+						throw new Error('Unexpected '+t);
+					}
+					if(stTokens.length > 0){
+						throw new Error('expected semicolon as last token of block');
+					}
+					return [statements, index]
+				break;
+				case ')':
+					if(firstToken != '('){
+						throw new Error('Unexpected '+t);
+					}
+					if(stTokens.length){
+						statements.push(stTokens);
+					}
+					return [statements, index]
+				break;
+				case ']':
+					if(firstToken != '['){
+						throw new Error('Unexpected '+t);
+					}
+					if(stTokens.length){
+						statements.push(stTokens);
+					}
+					return [statements, index];
+				break;
+				case ',':
+				case ';':
+					if(stTokens.length){
+						statements.push(stTokens); // cutoff seperator
+					}
+					stTokens = [];
+				break;
+				default:
+					stTokens.push(t);
+			}
+			index++;
+		}
+		return [statements, index];
+	}
+	
+	function parseSimpleType(st){
+		let info = {
+			kind: 'type',
+			typeModifiers: [],
+			name: '',
+			ptr: 0
+		};
+		for(let i=0; i<st.length; i++){
+			if(st[i]._block == '['){
+				info.arr = st[i].length > 0 ? parseInt(st[i][0]) : true;
+				continue;
+			}
+			switch(st[i]){
+				case 'const':
+					info.const = true;
+				break;
+				case 'volatile':
+					info.volatile = true;
+				break;
+				case '*':
+					info.ptr++;
+				break;
+				case 'long':
+				case 'short':
+				case 'unsigned':
+				case 'signed':
+				case 'struct':
+				default:
+					if(info.name.length > 0)
+						info.name += ' ';
+					info.name += st[i];
+			}
+		}
+		return info;
+	}
+	
+	function parseType(st){
+		const curlyBlockInd = st.findIndex(e=>e._block == '{')
+		const roundBlockInd = st.findIndex(e=>e._block == '(')
+		const ptr = st.filter(e=>e == '*').length;
+		if(st[0] == 'struct' && curlyBlockInd > -1){
+			return {
+				kind: 'type',
+				typeModifiers: [],
+				name: '',
+				ptr,
+				struct: parseStruct(st)
+			};
+		}else if(roundBlockInd > -1){
+			return {
+				kind: 'type',
+				typeModifiers: [],
+				name: '',
+				ptr,
+				func: parseFunctionProto(st)
+			};
+		}else{
+			return parseSimpleType(st);
+		}
+	}
+	function parseVardef(st){
+		let namePos = st.length - 1;
+		let arr;
+		if(st.slice(-1)[0]._block == '['){
+			const arrBrack = st.slice(-1)[0];
+			arr = arrBrack.length == 0 ? true : parseInt(arrBrack[0]);
+			namePos--;
+		}
+		const info = {
+			kind: 'vardef',
+			type: parseType(st.slice(0, namePos)),
+			name: st[namePos],
+		};
+		if(arr){
+			info.arr = arr;
+		}
+		return info;
+	}
+	function parseTypedef(st){
+		if(st.slice(-1)[0]._block == '('){
+			const func = parseFunctionProto(st.slice(1));
+			return {
+				kind: 'typedef',
+				name: func.name,
+				child: func
+			}
+		}
+		return {
+			kind: 'typedef',
+			name: st.slice(-1)[0],
+			child: parseType(st.slice(1, -1))
+		}
+	}
+	function parseStruct(st){
+		const info = {
+			kind: 'struct',
+		}
+		const curlyBlockInd = st.findIndex(e=>e._block == '{')
+		if(curlyBlockInd >= 2){
+			if(curlyBlockInd > 2){
+				throw new Error('expected { after struct name');
+			}
+			info.name = st[1];
+		}
+		info.members = st[curlyBlockInd].map(parseVardef);
+		return info;
+	}
+	function parseFunctionProto(st){
+		let firstBrackInd = st.findIndex(e=>e._block == '(');
+		let secondBrackInd = st[firstBrackInd+1]?._block == '(' ? firstBrackInd + 1 : -1;
+
+		const argBlock = secondBrackInd > 0 ? st[secondBrackInd] : st[firstBrackInd];
+
+		const name = secondBrackInd > 0 ? st[firstBrackInd][0].slice(-1)[0] : st[firstBrackInd - 1];
+		const ptr = secondBrackInd > 0 ? st[firstBrackInd][0].filter(e=>e == '*').length : 0;
+		const retTypeMaxInd = secondBrackInd > 0 ? firstBrackInd - 1 : firstBrackInd - 2;
+
+		const info = {
+			kind: 'function',
+			name: name,
+			args: argBlock.map(parseVardef),
+			modifiers: [],
+			ptr
+		};
+		let offs = 0;
+		loop: while(offs < retTypeMaxInd){
+			switch(st[offs]){
+				case 'static':
+				case 'inline':
+				case 'extern':
+					info.modifiers.push(st[offs]);
+				break;
+				default:
+					break loop;
+			}
+			offs++;
+		}
+		info.return = parseType(st.slice(offs, retTypeMaxInd+1));
+		return info;
+	}
+	
+	function parseStatement(st){
+		switch(st[0]){
+			case 'typedef':
+				return parseTypedef(st);
+			case 'struct':
+				return parseStruct(st);
+			default:
+				return parseFunctionProto(st);
+		}
+	}
+
+	const tokens = tokenize(header);
+	const [statements] = sepStatements(tokens);
+	const ast = statements.map(parseStatement);
+	return ast;
+}
+
+function astToLib(lib, ast){
+	let unnamedCnt = 0;
+	function getType(name, ptr = 0){
+		const ffiType = lib.getType(name);
+		if(!ffiType){
+			throw new Error(`Unknown type ${name}`);
+		}
+		if(ptr > 0){
+			return new PointerType(ffiType, ptr);
+		}
+		return ffiType;
+	}
+	function registerStruct(regname, st){
+		const fields = [];
+		for(const m of st.members){
+			if(m.type.kind == 'type'){
+				if(m.type.struct){
+					const mstt = registerStruct(m.type.struct.name, m.type.struct);
+					fields.push([m.name, mstt]);
+				}else{
+					fields.push([m.name, getType(m.type.name)]);
+				}
+			}else{
+				throw new Error('unhandled member type: ' + m.type.kind);
+			}
+		}
+		const stt = new StructType(fields, st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`);
+		lib.registerType(regname, stt);
+		return stt;
+	}
+	for(const e of ast){
+		switch(e.kind){
+			case 'typedef':
+				if(e.child.kind == 'type'){
+					if(e.child.struct){
+						registerStruct(e.name ?? 'struct '+e.child.struct.name, e.child.struct);
+					}else{
+						lib.registerType(e.name, getType(e.child.name));
+					}
+				}else if(e.child.kind == 'function'){
+					lib.registerType(e.name || e.child.name, FFI.types.jscallback);
+				}else{
+					throw new Error('unsupported typedef: ' + JSON.stringify(e));
+				}
+			break;
+			case 'struct':
+				registerStruct('struct '+e.name, e);
+			break;
+			case 'function':
+				const f = new CFunction(lib.symbol(e.name), getType(e.return.name, e.return.ptr), e.args.map(p => getType(p.type.name, p.type.ptr)));
+				lib.registerFunction(e.name, f);
+		}
+	}
+}
