@@ -57,7 +57,7 @@ add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
 find_package(CURL REQUIRED)
 
-file(GLOB BUNDLE_SRC_FILES ${PROJECT_SOURCE_DIR}/src/js/tjs/*.js)
+file(GLOB_RECURSE BUNDLE_SRC_FILES ${PROJECT_SOURCE_DIR}/src/js/*.js)
 
 set(INCLUDED_JS_FILES "eval-stdin.js;repl.js;std.js;worker-bootstrap.js")
 set(INCLUDED_JS_FILES_PATH "")
