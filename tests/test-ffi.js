@@ -1,5 +1,6 @@
 import assert from './assert.js';
 const FFI = tjs.ffi;
+import { path } from '@tjs/std';
 
 (function(){
 	const libm = new FFI.Lib(FFI.Lib.LIBM_NAME);
@@ -18,7 +19,7 @@ const FFI = tjs.ffi;
 		assert.eq(atoiF.call("1234"), 1234);
 
 		const strerrorF = new FFI.CFunction(libc.symbol('strerror'), FFI.types.string, [FFI.types.sint]);
-		assert.eq(strerrorF.call(0), "Success");
+		assert.eq(strerrorF.call(1 /* EPERM */), "Operation not permitted");
 
 		
 		const sprintfF3 = new FFI.CFunction(libc.symbol('sprintf'), FFI.types.sint, [FFI.types.buffer, FFI.types.string, FFI.types.sint], 1);
@@ -52,7 +53,9 @@ const FFI = tjs.ffi;
 		const readdirF = new FFI.CFunction(libc.symbol('readdir'), direntPtrT, [FFI.types.pointer]);
 		const closedirF = new FFI.CFunction(libc.symbol('closedir'), FFI.types.sint, [FFI.types.pointer]);
 
-		const dirH = opendirF.call('.');
+		const exedir = path.dirname(tjs.exepath);
+		const exename = path.basename(tjs.exepath);
+		const dirH = opendirF.call(exedir);
 		assert.ok(dirH !== null);
 		const fileList = [];
 		let direntPtr;
@@ -66,7 +69,7 @@ const FFI = tjs.ffi;
 				assert.eq(direntPtr.addr, 0n);
 			}
 		}while(!direntPtr.isNull);
-		assert.eq(fileList[0].name, '.');
+		assert.ok(fileList.some(e=>e.name == exename));
 		assert.eq(closedirF.call(dirH), 0);
 	}
 

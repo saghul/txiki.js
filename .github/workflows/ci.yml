@@ -70,7 +70,7 @@ jobs:
       with:
         submodules: true
     - name: Prepare
-      run: apk add build-base cmake curl-dev autoconf --update-cache
+      run: apk add build-base cmake curl-dev autoconf automake --update-cache
     - name: Build it
       run: make
     - name: Test it
