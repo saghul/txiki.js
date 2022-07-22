@@ -117,23 +117,25 @@ add_library(ffi-test SHARED
 if(NOT USE_EXTERNAL_FFI)
     set(LIBFFI_SRC "${CMAKE_SOURCE_DIR}/deps/libffi")
     set(TMP_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/ffi_root")
+    if(MINGW)
+        set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.dll.a)
+    else()
+        set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.a)
+    endif()
     ExternalProject_Add(
         libffi
         BUILD_IN_SOURCE 1
         SOURCE_DIR "${LIBFFI_SRC}"
-        CONFIGURE_COMMAND ${LIBFFI_SRC}/autogen.sh COMMAND ${LIBFFI_SRC}/configure --enable-static=yes --disable-shared
+        CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure --enable-static=yes --disable-shared
         BUILD_COMMAND make
         INSTALL_DIR ${TMP_INSTALL_DIR}
         INSTALL_COMMAND make DESTDIR=${TMP_INSTALL_DIR} install
         EXCLUDE_FROM_ALL TRUE
+        BUILD_BYPRODUCTS ${LIBFFI_STATIC_PATH}
     )
     add_dependencies(tjs libffi)
     add_library(libffi_a STATIC IMPORTED)
-    if(MINGW)
-        set_target_properties(libffi_a PROPERTIES IMPORTED_LOCATION ${TMP_INSTALL_DIR}/usr/local/lib/libffi.lib)
-    else()
-        set_target_properties(libffi_a PROPERTIES IMPORTED_LOCATION ${TMP_INSTALL_DIR}/usr/local/lib/libffi.a)
-    endif()
+    set_target_properties(libffi_a PROPERTIES IMPORTED_LOCATION ${LIBFFI_STATIC_PATH})
     target_include_directories(tjs PRIVATE ${TMP_INSTALL_DIR}/usr/local/include)
     target_link_libraries(tjs libffi_a)
 else()

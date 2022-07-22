@@ -658,8 +658,12 @@ export function _parseCProto(header){
 
 function astToLib(lib, ast){
 	let unnamedCnt = 0;
-	function getType(name, ptr = 0){
-		const ffiType = lib.getType(name);
+	function getType(name, ptr = 0, func = false){
+		let ffiType = lib.getType(name+('*').repeat(ptr));
+		if(ffiType){// look for type specific pointer type first, currently only used to map char* to string 
+			return ffiType;
+		}
+		ffiType = lib.getType(name);
 		if(!ffiType){
 			throw new Error(`Unknown type ${name}`);
 		}
@@ -705,7 +709,7 @@ function astToLib(lib, ast){
 				registerStruct('struct '+e.name, e);
 			break;
 			case 'function':
-				const f = new CFunction(lib.symbol(e.name), getType(e.return.name, e.return.ptr), e.args.map(p => getType(p.type.name, p.type.ptr)));
+				const f = new CFunction(lib.symbol(e.name), getType(e.return.name, e.return.ptr, true), e.args.map(p => getType(p.type.name, p.type.ptr, true)));
 				lib.registerFunction(e.name, f);
 		}
 	}

@@ -42,13 +42,24 @@ import { path } from '@tjs/std';
 	
 	function testPointersAndStructsOpendir(){
 		const opendirF = new FFI.CFunction(libc.symbol('opendir'), FFI.types.pointer, [FFI.types.string]);
-		const direntSt = new FFI.StructType([
-			['ino', FFI.types.size],
-			['type', FFI.types.size],
-			['reclen', FFI.types.uint16],
-			['type', FFI.types.uint8],
-			['name', new FFI.StaticStringType(255, 'char255') ],
-		], 'dirent');
+		let direntSt;
+		if(tjs.platform == 'darwin'){ // macos has another dirent definition
+			direntSt = new FFI.StructType([
+				['fileno', FFI.types.uint32],
+				['reclen', FFI.types.uint16],
+				['type', FFI.types.uint8],
+				['namelen', FFI.types.uint8],
+				['name', new FFI.StaticStringType(255, 'char255') ],
+			], 'dirent');
+		}else{
+			direntSt = new FFI.StructType([
+				['ino', FFI.types.size],
+				['type', FFI.types.size],
+				['reclen', FFI.types.uint16],
+				['type', FFI.types.uint8],
+				['name', new FFI.StaticStringType(255, 'char255') ],
+			], 'dirent');
+		}
 		const direntPtrT = new FFI.PointerType(direntSt, 1);
 		const readdirF = new FFI.CFunction(libc.symbol('readdir'), direntPtrT, [FFI.types.pointer]);
 		const closedirF = new FFI.CFunction(libc.symbol('closedir'), FFI.types.sint, [FFI.types.pointer]);
@@ -105,7 +116,7 @@ import { path } from '@tjs/std';
 	}
 
 	function testJsCallback(){
-		const testlib = new FFI.Lib('./build/libffi-test.so');
+		const testlib = new FFI.Lib(tjs.platform == 'darwin' ? './build/libffi-test.dylib' : './build/libffi-test.so');
 		const callCallbackF = new FFI.CFunction(testlib.symbol('call_callback'), FFI.types.sint, [FFI.types.jscallback, FFI.types.sint]);
 		let recv = null;
 		const callback = new FFI.JSCallback(FFI.types.sint, [FFI.types.sint], (a)=>{
@@ -592,7 +603,7 @@ import { path } from '@tjs/std';
 			clock_t clock();
 			time_t time (time_t *__timer);
 			double difftime (time_t __time1, time_t __time0);
-			time_t mktime (struct tm *__tp);
+			char* asctime (struct tm *__tp);
 		`);
 
 		const clockVal = libc.call('clock');
@@ -603,11 +614,11 @@ import { path } from '@tjs/std';
 		const tmData = {
 			sec: 0, min: 0, hour: 0,
 			year: 122, mon: 6, mday: 1,
-			isdst: 1, gmtoff: 2
+			isdst: 0, gmtoff: 0, tm_zone: 'UTC'
 		};
 		const tmBuf = structTmT.toBuffer(tmData);
-		assert.eq(libc.call('mktime', FFI.Pointer.createRefFromBuf(structTmT, tmBuf)), 1656626400);
-		assert.eq(libc.call('mktime', FFI.Pointer.createRef(structTmT, tmData)), 1656626400);
+		assert.eq(libc.call('asctime', FFI.Pointer.createRefFromBuf(structTmT, tmBuf)), "Sun Jul  1 00:00:00 2022\n");
+		assert.eq(libc.call('asctime', FFI.Pointer.createRef(structTmT, tmData)), "Sun Jul  1 00:00:00 2022\n");
 	}
 
 

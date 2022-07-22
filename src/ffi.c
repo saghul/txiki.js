@@ -891,6 +891,9 @@ static JSValue js_deref_ptr(JSContext *ctx, JSValueConst this_val, int argc, JSV
     #include <gnu/lib-names.h>
     #define LIBC_NAME LIBC_SO
     #define LIBM_NAME LIBM_SO
+#elif defined(__linux__)
+    #define LIBC_NAME "libc.so"
+    #define LIBM_NAME "libm.so"
 #else
     #error('unknown os')
 #endif
