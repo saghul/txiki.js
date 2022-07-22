@@ -78,94 +78,6 @@ SOFTWARE.
 
 #define FFI_ALIGN(v, a)  (((((size_t) (v))-1) | ((a)-1))+1)
 
-
-#pragma region "CheckArgs helper"
-// ===================
-
-enum argtype {
-    t_null,
-    t_bool,
-    t_number,
-    t_bigint,
-    t_string,
-    t_string_or_null,
-    t_function,
-    t_object,
-    t_any
-};
-
-static bool check_args(JSContext *ctx, int argc, JSValueConst *argv, enum argtype argtype_list[], int argtype_count) {
-    if (argc != argtype_count) {
-        JS_ThrowTypeError(ctx, "argc must be %d, got %d", argtype_count, argc);
-        return false;
-    }
-    for (int i = 0; i < argtype_count; i++) {
-        switch (argtype_list[i]) {
-            case t_null:
-                if (!JS_IsNull(argv[i])) {
-                    JS_ThrowTypeError(ctx, "argv[%d] must be null", i);
-                    return false;
-                }
-                break;
-            case t_bool:
-                if (!JS_IsBool(argv[i])) {
-                    JS_ThrowTypeError(ctx, "argv[%d] must be boolean", i);
-                    return false;
-                }
-                break;
-            case t_number:
-                if (!JS_IsNumber(argv[i])) {
-                    JS_ThrowTypeError(ctx, "argv[%d] must be number", i);
-                    return false;
-                }
-                break;
-            case t_bigint:
-                if (!JS_IsBigInt(ctx, argv[i])) {
-                    JS_ThrowTypeError(ctx, "argv[%d] must be a bigint", i);
-                    return false;
-                }
-                break;
-            case t_string:
-                if (!JS_IsString(argv[i])) {
-                    JS_ThrowTypeError(ctx, "argv[%d] must be string", i);
-                    return false;
-                }
-                break;
-            case t_string_or_null:
-                if (!(JS_IsString(argv[i]) || JS_IsNull(argv[i]))) {
-                    JS_ThrowTypeError(ctx, "argv[%d] must be string or null", i);
-                    return false;
-                }
-                break;
-            case t_function:
-                if (!JS_IsFunction(ctx, argv[i])) {
-                    JS_ThrowTypeError(ctx, "argv[%d] must be function", i);
-                    return false;
-                }
-                break;
-            case t_object:
-                if (!JS_IsObject(argv[i])) {
-                    JS_ThrowTypeError(ctx, "argv[%d] must be object", i);
-                    return false;
-                }
-            break;
-            case t_any:
-                return true;
-                break;
-            default:
-                JS_ThrowTypeError(ctx, "argv[%d] type definition is not yet supported", i);
-                return false;
-        }
-    }
-    return true;
-}
-
-#define CHECK_ARGS(ctx, argc, argv, tlist)                       \
-    if (!check_args(ctx, argc, argv, (tlist), countof(tlist))) { \
-        return JS_EXCEPTION;                                     \
-    }
-#pragma endregion "CheckArgs helper"
-
 #pragma region "FFI Helpers"
 // ===================
 
@@ -806,7 +718,7 @@ static JSCFunctionListEntry js_ffi_cif_proto_funcs[] = {
 
 static JSClassID js_uv_lib_classid;
 static JSValue js_uv_lib_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_string}));
+    CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
     JSValue obj = JS_NewObjectClass(ctx, js_uv_lib_classid);
     if (JS_IsException(obj)){
         return obj;
@@ -834,7 +746,7 @@ static void js_uv_lib_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static JSValue js_uv_lib_dlsym(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_string}));
+    CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
 
     uv_lib_t* lib = JS_GetOpaque(this_val, js_uv_lib_classid);
     if(lib == NULL){
@@ -882,7 +794,7 @@ static JSValue js_libc_errno(JSContext *ctx, JSValueConst this_val, int argc, JS
 }
 
 static JSValue js_libc_strerror(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_number}));
+    CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 0, "number");
     int err;
     JS_TO_INT(ctx, &err, argv[0]);
     return JS_NewString(ctx, strerror(err));
@@ -906,9 +818,10 @@ static JSValue js_array_buffer_get_ptr(JSContext *ctx, JSValueConst this_val, in
 
 static JSValue js_get_cstring(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     if(argc == 0 || argc >= 2){
-        CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){JS_PTR_TYPE, t_number}));
+        CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
+        CHECK_ARG_RET(ctx, JS_IsNumber(argv[1]), 1, "number");
     }else{
-        CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){JS_PTR_TYPE}));
+        CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
     }
     size_t max = 0;
     if(argc == 2 && JS_IsNumber(argv[1])){
@@ -939,7 +852,8 @@ static JSValue JS_NewUint8ArrayShared(JSContext *ctx, uint8_t *data, size_t size
 }
 
 static JSValue js_ptr_to_buffer(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){JS_PTR_TYPE, t_number}));
+    CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
+    CHECK_ARG_RET(ctx, JS_IsNumber(argv[1]), 1, "number");
     uint8_t* ptr;
     JS_TO_UINTPTR_T(ctx, &ptr, argv[0]);
     size_t sz;
@@ -1026,7 +940,8 @@ void js_ffi_closure_invoke(ffi_cif *cif, void *ret, void **args, void* userptr){
 }
 
 static JSValue js_ffi_closure_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    CHECK_ARGS(ctx, argc, argv, ((enum argtype[]){t_object, t_function}));
+    CHECK_ARG_RET(ctx, JS_IsObject(argv[0]), 0, "object");
+    CHECK_ARG_RET(ctx, JS_IsFunction(ctx, argv[1]), 1, "function");
     
     js_ffi_cif* cif = JS_GetOpaque(argv[0], js_ffi_cif_classid);
     if(!cif){
