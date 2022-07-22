@@ -39,7 +39,7 @@ import { path } from '@tjs/std';
 		const divF = new FFI.CFunction(libc.symbol('div'), divT, [FFI.types.sint, FFI.types.sint]);
 		assert.equal(divF.call(10, 3), {quot:3, rem:1});
 	}
-
+	
 	function testPointersAndStructsOpendir(){
 		const opendirF = new FFI.CFunction(libc.symbol('opendir'), FFI.types.pointer, [FFI.types.string]);
 		const direntSt = new FFI.StructType([
@@ -53,9 +53,7 @@ import { path } from '@tjs/std';
 		const readdirF = new FFI.CFunction(libc.symbol('readdir'), direntPtrT, [FFI.types.pointer]);
 		const closedirF = new FFI.CFunction(libc.symbol('closedir'), FFI.types.sint, [FFI.types.pointer]);
 
-		const exedir = path.dirname(tjs.exepath);
-		const exename = path.basename(tjs.exepath);
-		const dirH = opendirF.call(exedir);
+		const dirH = opendirF.call(import.meta.dirname);
 		assert.ok(dirH !== null);
 		const fileList = [];
 		let direntPtr;
@@ -69,7 +67,7 @@ import { path } from '@tjs/std';
 				assert.eq(direntPtr.addr, 0n);
 			}
 		}while(!direntPtr.isNull);
-		assert.ok(fileList.some(e=>e.name == exename));
+		assert.ok(fileList.some(e=>e.name == 'test-ffi.js'));
 		assert.eq(closedirF.call(dirH), 0);
 	}
 
