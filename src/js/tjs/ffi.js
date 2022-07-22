@@ -7,7 +7,7 @@ export class DlSymbol{
 		this._uvlib = uvlib;
 		this._dlsym = dlsym;
 	}
-	addr(){
+	get addr(){
 		return this._symbol.addr;
 	}
 }
@@ -68,13 +68,13 @@ export class AdvancedType{
 		this._ffiType = type;
 		this._conf = conf;
 	}
-	toBuffer(data, ctx){
+	toBuffer(data, ctx = {}){
 		if(this._conf.toBuffer)
 			return this._conf.toBuffer(data, ctx);
 		else
 			return this._type.toBuffer(data, ctx);
 	}
-	fromBuffer(buf, ctx){
+	fromBuffer(buf, ctx = {}){
 		if(this._conf.fromBuffer)
 			return this._conf.fromBuffer(buf, ctx);
 		else
@@ -271,14 +271,14 @@ export class PointerType extends AdvancedType{
 		this._level = level;
 		this._type = type;
 	}
-	toBuffer(data, ctx){
+	toBuffer(data, ctx = {}){
 		if(data instanceof Pointer){
 			return types.pointer.toBuffer(data.addr, ctx);
 		}else{
 			return types.pointer.toBuffer(data, ctx);
 		}
 	}
-	fromBuffer(buf, ctx){
+	fromBuffer(buf, ctx = {}){
 		return new Pointer(types.pointer.fromBuffer(buf), this._level, this._type);
 	}
 	get type(){
@@ -368,11 +368,11 @@ export class StaticStringType extends ArrayType{
 	constructor(length, name){
 		super(types.sint8, length, name);
 	}
-	toBuffer(str, ctx){
+	toBuffer(str, ctx = {}){
 		const txtBuf = (new TextEncoder()).encode(str);
 		return super.toBuffer(txtBuf, ctx);
 	}
-	fromBuffer(buf, ctx){
+	fromBuffer(buf, ctx = {}){
 		return ffiInt.getCString(ffiInt.getArrayBufPtr(buf), buf.length);
 	}
 }
@@ -390,8 +390,10 @@ export class JSCallback{
 	constructor(rtype, argtypes, func){
 		this._func = (...args) => {
 			const arr = [];
+			const ctx = {};
 			for(let i=0;i<argtypes.length;i++){
-				arr.push(argtypes[i].fromBuffer(args[i]));
+				ctx[i] = {};
+				arr.push(argtypes[i].fromBuffer(args[i], ctx[i]));
 			}
 			const ret = func(...arr);
 			return rtype.toBuffer(ret);

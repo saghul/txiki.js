@@ -355,27 +355,6 @@ static JSValue js_ffi_type_get_sz(JSContext *ctx, JSValueConst this_val) {
     }
     return JS_NEW_SIZE_T(ctx, ffi_type_get_sz(type->ffi_type));
 }
-static JSValue js_ffi_type_alloc(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
-    if(type == NULL){
-        JS_ThrowTypeError(ctx, "expected this to be FfiType");
-        return JS_EXCEPTION;
-    }
-    if(argc > 1){
-        JS_ThrowTypeError(ctx, "expected 0 or 1 arguments");
-        return JS_EXCEPTION;
-    }
-    unsigned times = 1;
-    if(argc == 1){
-        if(JS_ToInt32(ctx, &times, argv[0])){
-            JS_ThrowTypeError(ctx, "expected argument 1 to be integer");
-            return JS_EXCEPTION;
-        }
-    }
-    size_t sz = ffi_type_get_sz(type->ffi_type) * times;
-    JSValue arr = TJS_NewUint8Array(ctx, js_malloc(ctx, sz), sz);
-    return arr;
-}
 
 int ffi_type_to_buffer(JSContext *ctx, JSValueConst val, ffi_type* type, uint8_t* buf){
     if(type->type == FFI_TYPE_STRUCT){
@@ -615,10 +594,19 @@ static JSValue js_ffi_type_from_buffer(JSContext *ctx, JSValueConst this_val, in
     return val;
 }
 
+static JSValue js_ffi_type_name(JSContext *ctx, JSValueConst this_val) {
+    js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
+    if(type == NULL){
+        JS_ThrowTypeError(ctx, "expected this to be FfiType");
+        return JS_EXCEPTION;
+    }
+    return JS_GetPropertyStr(ctx, this_val, "_name");
+}
+
 static JSCFunctionListEntry js_ffi_type_proto_funcs[] = {
     TJS_CFUNC_DEF("toBuffer", 1, js_ffi_type_to_buffer),
     TJS_CFUNC_DEF("fromBuffer", 1, js_ffi_type_from_buffer),
-    TJS_CFUNC_DEF("alloc", 1, js_ffi_type_alloc),
+    TJS_CGETSET_DEF("name", js_ffi_type_name, NULL),
     TJS_CGETSET_DEF("size", js_ffi_type_get_sz, NULL),
 };
 #pragma endregion "FfiType class definition"
