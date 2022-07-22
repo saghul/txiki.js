@@ -114,7 +114,7 @@ add_library(ffi-test SHARED
     tests/fixtures/ffi-test-lib.c
 )
 
-if(NOT USE_EXTERNAL_FFI)
+if(NOT USE_EXTERNAL_FFI AND NOT MINGW)
     set(LIBFFI_SRC "${CMAKE_SOURCE_DIR}/deps/libffi")
     set(TMP_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/ffi_root")
     if(MINGW)
