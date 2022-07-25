@@ -5,6 +5,8 @@ import { open, mkstemp } from './fs.js';
 import { signal } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
+import { PosixSocket } from './posix-socket.js';
+import { Buffer } from 'buffer';
 
 // The "tjs" global.
 //
@@ -36,7 +38,8 @@ const noExport = [
     'setTimeout',
     'signal',
     'signals',
-    'wasm'
+    'wasm',
+    'posix_socket',
 ];
 
 for (const [key, value] of Object.entries(core)) {
@@ -136,10 +139,26 @@ Object.defineProperty(tjs, 'stderr', {
     value: createStderr()
 });
 
+if(core.posix_socket){
+    Object.defineProperty(tjs, 'PosixSocket', {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: PosixSocket
+    });
+}
+
 // tjs global.
 Object.defineProperty(globalThis, 'tjs', {
     enumerable: true,
     configurable: false,
     writable: false,
     value: Object.freeze(tjs)
+});
+
+Object.defineProperty(globalThis, 'Buffer', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: Buffer
 });

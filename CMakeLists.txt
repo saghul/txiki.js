@@ -14,7 +14,8 @@ message(STATUS "Building with ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb -O0 -fno-omit-frame-pointer")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG -ggdb -O0 -fno-omit-frame-pointer")
+
 
 message(STATUS "C flags:         ${CMAKE_C_FLAGS}")
 message(STATUS "C Debug flags:   ${CMAKE_C_FLAGS_DEBUG}")
@@ -44,27 +45,6 @@ endmacro()
 
 cpr_option(BUILD_WITH_ASAN "If ON, build with the address sanitizer enabled" OFF)
 
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/bundle.js
-        ${CMAKE_CURRENT_BINARY_DIR}/bundle.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/eval-stdin.js
-        ${CMAKE_CURRENT_BINARY_DIR}/eval-stdin.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/repl.js
-        ${CMAKE_CURRENT_BINARY_DIR}/repl.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/std.js
-        ${CMAKE_CURRENT_BINARY_DIR}/std.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/worker-bootstrap.js
-        ${CMAKE_CURRENT_BINARY_DIR}/worker-bootstrap.js
-        COPYONLY)
-
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
 option(libuv_buildtests "" OFF)
@@ -74,6 +54,32 @@ set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
 add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
 find_package(CURL REQUIRED)
+
+file(GLOB_RECURSE BUNDLE_SRC_FILES ${PROJECT_SOURCE_DIR}/src/js/*.js)
+
+set(INCLUDED_JS_FILES "eval-stdin.js;repl.js;std.js;worker-bootstrap.js")
+set(INCLUDED_JS_FILES_PATH "")
+foreach(jsfile ${INCLUDED_JS_FILES})
+    configure_file(
+        ${CMAKE_SOURCE_DIR}/src/js/${jsfile}
+        ${CMAKE_CURRENT_BINARY_DIR}/${jsfile}
+        COPYONLY)
+	list(APPEND INCLUDED_JS_FILES_PATH ${CMAKE_CURRENT_BINARY_DIR}/${jsfile})
+endforeach()
+
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild  ${CMAKE_CURRENT_SOURCE_DIR}/package-lock.json
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/package.json
+	COMMAND npm install
+  	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/bundle.js
+	DEPENDS ${BUNDLE_SRC_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild 
+	COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild src/js/index.js --bundle --outfile=${CMAKE_CURRENT_BINARY_DIR}/bundle.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module
+  	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 add_executable(tjs
     src/bootstrap.c
@@ -99,6 +105,14 @@ add_executable(tjs
     src/xhr.c
     ../deps/quickjs/src/cutils.c
 )
+
+if(NOT FALSEMINGW)
+    target_sources(tjs PUBLIC src/posix-socket.c)
+endif()
+
+set_property(SOURCE src/bootstrap.c APPEND PROPERTY OBJECT_DEPENDS ${INCLUDED_JS_FILES_PATH} ${CMAKE_CURRENT_BINARY_DIR}/bundle.js)
+
+
 
 set_target_properties(tjs PROPERTIES
     C_STANDARD 11
