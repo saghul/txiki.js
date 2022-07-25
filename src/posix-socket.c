@@ -18,6 +18,26 @@ typedef struct{
 #define THROW_STRERROR() JS_ThrowInternalError(ctx, "%s (%d)", strerror(errno), errno)
 #define RET_THROW_ERRNO(ctx, check) if(!(check)){return THROW_STRERROR();}
 
+static JSValue tjs_sock_new_from_fd(JSContext *ctx, int fd){
+    JSValue obj = JS_NewObjectClass(ctx, tjs_sock_classid);
+    if (JS_IsException(obj)){
+        return obj;
+    }
+
+    tjs_sock_t* tjs_sock = js_malloc(ctx, sizeof(tjs_sock_t));
+    tjs_sock->sock = fd;
+    tjs_sock->closed = false;
+    tjs_sock->poll_init = false;
+    tjs_sock->callback = JS_UNDEFINED;
+    tjs_sock->this = JS_DupValue(ctx, obj);
+    tjs_sock->jsctx = ctx;
+    tjs_sock->in_cb = false;
+    memset(&tjs_sock->poll, 0, sizeof(uv_poll_t));
+    JS_SetOpaque(obj, tjs_sock);
+
+    return obj;
+}
+
 static JSValue tjs_sock_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     int domain, type, protocol;
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &domain, argv[0]), 0, "positive integer");
@@ -27,21 +47,7 @@ static JSValue tjs_sock_create(JSContext *ctx, JSValueConst this_val, int argc, 
     int sock = socket(domain, type, protocol);
     RET_THROW_ERRNO(ctx, sock >= 0);
 
-    JSValue obj = JS_NewObjectClass(ctx, tjs_sock_classid);
-    if (JS_IsException(obj)){
-        return obj;
-    }
-
-    tjs_sock_t* tjs_sock = js_malloc(ctx, sizeof(tjs_sock_t));
-    tjs_sock->sock = sock;
-    tjs_sock->closed = false;
-    tjs_sock->callback = JS_UNDEFINED;
-    tjs_sock->this = JS_DupValue(ctx, obj);
-    tjs_sock->jsctx = ctx;
-    tjs_sock->in_cb = false;
-    JS_SetOpaque(obj, tjs_sock);
-
-    return obj;
+    return tjs_sock_new_from_fd(ctx, sock);
 }
 
 static JSValue tjs_sock_create_from_fd(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -53,21 +59,7 @@ static JSValue tjs_sock_create_from_fd(JSContext *ctx, JSValueConst this_val, in
         return JS_ThrowTypeError(ctx, "%d is not a valid filedescriptor: %s", fd, strerror(errno));
     }
 
-    JSValue obj = JS_NewObjectClass(ctx, tjs_sock_classid);
-    if (JS_IsException(obj)){
-        return obj;
-    }
-
-    tjs_sock_t* tjs_sock = js_malloc(ctx, sizeof(tjs_sock_t));
-    tjs_sock->sock = fd;
-    tjs_sock->closed = false;
-    tjs_sock->callback = JS_UNDEFINED;
-    tjs_sock->this = JS_DupValue(ctx, obj);
-    tjs_sock->jsctx = ctx;
-    tjs_sock->in_cb = false;
-    JS_SetOpaque(obj, tjs_sock);
-
-    return obj;
+    return tjs_sock_new_from_fd(ctx, fd);
 }
 
 
@@ -82,23 +74,23 @@ static void tjs_uv_socket_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mar
 }
 
 static void close_sock(tjs_sock_t* s) {
-    if(s->poll_init){
-        if(uv_is_active((uv_handle_t*)&s->poll)){
-            uv_poll_stop(&s->poll);
+    if(!s->closed){
+        if(s->poll_init){
+            if(uv_is_active((uv_handle_t*)&s->poll)){
+                uv_poll_stop(&s->poll);
+            }
+            if(!uv_is_closing((uv_handle_t*)&s->poll)){
+                uv_close((uv_handle_t*)&s->poll, NULL);
+            }
+            if(!JS_IsUndefined(s->callback)){
+                JS_FreeValue(s->jsctx, s->callback);
+                s->callback = JS_UNDEFINED;
+            }
+            s->poll_init = false;
         }
-        if(!uv_is_closing((uv_handle_t*)&s->poll)){
-            uv_close((uv_handle_t*)&s->poll, NULL);
-        }
-        if(!JS_IsUndefined(s->callback)){
-            JS_FreeValue(s->jsctx, s->callback);
-            s->callback = JS_UNDEFINED;
-        }
-        s->poll_init = false;
-    }
-    if(!s->closed) {
         close(s->sock);
+        s->closed = true;   
     }
-    s->closed = true;
 }
 
 static void tjs_sock_finalizer(JSRuntime *rt, JSValue val) {
@@ -146,12 +138,8 @@ static JSValue tjs_sock_accept(JSContext *ctx, JSValueConst this_val, int argc, 
         return THROW_STRERROR();
     }
     
-    JSValue newSock = JS_NewObjectClass(ctx, tjs_sock_classid);
+    JSValue newSock = tjs_sock_new_from_fd(ctx, ret);
     JS_SetPropertyStr(ctx, newSock, "_sockaddr", TJS_NewUint8Array(ctx, (uint8_t*)sockaddr, sz));
-    tjs_sock_t* tjs_sock = js_malloc(ctx, sizeof(tjs_sock_t));
-    tjs_sock->sock = ret;
-    tjs_sock->closed = false;
-    JS_SetOpaque(newSock, tjs_sock);
     return newSock;
 }
 

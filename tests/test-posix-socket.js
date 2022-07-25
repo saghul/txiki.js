@@ -15,6 +15,7 @@ function testUdpSock(){
 	const recv = sock.recvmsg(sendbuf.length, 0);
 	assert.eq(sendbuf.compare(recv.data), 0);
 	assert.eq(sockaddr_rem.compare(recv.addr), 0);
+	sock.close();
 }
 
 async function testTcpSock(){
@@ -35,16 +36,16 @@ async function testTcpSock(){
 	let clientRecv = 0;
 	tjs.connect('tcp', '127.0.0.1', 55678).then(async con=>{
 		const buf = Buffer.alloc(20);
-		await new Promise(res=>setTimeout(res, 500));
 		clientRecv = await con.read(buf);
 		assert.eq(clientRecv, sendbuf.length);
 		con.close();
 	});
 
-	await new Promise(res=>setTimeout(res, 500));
+	await new Promise(res=>setTimeout(res, 500))
 	const con = sock.accept();
 	assert.eq(con.write(sendbuf), sendbuf.length);
-	assert.eq(clientRecv, sendbuf.length);
+	await new Promise(res=>setTimeout(res, 300))
+	assert.eq(clientRecv, sendbuf.length);;
 	con.close();
 	sock.close();
 }
@@ -73,8 +74,8 @@ async function testPoll(){
 	sock.close();
 }
 
-//testUdpSock();
+testUdpSock();
 
-//testTcpSock();
+testTcpSock();
 
 testPoll();
