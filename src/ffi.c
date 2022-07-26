@@ -319,12 +319,14 @@ int ffi_type_to_buffer(JSContext *ctx, JSValueConst val, ffi_type *type, uint8_t
             case FFI_TYPE_DOUBLE:
                 JS_ToFloat64(ctx, (double *) buf, val);
                 return sizeof(double);
+#if FFI_TYPE_LONGDOUBLE != FFI_TYPE_DOUBLE
             case FFI_TYPE_LONGDOUBLE: {
                 double v;
                 JS_ToFloat64(ctx, &v, val);
                 *(long double *) buf = v;
                 return sizeof(long double);
             }
+#endif
             case FFI_TYPE_UINT8: {
                 uint32_t v;
                 JS_ToUint32(ctx, &v, val);
