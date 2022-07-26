@@ -432,10 +432,12 @@ static int ffi_type_from_buffer(JSContext *ctx, ffi_type *type, uint8_t *buf, JS
             case FFI_TYPE_DOUBLE:
                 *val = JS_NewFloat64(ctx, *(double *) buf);
                 return sizeof(double);
+#if FFI_TYPE_LONGDOUBLE != FFI_TYPE_DOUBLE
             case FFI_TYPE_LONGDOUBLE: {
                 *val = JS_NewFloat64(ctx, *(long double *) buf);
                 return sizeof(long double);
             }
+#endif
             case FFI_TYPE_UINT8:
                 *val = JS_NewInt32(ctx, *(uint8_t *) buf);
                 return sizeof(uint8_t);
