@@ -241,10 +241,3 @@ Object.defineProperty(window, 'console', {
     writable: true,
     value: new Console()
 });
-
-Object.defineProperty(window, 'util', {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: util
-});

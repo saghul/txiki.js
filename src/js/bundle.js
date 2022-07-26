@@ -13006,12 +13006,6 @@ Object.defineProperty(window, "console", {
   writable: true,
   value: new Console()
 });
-Object.defineProperty(window, "util", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: import_util.default
-});
 
 // node_modules/uuid/dist/esm-browser/rng.js
 var getRandomValues;

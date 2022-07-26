@@ -1097,7 +1097,5 @@ void tjs__mod_ffi_init(JSContext *ctx, JSValue ns) {
     ADD_ALIAS_TYPE(ctx, ffiobj, type_ssize, type_sint64);
 #endif
 
-    // C_VAR_ADDRESS_DEF(ffi_type_complex_float),
-    // C_VAR_ADDRESS_DEF(ffi_type_complex_double),
-    // C_VAR_ADDRESS_DEF(ffi_type_complex_longdouble),
+    // ffi also supports some complex types, currently not implemented
 }

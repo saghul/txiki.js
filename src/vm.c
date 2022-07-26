@@ -60,6 +60,7 @@ static char **tjs__argv = NULL;
 static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
     tjs__mod_error_init(ctx, ns);
+    tjs__mod_ffi_init(ctx, ns);
     tjs__mod_fs_init(ctx, ns);
     tjs__mod_fswatch_init(ctx, ns);
     tjs__mod_os_init(ctx, ns);
@@ -72,7 +73,6 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_wasm_init(ctx, ns);
     tjs__mod_worker_init(ctx, ns);
     tjs__mod_xhr_init(ctx, ns);
-    tjs__mod_ffi_init(ctx, ns);
 }
 
 JSValue tjs__get_args(JSContext *ctx) {
