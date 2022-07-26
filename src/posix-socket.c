@@ -209,6 +209,9 @@ static JSValue tjs_sock_close(JSContext *ctx, JSValueConst this_val, int argc, J
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket already closed");
     }
+    if(s->in_cb){ // only relevant if poll is used, because libuv docs advise so
+		return JS_ThrowInternalError(ctx, "cannot close socket during poll callback");
+	}
     close_sock(s);
     return JS_UNDEFINED;
 }
