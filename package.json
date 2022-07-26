@@ -14,7 +14,6 @@
   "license": "MIT",
   "dependencies": {
     "abortcontroller-polyfill": "^1.7.3",
-    "buffer": "^6.0.3",
     "core-js": "^3.20.3",
     "esbuild": "^0.14.11",
     "getopts": "^2.3.0",

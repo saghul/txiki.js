@@ -1,5 +1,3 @@
-/// <reference path="../node_modules/buffer/index.d.ts" />
-
 /**
  * The single global where all txiki.js APIs are exposed.
  */
@@ -1001,7 +999,7 @@ namespace tjs {
 		stopPoll(): void;
 
 		static ip4ToBuf(ipstr: string): Uint8Array;
-		static createSockaddrIn(ip: string, port: number): Buffer;
+		static createSockaddrIn(ip: string, port: number): Uint8Array;
 		static readonly pollEvents: {
 			READABLE: number,
 			WRITABLE: number,

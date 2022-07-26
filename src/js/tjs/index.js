@@ -6,7 +6,6 @@ import { signal } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
 import { PosixSocket } from './posix-socket.js';
-import { Buffer } from 'buffer';
 
 // The "tjs" global.
 //
@@ -154,11 +153,4 @@ Object.defineProperty(globalThis, 'tjs', {
     configurable: false,
     writable: false,
     value: Object.freeze(tjs)
-});
-
-Object.defineProperty(globalThis, 'Buffer', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: Buffer
 });

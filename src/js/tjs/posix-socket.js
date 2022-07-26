@@ -1,8 +1,6 @@
 const core = globalThis.__bootstrap;
 const posixSocket = core.posix_socket;
 
-import {Buffer} from 'buffer';
-
 export class PosixSocket{
 	constructor(domain, type, protocol){
 		this._psock = new posixSocket.PosixSocket(domain, type, protocol);
@@ -126,36 +124,12 @@ export class PosixSocket{
 		this._psock.pollStop();
 	}
 
-	static ip4ToBuf(ipstr){
-		const buf = new Uint8Array(4);
-		const regex = /^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$/;
-		const m = regex.exec(ipstr);
-		if(!m){
-			throw new TypeError(`Invalid IP address: ${ipstr}`);
-		}
-		for(let i = 0; i < 4; i++){
-			const val = parseInt(m[i+1]);
-			if(val > 255){
-				throw new RangeError(`Invalid IP address: ${ipstr}`);
-			}
-			buf[i] = val;
-		}
-		return buf;
-	}
-
 	static get sockaddrInSize(){
 		return posixSocket.sizeof_struct_sockaddr;
 	}
 
 	static createSockaddrIn(ip, port){
-		if(!(ip instanceof Uint8Array)){
-			ip = PosixSocket.ip4ToBuf(ip);
-		}
-		const buf = Buffer.alloc(PosixSocket.sockaddrInSize);
-		buf.writeUInt16LE(PosixSocket.defines.AF_INET);
-		buf.writeUInt16BE(port, 2);
-		buf.set(ip.slice(0, 4), 4); // already in network order / big endian
-		return buf;
+		return posixSocket.create_sockaddr_inet({ip, port});
 	}
 
 	static pollEvents = Object.freeze(posixSocket.uv_poll_event_bits);
