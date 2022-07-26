@@ -105,6 +105,7 @@ jobs:
           toolchain:p
           cmake:p
           ninja:p
+          libffi:p
     - name: Build it
       run: make
     - name: Test it
