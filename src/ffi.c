@@ -27,7 +27,7 @@ SOFTWARE.
 #include <ffi.h>
 #include <stdint.h>
 
-#define C_MACRO_STRING_DEF(x) JS_PROP_STRING_DEF(#x, x, JS_PROP_CONFIGURABLE)
+#define TJS_CONST_STRING_DEF(x) JS_PROP_STRING_DEF(#x, x, JS_PROP_ENUMERABLE)
 
 #define JS_PTR_TYPE       t_bigint
 #define JS_IS_PTR(ctx, x) JS_IsBigInt(ctx, x)
@@ -49,20 +49,19 @@ SOFTWARE.
 #error "'uintptr_t' neither 32bit nor 64 bit, I don't know how to handle it."
 #endif
 
-#define STR(x) #x
 #if SIZE_MAX == UINT32_MAX
 #define JS_TO_SIZE_T(ctx, pres, val)  JS_ToInt32(ctx, (int32_t *) (pres), val)
 #define JS_NEW_SIZE_T(ctx, val)       JS_NewInt32(ctx, (int32_t) (val))
 #define JS_PROP_SIZE_T_DEF(name, val) JS_PROP_INT32_DEF(name, (int32_t) (val), JS_PROP_CONFIGURABLE)
-#define C_SIZEOF_DEF(x)               JS_PROP_INT32_DEF(STR(sizeof_##x), (int32_t) (sizeof(x)), JS_PROP_CONFIGURABLE)
+#define C_SIZEOF_DEF(x)               JS_PROP_INT32_DEF(STRINGIFY(sizeof_##x), (int32_t) (sizeof(x)), JS_PROP_CONFIGURABLE)
 #define ffi_type_size_t               ffi_type_uint32
 #elif SIZE_MAX == UINT64_MAX
 #define JS_TO_SIZE_T(ctx, pres, val)  JS_ToInt64(ctx, (int64_t *) (pres), val)
 #define JS_NEW_SIZE_T(ctx, val)       JS_NewInt64(ctx, (int64_t) (val))
 #define JS_PROP_SIZE_T_DEF(name, val) JS_PROP_INT64_DEF(name, (int64_t) (val), JS_PROP_CONFIGURABLE)
-#define C_SIZEOF_DEF(x)               JS_PROP_INT64_DEF(STR(sizeof_##x), (int64_t) (sizeof(x)), JS_PROP_CONFIGURABLE)
+#define C_SIZEOF_DEF(x)               JS_PROP_INT64_DEF(STRINGIFY(sizeof_##x), (int64_t) (sizeof(x)), JS_PROP_CONFIGURABLE)
 #define C_OFFSETOF_DEF(t, d)                                                                                           \
-    JS_PROP_INT64_DEF(STR(offsetof_##t##_##d), (int64_t) (offsetof(t, d)), JS_PROP_CONFIGURABLE)
+    JS_PROP_INT64_DEF(STRINGIFY(offsetof_##t##_##d), (int64_t) (offsetof(t, d)), JS_PROP_CONFIGURABLE)
 #define ffi_type_size_t ffi_type_sint32
 #else
 #error "'size_t' neither 32bit nor 64 bit, I don't know how to handle it."
@@ -98,6 +97,7 @@ static const char *ffi_strerror(ffi_status status) {
         case FFI_BAD_ARGTYPE:
             return "FFI_BAD_ARGTYPE";
     }
+    return "Unknown FFI error";
 }
 #pragma endregion "FFI Helpers"
 
@@ -1020,8 +1020,8 @@ static JSCFunctionListEntry funcs[] = {
     TJS_CFUNC_DEF("derefPtr", 2, js_deref_ptr),
     TJS_CFUNC_DEF("ptrToBuffer", 2, js_ptr_to_buffer),
 
-    C_MACRO_STRING_DEF(LIBC_NAME),
-    C_MACRO_STRING_DEF(LIBM_NAME),
+    TJS_CONST_STRING_DEF(LIBC_NAME),
+    TJS_CONST_STRING_DEF(LIBM_NAME),
 };
 
 #define REGISTER_CLASS(ctx, name)                                                                                      \
