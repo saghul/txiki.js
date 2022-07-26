@@ -193,7 +193,11 @@ static JSValue tjs_sock_getsockopt(JSContext *ctx, JSValueConst this_val, int ar
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &level, argv[0]), 0, "positive integer");
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &optname, argv[1]), 1, "positive integer");
     
-    socklen_t optlen = 50; // TODO: adjust value 
+    socklen_t optlen = sizeof(struct sockaddr_storage); // largest optlen found (SO_PEERNAME) 
+    if(argc > 2){
+        CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &optlen, argv[2]) && optlen > 0, 2, "(optional) positive integer");
+    }
+
     void* optval = js_malloc(ctx, optlen);
 
     int ret = getsockopt(s->sock, level, optname, optval, &optlen);
@@ -518,7 +522,7 @@ static JSCFunctionListEntry tjs_sock_proto_funcs[] = {
     TJS_CFUNC_DEF("accept", 0, tjs_sock_accept),
     TJS_CFUNC_DEF("connect", 1, tjs_sock_connect),
     TJS_CFUNC_DEF("setopt", 3, tjs_sock_setsockopt),
-    TJS_CFUNC_DEF("getopt", 2, tjs_sock_getsockopt),
+    TJS_CFUNC_DEF("getopt", 3, tjs_sock_getsockopt),
     TJS_CFUNC_DEF("listen", 1, tjs_sock_listen),
     TJS_CFUNC_DEF("read", 1, tjs_sock_read),
     TJS_CFUNC_DEF("write", 1, tjs_sock_write),

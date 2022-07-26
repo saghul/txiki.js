@@ -29,7 +29,10 @@ async function testTcpSock(){
 	const optval = new Uint8Array(4);
 	(new DataView(optval.buffer)).setUint32(0, 1, true);
 	sock.setopt(PosixSocket.defines.SOL_SOCKET, PosixSocket.defines.SO_REUSEADDR, optval);
-	const optval2 = sock.getopt(PosixSocket.defines.SOL_SOCKET, PosixSocket.defines.SO_REUSEADDR);
+	assert.throws(()=>sock.getopt(9999, PosixSocket.defines.SO_REUSEADDR, 1), Error, 'asd');
+	assert.throws(()=>sock.getopt(PosixSocket.defines.SOL_SOCKET, PosixSocket.defines.SO_REUSEADDR, 0));
+	assert.throws(()=>sock.getopt(PosixSocket.defines.SOL_SOCKET, PosixSocket.defines.SO_BINDTODEVICE, 1));
+	const optval2 = sock.getopt(PosixSocket.defines.SOL_SOCKET, PosixSocket.defines.SO_REUSEADDR, 4);
 	assert.eq(optval, optval2);
 	
 	sock.bind(sockaddr_bind);

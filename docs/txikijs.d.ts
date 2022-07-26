@@ -984,7 +984,10 @@ namespace tjs {
 		recvmsg(size: number, controllen: number): {data: Uint8Array, addr: Uint8Array, control: Uint8Array};
 		close(): void;
 		setopt(level: number, name: number, value: Uint8Array): void;
-		getopt(level: number, name: number): Uint8Array;
+        /**
+         * By default 128byte are reserved for the option, provide size argument for larger buffer or to save memory.
+         */
+		getopt(level: number, name: number, size?: number): Uint8Array;
 		read(size: number): Uint8Array;
 		write(data: Uint8Array): number;
 
