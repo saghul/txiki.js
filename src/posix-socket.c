@@ -41,7 +41,7 @@ static JSValue tjs_sock_new_from_fd(JSContext *ctx, int fd){
 }
 
 static JSValue tjs_sock_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    int domain, type, protocol;
+    unsigned domain, type, protocol;
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &domain, argv[0]), 0, "positive integer");
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &type, argv[1]), 1, "positive integer");
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &protocol, argv[2]), 2, "positive integer");
@@ -53,7 +53,7 @@ static JSValue tjs_sock_create(JSContext *ctx, JSValueConst this_val, int argc, 
 }
 
 static JSValue tjs_sock_create_from_fd(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    int fd;
+    unsigned fd;
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &fd, argv[0]), 0, "positive integer");
 
     int ret = fcntl(fd, F_GETFD);
@@ -169,7 +169,7 @@ static JSValue tjs_sock_setsockopt(JSContext *ctx, JSValueConst this_val, int ar
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
 
-    int level, optname;
+    unsigned level, optname;
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &level, argv[0]), 0, "positive integer");
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &optname, argv[1]), 1, "positive integer");
     size_t optlen;
@@ -189,7 +189,7 @@ static JSValue tjs_sock_getsockopt(JSContext *ctx, JSValueConst this_val, int ar
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
 
-    int level, optname;
+    unsigned level, optname;
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &level, argv[0]), 0, "positive integer");
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &optname, argv[1]), 1, "positive integer");
     
@@ -228,7 +228,7 @@ static JSValue tjs_sock_listen(JSContext *ctx, JSValueConst this_val, int argc, 
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
-    int backlog;
+    unsigned backlog;
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &backlog, argv[0]), 0, "positive integer");
     int ret = listen(s->sock, backlog);
     RET_THROW_ERRNO(ctx, ret == 0);
@@ -282,7 +282,7 @@ static JSValue tjs_sock_shutdown(JSContext *ctx, JSValueConst this_val, int argc
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
-    int how;
+    unsigned how;
     CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &how, argv[0]), 0, "positive integer");
     int ret = shutdown(s->sock, how);
     RET_THROW_ERRNO(ctx, ret == 0);
@@ -465,7 +465,7 @@ static void tjs_sock_uv_poll_cb(uv_poll_t* handle, int status, int events){
 static JSValue tjs_sock_poll(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
     CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
-	int events;
+	unsigned events;
 	CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 0, "positive integer");
 	CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &events, argv[0]), 0, "positive integer");
 	CHECK_ARG_RET(ctx, events > 0 && events <= 0xf, 0, "positive integer");
@@ -496,6 +496,9 @@ static JSValue tjs_sock_poll_stop(JSContext *ctx, JSValueConst this_val, int arg
 	if(s->in_cb){
 		return JS_ThrowInternalError(ctx, "cannot stop poll during callback");
 	}
+    if(uv_is_closing((uv_handle_t*)&s->poll)){
+        return JS_ThrowInternalError(ctx, "cannot stop poll when already closing");
+    }
 	int ret = uv_poll_stop(&s->poll);
 	if(ret < 0){
 		tjs_throw_errno(ctx, ret);
@@ -516,7 +519,7 @@ static JSValue tjs_uv_poll_get_running(JSContext *ctx, JSValueConst this_val) {
 //TODO: maybe add function to convert to udp socket via uv_udp_open (which can handle all datagram like sockets)
 //TODO: maybe add function to convert to tcp socket via uv_tcp_open (which can handle all stream like sockets)
 
-static JSCFunctionListEntry tjs_sock_proto_funcs[] = {
+static const JSCFunctionListEntry tjs_sock_proto_funcs[] = {
     TJS_CFUNC_DEF("bind", 1, tjs_sock_bind),
     TJS_CFUNC_DEF("close", 0, tjs_sock_close),
     TJS_CFUNC_DEF("accept", 0, tjs_sock_accept),
@@ -559,11 +562,16 @@ static JSValue tjs_sock_sockaddr_inet(JSContext *ctx, JSValueConst this_val, int
 }
 
 // only the more common options are defined here
-static JSCFunctionListEntry defines_list[] = {
+static const JSCFunctionListEntry defines_list[] = {
     JS_PROT_INT_DEF(AF_INET),
     JS_PROT_INT_DEF(AF_INET6),
+
+#ifdef AF_NETLINK
     JS_PROT_INT_DEF(AF_NETLINK),
+#endif
+#ifdef AF_PACKET
     JS_PROT_INT_DEF(AF_PACKET),
+#endif
 
     JS_PROT_INT_DEF(SOCK_STREAM),
     JS_PROT_INT_DEF(SOCK_DGRAM),
@@ -572,8 +580,13 @@ static JSCFunctionListEntry defines_list[] = {
     JS_PROT_INT_DEF(SOCK_RDM),
 
     JS_PROT_INT_DEF(SOL_SOCKET),
+
+#ifdef SOL_PACKET
     JS_PROT_INT_DEF(SOL_PACKET),
+#endif
+#ifdef SOL_NETLINK
     JS_PROT_INT_DEF(SOL_NETLINK),
+#endif
 
     JS_PROT_INT_DEF(SO_REUSEADDR),
     JS_PROT_INT_DEF(SO_KEEPALIVE),
@@ -588,12 +601,24 @@ static JSCFunctionListEntry defines_list[] = {
     JS_PROT_INT_DEF(SO_TYPE),
     JS_PROT_INT_DEF(SO_DEBUG),
     JS_PROT_INT_DEF(SO_DONTROUTE),
+#ifdef SO_SNDBUFFORCE
     JS_PROT_INT_DEF(SO_SNDBUFFORCE),
+#endif
+#ifdef SO_RCVBUFFORCE
     JS_PROT_INT_DEF(SO_RCVBUFFORCE),
+#endif
+#ifdef SO_NO_CHECK
     JS_PROT_INT_DEF(SO_NO_CHECK),
+#endif
+#ifdef SO_PRIORITY
     JS_PROT_INT_DEF(SO_PRIORITY),
+#endif
+#ifdef SO_BSDCOMPAT
     JS_PROT_INT_DEF(SO_BSDCOMPAT),
+#endif
+#ifdef SO_REUSEPORT
     JS_PROT_INT_DEF(SO_REUSEPORT),
+#endif
 };
 
 static JSCFunctionListEntry tjs_uv_poll_events[] = {

@@ -5,7 +5,6 @@ import { open, mkstemp } from './fs.js';
 import { signal } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
-import { PosixSocket } from './posix-socket.js';
 
 // The "tjs" global.
 //
@@ -137,6 +136,8 @@ Object.defineProperty(tjs, 'stderr', {
     writable: false,
     value: createStderr()
 });
+
+import { PosixSocket } from './posix-socket.js';
 
 if(core.posix_socket){
     Object.defineProperty(tjs, 'PosixSocket', {

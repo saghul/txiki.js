@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project(tjs LANGUAGES C)
 
+include(ExternalProject)
 include(GNUInstallDirs)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -14,8 +15,7 @@ message(STATUS "Building with ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG -ggdb -O0 -fno-omit-frame-pointer")
-
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb -O0 -fno-omit-frame-pointer")
 
 message(STATUS "C flags:         ${CMAKE_C_FLAGS}")
 message(STATUS "C Debug flags:   ${CMAKE_C_FLAGS_DEBUG}")
@@ -55,31 +55,13 @@ add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
 find_package(CURL REQUIRED)
 
-file(GLOB_RECURSE BUNDLE_SRC_FILES ${PROJECT_SOURCE_DIR}/src/js/*.js)
-
-set(INCLUDED_JS_FILES "eval-stdin.js;repl.js;std.js;worker-bootstrap.js")
-set(INCLUDED_JS_FILES_PATH "")
+set(INCLUDED_JS_FILES "eval-stdin.js;repl.js;std.js;worker-bootstrap.js;bundle.js")
 foreach(jsfile ${INCLUDED_JS_FILES})
     configure_file(
         ${CMAKE_SOURCE_DIR}/src/js/${jsfile}
         ${CMAKE_CURRENT_BINARY_DIR}/${jsfile}
         COPYONLY)
-	list(APPEND INCLUDED_JS_FILES_PATH ${CMAKE_CURRENT_BINARY_DIR}/${jsfile})
 endforeach()
-
-add_custom_command(
-	OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild  ${CMAKE_CURRENT_SOURCE_DIR}/package-lock.json
-	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/package.json
-	COMMAND npm install
-  	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-add_custom_command(
-	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/bundle.js
-	DEPENDS ${BUNDLE_SRC_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild 
-	COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild src/js/index.js --bundle --outfile=${CMAKE_CURRENT_BINARY_DIR}/bundle.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module
-  	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-)
 
 add_executable(tjs
     src/bootstrap.c
@@ -106,13 +88,9 @@ add_executable(tjs
     ../deps/quickjs/src/cutils.c
 )
 
-if(NOT FALSEMINGW)
+if(NOT MINGW)
     target_sources(tjs PUBLIC src/posix-socket.c)
 endif()
-
-set_property(SOURCE src/bootstrap.c APPEND PROPERTY OBJECT_DEPENDS ${INCLUDED_JS_FILES_PATH} ${CMAKE_CURRENT_BINARY_DIR}/bundle.js)
-
-
 
 set_target_properties(tjs PROPERTIES
     C_STANDARD 11
