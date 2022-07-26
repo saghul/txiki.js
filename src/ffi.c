@@ -716,7 +716,7 @@ static JSCFunctionListEntry js_ffi_cif_proto_funcs[] = {
 
 static JSClassID js_uv_lib_classid;
 static JSValue js_uv_lib_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
+    TJS_CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
     JSValue obj = JS_NewObjectClass(ctx, js_uv_lib_classid);
     if (JS_IsException(obj)) {
         return obj;
@@ -744,7 +744,7 @@ static void js_uv_lib_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static JSValue js_uv_lib_dlsym(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
+    TJS_CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
 
     uv_lib_t *lib = JS_GetOpaque(this_val, js_uv_lib_classid);
     if (lib == NULL) {
@@ -792,7 +792,7 @@ static JSValue js_libc_errno(JSContext *ctx, JSValueConst this_val, int argc, JS
 }
 
 static JSValue js_libc_strerror(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 0, "number");
+    TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 0, "number");
     int err;
     JS_TO_INT(ctx, &err, argv[0]);
     return JS_NewString(ctx, strerror(err));
@@ -816,10 +816,10 @@ static JSValue js_array_buffer_get_ptr(JSContext *ctx, JSValueConst this_val, in
 
 static JSValue js_get_cstring(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     if (argc == 0 || argc >= 2) {
-        CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
-        CHECK_ARG_RET(ctx, JS_IsNumber(argv[1]), 1, "number");
+        TJS_CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
+        TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[1]), 1, "number");
     } else {
-        CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
+        TJS_CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
     }
     size_t max = 0;
     if (argc == 2 && JS_IsNumber(argv[1])) {
@@ -850,8 +850,8 @@ static JSValue JS_NewUint8ArrayShared(JSContext *ctx, uint8_t *data, size_t size
 }
 
 static JSValue js_ptr_to_buffer(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
-    CHECK_ARG_RET(ctx, JS_IsNumber(argv[1]), 1, "number");
+    TJS_CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
+    TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[1]), 1, "number");
     uint8_t *ptr;
     JS_TO_UINTPTR_T(ctx, &ptr, argv[0]);
     size_t sz;
@@ -941,8 +941,8 @@ void js_ffi_closure_invoke(ffi_cif *cif, void *ret, void **args, void *userptr) 
 }
 
 static JSValue js_ffi_closure_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    CHECK_ARG_RET(ctx, JS_IsObject(argv[0]), 0, "object");
-    CHECK_ARG_RET(ctx, JS_IsFunction(ctx, argv[1]), 1, "function");
+    TJS_CHECK_ARG_RET(ctx, JS_IsObject(argv[0]), 0, "object");
+    TJS_CHECK_ARG_RET(ctx, JS_IsFunction(ctx, argv[1]), 1, "function");
 
     js_ffi_cif *cif = JS_GetOpaque(argv[0], js_ffi_cif_classid);
     if (!cif) {
