@@ -1,6 +1,6 @@
 name: CI
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
   build-linux:
@@ -70,7 +70,7 @@ jobs:
       with:
         submodules: true
     - name: Prepare
-      run: apk add build-base cmake curl-dev autoconf automake libtool texinfo linux-headers npm --update-cache
+      run: apk add build-base cmake curl-dev autoconf automake libtool texinfo linux-headers --update-cache
     - name: Build it
       run: make
     - name: Test it

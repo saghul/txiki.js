@@ -59,7 +59,7 @@ find_package(CURL REQUIRED)
 
 file(GLOB_RECURSE BUNDLE_SRC_FILES ${PROJECT_SOURCE_DIR}/src/js/*.js)
 
-set(INCLUDED_JS_FILES "eval-stdin.js;repl.js;std.js;worker-bootstrap.js")
+set(INCLUDED_JS_FILES "eval-stdin.js;repl.js;std.js;worker-bootstrap.js;bundle.js")
 set(INCLUDED_JS_FILES_PATH "")
 foreach(jsfile ${INCLUDED_JS_FILES})
     configure_file(
@@ -68,20 +68,6 @@ foreach(jsfile ${INCLUDED_JS_FILES})
         COPYONLY)
 	list(APPEND INCLUDED_JS_FILES_PATH ${CMAKE_CURRENT_BINARY_DIR}/${jsfile})
 endforeach()
-
-add_custom_command(
-	OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild  ${CMAKE_CURRENT_SOURCE_DIR}/package-lock.json
-	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/package.json
-	COMMAND npm install
-  	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-add_custom_command(
-	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/bundle.js
-	DEPENDS ${BUNDLE_SRC_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild 
-	COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/node_modules/.bin/esbuild src/js/index.js --bundle --outfile=${CMAKE_CURRENT_BINARY_DIR}/bundle.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module
-  	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-)
 
 add_executable(tjs
     src/bootstrap.c
@@ -108,7 +94,6 @@ add_executable(tjs
     src/xhr.c
     ../deps/quickjs/src/cutils.c
 )
-set_property(SOURCE src/bootstrap.c APPEND PROPERTY OBJECT_DEPENDS ${INCLUDED_JS_FILES_PATH} ${CMAKE_CURRENT_BINARY_DIR}/bundle.js)
 
 add_library(ffi-test SHARED
     tests/fixtures/ffi-test-lib.c
