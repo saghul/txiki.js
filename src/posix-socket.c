@@ -42,9 +42,9 @@ static JSValue tjs_sock_new_from_fd(JSContext *ctx, int fd){
 
 static JSValue tjs_sock_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     unsigned domain, type, protocol;
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &domain, argv[0]), 0, "positive integer");
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &type, argv[1]), 1, "positive integer");
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &protocol, argv[2]), 2, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &domain, argv[0]), 0, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &type, argv[1]), 1, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &protocol, argv[2]), 2, "positive integer");
 
     int sock = socket(domain, type, protocol);
     RET_THROW_ERRNO(ctx, sock >= 0);
@@ -54,7 +54,7 @@ static JSValue tjs_sock_create(JSContext *ctx, JSValueConst this_val, int argc, 
 
 static JSValue tjs_sock_create_from_fd(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     unsigned fd;
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &fd, argv[0]), 0, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &fd, argv[0]), 0, "positive integer");
 
     int ret = fcntl(fd, F_GETFD);
     if(ret < 0){
@@ -112,13 +112,13 @@ JSClassDef tjs_sock_class = {
 
 static JSValue tjs_sock_bind(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
     size_t sz;
     struct sockaddr* sockaddr = (struct sockaddr*)JS_GetUint8Array(ctx, &sz, argv[0]);
-    CHECK_ARG_RET(ctx, sockaddr, 0, "Uint8Array");
+    TJS_CHECK_ARG_RET(ctx, sockaddr, 0, "Uint8Array");
     int ret = bind(s->sock, sockaddr, sz);
     RET_THROW_ERRNO(ctx, ret == 0);
 
@@ -127,7 +127,7 @@ static JSValue tjs_sock_bind(JSContext *ctx, JSValueConst this_val, int argc, JS
 
 static JSValue tjs_sock_accept(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
@@ -147,14 +147,14 @@ static JSValue tjs_sock_accept(JSContext *ctx, JSValueConst this_val, int argc, 
 
 static JSValue tjs_sock_connect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
 
     size_t sz;
     struct sockaddr* sockaddr = (struct sockaddr*)JS_GetUint8Array(ctx, &sz, argv[0]);
-    CHECK_ARG_RET(ctx, sockaddr, 0, "Uint8Array");
+    TJS_CHECK_ARG_RET(ctx, sockaddr, 0, "Uint8Array");
     
     int ret = connect(s->sock, sockaddr, sz);
     RET_THROW_ERRNO(ctx, ret == 0);
@@ -164,17 +164,17 @@ static JSValue tjs_sock_connect(JSContext *ctx, JSValueConst this_val, int argc,
 
 static JSValue tjs_sock_setsockopt(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
 
     unsigned level, optname;
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &level, argv[0]), 0, "positive integer");
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &optname, argv[1]), 1, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &level, argv[0]), 0, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &optname, argv[1]), 1, "positive integer");
     size_t optlen;
     void* optval = JS_GetUint8Array(ctx, &optlen, argv[2]);
-    CHECK_ARG_RET(ctx, optval, 2, "Uint8Array");
+    TJS_CHECK_ARG_RET(ctx, optval, 2, "Uint8Array");
     
     int ret = setsockopt(s->sock, level, optname, optval, optlen);
     RET_THROW_ERRNO(ctx, ret == 0);
@@ -184,18 +184,18 @@ static JSValue tjs_sock_setsockopt(JSContext *ctx, JSValueConst this_val, int ar
 
 static JSValue tjs_sock_getsockopt(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
 
     unsigned level, optname;
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &level, argv[0]), 0, "positive integer");
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &optname, argv[1]), 1, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &level, argv[0]), 0, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &optname, argv[1]), 1, "positive integer");
     
     socklen_t optlen = sizeof(struct sockaddr_storage); // largest optlen found (SO_PEERNAME) 
     if(argc > 2){
-        CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &optlen, argv[2]) && optlen > 0, 2, "(optional) positive integer");
+        TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &optlen, argv[2]) && optlen > 0, 2, "(optional) positive integer");
     }
 
     void* optval = js_malloc(ctx, optlen);
@@ -211,7 +211,7 @@ static JSValue tjs_sock_getsockopt(JSContext *ctx, JSValueConst this_val, int ar
 
 static JSValue tjs_sock_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket already closed");
     }
@@ -224,12 +224,12 @@ static JSValue tjs_sock_close(JSContext *ctx, JSValueConst this_val, int argc, J
 
 static JSValue tjs_sock_listen(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
     unsigned backlog;
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &backlog, argv[0]), 0, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &backlog, argv[0]), 0, "positive integer");
     int ret = listen(s->sock, backlog);
     RET_THROW_ERRNO(ctx, ret == 0);
     return JS_UNDEFINED;
@@ -237,18 +237,18 @@ static JSValue tjs_sock_listen(JSContext *ctx, JSValueConst this_val, int argc, 
 
 static JSValue tjs_sock_get_fd(JSContext *ctx, JSValueConst this_val) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     return JS_NewUint32(ctx, s->sock);
 }
 
 static JSValue tjs_sock_read(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
     size_t count;
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&count, argv[0]), 0, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&count, argv[0]), 0, "positive integer");
     uint8_t* buf = js_malloc(ctx, count);
     int ret = read(s->sock, buf, count);
     if (ret < 0) {
@@ -264,13 +264,13 @@ static JSValue tjs_sock_read(JSContext *ctx, JSValueConst this_val, int argc, JS
 
 static JSValue tjs_sock_write(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
     size_t sz;
     uint8_t* buf = JS_GetUint8Array(ctx, &sz, argv[0]);
-    CHECK_ARG_RET(ctx, buf, 0, "Uint8Array");
+    TJS_CHECK_ARG_RET(ctx, buf, 0, "Uint8Array");
     int ret = write(s->sock, buf, sz);
     RET_THROW_ERRNO(ctx, ret >= 0);
     return JS_NewUint32(ctx, ret);
@@ -278,12 +278,12 @@ static JSValue tjs_sock_write(JSContext *ctx, JSValueConst this_val, int argc, J
 
 static JSValue tjs_sock_shutdown(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
     unsigned how;
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &how, argv[0]), 0, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &how, argv[0]), 0, "positive integer");
     int ret = shutdown(s->sock, how);
     RET_THROW_ERRNO(ctx, ret == 0);
     return JS_UNDEFINED;
@@ -291,14 +291,14 @@ static JSValue tjs_sock_shutdown(JSContext *ctx, JSValueConst this_val, int argc
 
 static JSValue tjs_sock_recv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
     size_t count;
     int flags;
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&count, argv[0]), 0, "positive integer");
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&flags, argv[1]), 1, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&count, argv[0]), 0, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&flags, argv[1]), 1, "positive integer");
     uint8_t* buf = js_malloc(ctx, count);
     int ret = recv(s->sock, buf, count, flags);
     if (ret < 0) {
@@ -314,14 +314,14 @@ static JSValue tjs_sock_recv(JSContext *ctx, JSValueConst this_val, int argc, JS
 
 static JSValue tjs_sock_recvmsg(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
-    CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 1, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 1, "positive integer");
     int32_t bufsz;
     JS_ToInt32(ctx, &bufsz, argv[0]);
-    CHECK_ARG_RET(ctx, bufsz > 0, 1, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, bufsz > 0, 1, "positive integer");
     
     struct msghdr msg;
     memset(&msg, 0, sizeof(msg));
@@ -329,7 +329,7 @@ static JSValue tjs_sock_recvmsg(JSContext *ctx, JSValueConst this_val, int argc,
     msg.msg_name = js_malloc(ctx, sizeof(struct sockaddr));
 
     if(!JS_IsUndefined(argv[1])){
-        CHECK_ARG_RET(ctx, JS_IsNumber(argv[1]), 1, "positive integer");
+        TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[1]), 1, "positive integer");
         uint32_t controlsz;
         JS_ToUint32(ctx, &controlsz, argv[1]);
         if(controlsz > 0){
@@ -357,15 +357,15 @@ static JSValue tjs_sock_recvmsg(JSContext *ctx, JSValueConst this_val, int argc,
 /*
 static JSValue tjs_sock_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
     int flags;
     size_t sz;
     uint8_t* buf = JS_GetUint8Array(ctx, &sz, argv[0]);
-    CHECK_ARG_RET(ctx, buf, 0, "Uint8Array");
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&flags, argv[1]), 1, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, buf, 0, "Uint8Array");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&flags, argv[1]), 1, "positive integer");
     int ret = send(s->sock, buf, sz, flags);
     RET_THROW_ERRNO(ctx, ret >= 0);
     return JS_NewUint32(ctx, ret);
@@ -373,18 +373,18 @@ static JSValue tjs_sock_send(JSContext *ctx, JSValueConst this_val, int argc, JS
 
 static JSValue tjs_sock_sendto(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
     int flags;
     size_t sz;
     uint8_t* buf = JS_GetUint8Array(ctx, &sz, argv[0]);
-    CHECK_ARG_RET(ctx, buf, 0, "Uint8Array");
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&flags, argv[1]), 1, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, buf, 0, "Uint8Array");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&flags, argv[1]), 1, "positive integer");
     size_t addrsz;
     struct sockaddr* addr = JS_GetUint8Array(ctx, &addrsz, argv[2]);
-    CHECK_ARG_RET(ctx, addr != NULL, 2, "Uint8Array");
+    TJS_CHECK_ARG_RET(ctx, addr != NULL, 2, "Uint8Array");
     int ret = sendto(s->sock, buf, sz, flags, addr, addrsz);
     RET_THROW_ERRNO(ctx, ret >= 0);
     return JS_NewUint32(ctx, ret);
@@ -395,7 +395,7 @@ static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValueConst this_val, int argc,
     // this: PosixSocket
     // args: Uint8Array|undefined addr, Uint8Array|undefined control, int flags, Uint8Array ...data
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
@@ -408,7 +408,7 @@ static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValueConst this_val, int argc,
     if(!JS_IsUndefined(argv[0])){
         size_t addrsz;
         struct sockaddr* addr = (struct sockaddr*)JS_GetUint8Array(ctx, &addrsz, argv[0]);
-        CHECK_ARG_RET(ctx, addr != NULL, 0, "Uint8Array");
+        TJS_CHECK_ARG_RET(ctx, addr != NULL, 0, "Uint8Array");
         msg.msg_name = addr;
         msg.msg_namelen = addrsz;
     }else{
@@ -418,7 +418,7 @@ static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValueConst this_val, int argc,
     if(!JS_IsUndefined(argv[1])){
         size_t ctrlsz;
         uint8_t* ctrl = JS_GetUint8Array(ctx, &ctrlsz, argv[1]);
-        CHECK_ARG_RET(ctx, ctrl != NULL, 1, "Uint8Array");
+        TJS_CHECK_ARG_RET(ctx, ctrl != NULL, 1, "Uint8Array");
         msg.msg_control = ctrl;
         msg.msg_controllen = ctrlsz;
     }else{
@@ -426,7 +426,7 @@ static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValueConst this_val, int argc,
         msg.msg_controllen = 0;
     }
     int flags;
-    CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&flags, argv[1]), 1, "positive integer");
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&flags, argv[1]), 1, "positive integer");
     msg.msg_flags = flags;
 
     msg.msg_iovlen = (argc - 3);
@@ -437,7 +437,7 @@ static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValueConst this_val, int argc,
         uint8_t* buf = JS_GetUint8Array(ctx, &sz, argv[i+3]);
         if(buf == NULL){
             js_free(ctx, msg.msg_iov);
-            return THROW_ARG_ERR(ctx, i+3, "Uint8Array");
+            return TJS_THROW_ARG_ERR(ctx, i+3, "Uint8Array");
         }
         msg.msg_iov[i].iov_base = buf;
         msg.msg_iov[i].iov_len = sz;
@@ -464,12 +464,12 @@ static void tjs_sock_uv_poll_cb(uv_poll_t* handle, int status, int events){
 
 static JSValue tjs_sock_poll(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
 	unsigned events;
-	CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 0, "positive integer");
-	CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &events, argv[0]), 0, "positive integer");
-	CHECK_ARG_RET(ctx, events > 0 && events <= 0xf, 0, "positive integer");
-	CHECK_ARG_RET(ctx, JS_IsFunction(ctx, argv[1]), 1, "function");
+	TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 0, "positive integer");
+	TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &events, argv[0]), 0, "positive integer");
+	TJS_CHECK_ARG_RET(ctx, events > 0 && events <= 0xf, 0, "positive integer");
+	TJS_CHECK_ARG_RET(ctx, JS_IsFunction(ctx, argv[1]), 1, "function");
 	
     if(!s->poll_init){
         int ret = uv_poll_init(tjs_get_loop(ctx), &s->poll, s->sock);
@@ -492,7 +492,7 @@ static JSValue tjs_sock_poll(JSContext *ctx, JSValueConst this_val, int argc, JS
 
 static JSValue tjs_sock_poll_stop(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
 	if(s->in_cb){
 		return JS_ThrowInternalError(ctx, "cannot stop poll during callback");
 	}
@@ -508,7 +508,7 @@ static JSValue tjs_sock_poll_stop(JSContext *ctx, JSValueConst this_val, int arg
 
 static JSValue tjs_uv_poll_get_running(JSContext *ctx, JSValueConst this_val) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
-    CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
 	int ret = uv_is_active((uv_handle_t*)&s->poll);
 	RET_THROW_ERRNO(ctx, ret == 0);
     return JS_NewBool(ctx, ret);
@@ -543,8 +543,8 @@ static const JSCFunctionListEntry tjs_sock_proto_funcs[] = {
 
 static JSValue tjs_uv_strerror(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
 	int errorno;
-	CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 0, "integer");
-	CHECK_ARG_RET(ctx, !JS_ToInt32(ctx, &errorno, argv[0]), 0, "integer");
+	TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 0, "integer");
+	TJS_CHECK_ARG_RET(ctx, !JS_ToInt32(ctx, &errorno, argv[0]), 0, "integer");
 	return JS_NewString(ctx, uv_strerror(errorno));
 }
 
