@@ -55,6 +55,10 @@ tjs.args = Object.freeze(core.args);
 tjs.versions = Object.freeze(core.versions);
 
 tjs.ffi = FFI;
+FFI.StructType.parseCProto = function(header){
+    const ast = parseCProto(header);
+    astToLib(this, ast);
+}
 
 // Alert, confirm, prompt.
 // These differ slightly from browsers, they are async.

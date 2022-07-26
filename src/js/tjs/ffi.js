@@ -1,7 +1,9 @@
 const core = globalThis.__bootstrap;
 export const ffiInt = core.ffi;
 
-import { parseCProto, astToLib } from './ffiutils';
+import Cparser from './ffiutils.js';
+
+
 
 export class DlSymbol{
 	constructor(name, uvlib, dlsym){
@@ -409,3 +411,5 @@ export class JSCallback{
 		return this._closure.addr;
 	}
 }
+
+const {parseCProto, astToLib} = Cparser({StructType, CFunction, PointerType});

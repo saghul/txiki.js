@@ -2348,14 +2348,14 @@ var require_web_url_search_params = __commonJS({
       }
       return step;
     }, true);
-    var URLSearchParamsState = function(init) {
+    var URLSearchParamsState = function(init2) {
       this.entries = [];
       this.url = null;
-      if (init !== void 0) {
-        if (isObject2(init))
-          this.parseObject(init);
+      if (init2 !== void 0) {
+        if (isObject2(init2))
+          this.parseObject(init2);
         else
-          this.parseQuery(typeof init == "string" ? charAt(init, 0) === "?" ? stringSlice(init, 1) : init : $toString(init));
+          this.parseQuery(typeof init2 == "string" ? charAt(init2, 0) === "?" ? stringSlice(init2, 1) : init2 : $toString(init2));
       }
     };
     URLSearchParamsState.prototype = {
@@ -2422,8 +2422,8 @@ var require_web_url_search_params = __commonJS({
     };
     var URLSearchParamsConstructor = function URLSearchParams2() {
       anInstance(this, URLSearchParamsPrototype);
-      var init = arguments.length > 0 ? arguments[0] : void 0;
-      setInternalState(this, new URLSearchParamsState(init));
+      var init2 = arguments.length > 0 ? arguments[0] : void 0;
+      setInternalState(this, new URLSearchParamsState(init2));
     };
     var URLSearchParamsPrototype = URLSearchParamsConstructor.prototype;
     redefineAll(URLSearchParamsPrototype, {
@@ -2543,22 +2543,22 @@ var require_web_url_search_params = __commonJS({
     if (!USE_NATIVE_URL && isCallable(Headers)) {
       headersHas = uncurryThis(HeadersPrototype.has);
       headersSet = uncurryThis(HeadersPrototype.set);
-      wrapRequestOptions = function(init) {
-        if (isObject2(init)) {
-          var body = init.body;
+      wrapRequestOptions = function(init2) {
+        if (isObject2(init2)) {
+          var body = init2.body;
           var headers;
           if (classof(body) === URL_SEARCH_PARAMS) {
-            headers = init.headers ? new Headers(init.headers) : new Headers();
+            headers = init2.headers ? new Headers(init2.headers) : new Headers();
             if (!headersHas(headers, "content-type")) {
               headersSet(headers, "content-type", "application/x-www-form-urlencoded;charset=UTF-8");
             }
-            return create(init, {
+            return create(init2, {
               body: createPropertyDescriptor(0, $toString(body)),
               headers: createPropertyDescriptor(0, headers)
             });
           }
         }
-        return init;
+        return init2;
       };
       if (isCallable(n$Fetch)) {
         $({ global: true, enumerable: true, forced: true }, {
@@ -4198,9 +4198,9 @@ var require_fetch_umd = __commonJS({
         exports2.DOMException.prototype = Object.create(Error.prototype);
         exports2.DOMException.prototype.constructor = exports2.DOMException;
       }
-      function fetch(input, init) {
+      function fetch(input, init2) {
         return new Promise(function(resolve, reject) {
-          var request = new Request(input, init);
+          var request = new Request(input, init2);
           if (request.signal && request.signal.aborted) {
             return reject(new exports2.DOMException("Aborted", "AbortError"));
           }
@@ -4255,9 +4255,9 @@ var require_fetch_umd = __commonJS({
               xhr.responseType = "arraybuffer";
             }
           }
-          if (init && typeof init.headers === "object" && !(init.headers instanceof Headers)) {
-            Object.getOwnPropertyNames(init.headers).forEach(function(name) {
-              xhr.setRequestHeader(name, normalizeValue(init.headers[name]));
+          if (init2 && typeof init2.headers === "object" && !(init2.headers instanceof Headers)) {
+            Object.getOwnPropertyNames(init2.headers).forEach(function(name) {
+              xhr.setRequestHeader(name, normalizeValue(init2.headers[name]));
             });
           } else {
             request.headers.forEach(function(value, name) {
@@ -5604,10 +5604,10 @@ var require_polyfill_es2018 = __commonJS({
         }
         return size;
       }
-      function convertQueuingStrategy(init, context) {
-        assertDictionary(init, context);
-        const highWaterMark = init === null || init === void 0 ? void 0 : init.highWaterMark;
-        const size = init === null || init === void 0 ? void 0 : init.size;
+      function convertQueuingStrategy(init2, context) {
+        assertDictionary(init2, context);
+        const highWaterMark = init2 === null || init2 === void 0 ? void 0 : init2.highWaterMark;
+        const size = init2 === null || init2 === void 0 ? void 0 : init2.size;
         return {
           highWaterMark: highWaterMark === void 0 ? void 0 : convertUnrestrictedDouble(highWaterMark),
           size: size === void 0 ? void 0 : convertQueuingStrategySize(size, `${context} has member 'size' that`)
@@ -7459,9 +7459,9 @@ var require_polyfill_es2018 = __commonJS({
       function streamBrandCheckException$1(name) {
         return new TypeError(`ReadableStream.prototype.${name} can only be used on a ReadableStream`);
       }
-      function convertQueuingStrategyInit(init, context) {
-        assertDictionary(init, context);
-        const highWaterMark = init === null || init === void 0 ? void 0 : init.highWaterMark;
+      function convertQueuingStrategyInit(init2, context) {
+        assertDictionary(init2, context);
+        const highWaterMark = init2 === null || init2 === void 0 ? void 0 : init2.highWaterMark;
         assertRequiredField(highWaterMark, "highWaterMark", "QueuingStrategyInit");
         return {
           highWaterMark: convertUnrestrictedDouble(highWaterMark)
@@ -11593,11 +11593,11 @@ var kProgressEventLengthComputable = Symbol("kProgressEventLengthComputable");
 var kProgressEventLoaded = Symbol("kProgressEventLoaded");
 var kProgressEventTotal = Symbol("kProgressEventTotal");
 var ProgressEvent2 = class extends Event2 {
-  constructor(eventTye, init) {
-    super(eventTye, init);
-    this[kProgressEventLengthComputable] = init?.lengthComputable || false;
-    this[kProgressEventLoaded] = init?.loaded || 0;
-    this[kProgressEventTotal] = init?.total || 0;
+  constructor(eventTye, init2) {
+    super(eventTye, init2);
+    this[kProgressEventLengthComputable] = init2?.lengthComputable || false;
+    this[kProgressEventLoaded] = init2?.loaded || 0;
+    this[kProgressEventTotal] = init2?.total || 0;
   }
   get lengthComputable() {
     return this[kProgressEventLengthComputable];
@@ -12738,13 +12738,13 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
     }
     var Request = NativeRequest;
     if (Request && !Request.prototype.hasOwnProperty("signal") || __FORCE_INSTALL_ABORTCONTROLLER_POLYFILL) {
-      Request = function Request2(input, init) {
+      Request = function Request2(input, init2) {
         var signal2;
-        if (init && init.signal) {
-          signal2 = init.signal;
-          delete init.signal;
+        if (init2 && init2.signal) {
+          signal2 = init2.signal;
+          delete init2.signal;
         }
-        var request = new NativeRequest(input, init);
+        var request = new NativeRequest(input, init2);
         if (signal2) {
           Object.defineProperty(request, "signal", {
             writable: false,
@@ -12758,8 +12758,8 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
       Request.prototype = NativeRequest.prototype;
     }
     var realFetch = fetch;
-    var abortableFetch = function abortableFetch2(input, init) {
-      var signal2 = Request && Request.prototype.isPrototypeOf(input) ? input.signal : init ? init.signal : void 0;
+    var abortableFetch = function abortableFetch2(input, init2) {
+      var signal2 = Request && Request.prototype.isPrototypeOf(input) ? input.signal : init2 ? init2.signal : void 0;
       if (signal2) {
         var abortError;
         try {
@@ -12778,12 +12778,12 @@ var import_whatwg_fetch = __toESM(require_fetch_umd());
             once: true
           });
         });
-        if (init && init.signal) {
-          delete init.signal;
+        if (init2 && init2.signal) {
+          delete init2.signal;
         }
-        return Promise.race([cancellation, realFetch(input, init)]);
+        return Promise.race([cancellation, realFetch(input, init2)]);
       }
-      return realFetch(input, init);
+      return realFetch(input, init2);
     };
     return {
       fetch: abortableFetch,
@@ -13833,14 +13833,14 @@ var ffi_exports = {};
 __export(ffi_exports, {
   AdvancedType: () => AdvancedType,
   ArrayType: () => ArrayType,
-  CFunction: () => CFunction2,
+  CFunction: () => CFunction,
   DlSymbol: () => DlSymbol,
   JSCallback: () => JSCallback,
   Lib: () => Lib,
   Pointer: () => Pointer,
-  PointerType: () => PointerType2,
+  PointerType: () => PointerType,
   StaticStringType: () => StaticStringType,
-  StructType: () => StructType2,
+  StructType: () => StructType,
   bufferToString: () => bufferToString,
   errno: () => errno,
   ffiInt: () => ffiInt,
@@ -13849,305 +13849,308 @@ __export(ffi_exports, {
 });
 
 // src/js/tjs/ffiutils.js
-function parseCProto(header) {
-  function tokenize(str) {
-    const words = str.split(/\s+/);
-    const tokens2 = [];
-    const tokenRegex = /(\w+|[^\w])/g;
-    for (const w2 of words) {
-      if (w2.length == 0)
-        continue;
-      let m2;
-      while (m2 = tokenRegex.exec(w2)) {
-        tokens2.push(m2[1]);
+function init({ StructType: StructType2, CFunction: CFunction2, PointerType: PointerType2 }) {
+  function parseCProto3(header) {
+    function tokenize(str) {
+      const words = str.split(/\s+/);
+      const tokens2 = [];
+      const tokenRegex = /(\w+|[^\w])/g;
+      for (const w2 of words) {
+        if (w2.length == 0)
+          continue;
+        let m2;
+        while (m2 = tokenRegex.exec(w2)) {
+          tokens2.push(m2[1]);
+        }
+        tokenRegex.lastIndex = 0;
       }
-      tokenRegex.lastIndex = 0;
+      return tokens2;
     }
-    return tokens2;
-  }
-  function sepStatements(tokens2, offs = 0) {
-    const statements2 = [];
-    let index = offs;
-    let sep = ";";
-    const firstToken = tokens2[index];
-    if (firstToken == "[" || firstToken == "(") {
-      sep = ",";
-      index++;
-      statements2._block = firstToken;
-    } else if (firstToken == "{") {
-      sep = ";";
-      index++;
-      statements2._block = firstToken;
-    }
-    let stTokens = [];
-    while (index < tokens2.length) {
-      const t2 = tokens2[index];
-      switch (t2) {
-        case "{":
-          {
-            const [sst, newOffs] = sepStatements(tokens2, index);
-            stTokens.push(sst);
-            index = newOffs;
-          }
-          break;
-        case "(":
-        case "[":
-          {
-            const [sst, newOffs] = sepStatements(tokens2, index);
-            stTokens.push(sst);
-            index = newOffs;
-          }
-          break;
-        case "}":
-          if (firstToken != "{") {
-            throw new Error("Unexpected " + t2);
-          }
-          if (stTokens.length > 0) {
-            throw new Error("expected semicolon as last token of block");
-          }
-          return [statements2, index];
-          break;
-        case ")":
-          if (firstToken != "(") {
-            throw new Error("Unexpected " + t2);
-          }
-          if (stTokens.length) {
-            statements2.push(stTokens);
-          }
-          return [statements2, index];
-          break;
-        case "]":
-          if (firstToken != "[") {
-            throw new Error("Unexpected " + t2);
-          }
-          if (stTokens.length) {
-            statements2.push(stTokens);
-          }
-          return [statements2, index];
-          break;
-        case ",":
-        case ";":
-          if (stTokens.length) {
-            statements2.push(stTokens);
-          }
-          stTokens = [];
-          break;
-        default:
-          stTokens.push(t2);
+    function sepStatements(tokens2, offs = 0) {
+      const statements2 = [];
+      let index = offs;
+      let sep = ";";
+      const firstToken = tokens2[index];
+      if (firstToken == "[" || firstToken == "(") {
+        sep = ",";
+        index++;
+        statements2._block = firstToken;
+      } else if (firstToken == "{") {
+        sep = ";";
+        index++;
+        statements2._block = firstToken;
       }
-      index++;
-    }
-    return [statements2, index];
-  }
-  function parseSimpleType(st) {
-    let info = {
-      kind: "type",
-      typeModifiers: [],
-      name: "",
-      ptr: 0
-    };
-    for (let i2 = 0; i2 < st.length; i2++) {
-      if (st[i2]._block == "[") {
-        info.arr = st[i2].length > 0 ? parseInt(st[i2][0]) : true;
-        continue;
-      }
-      switch (st[i2]) {
-        case "const":
-          info.const = true;
-          break;
-        case "volatile":
-          info.volatile = true;
-          break;
-        case "*":
-          info.ptr++;
-          break;
-        case "long":
-        case "short":
-        case "unsigned":
-        case "signed":
-        case "struct":
-        default:
-          if (info.name.length > 0)
-            info.name += " ";
-          info.name += st[i2];
-      }
-    }
-    return info;
-  }
-  function parseType(st) {
-    const curlyBlockInd = st.findIndex((e2) => e2._block == "{");
-    const roundBlockInd = st.findIndex((e2) => e2._block == "(");
-    const ptr = st.filter((e2) => e2 == "*").length;
-    if (st[0] == "struct" && curlyBlockInd > -1) {
-      return {
-        kind: "type",
-        typeModifiers: [],
-        name: "",
-        ptr,
-        struct: parseStruct(st)
-      };
-    } else if (roundBlockInd > -1) {
-      return {
-        kind: "type",
-        typeModifiers: [],
-        name: "",
-        ptr,
-        func: parseFunctionProto(st)
-      };
-    } else {
-      return parseSimpleType(st);
-    }
-  }
-  function parseVardef(st) {
-    let namePos = st.length - 1;
-    let arr;
-    if (st.slice(-1)[0]._block == "[") {
-      const arrBrack = st.slice(-1)[0];
-      arr = arrBrack.length == 0 ? true : parseInt(arrBrack[0]);
-      namePos--;
-    }
-    const info = {
-      kind: "vardef",
-      type: parseType(st.slice(0, namePos)),
-      name: st[namePos]
-    };
-    if (arr) {
-      info.arr = arr;
-    }
-    return info;
-  }
-  function parseTypedef(st) {
-    if (st.slice(-1)[0]._block == "(") {
-      const func = parseFunctionProto(st.slice(1));
-      return {
-        kind: "typedef",
-        name: func.name,
-        child: func
-      };
-    }
-    return {
-      kind: "typedef",
-      name: st.slice(-1)[0],
-      child: parseType(st.slice(1, -1))
-    };
-  }
-  function parseStruct(st) {
-    const info = {
-      kind: "struct"
-    };
-    const curlyBlockInd = st.findIndex((e2) => e2._block == "{");
-    if (curlyBlockInd >= 2) {
-      if (curlyBlockInd > 2) {
-        throw new Error("expected { after struct name");
-      }
-      info.name = st[1];
-    }
-    info.members = st[curlyBlockInd].map(parseVardef);
-    return info;
-  }
-  function parseFunctionProto(st) {
-    let firstBrackInd = st.findIndex((e2) => e2._block == "(");
-    let secondBrackInd = st[firstBrackInd + 1]?._block == "(" ? firstBrackInd + 1 : -1;
-    const argBlock = secondBrackInd > 0 ? st[secondBrackInd] : st[firstBrackInd];
-    const name = secondBrackInd > 0 ? st[firstBrackInd][0].slice(-1)[0] : st[firstBrackInd - 1];
-    const ptr = secondBrackInd > 0 ? st[firstBrackInd][0].filter((e2) => e2 == "*").length : 0;
-    const retTypeMaxInd = secondBrackInd > 0 ? firstBrackInd - 1 : firstBrackInd - 2;
-    const info = {
-      kind: "function",
-      name,
-      args: argBlock.map(parseVardef),
-      modifiers: [],
-      ptr
-    };
-    let offs = 0;
-    loop:
-      while (offs < retTypeMaxInd) {
-        switch (st[offs]) {
-          case "static":
-          case "inline":
-          case "extern":
-            info.modifiers.push(st[offs]);
+      let stTokens = [];
+      while (index < tokens2.length) {
+        const t2 = tokens2[index];
+        switch (t2) {
+          case "{":
+            {
+              const [sst, newOffs] = sepStatements(tokens2, index);
+              stTokens.push(sst);
+              index = newOffs;
+            }
+            break;
+          case "(":
+          case "[":
+            {
+              const [sst, newOffs] = sepStatements(tokens2, index);
+              stTokens.push(sst);
+              index = newOffs;
+            }
+            break;
+          case "}":
+            if (firstToken != "{") {
+              throw new Error("Unexpected " + t2);
+            }
+            if (stTokens.length > 0) {
+              throw new Error("expected semicolon as last token of block");
+            }
+            return [statements2, index];
+            break;
+          case ")":
+            if (firstToken != "(") {
+              throw new Error("Unexpected " + t2);
+            }
+            if (stTokens.length) {
+              statements2.push(stTokens);
+            }
+            return [statements2, index];
+            break;
+          case "]":
+            if (firstToken != "[") {
+              throw new Error("Unexpected " + t2);
+            }
+            if (stTokens.length) {
+              statements2.push(stTokens);
+            }
+            return [statements2, index];
+            break;
+          case ",":
+          case ";":
+            if (stTokens.length) {
+              statements2.push(stTokens);
+            }
+            stTokens = [];
             break;
           default:
-            break loop;
+            stTokens.push(t2);
         }
-        offs++;
+        index++;
       }
-    info.return = parseType(st.slice(offs, retTypeMaxInd + 1));
-    return info;
-  }
-  function parseStatement(st) {
-    switch (st[0]) {
-      case "typedef":
-        return parseTypedef(st);
-      case "struct":
-        return parseStruct(st);
-      default:
-        return parseFunctionProto(st);
+      return [statements2, index];
     }
+    function parseSimpleType(st) {
+      let info = {
+        kind: "type",
+        typeModifiers: [],
+        name: "",
+        ptr: 0
+      };
+      for (let i2 = 0; i2 < st.length; i2++) {
+        if (st[i2]._block == "[") {
+          info.arr = st[i2].length > 0 ? parseInt(st[i2][0]) : true;
+          continue;
+        }
+        switch (st[i2]) {
+          case "const":
+            info.const = true;
+            break;
+          case "volatile":
+            info.volatile = true;
+            break;
+          case "*":
+            info.ptr++;
+            break;
+          case "long":
+          case "short":
+          case "unsigned":
+          case "signed":
+          case "struct":
+          default:
+            if (info.name.length > 0)
+              info.name += " ";
+            info.name += st[i2];
+        }
+      }
+      return info;
+    }
+    function parseType(st) {
+      const curlyBlockInd = st.findIndex((e2) => e2._block == "{");
+      const roundBlockInd = st.findIndex((e2) => e2._block == "(");
+      const ptr = st.filter((e2) => e2 == "*").length;
+      if (st[0] == "struct" && curlyBlockInd > -1) {
+        return {
+          kind: "type",
+          typeModifiers: [],
+          name: "",
+          ptr,
+          struct: parseStruct(st)
+        };
+      } else if (roundBlockInd > -1) {
+        return {
+          kind: "type",
+          typeModifiers: [],
+          name: "",
+          ptr,
+          func: parseFunctionProto(st)
+        };
+      } else {
+        return parseSimpleType(st);
+      }
+    }
+    function parseVardef(st) {
+      let namePos = st.length - 1;
+      let arr;
+      if (st.slice(-1)[0]._block == "[") {
+        const arrBrack = st.slice(-1)[0];
+        arr = arrBrack.length == 0 ? true : parseInt(arrBrack[0]);
+        namePos--;
+      }
+      const info = {
+        kind: "vardef",
+        type: parseType(st.slice(0, namePos)),
+        name: st[namePos]
+      };
+      if (arr) {
+        info.arr = arr;
+      }
+      return info;
+    }
+    function parseTypedef(st) {
+      if (st.slice(-1)[0]._block == "(") {
+        const func = parseFunctionProto(st.slice(1));
+        return {
+          kind: "typedef",
+          name: func.name,
+          child: func
+        };
+      }
+      return {
+        kind: "typedef",
+        name: st.slice(-1)[0],
+        child: parseType(st.slice(1, -1))
+      };
+    }
+    function parseStruct(st) {
+      const info = {
+        kind: "struct"
+      };
+      const curlyBlockInd = st.findIndex((e2) => e2._block == "{");
+      if (curlyBlockInd >= 2) {
+        if (curlyBlockInd > 2) {
+          throw new Error("expected { after struct name");
+        }
+        info.name = st[1];
+      }
+      info.members = st[curlyBlockInd].map(parseVardef);
+      return info;
+    }
+    function parseFunctionProto(st) {
+      let firstBrackInd = st.findIndex((e2) => e2._block == "(");
+      let secondBrackInd = st[firstBrackInd + 1]?._block == "(" ? firstBrackInd + 1 : -1;
+      const argBlock = secondBrackInd > 0 ? st[secondBrackInd] : st[firstBrackInd];
+      const name = secondBrackInd > 0 ? st[firstBrackInd][0].slice(-1)[0] : st[firstBrackInd - 1];
+      const ptr = secondBrackInd > 0 ? st[firstBrackInd][0].filter((e2) => e2 == "*").length : 0;
+      const retTypeMaxInd = secondBrackInd > 0 ? firstBrackInd - 1 : firstBrackInd - 2;
+      const info = {
+        kind: "function",
+        name,
+        args: argBlock.map(parseVardef),
+        modifiers: [],
+        ptr
+      };
+      let offs = 0;
+      loop:
+        while (offs < retTypeMaxInd) {
+          switch (st[offs]) {
+            case "static":
+            case "inline":
+            case "extern":
+              info.modifiers.push(st[offs]);
+              break;
+            default:
+              break loop;
+          }
+          offs++;
+        }
+      info.return = parseType(st.slice(offs, retTypeMaxInd + 1));
+      return info;
+    }
+    function parseStatement(st) {
+      switch (st[0]) {
+        case "typedef":
+          return parseTypedef(st);
+        case "struct":
+          return parseStruct(st);
+        default:
+          return parseFunctionProto(st);
+      }
+    }
+    const tokens = tokenize(header);
+    const [statements] = sepStatements(tokens);
+    const ast = statements.map(parseStatement);
+    return ast;
   }
-  const tokens = tokenize(header);
-  const [statements] = sepStatements(tokens);
-  const ast = statements.map(parseStatement);
-  return ast;
-}
-function astToLib(lib, ast) {
-  let unnamedCnt = 0;
-  function getType(name, ptr = 0, func = false) {
-    let ffiType = lib.getType(name + "*".repeat(ptr));
-    if (ffiType) {
+  function astToLib3(lib, ast) {
+    let unnamedCnt = 0;
+    function getType(name, ptr = 0, func = false) {
+      let ffiType = lib.getType(name + "*".repeat(ptr));
+      if (ffiType) {
+        return ffiType;
+      }
+      ffiType = lib.getType(name);
+      if (!ffiType) {
+        throw new Error(`Unknown type ${name}`);
+      }
+      if (ptr > 0) {
+        return new PointerType2(ffiType, ptr);
+      }
       return ffiType;
     }
-    ffiType = lib.getType(name);
-    if (!ffiType) {
-      throw new Error(`Unknown type ${name}`);
-    }
-    if (ptr > 0) {
-      return new PointerType(ffiType, ptr);
-    }
-    return ffiType;
-  }
-  function registerStruct(regname, st) {
-    const fields = [];
-    for (const m2 of st.members) {
-      if (m2.type.kind == "type") {
-        if (m2.type.struct) {
-          const mstt = registerStruct(m2.type.struct.name, m2.type.struct);
-          fields.push([m2.name, mstt]);
+    function registerStruct(regname, st) {
+      const fields = [];
+      for (const m2 of st.members) {
+        if (m2.type.kind == "type") {
+          if (m2.type.struct) {
+            const mstt = registerStruct(m2.type.struct.name, m2.type.struct);
+            fields.push([m2.name, mstt]);
+          } else {
+            fields.push([m2.name, getType(m2.type.name)]);
+          }
         } else {
-          fields.push([m2.name, getType(m2.type.name)]);
+          throw new Error("unhandled member type: " + m2.type.kind);
         }
-      } else {
-        throw new Error("unhandled member type: " + m2.type.kind);
+      }
+      const stt = new StructType2(fields, st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`);
+      lib.registerType(regname, stt);
+      return stt;
+    }
+    for (const e2 of ast) {
+      switch (e2.kind) {
+        case "typedef":
+          if (e2.child.kind == "type") {
+            if (e2.child.struct) {
+              registerStruct(e2.name ?? "struct " + e2.child.struct.name, e2.child.struct);
+            } else {
+              lib.registerType(e2.name, getType(e2.child.name));
+            }
+          } else if (e2.child.kind == "function") {
+            lib.registerType(e2.name || e2.child.name, FFI.types.jscallback);
+          } else {
+            throw new Error("unsupported typedef: " + JSON.stringify(e2));
+          }
+          break;
+        case "struct":
+          registerStruct("struct " + e2.name, e2);
+          break;
+        case "function":
+          const f2 = new CFunction2(lib.symbol(e2.name), getType(e2.return.name, e2.return.ptr, true), e2.args.map((p2) => getType(p2.type.name, p2.type.ptr, true)));
+          lib.registerFunction(e2.name, f2);
       }
     }
-    const stt = new StructType(fields, st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`);
-    lib.registerType(regname, stt);
-    return stt;
   }
-  for (const e2 of ast) {
-    switch (e2.kind) {
-      case "typedef":
-        if (e2.child.kind == "type") {
-          if (e2.child.struct) {
-            registerStruct(e2.name ?? "struct " + e2.child.struct.name, e2.child.struct);
-          } else {
-            lib.registerType(e2.name, getType(e2.child.name));
-          }
-        } else if (e2.child.kind == "function") {
-          lib.registerType(e2.name || e2.child.name, FFI.types.jscallback);
-        } else {
-          throw new Error("unsupported typedef: " + JSON.stringify(e2));
-        }
-        break;
-      case "struct":
-        registerStruct("struct " + e2.name, e2);
-        break;
-      case "function":
-        const f2 = new CFunction(lib.symbol(e2.name), getType(e2.return.name, e2.return.ptr, true), e2.args.map((p2) => getType(p2.type.name, p2.type.ptr, true)));
-        lib.registerFunction(e2.name, f2);
-    }
-  }
+  return { parseCProto: parseCProto3, astToLib: astToLib3 };
 }
 
 // src/js/tjs/ffi.js
@@ -14205,8 +14208,8 @@ var Lib = class {
     return func.call(...args);
   }
   parseCProto(header) {
-    const ast = parseCProto(header);
-    astToLib(this, ast);
+    const ast = parseCProto2(header);
+    astToLib2(this, ast);
   }
 };
 __publicField(Lib, "LIBC_NAME", ffiInt.LIBC_NAME);
@@ -14241,7 +14244,7 @@ var AdvancedType = class {
     return this._ffiType.size;
   }
 };
-var CFunction2 = class {
+var CFunction = class {
   constructor(symbol, rtype, argtypes, fixed) {
     this._symbol = symbol;
     this._rtype = rtype;
@@ -14396,7 +14399,7 @@ var Pointer = class {
     return ptr;
   }
 };
-var PointerType2 = class extends AdvancedType {
+var PointerType = class extends AdvancedType {
   constructor(type, level = 1) {
     super(types.pointer || type, {
       name: (type.name || "void") + "*".repeat(level)
@@ -14421,7 +14424,7 @@ var PointerType2 = class extends AdvancedType {
     return this._level;
   }
 };
-var StructType2 = class extends AdvancedType {
+var StructType = class extends AdvancedType {
   constructor(fields, name) {
     const ffitype = new ffiInt.FfiType(...fields.map(([f2, t2]) => t2.ffiTypeStruct || t2.ffiType || t2));
     super(ffitype, {
@@ -14533,6 +14536,7 @@ var JSCallback = class {
     return this._closure.addr;
   }
 };
+var { parseCProto: parseCProto2, astToLib: astToLib2 } = init({ StructType, CFunction, PointerType });
 
 // src/js/tjs/index.js
 var core9 = globalThis.__bootstrap;
@@ -14575,6 +14579,10 @@ for (const [key, value] of Object.entries(core9)) {
 tjs2.args = Object.freeze(core9.args);
 tjs2.versions = Object.freeze(core9.versions);
 tjs2.ffi = ffi_exports;
+StructType.parseCProto = function(header) {
+  const ast = parseCProto(header);
+  astToLib(this, ast);
+};
 Object.defineProperty(tjs2, "alert", {
   enumerable: true,
   configurable: false,
