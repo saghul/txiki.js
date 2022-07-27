@@ -978,7 +978,7 @@ namespace tjs {
 		connect(addr: Uint8Array): void;
 		listen(backlog: number): void;
 		accept(): PosixSocket;
-		sendmsg(addr: Uint8Array|undefined, control: Uint8Array|undefined, flags: number, ...data: Uint8Array): number;
+		sendmsg(addr: Uint8Array|undefined, control: Uint8Array|undefined, flags: number, ...data: Uint8Array[]): number;
 		recv(size: number): Uint8Array;
 		recvmsg(size: number): {data: Uint8Array, addr: Uint8Array};
 		recvmsg(size: number, controllen: number): {data: Uint8Array, addr: Uint8Array, control: Uint8Array};
