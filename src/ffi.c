@@ -94,8 +94,11 @@ static const char *ffi_strerror(ffi_status status) {
             return "FFI_BAD_TYPEDEF";
         case FFI_BAD_ABI:
             return "FFI_BAD_ABI";
+#ifdef FFI_BAD_ARGTYPE
+// FFI_BAD_ARGTYPE does not exist in older versions of libffi.
         case FFI_BAD_ARGTYPE:
             return "FFI_BAD_ARGTYPE";
+#endif
     }
     return "Unknown FFI error";
 }
