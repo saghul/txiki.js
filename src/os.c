@@ -69,7 +69,7 @@ static JSValue tjs_uptime(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return JS_NewFloat64(ctx, upt);
 }
 
-double tjs_process_start_uptime = 0;
+double tjs_process_start_uptime = -1;
 
 static JSValue tjs_process_uptime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     double upt;
