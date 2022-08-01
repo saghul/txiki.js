@@ -691,6 +691,11 @@ declare namespace tjs {
     function uname(): Uname;
 
     /**
+     * Get system uptime.
+     */
+    function uptime(): number;
+
+    /**
      * Returns the current user's home directory.
      */
     function homedir(): string;

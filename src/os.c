@@ -63,6 +63,12 @@ static JSValue tjs_uname(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return obj;
 }
 
+static JSValue tjs_uptime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    double upt;
+    uv_uptime(&upt);
+    return JS_NewFloat64(ctx, upt);
+}
+
 static JSValue tjs_guess_handle(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     int fd;
     if (JS_ToInt32(ctx, &fd, argv[0]))
@@ -444,6 +450,7 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("exit", 1, tjs_exit),
     TJS_CFUNC_DEF("hrtimeMs", 0, tjs_hrtime_ms),
     TJS_CFUNC_DEF("uname", 0, tjs_uname),
+    TJS_CFUNC_DEF("uptime", 0, tjs_uptime),
     TJS_CFUNC_DEF("guessHandle", 1, tjs_guess_handle),
     TJS_CFUNC_DEF("getenv", 0, tjs_getenv),
     TJS_CFUNC_DEF("setenv", 2, tjs_setenv),
