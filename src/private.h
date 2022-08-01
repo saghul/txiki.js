@@ -76,8 +76,6 @@ void tjs__mod_wasm_init(JSContext *ctx, JSValue ns);
 void tjs__mod_worker_init(JSContext *ctx, JSValue ns);
 void tjs__mod_xhr_init(JSContext *ctx, JSValue ns);
 
-extern double tjs_process_start_uptime;
-
 JSValue tjs_new_error(JSContext *ctx, int err);
 JSValue tjs_throw_errno(JSContext *ctx, int err);
 

@@ -164,8 +164,6 @@ TJSRuntime *TJS_NewRuntimeWorker(void) {
 }
 
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
-    if(tjs_process_start_uptime == -1) 
-        uv_uptime(&tjs_process_start_uptime);
     TJSRuntime *qrt = calloc(1, sizeof(*qrt));
 
     memcpy(&qrt->options, options, sizeof(*options));
