@@ -135,6 +135,11 @@ declare namespace tjs {
     const environ: Environment;
 
     /**
+     * Returns the current system hostname.
+     */
+    function gethostname(): string;
+
+    /**
      * Gets the environment variable of the given name.
      *
      * @param name Name of the environment variable to get.
@@ -723,6 +728,7 @@ declare namespace tjs {
     interface NetworkInterface {
         name: string;
         address: string;
+        mac: string;
         scopeId?: number;
         netmask: string;
         internal: boolean;
