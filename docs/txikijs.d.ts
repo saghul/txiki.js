@@ -728,6 +728,7 @@ declare namespace tjs {
     interface NetworkInterface {
         name: string;
         address: string;
+        mac: string;
         scopeId?: number;
         netmask: string;
         internal: boolean;
