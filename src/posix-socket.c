@@ -653,5 +653,3 @@ void tjs__mod_posix_socket_init(JSContext *ctx, JSValue ns) {
 
     JS_DefinePropertyValueStr(ctx, ns, "posix_socket", posixSocketNs, JS_PROP_C_W_E);
 }
-
-
