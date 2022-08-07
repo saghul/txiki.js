@@ -117,6 +117,6 @@ const char *tjs_getsig(int sig);
 int tjs_getsignum(const char *sig_str);
 
 #define TJS_THROW_ARG_ERR(ctx, argno, expected) JS_ThrowTypeError(ctx, "expected argument %d to be %s", argno+1, expected)
-#define TJS_CHECK_ARG_RET(ctx, check, argno, expected) if (!(check)){return THROW_ARG_ERR(ctx, argno, expected); }
+#define TJS_CHECK_ARG_RET(ctx, check, argno, expected) if (!(check)){return TJS_THROW_ARG_ERR(ctx, argno, expected); }
 
 #endif
