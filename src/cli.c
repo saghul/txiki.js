@@ -242,7 +242,8 @@ int main(int argc, char **argv) {
     exit_code = TJS_Run(qrt);
 
 exit:
-    if (qrt) {
+    if (qrt && exit_code == 0) {
+        // TODO: maybe mark the runtime as aborted and skip some steps?
         TJS_FreeRuntime(qrt);
     }
     return exit_code;
