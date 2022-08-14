@@ -769,7 +769,7 @@ static JSValue js_uv_lib_dlsym(JSContext *ctx, JSValueConst this_val, int argc, 
     int ret = uv_dlsym(lib, sym, &ptr);
     JS_FreeCString(ctx, sym);
     if (ret != 0) {
-        JS_ThrowInternalError(ctx, "uv_dlopen failed: %s", uv_dlerror(lib));
+        JS_ThrowInternalError(ctx, "uv_dlsym failed: %s", uv_dlerror(lib));
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
     }
