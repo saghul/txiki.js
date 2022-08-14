@@ -633,8 +633,9 @@ const FFI = tjs.ffi;
 			isdst: 0, gmtoff: 0, tm_zone: 'UTC'
 		};
 		const tmBuf = structTmT.toBuffer(tmData);
-		assert.truthy(libc.call('asctime', FFI.Pointer.createRefFromBuf(structTmT, tmBuf)).match(/^Sun Jul 0?1 00:00:00 2022\n$/));
-		assert.truthy(libc.call('asctime', FFI.Pointer.createRef(structTmT, tmData)).match(/^Sun Jul 0?1 00:00:00 2022\n$/));
+		const regex = /^Sun Jul [0 ]1 00:00:00 2022\n$/;
+		assert.truthy(libc.call('asctime', FFI.Pointer.createRefFromBuf(structTmT, tmBuf)).match(regex));
+		assert.truthy(libc.call('asctime', FFI.Pointer.createRef(structTmT, tmData)).match(regex));
 	}
 
 
