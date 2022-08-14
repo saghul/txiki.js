@@ -43,6 +43,9 @@ const FFI = tjs.ffi;
 	}
 	
 	function testPointersAndStructsOpendir(){
+		if(tjs.platform === 'windows'){ // for some reason, windows (mingw) does not find this function
+			return;
+		}
 		const opendirF = new FFI.CFunction(libc.symbol('opendir'), FFI.types.pointer, [FFI.types.string]);
 		let direntSt;
 		if(tjs.platform == 'darwin'){ // macos has another dirent definition
