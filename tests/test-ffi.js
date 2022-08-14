@@ -121,7 +121,19 @@ const FFI = tjs.ffi;
 	}
 
 	function testJsCallback(){
-		const testlib = new FFI.Lib(tjs.platform == 'darwin' ? './build/libffi-test.dylib' : './build/libffi-test.so');
+		let sopath = './build/libffi-test.so';
+		switch(tjs.platform){
+			case 'linux':
+				sopath = './build/libffi-test.so';
+				break;
+			case 'darwin':
+				sopath = './build/libffi-test.dylib';
+				break;
+			case 'windows':
+				sopath = './build/libffi-test.dll';
+			break;
+		}
+		const testlib = new FFI.Lib(sopath);
 		const callCallbackF = new FFI.CFunction(testlib.symbol('call_callback'), FFI.types.sint, [FFI.types.jscallback, FFI.types.sint]);
 		let recv = null;
 		const callback = new FFI.JSCallback(FFI.types.sint, [FFI.types.sint], (a)=>{
