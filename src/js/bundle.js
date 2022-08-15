@@ -14104,7 +14104,9 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
         throw new Error(`Unknown type ${name}`);
       }
       if (ptr > 0) {
-        return new PointerType2(ffiType, ptr);
+        const t2 = new PointerType2(ffiType, ptr);
+        lib.registerType(name + "*".repeat(ptr), t2);
+        return t2;
       }
       return ffiType;
     }
@@ -14112,17 +14114,19 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       const fields = [];
       for (const m2 of st.members) {
         if (m2.type.kind == "type") {
+          let t2;
           if (m2.type.struct) {
-            const mstt = registerStruct(m2.type.struct.name, m2.type.struct);
-            fields.push([m2.name, mstt]);
+            registerStruct(m2.type.struct.name, m2.type.struct);
+            t2 = getType("struct " + m2.type.struct.name, m2.type.ptr);
           } else {
-            fields.push([m2.name, getType(m2.type.name)]);
+            t2 = getType(m2.type.name, m2.type.ptr);
           }
+          fields.push([m2.name, t2]);
         } else {
           throw new Error("unhandled member type: " + m2.type.kind);
         }
       }
-      const stt = new StructType2(fields, st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`);
+      const stt = new StructType2(fields, st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`, st.align);
       lib.registerType(regname, stt);
       return stt;
     }
@@ -14132,6 +14136,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
           if (e2.child.kind == "type") {
             if (e2.child.struct) {
               registerStruct(e2.name ?? "struct " + e2.child.struct.name, e2.child.struct);
+              lib.registerType(e2.name, getType(e2.name ?? "struct " + e2.child.struct.name, e2.child.ptr));
             } else {
               lib.registerType(e2.name, getType(e2.child.name));
             }
@@ -14166,6 +14171,26 @@ var DlSymbol = class {
     return this._symbol.addr;
   }
 };
+function formatTypeName(name) {
+  if (name.includes(" ")) {
+    const mPtr = name.match(/\*+/g);
+    name = name.replace(/\*+/g, "");
+    let parts = name.split(/\s+/);
+    let struct = false;
+    if (parts.includes("struct")) {
+      parts = parts.filter((e2) => e2 != "struct");
+      struct = true;
+    }
+    name = parts.sort().join(" ");
+    if (mPtr) {
+      name += mPtr[0];
+    }
+    if (struct) {
+      name = "struct " + name;
+    }
+  }
+  return name;
+}
 var Lib = class {
   constructor(libname) {
     this._libname = libname;
@@ -14183,15 +14208,11 @@ var Lib = class {
     return new DlSymbol(name, this._uvlib, symbol);
   }
   registerType(name, type) {
-    if (name.includes(" ")) {
-      name = name.split(/\s+/).sort().join(" ");
-    }
+    name = formatTypeName(name);
     this._types.set(name, type);
   }
   getType(name) {
-    if (name.includes(" ")) {
-      name = name.split(/\s+/).sort().join(" ");
-    }
+    name = formatTypeName(name);
     return this._types.get(name);
   }
   registerFunction(name, func) {

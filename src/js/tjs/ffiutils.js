@@ -249,7 +249,7 @@ export default function init({StructType, CFunction, PointerType}){
 		let unnamedCnt = 0;
 		function getType(name, ptr = 0, func = false){
 			let ffiType = lib.getType(name+('*').repeat(ptr));
-			if(ffiType){// look for type specific pointer type first, currently only used to map char* to string 
+			if(ffiType){// look for type specific pointer type first, currently used to map char* to string and void* to pointer 
 				return ffiType;
 			}
 			ffiType = lib.getType(name);
@@ -257,7 +257,9 @@ export default function init({StructType, CFunction, PointerType}){
 				throw new Error(`Unknown type ${name}`);
 			}
 			if(ptr > 0){
-				return new PointerType(ffiType, ptr);
+				const t = new PointerType(ffiType, ptr);
+				lib.registerType(name+('*').repeat(ptr), t);
+				return t;
 			}
 			return ffiType;
 		}
@@ -265,17 +267,19 @@ export default function init({StructType, CFunction, PointerType}){
 			const fields = [];
 			for(const m of st.members){
 				if(m.type.kind == 'type'){
+					let t;
 					if(m.type.struct){
-						const mstt = registerStruct(m.type.struct.name, m.type.struct);
-						fields.push([m.name, mstt]);
+						registerStruct(m.type.struct.name, m.type.struct);
+						t = getType('struct '+m.type.struct.name, m.type.ptr);
 					}else{
-						fields.push([m.name, getType(m.type.name)]);
+						t = getType(m.type.name, m.type.ptr);
 					}
+					fields.push([m.name, t]);
 				}else{
 					throw new Error('unhandled member type: ' + m.type.kind);
 				}
 			}
-			const stt = new StructType(fields, st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`);
+			const stt = new StructType(fields, st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`, st.align);
 			lib.registerType(regname, stt);
 			return stt;
 		}
@@ -285,6 +289,7 @@ export default function init({StructType, CFunction, PointerType}){
 					if(e.child.kind == 'type'){
 						if(e.child.struct){
 							registerStruct(e.name ?? 'struct '+e.child.struct.name, e.child.struct);
+							lib.registerType(e.name, getType(e.name ?? 'struct '+e.child.struct.name, e.child.ptr));
 						}else{
 							lib.registerType(e.name, getType(e.child.name));
 						}

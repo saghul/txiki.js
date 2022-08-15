@@ -16,6 +16,27 @@ export class DlSymbol{
 	}
 }
 
+function formatTypeName(name){
+	if(name.includes(' ')){
+		const mPtr = name.match(/\*+/g);
+		name = name.replace(/\*+/g, '');
+		let parts = name.split(/\s+/);
+		let struct = false;
+		if(parts.includes('struct')){
+			parts = parts.filter(e=>e != 'struct');
+			struct = true;
+		}
+		name = parts.sort().join(' ');
+		if(mPtr){
+			name += mPtr[0];
+		}
+		if(struct){
+			name = 'struct ' + name;
+		}
+	}
+	return name;
+}
+
 export class Lib{
 	constructor(libname){
 		this._libname = libname;
@@ -36,15 +57,11 @@ export class Lib{
 	static LIBM_NAME = ffiInt.LIBM_NAME;
 
 	registerType(name, type){
-		if(name.includes(' ')){
-			name = name.split(/\s+/).sort().join(' ');
-		}
+		name = formatTypeName(name);
 		this._types.set(name, type);
 	}
 	getType(name){
-		if(name.includes(' ')){
-			name = name.split(/\s+/).sort().join(' ');
-		}
+		name = formatTypeName(name);
 		return this._types.get(name);
 	}
 	registerFunction(name, func){

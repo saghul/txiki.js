@@ -638,6 +638,27 @@ const FFI = tjs.ffi;
 		assert.truthy(libc.call('asctime', FFI.Pointer.createRef(structTmT, tmData)).match(regex));
 	}
 
+	function testCProtoPtrInStruct(){
+		const libc = new FFI.Lib(FFI.Lib.LIBC_NAME);
+		libc.parseCProto(`
+		struct a{
+			int a;
+			int b;
+		};
+		typedef struct {
+			struct a* filter;
+			struct a* filter2;
+		} asdasd;
+		typedef struct {
+			int c;
+			int d;
+			int e;
+			int f;
+		}* asdasd2;
+		`);
+		assert.eq(libc.getType('asdasd').size, 2*FFI.types.pointer.size);
+		assert.eq(libc.getType('asdasd2').size, FFI.types.pointer.size);
+	}
 
 	testSimpleCalls();
 	testStructs();
@@ -646,5 +667,6 @@ const FFI = tjs.ffi;
 	testJsCallback();
 	testCProtoParser();
 	testLibFromCProto();
+	testCProtoPtrInStruct();
 
 })();
