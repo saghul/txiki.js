@@ -94,14 +94,14 @@ static const char *ffi_strerror(ffi_status status) {
             return "FFI_BAD_TYPEDEF";
         case FFI_BAD_ABI:
             return "FFI_BAD_ABI";
-#ifdef FFI_BAD_ARGTYPE
-// FFI_BAD_ARGTYPE does not exist in older versions of libffi.
-        case FFI_BAD_ARGTYPE:
+        // FFI_BAD_ARGTYPE does not exist in older versions of libffi.
+        case 3:
             return "FFI_BAD_ARGTYPE";
-#endif
+        default:
+            return "Unknown FFI error";
     }
-    return "Unknown FFI error";
 }
+
 #pragma endregion "FFI Helpers"
 
 #pragma region "FfiType class definition"
@@ -147,7 +147,7 @@ static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValueConst this_val, 
     for (unsigned i = 0; i < typeCnt; i++) {
         ffi_type *t = JS_GetOpaque(types[i], js_ffi_type_classid);
         if (t == NULL) {
-            JS_ThrowTypeError(ctx, "argument %d is not a FfiType", (types - argv) + i + 1);
+            JS_ThrowTypeError(ctx, "argument %ld is not a FfiType", (types - argv) + i + 1);
             return JS_EXCEPTION;
         }
     }
@@ -344,12 +344,12 @@ int ffi_type_to_buffer(JSContext *ctx, JSValueConst val, ffi_type *type, uint8_t
             }
             case FFI_TYPE_UINT16: {
                 uint32_t v;
-                JS_ToInt32(ctx, &v, val);
+                JS_ToUint32(ctx, &v, val);
                 *(uint16_t *) buf = v;
                 return sizeof(uint16_t);
             }
             case FFI_TYPE_SINT16: {
-                uint32_t v;
+                int32_t v;
                 JS_ToInt32(ctx, &v, val);
                 *(int16_t *) buf = v;
                 return sizeof(int16_t);
@@ -365,7 +365,7 @@ int ffi_type_to_buffer(JSContext *ctx, JSValueConst val, ffi_type *type, uint8_t
                 abort();
                 break;
             case FFI_TYPE_UINT64:
-                JS_ToInt64(ctx, (uint64_t *) buf, val);
+                JS_ToIndex(ctx, (uint64_t *) buf, val);
                 return sizeof(uint64_t);
             case FFI_TYPE_SINT64:
                 JS_ToInt64(ctx, (int64_t *) buf, val);
@@ -504,7 +504,7 @@ static JSValue js_ffi_type_from_buffer(JSContext *ctx, JSValueConst this_val, in
         return JS_EXCEPTION;
     size_t typesz = ffi_type_get_sz(type->ffi_type);
     if (bufsz != typesz) {
-        JS_ThrowRangeError(ctx, "expected buffer to be of size %d", typesz);
+        JS_ThrowRangeError(ctx, "expected buffer to be of size %zu", typesz);
         return JS_EXCEPTION;
     }
     JSValue val = JS_UNDEFINED;
