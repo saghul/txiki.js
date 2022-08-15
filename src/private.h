@@ -75,6 +75,7 @@ void tjs__mod_udp_init(JSContext *ctx, JSValue ns);
 void tjs__mod_wasm_init(JSContext *ctx, JSValue ns);
 void tjs__mod_worker_init(JSContext *ctx, JSValue ns);
 void tjs__mod_xhr_init(JSContext *ctx, JSValue ns);
+void tjs__mod_ffi_init(JSContext *ctx, JSValue ns);
 
 #ifndef _WIN32
 void tjs__mod_posix_socket_init(JSContext *ctx, JSValue ns);

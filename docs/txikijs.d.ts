@@ -1,3 +1,5 @@
+/// <reference path="./ffi.d.ts" />
+
 /**
  * The single global where all txiki.js APIs are exposed.
  */
@@ -133,6 +135,11 @@ namespace tjs {
      * System environment variables.
      */
     const environ: Environment;
+
+    /**
+     * Returns the current system hostname.
+     */
+    function gethostname(): string;
 
     /**
      * Gets the environment variable of the given name.
@@ -686,6 +693,11 @@ namespace tjs {
     function uname(): Uname;
 
     /**
+     * Get system uptime.
+     */
+    function uptime(): number;
+
+    /**
      * Returns the current user's home directory.
      */
     function homedir(): string;
@@ -723,6 +735,7 @@ namespace tjs {
     interface NetworkInterface {
         name: string;
         address: string;
+        mac: string;
         scopeId?: number;
         netmask: string;
         internal: boolean;
@@ -923,6 +936,11 @@ namespace tjs {
      * Returns an estimate of the default amount of parallelism a program should use.
      */
     function availableParallelism(): number;
+
+    /**
+     * gives access to the FFI api.
+     */
+    const ffi: typeof FFI;
 
     /**
 	 * provides access to most of the POSIX socket API.

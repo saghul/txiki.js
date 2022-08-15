@@ -1,7 +1,7 @@
 FROM alpine:latest
 ENV VERSION 20191124
 WORKDIR /
-RUN apk add build-base cmake curl-dev git --update-cache
+RUN apk add build-base cmake curl-dev git autoconf automake libtool texinfo linux-headers --update-cache
 RUN git clone --recursive https://github.com/saghul/txiki.js && cd txiki.js && make && make test
 
 FROM alpine:latest
