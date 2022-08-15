@@ -1,5 +1,5 @@
 {
-    "include": ["txikijs.d.ts"],
+    "include": ["txikijs.d.ts", "ffi.d.ts"],
     "compilerOptions": {
         "lib": ["ES2020", "dom"],
         "noImplicitAny": true
@@ -7,7 +7,8 @@
     "typedocOptions": {
         "name": "txiki.js",
         "entryPoints": [
-            "txikijs.d.ts"
+            "txikijs.d.ts",
+            "ffi.d.ts"
         ],
         "out": "api/",
         "readme": "intro.md",

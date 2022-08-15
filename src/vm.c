@@ -60,6 +60,7 @@ static char **tjs__argv = NULL;
 static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
     tjs__mod_error_init(ctx, ns);
+    tjs__mod_ffi_init(ctx, ns);
     tjs__mod_fs_init(ctx, ns);
     tjs__mod_fswatch_init(ctx, ns);
     tjs__mod_os_init(ctx, ns);
@@ -225,6 +226,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     /* standard library */
     tjs__add_stdlib(qrt->ctx);
+    
 
     /* end bootstrap */
     JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);

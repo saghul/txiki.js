@@ -6,6 +6,8 @@ import { signal } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
 
+import * as FFI from './ffi.js';
+
 // The "tjs" global.
 //
 
@@ -36,7 +38,8 @@ const noExport = [
     'setTimeout',
     'signal',
     'signals',
-    'wasm'
+    'wasm',
+    'ffi' // is exported as import from ffi.js
 ];
 
 for (const [key, value] of Object.entries(core)) {
@@ -50,6 +53,12 @@ for (const [key, value] of Object.entries(core)) {
 // These values should be immutable.
 tjs.args = Object.freeze(core.args);
 tjs.versions = Object.freeze(core.versions);
+
+tjs.ffi = FFI;
+FFI.StructType.parseCProto = function(header){
+    const ast = parseCProto(header);
+    astToLib(this, ast);
+}
 
 // Alert, confirm, prompt.
 // These differ slightly from browsers, they are async.

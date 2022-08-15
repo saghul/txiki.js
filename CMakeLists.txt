@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project(tjs LANGUAGES C)
 
+include(ExternalProject)
 include(GNUInstallDirs)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -15,6 +16,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb -O0 -fno-omit-frame-pointer")
+
+set(USE_EXTERNAL_FFI FALSE CACHE STRING "Specify to use external ffi dependency")
 
 message(STATUS "C flags:         ${CMAKE_C_FLAGS}")
 message(STATUS "C Debug flags:   ${CMAKE_C_FLAGS_DEBUG}")
@@ -44,27 +47,6 @@ endmacro()
 
 cpr_option(BUILD_WITH_ASAN "If ON, build with the address sanitizer enabled" OFF)
 
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/bundle.js
-        ${CMAKE_CURRENT_BINARY_DIR}/bundle.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/eval-stdin.js
-        ${CMAKE_CURRENT_BINARY_DIR}/eval-stdin.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/repl.js
-        ${CMAKE_CURRENT_BINARY_DIR}/repl.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/std.js
-        ${CMAKE_CURRENT_BINARY_DIR}/std.js
-        COPYONLY)
-configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/worker-bootstrap.js
-        ${CMAKE_CURRENT_BINARY_DIR}/worker-bootstrap.js
-        COPYONLY)
-
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
 option(libuv_buildtests "" OFF)
@@ -75,12 +57,21 @@ add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
 find_package(CURL REQUIRED)
 
+set(INCLUDED_JS_FILES "eval-stdin.js;repl.js;std.js;worker-bootstrap.js;bundle.js")
+foreach(jsfile ${INCLUDED_JS_FILES})
+    configure_file(
+        ${CMAKE_SOURCE_DIR}/src/js/${jsfile}
+        ${CMAKE_CURRENT_BINARY_DIR}/${jsfile}
+        COPYONLY)
+endforeach()
+
 add_executable(tjs
     src/bootstrap.c
     src/cli.c
     src/curl-utils.c
     src/dns.c
     src/error.c
+    src/ffi.c
     src/fs.c
     src/fswatch.c
     src/modules.c
@@ -99,6 +90,41 @@ add_executable(tjs
     src/xhr.c
     ../deps/quickjs/src/cutils.c
 )
+
+add_library(ffi-test SHARED
+    tests/fixtures/ffi-test-lib.c
+)
+
+if(NOT USE_EXTERNAL_FFI AND NOT MINGW)
+    set(LIBFFI_SRC "${CMAKE_SOURCE_DIR}/deps/libffi")
+    set(TMP_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/ffi_root")
+    if(MINGW)
+        set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.dll.a)
+    else()
+        set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.a)
+    endif()
+    ExternalProject_Add(
+        libffi
+        BUILD_IN_SOURCE 1
+        SOURCE_DIR "${LIBFFI_SRC}"
+        CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure --enable-static=yes --disable-shared
+        BUILD_COMMAND make
+        INSTALL_DIR ${TMP_INSTALL_DIR}
+        INSTALL_COMMAND make DESTDIR=${TMP_INSTALL_DIR} install
+        EXCLUDE_FROM_ALL TRUE
+        BUILD_BYPRODUCTS ${LIBFFI_STATIC_PATH}
+    )
+    add_dependencies(tjs libffi)
+    add_library(libffi_a STATIC IMPORTED)
+    set_target_properties(libffi_a PROPERTIES IMPORTED_LOCATION ${LIBFFI_STATIC_PATH})
+    target_include_directories(tjs PRIVATE ${TMP_INSTALL_DIR}/usr/local/include)
+    target_link_libraries(tjs libffi_a)
+else()
+    find_library(FFI_LIB NAMES libffi ffi)
+    find_path(FFI_INCLUDE_DIR NAMES ffi.h)
+    target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
+    target_link_libraries(tjs ${FFI_LIB})
+endif()
 
 set_target_properties(tjs PROPERTIES
     C_STANDARD 11

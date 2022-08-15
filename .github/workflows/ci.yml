@@ -44,6 +44,8 @@ jobs:
     env:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
+    - name: Install automake
+      run: brew install automake
     - uses: actions/checkout@v1
       with:
         submodules: true
@@ -68,7 +70,7 @@ jobs:
       with:
         submodules: true
     - name: Prepare
-      run: apk add build-base cmake curl-dev --update-cache
+      run: apk add build-base cmake curl-dev autoconf automake libtool texinfo linux-headers --update-cache
     - name: Build it
       run: make
     - name: Test it
@@ -99,9 +101,11 @@ jobs:
           make
         pacboy: >-
           curl-winssl:p
+          autotools:p
           toolchain:p
           cmake:p
           ninja:p
+          libffi:p
     - name: Build it
       run: make
     - name: Test it
