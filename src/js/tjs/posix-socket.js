@@ -135,5 +135,15 @@ if(posixSocket){
 		}
 	
 		static pollEvents = Object.freeze(posixSocket.uv_poll_event_bits);
+
+		static indextoname(index){
+			return posixSocket.if_indextoname(index);
+		}
+		static nametoindex(name){
+			return posixSocket.if_nametoindex(name);
+		}
+		static checksum(buf){
+			return posixSocket.checksum(buf);
+		}
 	}
 }

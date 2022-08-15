@@ -13828,136 +13828,6 @@ function createStderr() {
   return createStdioStream(core7.STDERR_FILENO);
 }
 
-<<<<<<< HEAD
-// src/js/tjs/posix-socket.js
-var core8 = globalThis.__bootstrap;
-var posixSocket = core8.posix_socket;
-var PosixSocket;
-var _a;
-if (posixSocket) {
-  PosixSocket = (_a = class {
-    constructor(domain, type, protocol) {
-      this._psock = new posixSocket.PosixSocket(domain, type, protocol);
-      this._info = {
-        socket: { domain, type, protocol }
-      };
-    }
-    get info() {
-      return this._info;
-    }
-    get fileno() {
-      return this._psock.fileno;
-    }
-    get polling() {
-      return this._psock.polling;
-    }
-    static createFromFD(fd) {
-      return posixSocket.posix_socket_from_fd(fd);
-    }
-    bind(...args) {
-      return this._psock.bind(...args);
-    }
-    connect(...args) {
-      return this._psock.connect(...args);
-    }
-    listen(...args) {
-      return this._psock.listen(...args);
-    }
-    accept(...args) {
-      return this._psock.accept(...args);
-    }
-    sendmsg(...args) {
-      return this._psock.sendmsg(...args);
-    }
-    recv(...args) {
-      return this._psock.recv(...args);
-    }
-    recvmsg(...args) {
-      return this._psock.recvmsg(...args);
-    }
-    close(...args) {
-      return this._psock.close(...args);
-    }
-    setopt(...args) {
-      return this._psock.setopt(...args);
-    }
-    getopt(...args) {
-      return this._psock.getopt(...args);
-    }
-    read(...args) {
-      return this._psock.read(...args);
-    }
-    write(...args) {
-      return this._psock.write(...args);
-    }
-    poll(cbs) {
-      this._cbs = {
-        read: void 0,
-        write: void 0,
-        disconnect: void 0,
-        prioritized: void 0,
-        error: void 0,
-        all: void 0
-      };
-      for (const k2 in this._cbs) {
-        if (cbs[k2]) {
-          this._cbs[k2] = cbs[k2];
-        }
-      }
-      this._handleEvent = (status, events) => {
-        if (status != 0) {
-          if (this._cbs.error) {
-            this._cbs.error(status, events);
-          } else {
-            console.error("uv_poll unhandled error:", status);
-          }
-        } else {
-          this._cbs.all?.(events);
-          if (events & _a.pollEvents.READABLE && this._cbs.read) {
-            this._cbs.read(events);
-          }
-          if (events & _a.pollEvents.WRITABLE && this._cbs.write) {
-            this._cbs.write(events);
-          }
-          if (events & _a.pollEvents.DISCONNECT && this._cbs.disconnect) {
-            this._cbs.disconnect(events);
-          }
-          if (events & _a.pollEvents.PRIORITIZED && this._cbs.prioritized) {
-            this._cbs.prioritized(events);
-          }
-        }
-      };
-      let mask = 0;
-      if (cbs.all) {
-        mask = _a.pollEvents.READABLE | _a.pollEvents.WRITABLE | _a.pollEvents.DISCONNECT | _a.pollEvents.PRIORITIZED;
-      } else {
-        if (cbs.read) {
-          mask |= _a.pollEvents.READABLE;
-        }
-        if (cbs.write) {
-          mask |= _a.pollEvents.WRITABLE;
-        }
-        if (cbs.disconnect) {
-          mask |= _a.pollEvents.DISCONNECT;
-        }
-        if (cbs.prioritized) {
-          mask |= _a.pollEvents.PRIORITIZED;
-        }
-      }
-      this._psock.poll(mask, this._handleEvent);
-    }
-    stopPoll() {
-      this._psock.pollStop();
-    }
-    static get sockaddrInSize() {
-      return posixSocket.sizeof_struct_sockaddr;
-    }
-    static createSockaddrIn(ip, port) {
-      return posixSocket.create_sockaddr_inet({ ip, port });
-    }
-  }, __publicField(_a, "defines", Object.freeze(posixSocket.defines)), __publicField(_a, "pollEvents", Object.freeze(posixSocket.uv_poll_event_bits)), _a);
-}
-=======
 // src/js/tjs/ffi.js
 var ffi_exports = {};
 __export(ffi_exports, {
@@ -14667,10 +14537,147 @@ var JSCallback = class {
   }
 };
 var { parseCProto: parseCProto2, astToLib: astToLib2 } = init({ StructType, CFunction, PointerType });
->>>>>>> original/master
+
+// src/js/tjs/posix-socket.js
+var core9 = globalThis.__bootstrap;
+var posixSocket = core9.posix_socket;
+var PosixSocket;
+var _a;
+if (posixSocket) {
+  PosixSocket = (_a = class {
+    constructor(domain, type, protocol) {
+      this._psock = new posixSocket.PosixSocket(domain, type, protocol);
+      this._info = {
+        socket: { domain, type, protocol }
+      };
+    }
+    get info() {
+      return this._info;
+    }
+    get fileno() {
+      return this._psock.fileno;
+    }
+    get polling() {
+      return this._psock.polling;
+    }
+    static createFromFD(fd) {
+      return posixSocket.posix_socket_from_fd(fd);
+    }
+    bind(...args) {
+      return this._psock.bind(...args);
+    }
+    connect(...args) {
+      return this._psock.connect(...args);
+    }
+    listen(...args) {
+      return this._psock.listen(...args);
+    }
+    accept(...args) {
+      return this._psock.accept(...args);
+    }
+    sendmsg(...args) {
+      return this._psock.sendmsg(...args);
+    }
+    recv(...args) {
+      return this._psock.recv(...args);
+    }
+    recvmsg(...args) {
+      return this._psock.recvmsg(...args);
+    }
+    close(...args) {
+      return this._psock.close(...args);
+    }
+    setopt(...args) {
+      return this._psock.setopt(...args);
+    }
+    getopt(...args) {
+      return this._psock.getopt(...args);
+    }
+    read(...args) {
+      return this._psock.read(...args);
+    }
+    write(...args) {
+      return this._psock.write(...args);
+    }
+    poll(cbs) {
+      this._cbs = {
+        read: void 0,
+        write: void 0,
+        disconnect: void 0,
+        prioritized: void 0,
+        error: void 0,
+        all: void 0
+      };
+      for (const k2 in this._cbs) {
+        if (cbs[k2]) {
+          this._cbs[k2] = cbs[k2];
+        }
+      }
+      this._handleEvent = (status, events) => {
+        if (status != 0) {
+          if (this._cbs.error) {
+            this._cbs.error(status, events);
+          } else {
+            console.error("uv_poll unhandled error:", status);
+          }
+        } else {
+          this._cbs.all?.(events);
+          if (events & _a.pollEvents.READABLE && this._cbs.read) {
+            this._cbs.read(events);
+          }
+          if (events & _a.pollEvents.WRITABLE && this._cbs.write) {
+            this._cbs.write(events);
+          }
+          if (events & _a.pollEvents.DISCONNECT && this._cbs.disconnect) {
+            this._cbs.disconnect(events);
+          }
+          if (events & _a.pollEvents.PRIORITIZED && this._cbs.prioritized) {
+            this._cbs.prioritized(events);
+          }
+        }
+      };
+      let mask = 0;
+      if (cbs.all) {
+        mask = _a.pollEvents.READABLE | _a.pollEvents.WRITABLE | _a.pollEvents.DISCONNECT | _a.pollEvents.PRIORITIZED;
+      } else {
+        if (cbs.read) {
+          mask |= _a.pollEvents.READABLE;
+        }
+        if (cbs.write) {
+          mask |= _a.pollEvents.WRITABLE;
+        }
+        if (cbs.disconnect) {
+          mask |= _a.pollEvents.DISCONNECT;
+        }
+        if (cbs.prioritized) {
+          mask |= _a.pollEvents.PRIORITIZED;
+        }
+      }
+      this._psock.poll(mask, this._handleEvent);
+    }
+    stopPoll() {
+      this._psock.pollStop();
+    }
+    static get sockaddrInSize() {
+      return posixSocket.sizeof_struct_sockaddr;
+    }
+    static createSockaddrIn(ip, port) {
+      return posixSocket.create_sockaddr_inet({ ip, port });
+    }
+    static indextoname(index) {
+      return posixSocket.if_indextoname(index);
+    }
+    static nametoindex(name) {
+      return posixSocket.if_nametoindex(name);
+    }
+    static checksum(buf) {
+      return posixSocket.checksum(buf);
+    }
+  }, __publicField(_a, "defines", Object.freeze(posixSocket.defines)), __publicField(_a, "pollEvents", Object.freeze(posixSocket.uv_poll_event_bits)), _a);
+}
 
 // src/js/tjs/index.js
-var core9 = globalThis.__bootstrap;
+var core10 = globalThis.__bootstrap;
 var tjs2 = /* @__PURE__ */ Object.create(null);
 var noExport = [
   "STDIN_FILENO",
@@ -14699,28 +14706,22 @@ var noExport = [
   "signal",
   "signals",
   "wasm",
-<<<<<<< HEAD
-  "posix_socket"
-=======
+  "posix_socket",
   "ffi"
->>>>>>> original/master
 ];
-for (const [key, value] of Object.entries(core9)) {
+for (const [key, value] of Object.entries(core10)) {
   if (noExport.includes(key)) {
     continue;
   }
   tjs2[key] = value;
 }
-tjs2.args = Object.freeze(core9.args);
-tjs2.versions = Object.freeze(core9.versions);
-<<<<<<< HEAD
-=======
+tjs2.args = Object.freeze(core10.args);
+tjs2.versions = Object.freeze(core10.versions);
 tjs2.ffi = ffi_exports;
 StructType.parseCProto = function(header) {
   const ast = parseCProto(header);
   astToLib(this, ast);
 };
->>>>>>> original/master
 Object.defineProperty(tjs2, "alert", {
   enumerable: true,
   configurable: false,
@@ -14743,7 +14744,7 @@ Object.defineProperty(tjs2, "_evalScript", {
   enumerable: false,
   configurable: false,
   writable: false,
-  value: core9.evalScript
+  value: core10.evalScript
 });
 Object.defineProperty(tjs2, "open", {
   enumerable: true,
@@ -14793,7 +14794,7 @@ Object.defineProperty(tjs2, "stderr", {
   writable: false,
   value: createStderr()
 });
-if (core9.posix_socket) {
+if (core10.posix_socket) {
   Object.defineProperty(tjs2, "PosixSocket", {
     enumerable: true,
     configurable: false,

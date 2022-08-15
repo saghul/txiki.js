@@ -94,14 +94,28 @@ async function testPoll(){
 	sock.close();
 }
 
+function testHelpers(){
+	const nis = tjs.networkInterfaces();
+	for(const ni of nis){
+		const ind = PosixSocket.nametoindex(ni.name);
+		assert.truthy(ind >= 0);
+		const name2 = PosixSocket.indextoname(ind);
+		assert.eq(ni.name, name2);
+	}
+
+	assert.eq(PosixSocket.checksum(new Uint8Array(
+		`45 00 00 99 12 9f 40 00 01 11 00 00 0a 00 00 7a ef ff ff fa`.split(' ').map(x=>parseInt(x, 16))
+	)), 0x416c);
+}
+
 async function run(){
-	console.log(tjs.platform)
 	if(tjs.platform == 'windows'){
-		// windows (new versions at least) don't support posix.
+		// windows (new versions at least) doesn't support posix.
 		return;
 	}
 	testUdpSock();
 	testTcpSock();
 	testPoll();
+	testHelpers();
 }
 run();

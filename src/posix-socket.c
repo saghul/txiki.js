@@ -1,6 +1,7 @@
 #include "private.h"
 #include <sys/socket.h>
 #include <unistd.h>
+#include <net/if.h>
 
 #define TJS_SOCK_CLASS_NAME "PosixSocket"
 
@@ -621,6 +622,87 @@ static const JSCFunctionListEntry defines_list[] = {
 #endif
 };
 
+static JSValue tjs_posix_if_nametoindex(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJS_CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
+    const char* cstr = JS_ToCString(ctx, argv[0]);
+    TJS_CHECK_ARG_RET(ctx, cstr, 0, "string");
+    int ret = if_nametoindex(cstr);
+    JS_FreeCString(ctx, cstr);
+    RET_THROW_ERRNO(ctx, ret >= 0);
+    return JS_NewInt32(ctx, ret);
+}
+
+static JSValue tjs_posix_if_indextoname(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    int fd;
+    TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &fd, argv[0]), 0, "positive integer");
+    char ifname[IF_NAMESIZE];
+    const char* ret = if_indextoname(fd, ifname);
+    RET_THROW_ERRNO(ctx, ret == ifname);
+    return JS_NewString(ctx, ret);
+}
+
+static uint16_t ip_checksum(void* vdata, size_t length) {
+    // Cast the data pointer to one that can be indexed.
+    char* data=(char*)vdata;
+
+    // Initialise the accumulator.
+    uint64_t acc=0xffff;
+
+    // Handle any partial block at the start of the data.
+    unsigned int offset=((uintptr_t)data)&3;
+    if (offset) {
+        size_t count=4-offset;
+        if (count>length) count=length;
+        uint32_t word=0;
+        memcpy(offset+(char*)&word,data,count);
+        acc+=ntohl(word);
+        data+=count;
+        length-=count;
+    }
+
+    // Handle any complete 32-bit blocks.
+    char* data_end=data+(length&~3);
+    while (data!=data_end) {
+        uint32_t word;
+        memcpy(&word,data,4);
+        acc+=ntohl(word);
+        data+=4;
+    }
+    length&=3;
+
+    // Handle any partial block at the end of the data.
+    if (length) {
+        uint32_t word=0;
+        memcpy(&word,data,length);
+        acc+=ntohl(word);
+    }
+
+    // Handle deferred carries.
+    acc=(acc&0xffffffff)+(acc>>32);
+    while (acc>>16) {
+        acc=(acc&0xffff)+(acc>>16);
+    }
+
+    // If the data began at an odd byte address
+    // then reverse the byte order to compensate.
+    if (offset&1) {
+        acc=((acc&0xff00)>>8)|((acc&0x00ff)<<8);
+    }
+
+    // Return the checksum in network byte order.
+    return htons(~acc);
+}
+
+static JSValue tjs_posix_checksum(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    size_t len;
+    uint8_t* data = (uint8_t*)JS_GetUint8Array(ctx, &len, argv[0]);
+    TJS_CHECK_ARG_RET(ctx, data != NULL, 0, "Uint8Array");
+    uint16_t ret = ip_checksum(data, len);
+    return JS_NewInt32(ctx, ret);
+}
+
+
+
 static JSCFunctionListEntry tjs_uv_poll_events[] = {
     TJS_UVCONST(READABLE),
     TJS_UVCONST(WRITABLE),
@@ -634,7 +716,10 @@ static JSCFunctionListEntry posix_ns_funcs[] = {
     TJS_CONST2("sizeof_struct_sockaddr", sizeof(struct sockaddr)),
     JS_OBJECT_DEF("defines", defines_list, countof(defines_list), JS_PROP_C_W_E),
     JS_OBJECT_DEF("uv_poll_event_bits", tjs_uv_poll_events, countof(tjs_uv_poll_events), JS_PROP_C_W_E),
-    TJS_CFUNC_DEF("socket_from_fd", 1, tjs_sock_create_from_fd)
+    TJS_CFUNC_DEF("socket_from_fd", 1, tjs_sock_create_from_fd),
+    TJS_CFUNC_DEF("if_nametoindex", 1, tjs_posix_if_nametoindex),
+    TJS_CFUNC_DEF("if_indextoname", 1, tjs_posix_if_indextoname),
+    TJS_CFUNC_DEF("checksum", 1, tjs_posix_checksum),
 };
 
 

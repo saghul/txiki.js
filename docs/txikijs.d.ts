@@ -1027,5 +1027,15 @@ namespace tjs {
 			DISCONNECT: number,
 			PRIORITIZED: number,
 		};
+
+        static indextoname(index: number): string;
+		static nametoindex(name: string): number;
+
+        /**
+         * Caculates internet checksum: the 16-bit ones' complement of the ones' complement sum of all 16-bit words in the buffer.
+         * Used in ipv4, udp, tcp, icmp...
+         * @param buf 
+         */
+		static checksum(buf: Uint8Array): number;
 	}
 }
