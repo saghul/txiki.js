@@ -27,7 +27,7 @@
     "patch-package": "^6.4.7",
     "path-browserify": "^1.0.1",
     "queue-microtask": "^1.2.3",
-    "text-encoding": "^0.7.0",
+    "text-encoding-utf-8": "^1.0.2",
     "typedoc": "^0.22.12",
     "urlpattern-polyfill": "^1.0.0-rc4",
     "util": "^0.12.4",
