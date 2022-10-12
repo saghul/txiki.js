@@ -12,7 +12,7 @@ export class DlSymbol {
         this._dlsym = dlsym;
     }
     get addr() {
-        return this._symbol.addr;
+        return this._dlsym.addr;
     }
 }
 
