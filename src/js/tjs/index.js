@@ -39,6 +39,7 @@ const noExport = [
     'signal',
     'signals',
     'wasm',
+    'posix_socket',
     'ffi' // is exported as import from ffi.js
 ];
 
@@ -144,6 +145,17 @@ Object.defineProperty(tjs, 'stderr', {
     writable: false,
     value: createStderr()
 });
+
+import { PosixSocket } from './posix-socket.js';
+
+if(core.posix_socket){
+    Object.defineProperty(tjs, 'PosixSocket', {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: PosixSocket
+    });
+}
 
 // tjs global.
 Object.defineProperty(globalThis, 'tjs', {

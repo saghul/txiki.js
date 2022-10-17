@@ -57,6 +57,7 @@ static int tjs__argc = 0;
 static char **tjs__argv = NULL;
 
 
+
 static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
     tjs__mod_error_init(ctx, ns);
@@ -73,6 +74,9 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_wasm_init(ctx, ns);
     tjs__mod_worker_init(ctx, ns);
     tjs__mod_xhr_init(ctx, ns);
+#ifndef _WIN32
+    tjs__mod_posix_socket_init(ctx, ns);
+#endif
 }
 
 JSValue tjs__get_args(JSContext *ctx) {

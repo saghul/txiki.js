@@ -91,6 +91,10 @@ add_executable(tjs
     ../deps/quickjs/src/cutils.c
 )
 
+if(NOT MINGW)
+    target_sources(tjs PUBLIC src/posix-socket.c)
+endif()
+
 add_library(ffi-test SHARED
     tests/fixtures/ffi-test-lib.c
 )
