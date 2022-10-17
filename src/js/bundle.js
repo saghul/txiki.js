@@ -12844,10 +12844,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       const statements2 = [];
       let index = offs;
       const firstToken = tokens2[index];
-      if (firstToken === "[" || firstToken === "(") {
-        index++;
-        statements2._block = firstToken;
-      } else if (firstToken === "{") {
+      if (firstToken === "[" || firstToken === "(" || firstToken === "{") {
         index++;
         statements2._block = firstToken;
       }
