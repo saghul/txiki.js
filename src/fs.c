@@ -60,7 +60,7 @@ static JSClassID tjs_dir_class_id;
 typedef struct {
     JSContext *ctx;
     uv_dir_t *dir;
-    uv_dirent_t dirent; // TODO: Use an array and an index.
+    uv_dirent_t dirent;  // TODO: Use an array and an index.
     JSValue path;
     bool done;
 } TJSDir;
@@ -219,13 +219,9 @@ static JSValue tjs_new_stat(JSContext *ctx, uv_stat_t *st) {
 
     sr->st_mode = st->st_mode;
 
-#define SET_UINT64_FIELD(x) \
-    JS_DefinePropertyValueStr(ctx, \
-        obj, \
-        STRINGIFY(x), \
-        JS_NewUint32(ctx, st->st_##x), \
-        JS_PROP_C_W_E);
-    
+#define SET_UINT64_FIELD(x)                                                                                            \
+    JS_DefinePropertyValueStr(ctx, obj, STRINGIFY(x), JS_NewUint32(ctx, st->st_##x), JS_PROP_C_W_E);
+
     SET_UINT64_FIELD(dev);
     SET_UINT64_FIELD(mode);
     SET_UINT64_FIELD(nlink);
@@ -239,12 +235,12 @@ static JSValue tjs_new_stat(JSContext *ctx, uv_stat_t *st) {
     SET_UINT64_FIELD(flags);
 #undef SET_UINT64_FIELD
 
-#define SET_TIMESPEC_FIELD(x) \
-    JS_DefinePropertyValueStr(ctx, \
-        obj, \
-        STRINGIFY(x), \
-        TJS_NewDate(ctx, st->st_##x.tv_sec * 1e3 + st->st_##x.tv_nsec / 1e6), \
-        JS_PROP_C_W_E);
+#define SET_TIMESPEC_FIELD(x)                                                                                          \
+    JS_DefinePropertyValueStr(ctx,                                                                                     \
+                              obj,                                                                                     \
+                              STRINGIFY(x),                                                                            \
+                              TJS_NewDate(ctx, st->st_##x.tv_sec * 1e3 + st->st_##x.tv_nsec / 1e6),                    \
+                              JS_PROP_C_W_E);
     SET_TIMESPEC_FIELD(atim);
     SET_TIMESPEC_FIELD(mtim);
     SET_TIMESPEC_FIELD(ctim);
@@ -394,7 +390,7 @@ static JSValue tjs_file_rw(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     if (!fr)
         return JS_EXCEPTION;
 
-    uv_buf_t b = uv_buf_init((char *)buf, size);
+    uv_buf_t b = uv_buf_init((char *) buf, size);
 
     int r;
     if (magic)

@@ -57,7 +57,6 @@ static int tjs__argc = 0;
 static char **tjs__argv = NULL;
 
 
-
 static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
     tjs__mod_error_init(ctx, ns);
@@ -144,10 +143,7 @@ static void uv__stop(uv_async_t *handle) {
 }
 
 void TJS_DefaultOptions(TJSRunOptions *options) {
-    static TJSRunOptions default_options = {
-        .mem_limit = -1,
-        .stack_size = TJS__DEFAULT_STACK_SIZE
-    };
+    static TJSRunOptions default_options = { .mem_limit = -1, .stack_size = TJS__DEFAULT_STACK_SIZE };
 
     memcpy(options, &default_options, sizeof(*options));
 }
@@ -222,7 +218,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JSValue global_obj = JS_GetGlobalObject(qrt->ctx);
     JSAtom bootstrap_ns_atom = JS_NewAtom(qrt->ctx, "__bootstrap");
     JSValue bootstrap_ns = JS_NewObjectProto(qrt->ctx, JS_NULL);
-    JS_DupValue(qrt->ctx, bootstrap_ns); // JS_SetProperty frees the value.
+    JS_DupValue(qrt->ctx, bootstrap_ns);  // JS_SetProperty frees the value.
     JS_SetProperty(qrt->ctx, global_obj, bootstrap_ns_atom, bootstrap_ns);
 
     tjs__bootstrap_core(qrt->ctx, bootstrap_ns);
@@ -230,7 +226,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     /* standard library */
     tjs__add_stdlib(qrt->ctx);
-    
+
 
     /* end bootstrap */
     JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);
@@ -436,11 +432,7 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     dbuf_putc(&dbuf, '\0');
 
     /* Compile then run to be able to set import.meta */
-    ret = JS_Eval(ctx,
-                  (char *) dbuf.buf,
-                  dbuf_size,
-                  filename,
-                  JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf_size, filename, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     if (!JS_IsException(ret)) {
         js_module_set_import_meta(ctx, ret, TRUE, is_main);
         ret = JS_EvalFunction(ctx, ret);

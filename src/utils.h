@@ -76,12 +76,25 @@ struct AssertionInfo {
 
 void tjs_assert(const struct AssertionInfo info);
 
-#define TJS_UVCONST(x) JS_PROP_INT32_DEF(#x, UV_ ## x, JS_PROP_ENUMERABLE)
-#define TJS_CONST(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE)
+#define TJS_UVCONST(x)        JS_PROP_INT32_DEF(#x, UV_##x, JS_PROP_ENUMERABLE)
+#define TJS_CONST(x)          JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE)
 #define TJS_CONST2(name, val) JS_PROP_INT32_DEF(name, val, JS_PROP_ENUMERABLE)
-#define TJS_CFUNC_DEF(name, length, func1) { name, JS_PROP_C_W_E, JS_DEF_CFUNC, 0, .u = { .func = { length, JS_CFUNC_generic, { .generic = func1 } } } }
-#define TJS_CFUNC_MAGIC_DEF(name, length, func1, magic) { name, JS_PROP_C_W_E, JS_DEF_CFUNC, magic, .u = { .func = { length, JS_CFUNC_generic_magic, { .generic_magic = func1 } } } }
-#define TJS_CGETSET_DEF(name, fgetter, fsetter) { name, JS_PROP_C_W_E, JS_DEF_CGETSET, 0, .u = { .getset = { .get = { .getter = fgetter }, .set = { .setter = fsetter } } } }
+#define TJS_CFUNC_DEF(name, length, func1)                                                                             \
+    {                                                                                                                  \
+        name, JS_PROP_C_W_E, JS_DEF_CFUNC, 0, .u = {.func = { length, JS_CFUNC_generic, { .generic = func1 } } }       \
+    }
+#define TJS_CFUNC_MAGIC_DEF(name, length, func1, magic)                                                                \
+    {                                                                                                                  \
+        name, JS_PROP_C_W_E, JS_DEF_CFUNC, magic, .u = {                                                               \
+            .func = { length, JS_CFUNC_generic_magic, { .generic_magic = func1 } }                                     \
+        }                                                                                                              \
+    }
+#define TJS_CGETSET_DEF(name, fgetter, fsetter)                                                                        \
+    {                                                                                                                  \
+        name, JS_PROP_C_W_E, JS_DEF_CGETSET, 0, .u = {                                                                 \
+            .getset = { .get = { .getter = fgetter }, .set = { .setter = fsetter } }                                   \
+        }                                                                                                              \
+    }
 
 uv_loop_t *tjs_get_loop(JSContext *ctx);
 int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);
@@ -116,7 +129,11 @@ extern size_t tjs_signal_map_count;
 const char *tjs_getsig(int sig);
 int tjs_getsignum(const char *sig_str);
 
-#define TJS_THROW_ARG_ERR(ctx, argno, expected) JS_ThrowTypeError(ctx, "expected argument %d to be %s", argno+1, expected)
-#define TJS_CHECK_ARG_RET(ctx, check, argno, expected) if (!(check)){return TJS_THROW_ARG_ERR(ctx, argno, expected); }
+#define TJS_THROW_ARG_ERR(ctx, argno, expected)                                                                        \
+    JS_ThrowTypeError(ctx, "expected argument %d to be %s", argno + 1, expected)
+#define TJS_CHECK_ARG_RET(ctx, check, argno, expected)                                                                 \
+    if (!(check)) {                                                                                                    \
+        return TJS_THROW_ARG_ERR(ctx, argno, expected);                                                                \
+    }
 
 #endif

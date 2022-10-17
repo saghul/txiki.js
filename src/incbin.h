@@ -1,3 +1,5 @@
+// clang-format off
+
 /**
  * @file incbin.h
  * @author Dale Weiler

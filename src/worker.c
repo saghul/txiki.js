@@ -118,7 +118,9 @@ static void worker_entry(void *arg) {
     JSValue worker_obj = tjs_new_worker(ctx, wd->channel_fd, false);
     JS_DefinePropertyValueStr(ctx, global_obj, "workerThis", worker_obj, JS_PROP_C_W_E);
     JS_FreeValue(ctx, global_obj);
-    CHECK_EQ(0, tjs__eval_text(ctx, tjs__code_worker_bootstrap_data, tjs__code_worker_bootstrap_size, "worker-bootstrap.js"));
+    CHECK_EQ(
+        0,
+        tjs__eval_text(ctx, tjs__code_worker_bootstrap_data, tjs__code_worker_bootstrap_size, "worker-bootstrap.js"));
 
     /* Load the file and eval the file when the loop runs. */
     JSValue filename = JS_NewString(ctx, wd->path);

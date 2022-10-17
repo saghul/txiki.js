@@ -204,7 +204,7 @@ static JSValue tjs_stream_write(JSContext *ctx, TJSStream *s, int argc, JSValueC
     /* First try to do the write inline */
     int r;
     uv_buf_t b;
-    b = uv_buf_init((char *)buf, size);
+    b = uv_buf_init((char *) buf, size);
     r = uv_try_write(&s->h.stream, &b, 1);
 
     if (r == size) {
@@ -225,7 +225,7 @@ static JSValue tjs_stream_write(JSContext *ctx, TJSStream *s, int argc, JSValueC
     wr->req.data = wr;
     wr->tarray = JS_DupValue(ctx, argv[0]);
 
-    b = uv_buf_init((char *)buf, size);
+    b = uv_buf_init((char *) buf, size);
     r = uv_write(&wr->req, &s->h.stream, &b, 1, uv__stream_write_cb);
     if (r != 0) {
         JS_FreeValue(ctx, wr->tarray);
@@ -283,7 +283,7 @@ static JSValue tjs_stream_fileno(JSContext *ctx, TJSStream *s, int argc, JSValue
     }
     int32_t rfd;
 #if defined(_WIN32)
-    rfd = (int32_t)(intptr_t) fd;
+    rfd = (int32_t) (intptr_t) fd;
 #else
     rfd = fd;
 #endif
@@ -547,7 +547,8 @@ static JSValue tjs_tcp_keepalive(JSContext *ctx, JSValueConst this_val, int argc
         return JS_EXCEPTION;
 
     int r = uv_tcp_keepalive(&t->h.tcp, enable, 0);
-    if (r != 0 && r != UV_EINVAL) // Filter out EINVAL: https://github.com/libuv/libuv/pull/3488#issuecomment-1057836172
+    if (r != 0 &&
+        r != UV_EINVAL)  // Filter out EINVAL: https://github.com/libuv/libuv/pull/3488#issuecomment-1057836172
         return tjs_throw_errno(ctx, r);
 
     return JS_UNDEFINED;

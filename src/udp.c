@@ -167,7 +167,7 @@ static JSValue tjs_udp_recv(JSContext *ctx, JSValueConst this_val, int argc, JSV
     u->read.b.len = size;
 
     int r = uv_udp_recv_start(&u->udp, uv__udp_alloc_cb, uv__udp_recv_cb);
-    if (r != 0)  {
+    if (r != 0) {
         JS_FreeValue(ctx, u->read.b.tarray);
         u->read.b.tarray = JS_UNDEFINED;
         u->read.b.data = NULL;
@@ -224,7 +224,7 @@ static JSValue tjs_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
     /* First try to do the write inline */
     uv_buf_t b;
-    b = uv_buf_init((char *)buf, size);
+    b = uv_buf_init((char *) buf, size);
     r = uv_udp_try_send(&u->udp, &b, 1, sa);
     if (r == size) {
         JSValue val = JS_NewInt64(ctx, size);
@@ -244,7 +244,7 @@ static JSValue tjs_udp_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
     sr->req.data = sr;
     sr->tarray = JS_DupValue(ctx, argv[0]);
 
-    b = uv_buf_init((char *)buf, size);
+    b = uv_buf_init((char *) buf, size);
     r = uv_udp_send(&sr->req, &u->udp, &b, 1, sa, uv__udp_send_cb);
     if (r != 0) {
         JS_FreeValue(ctx, sr->tarray);
@@ -266,7 +266,7 @@ static JSValue tjs_udp_fileno(JSContext *ctx, JSValueConst this_val, int argc, J
         return tjs_throw_errno(ctx, r);
     int32_t rfd;
 #if defined(_WIN32)
-    rfd = (int32_t)(intptr_t) fd;
+    rfd = (int32_t) (intptr_t) fd;
 #else
     rfd = fd;
 #endif

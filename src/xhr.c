@@ -764,7 +764,7 @@ static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
     TJS_CFUNC_DEF("setRequestHeader", 2, tjs_xhr_setrequestheader),
 };
 
-void tjs__mod_xhr_init(JSContext *ctx,JSValue ns) {
+void tjs__mod_xhr_init(JSContext *ctx, JSValue ns) {
     JSValue proto, obj;
 
     /* XHR class */

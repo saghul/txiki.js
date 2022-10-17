@@ -44,7 +44,8 @@ JSModuleDef *tjs__load_http(JSContext *ctx, const char *url) {
     }
 
     /* compile the module */
-    JSValue func_val = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size - 1, url, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    JSValue func_val =
+        JS_Eval(ctx, (char *) dbuf.buf, dbuf.size - 1, url, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     if (JS_IsException(func_val)) {
         JS_FreeValue(ctx, func_val);
         m = NULL;
@@ -101,7 +102,8 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     dbuf_putc(&dbuf, '\0');
 
     /* compile JS the module */
-    func_val = JS_Eval(ctx, (char *) dbuf.buf, dbuf.size - 1, module_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    func_val =
+        JS_Eval(ctx, (char *) dbuf.buf, dbuf.size - 1, module_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     dbuf_free(&dbuf);
     if (JS_IsException(func_val)) {
         JS_FreeValue(ctx, func_val);
@@ -118,20 +120,20 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
 }
 
 #if defined(_WIN32)
-#define TJS__PATHSEP  '\\'
+#define TJS__PATHSEP '\\'
 #else
-#define TJS__PATHSEP  '/'
+#define TJS__PATHSEP '/'
 #endif
 
 int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use_realpath, JS_BOOL is_main) {
     JSModuleDef *m;
-    char buf[PATH_MAX + 16] = {0};
+    char buf[PATH_MAX + 16] = { 0 };
     int r;
     JSValue meta_obj;
     JSAtom module_name_atom;
     const char *module_name;
-    char module_dirname[PATH_MAX] = {0};
-    char module_basename[PATH_MAX] = {0};
+    char module_dirname[PATH_MAX] = { 0 };
+    char module_basename[PATH_MAX] = { 0 };
 
     CHECK_EQ(JS_VALUE_GET_TAG(func_val), JS_TAG_MODULE);
     m = JS_VALUE_GET_PTR(func_val);
@@ -166,7 +168,7 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
         // all we need to do is split on the last path separator.
         const char *start = buf + 7; /* skip file:// */
         char *p = strrchr(start, TJS__PATHSEP);
-        strncpy(module_dirname, start , p - start);
+        strncpy(module_dirname, start, p - start);
         strcpy(module_basename, p + 1);
     } else {
         pstrcat(buf, sizeof(buf), module_name);

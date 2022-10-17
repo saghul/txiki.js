@@ -168,12 +168,10 @@ static JSValue tjs_clearTimeout(JSContext *ctx, JSValueConst this_val, int argc,
     return JS_UNDEFINED;
 }
 
-static const JSCFunctionListEntry tjs_timer_funcs[] = {
-    JS_CFUNC_MAGIC_DEF("setTimeout", 2, tjs_setTimeout, 0),
-    TJS_CFUNC_DEF("clearTimeout", 1, tjs_clearTimeout),
-    JS_CFUNC_MAGIC_DEF("setInterval", 2, tjs_setTimeout, 1),
-    TJS_CFUNC_DEF("clearInterval", 1, tjs_clearTimeout)
-};
+static const JSCFunctionListEntry tjs_timer_funcs[] = { JS_CFUNC_MAGIC_DEF("setTimeout", 2, tjs_setTimeout, 0),
+                                                        TJS_CFUNC_DEF("clearTimeout", 1, tjs_clearTimeout),
+                                                        JS_CFUNC_MAGIC_DEF("setInterval", 2, tjs_setTimeout, 1),
+                                                        TJS_CFUNC_DEF("clearInterval", 1, tjs_clearTimeout) };
 
 void tjs__mod_timers_init(JSContext *ctx, JSValue ns) {
     JS_NewClassID(&tjs_timer_class_id);
