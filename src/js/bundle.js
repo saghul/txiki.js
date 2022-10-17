@@ -12843,14 +12843,11 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
     function sepStatements(tokens2, offs = 0) {
       const statements2 = [];
       let index = offs;
-      let sep = ";";
       const firstToken = tokens2[index];
       if (firstToken === "[" || firstToken === "(") {
-        sep = ",";
         index++;
         statements2._block = firstToken;
       } else if (firstToken === "{") {
-        sep = ";";
         index++;
         statements2._block = firstToken;
       }

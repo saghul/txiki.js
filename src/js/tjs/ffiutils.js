@@ -27,15 +27,15 @@ export default function init({ StructType, CFunction, PointerType }) {
         function sepStatements(tokens, offs = 0) {
             const statements = [];
             let index = offs;
-            let sep = ';';
+            //let sep = ';';
             const firstToken = tokens[index];
 
             if (firstToken === '[' || firstToken === '(') {
-                sep = ',';
+                //sep = ',';
                 index++;
                 statements._block = firstToken;
             } else if (firstToken === '{') {
-                sep = ';';
+                //sep = ';';
                 index++;
                 statements._block = firstToken;
             }
