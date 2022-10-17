@@ -20,27 +20,35 @@ class XMLHttpRequest extends EventTarget {
         super();
 
         const xhr = new XHR();
+
         xhr.onabort = () => {
             this.dispatchEvent(new Event('abort'));
         };
+
         xhr.onerror = () => {
             this.dispatchEvent(new Event('error'));
         };
+
         xhr.onload = () => {
             this.dispatchEvent(new Event('load'));
         };
+
         xhr.onloadend = () => {
             this.dispatchEvent(new Event('loadend'));
         };
+
         xhr.onloadstart = () => {
             this.dispatchEvent(new Event('loadstart'));
         };
+
         xhr.onprogress = p => {
             this.dispatchEvent(new ProgressEvent('progress', p));
         };
+
         xhr.onreadystatechange = () => {
             this.dispatchEvent(new Event('readystatechange'));
         };
+
         xhr.ontimeout = () => {
             this.dispatchEvent(new Event('timeout'));
         };
@@ -130,6 +138,7 @@ class XMLHttpRequest extends EventTarget {
 }
 
 const xhrProto = XMLHttpRequest.prototype;
+
 defineEventAttribute(xhrProto, 'abort');
 defineEventAttribute(xhrProto, 'error');
 defineEventAttribute(xhrProto, 'load');

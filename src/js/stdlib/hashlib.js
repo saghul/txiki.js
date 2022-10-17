@@ -1,8 +1,8 @@
 import md5 from 'js-md5';
 import sha1 from 'js-sha1';
 import { sha256, sha224 } from 'js-sha256';
-import { sha512, sha384, sha512_256, sha512_224 } from 'js-sha512';
 import { sha3_512, sha3_384, sha3_256, sha3_224 } from 'js-sha3';
+import { sha512, sha384, sha512_256, sha512_224 } from 'js-sha512';
 
 
 const kHashObj = Symbol('kHashObj');
@@ -19,7 +19,7 @@ const supportedHashes = {
     sha3_384,
     sha3_256,
     sha3_224
-}
+};
 
 class Hash {
     constructor(obj) {
@@ -28,6 +28,7 @@ class Hash {
 
     update(data) {
         this[kHashObj].update(data);
+
         return this;
     }
 

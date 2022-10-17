@@ -3,21 +3,24 @@
 const kWorkerSelf = Symbol('kWorkerSelf');
 
 const worker = globalThis.workerThis;
+
 delete globalThis.workerThis;
 
 self[kWorkerSelf] = worker;
+
 worker.onmessage = msg => {
     self.dispatchEvent(new MessageEvent('message', msg));
 };
+
 worker.onmessageerror = msgerror => {
     self.dispatchEvent(new MessageEvent('messageerror', msgerror));
 };
+
 worker.onerror = error => {
     self.dispatchEvent(new ErrorEvent(error));
 };
-self.postMessage = (...args) => {
-    return self[kWorkerSelf].postMessage(...args);
-}
+
+self.postMessage = (...args) => self[kWorkerSelf].postMessage(...args);
 
 const defineEventAttribute = EventTarget.__defineEventAttribute;
 

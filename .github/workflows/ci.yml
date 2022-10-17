@@ -3,6 +3,20 @@ name: CI
 on: [pull_request]
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16
+    - name: Install dependencies
+      run: npm install
+    - name: Run the linter
+      run: npm run lint
   build-linux:
     name: Linux
     runs-on: ubuntu-latest

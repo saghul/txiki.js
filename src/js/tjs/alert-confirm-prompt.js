@@ -1,3 +1,4 @@
+/* global tjs */
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -9,26 +10,32 @@ async function readStdinLine() {
     const c = new Uint8Array(1);
     const buf = [];
 
+    // eslint-disable-next-line no-constant-condition
     while (true) {
         const n = await tjs.stdin.read(c);
-        
+
         if (n === 0) {
             break;
         }
+
         if (c[0] === CR) {
             const n = await tjs.stdin.read(c);
 
             if (c[0] === LF) {
                 break;
             }
+
             buf.push(CR);
+
             if (n === 0) {
                 break;
             }
         }
+
         if (c[0] === LF) {
             break;
         }
+
         buf.push(c[0]);
     }
 

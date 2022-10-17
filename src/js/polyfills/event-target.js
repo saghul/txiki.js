@@ -34,9 +34,11 @@ const privateData = new WeakMap();
  */
 function pd(event) {
     const retv = privateData.get(event);
-    if (retv == null) {
-        throw new Error("'this' is expected an Event object, but got " + event);
+
+    if (!retv) {
+        throw new Error('\'this\' is expected an Event object, but got ' + event);
     }
+
     return retv;
 }
 
@@ -45,12 +47,14 @@ function pd(event) {
  * @param data {PrivateData} private data.
  */
 function setCancelFlag(data) {
-    if (data.passiveListener != null) {
+    if (data.passiveListener !== null) {
         console.error(
-            "Unable to preventDefault inside passive event listener invocation.",
+            'Unable to preventDefault inside passive event listener invocation.',
             data.passiveListener);
-        return
+
+        return;
     }
+
     if (!data.eventInit.cancelable) {
         return;
     }
@@ -62,7 +66,7 @@ function setCancelFlag(data) {
 class Event {
     constructor(eventType, eventInit = {}) {
         if (eventInit && typeof eventInit !== 'object') {
-            throw TypeError('Value must be an object.')
+            throw TypeError('Value must be an object.');
         }
 
         privateData.set(this, {
@@ -78,7 +82,7 @@ class Event {
         });
 
         // https://heycam.github.io/webidl/#Unforgeable
-        Object.defineProperty(this, "isTrusted", { value: false, enumerable: true });
+        Object.defineProperty(this, 'isTrusted', { value: false, enumerable: true });
     }
 
     /**
@@ -110,10 +114,12 @@ class Event {
      */
     composedPath() {
         const currentTarget = pd(this).currentTarget;
-        if (currentTarget == null) {
+
+        if (!currentTarget) {
             return [];
         }
-        return [currentTarget];
+
+        return [ currentTarget ];
     }
 
     /**
@@ -309,7 +315,7 @@ const ATTRIBUTE = 3;
  * @returns {boolean} `true` if the value is an object.
  */
 function isObject(x) {
-    return x !== null && typeof x === "object" //eslint-disable-line no-restricted-syntax
+    return x !== null && typeof x === 'object'; // eslint-disable-line no-restricted-syntax
 }
 
 /**
@@ -320,12 +326,14 @@ function isObject(x) {
  */
 function getListeners(eventTarget) {
     const listeners = listenersMap.get(eventTarget);
-    if (listeners == null) {
+
+    if (!listeners) {
         throw new TypeError(
-            "'this' is expected an EventTarget object, but got another value."
-        )
+            '\'this\' is expected an EventTarget object, but got another value.'
+        );
     }
-    return listeners
+
+    return listeners;
 }
 
 /**
@@ -339,25 +347,30 @@ function defineEventAttributeDescriptor(eventName) {
         get() {
             const listeners = getListeners(this);
             let node = listeners.get(eventName);
-            while (node != null) {
+
+            while (node) {
                 if (node.listenerType === ATTRIBUTE) {
-                    return node.listener
+                    return node.listener;
                 }
+
                 node = node.next;
             }
-            return null
+
+            return null;
         },
 
         set(listener) {
-            if (typeof listener !== "function" && !isObject(listener)) {
+            if (typeof listener !== 'function' && !isObject(listener)) {
                 listener = null; // eslint-disable-line no-param-reassign
             }
+
             const listeners = getListeners(this);
 
             // Traverse to the tail while removing old value.
             let prev = null;
             let node = listeners.get(eventName);
-            while (node != null) {
+
+            while (node) {
                 if (node.listenerType === ATTRIBUTE) {
                     // Remove old value.
                     if (prev !== null) {
@@ -383,6 +396,7 @@ function defineEventAttributeDescriptor(eventName) {
                     once: false,
                     next: null,
                 };
+
                 if (prev === null) {
                     listeners.set(eventName, newNode);
                 } else {
@@ -392,7 +406,7 @@ function defineEventAttributeDescriptor(eventName) {
         },
         configurable: true,
         enumerable: true,
-    }
+    };
 }
 
 /**
@@ -429,11 +443,12 @@ class EventTarget {
      * @returns {void}
      */
     addEventListener(eventName, listener, options) {
-        if (listener == null) {
-            return
+        if (!listener) {
+            return;
         }
-        if (typeof listener !== "function" && !isObject(listener)) {
-            throw new TypeError("'listener' should be a function or an object.")
+
+        if (typeof listener !== 'function' && !isObject(listener)) {
+            throw new TypeError('\'listener\' should be a function or an object.');
         }
 
         const listeners = getListeners(this);
@@ -452,21 +467,25 @@ class EventTarget {
 
         // Set it as the first node if the first node is null.
         let node = listeners.get(eventName);
+
         if (node === undefined) {
             listeners.set(eventName, newNode);
-            return
+
+            return;
         }
 
         // Traverse to the tail while checking duplication..
         let prev = null;
-        while (node != null) {
+
+        while (node) {
             if (
                 node.listener === listener &&
                 node.listenerType === listenerType
             ) {
                 // Should ignore duplication.
-                return
+                return;
             }
+
             prev = node;
             node = node.next;
         }
@@ -483,8 +502,8 @@ class EventTarget {
      * @returns {void}
      */
     removeEventListener(eventName, listener, options) {
-        if (listener == null) {
-            return
+        if (!listener) {
+            return;
         }
 
         const listeners = getListeners(this);
@@ -495,7 +514,8 @@ class EventTarget {
 
         let prev = null;
         let node = listeners.get(eventName);
-        while (node != null) {
+
+        while (node) {
             if (
                 node.listener === listener &&
                 node.listenerType === listenerType
@@ -507,7 +527,8 @@ class EventTarget {
                 } else {
                     listeners.delete(eventName);
                 }
-                return
+
+                return;
             }
 
             prev = node;
@@ -524,6 +545,7 @@ class EventTarget {
         if (typeof event !== 'object') {
             throw new TypeError('Argument 1 of EventTarget.dispatchEvent is not an object.');
         }
+
         if (!(event instanceof Event)) {
             throw new TypeError('Argument 1 of EventTarget.dispatchEvent does not implement interface Event.');
         }
@@ -535,14 +557,16 @@ class EventTarget {
         const listeners = getListeners(this);
         const eventName = event.type;
         let node = listeners.get(eventName);
-        if (node == null) {
-            return true
+
+        if (!node) {
+            return true;
         }
 
         // This doesn't process capturing phase and bubbling phase.
         // This isn't participating in a tree.
         let prev = null;
-        while (node != null) {
+
+        while (node) {
             // Remove this listener if it's once
             if (node.once) {
                 if (prev !== null) {
@@ -558,28 +582,30 @@ class EventTarget {
 
             // Call this listener
             setPassiveListener(event, node.passive ? node.listener : null);
-            if (typeof node.listener === "function") {
+
+            if (typeof node.listener === 'function') {
                 try {
                     node.listener.call(this, event);
                 } catch (err) {
                     console.error(err);
                 }
-            } else if (node.listenerType !== ATTRIBUTE && typeof node.listener.handleEvent === "function") {
+            } else if (node.listenerType !== ATTRIBUTE && typeof node.listener.handleEvent === 'function') {
                 node.listener.handleEvent(event);
             }
 
             // Break if `event.stopImmediatePropagation` was called.
             if (isStopped(event)) {
-                break
+                break;
             }
 
             node = node.next;
         }
+
         setPassiveListener(event, null);
         setEventPhase(event, 0);
-        //setCurrentTarget(event, null); ?
+        // setCurrentTarget(event, null); ?
 
-        return !event.defaultPrevented
+        return !event.defaultPrevented;
     }
 }
 

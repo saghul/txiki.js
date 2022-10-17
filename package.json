@@ -9,13 +9,16 @@
     "stdlib": "esbuild src/js/stdlib/index.js --bundle --outfile=src/js/std.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module",
     "api-docs": "typedoc --tsconfig docs/tsconfig.doc.json",
     "api-docs-watch": "typedoc --tsconfig docs/tsconfig.doc.json --watch",
-    "deploy-api-docs": "gh-pages -d docs/api -e api -u \"github-actions-bot <support+actions@github.com>\""
+    "deploy-api-docs": "gh-pages -d docs/api -e api -u \"github-actions-bot <support+actions@github.com>\"",
+    "lint": "eslint --max-warnings 0 ."
   },
   "license": "MIT",
   "dependencies": {
     "abortcontroller-polyfill": "^1.7.5",
     "core-js": "^3.25.5",
     "esbuild": "^0.15.11",
+    "eslint": "^8.24.0",
+    "eslint-plugin-import": "^2.26.0",
     "getopts": "^2.3.0",
     "gh-pages": "^4.0.0",
     "ipaddr.js": "^2.0.1",
