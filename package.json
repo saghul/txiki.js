@@ -13,11 +13,11 @@
   },
   "license": "MIT",
   "dependencies": {
-    "abortcontroller-polyfill": "^1.7.3",
-    "core-js": "^3.20.3",
-    "esbuild": "^0.14.11",
+    "abortcontroller-polyfill": "^1.7.5",
+    "core-js": "^3.25.5",
+    "esbuild": "^0.15.11",
     "getopts": "^2.3.0",
-    "gh-pages": "^3.2.3",
+    "gh-pages": "^4.0.0",
     "ipaddr.js": "^2.0.1",
     "js-md5": "^0.7.3",
     "js-sha1": "^0.6.0",
@@ -28,11 +28,11 @@
     "path-browserify": "^1.0.1",
     "queue-microtask": "^1.2.3",
     "text-encoding-utf-8": "^1.0.2",
-    "typedoc": "^0.22.12",
-    "urlpattern-polyfill": "^1.0.0-rc4",
-    "util": "^0.12.4",
-    "uuid": "^8.3.2",
-    "web-streams-polyfill": "^3.2.0",
+    "typedoc": "^0.23.16",
+    "urlpattern-polyfill": "^6.0.1",
+    "util": "^0.12.5",
+    "uuid": "^9.0.0",
+    "web-streams-polyfill": "^3.2.1",
     "whatwg-fetch": "^3.6.2"
   }
 }
