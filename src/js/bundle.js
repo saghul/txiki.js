@@ -12829,7 +12829,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       const tokens2 = [];
       const tokenRegex = /(\w+|[^\w])/g;
       for (const w of words) {
-        if (w.length == 0) {
+        if (w.length === 0) {
           continue;
         }
         let m;
@@ -12845,11 +12845,11 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       let index = offs;
       let sep = ";";
       const firstToken = tokens2[index];
-      if (firstToken == "[" || firstToken == "(") {
+      if (firstToken === "[" || firstToken === "(") {
         sep = ",";
         index++;
         statements2._block = firstToken;
-      } else if (firstToken == "{") {
+      } else if (firstToken === "{") {
         sep = ";";
         index++;
         statements2._block = firstToken;
@@ -12874,7 +12874,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
             }
             break;
           case "}":
-            if (firstToken != "{") {
+            if (firstToken !== "{") {
               throw new Error("Unexpected " + t);
             }
             if (stTokens.length > 0) {
@@ -12883,7 +12883,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
             return [statements2, index];
             break;
           case ")":
-            if (firstToken != "(") {
+            if (firstToken !== "(") {
               throw new Error("Unexpected " + t);
             }
             if (stTokens.length) {
@@ -12892,7 +12892,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
             return [statements2, index];
             break;
           case "]":
-            if (firstToken != "[") {
+            if (firstToken !== "[") {
               throw new Error("Unexpected " + t);
             }
             if (stTokens.length) {
@@ -12922,7 +12922,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
         ptr: 0
       };
       for (let i = 0; i < st.length; i++) {
-        if (st[i]._block == "[") {
+        if (st[i]._block === "[") {
           info.arr = st[i].length > 0 ? parseInt(st[i][0]) : true;
           continue;
         }
@@ -12951,10 +12951,10 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       return info;
     }
     function parseType(st) {
-      const curlyBlockInd = st.findIndex((e) => e._block == "{");
-      const roundBlockInd = st.findIndex((e) => e._block == "(");
-      const ptr = st.filter((e) => e == "*").length;
-      if (st[0] == "struct" && curlyBlockInd > -1) {
+      const curlyBlockInd = st.findIndex((e) => e._block === "{");
+      const roundBlockInd = st.findIndex((e) => e._block === "(");
+      const ptr = st.filter((e) => e === "*").length;
+      if (st[0] === "struct" && curlyBlockInd > -1) {
         return {
           kind: "type",
           typeModifiers: [],
@@ -12979,7 +12979,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       let arr;
       if (st.slice(-1)[0]._block == "[") {
         const arrBrack = st.slice(-1)[0];
-        arr = arrBrack.length == 0 ? true : parseInt(arrBrack[0]);
+        arr = arrBrack.length === 0 ? true : parseInt(arrBrack[0]);
         namePos--;
       }
       const info = {
@@ -12993,7 +12993,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       return info;
     }
     function parseTypedef(st) {
-      if (st.slice(-1)[0]._block == "(") {
+      if (st.slice(-1)[0]._block === "(") {
         const func = parseFunctionProto(st.slice(1));
         return {
           kind: "typedef",
@@ -13011,7 +13011,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       const info = {
         kind: "struct"
       };
-      const curlyBlockInd = st.findIndex((e) => e._block == "{");
+      const curlyBlockInd = st.findIndex((e) => e._block === "{");
       if (curlyBlockInd >= 2) {
         if (curlyBlockInd > 2) {
           throw new Error("expected { after struct name");
@@ -13022,11 +13022,11 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       return info;
     }
     function parseFunctionProto(st) {
-      let firstBrackInd = st.findIndex((e) => e._block == "(");
-      let secondBrackInd = st[firstBrackInd + 1]?._block == "(" ? firstBrackInd + 1 : -1;
+      let firstBrackInd = st.findIndex((e) => e._block === "(");
+      let secondBrackInd = st[firstBrackInd + 1]?._block === "(" ? firstBrackInd + 1 : -1;
       const argBlock = secondBrackInd > 0 ? st[secondBrackInd] : st[firstBrackInd];
       const name = secondBrackInd > 0 ? st[firstBrackInd][0].slice(-1)[0] : st[firstBrackInd - 1];
-      const ptr = secondBrackInd > 0 ? st[firstBrackInd][0].filter((e) => e == "*").length : 0;
+      const ptr = secondBrackInd > 0 ? st[firstBrackInd][0].filter((e) => e === "*").length : 0;
       const retTypeMaxInd = secondBrackInd > 0 ? firstBrackInd - 1 : firstBrackInd - 2;
       const info = {
         kind: "function",
@@ -13088,7 +13088,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
     function registerStruct(regname, st) {
       const fields = [];
       for (const m of st.members) {
-        if (m.type.kind == "type") {
+        if (m.type.kind === "type") {
           let t;
           if (m.type.struct) {
             registerStruct(m.type.struct.name, m.type.struct);
@@ -13101,22 +13101,26 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
           throw new Error("unhandled member type: " + m.type.kind);
         }
       }
-      const stt = new StructType2(fields, st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`, st.align);
+      const stt = new StructType2(
+        fields,
+        st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`,
+        st.align
+      );
       lib.registerType(regname, stt);
       return stt;
     }
     for (const e of ast) {
       switch (e.kind) {
         case "typedef":
-          if (e.child.kind == "type") {
+          if (e.child.kind === "type") {
             if (e.child.struct) {
               registerStruct(e.name ?? "struct " + e.child.struct.name, e.child.struct);
               lib.registerType(e.name, getType(e.name ?? "struct " + e.child.struct.name, e.child.ptr));
             } else {
               lib.registerType(e.name, getType(e.child.name));
             }
-          } else if (e.child.kind == "function") {
-            lib.registerType(e.name || e.child.name, FFI.types.jscallback);
+          } else if (e.child.kind === "function") {
+            lib.registerType(e.name || e.child.name, tjs.ffi.types.jscallback);
           } else {
             throw new Error("unsupported typedef: " + JSON.stringify(e));
           }
@@ -13124,9 +13128,15 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
         case "struct":
           registerStruct("struct " + e.name, e);
           break;
-        case "function":
-          const f = new CFunction2(lib.symbol(e.name), getType(e.return.name, e.return.ptr, true), e.args.map((p) => getType(p.type.name, p.type.ptr, true)));
+        case "function": {
+          const f = new CFunction2(
+            lib.symbol(e.name),
+            getType(e.return.name, e.return.ptr, true),
+            e.args.map((p) => getType(p.type.name, p.type.ptr, true))
+          );
           lib.registerFunction(e.name, f);
+          break;
+        }
       }
     }
   }

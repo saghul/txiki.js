@@ -1,3 +1,5 @@
+/* global tjs */
+
 export default function init({ StructType, CFunction, PointerType }) {
     function parseCProto(header) {
         function tokenize(str) {
@@ -6,7 +8,7 @@ export default function init({ StructType, CFunction, PointerType }) {
             const tokenRegex = /(\w+|[^\w])/g;
 
             for (const w of words) {
-                if (w.length == 0) {
+                if (w.length === 0) {
                     continue;
                 }
 
@@ -28,11 +30,11 @@ export default function init({ StructType, CFunction, PointerType }) {
             let sep = ';';
             const firstToken = tokens[index];
 
-            if (firstToken == '[' || firstToken == '(') {
+            if (firstToken === '[' || firstToken === '(') {
                 sep = ',';
                 index++;
                 statements._block = firstToken;
-            } else if (firstToken == '{') {
+            } else if (firstToken === '{') {
                 sep = ';';
                 index++;
                 statements._block = firstToken;
@@ -62,7 +64,7 @@ export default function init({ StructType, CFunction, PointerType }) {
 
                         break;
                     case '}':
-                        if (firstToken != '{') {
+                        if (firstToken !== '{') {
                             throw new Error('Unexpected '+t);
                         }
 
@@ -73,7 +75,7 @@ export default function init({ StructType, CFunction, PointerType }) {
                         return [ statements, index ];
                         break;
                     case ')':
-                        if (firstToken != '(') {
+                        if (firstToken !== '(') {
                             throw new Error('Unexpected '+t);
                         }
 
@@ -84,7 +86,7 @@ export default function init({ StructType, CFunction, PointerType }) {
                         return [ statements, index ];
                         break;
                     case ']':
-                        if (firstToken != '[') {
+                        if (firstToken !== '[') {
                             throw new Error('Unexpected '+t);
                         }
 
@@ -121,7 +123,7 @@ export default function init({ StructType, CFunction, PointerType }) {
             };
 
             for (let i=0; i<st.length; i++) {
-                if (st[i]._block == '[') {
+                if (st[i]._block === '[') {
                     info.arr = st[i].length > 0 ? parseInt(st[i][0]) : true;
                     continue;
                 }
@@ -154,11 +156,11 @@ export default function init({ StructType, CFunction, PointerType }) {
         }
 
         function parseType(st) {
-            const curlyBlockInd = st.findIndex(e=>e._block == '{');
-            const roundBlockInd = st.findIndex(e=>e._block == '(');
-            const ptr = st.filter(e=>e == '*').length;
+            const curlyBlockInd = st.findIndex(e=>e._block === '{');
+            const roundBlockInd = st.findIndex(e=>e._block === '(');
+            const ptr = st.filter(e=>e === '*').length;
 
-            if (st[0] == 'struct' && curlyBlockInd > -1) {
+            if (st[0] === 'struct' && curlyBlockInd > -1) {
                 return {
                     kind: 'type',
                     typeModifiers: [],
@@ -186,7 +188,7 @@ export default function init({ StructType, CFunction, PointerType }) {
             if (st.slice(-1)[0]._block == '[') {
                 const arrBrack = st.slice(-1)[0];
 
-                arr = arrBrack.length == 0 ? true : parseInt(arrBrack[0]);
+                arr = arrBrack.length === 0 ? true : parseInt(arrBrack[0]);
                 namePos--;
             }
 
@@ -204,7 +206,7 @@ export default function init({ StructType, CFunction, PointerType }) {
         }
 
         function parseTypedef(st) {
-            if (st.slice(-1)[0]._block == '(') {
+            if (st.slice(-1)[0]._block === '(') {
                 const func = parseFunctionProto(st.slice(1));
 
                 return {
@@ -225,7 +227,7 @@ export default function init({ StructType, CFunction, PointerType }) {
             const info = {
                 kind: 'struct',
             };
-            const curlyBlockInd = st.findIndex(e=>e._block == '{');
+            const curlyBlockInd = st.findIndex(e=>e._block === '{');
 
             if (curlyBlockInd >= 2) {
                 if (curlyBlockInd > 2) {
@@ -241,13 +243,13 @@ export default function init({ StructType, CFunction, PointerType }) {
         }
 
         function parseFunctionProto(st) {
-            let firstBrackInd = st.findIndex(e=>e._block == '(');
-            let secondBrackInd = st[firstBrackInd+1]?._block == '(' ? firstBrackInd + 1 : -1;
+            let firstBrackInd = st.findIndex(e=>e._block === '(');
+            let secondBrackInd = st[firstBrackInd+1]?._block === '(' ? firstBrackInd + 1 : -1;
 
             const argBlock = secondBrackInd > 0 ? st[secondBrackInd] : st[firstBrackInd];
 
             const name = secondBrackInd > 0 ? st[firstBrackInd][0].slice(-1)[0] : st[firstBrackInd - 1];
-            const ptr = secondBrackInd > 0 ? st[firstBrackInd][0].filter(e=>e == '*').length : 0;
+            const ptr = secondBrackInd > 0 ? st[firstBrackInd][0].filter(e=>e === '*').length : 0;
             const retTypeMaxInd = secondBrackInd > 0 ? firstBrackInd - 1 : firstBrackInd - 2;
 
             const info = {
@@ -302,7 +304,8 @@ export default function init({ StructType, CFunction, PointerType }) {
         function getType(name, ptr = 0, func = false) {
             let ffiType = lib.getType(name+('*').repeat(ptr));
 
-            if (ffiType) { // look for type specific pointer type first, currently used to map char* to string and void* to pointer
+            if (ffiType) {
+                // look for type specific pointer type first, currently used to map char* to string and void* to pointer
                 return ffiType;
             }
 
@@ -327,7 +330,7 @@ export default function init({ StructType, CFunction, PointerType }) {
             const fields = [];
 
             for (const m of st.members) {
-                if (m.type.kind == 'type') {
+                if (m.type.kind === 'type') {
                     let t;
 
                     if (m.type.struct) {
@@ -343,7 +346,11 @@ export default function init({ StructType, CFunction, PointerType }) {
                 }
             }
 
-            const stt = new StructType(fields, st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`, st.align);
+            const stt = new StructType(
+                fields,
+                st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`,
+                st.align
+            );
 
             lib.registerType(regname, stt);
 
@@ -353,15 +360,15 @@ export default function init({ StructType, CFunction, PointerType }) {
         for (const e of ast) {
             switch (e.kind) {
                 case 'typedef':
-                    if (e.child.kind == 'type') {
+                    if (e.child.kind === 'type') {
                         if (e.child.struct) {
                             registerStruct(e.name ?? 'struct '+e.child.struct.name, e.child.struct);
                             lib.registerType(e.name, getType(e.name ?? 'struct '+e.child.struct.name, e.child.ptr));
                         } else {
                             lib.registerType(e.name, getType(e.child.name));
                         }
-                    } else if (e.child.kind == 'function') {
-                        lib.registerType(e.name || e.child.name, FFI.types.jscallback);
+                    } else if (e.child.kind === 'function') {
+                        lib.registerType(e.name || e.child.name, tjs.ffi.types.jscallback);
                     } else {
                         throw new Error('unsupported typedef: ' + JSON.stringify(e));
                     }
@@ -370,10 +377,17 @@ export default function init({ StructType, CFunction, PointerType }) {
                 case 'struct':
                     registerStruct('struct '+e.name, e);
                     break;
-                case 'function':
-                    const f = new CFunction(lib.symbol(e.name), getType(e.return.name, e.return.ptr, true), e.args.map(p => getType(p.type.name, p.type.ptr, true)));
+
+                case 'function': {
+                    const f = new CFunction(
+                        lib.symbol(e.name),
+                        getType(e.return.name, e.return.ptr, true),
+                        e.args.map(p => getType(p.type.name, p.type.ptr, true))
+                    );
 
                     lib.registerFunction(e.name, f);
+                    break;
+                }
             }
         }
     }
