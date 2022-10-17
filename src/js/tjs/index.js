@@ -1,12 +1,13 @@
 const core = globalThis.__bootstrap;
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
+import * as FFI from './ffi.js';
 import { open, mkstemp } from './fs.js';
+import { PosixSocket } from './posix-socket.js';
 import { signal } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
 
-import * as FFI from './ffi.js';
 
 // The "tjs" global.
 //
@@ -43,7 +44,7 @@ const noExport = [
     'ffi' // is exported as import from ffi.js
 ];
 
-for (const [key, value] of Object.entries(core)) {
+for (const [ key, value ] of Object.entries(core)) {
     if (noExport.includes(key)) {
         continue;
     }
@@ -54,12 +55,6 @@ for (const [key, value] of Object.entries(core)) {
 // These values should be immutable.
 tjs.args = Object.freeze(core.args);
 tjs.versions = Object.freeze(core.versions);
-
-tjs.ffi = FFI;
-FFI.StructType.parseCProto = function(header){
-    const ast = parseCProto(header);
-    astToLib(this, ast);
-}
 
 // Alert, confirm, prompt.
 // These differ slightly from browsers, they are async.
@@ -146,9 +141,15 @@ Object.defineProperty(tjs, 'stderr', {
     value: createStderr()
 });
 
-import { PosixSocket } from './posix-socket.js';
+// FFI
+Object.defineProperty(tjs, 'ffi', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: FFI
+});
 
-if(core.posix_socket){
+if (core.posix_socket) {
     Object.defineProperty(tjs, 'PosixSocket', {
         enumerable: true,
         configurable: false,

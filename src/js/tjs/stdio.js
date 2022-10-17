@@ -22,9 +22,11 @@ class InputStream extends BaseIOStream {
 
     setRawMode(rawMode) {
         if (!this.isTTY) {
-            throw new Error('not a TTY')
+            throw new Error('not a TTY');
         }
+
         const ttyMode = rawMode ? core.TTY.TTY_MODE_RAW : core.TTY.TTY_MODE_NORMAL;
+
         this[kStdioHandle].setMode(ttyMode);
     }
 }
@@ -36,15 +38,17 @@ class OutputStream extends BaseIOStream {
 
     get height() {
         if (!this.isTTY) {
-            throw new Error('not a TTY')
+            throw new Error('not a TTY');
         }
+
         return this[kStdioHandle].getWinSize().height;
     }
 
     get width() {
         if (!this.isTTY) {
-            throw new Error('not a TTY')
+            throw new Error('not a TTY');
         }
+
         return this[kStdioHandle].getWinSize().width;
     }
 }
@@ -53,12 +57,14 @@ function createStdioStream(fd) {
     const isStdin = fd === core.STDIN_FILENO;
     const StreamType = isStdin ? InputStream : OutputStream;
     const type = core.guessHandle(fd);
+
     switch (type) {
         case 'tty': {
             const handle = new core.TTY(fd, isStdin);
 
             return new StreamType(handle, type);
         }
+
         case 'pipe': {
             const handle = new core.Pipe();
 
@@ -66,11 +72,13 @@ function createStdioStream(fd) {
 
             return new StreamType(handle, type);
         }
+
         case 'file': {
             const handle = core.newStdioFile(pathByFd(fd), fd);
 
             return new StreamType(handle, type);
         }
+
         default:
             return undefined;
     }
@@ -88,6 +96,7 @@ function pathByFd(fd) {
             return '';
     }
 }
+
 export function createStdin() {
     return createStdioStream(core.STDIN_FILENO);
 }

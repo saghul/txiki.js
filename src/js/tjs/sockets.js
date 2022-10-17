@@ -1,3 +1,5 @@
+/* global tjs */
+
 import { readableStreamForHandle, writableStreamForHandle } from './stream-utils.js';
 
 const core = globalThis.__bootstrap;
@@ -9,31 +11,45 @@ export async function connect(transport, host, port, options = {}) {
     switch (transport) {
         case 'tcp': {
             const handle = new core.TCP();
+
             if (options.bindAddr) {
                 let flags = 0;
+
                 if (options.ipv6Only) {
                     flags |= core.TCP_IPV6ONLY;
                 }
+
                 handle.bind(options.bindAddr, flags);
             }
+
             await handle.connect(addr);
+
             return new Connection(handle);
         }
+
         case 'pipe': {
             const handle = new core.Pipe();
+
             await handle.connect(addr);
+
             return new Connection(handle);
         }
+
         case 'udp': {
             const handle = new core.UDP();
+
             if (options.bindAddr) {
                 let flags = 0;
+
                 if (options.ipv6Only) {
                     flags |= core.UDP_IPV6ONLY;
                 }
+
                 handle.bind(options.bindAddr, flags);
             }
+
             await handle.connect(addr);
+
             return new DatagramEndpoint(handle);
         }
     }
@@ -46,29 +62,40 @@ export async function listen(transport, host, port, options = {}) {
         case 'tcp': {
             const handle = new core.TCP();
             let flags = 0;
+
             if (options.ipv6Only) {
                 flags |= core.TCP_IPV6ONLY;
             }
+
             handle.bind(addr, flags);
             handle.listen(options.backlog);
+
             return new Listener(handle);
         }
+
         case 'pipe': {
             const handle = new core.Pipe();
+
             handle.bind(addr);
             handle.listen(options.backlog);
+
             return new Listener(handle);
         }
+
         case 'udp': {
             const handle = new core.UDP();
             let flags = 0;
+
             if (options.reuseAddr) {
                 flags |= core.UDP_REUSEADDR;
             }
+
             if (options.ipv6Only) {
                 flags |= core.UDP_IPV6ONLY;
             }
-            handle.bind(addr, options.bindFlags);
+
+            handle.bind(addr, flags);
+
             return new DatagramEndpoint(handle);
         }
     }
@@ -82,18 +109,23 @@ async function prepareAddress(transport, host, port) {
                 protocol: tjs.IPPROTO_TCP
             };
             const r = await tjs.getaddrinfo(host ?? '0.0.0.0', port ?? 0, opts);
+
             return r[0];
         }
+
         case 'pipe':
             return host;
+
         case 'udp': {
             const opts = {
                 socktype: tjs.SOCK_DGRAM,
                 protocol: tjs.IPPROTO_UDP
             };
             const r = await tjs.getaddrinfo(host ?? '0.0.0.0', port ?? 0, opts);
+
             return r[0];
         }
+
         default:
             throw new Error('invalid transport');
     }
@@ -114,6 +146,7 @@ class Connection {
         if (!this[kLocalAddress]) {
             this[kLocalAddress] = this[kHandle].getsockname();
         }
+
         return this[kLocalAddress];
     }
 
@@ -121,6 +154,7 @@ class Connection {
         if (!this[kRemoteAddress]) {
             this[kRemoteAddress] = this[kHandle].getpeername();
         }
+
         return this[kRemoteAddress];
     }
 
@@ -128,6 +162,7 @@ class Connection {
         if (!this[kReadable]) {
             this[kReadable] = readableStreamForHandle(this[kHandle]);
         }
+
         return this[kReadable];
     }
 
@@ -135,6 +170,7 @@ class Connection {
         if (!this[kWritable]) {
             this[kWritable] = writableStreamForHandle(this[kHandle]);
         }
+
         return this[kWritable];
     }
 
@@ -172,6 +208,7 @@ class Listener {
         if (!this[kLocalAddress]) {
             this[kLocalAddress] = this[kHandle].getsockname();
         }
+
         return this[kLocalAddress];
     }
 
@@ -202,7 +239,7 @@ class Listener {
         return {
             value,
             done: typeof value === 'undefined'
-        }
+        };
     }
 }
 
@@ -223,6 +260,7 @@ class DatagramEndpoint {
         if (!this[kLocalAddress]) {
             this[kLocalAddress] = this[kHandle].getsockname();
         }
+
         return this[kLocalAddress];
     }
 

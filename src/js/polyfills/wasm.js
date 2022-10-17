@@ -15,25 +15,25 @@ class CompileError extends Error {
         super(...args);
         this.name = 'CompileError';
     }
-};
+}
 
 class LinkError extends Error {
     constructor(...args) {
         super(...args);
         this.name = 'LinkError';
     }
-};
+}
 
 class RuntimeError extends Error {
     constructor(...args) {
         super(...args);
         this.name = 'RuntimeError';
     }
-};
+}
 
 
 function getWasmError(e) {
-    switch(e.wasmError) {
+    switch (e.wasmError) {
         case 'CompileError':
             return new CompileError(e.message);
         case 'LinkError':
@@ -47,9 +47,10 @@ function getWasmError(e) {
 
 function callWasmFunction(name, ...args) {
     const instance = this;
+
     try {
         return instance.callFunction(name, ...args);
-    } catch(e) {
+    } catch (e) {
         if (e.wasmError) {
             throw getWasmError(e);
         } else {
@@ -61,7 +62,7 @@ function callWasmFunction(name, ...args) {
 function buildInstance(mod) {
     try {
         return wasm.buildInstance(mod);
-    } catch(e) {
+    } catch (e) {
         if (e.wasmError) {
             throw getWasmError(e);
         } else {
@@ -73,7 +74,7 @@ function buildInstance(mod) {
 function linkWasi(instance) {
     try {
         instance.linkWasi();
-    } catch(e) {
+    } catch (e) {
         if (e.wasmError) {
             throw getWasmError(e);
         } else {
@@ -103,6 +104,7 @@ class Module {
         return wasm.moduleExports(module[kWasmModule]);
     }
 
+    // eslint-disable-next-line no-unused-vars
     static imports(module) {
         // TODO.
         return {};
@@ -141,11 +143,11 @@ class Instance {
 class WASI {
     wasiImport = 'w4s1';  // Doesn't matter right now.
 
-    constructor(options = { args: [], env: {}, preopens: {}}) {
+    constructor(options = { args: [], env: {}, preopens: {} }) {
         this[kWasiStarted] = false;
 
         if (options === null || typeof options !== 'object') {
-            throw new TypeError(`options must be an object`);
+            throw new TypeError('options must be an object');
         }
 
         this[kWasiOptions] = JSON.parse(JSON.stringify(options));
@@ -156,7 +158,7 @@ class WASI {
             throw new Error('WASI instance has already started');
         }
 
-        if (!instance[kWasiLinked]){
+        if (!instance[kWasiLinked]) {
             throw new Error('WASM instance doesn\'t have WASI linked');
         }
 

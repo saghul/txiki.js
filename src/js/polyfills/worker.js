@@ -9,12 +9,15 @@ class Worker extends EventTarget {
         super();
 
         const worker = new _Worker(path);
+
         worker.onmessage = msg => {
             this.dispatchEvent(new MessageEvent('message', msg));
         };
+
         worker.onmessageerror = msgerror => {
             this.dispatchEvent(new MessageEvent('messageerror', msgerror));
         };
+
         worker.onerror = error => {
             this.dispatchEvent(new ErrorEvent(error));
         };
@@ -32,6 +35,7 @@ class Worker extends EventTarget {
 }
 
 const workerProto = Worker.prototype;
+
 defineEventAttribute(workerProto, 'message');
 defineEventAttribute(workerProto, 'messageerror');
 defineEventAttribute(workerProto, 'error');

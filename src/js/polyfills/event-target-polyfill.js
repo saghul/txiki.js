@@ -139,6 +139,7 @@ Object.setPrototypeOf(window, EventTarget.prototype);
 EventTarget.prototype.__init.call(window);
 
 const windowProto = Object.getPrototypeOf(window);
+
 defineEventAttribute(windowProto, 'load');
 defineEventAttribute(windowProto, 'unhandledrejection');
 

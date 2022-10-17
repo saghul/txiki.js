@@ -12,19 +12,21 @@ const fhProxyHandler = {
                 if (!target[kReadable]) {
                     target[kReadable] = readableStreamForHandle(target);
                 }
+
                 return target[kReadable];
             }
+
             case 'writable': {
                 if (!target[kWritable]) {
                     target[kWritable] = writableStreamForHandle(target);
                 }
+
                 return target[kWritable];
             }
+
             default: {
-                if (typeof target[prop] == 'function') {
-                    return (...args) => {
-                        return target[prop].apply(target, args);
-                    }
+                if (typeof target[prop] === 'function') {
+                    return (...args) => target[prop].apply(target, args);
                 }
 
                 return target[prop];

@@ -23,11 +23,13 @@ function getRandomValues(obj) {
 
     if (obj.byteLength > 65536) {
         const e = new Error();
+
         e.name = 'QuotaExceededError';
         throw e;
     }
 
     core.random(obj.buffer, obj.byteOffset, obj.byteLength);
+
     return obj;
 }
 

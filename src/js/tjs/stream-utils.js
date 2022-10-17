@@ -1,7 +1,9 @@
 function silentClose(handle) {
     try {
         handle.close();
-    } catch { }
+    } catch {
+        // Ignored.
+    }
 }
 
 const CHUNK_SIZE = 16640;  // Borrowed from Deno.
@@ -12,8 +14,10 @@ export function readableStreamForHandle(handle) {
         type: 'bytes',
         async pull(controller) {
             const buf = controller.byobRequest.view;
+
             try {
                 const nread = await handle.read(buf);
+
                 if (!nread) {
                     silentClose(handle);
                     controller.close();
