@@ -123,7 +123,8 @@ static JSValue tjs_process_wait(JSContext *ctx, JSValueConst this_val, int argc,
     if (p->status.exited) {
         JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
         JS_DefinePropertyValueStr(ctx, obj, "exit_status", JS_NewInt32(ctx, p->status.exit_status), JS_PROP_C_W_E);
-        JSValue term_signal = p->status.term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(p->status.term_signal));
+        JSValue term_signal =
+            p->status.term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(p->status.term_signal));
         JS_DefinePropertyValueStr(ctx, obj, "term_signal", term_signal, JS_PROP_C_W_E);
         return TJS_NewResolvedPromise(ctx, 1, &obj);
     } else if (p->closed) {
@@ -159,7 +160,8 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
         JSContext *ctx = p->ctx;
         JSValue arg = JS_NewObjectProto(ctx, JS_NULL);
         JS_DefinePropertyValueStr(ctx, arg, "exit_status", JS_NewInt32(ctx, exit_status), JS_PROP_C_W_E);
-        JSValue term_signal = p->status.term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(p->status.term_signal));
+        JSValue term_signal =
+            p->status.term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(p->status.term_signal));
         JS_DefinePropertyValueStr(ctx, arg, "term_signal", term_signal, JS_PROP_C_W_E);
 
         TJS_SettlePromise(ctx, &p->status.result, false, 1, (JSValueConst *) &arg);

@@ -27,7 +27,7 @@
 
 typedef struct {
     uv_fs_event_t handle;
-    JSContext* ctx;
+    JSContext *ctx;
     JSValue callback;
     int closed;
     int finalized;
@@ -118,7 +118,7 @@ static JSValue tjs_fswatch_path_get(JSContext *ctx, JSValueConst this_val) {
     return ret;
 }
 
-static void uv__fs_event_cb(uv_fs_event_t* handle, const char* filename, int events, int status) {
+static void uv__fs_event_cb(uv_fs_event_t *handle, const char *filename, int events, int status) {
     TJSFsWatch *fw = handle->data;
     CHECK_NOT_NULL(fw);
     JSContext *ctx = fw->ctx;
@@ -180,7 +180,7 @@ static JSValue tjs_fs_watch(JSContext *ctx, JSValueConst this_val, int argc, JSV
         free(fw);
         return JS_ThrowInternalError(ctx, "couldn't initialize handle");
     }
-    
+
     r = uv_fs_event_start(&fw->handle, uv__fs_event_cb, path, UV_FS_EVENT_RECURSIVE);
     if (r != 0) {
         JS_FreeCString(ctx, path);

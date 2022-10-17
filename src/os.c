@@ -365,19 +365,23 @@ static JSValue tjs_network_interfaces(JSContext *ctx, JSValueConst this_val, int
         snprintf(mac,
                  sizeof(mac),
                  "%02x:%02x:%02x:%02x:%02x:%02x",
-                 (unsigned char)iface.phys_addr[0],
-                 (unsigned char)iface.phys_addr[1],
-                 (unsigned char)iface.phys_addr[2],
-                 (unsigned char)iface.phys_addr[3],
-                 (unsigned char)iface.phys_addr[4],
-                 (unsigned char)iface.phys_addr[5]);
+                 (unsigned char) iface.phys_addr[0],
+                 (unsigned char) iface.phys_addr[1],
+                 (unsigned char) iface.phys_addr[2],
+                 (unsigned char) iface.phys_addr[3],
+                 (unsigned char) iface.phys_addr[4],
+                 (unsigned char) iface.phys_addr[5]);
         JS_DefinePropertyValueStr(ctx, addr, "mac", JS_NewString(ctx, mac), JS_PROP_C_W_E);
 
         if (iface.address.address4.sin_family == AF_INET) {
             uv_ip4_name(&iface.address.address4, buf, sizeof(buf));
         } else if (iface.address.address4.sin_family == AF_INET6) {
             uv_ip6_name(&iface.address.address6, buf, sizeof(buf));
-            JS_DefinePropertyValueStr(ctx, addr, "scopeId", JS_NewUint32(ctx, iface.address.address6.sin6_scope_id), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx,
+                                      addr,
+                                      "scopeId",
+                                      JS_NewUint32(ctx, iface.address.address6.sin6_scope_id),
+                                      JS_PROP_C_W_E);
         }
         JS_DefinePropertyValueStr(ctx, addr, "address", JS_NewString(ctx, buf), JS_PROP_C_W_E);
 
