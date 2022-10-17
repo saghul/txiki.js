@@ -46,23 +46,27 @@ export default function init({ StructType, CFunction, PointerType }) {
                 const t = tokens[index];
 
                 switch (t) {
-                    case '{':{
+                    case '{': {
                         const [ sst, newOffs ] = sepStatements(tokens, index);
 
                         stTokens.push(sst);
                         index = newOffs;
-                    }
 
                         break;
+                    }
+
                     case '(':
-                    case '[':{
+
+                    // eslint-disable-next-line no-fallthrough
+                    case '[': {
                         const [ sst, newOffs ] = sepStatements(tokens, index);
 
                         stTokens.push(sst);
                         index = newOffs;
-                    }
 
                         break;
+                    }
+
                     case '}':
                         if (firstToken !== '{') {
                             throw new Error('Unexpected '+t);

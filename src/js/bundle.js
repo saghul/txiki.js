@@ -12858,21 +12858,19 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       while (index < tokens2.length) {
         const t = tokens2[index];
         switch (t) {
-          case "{":
-            {
-              const [sst, newOffs] = sepStatements(tokens2, index);
-              stTokens.push(sst);
-              index = newOffs;
-            }
+          case "{": {
+            const [sst, newOffs] = sepStatements(tokens2, index);
+            stTokens.push(sst);
+            index = newOffs;
             break;
+          }
           case "(":
-          case "[":
-            {
-              const [sst, newOffs] = sepStatements(tokens2, index);
-              stTokens.push(sst);
-              index = newOffs;
-            }
+          case "[": {
+            const [sst, newOffs] = sepStatements(tokens2, index);
+            stTokens.push(sst);
+            index = newOffs;
             break;
+          }
           case "}":
             if (firstToken !== "{") {
               throw new Error("Unexpected " + t);
