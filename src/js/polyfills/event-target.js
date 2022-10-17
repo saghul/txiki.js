@@ -348,7 +348,7 @@ function defineEventAttributeDescriptor(eventName) {
             const listeners = getListeners(this);
             let node = listeners.get(eventName);
 
-            while (node !== null) {
+            while (node) {
                 if (node.listenerType === ATTRIBUTE) {
                     return node.listener;
                 }
@@ -370,7 +370,7 @@ function defineEventAttributeDescriptor(eventName) {
             let prev = null;
             let node = listeners.get(eventName);
 
-            while (node !== null) {
+            while (node) {
                 if (node.listenerType === ATTRIBUTE) {
                     // Remove old value.
                     if (prev !== null) {
@@ -477,7 +477,7 @@ class EventTarget {
         // Traverse to the tail while checking duplication..
         let prev = null;
 
-        while (node !== null) {
+        while (node) {
             if (
                 node.listener === listener &&
                 node.listenerType === listenerType
@@ -515,7 +515,7 @@ class EventTarget {
         let prev = null;
         let node = listeners.get(eventName);
 
-        while (node !== null) {
+        while (node) {
             if (
                 node.listener === listener &&
                 node.listenerType === listenerType
@@ -566,7 +566,7 @@ class EventTarget {
         // This isn't participating in a tree.
         let prev = null;
 
-        while (node !== null) {
+        while (node) {
             // Remove this listener if it's once
             if (node.once) {
                 if (prev !== null) {

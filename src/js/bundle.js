@@ -8693,6 +8693,7 @@ var require_get_intrinsic = __commonJS({
     var $spliceApply = bind.call(Function.apply, Array.prototype.splice);
     var $replace = bind.call(Function.call, String.prototype.replace);
     var $strSlice = bind.call(Function.call, String.prototype.slice);
+    var $exec = bind.call(Function.call, RegExp.prototype.exec);
     var rePropName = /[^%.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|%$))/g;
     var reEscapeChar = /\\(\\)?/g;
     var stringToPath = function stringToPath2(string) {
@@ -8738,6 +8739,9 @@ var require_get_intrinsic = __commonJS({
       }
       if (arguments.length > 1 && typeof allowMissing !== "boolean") {
         throw new $TypeError('"allowMissing" argument must be a boolean');
+      }
+      if ($exec(/^%?[^%]*%?$/, name) === null) {
+        throw new $SyntaxError("`%` may not be present anywhere but at the beginning and end of the intrinsic name");
       }
       var parts = stringToPath(name);
       var intrinsicBaseName = parts.length > 0 ? parts[0] : "";
@@ -10009,13 +10013,13 @@ Object.defineProperty(globalThis, "self", {
 var privateData = /* @__PURE__ */ new WeakMap();
 function pd(event) {
   const retv = privateData.get(event);
-  if (retv == null) {
+  if (!retv) {
     throw new Error("'this' is expected an Event object, but got " + event);
   }
   return retv;
 }
 function setCancelFlag(data) {
-  if (data.passiveListener != null) {
+  if (data.passiveListener !== null) {
     console.error(
       "Unable to preventDefault inside passive event listener invocation.",
       data.passiveListener
@@ -10056,7 +10060,7 @@ var Event2 = class {
   }
   composedPath() {
     const currentTarget = pd(this).currentTarget;
-    if (currentTarget == null) {
+    if (!currentTarget) {
       return [];
     }
     return [currentTarget];
@@ -10129,7 +10133,7 @@ function isObject(x) {
 }
 function getListeners(eventTarget) {
   const listeners = listenersMap.get(eventTarget);
-  if (listeners == null) {
+  if (!listeners) {
     throw new TypeError(
       "'this' is expected an EventTarget object, but got another value."
     );
@@ -10141,7 +10145,7 @@ function defineEventAttributeDescriptor(eventName) {
     get() {
       const listeners = getListeners(this);
       let node = listeners.get(eventName);
-      while (node != null) {
+      while (node) {
         if (node.listenerType === ATTRIBUTE) {
           return node.listener;
         }
@@ -10156,7 +10160,7 @@ function defineEventAttributeDescriptor(eventName) {
       const listeners = getListeners(this);
       let prev = null;
       let node = listeners.get(eventName);
-      while (node != null) {
+      while (node) {
         if (node.listenerType === ATTRIBUTE) {
           if (prev !== null) {
             prev.next = node.next;
@@ -10204,7 +10208,7 @@ var EventTarget2 = class {
     listenersMap.set(this, /* @__PURE__ */ new Map());
   }
   addEventListener(eventName, listener, options) {
-    if (listener == null) {
+    if (!listener) {
       return;
     }
     if (typeof listener !== "function" && !isObject(listener)) {
@@ -10227,7 +10231,7 @@ var EventTarget2 = class {
       return;
     }
     let prev = null;
-    while (node != null) {
+    while (node) {
       if (node.listener === listener && node.listenerType === listenerType) {
         return;
       }
@@ -10237,7 +10241,7 @@ var EventTarget2 = class {
     prev.next = newNode;
   }
   removeEventListener(eventName, listener, options) {
-    if (listener == null) {
+    if (!listener) {
       return;
     }
     const listeners = getListeners(this);
@@ -10245,7 +10249,7 @@ var EventTarget2 = class {
     const listenerType = capture ? CAPTURE : BUBBLE;
     let prev = null;
     let node = listeners.get(eventName);
-    while (node != null) {
+    while (node) {
       if (node.listener === listener && node.listenerType === listenerType) {
         if (prev !== null) {
           prev.next = node.next;
@@ -10271,11 +10275,11 @@ var EventTarget2 = class {
     const listeners = getListeners(this);
     const eventName = event.type;
     let node = listeners.get(eventName);
-    if (node == null) {
+    if (!node) {
       return true;
     }
     let prev = null;
-    while (node != null) {
+    while (node) {
       if (node.once) {
         if (prev !== null) {
           prev.next = node.next;
@@ -12184,7 +12188,7 @@ function print() {
   tjs.stdout.write(encoder.encode(text));
 }
 function hasOwnProperty(obj, v) {
-  if (obj == null) {
+  if (obj === null || typeof obj === "undefined") {
     return false;
   }
   return Object.prototype.hasOwnProperty.call(obj, v);
@@ -12664,7 +12668,7 @@ var WASI = class {
     __publicField(this, "wasiImport", "w4s1");
     this[kWasiStarted] = false;
     if (options === null || typeof options !== "object") {
-      throw new TypeError(`options must be an object`);
+      throw new TypeError("options must be an object");
     }
     this[kWasiOptions] = JSON.parse(JSON.stringify(options));
   }
@@ -12797,393 +12801,6 @@ async function prompt(msg = "Prompt", def = null) {
   return await readStdinLine() || def;
 }
 
-// src/js/tjs/stream-utils.js
-function silentClose(handle) {
-  try {
-    handle.close();
-  } catch {
-  }
-}
-var CHUNK_SIZE = 16640;
-function readableStreamForHandle(handle) {
-  return new ReadableStream({
-    autoAllocateChunkSize: CHUNK_SIZE,
-    type: "bytes",
-    async pull(controller) {
-      const buf = controller.byobRequest.view;
-      try {
-        const nread = await handle.read(buf);
-        if (!nread) {
-          silentClose(handle);
-          controller.close();
-          controller.byobRequest.respond(0);
-        } else {
-          controller.byobRequest.respond(nread);
-        }
-      } catch (e) {
-        controller.error(e);
-        silentClose(handle);
-      }
-    },
-    cancel() {
-      silentClose(handle);
-    }
-  });
-}
-function writableStreamForHandle(handle) {
-  return new WritableStream({
-    async write(chunk, controller) {
-      try {
-        await handle.write(chunk);
-      } catch (e) {
-        controller.error(e);
-        silentClose(handle);
-      }
-    },
-    close() {
-      silentClose(handle);
-    },
-    abort() {
-      silentClose(handle);
-    }
-  });
-}
-
-// src/js/tjs/fs.js
-var core4 = globalThis.__bootstrap;
-var kReadable = Symbol("kReadable");
-var kWritable = Symbol("kWritable");
-var fhProxyHandler = {
-  get(target, prop) {
-    switch (prop) {
-      case "readable": {
-        if (!target[kReadable]) {
-          target[kReadable] = readableStreamForHandle(target);
-        }
-        return target[kReadable];
-      }
-      case "writable": {
-        if (!target[kWritable]) {
-          target[kWritable] = writableStreamForHandle(target);
-        }
-        return target[kWritable];
-      }
-      default: {
-        if (typeof target[prop] == "function") {
-          return (...args) => {
-            return target[prop].apply(target, args);
-          };
-        }
-        return target[prop];
-      }
-    }
-  }
-};
-async function open(path, mode) {
-  const handle = await core4.open(path, mode);
-  return new Proxy(handle, fhProxyHandler);
-}
-async function mkstemp(template) {
-  const handle = await core4.mkstemp(template);
-  return new Proxy(handle, fhProxyHandler);
-}
-
-// src/js/tjs/signal.js
-var core5 = globalThis.__bootstrap;
-function signal(sig, handler) {
-  const signum = core5.signals[sig];
-  if (typeof signum === "undefined") {
-    throw new Error(`invalid signal: ${sig}`);
-  }
-  return core5.signal(signum, handler);
-}
-
-// src/js/tjs/sockets.js
-var core6 = globalThis.__bootstrap;
-async function connect(transport, host, port, options = {}) {
-  const addr = await prepareAddress(transport, host, port);
-  switch (transport) {
-    case "tcp": {
-      const handle = new core6.TCP();
-      if (options.bindAddr) {
-        let flags2 = 0;
-        if (options.ipv6Only) {
-          flags2 |= core6.TCP_IPV6ONLY;
-        }
-        handle.bind(options.bindAddr, flags2);
-      }
-      await handle.connect(addr);
-      return new Connection(handle);
-    }
-    case "pipe": {
-      const handle = new core6.Pipe();
-      await handle.connect(addr);
-      return new Connection(handle);
-    }
-    case "udp": {
-      const handle = new core6.UDP();
-      if (options.bindAddr) {
-        let flags2 = 0;
-        if (options.ipv6Only) {
-          flags2 |= core6.UDP_IPV6ONLY;
-        }
-        handle.bind(options.bindAddr, flags2);
-      }
-      await handle.connect(addr);
-      return new DatagramEndpoint(handle);
-    }
-  }
-}
-async function listen(transport, host, port, options = {}) {
-  const addr = await prepareAddress(transport, host, port);
-  switch (transport) {
-    case "tcp": {
-      const handle = new core6.TCP();
-      let flags2 = 0;
-      if (options.ipv6Only) {
-        flags2 |= core6.TCP_IPV6ONLY;
-      }
-      handle.bind(addr, flags2);
-      handle.listen(options.backlog);
-      return new Listener(handle);
-    }
-    case "pipe": {
-      const handle = new core6.Pipe();
-      handle.bind(addr);
-      handle.listen(options.backlog);
-      return new Listener(handle);
-    }
-    case "udp": {
-      const handle = new core6.UDP();
-      let flags2 = 0;
-      if (options.reuseAddr) {
-        flags2 |= core6.UDP_REUSEADDR;
-      }
-      if (options.ipv6Only) {
-        flags2 |= core6.UDP_IPV6ONLY;
-      }
-      handle.bind(addr, options.bindFlags);
-      return new DatagramEndpoint(handle);
-    }
-  }
-}
-async function prepareAddress(transport, host, port) {
-  switch (transport) {
-    case "tcp": {
-      const opts = {
-        socktype: tjs.SOCK_STREAM,
-        protocol: tjs.IPPROTO_TCP
-      };
-      const r = await tjs.getaddrinfo(host ?? "0.0.0.0", port ?? 0, opts);
-      return r[0];
-    }
-    case "pipe":
-      return host;
-    case "udp": {
-      const opts = {
-        socktype: tjs.SOCK_DGRAM,
-        protocol: tjs.IPPROTO_UDP
-      };
-      const r = await tjs.getaddrinfo(host ?? "0.0.0.0", port ?? 0, opts);
-      return r[0];
-    }
-    default:
-      throw new Error("invalid transport");
-  }
-}
-var kHandle = Symbol("kHandle");
-var kLocalAddress = Symbol("kLocalAddress");
-var kRemoteAddress = Symbol("kRemoteAddress");
-var kReadable2 = Symbol("kReadable");
-var kWritable2 = Symbol("kWritable");
-var Connection = class {
-  constructor(handle) {
-    this[kHandle] = handle;
-  }
-  get localAddress() {
-    if (!this[kLocalAddress]) {
-      this[kLocalAddress] = this[kHandle].getsockname();
-    }
-    return this[kLocalAddress];
-  }
-  get remoteAddress() {
-    if (!this[kRemoteAddress]) {
-      this[kRemoteAddress] = this[kHandle].getpeername();
-    }
-    return this[kRemoteAddress];
-  }
-  get readable() {
-    if (!this[kReadable2]) {
-      this[kReadable2] = readableStreamForHandle(this[kHandle]);
-    }
-    return this[kReadable2];
-  }
-  get writable() {
-    if (!this[kWritable2]) {
-      this[kWritable2] = writableStreamForHandle(this[kHandle]);
-    }
-    return this[kWritable2];
-  }
-  read(buf) {
-    return this[kHandle].read(buf);
-  }
-  write(buf) {
-    return this[kHandle].write(buf);
-  }
-  setKeepAlive(enable = true) {
-    this[kHandle].setKeepAlive(enable);
-  }
-  setNoDelay(enable = true) {
-    this[kHandle].setNoDelay(enable);
-  }
-  shutdown() {
-    this[kHandle].shutdown();
-  }
-  close() {
-    this[kHandle].close();
-  }
-};
-var Listener = class {
-  constructor(handle) {
-    this[kHandle] = handle;
-  }
-  get localAddress() {
-    if (!this[kLocalAddress]) {
-      this[kLocalAddress] = this[kHandle].getsockname();
-    }
-    return this[kLocalAddress];
-  }
-  async accept() {
-    const handle = await this[kHandle].accept();
-    if (typeof handle === "undefined") {
-      return;
-    }
-    return new Connection(handle);
-  }
-  close() {
-    this[kHandle].close();
-  }
-  [Symbol.asyncIterator]() {
-    return this;
-  }
-  async next() {
-    const value = await this.accept();
-    return {
-      value,
-      done: typeof value === "undefined"
-    };
-  }
-};
-var DatagramEndpoint = class {
-  constructor(handle) {
-    this[kHandle] = handle;
-  }
-  recv(buf) {
-    return this[kHandle].recv(buf);
-  }
-  send(buf, taddr) {
-    return this[kHandle].send(buf, taddr);
-  }
-  get localAddress() {
-    if (!this[kLocalAddress]) {
-      this[kLocalAddress] = this[kHandle].getsockname();
-    }
-    return this[kLocalAddress];
-  }
-  get remoteAddress() {
-    return this[kHandle].getpeername();
-  }
-  close() {
-    this[kHandle].close();
-  }
-};
-
-// src/js/tjs/stdio.js
-var core7 = globalThis.__bootstrap;
-var kStdioHandle = Symbol("kStdioHandle");
-var kStdioHandleType = Symbol("kStdioHandleType");
-var BaseIOStream = class {
-  constructor(handle, type) {
-    this[kStdioHandle] = handle;
-    this[kStdioHandleType] = type;
-  }
-  get isTTY() {
-    return this[kStdioHandleType] === "tty";
-  }
-};
-var InputStream = class extends BaseIOStream {
-  async read(buf) {
-    return this[kStdioHandle].read(buf);
-  }
-  setRawMode(rawMode) {
-    if (!this.isTTY) {
-      throw new Error("not a TTY");
-    }
-    const ttyMode = rawMode ? core7.TTY.TTY_MODE_RAW : core7.TTY.TTY_MODE_NORMAL;
-    this[kStdioHandle].setMode(ttyMode);
-  }
-};
-var OutputStream = class extends BaseIOStream {
-  async write(buf) {
-    return this[kStdioHandle].write(buf);
-  }
-  get height() {
-    if (!this.isTTY) {
-      throw new Error("not a TTY");
-    }
-    return this[kStdioHandle].getWinSize().height;
-  }
-  get width() {
-    if (!this.isTTY) {
-      throw new Error("not a TTY");
-    }
-    return this[kStdioHandle].getWinSize().width;
-  }
-};
-function createStdioStream(fd) {
-  const isStdin = fd === core7.STDIN_FILENO;
-  const StreamType = isStdin ? InputStream : OutputStream;
-  const type = core7.guessHandle(fd);
-  switch (type) {
-    case "tty": {
-      const handle = new core7.TTY(fd, isStdin);
-      return new StreamType(handle, type);
-    }
-    case "pipe": {
-      const handle = new core7.Pipe();
-      handle.open(fd);
-      return new StreamType(handle, type);
-    }
-    case "file": {
-      const handle = core7.newStdioFile(pathByFd(fd), fd);
-      return new StreamType(handle, type);
-    }
-    default:
-      return void 0;
-  }
-}
-function pathByFd(fd) {
-  switch (fd) {
-    case core7.STDIN_FILENO:
-      return "<stdin>";
-    case core7.STDOUT_FILENO:
-      return "<stdout>";
-    case core7.STDERR_FILENO:
-      return "<stderr>";
-    default:
-      return "";
-  }
-}
-function createStdin() {
-  return createStdioStream(core7.STDIN_FILENO);
-}
-function createStdout() {
-  return createStdioStream(core7.STDOUT_FILENO);
-}
-function createStderr() {
-  return createStdioStream(core7.STDERR_FILENO);
-}
-
 // src/js/tjs/ffi.js
 var ffi_exports = {};
 __export(ffi_exports, {
@@ -13206,7 +12823,7 @@ __export(ffi_exports, {
 
 // src/js/tjs/ffiutils.js
 function init({ StructType: StructType2, CFunction: CFunction2, PointerType: PointerType2 }) {
-  function parseCProto3(header) {
+  function parseCProto2(header) {
     function tokenize(str) {
       const words = str.split(/\s+/);
       const tokens2 = [];
@@ -13448,7 +13065,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
     const ast = statements.map(parseStatement);
     return ast;
   }
-  function astToLib3(lib, ast) {
+  function astToLib2(lib, ast) {
     let unnamedCnt = 0;
     function getType(name, ptr = 0, func = false) {
       let ffiType = lib.getType(name + "*".repeat(ptr));
@@ -13511,12 +13128,12 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       }
     }
   }
-  return { parseCProto: parseCProto3, astToLib: astToLib3 };
+  return { parseCProto: parseCProto2, astToLib: astToLib2 };
 }
 
 // src/js/tjs/ffi.js
-var core8 = globalThis.__bootstrap;
-var ffiInt = core8.ffi;
+var core4 = globalThis.__bootstrap;
+var ffiInt = core4.ffi;
 var DlSymbol = class {
   constructor(name, uvlib, dlsym) {
     this._name = name;
@@ -13534,7 +13151,7 @@ function formatTypeName(name) {
     let parts = name.split(/\s+/);
     let struct = false;
     if (parts.includes("struct")) {
-      parts = parts.filter((e) => e != "struct");
+      parts = parts.filter((e) => e !== "struct");
       struct = true;
     }
     name = parts.sort().join(" ");
@@ -13585,8 +13202,8 @@ var Lib = class {
     return func.call(...args);
   }
   parseCProto(header) {
-    const ast = parseCProto2(header);
-    astToLib2(this, ast);
+    const ast = parseCProto(header);
+    astToLib(this, ast);
   }
 };
 __publicField(Lib, "LIBC_NAME", ffiInt.LIBC_NAME);
@@ -13597,16 +13214,18 @@ var AdvancedType = class {
     this._conf = conf;
   }
   toBuffer(data, ctx = {}) {
-    if (this._conf.toBuffer)
+    if (this._conf.toBuffer) {
       return this._conf.toBuffer(data, ctx);
-    else
+    } else {
       return this._type.toBuffer(data, ctx);
+    }
   }
   fromBuffer(buf, ctx = {}) {
-    if (this._conf.fromBuffer)
+    if (this._conf.fromBuffer) {
       return this._conf.fromBuffer(buf, ctx);
-    else
+    } else {
       return this._type.fromBuffer(buf, ctx);
+    }
   }
   get ffiType() {
     return this._ffiType;
@@ -13684,22 +13303,20 @@ var types = {
     name: "string"
   }),
   buffer: new AdvancedType(ffiInt.type_pointer, {
-    toBuffer: (buf, ctx) => {
-      return ffiInt.getArrayBufPtr(buf);
-    },
-    fromBuffer: (buf) => {
+    toBuffer: (buf) => ffiInt.getArrayBufPtr(buf),
+    fromBuffer: () => {
       throw new Error("type buffer cannot be used as a return type, since the size is not known!");
     },
     name: "string"
   }),
   jscallback: new AdvancedType(ffiInt.type_pointer, {
-    toBuffer: (jsc, ctx) => {
+    toBuffer: (jsc) => {
       if (!(jsc instanceof JSCallback)) {
         throw new Error("not a JSCallback");
       }
       return jsc.addr;
     },
-    fromBuffer: (buf, ctx) => {
+    fromBuffer: () => {
       throw new Error("JSCallback as a return is not supported!");
     },
     name: "jscallback"
@@ -13749,10 +13366,10 @@ var Pointer = class {
     return this._type;
   }
   get isNull() {
-    return this._addr == 0n;
+    return this._addr === 0n;
   }
   deref() {
-    if (this.level == 1) {
+    if (this.level === 1) {
       const addr = this._addr;
       const buf = ffiInt.ptrToBuffer(addr, this._type.size);
       return this._type.fromBuffer(buf, {});
@@ -13791,7 +13408,7 @@ var PointerType = class extends AdvancedType {
       return types.pointer.toBuffer(data, ctx);
     }
   }
-  fromBuffer(buf, ctx = {}) {
+  fromBuffer(buf) {
     return new Pointer(types.pointer.fromBuffer(buf), this._level, this._type);
   }
   get type() {
@@ -13803,7 +13420,7 @@ var PointerType = class extends AdvancedType {
 };
 var StructType = class extends AdvancedType {
   constructor(fields, name) {
-    const ffitype = new ffiInt.FfiType(...fields.map(([f, t]) => t.ffiTypeStruct || t.ffiType || t));
+    const ffitype = new ffiInt.FfiType(...fields.map(([_f, t]) => t.ffiTypeStruct || t.ffiType || t));
     super(ffitype, {
       toBuffer: (obj, ctx) => {
         const buf = new Uint8Array(this._ffiType.size);
@@ -13841,8 +13458,9 @@ var ArrayType = class extends AdvancedType {
     const ffisz = ffitype.size;
     super(ffitype, {
       toBuffer: (arr, ctx) => {
-        if (arr.length > this._length)
+        if (arr.length > this._length) {
           throw new RangeError("Array length exceeds type length");
+        }
         const buf = new Uint8Array(ffisz * length);
         for (let i = 0; i < arr.length; i++) {
           let sbuf = type.fromBuffer(arr[i], ctx);
@@ -13863,8 +13481,9 @@ var ArrayType = class extends AdvancedType {
     this._length = length;
   }
   get ffiTypeStruct() {
-    if (!this._ffiStruct)
+    if (!this._ffiStruct) {
       this._ffiStruct = new ffiInt.FfiType(this._length, this._ffiType);
+    }
     return this._ffiStruct;
   }
   get length() {
@@ -13882,7 +13501,7 @@ var StaticStringType = class extends ArrayType {
     const txtBuf = new TextEncoder().encode(str);
     return super.toBuffer(txtBuf, ctx);
   }
-  fromBuffer(buf, ctx = {}) {
+  fromBuffer(buf) {
     return ffiInt.getCString(ffiInt.getArrayBufPtr(buf), buf.length);
   }
 };
@@ -13913,11 +13532,100 @@ var JSCallback = class {
     return this._closure.addr;
   }
 };
-var { parseCProto: parseCProto2, astToLib: astToLib2 } = init({ StructType, CFunction, PointerType });
+var { parseCProto, astToLib } = init({ StructType, CFunction, PointerType });
+
+// src/js/tjs/stream-utils.js
+function silentClose(handle) {
+  try {
+    handle.close();
+  } catch {
+  }
+}
+var CHUNK_SIZE = 16640;
+function readableStreamForHandle(handle) {
+  return new ReadableStream({
+    autoAllocateChunkSize: CHUNK_SIZE,
+    type: "bytes",
+    async pull(controller) {
+      const buf = controller.byobRequest.view;
+      try {
+        const nread = await handle.read(buf);
+        if (!nread) {
+          silentClose(handle);
+          controller.close();
+          controller.byobRequest.respond(0);
+        } else {
+          controller.byobRequest.respond(nread);
+        }
+      } catch (e) {
+        controller.error(e);
+        silentClose(handle);
+      }
+    },
+    cancel() {
+      silentClose(handle);
+    }
+  });
+}
+function writableStreamForHandle(handle) {
+  return new WritableStream({
+    async write(chunk, controller) {
+      try {
+        await handle.write(chunk);
+      } catch (e) {
+        controller.error(e);
+        silentClose(handle);
+      }
+    },
+    close() {
+      silentClose(handle);
+    },
+    abort() {
+      silentClose(handle);
+    }
+  });
+}
+
+// src/js/tjs/fs.js
+var core5 = globalThis.__bootstrap;
+var kReadable = Symbol("kReadable");
+var kWritable = Symbol("kWritable");
+var fhProxyHandler = {
+  get(target, prop) {
+    switch (prop) {
+      case "readable": {
+        if (!target[kReadable]) {
+          target[kReadable] = readableStreamForHandle(target);
+        }
+        return target[kReadable];
+      }
+      case "writable": {
+        if (!target[kWritable]) {
+          target[kWritable] = writableStreamForHandle(target);
+        }
+        return target[kWritable];
+      }
+      default: {
+        if (typeof target[prop] === "function") {
+          return (...args) => target[prop].apply(target, args);
+        }
+        return target[prop];
+      }
+    }
+  }
+};
+async function open(path, mode) {
+  const handle = await core5.open(path, mode);
+  return new Proxy(handle, fhProxyHandler);
+}
+async function mkstemp(template) {
+  const handle = await core5.mkstemp(template);
+  return new Proxy(handle, fhProxyHandler);
+}
 
 // src/js/tjs/posix-socket.js
-var core9 = globalThis.__bootstrap;
-var posixSocket = core9.posix_socket;
+var core6 = globalThis.__bootstrap;
+var posixSocket = core6.posix_socket;
 var PosixSocket;
 var _a;
 if (posixSocket) {
@@ -13991,7 +13699,7 @@ if (posixSocket) {
         }
       }
       this._handleEvent = (status, events) => {
-        if (status != 0) {
+        if (status !== 0) {
           if (this._cbs.error) {
             this._cbs.error(status, events);
           } else {
@@ -14053,6 +13761,302 @@ if (posixSocket) {
   }, __publicField(_a, "defines", Object.freeze(posixSocket.defines)), __publicField(_a, "pollEvents", Object.freeze(posixSocket.uv_poll_event_bits)), _a);
 }
 
+// src/js/tjs/signal.js
+var core7 = globalThis.__bootstrap;
+function signal(sig, handler) {
+  const signum = core7.signals[sig];
+  if (typeof signum === "undefined") {
+    throw new Error(`invalid signal: ${sig}`);
+  }
+  return core7.signal(signum, handler);
+}
+
+// src/js/tjs/sockets.js
+var core8 = globalThis.__bootstrap;
+async function connect(transport, host, port, options = {}) {
+  const addr = await prepareAddress(transport, host, port);
+  switch (transport) {
+    case "tcp": {
+      const handle = new core8.TCP();
+      if (options.bindAddr) {
+        let flags2 = 0;
+        if (options.ipv6Only) {
+          flags2 |= core8.TCP_IPV6ONLY;
+        }
+        handle.bind(options.bindAddr, flags2);
+      }
+      await handle.connect(addr);
+      return new Connection(handle);
+    }
+    case "pipe": {
+      const handle = new core8.Pipe();
+      await handle.connect(addr);
+      return new Connection(handle);
+    }
+    case "udp": {
+      const handle = new core8.UDP();
+      if (options.bindAddr) {
+        let flags2 = 0;
+        if (options.ipv6Only) {
+          flags2 |= core8.UDP_IPV6ONLY;
+        }
+        handle.bind(options.bindAddr, flags2);
+      }
+      await handle.connect(addr);
+      return new DatagramEndpoint(handle);
+    }
+  }
+}
+async function listen(transport, host, port, options = {}) {
+  const addr = await prepareAddress(transport, host, port);
+  switch (transport) {
+    case "tcp": {
+      const handle = new core8.TCP();
+      let flags2 = 0;
+      if (options.ipv6Only) {
+        flags2 |= core8.TCP_IPV6ONLY;
+      }
+      handle.bind(addr, flags2);
+      handle.listen(options.backlog);
+      return new Listener(handle);
+    }
+    case "pipe": {
+      const handle = new core8.Pipe();
+      handle.bind(addr);
+      handle.listen(options.backlog);
+      return new Listener(handle);
+    }
+    case "udp": {
+      const handle = new core8.UDP();
+      let flags2 = 0;
+      if (options.reuseAddr) {
+        flags2 |= core8.UDP_REUSEADDR;
+      }
+      if (options.ipv6Only) {
+        flags2 |= core8.UDP_IPV6ONLY;
+      }
+      handle.bind(addr, flags2);
+      return new DatagramEndpoint(handle);
+    }
+  }
+}
+async function prepareAddress(transport, host, port) {
+  switch (transport) {
+    case "tcp": {
+      const opts = {
+        socktype: tjs.SOCK_STREAM,
+        protocol: tjs.IPPROTO_TCP
+      };
+      const r = await tjs.getaddrinfo(host ?? "0.0.0.0", port ?? 0, opts);
+      return r[0];
+    }
+    case "pipe":
+      return host;
+    case "udp": {
+      const opts = {
+        socktype: tjs.SOCK_DGRAM,
+        protocol: tjs.IPPROTO_UDP
+      };
+      const r = await tjs.getaddrinfo(host ?? "0.0.0.0", port ?? 0, opts);
+      return r[0];
+    }
+    default:
+      throw new Error("invalid transport");
+  }
+}
+var kHandle = Symbol("kHandle");
+var kLocalAddress = Symbol("kLocalAddress");
+var kRemoteAddress = Symbol("kRemoteAddress");
+var kReadable2 = Symbol("kReadable");
+var kWritable2 = Symbol("kWritable");
+var Connection = class {
+  constructor(handle) {
+    this[kHandle] = handle;
+  }
+  get localAddress() {
+    if (!this[kLocalAddress]) {
+      this[kLocalAddress] = this[kHandle].getsockname();
+    }
+    return this[kLocalAddress];
+  }
+  get remoteAddress() {
+    if (!this[kRemoteAddress]) {
+      this[kRemoteAddress] = this[kHandle].getpeername();
+    }
+    return this[kRemoteAddress];
+  }
+  get readable() {
+    if (!this[kReadable2]) {
+      this[kReadable2] = readableStreamForHandle(this[kHandle]);
+    }
+    return this[kReadable2];
+  }
+  get writable() {
+    if (!this[kWritable2]) {
+      this[kWritable2] = writableStreamForHandle(this[kHandle]);
+    }
+    return this[kWritable2];
+  }
+  read(buf) {
+    return this[kHandle].read(buf);
+  }
+  write(buf) {
+    return this[kHandle].write(buf);
+  }
+  setKeepAlive(enable = true) {
+    this[kHandle].setKeepAlive(enable);
+  }
+  setNoDelay(enable = true) {
+    this[kHandle].setNoDelay(enable);
+  }
+  shutdown() {
+    this[kHandle].shutdown();
+  }
+  close() {
+    this[kHandle].close();
+  }
+};
+var Listener = class {
+  constructor(handle) {
+    this[kHandle] = handle;
+  }
+  get localAddress() {
+    if (!this[kLocalAddress]) {
+      this[kLocalAddress] = this[kHandle].getsockname();
+    }
+    return this[kLocalAddress];
+  }
+  async accept() {
+    const handle = await this[kHandle].accept();
+    if (typeof handle === "undefined") {
+      return;
+    }
+    return new Connection(handle);
+  }
+  close() {
+    this[kHandle].close();
+  }
+  [Symbol.asyncIterator]() {
+    return this;
+  }
+  async next() {
+    const value = await this.accept();
+    return {
+      value,
+      done: typeof value === "undefined"
+    };
+  }
+};
+var DatagramEndpoint = class {
+  constructor(handle) {
+    this[kHandle] = handle;
+  }
+  recv(buf) {
+    return this[kHandle].recv(buf);
+  }
+  send(buf, taddr) {
+    return this[kHandle].send(buf, taddr);
+  }
+  get localAddress() {
+    if (!this[kLocalAddress]) {
+      this[kLocalAddress] = this[kHandle].getsockname();
+    }
+    return this[kLocalAddress];
+  }
+  get remoteAddress() {
+    return this[kHandle].getpeername();
+  }
+  close() {
+    this[kHandle].close();
+  }
+};
+
+// src/js/tjs/stdio.js
+var core9 = globalThis.__bootstrap;
+var kStdioHandle = Symbol("kStdioHandle");
+var kStdioHandleType = Symbol("kStdioHandleType");
+var BaseIOStream = class {
+  constructor(handle, type) {
+    this[kStdioHandle] = handle;
+    this[kStdioHandleType] = type;
+  }
+  get isTTY() {
+    return this[kStdioHandleType] === "tty";
+  }
+};
+var InputStream = class extends BaseIOStream {
+  async read(buf) {
+    return this[kStdioHandle].read(buf);
+  }
+  setRawMode(rawMode) {
+    if (!this.isTTY) {
+      throw new Error("not a TTY");
+    }
+    const ttyMode = rawMode ? core9.TTY.TTY_MODE_RAW : core9.TTY.TTY_MODE_NORMAL;
+    this[kStdioHandle].setMode(ttyMode);
+  }
+};
+var OutputStream = class extends BaseIOStream {
+  async write(buf) {
+    return this[kStdioHandle].write(buf);
+  }
+  get height() {
+    if (!this.isTTY) {
+      throw new Error("not a TTY");
+    }
+    return this[kStdioHandle].getWinSize().height;
+  }
+  get width() {
+    if (!this.isTTY) {
+      throw new Error("not a TTY");
+    }
+    return this[kStdioHandle].getWinSize().width;
+  }
+};
+function createStdioStream(fd) {
+  const isStdin = fd === core9.STDIN_FILENO;
+  const StreamType = isStdin ? InputStream : OutputStream;
+  const type = core9.guessHandle(fd);
+  switch (type) {
+    case "tty": {
+      const handle = new core9.TTY(fd, isStdin);
+      return new StreamType(handle, type);
+    }
+    case "pipe": {
+      const handle = new core9.Pipe();
+      handle.open(fd);
+      return new StreamType(handle, type);
+    }
+    case "file": {
+      const handle = core9.newStdioFile(pathByFd(fd), fd);
+      return new StreamType(handle, type);
+    }
+    default:
+      return void 0;
+  }
+}
+function pathByFd(fd) {
+  switch (fd) {
+    case core9.STDIN_FILENO:
+      return "<stdin>";
+    case core9.STDOUT_FILENO:
+      return "<stdout>";
+    case core9.STDERR_FILENO:
+      return "<stderr>";
+    default:
+      return "";
+  }
+}
+function createStdin() {
+  return createStdioStream(core9.STDIN_FILENO);
+}
+function createStdout() {
+  return createStdioStream(core9.STDOUT_FILENO);
+}
+function createStderr() {
+  return createStdioStream(core9.STDERR_FILENO);
+}
+
 // src/js/tjs/index.js
 var core10 = globalThis.__bootstrap;
 var tjs2 = /* @__PURE__ */ Object.create(null);
@@ -14094,11 +14098,6 @@ for (const [key, value] of Object.entries(core10)) {
 }
 tjs2.args = Object.freeze(core10.args);
 tjs2.versions = Object.freeze(core10.versions);
-tjs2.ffi = ffi_exports;
-StructType.parseCProto = function(header) {
-  const ast = parseCProto(header);
-  astToLib(this, ast);
-};
 Object.defineProperty(tjs2, "alert", {
   enumerable: true,
   configurable: false,
@@ -14170,6 +14169,12 @@ Object.defineProperty(tjs2, "stderr", {
   configurable: false,
   writable: false,
   value: createStderr()
+});
+Object.defineProperty(tjs2, "ffi", {
+  enumerable: true,
+  configurable: false,
+  writable: false,
+  value: ffi_exports
 });
 if (core10.posix_socket) {
   Object.defineProperty(tjs2, "PosixSocket", {

@@ -49,6 +49,7 @@ module.exports = {
         'no-multiple-empty-lines': 'error',
         'no-nested-ternary': 'error',
         'no-trailing-spaces': 'error',
+        'no-unused-vars': [ 'error', { 'argsIgnorePattern': '^_' } ],
         'object-curly-spacing': [ 'error', 'always' ],
         'padded-blocks': [ 'error', 'never' ],
         'padding-line-between-statements': [
