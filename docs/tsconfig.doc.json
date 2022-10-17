@@ -8,7 +8,7 @@
         "name": "txiki.js",
         "entryPoints": [
             "txikijs.d.ts",
-            "ffi.d.ts"
+            "ffi.d.ts",
         ],
         "out": "api/",
         "readme": "intro.md",

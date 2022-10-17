@@ -3,7 +3,7 @@
 /**
  * The single global where all txiki.js APIs are exposed.
  */
-namespace tjs {
+declare namespace tjs {
     /**
      * Implemented by entities from which data can be read.
      */
