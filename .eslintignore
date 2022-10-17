@@ -6,5 +6,3 @@ tests
 src/js/bundle.js
 src/js/std.js
 src/js/repl.js
-
-src/js/tjs/ffiutils.js

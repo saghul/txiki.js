@@ -12829,8 +12829,9 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
       const tokens2 = [];
       const tokenRegex = /(\w+|[^\w])/g;
       for (const w of words) {
-        if (w.length == 0)
+        if (w.length == 0) {
           continue;
+        }
         let m;
         while (m = tokenRegex.exec(w)) {
           tokens2.push(m[1]);
@@ -12941,8 +12942,9 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
           case "signed":
           case "struct":
           default:
-            if (info.name.length > 0)
+            if (info.name.length > 0) {
               info.name += " ";
+            }
             info.name += st[i];
         }
       }
