@@ -12881,7 +12881,6 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
               throw new Error("expected semicolon as last token of block");
             }
             return [statements2, index];
-            break;
           case ")":
             if (firstToken !== "(") {
               throw new Error("Unexpected " + t);
@@ -12890,7 +12889,6 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
               statements2.push(stTokens);
             }
             return [statements2, index];
-            break;
           case "]":
             if (firstToken !== "[") {
               throw new Error("Unexpected " + t);
@@ -12899,7 +12897,6 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
               statements2.push(stTokens);
             }
             return [statements2, index];
-            break;
           case ",":
           case ";":
             if (stTokens.length) {
@@ -12977,7 +12974,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
     function parseVardef(st) {
       let namePos = st.length - 1;
       let arr;
-      if (st.slice(-1)[0]._block == "[") {
+      if (st.slice(-1)[0]._block === "[") {
         const arrBrack = st.slice(-1)[0];
         arr = arrBrack.length === 0 ? true : parseInt(arrBrack[0]);
         namePos--;
@@ -13069,7 +13066,7 @@ function init({ StructType: StructType2, CFunction: CFunction2, PointerType: Poi
   }
   function astToLib2(lib, ast) {
     let unnamedCnt = 0;
-    function getType(name, ptr = 0, func = false) {
+    function getType(name, ptr = 0) {
       let ffiType = lib.getType(name + "*".repeat(ptr));
       if (ffiType) {
         return ffiType;

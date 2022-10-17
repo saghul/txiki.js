@@ -73,7 +73,7 @@ export default function init({ StructType, CFunction, PointerType }) {
                         }
 
                         return [ statements, index ];
-                        break;
+
                     case ')':
                         if (firstToken !== '(') {
                             throw new Error('Unexpected '+t);
@@ -84,7 +84,7 @@ export default function init({ StructType, CFunction, PointerType }) {
                         }
 
                         return [ statements, index ];
-                        break;
+
                     case ']':
                         if (firstToken !== '[') {
                             throw new Error('Unexpected '+t);
@@ -95,7 +95,7 @@ export default function init({ StructType, CFunction, PointerType }) {
                         }
 
                         return [ statements, index ];
-                        break;
+
                     case ',':
                     case ';':
                         if (stTokens.length) {
@@ -185,7 +185,7 @@ export default function init({ StructType, CFunction, PointerType }) {
             let namePos = st.length - 1;
             let arr;
 
-            if (st.slice(-1)[0]._block == '[') {
+            if (st.slice(-1)[0]._block === '[') {
                 const arrBrack = st.slice(-1)[0];
 
                 arr = arrBrack.length === 0 ? true : parseInt(arrBrack[0]);
@@ -301,7 +301,7 @@ export default function init({ StructType, CFunction, PointerType }) {
     function astToLib(lib, ast) {
         let unnamedCnt = 0;
 
-        function getType(name, ptr = 0, func = false) {
+        function getType(name, ptr = 0) {
             let ffiType = lib.getType(name+('*').repeat(ptr));
 
             if (ffiType) {
