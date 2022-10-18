@@ -69,6 +69,8 @@ add_executable(tjs
     src/bootstrap.c
     src/cli.c
     src/curl-utils.c
+    src/curl-websocket.c
+    src/curl-websocket-utils.c
     src/dns.c
     src/error.c
     src/ffi.c
@@ -77,6 +79,7 @@ add_executable(tjs
     src/modules.c
     src/os.c
     src/process.c
+    src/sha1.c
     src/streams.c
     src/signals.c
     src/sys.c
@@ -87,6 +90,7 @@ add_executable(tjs
     src/vm.c
     src/wasm.c
     src/worker.c
+    src/ws.c
     src/xhr.c
     ../deps/quickjs/src/cutils.c
 )

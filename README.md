@@ -9,7 +9,7 @@
 
 *txiki.js* is a small and powerful JavaScript runtime. It's built on the shoulders of
 giants: it uses [QuickJS] as its JavaScript engine, [libuv] as the platform layer,
-[wasm3] as the WebAssembly engine and [curl] as the HTTP client.
+[wasm3] as the WebAssembly engine and [curl] as the HTTP / WebSocket client.
 
 ## Features
 
@@ -29,6 +29,7 @@ giants: it uses [QuickJS] as its JavaScript engine, [libuv] as the platform laye
 - [URLPattern]
 - [URLSearchParams]
 - [WebAssembly] (3)
+- [WebSocket]
 - [Web Workers API]
 
 (1): All of them are async.
@@ -65,10 +66,6 @@ The builtin `@tjs/std` module exports the following:
 - [path] module
 - [uuid] module
 - `createHash` function
-
-### ffi
-
-The builtin `@tjs/ffi` module provides access to FFI functionality.
 
 ## Supported platforms
 
@@ -175,6 +172,7 @@ Thank you all for making this project possible!
 [URLSearchParams]: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
 [Web Workers API]: https://developer.mozilla.org/en-US/docs/Web/API/Worker
 [WebAssembly]: https://developer.mozilla.org/en-US/docs/WebAssembly
+[WebSocket]: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 [getopts]: https://github.com/jorgebucaran/getopts
 [ipaddr]: https://github.com/whitequark/ipaddr.js
 [path]: https://github.com/browserify/path-browserify

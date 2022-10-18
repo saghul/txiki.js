@@ -1,5 +1,31 @@
 import { defineEventAttribute, EventTarget, Event, CustomEvent } from './event-target.js';
 
+const kCloseEventCode = Symbol('kCloseEventCode');
+const kCloseEventReason = Symbol('kCloseEventReason');
+const kCloseEventWasClean = Symbol('kCloseEventWasClean');
+
+class CloseEvent extends Event {
+    constructor(eventTye, init) {
+        super(eventTye, init);
+
+        this[kCloseEventCode] = init?.code ?? 0;
+        this[kCloseEventReason] = init?.reason ?? '';
+        this[kCloseEventWasClean] = init?.wasClean ?? false;
+    }
+
+    get code() {
+        return this[kCloseEventCode];
+    }
+
+    get reason() {
+        return this[kCloseEventReason];
+    }
+
+    get wasClean() {
+        return this[kCloseEventWasClean];
+    }
+}
+
 const kErrorEventData = Symbol('kErrorEventData');
 
 class ErrorEvent extends Event {
@@ -91,6 +117,12 @@ class ProgressEvent extends Event {
 }
 
 Object.defineProperties(window, {
+    CloseEvent: {
+        enumerable: true,
+        configurable: true,
+        writable: true,
+        value: CloseEvent
+    },
     EventTarget: {
         enumerable: true,
         configurable: true,
