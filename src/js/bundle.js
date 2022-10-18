@@ -4277,8 +4277,8 @@ var require_fetch_umd = __commonJS({
         return headers;
       }
       Body.call(Request.prototype);
-      function Response(bodyInit, options) {
-        if (!(this instanceof Response)) {
+      function Response2(bodyInit, options) {
+        if (!(this instanceof Response2)) {
           throw new TypeError('Please use the "new" operator, this DOM object constructor cannot be called as a function.');
         }
         if (!options) {
@@ -4292,26 +4292,26 @@ var require_fetch_umd = __commonJS({
         this.url = options.url || "";
         this._initBody(bodyInit);
       }
-      Body.call(Response.prototype);
-      Response.prototype.clone = function() {
-        return new Response(this._bodyInit, {
+      Body.call(Response2.prototype);
+      Response2.prototype.clone = function() {
+        return new Response2(this._bodyInit, {
           status: this.status,
           statusText: this.statusText,
           headers: new Headers(this.headers),
           url: this.url
         });
       };
-      Response.error = function() {
-        var response = new Response(null, { status: 0, statusText: "" });
+      Response2.error = function() {
+        var response = new Response2(null, { status: 0, statusText: "" });
         response.type = "error";
         return response;
       };
       var redirectStatuses = [301, 302, 303, 307, 308];
-      Response.redirect = function(url, status) {
+      Response2.redirect = function(url, status) {
         if (redirectStatuses.indexOf(status) === -1) {
           throw new RangeError("Invalid status code");
         }
-        return new Response(null, { status, headers: { location: url } });
+        return new Response2(null, { status, headers: { location: url } });
       };
       exports2.DOMException = global2.DOMException;
       try {
@@ -4345,7 +4345,7 @@ var require_fetch_umd = __commonJS({
             options.url = "responseURL" in xhr ? xhr.responseURL : options.headers.get("X-Request-URL");
             var body = "response" in xhr ? xhr.response : xhr.responseText;
             setTimeout(function() {
-              resolve(new Response(body, options));
+              resolve(new Response2(body, options));
             }, 0);
           };
           xhr.onerror = function() {
@@ -4408,11 +4408,11 @@ var require_fetch_umd = __commonJS({
         global2.fetch = fetch;
         global2.Headers = Headers;
         global2.Request = Request;
-        global2.Response = Response;
+        global2.Response = Response2;
       }
       exports2.Headers = Headers;
       exports2.Request = Request;
-      exports2.Response = Response;
+      exports2.Response = Response2;
       exports2.fetch = fetch;
       Object.defineProperty(exports2, "__esModule", { value: true });
     });
@@ -4930,7 +4930,7 @@ var require_polyfill_es2018 = __commonJS({
         }
         try {
           return x._asyncIteratorImpl instanceof ReadableStreamAsyncIteratorImpl;
-        } catch (_a2) {
+        } catch (_a3) {
           return false;
         }
       }
@@ -5787,7 +5787,7 @@ var require_polyfill_es2018 = __commonJS({
         }
         try {
           return typeof value.aborted === "boolean";
-        } catch (_a2) {
+        } catch (_a3) {
           return false;
         }
       }
@@ -5900,12 +5900,12 @@ var require_polyfill_es2018 = __commonJS({
         return true;
       }
       function WritableStreamAbort(stream, reason) {
-        var _a2;
+        var _a3;
         if (stream._state === "closed" || stream._state === "errored") {
           return promiseResolvedWith(void 0);
         }
         stream._writableStreamController._abortReason = reason;
-        (_a2 = stream._writableStreamController._abortController) === null || _a2 === void 0 ? void 0 : _a2.abort();
+        (_a3 = stream._writableStreamController._abortController) === null || _a3 === void 0 ? void 0 : _a3.abort();
         const state = stream._state;
         if (state === "closed" || state === "errored") {
           return promiseResolvedWith(void 0);
@@ -6580,7 +6580,7 @@ var require_polyfill_es2018 = __commonJS({
         try {
           new ctor();
           return true;
-        } catch (_a2) {
+        } catch (_a3) {
           return false;
         }
       }
@@ -7603,7 +7603,7 @@ var require_polyfill_es2018 = __commonJS({
           value: "size",
           configurable: true
         });
-      } catch (_a2) {
+      } catch (_a3) {
       }
       class ByteLengthQueuingStrategy {
         constructor(options) {
@@ -7654,7 +7654,7 @@ var require_polyfill_es2018 = __commonJS({
           value: "size",
           configurable: true
         });
-      } catch (_a2) {
+      } catch (_a3) {
       }
       class CountQueuingStrategy {
         constructor(options) {
@@ -8345,6 +8345,545 @@ var require_encoding_lib = __commonJS({
     }
     exports.TextEncoder = TextEncoder3;
     exports.TextDecoder = TextDecoder3;
+  }
+});
+
+// node_modules/blob-polyfill/Blob.js
+var require_Blob = __commonJS({
+  "node_modules/blob-polyfill/Blob.js"(exports) {
+    (function(global2) {
+      (function(factory) {
+        if (typeof define === "function" && define.amd) {
+          define(["exports"], factory);
+        } else if (typeof exports === "object" && typeof exports.nodeName !== "string") {
+          factory(exports);
+        } else {
+          factory(global2);
+        }
+      })(function(exports2) {
+        "use strict";
+        var BlobBuilder = global2.BlobBuilder || global2.WebKitBlobBuilder || global2.MSBlobBuilder || global2.MozBlobBuilder;
+        var URL2 = global2.URL || global2.webkitURL || function(href, a) {
+          a = document.createElement("a");
+          a.href = href;
+          return a;
+        };
+        var origBlob = global2.Blob;
+        var createObjectURL = URL2.createObjectURL;
+        var revokeObjectURL = URL2.revokeObjectURL;
+        var strTag = global2.Symbol && global2.Symbol.toStringTag;
+        var blobSupported = false;
+        var blobSupportsArrayBufferView = false;
+        var blobBuilderSupported = BlobBuilder && BlobBuilder.prototype.append && BlobBuilder.prototype.getBlob;
+        try {
+          blobSupported = new Blob(["\xE4"]).size === 2;
+          blobSupportsArrayBufferView = new Blob([new Uint8Array([1, 2])]).size === 2;
+        } catch (e) {
+        }
+        function mapArrayBufferViews(ary) {
+          return ary.map(function(chunk) {
+            if (chunk.buffer instanceof ArrayBuffer) {
+              var buf = chunk.buffer;
+              if (chunk.byteLength !== buf.byteLength) {
+                var copy = new Uint8Array(chunk.byteLength);
+                copy.set(new Uint8Array(buf, chunk.byteOffset, chunk.byteLength));
+                buf = copy.buffer;
+              }
+              return buf;
+            }
+            return chunk;
+          });
+        }
+        function BlobBuilderConstructor(ary, options) {
+          options = options || {};
+          var bb = new BlobBuilder();
+          mapArrayBufferViews(ary).forEach(function(part) {
+            bb.append(part);
+          });
+          return options.type ? bb.getBlob(options.type) : bb.getBlob();
+        }
+        function BlobConstructor(ary, options) {
+          return new origBlob(mapArrayBufferViews(ary), options || {});
+        }
+        if (global2.Blob) {
+          BlobBuilderConstructor.prototype = Blob.prototype;
+          BlobConstructor.prototype = Blob.prototype;
+        }
+        function stringEncode(string) {
+          var pos = 0;
+          var len = string.length;
+          var Arr = global2.Uint8Array || Array;
+          var at = 0;
+          var tlen = Math.max(32, len + (len >> 1) + 7);
+          var target = new Arr(tlen >> 3 << 3);
+          while (pos < len) {
+            var value = string.charCodeAt(pos++);
+            if (value >= 55296 && value <= 56319) {
+              if (pos < len) {
+                var extra = string.charCodeAt(pos);
+                if ((extra & 64512) === 56320) {
+                  ++pos;
+                  value = ((value & 1023) << 10) + (extra & 1023) + 65536;
+                }
+              }
+              if (value >= 55296 && value <= 56319) {
+                continue;
+              }
+            }
+            if (at + 4 > target.length) {
+              tlen += 8;
+              tlen *= 1 + pos / string.length * 2;
+              tlen = tlen >> 3 << 3;
+              var update = new Uint8Array(tlen);
+              update.set(target);
+              target = update;
+            }
+            if ((value & 4294967168) === 0) {
+              target[at++] = value;
+              continue;
+            } else if ((value & 4294965248) === 0) {
+              target[at++] = value >> 6 & 31 | 192;
+            } else if ((value & 4294901760) === 0) {
+              target[at++] = value >> 12 & 15 | 224;
+              target[at++] = value >> 6 & 63 | 128;
+            } else if ((value & 4292870144) === 0) {
+              target[at++] = value >> 18 & 7 | 240;
+              target[at++] = value >> 12 & 63 | 128;
+              target[at++] = value >> 6 & 63 | 128;
+            } else {
+              continue;
+            }
+            target[at++] = value & 63 | 128;
+          }
+          return target.slice(0, at);
+        }
+        function stringDecode(buf) {
+          var end = buf.length;
+          var res = [];
+          var i = 0;
+          while (i < end) {
+            var firstByte = buf[i];
+            var codePoint = null;
+            var bytesPerSequence = firstByte > 239 ? 4 : firstByte > 223 ? 3 : firstByte > 191 ? 2 : 1;
+            if (i + bytesPerSequence <= end) {
+              var secondByte, thirdByte, fourthByte, tempCodePoint;
+              switch (bytesPerSequence) {
+                case 1:
+                  if (firstByte < 128) {
+                    codePoint = firstByte;
+                  }
+                  break;
+                case 2:
+                  secondByte = buf[i + 1];
+                  if ((secondByte & 192) === 128) {
+                    tempCodePoint = (firstByte & 31) << 6 | secondByte & 63;
+                    if (tempCodePoint > 127) {
+                      codePoint = tempCodePoint;
+                    }
+                  }
+                  break;
+                case 3:
+                  secondByte = buf[i + 1];
+                  thirdByte = buf[i + 2];
+                  if ((secondByte & 192) === 128 && (thirdByte & 192) === 128) {
+                    tempCodePoint = (firstByte & 15) << 12 | (secondByte & 63) << 6 | thirdByte & 63;
+                    if (tempCodePoint > 2047 && (tempCodePoint < 55296 || tempCodePoint > 57343)) {
+                      codePoint = tempCodePoint;
+                    }
+                  }
+                  break;
+                case 4:
+                  secondByte = buf[i + 1];
+                  thirdByte = buf[i + 2];
+                  fourthByte = buf[i + 3];
+                  if ((secondByte & 192) === 128 && (thirdByte & 192) === 128 && (fourthByte & 192) === 128) {
+                    tempCodePoint = (firstByte & 15) << 18 | (secondByte & 63) << 12 | (thirdByte & 63) << 6 | fourthByte & 63;
+                    if (tempCodePoint > 65535 && tempCodePoint < 1114112) {
+                      codePoint = tempCodePoint;
+                    }
+                  }
+              }
+            }
+            if (codePoint === null) {
+              codePoint = 65533;
+              bytesPerSequence = 1;
+            } else if (codePoint > 65535) {
+              codePoint -= 65536;
+              res.push(codePoint >>> 10 & 1023 | 55296);
+              codePoint = 56320 | codePoint & 1023;
+            }
+            res.push(codePoint);
+            i += bytesPerSequence;
+          }
+          var len = res.length;
+          var str = "";
+          var j = 0;
+          while (j < len) {
+            str += String.fromCharCode.apply(String, res.slice(j, j += 4096));
+          }
+          return str;
+        }
+        var textEncode = typeof TextEncoder === "function" ? TextEncoder.prototype.encode.bind(new TextEncoder()) : stringEncode;
+        var textDecode = typeof TextDecoder === "function" ? TextDecoder.prototype.decode.bind(new TextDecoder()) : stringDecode;
+        function FakeBlobBuilder() {
+          function bufferClone(buf) {
+            var view = new Array(buf.byteLength);
+            var array = new Uint8Array(buf);
+            var i = view.length;
+            while (i--) {
+              view[i] = array[i];
+            }
+            return view;
+          }
+          function array2base64(input) {
+            var byteToCharMap = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+            var output = [];
+            for (var i = 0; i < input.length; i += 3) {
+              var byte1 = input[i];
+              var haveByte2 = i + 1 < input.length;
+              var byte2 = haveByte2 ? input[i + 1] : 0;
+              var haveByte3 = i + 2 < input.length;
+              var byte3 = haveByte3 ? input[i + 2] : 0;
+              var outByte1 = byte1 >> 2;
+              var outByte2 = (byte1 & 3) << 4 | byte2 >> 4;
+              var outByte3 = (byte2 & 15) << 2 | byte3 >> 6;
+              var outByte4 = byte3 & 63;
+              if (!haveByte3) {
+                outByte4 = 64;
+                if (!haveByte2) {
+                  outByte3 = 64;
+                }
+              }
+              output.push(
+                byteToCharMap[outByte1],
+                byteToCharMap[outByte2],
+                byteToCharMap[outByte3],
+                byteToCharMap[outByte4]
+              );
+            }
+            return output.join("");
+          }
+          var create = Object.create || function(a) {
+            function c() {
+            }
+            c.prototype = a;
+            return new c();
+          };
+          function getObjectTypeName(o) {
+            return Object.prototype.toString.call(o).slice(8, -1);
+          }
+          function isPrototypeOf(c, o) {
+            return typeof c === "object" && Object.prototype.isPrototypeOf.call(c.prototype, o);
+          }
+          function isDataView(o) {
+            return getObjectTypeName(o) === "DataView" || isPrototypeOf(global2.DataView, o);
+          }
+          var arrayBufferClassNames = [
+            "Int8Array",
+            "Uint8Array",
+            "Uint8ClampedArray",
+            "Int16Array",
+            "Uint16Array",
+            "Int32Array",
+            "Uint32Array",
+            "Float32Array",
+            "Float64Array",
+            "ArrayBuffer"
+          ];
+          function includes(a, v) {
+            return a.indexOf(v) !== -1;
+          }
+          function isArrayBuffer(o) {
+            return includes(arrayBufferClassNames, getObjectTypeName(o)) || isPrototypeOf(global2.ArrayBuffer, o);
+          }
+          function concatTypedarrays(chunks) {
+            var size = 0;
+            var j = chunks.length;
+            while (j--) {
+              size += chunks[j].length;
+            }
+            var b = new Uint8Array(size);
+            var offset = 0;
+            for (var i = 0; i < chunks.length; i++) {
+              var chunk = chunks[i];
+              b.set(chunk, offset);
+              offset += chunk.byteLength || chunk.length;
+            }
+            return b;
+          }
+          function Blob3(chunks, opts) {
+            chunks = chunks ? chunks.slice() : [];
+            opts = opts == null ? {} : opts;
+            for (var i = 0, len = chunks.length; i < len; i++) {
+              var chunk = chunks[i];
+              if (chunk instanceof Blob3) {
+                chunks[i] = chunk._buffer;
+              } else if (typeof chunk === "string") {
+                chunks[i] = textEncode(chunk);
+              } else if (isDataView(chunk)) {
+                chunks[i] = bufferClone(chunk.buffer);
+              } else if (isArrayBuffer(chunk)) {
+                chunks[i] = bufferClone(chunk);
+              } else {
+                chunks[i] = textEncode(String(chunk));
+              }
+            }
+            this._buffer = global2.Uint8Array ? concatTypedarrays(chunks) : [].concat.apply([], chunks);
+            this.size = this._buffer.length;
+            this.type = opts.type || "";
+            if (/[^\u0020-\u007E]/.test(this.type)) {
+              this.type = "";
+            } else {
+              this.type = this.type.toLowerCase();
+            }
+          }
+          Blob3.prototype.arrayBuffer = function() {
+            return Promise.resolve(this._buffer.buffer || this._buffer);
+          };
+          Blob3.prototype.text = function() {
+            return Promise.resolve(textDecode(this._buffer));
+          };
+          Blob3.prototype.slice = function(start, end, type) {
+            var slice = this._buffer.slice(start || 0, end || this._buffer.length);
+            return new Blob3([slice], { type });
+          };
+          Blob3.prototype.toString = function() {
+            return "[object Blob]";
+          };
+          function File2(chunks, name, opts) {
+            opts = opts || {};
+            var a = Blob3.call(this, chunks, opts) || this;
+            a.name = name.replace(/\//g, ":");
+            a.lastModifiedDate = opts.lastModified ? new Date(opts.lastModified) : new Date();
+            a.lastModified = +a.lastModifiedDate;
+            return a;
+          }
+          File2.prototype = create(Blob3.prototype);
+          File2.prototype.constructor = File2;
+          if (Object.setPrototypeOf) {
+            Object.setPrototypeOf(File2, Blob3);
+          } else {
+            try {
+              File2.__proto__ = Blob3;
+            } catch (e) {
+            }
+          }
+          File2.prototype.toString = function() {
+            return "[object File]";
+          };
+          function FileReader2() {
+            if (!(this instanceof FileReader2)) {
+              throw new TypeError("Failed to construct 'FileReader': Please use the 'new' operator, this DOM object constructor cannot be called as a function.");
+            }
+            var delegate = document.createDocumentFragment();
+            this.addEventListener = delegate.addEventListener;
+            this.dispatchEvent = function(evt) {
+              var local = this["on" + evt.type];
+              if (typeof local === "function")
+                local(evt);
+              delegate.dispatchEvent(evt);
+            };
+            this.removeEventListener = delegate.removeEventListener;
+          }
+          function _read(fr, blob2, kind) {
+            if (!(blob2 instanceof Blob3)) {
+              throw new TypeError("Failed to execute '" + kind + "' on 'FileReader': parameter 1 is not of type 'Blob'.");
+            }
+            fr.result = "";
+            setTimeout(function() {
+              this.readyState = FileReader2.LOADING;
+              fr.dispatchEvent(new Event("load"));
+              fr.dispatchEvent(new Event("loadend"));
+            });
+          }
+          FileReader2.EMPTY = 0;
+          FileReader2.LOADING = 1;
+          FileReader2.DONE = 2;
+          FileReader2.prototype.error = null;
+          FileReader2.prototype.onabort = null;
+          FileReader2.prototype.onerror = null;
+          FileReader2.prototype.onload = null;
+          FileReader2.prototype.onloadend = null;
+          FileReader2.prototype.onloadstart = null;
+          FileReader2.prototype.onprogress = null;
+          FileReader2.prototype.readAsDataURL = function(blob2) {
+            _read(this, blob2, "readAsDataURL");
+            this.result = "data:" + blob2.type + ";base64," + array2base64(blob2._buffer);
+          };
+          FileReader2.prototype.readAsText = function(blob2) {
+            _read(this, blob2, "readAsText");
+            this.result = textDecode(blob2._buffer);
+          };
+          FileReader2.prototype.readAsArrayBuffer = function(blob2) {
+            _read(this, blob2, "readAsText");
+            this.result = (blob2._buffer.buffer || blob2._buffer).slice();
+          };
+          FileReader2.prototype.abort = function() {
+          };
+          URL2.createObjectURL = function(blob2) {
+            return blob2 instanceof Blob3 ? "data:" + blob2.type + ";base64," + array2base64(blob2._buffer) : createObjectURL.call(URL2, blob2);
+          };
+          URL2.revokeObjectURL = function(url) {
+            revokeObjectURL && revokeObjectURL.call(URL2, url);
+          };
+          var _send = global2.XMLHttpRequest && global2.XMLHttpRequest.prototype.send;
+          if (_send) {
+            XMLHttpRequest.prototype.send = function(data) {
+              if (data instanceof Blob3) {
+                this.setRequestHeader("Content-Type", data.type);
+                _send.call(this, textDecode(data._buffer));
+              } else {
+                _send.call(this, data);
+              }
+            };
+          }
+          exports2.Blob = Blob3;
+          exports2.File = File2;
+          exports2.FileReader = FileReader2;
+          exports2.URL = URL2;
+        }
+        function fixFileAndXHR() {
+          var isIE = !!global2.ActiveXObject || "-ms-scroll-limit" in document.documentElement.style && "-ms-ime-align" in document.documentElement.style;
+          var _send = global2.XMLHttpRequest && global2.XMLHttpRequest.prototype.send;
+          if (isIE && _send) {
+            XMLHttpRequest.prototype.send = function(data) {
+              if (data instanceof Blob) {
+                this.setRequestHeader("Content-Type", data.type);
+                _send.call(this, data);
+              } else {
+                _send.call(this, data);
+              }
+            };
+          }
+          try {
+            new File([], "");
+            exports2.File = global2.File;
+            exports2.FileReader = global2.FileReader;
+          } catch (e) {
+            try {
+              exports2.File = new Function(
+                'class File extends Blob {constructor(chunks, name, opts) {opts = opts || {};super(chunks, opts || {});this.name = name.replace(/\\//g, ":");this.lastModifiedDate = opts.lastModified ? new Date(opts.lastModified) : new Date();this.lastModified = +this.lastModifiedDate;}};return new File([], ""), File'
+              )();
+            } catch (e2) {
+              exports2.File = function(b, d, c) {
+                var blob2 = new Blob(b, c);
+                var t = c && void 0 !== c.lastModified ? new Date(c.lastModified) : new Date();
+                blob2.name = d.replace(/\//g, ":");
+                blob2.lastModifiedDate = t;
+                blob2.lastModified = +t;
+                blob2.toString = function() {
+                  return "[object File]";
+                };
+                if (strTag) {
+                  blob2[strTag] = "File";
+                }
+                return blob2;
+              };
+            }
+          }
+        }
+        if (blobSupported) {
+          fixFileAndXHR();
+          exports2.Blob = blobSupportsArrayBufferView ? global2.Blob : BlobConstructor;
+        } else if (blobBuilderSupported) {
+          fixFileAndXHR();
+          exports2.Blob = BlobBuilderConstructor;
+        } else {
+          FakeBlobBuilder();
+        }
+        if (strTag) {
+          if (!exports2.File.prototype[strTag])
+            exports2.File.prototype[strTag] = "File";
+          if (!exports2.Blob.prototype[strTag])
+            exports2.Blob.prototype[strTag] = "Blob";
+          if (!exports2.FileReader.prototype[strTag])
+            exports2.FileReader.prototype[strTag] = "FileReader";
+        }
+        var blob = exports2.Blob.prototype;
+        var stream;
+        try {
+          new ReadableStream({ type: "bytes" });
+          stream = function stream2() {
+            var position = 0;
+            var blob2 = this;
+            return new ReadableStream({
+              type: "bytes",
+              autoAllocateChunkSize: 524288,
+              pull: function(controller) {
+                var v = controller.byobRequest.view;
+                var chunk = blob2.slice(position, position + v.byteLength);
+                return chunk.arrayBuffer().then(function(buffer) {
+                  var uint8array = new Uint8Array(buffer);
+                  var bytesRead = uint8array.byteLength;
+                  position += bytesRead;
+                  v.set(uint8array);
+                  controller.byobRequest.respond(bytesRead);
+                  if (position >= blob2.size)
+                    controller.close();
+                });
+              }
+            });
+          };
+        } catch (e) {
+          try {
+            new ReadableStream({});
+            stream = function stream2(blob2) {
+              var position = 0;
+              return new ReadableStream({
+                pull: function(controller) {
+                  var chunk = blob2.slice(position, position + 524288);
+                  return chunk.arrayBuffer().then(function(buffer) {
+                    position += buffer.byteLength;
+                    var uint8array = new Uint8Array(buffer);
+                    controller.enqueue(uint8array);
+                    if (position == blob2.size)
+                      controller.close();
+                  });
+                }
+              });
+            };
+          } catch (e2) {
+            try {
+              new Response("").body.getReader().read();
+              stream = function stream2() {
+                return new Response(this).body;
+              };
+            } catch (e3) {
+              stream = function stream2() {
+                throw new Error("Include https://github.com/MattiasBuelens/web-streams-polyfill");
+              };
+            }
+          }
+        }
+        function promisify(obj) {
+          return new Promise(function(resolve, reject) {
+            obj.onload = obj.onerror = function(evt) {
+              obj.onload = obj.onerror = null;
+              evt.type === "load" ? resolve(obj.result || obj) : reject(new Error("Failed to read the blob/file"));
+            };
+          });
+        }
+        if (!blob.arrayBuffer) {
+          blob.arrayBuffer = function arrayBuffer() {
+            var fr = new FileReader();
+            fr.readAsArrayBuffer(this);
+            return promisify(fr);
+          };
+        }
+        if (!blob.text) {
+          blob.text = function text() {
+            var fr = new FileReader();
+            fr.readAsText(this);
+            return promisify(fr);
+          };
+        }
+        if (!blob.stream) {
+          blob.stream = stream;
+        }
+      });
+    })(
+      typeof self !== "undefined" && self || typeof window !== "undefined" && window || typeof global !== "undefined" && global || exports
+    );
   }
 });
 
@@ -10313,6 +10852,26 @@ var EventTarget2 = class {
 };
 
 // src/js/polyfills/event-target-polyfill.js
+var kCloseEventCode = Symbol("kCloseEventCode");
+var kCloseEventReason = Symbol("kCloseEventReason");
+var kCloseEventWasClean = Symbol("kCloseEventWasClean");
+var CloseEvent2 = class extends Event2 {
+  constructor(eventTye, init2) {
+    super(eventTye, init2);
+    this[kCloseEventCode] = init2?.code ?? 0;
+    this[kCloseEventReason] = init2?.reason ?? "";
+    this[kCloseEventWasClean] = init2?.wasClean ?? false;
+  }
+  get code() {
+    return this[kCloseEventCode];
+  }
+  get reason() {
+    return this[kCloseEventReason];
+  }
+  get wasClean() {
+    return this[kCloseEventWasClean];
+  }
+};
 var kErrorEventData = Symbol("kErrorEventData");
 var ErrorEvent2 = class extends Event2 {
   constructor(error) {
@@ -10381,6 +10940,12 @@ var ProgressEvent2 = class extends Event2 {
   }
 };
 Object.defineProperties(window, {
+  CloseEvent: {
+    enumerable: true,
+    configurable: true,
+    writable: true,
+    value: CloseEvent2
+  },
   EventTarget: {
     enumerable: true,
     configurable: true,
@@ -12180,6 +12745,15 @@ var import_text_encoding_utf_8 = __toESM(require_encoding_lib());
 window.TextEncoder = import_text_encoding_utf_8.TextEncoder;
 window.TextDecoder = import_text_encoding_utf_8.TextDecoder;
 
+// src/js/polyfills/blob.js
+var import_blob_polyfill = __toESM(require_Blob());
+Object.defineProperty(window, "Blob", {
+  enumerable: true,
+  configurable: true,
+  writable: true,
+  value: import_blob_polyfill.Blob
+});
+
 // src/js/polyfills/console.js
 var import_util = __toESM(require_util());
 var encoder = new TextEncoder();
@@ -12746,6 +13320,117 @@ Object.defineProperty(window, "Worker", {
   configurable: true,
   writable: true,
   value: Worker
+});
+
+// src/js/polyfills/ws.js
+var { WebSocket: WS } = globalThis.__bootstrap;
+var kWS = Symbol("kWS");
+var kWsBinaryType = Symbol("kWsBinaryType");
+var kWsProtocol = Symbol("kWsProtocol");
+var kWsUrl = Symbol("kWsUrl");
+var _a, _b;
+var WebSocket = class extends EventTarget {
+  constructor(url, protocols = []) {
+    super();
+    __publicField(this, "CONNECTING", WS.CONNECTING);
+    __publicField(this, "OPEN", WS.OPEN);
+    __publicField(this, "CLOSING", WS.CLOSING);
+    __publicField(this, "CLOSED", WS.CLOSED);
+    __publicField(this, _a, "blob");
+    __publicField(this, _b, "");
+    let urlStr;
+    try {
+      urlStr = new URL(url).toString();
+    } catch (_) {
+    }
+    if (!urlStr) {
+      throw new Error("Invalid URL");
+    }
+    this[kWsUrl] = urlStr;
+    const protocolStr = protocols.join(",") || null;
+    const ws = new WS(urlStr, protocolStr);
+    ws.onclose = (ev) => {
+      const { code, reason, wasClean } = ev;
+      this.dispatchEvent(new CloseEvent("close", { code, reason, wasClean }));
+    };
+    ws.onerror = () => {
+      this.dispatchEvent(new Event("error"));
+    };
+    ws.onmessage = (msg) => {
+      let data = msg;
+      if (typeof msg !== "string" && this[kWsBinaryType] === "blob") {
+        data = new Blob(msg);
+      }
+      this.dispatchEvent(new MessageEvent("message", data));
+    };
+    ws.onopen = (p) => {
+      this[kWsProtocol] = p;
+      this.dispatchEvent(new Event("open"));
+    };
+    this[kWS] = ws;
+  }
+  get binaryType() {
+    return this[kWsBinaryType];
+  }
+  set binaryType(value) {
+    if (!["arraybuffer", "blob"].includes(value)) {
+      throw new Error(`Unsupported binaryType: ${value}`);
+    }
+    this[kWsBinaryType] = value;
+  }
+  get bufferedAmount() {
+    return 0;
+  }
+  get extensions() {
+    return "";
+  }
+  get protocol() {
+    return this[kWsProtocol];
+  }
+  get readyState() {
+    return this[kWS].readyState;
+  }
+  get url() {
+    return this[kWsUrl];
+  }
+  send(data) {
+    if (typeof data === "string") {
+      this[kWS].sendText(data);
+    } else if (data instanceof Blob) {
+      data.arrayBuffer().then((buf) => {
+        this[kWS].sendBinary(buf, 0, buf.byteLength);
+      });
+    } else if (data instanceof ArrayBuffer) {
+      this[kWS].sendBinary(data, 0, data.byteLength);
+    } else if (ArrayBuffer.isView(data)) {
+      this[kWS].sendBinary(data.buffer, data.byteOffset, data.byteLength);
+    }
+  }
+  close(code = 1e3, reason = "") {
+    if (code !== 1e3 && !(code >= 3e3 && code <= 4999)) {
+      throw new RangeError("Invalid code value");
+    }
+    if (reason.length > 123) {
+      throw new SyntaxError("Invalid reason value");
+    }
+    this[kWS].close(code, reason);
+  }
+};
+_a = kWsBinaryType, _b = kWsProtocol;
+__publicField(WebSocket, "CONNECTING", WS.CONNECTING);
+__publicField(WebSocket, "OPEN", WS.OPEN);
+__publicField(WebSocket, "CLOSING", WS.CLOSING);
+__publicField(WebSocket, "CLOSED", WS.CLOSED);
+var xhrProto2 = WebSocket.prototype;
+defineEventAttribute(xhrProto2, "close");
+defineEventAttribute(xhrProto2, "error");
+defineEventAttribute(xhrProto2, "message");
+defineEventAttribute(xhrProto2, "open");
+Object.defineProperty(window, "WebSocket", {
+  enumerable: true,
+  configurable: true,
+  writable: true,
+  value: WebSocket
 });
 
 // src/js/tjs/alert-confirm-prompt.js
@@ -13629,9 +14314,9 @@ async function mkstemp(template) {
 var core6 = globalThis.__bootstrap;
 var posixSocket = core6.posix_socket;
 var PosixSocket;
-var _a;
+var _a2;
 if (posixSocket) {
-  PosixSocket = (_a = class {
+  PosixSocket = (_a2 = class {
     constructor(domain, type, protocol) {
       this._psock = new posixSocket.PosixSocket(domain, type, protocol);
       this._info = {
@@ -13709,35 +14394,35 @@ if (posixSocket) {
           }
         } else {
           this._cbs.all?.(events);
-          if (events & _a.pollEvents.READABLE && this._cbs.read) {
+          if (events & _a2.pollEvents.READABLE && this._cbs.read) {
             this._cbs.read(events);
           }
-          if (events & _a.pollEvents.WRITABLE && this._cbs.write) {
+          if (events & _a2.pollEvents.WRITABLE && this._cbs.write) {
             this._cbs.write(events);
           }
-          if (events & _a.pollEvents.DISCONNECT && this._cbs.disconnect) {
+          if (events & _a2.pollEvents.DISCONNECT && this._cbs.disconnect) {
             this._cbs.disconnect(events);
           }
-          if (events & _a.pollEvents.PRIORITIZED && this._cbs.prioritized) {
+          if (events & _a2.pollEvents.PRIORITIZED && this._cbs.prioritized) {
             this._cbs.prioritized(events);
           }
         }
       };
       let mask = 0;
       if (cbs.all) {
-        mask = _a.pollEvents.READABLE | _a.pollEvents.WRITABLE | _a.pollEvents.DISCONNECT | _a.pollEvents.PRIORITIZED;
+        mask = _a2.pollEvents.READABLE | _a2.pollEvents.WRITABLE | _a2.pollEvents.DISCONNECT | _a2.pollEvents.PRIORITIZED;
       } else {
         if (cbs.read) {
-          mask |= _a.pollEvents.READABLE;
+          mask |= _a2.pollEvents.READABLE;
         }
         if (cbs.write) {
-          mask |= _a.pollEvents.WRITABLE;
+          mask |= _a2.pollEvents.WRITABLE;
         }
         if (cbs.disconnect) {
-          mask |= _a.pollEvents.DISCONNECT;
+          mask |= _a2.pollEvents.DISCONNECT;
         }
         if (cbs.prioritized) {
-          mask |= _a.pollEvents.PRIORITIZED;
+          mask |= _a2.pollEvents.PRIORITIZED;
         }
       }
       this._psock.poll(mask, this._handleEvent);
@@ -13760,7 +14445,7 @@ if (posixSocket) {
     static checksum(buf) {
       return posixSocket.checksum(buf);
     }
-  }, __publicField(_a, "defines", Object.freeze(posixSocket.defines)), __publicField(_a, "pollEvents", Object.freeze(posixSocket.uv_poll_event_bits)), _a);
+  }, __publicField(_a2, "defines", Object.freeze(posixSocket.defines)), __publicField(_a2, "pollEvents", Object.freeze(posixSocket.uv_poll_event_bits)), _a2);
 }
 
 // src/js/tjs/signal.js

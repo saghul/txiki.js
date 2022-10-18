@@ -35,5 +35,5 @@ typedef struct {
 } tjs_curl_private_t;
 
 int tjs_curl_load_http(DynBuf *dbuf, const char *url);
-CURL* tjs__curl_easy_init(void);
+CURL *tjs__curl_easy_init(CURL *curl_h);
 CURLM *tjs__get_curlm(JSContext *ctx);

@@ -325,7 +325,7 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValueConst new_target, int 
     x->curl_private.done_cb = curlm__done_cb;
 
     x->curlm_h = tjs__get_curlm(ctx);
-    x->curl_h = tjs__curl_easy_init();
+    x->curl_h = tjs__curl_easy_init(NULL);
 
     curl_easy_setopt(x->curl_h, CURLOPT_PRIVATE, &x->curl_private);
     curl_easy_setopt(x->curl_h, CURLOPT_NOPROGRESS, 0L);

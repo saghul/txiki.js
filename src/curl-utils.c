@@ -23,11 +23,13 @@
  */
 
 #include "curl-utils.h"
+
 #include "utils.h"
 #include "version.h"
 
-#define TJS__UA_STRING                                                                                             \
-    "txiki.js/" STRINGIFY(TJS_VERSION_MAJOR) "." STRINGIFY(TJS_VERSION_MINOR) "." STRINGIFY(TJS_VERSION_PATCH) TJS_VERSION_SUFFIX
+#define TJS__UA_STRING                                                                                                 \
+    "txiki.js/" STRINGIFY(TJS_VERSION_MAJOR) "." STRINGIFY(TJS_VERSION_MINOR) "." STRINGIFY(TJS_VERSION_PATCH)         \
+        TJS_VERSION_SUFFIX
 
 static uv_once_t curl__init_once = UV_ONCE_INIT;
 
@@ -39,10 +41,11 @@ static void tjs__curl_init(void) {
     uv_once(&curl__init_once, tjs__curl_init_once);
 }
 
-CURL* tjs__curl_easy_init(void) {
+CURL *tjs__curl_easy_init(CURL *curl_h) {
     tjs__curl_init();
 
-    CURL *curl_h = curl_easy_init();
+    if (curl_h == NULL)
+        curl_h = curl_easy_init();
 
     curl_easy_setopt(curl_h, CURLOPT_USERAGENT, TJS__UA_STRING);
     curl_easy_setopt(curl_h, CURLOPT_FOLLOWLOCATION, 1L);
@@ -76,7 +79,7 @@ int tjs_curl_load_http(DynBuf *dbuf, const char *url) {
     int r = -1;
 
     /* init the curl session */
-    curl_handle = tjs__curl_easy_init();
+    curl_handle = tjs__curl_easy_init(NULL);
 
     /* specify URL to get */
     curl_easy_setopt(curl_handle, CURLOPT_URL, url);

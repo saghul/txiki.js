@@ -12,8 +12,10 @@ import 'web-streams-polyfill/es2018';
 
 import './text-encoding.js';
 
+import './blob.js';
 import './console.js';
 import './crypto.js';
 import './performance.js';
 import './wasm.js';
 import './worker.js';
+import './ws.js';

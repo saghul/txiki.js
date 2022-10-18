@@ -72,6 +72,7 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_udp_init(ctx, ns);
     tjs__mod_wasm_init(ctx, ns);
     tjs__mod_worker_init(ctx, ns);
+    tjs__mod_ws_init(ctx, ns);
     tjs__mod_xhr_init(ctx, ns);
 #ifndef _WIN32
     tjs__mod_posix_socket_init(ctx, ns);
