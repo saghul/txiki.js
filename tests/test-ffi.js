@@ -5,7 +5,20 @@ const FFI = tjs.ffi;
 (function(){
 	const libm = new FFI.Lib(FFI.Lib.LIBM_NAME);
 	const libc = new FFI.Lib(FFI.Lib.LIBC_NAME);
-	
+
+	let sopath = './build/libffi-test.so';
+	switch(tjs.platform){
+		case 'linux':
+			sopath = './build/libffi-test.so';
+			break;
+		case 'darwin':
+			sopath = './build/libffi-test.dylib';
+			break;
+		case 'windows':
+			sopath = './build/libffi-test.dll';
+		break;
+	}
+
 	function testSimpleCalls(){
 		
 		const absF = new FFI.CFunction(libm.symbol('abs'), FFI.types.sint, [FFI.types.sint]);
@@ -34,6 +47,20 @@ const FFI = tjs.ffi;
 		strbuf2.set((new TextEncoder()).encode('part1:'));
 		assert.eq(strcatF.call(strbuf2, "part2"), "part1:part2");
 		assert.eq(FFI.bufferToString(strbuf2), "part1:part2");
+	}
+
+	function testSimpleVariables() {
+		const testlib = new FFI.Lib(sopath);
+
+		const testIntSymbol = testlib.symbol('test_int');
+		const testIntPointer = new FFI.Pointer(testIntSymbol.addr, 1, FFI.types.sint);
+		assert.eq(testIntPointer.deref(), 123);
+		assert.eq(testIntPointer.derefAll(), 123);
+
+		const testIntPtrSymbol = testlib.symbol('test_int_ptr');
+		const testIntPtrPointer = new FFI.Pointer(testIntPtrSymbol.addr, 2, FFI.types.sint);
+		assert.eq(testIntPtrPointer.deref().deref(), 123);
+		assert.eq(testIntPtrPointer.derefAll(), 123);
 	}
 	
 	function testStructs(){
@@ -121,18 +148,6 @@ const FFI = tjs.ffi;
 	}
 
 	function testJsCallback(){
-		let sopath = './build/libffi-test.so';
-		switch(tjs.platform){
-			case 'linux':
-				sopath = './build/libffi-test.so';
-				break;
-			case 'darwin':
-				sopath = './build/libffi-test.dylib';
-				break;
-			case 'windows':
-				sopath = './build/libffi-test.dll';
-			break;
-		}
 		const testlib = new FFI.Lib(sopath);
 		const callCallbackF = new FFI.CFunction(testlib.symbol('call_callback'), FFI.types.sint, [FFI.types.jscallback, FFI.types.sint]);
 		let recv = null;
@@ -661,6 +676,7 @@ const FFI = tjs.ffi;
 	}
 
 	testSimpleCalls();
+	testSimpleVariables();
 	testStructs();
 	testPointersAndStructsOpendir();
 	testPointersAndStructsTime();

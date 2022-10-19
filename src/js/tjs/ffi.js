@@ -12,7 +12,7 @@ export class DlSymbol {
         this._dlsym = dlsym;
     }
     get addr() {
-        return this._symbol.addr;
+        return this._dlsym.addr;
     }
 }
 
@@ -287,7 +287,9 @@ export class Pointer {
 
             return this._type.fromBuffer(buf, {});
         } else {
-            return new Pointer(this._addr, this._level - 1, this._ffiType);
+            const addr = ffiInt.derefPtr(this._addr, 1);
+
+            return new Pointer(addr, this._level - 1, this._type);
         }
     }
     derefAll() {
