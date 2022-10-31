@@ -326,14 +326,10 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValueConst new_target, int 
 
     x->curlm_h = tjs__get_curlm(ctx);
     x->curl_h = tjs__curl_easy_init();
+
     curl_easy_setopt(x->curl_h, CURLOPT_PRIVATE, &x->curl_private);
-    curl_easy_setopt(x->curl_h, CURLOPT_USERAGENT, "tjs/1.0");
-    curl_easy_setopt(x->curl_h, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(x->curl_h, CURLOPT_NOPROGRESS, 0L);
     curl_easy_setopt(x->curl_h, CURLOPT_NOSIGNAL, 1L);
-#ifdef CURL_HTTP_VERSION_2
-    curl_easy_setopt(x->curl_h, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2);
-#endif
     curl_easy_setopt(x->curl_h, CURLOPT_XFERINFOFUNCTION, curl__progress_cb);
     curl_easy_setopt(x->curl_h, CURLOPT_XFERINFODATA, x);
     curl_easy_setopt(x->curl_h, CURLOPT_WRITEFUNCTION, curl__data_cb);

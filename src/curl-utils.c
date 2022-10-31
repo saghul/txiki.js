@@ -23,7 +23,11 @@
  */
 
 #include "curl-utils.h"
+#include "utils.h"
+#include "version.h"
 
+#define TJS__UA_STRING                                                                                             \
+    "txiki.js/" STRINGIFY(TJS_VERSION_MAJOR) "." STRINGIFY(TJS_VERSION_MINOR) "." STRINGIFY(TJS_VERSION_PATCH) TJS_VERSION_SUFFIX
 
 static uv_once_t curl__init_once = UV_ONCE_INIT;
 
@@ -38,9 +42,24 @@ static void tjs__curl_init(void) {
 CURL* tjs__curl_easy_init(void) {
     tjs__curl_init();
 
-    CURL *curl_handle = curl_easy_init();
+    CURL *curl_h = curl_easy_init();
 
-    return curl_handle;
+    curl_easy_setopt(curl_h, CURLOPT_USERAGENT, TJS__UA_STRING);
+    curl_easy_setopt(curl_h, CURLOPT_FOLLOWLOCATION, 1L);
+    /* only allow HTTP */
+#if defined(CURLOPT_PROTOCOLS_STR)
+    curl_easy_setopt(curl_h, CURLOPT_PROTOCOLS_STR, "http,https");
+    curl_easy_setopt(curl_h, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+#else
+    curl_easy_setopt(curl_h, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+    curl_easy_setopt(curl_h, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+#endif
+    /* use TLS v1.1 or higher */
+#if defined(CURL_SSLVERSION_TLSv1_1)
+    curl_easy_setopt(curl_h, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_1);
+#endif
+
+    return curl_h;
 }
 
 size_t curl__write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
@@ -67,9 +86,6 @@ int tjs_curl_load_http(DynBuf *dbuf, const char *url) {
 
     /* we pass our 'chunk' struct to the callback function */
     curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *) dbuf);
-
-    /* some servers don't like requests that are made without a user-agent field, so we provide one */
-    curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "tjs/1.0");
 
     /* get it! */
     res = curl_easy_perform(curl_handle);
