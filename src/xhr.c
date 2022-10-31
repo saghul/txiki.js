@@ -321,13 +321,11 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValueConst new_target, int 
         x->events[i] = JS_UNDEFINED;
     }
 
-    tjs_curl_init();
-
     x->curl_private.arg = x;
     x->curl_private.done_cb = curlm__done_cb;
 
     x->curlm_h = tjs__get_curlm(ctx);
-    x->curl_h = curl_easy_init();
+    x->curl_h = tjs__curl_easy_init();
     curl_easy_setopt(x->curl_h, CURLOPT_PRIVATE, &x->curl_private);
     curl_easy_setopt(x->curl_h, CURLOPT_USERAGENT, "tjs/1.0");
     curl_easy_setopt(x->curl_h, CURLOPT_FOLLOWLOCATION, 1L);

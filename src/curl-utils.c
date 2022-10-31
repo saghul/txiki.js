@@ -27,12 +27,20 @@
 
 static uv_once_t curl__init_once = UV_ONCE_INIT;
 
-void tjs__curl_init_once(void) {
+static void tjs__curl_init_once(void) {
     curl_global_init(CURL_GLOBAL_ALL);
 }
 
-void tjs_curl_init(void) {
+static void tjs__curl_init(void) {
     uv_once(&curl__init_once, tjs__curl_init_once);
+}
+
+CURL* tjs__curl_easy_init(void) {
+    tjs__curl_init();
+
+    CURL *curl_handle = curl_easy_init();
+
+    return curl_handle;
 }
 
 size_t curl__write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
@@ -44,14 +52,12 @@ size_t curl__write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
 }
 
 int tjs_curl_load_http(DynBuf *dbuf, const char *url) {
-    tjs_curl_init();
-
     CURL *curl_handle;
     CURLcode res;
     int r = -1;
 
     /* init the curl session */
-    curl_handle = curl_easy_init();
+    curl_handle = tjs__curl_easy_init();
 
     /* specify URL to get */
     curl_easy_setopt(curl_handle, CURLOPT_URL, url);
@@ -231,7 +237,8 @@ CURLM *tjs__get_curlm(JSContext *ctx) {
     CHECK_NOT_NULL(qrt);
 
     if (!qrt->curl_ctx.curlm_h) {
-        tjs_curl_init();
+        tjs__curl_init();
+
         CURLM *curlm_h = curl_multi_init();
         curl_multi_setopt(curlm_h, CURLMOPT_SOCKETFUNCTION, curl__handle_socket);
         curl_multi_setopt(curlm_h, CURLMOPT_SOCKETDATA, qrt);
