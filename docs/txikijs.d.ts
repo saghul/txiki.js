@@ -628,7 +628,8 @@ declare namespace tjs {
      * }
      * ```
      */
-    interface DirHandle extends AsyncIterator<DirEnt> {
+    interface DirHandle extends AsyncIterableIterator<DirEnt> {
+
         /**
          * Closes the directory handle.
          */
