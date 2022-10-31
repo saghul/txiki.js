@@ -189,6 +189,22 @@ static JSValue tjs_unsetenv(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_chdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (!JS_IsString(argv[0]))
+        return JS_ThrowTypeError(ctx, "expected a string");
+
+    const char *dir = JS_ToCString(ctx, argv[0]);
+    if (!dir)
+        return JS_EXCEPTION;
+
+    int r = uv_chdir(dir);
+    JS_FreeCString(ctx, dir);
+    if (r != 0)
+        return tjs_throw_errno(ctx, r);
+
+    return JS_UNDEFINED;
+}
+
 static JSValue tjs_cwd(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     char buf[1024];
     size_t size = sizeof(buf);
@@ -459,6 +475,7 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("getenv", 0, tjs_getenv),
     TJS_CFUNC_DEF("setenv", 2, tjs_setenv),
     TJS_CFUNC_DEF("unsetenv", 1, tjs_unsetenv),
+    TJS_CFUNC_DEF("chdir", 1, tjs_chdir),
     TJS_CFUNC_DEF("cwd", 0, tjs_cwd),
     TJS_CFUNC_DEF("homedir", 0, tjs_homedir),
     TJS_CFUNC_DEF("tmpdir", 0, tjs_tmpdir),
