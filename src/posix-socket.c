@@ -616,7 +616,7 @@ static JSValue tjs_posix_if_nametoindex(JSContext *ctx, JSValueConst this_val, i
 }
 
 static JSValue tjs_posix_if_indextoname(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    int fd;
+    unsigned fd;
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &fd, argv[0]), 0, "positive integer");
     char ifname[IF_NAMESIZE];
     const char *ret = if_indextoname(fd, ifname);
