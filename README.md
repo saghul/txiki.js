@@ -56,6 +56,7 @@ Other extras:
 - Import directly from HTTP(S) URLs
 - Import JSON files
 - BigFloat and BigDecimal extensions
+- [FFI]
 
 ### Standard library
 
@@ -143,7 +144,7 @@ txiki.js stands on shoulders of giants. It wouldn't be what it is today without 
 * [libuv]: platform abstraction layer
 * [wasm3]: WASM engine
 * [curl]: HTTP client
-* [libffi]: Call native functions from C
+* [libffi]: Call native functions from JS
 
 In addition, txiki.js has these [contributors] to thank for their help.
 
@@ -153,6 +154,8 @@ Thank you all for making this project possible!
 [QuickJS]: https://bellard.org/quickjs/
 [libuv]: https://libuv.org/
 [curl]: https://github.com/curl/curl
+[libffi]: https://github.com/libffi/libffi
+[FFI]: https://bettercallsaghul.com/txiki.js/api/modules/ffi.FFI.html
 [full API documentation]: https://bettercallsaghul.com/txiki.js/api/
 [CMake]: https://cmake.org/
 [wasm3]: https://github.com/wasm3/wasm3
