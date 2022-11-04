@@ -8099,6 +8099,7 @@ var require_encoding_lib = __commonJS({
     var end_of_stream = -1;
     function Stream(tokens) {
       this.tokens = [].slice.call(tokens);
+      this.tokens.reverse();
     }
     Stream.prototype = {
       endOfStream: function() {
@@ -8107,24 +8108,24 @@ var require_encoding_lib = __commonJS({
       read: function() {
         if (!this.tokens.length)
           return end_of_stream;
-        return this.tokens.shift();
+        return this.tokens.pop();
       },
       prepend: function(token) {
         if (Array.isArray(token)) {
           var tokens = token;
           while (tokens.length)
-            this.tokens.unshift(tokens.pop());
+            this.tokens.push(tokens.pop());
         } else {
-          this.tokens.unshift(token);
+          this.tokens.push(token);
         }
       },
       push: function(token) {
         if (Array.isArray(token)) {
           var tokens = token;
           while (tokens.length)
-            this.tokens.push(tokens.shift());
+            this.tokens.unshift(tokens.shift());
         } else {
-          this.tokens.push(token);
+          this.tokens.unshift(token);
         }
       }
     };
