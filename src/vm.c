@@ -210,7 +210,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     qrt->stop.data = qrt;
 
     /* loader for ES modules */
-    JS_SetModuleLoaderFunc(qrt->rt, NULL, tjs_module_loader, qrt);
+    JS_SetModuleLoaderFunc(qrt->rt, tjs_module_normalizer, tjs_module_loader, qrt);
 
     /* unhandled promise rejection tracker */
     JS_SetHostPromiseRejectionTracker(qrt->rt, tjs__promise_rejection_tracker, NULL);

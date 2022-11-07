@@ -84,7 +84,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
 
     is_json = has_suffix(module_name, ".json");
 
-    /* Support importing JSON files bcause... why not? */
+    /* Support importing JSON files because... why not? */
     if (is_json)
         dbuf_put(&dbuf, (const uint8_t *) json_tpl_start, strlen(json_tpl_start));
 
@@ -119,10 +119,13 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     return m;
 }
 
+#define TJS__PATHSEP_POSIX '/'
 #if defined(_WIN32)
 #define TJS__PATHSEP '\\'
+#define TJS__PATHSEP_STR "\\"
 #else
 #define TJS__PATHSEP '/'
+#define TJS__PATHSEP_STR "/"
 #endif
 
 int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use_realpath, JS_BOOL is_main) {
@@ -189,4 +192,88 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
     return 0;
 }
 
+static inline void tjs__normalize_pathsep(char *name) {
+#if defined(_WIN32)
+    char *p;
+
+    for (p = name; *p; p++) {
+        if (p[0] == TJS__PATHSEP_POSIX) {
+            p[0] = TJS__PATHSEP;
+        }
+    }
+#else
+    (void)name;
+#endif
+}
+
+char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque) {
+#if 0
+    printf("normalize: %s %s\n", base_name, name);
+#endif
+
+    char *filename, *p;
+    const char *r;
+    int len;
+
+    if (name[0] != '.') {
+        /* if no initial dot, the module name is not modified */
+        return js_strdup(ctx, name);
+    }
+
+    /* Normalize base_name. This is the path to the importing module, and
+     * it should have the platform native path separator.
+     */
+    tjs__normalize_pathsep(name);
+
+    p = strrchr(base_name, TJS__PATHSEP);
+    if (p)
+        len = p - base_name;
+    else
+        len = 0;
+
+    filename = js_malloc(ctx, len + strlen(name) + 1 + 1);
+    if (!filename)
+        return NULL;
+    memcpy(filename, base_name, len);
+    filename[len] = '\0';
+
+    /* we only normalize the leading '..' or '.' */
+    r = name;
+    for (;;) {
+        if (r[0] == '.' && r[1] == TJS__PATHSEP_POSIX) {
+            r += 2;
+        } else if (r[0] == '.' && r[1] == '.' && r[2] == TJS__PATHSEP_POSIX) {
+            /* remove the last path element of filename, except if "."
+               or ".." */
+            if (filename[0] == '\0')
+                break;
+            p = strrchr(filename, TJS__PATHSEP);
+            if (!p)
+                p = filename;
+            else
+                p++;
+            if (!strcmp(p, ".") || !strcmp(p, ".."))
+                break;
+            if (p > filename)
+                p--;
+            *p = '\0';
+            r += 3;
+        } else {
+            break;
+        }
+    }
+    if (filename[0] != '\0')
+        strcat(filename, TJS__PATHSEP_STR);
+    strcat(filename, r);
+
+    /* Re-normalize the path. The name part will have posix style paths, so
+     * normalize it to the platform native separator.
+     */
+    tjs__normalize_pathsep(filename);
+
+    return filename;
+}
+
 #undef TJS__PATHSEP
+#undef TJS__PATHSEP_STR
+#undef TJS__PATHSEP_POSIX
