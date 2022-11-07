@@ -1,3 +1,4 @@
+import { path as pathModule } from '@tjs/std';
 import assert from './assert.js';
 
 const encoder = new TextEncoder();
@@ -71,7 +72,7 @@ async function chdir() {
     await tjs.mkdir(subDir);
 
     tjs.chdir(subDir);
-    assert.eq(tjs.cwd(), await tjs.realpath(path+ '/' + subDir));
+    assert.eq(tjs.cwd(), pathModule.join(path, subDir));
 
     tjs.chdir(path);
     assert.eq(tjs.cwd(), path);
