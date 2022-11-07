@@ -29,7 +29,6 @@
     "js-sha3": "^0.8.0",
     "js-sha512": "^0.8.0",
     "patch-package": "^6.4.7",
-    "path-browserify": "^1.0.1",
     "queue-microtask": "^1.2.3",
     "text-encoding-utf-8": "^1.0.2",
     "typedoc": "^0.23.16",

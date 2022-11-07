@@ -178,6 +178,6 @@ Thank you all for making this project possible!
 [WebSocket]: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 [getopts]: https://github.com/jorgebucaran/getopts
 [ipaddr]: https://github.com/whitequark/ipaddr.js
-[path]: https://github.com/browserify/path-browserify
+[path]: https://nodejs.org/docs/latest-v18.x/api/path.html
 [uuid]: https://github.com/uuidjs/uuid
 [calendar versioning]: https://calver.org/
