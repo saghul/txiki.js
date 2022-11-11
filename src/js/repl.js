@@ -87,7 +87,6 @@ window.addEventListener('unhandledrejection', event => {
     var ps1 = '> ';
     var ps2 = '  ... ';
     var utf8 = true;
-    var show_time = false;
     var show_colors = true;
     var eval_time = 0;
 
@@ -861,14 +860,6 @@ window.addEventListener('unhandledrejection', event => {
             prompt += dupstr(' ', plen - prompt.length);
             prompt += ps2;
         } else {
-            if (show_time) {
-                var t = Math.round(eval_time) + ' ';
-
-                eval_time = 0;
-                t = dupstr('0', 5 - t.length) + t;
-                prompt += t.substring(0, t.length - 4) + '.' + t.substring(t.length - 4);
-            }
-
             plen = prompt.length;
             prompt += ps1;
         }
@@ -1124,8 +1115,6 @@ window.addEventListener('unhandledrejection', event => {
     function handle_directive(cmd, expr) {
         if (cmd === 'h' || cmd === '?' || cmd == 'help') {
             help();
-        } else if (cmd === 't') {
-            show_time = !show_time;
         } else if (cmd === 'clear') {
             clear_screen();
         } else if (cmd === 'q') {
@@ -1144,10 +1133,9 @@ window.addEventListener('unhandledrejection', event => {
             return n ? '*': ' ';
         }
 
-        stdout_write('\\h          this help\n' +
-                 '\\t         ' + sel(show_time) + 'toggle timing display\n' +
-                  '\\clear      clear the terminal\n');
-        stdout_write('\\q          exit\n');
+        stdout_write('\\h      this help\n' +
+                     '\\clear  clear the terminal\n' +
+                     '\\q      exit\n');
     }
 
     function eval_and_print(expr) {
