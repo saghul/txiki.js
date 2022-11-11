@@ -192,7 +192,7 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
     return 0;
 }
 
-static inline void tjs__normalize_pathsep(char *name) {
+static inline void tjs__normalize_pathsep(const char *name) {
 #if defined(_WIN32)
     char *p;
 
