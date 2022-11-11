@@ -29,19 +29,19 @@ const noExport = [
     'clearInterval',
     'clearTimeout',
     'evalScript',
+    'ffi',
     'guessHandle',
     'hrtimeMs',
     'mkstemp',
     'newStdioFile',
     'open',
+    'posix_socket',
     'random',
     'setInterval',
     'setTimeout',
     'signal',
     'signals',
-    'wasm',
-    'posix_socket',
-    'ffi' // is exported as import from ffi.js
+    'wasm'
 ];
 
 for (const [ key, value ] of Object.entries(core)) {
@@ -75,14 +75,6 @@ Object.defineProperty(tjs, 'prompt', {
     configurable: false,
     writable: false,
     value: prompt
-});
-
-// For the REPL.
-Object.defineProperty(tjs, '_evalScript', {
-    enumerable: false,
-    configurable: false,
-    writable: false,
-    value: core.evalScript
 });
 
 // FS.
@@ -157,6 +149,13 @@ if (core.posix_socket) {
         value: PosixSocket
     });
 }
+
+// Internal stuff needed at runtime, like in the REPL.
+const kInternal = Symbol.for('tjs.internal');
+
+tjs[kInternal] = {
+    evalScript: core.evalScript
+};
 
 // tjs global.
 Object.defineProperty(globalThis, 'tjs', {

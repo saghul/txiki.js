@@ -25,6 +25,9 @@
 
 import * as std from '@tjs/std';
 
+const kInternal = Symbol.for('tjs.internal');
+const internal = tjs[kInternal];
+
 window.addEventListener('unhandledrejection', event => {
     // Avoid aborting in unhandled promised on the REPL.
     event.preventDefault();
@@ -1144,7 +1147,7 @@ window.addEventListener('unhandledrejection', event => {
             var now = (new Date).getTime();
 
             /* eval as a script */
-            result = tjs._evalScript(expr);
+            result = internal.evalScript(expr);
             eval_time = (new Date).getTime() - now;
             stdout_write(colors[styles.result]);
             print(result);

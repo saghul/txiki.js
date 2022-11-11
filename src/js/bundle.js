@@ -14764,19 +14764,19 @@ var noExport = [
   "clearInterval",
   "clearTimeout",
   "evalScript",
+  "ffi",
   "guessHandle",
   "hrtimeMs",
   "mkstemp",
   "newStdioFile",
   "open",
+  "posix_socket",
   "random",
   "setInterval",
   "setTimeout",
   "signal",
   "signals",
-  "wasm",
-  "posix_socket",
-  "ffi"
+  "wasm"
 ];
 for (const [key, value] of Object.entries(core10)) {
   if (noExport.includes(key)) {
@@ -14803,12 +14803,6 @@ Object.defineProperty(tjs2, "prompt", {
   configurable: false,
   writable: false,
   value: prompt
-});
-Object.defineProperty(tjs2, "_evalScript", {
-  enumerable: false,
-  configurable: false,
-  writable: false,
-  value: core10.evalScript
 });
 Object.defineProperty(tjs2, "open", {
   enumerable: true,
@@ -14872,6 +14866,10 @@ if (core10.posix_socket) {
     value: PosixSocket
   });
 }
+var kInternal = Symbol.for("tjs.internal");
+tjs2[kInternal] = {
+  evalScript: core10.evalScript
+};
 Object.defineProperty(globalThis, "tjs", {
   enumerable: true,
   configurable: false,
