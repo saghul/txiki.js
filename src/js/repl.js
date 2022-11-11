@@ -1132,10 +1132,6 @@ window.addEventListener('unhandledrejection', event => {
     }
 
     function help() {
-        function sel(n) {
-            return n ? '*': ' ';
-        }
-
         stdout_write('\\h      this help\n' +
                      '\\clear  clear the terminal\n' +
                      '\\q      exit\n');
