@@ -1060,6 +1060,9 @@ window.addEventListener('unhandledrejection', event => {
                     } else {
                         keys = Object.keys(a);
                         n = keys.length;
+                        var name = a[Symbol.toStringTag];
+                        if (name)
+                            stdout_write(name + ' ');
                         stdout_write('{ ');
 
                         for (i = 0; i < n; i++) {
