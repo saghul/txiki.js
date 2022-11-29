@@ -47,7 +47,6 @@ JSContext *TJS_GetJSContext(TJSRuntime *qrt);
 TJSRuntime *TJS_GetRuntime(JSContext *ctx);
 int TJS_Run(TJSRuntime *qrt);
 void TJS_Stop(TJSRuntime *qrt);
-JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main);
 int TJS_RunMain(TJSRuntime *qrt);
 
 #endif
