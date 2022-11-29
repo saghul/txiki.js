@@ -14,5 +14,5 @@ import assert from './assert.js';
     const stderrStr = new TextDecoder().decode(buf.subarray(0, nread));
     const status = await proc.wait();
     assert.ok(stderrStr.match(/InternalError: out of memory/) !== null, 'gives memory error');
-    assert.ok(status.exit_status === 1 && status.term_signal === null, 'script fails')
+    assert.ok(status.exit_status !== 0 && status.term_signal === null, 'script fails')
 })();
