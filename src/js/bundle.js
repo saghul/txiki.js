@@ -15840,7 +15840,10 @@ var BaseIOStream = class {
     this[kStdioHandleType] = type;
   }
   get isTTY() {
-    return this[kStdioHandleType] === "tty";
+    return this.type === "tty";
+  }
+  get type() {
+    return this[kStdioHandleType];
   }
 };
 var InputStream = class extends BaseIOStream {

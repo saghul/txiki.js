@@ -752,13 +752,17 @@ declare namespace tjs {
      */
     function networkInterfaces(): NetworkInterface[];
 
+    type StdioType = 'tty' | 'pipe' | 'file';
+
     interface StdioInputStream extends Reader {
         isTTY: boolean;
+        type: StdioType;
         setRawMode(enable: boolean): void;
     }
 
     interface StdioOutputStream extends Writer {
         isTTY: boolean;
+        type: StdioType;
         height: number;
         width: boolean;
     }
