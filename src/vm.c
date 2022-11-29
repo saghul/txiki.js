@@ -27,29 +27,18 @@
 #include "tjs.h"
 
 #include <string.h>
-#include <unistd.h>
+
 
 #define TJS__DEFAULT_STACK_SIZE 1048576
 
-INCTXT(eval_stdin, "eval-stdin.js");
+INCTXT(run_main, "runMain.js");
 
 /**
  * These are defined now:
  *
- * const unsigned char tjs__code_eval_stdin_data[];
- * const unsigned char *const tjs__code_eval_stdin_end;
- * const unsigned int tjs__code_eval_stdin_size;
- *
- */
-
-INCTXT(repl, "repl.js");
-
-/**
- * These are defined now:
- *
- * const unsigned char tjs__code_repl_data[];
- * const unsigned char *const tjs__code_repl_end;
- * const unsigned int tjs__code_repl_size;
+ * const unsigned char tjs__code_run_main_data[];
+ * const unsigned char *const tjs__code_run_main_end;
+ * const unsigned int tjs__code_run_main_size;
  *
  */
 
@@ -227,7 +216,6 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     /* standard library */
     tjs__add_stdlib(qrt->ctx);
-
 
     /* end bootstrap */
     JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);
@@ -452,22 +440,9 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     return ret;
 }
 
-int TJS_RunMain(TJSRuntime *qrt, const char *filename) {
+int TJS_RunMain(TJSRuntime *qrt) {
     JSContext *ctx = qrt->ctx;
 
-    if (filename) {
-        int r = 0;
-        JSValue val = TJS_EvalModule(ctx, filename, true);
-
-        if (JS_IsException(val)) {
-            tjs_dump_error(ctx);
-            r = -1;
-        }
-        JS_FreeValue(ctx, val);
-        return r;
-    } else if (uv_guess_handle(STDIN_FILENO) == UV_TTY) {
-        return tjs__eval_text(ctx, tjs__code_repl_data, tjs__code_repl_size, "repl.js");
-    } else {
-        return tjs__eval_text(ctx, tjs__code_eval_stdin_data, tjs__code_eval_stdin_size, "eval-stdin.js");
-    }
+    // TODO: consider moving this to TJS_Run, and enqueue it as a job.
+    return tjs__eval_text(ctx, tjs__code_run_main_data, tjs__code_run_main_size, "runMain.js");
 };

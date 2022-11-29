@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "postinstall": "patch-package",
-    "bundle": "esbuild src/js/index.js --bundle --outfile=src/js/bundle.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module",
+    "bundle": "esbuild src/js/index.js --bundle --outfile=src/js/bundle.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module --external:@tjs/*",
     "stdlib": "esbuild src/js/stdlib/index.js --bundle --outfile=src/js/std.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module",
     "api-docs": "typedoc --tsconfig docs/tsconfig.doc.json",
     "api-docs-watch": "typedoc --tsconfig docs/tsconfig.doc.json --watch",
