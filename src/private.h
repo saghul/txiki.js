@@ -106,5 +106,6 @@ void tjs__add_stdlib(JSContext *ctx);
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options);
+JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main);
 
 #endif
