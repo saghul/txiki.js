@@ -47,6 +47,5 @@ JSContext *TJS_GetJSContext(TJSRuntime *qrt);
 TJSRuntime *TJS_GetRuntime(JSContext *ctx);
 int TJS_Run(TJSRuntime *qrt);
 void TJS_Stop(TJSRuntime *qrt);
-int TJS_RunMain(TJSRuntime *qrt);
 
 #endif
