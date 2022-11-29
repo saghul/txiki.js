@@ -13495,7 +13495,7 @@ async function evalStdin() {
   const buf = [];
   while (true) {
     const n = await tjs.stdin.read(readBuf);
-    if (n === 0) {
+    if (n === 0 || n === void 0) {
       break;
     }
     buf.push(...readBuf.subarray(0, n));
