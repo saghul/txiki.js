@@ -28,16 +28,8 @@
 
 #include <unistd.h>
 
-INCTXT(worker_bootstrap, "worker-bootstrap.js");
 
-/**
- * These are defined now:
- *
- * const unsigned char tjs__code_worker_bootstrap_data[];
- * const unsigned char *const tjs__code_worker_bootstrap_end;
- * const unsigned int tjs__code_worker_bootstrap_size;
- *
- */
+static char tjs__worker_bootstrap[] = "tjs[Symbol.for('tjs.internal')].bootstrapWorker()";
 
 enum {
     WORKER_EVENT_MESSAGE = 0,
@@ -118,9 +110,9 @@ static void worker_entry(void *arg) {
     JSValue worker_obj = tjs_new_worker(ctx, wd->channel_fd, false);
     JS_DefinePropertyValueStr(ctx, global_obj, "workerThis", worker_obj, JS_PROP_C_W_E);
     JS_FreeValue(ctx, global_obj);
-    CHECK_EQ(
-        0,
-        tjs__eval_text(ctx, tjs__code_worker_bootstrap_data, tjs__code_worker_bootstrap_size, "worker-bootstrap.js"));
+
+    JSValue ret = JS_Eval(ctx, tjs__worker_bootstrap, strlen(tjs__worker_bootstrap), "<global>", JS_EVAL_TYPE_GLOBAL);
+    CHECK_EQ(JS_IsException(ret), 0);
 
     /* Load the file and eval the file when the loop runs. */
     JSValue filename = JS_NewString(ctx, wd->path);

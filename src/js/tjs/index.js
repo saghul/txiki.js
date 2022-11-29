@@ -1,12 +1,15 @@
 const core = globalThis.__bootstrap;
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
+import { evalStdin } from './eval-stdin.js';
 import * as FFI from './ffi.js';
 import { open, mkstemp } from './fs.js';
 import { PosixSocket } from './posix-socket.js';
+import { runRepl } from './repl.js';
 import { signal } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
+import { bootstrapWorker } from './worker-bootstrap.js';
 
 
 // The "tjs" global.
@@ -28,10 +31,12 @@ const noExport = [
     'XMLHttpRequest',
     'clearInterval',
     'clearTimeout',
+    'evalFile',
     'evalScript',
     'ffi',
     'guessHandle',
     'hrtimeMs',
+    'isStdinTty',
     'mkstemp',
     'newStdioFile',
     'open',
@@ -150,12 +155,19 @@ if (core.posix_socket) {
     });
 }
 
-// Internal stuff needed at runtime, like in the REPL.
+// Internal stuff needed by the runtime.
 const kInternal = Symbol.for('tjs.internal');
+const internals = [ 'evalFile', 'evalScript', 'isStdinTty' ];
 
-tjs[kInternal] = {
-    evalScript: core.evalScript
-};
+tjs[kInternal] = Object.create(null);
+
+for (const propName of internals) {
+    tjs[kInternal][propName] = core[propName];
+}
+
+tjs[kInternal]['bootstrapWorker'] = bootstrapWorker;
+tjs[kInternal]['evalStdin'] = evalStdin;
+tjs[kInternal]['runRepl'] = runRepl;
 
 // tjs global.
 Object.defineProperty(globalThis, 'tjs', {

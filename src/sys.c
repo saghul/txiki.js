@@ -26,6 +26,7 @@
 #include "version.h"
 
 #include <string.h>
+#include <unistd.h>
 #include <uv.h>
 
 
@@ -34,7 +35,19 @@ static JSValue js_std_gc(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
-static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_evalFile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    const char *filename;
+    size_t len;
+    JSValue ret;
+    filename = JS_ToCStringLen(ctx, &len, argv[0]);
+    if (!filename)
+        return JS_EXCEPTION;
+    ret = TJS_EvalModule(ctx, filename, true);
+    JS_FreeCString(ctx, filename);
+    return ret;
+}
+
+static JSValue tjs_evalScript(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *str;
     size_t len;
     JSValue ret;
@@ -74,10 +87,16 @@ static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val) {
     return ret;
 }
 
+static JSValue tjs_isStdinTty(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    return JS_NewBool(ctx, uv_guess_handle(STDIN_FILENO) == UV_TTY);
+}
+
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("gc", 0, js_std_gc),
-    TJS_CFUNC_DEF("evalScript", 1, js_evalScript),
+    TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
+    TJS_CFUNC_DEF("evalScript", 1, tjs_evalScript),
     TJS_CGETSET_DEF("exepath", tjs_exepath, NULL),
+    TJS_CFUNC_DEF("isStdinTty", 0, tjs_isStdinTty),
 };
 
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {

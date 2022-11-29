@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 /*
  * QuickJS Read Eval Print Loop
  *
@@ -23,20 +25,7 @@
  * THE SOFTWARE.
  */
 
-import * as std from '@tjs/std';
-
-const kInternal = Symbol.for('tjs.internal');
-const internal = tjs[kInternal];
-
-window.addEventListener('unhandledrejection', event => {
-    // Avoid aborting in unhandled promised on the REPL.
-    event.preventDefault();
-});
-
-(function(g) {
-    /* expose stdlib */
-    g.std = std;
-
+function _run(g) {
     /* close global objects */
     var Object = g.Object;
     var String = g.String;
@@ -91,7 +80,6 @@ window.addEventListener('unhandledrejection', event => {
     var ps2 = '  ... ';
     var utf8 = true;
     var show_colors = true;
-    var eval_time = 0;
 
     var mexpr = '';
     var level = 0;
@@ -111,6 +99,8 @@ window.addEventListener('unhandledrejection', event => {
     var term_cursor_x = 0;
 
     var sigint_h;
+
+    var { evalScript } = tjs[Symbol.for('tjs.internal')];
 
     var encoder = new TextEncoder();
 
@@ -1144,11 +1134,8 @@ window.addEventListener('unhandledrejection', event => {
         var result;
 
         try {
-            var now = (new Date).getTime();
-
             /* eval as a script */
-            result = internal.evalScript(expr);
-            eval_time = (new Date).getTime() - now;
+            result = evalScript(expr);
             stdout_write(colors[styles.result]);
             print(result);
             stdout_write('\n');
@@ -1531,4 +1518,18 @@ window.addEventListener('unhandledrejection', event => {
     termInit();
 
     cmd_start();
-})(global);
+}
+
+export async function runRepl() {
+    const std = await import('@tjs/std');
+
+    /* expose stdlib */
+    globalThis.std = std;
+    
+    window.addEventListener('unhandledrejection', event => {
+        // Avoid aborting in unhandled promised on the REPL.
+        event.preventDefault();
+    });
+
+    _run(globalThis);
+}

@@ -1,9 +1,8 @@
 /* global tjs */
 
-const gEval = globalThis.eval;
-const decoder = new TextDecoder();
-
-(async () => {
+export async function evalStdin() {
+    const gEval = globalThis.eval;
+    const decoder = new TextDecoder();
     const readBuf = new Uint8Array(4096);
     const buf = [];
 
@@ -19,4 +18,4 @@ const decoder = new TextDecoder();
     }
 
     gEval(decoder.decode(new Uint8Array(buf)));
-})();
+}
