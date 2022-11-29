@@ -6,7 +6,7 @@ all: build
 build:
 	@mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR); cmake ../ -DCMAKE_BUILD_TYPE=$(BUILDTYPE)
-	cmake --build $(BUILD_DIR)
+	cmake --build $(BUILD_DIR) -j $(shell nproc)
 
 install:
 	cmake --build $(BUILD_DIR) --target install
