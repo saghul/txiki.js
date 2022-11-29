@@ -335,20 +335,28 @@ static void uv__check_cb(uv_check_t *handle) {
 
 /* main loop which calls the user JS callbacks */
 int TJS_Run(TJSRuntime *qrt) {
+    int ret = 0;
+
     CHECK_EQ(uv_prepare_start(&qrt->jobs.prepare, uv__prepare_cb), 0);
     uv_unref((uv_handle_t *) &qrt->jobs.prepare);
     CHECK_EQ(uv_check_start(&qrt->jobs.check, uv__check_cb), 0);
     uv_unref((uv_handle_t *) &qrt->jobs.check);
 
     /* Use the async handle to keep the worker alive even when there is nothing to do. */
-    if (!qrt->is_worker)
+    if (!qrt->is_worker) {
         uv_unref((uv_handle_t *) &qrt->stop);
+
+        /* If we are running the main interpreter, run the entrypoint. */
+        ret = tjs__eval_text(qrt->ctx, tjs__code_run_main_data, tjs__code_run_main_size, "runMain.js");
+    }
+
+    if (ret != 0)
+        return ret;
 
     uv__maybe_idle(qrt);
 
     uv_run(&qrt->loop, UV_RUN_DEFAULT);
 
-    int ret = 0;
     JSValue exc = JS_GetException(qrt->ctx);
     if (!JS_IsNull(exc)) {
         tjs_dump_error1(qrt->ctx, exc);
@@ -439,10 +447,3 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     dbuf_free(&dbuf);
     return ret;
 }
-
-int TJS_RunMain(TJSRuntime *qrt) {
-    JSContext *ctx = qrt->ctx;
-
-    // TODO: consider moving this to TJS_Run, and enqueue it as a job.
-    return tjs__eval_text(ctx, tjs__code_run_main_data, tjs__code_run_main_size, "runMain.js");
-};

@@ -210,11 +210,6 @@ int main(int argc, char **argv) {
     qrt = TJS_NewRuntimeOptions(&runOptions);
     ctx = TJS_GetJSContext(qrt);
 
-    if (TJS_RunMain(qrt)) {
-        exit_code = EXIT_FAILURE;
-        goto exit;
-    }
-
     exit_code = TJS_Run(qrt);
 
 exit:
