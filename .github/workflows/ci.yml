@@ -25,6 +25,9 @@ jobs:
       matrix:
         buildType: [Debug, Release]
         compiler: [gcc, clang]
+        exclude:
+          - buildType: Debug
+            compiler: clang
     env:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
