@@ -2,7 +2,7 @@
 
 import { getopts } from '@tjs/std';
 
-(async () => {
+(() => {
     const {
         evalFile,
         evalScript,
