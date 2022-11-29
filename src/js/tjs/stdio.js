@@ -11,7 +11,11 @@ class BaseIOStream {
     }
 
     get isTTY() {
-        return this[kStdioHandleType] ===  'tty';
+        return this.type ===  'tty';
+    }
+
+    get type() {
+        return this[kStdioHandleType];
     }
 }
 
