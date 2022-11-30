@@ -43,6 +43,8 @@ const noExport = [
     'posix_socket',
     'random',
     'setInterval',
+    'setMaxStackSize',
+    'setMemoryLimit',
     'setTimeout',
     'signal',
     'signals',
@@ -157,7 +159,7 @@ if (core.posix_socket) {
 
 // Internal stuff needed by the runtime.
 const kInternal = Symbol.for('tjs.internal');
-const internals = [ 'evalFile', 'evalScript', 'isStdinTty' ];
+const internals = [ 'evalFile', 'evalScript', 'isStdinTty', 'setMaxStackSize', 'setMemoryLimit' ];
 
 tjs[kInternal] = Object.create(null);
 
