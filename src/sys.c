@@ -91,12 +91,30 @@ static JSValue tjs_isStdinTty(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_NewBool(ctx, uv_guess_handle(STDIN_FILENO) == UV_TTY);
 }
 
+static JSValue tjs_setMemoryLimit(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uint32_t v;
+    if (JS_ToUint32(ctx, &v, argv[0]))
+        return JS_EXCEPTION;
+    JS_SetMemoryLimit(JS_GetRuntime(ctx), v);
+    return JS_UNDEFINED;
+}
+
+static JSValue tjs_setMaxStackSize(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uint32_t v;
+    if (JS_ToUint32(ctx, &v, argv[0]))
+        return JS_EXCEPTION;
+    JS_SetMaxStackSize(JS_GetRuntime(ctx), v);
+    return JS_UNDEFINED;
+}
+
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("gc", 0, js_std_gc),
     TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
     TJS_CFUNC_DEF("evalScript", 1, tjs_evalScript),
-    TJS_CGETSET_DEF("exepath", tjs_exepath, NULL),
     TJS_CFUNC_DEF("isStdinTty", 0, tjs_isStdinTty),
+    TJS_CFUNC_DEF("setMemoryLimit", 1, tjs_setMemoryLimit),
+    TJS_CFUNC_DEF("setMaxStackSize", 1, tjs_setMaxStackSize),
+    TJS_CGETSET_DEF("exepath", tjs_exepath, NULL),
 };
 
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {
