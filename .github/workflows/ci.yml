@@ -34,6 +34,9 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: true
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16
     - name: Dependencies
       env:
         ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
@@ -66,6 +69,9 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: true
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16
     - name: Build it
       run: make
     - name: Test it
@@ -86,6 +92,9 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: true
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16
     - name: Prepare
       run: apk add build-base cmake curl-dev autoconf automake libtool texinfo linux-headers --update-cache
     - name: Build it
