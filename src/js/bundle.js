@@ -15887,6 +15887,9 @@ function createStdioStream(fd) {
     case "pipe": {
       const handle = new core9.Pipe();
       handle.open(fd);
+      if (core9.platform === "windows") {
+        handle.setBlocking(true);
+      }
       return new StreamType(handle, type);
     }
     case "file": {
