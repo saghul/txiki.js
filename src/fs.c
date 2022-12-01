@@ -294,6 +294,8 @@ static void uv__fs_req_cb(uv_fs_t *req) {
             f->path = JS_UNDEFINED;
             break;
         case UV_FS_READ:
+            arg = fr->req.result == 0 ? JS_NULL : JS_NewInt32(ctx, fr->req.result);
+            break;
         case UV_FS_WRITE:
             arg = JS_NewInt32(ctx, fr->req.result);
             break;

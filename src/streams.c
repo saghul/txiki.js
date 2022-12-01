@@ -126,7 +126,7 @@ static void uv__stream_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_
     int is_reject = 0;
     if (nread < 0) {
         if (nread == UV_EOF) {
-            arg = JS_UNDEFINED;
+            arg = JS_NULL;
         } else {
             arg = tjs_new_error(ctx, nread);
             is_reject = 1;

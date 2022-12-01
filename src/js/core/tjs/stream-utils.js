@@ -18,7 +18,7 @@ export function readableStreamForHandle(handle) {
             try {
                 const nread = await handle.read(buf);
 
-                if (!nread) {
+                if (nread === null) {
                     silentClose(handle);
                     controller.close();
                     controller.byobRequest.respond(0);
