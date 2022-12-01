@@ -1,4 +1,4 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
 
 const encoder = new TextEncoder();
 
@@ -11,4 +11,5 @@ const encoder = new TextEncoder();
     await f.sync();
     await f.close();
     await tjs.unlink(path);
+    assert.ok(true);
 })();

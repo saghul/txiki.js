@@ -1,4 +1,4 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
 
 const ab = new ArrayBuffer(16);
 const u8 = new Uint8Array(ab, 8).fill(1);

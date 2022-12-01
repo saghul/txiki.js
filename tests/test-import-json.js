@@ -1,5 +1,6 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
 import data from './fixtures/data.json';
+
 
 (async () => {
     assert.eq(data.widget.debug, 'on', 'string data matches');

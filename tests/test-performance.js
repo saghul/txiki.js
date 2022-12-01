@@ -1,4 +1,4 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
 
 const LIMIT = 2000;
 const THRESHOLD = 25;

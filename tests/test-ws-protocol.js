@@ -1,4 +1,4 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
 
 const proto = 'echo1234';
 const url = 'wss://websocket-echo.com';

@@ -1,10 +1,10 @@
-import assert from './assert.js';
-import { path } from '@tjs/std';
+import { assert, path } from '@tjs/std';
 
 
 (async () => {
     const args = [
         tjs.exepath,
+        'run',
         path.join(import.meta.dirname, 'helpers', 'sleep.js')
     ];
     const proc = tjs.spawn(args, { stdout: 'ignore', stderr: 'ignore' });

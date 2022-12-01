@@ -1,4 +1,5 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
+
 
 (async () => {
     const args = [

@@ -1,5 +1,4 @@
-import assert from './assert.js';
-import { path } from '@tjs/std';
+import { assert, path } from '@tjs/std';
 
 
 const data = JSON.stringify({foo: 42, bar: 'baz!'});

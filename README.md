@@ -62,6 +62,7 @@ Other extras:
 
 The builtin `@tjs/std` module exports the following:
 
+- `assert` module
 - [getopts] module
 - [ipaddr] module
 - [path] module

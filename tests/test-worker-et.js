@@ -1,5 +1,4 @@
-import assert from './assert.js';
-import { path } from '@tjs/std';
+import { assert, path } from '@tjs/std';
 
 
 const w = new Worker(path.join(import.meta.dirname, 'helpers', 'worker.js'));

@@ -1,5 +1,4 @@
-/// <reference path="../docs/txikijs.d.ts" />
-import assert from './assert.js';
+import { assert } from '@tjs/std';
 
 const PosixSocket = tjs.PosixSocket;
 

@@ -1,4 +1,4 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
 
 
 assert.ok(tjs.version, 'tjs.version is defined');
