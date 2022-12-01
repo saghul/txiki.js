@@ -5,6 +5,7 @@ import { path } from '@tjs/std';
 (async () => {
     const args = [
         tjs.exepath,
+        'run',
         path.join(import.meta.dirname, 'wasi', 'launcher.js'),
         'test.wasm'
     ];

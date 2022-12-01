@@ -31,7 +31,7 @@ class Test {
     }
 
     run() {
-        const args = [ tjs.exepath, this._fileName ];
+        const args = [ tjs.exepath, 'run', this._fileName ];
         this._proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'pipe' });
         this._stdout = this._slurpStdio(this._proc.stdout);
         this._stderr = this._slurpStdio(this._proc.stderr);
@@ -93,7 +93,7 @@ function printResult(result) {
 }
 
 (async function() {
-    const dir = await tjs.realpath(tjs.args[2] || import.meta.dirname);
+    const dir = await tjs.realpath(tjs.args[3] || import.meta.dirname);
     const dirIter = await tjs.readdir(dir);
     const tests = [];
 
