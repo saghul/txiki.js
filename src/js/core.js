@@ -15620,6 +15620,127 @@ async function runRepl() {
   _run(globalThis);
 }
 
+// src/js/core/tjs/run-tests.js
+var __path;
+var TIMEOUT = 10 * 1e3;
+var colors2 = {
+  none: "\x1B[0m",
+  black: "\x1B[30m",
+  red: "\x1B[31m",
+  green: "\x1B[32m",
+  yellow: "\x1B[33m",
+  blue: "\x1B[34m",
+  magenta: "\x1B[35m",
+  cyan: "\x1B[36m",
+  white: "\x1B[37m",
+  gray: "\x1B[30;1m",
+  grey: "\x1B[30;1m",
+  bright_red: "\x1B[31;1m",
+  bright_green: "\x1B[32;1m",
+  bright_yellow: "\x1B[33;1m",
+  bright_blue: "\x1B[34;1m",
+  bright_magenta: "\x1B[35;1m",
+  bright_cyan: "\x1B[36;1m",
+  bright_white: "\x1B[37;1m"
+};
+var Test = class {
+  constructor(fileName) {
+    this._fileName = fileName;
+  }
+  run() {
+    const args = [tjs.exepath, "run", this._fileName];
+    this._proc = tjs.spawn(args, { stdout: "pipe", stderr: "pipe" });
+    this._stdout = this._slurpStdio(this._proc.stdout);
+    this._stderr = this._slurpStdio(this._proc.stderr);
+    this._timer = setTimeout(() => {
+      this._proc.kill(tjs.SIGKILL);
+      this._timeout = true;
+    }, TIMEOUT);
+    this._proc_exit = this._proc.wait();
+    this._proc_exit.then(() => {
+      clearTimeout(this._timer);
+    });
+  }
+  async wait() {
+    const [status_, stdout, stderr] = await Promise.allSettled([this._proc_exit, this._stdout, this._stderr]);
+    const status = status_.value;
+    return {
+      name: __path.basename(this._fileName),
+      failed: status.exit_status !== 0 || status.term_signal !== null,
+      status,
+      stdout: stdout.value,
+      stderr: stderr.value,
+      timeout: Boolean(this._timeout)
+    };
+  }
+  async _slurpStdio(s) {
+    const decoder2 = new TextDecoder();
+    const chunks = [];
+    const buf = new Uint8Array(4096);
+    while (true) {
+      const nread = await s.read(buf);
+      if (!nread) {
+        break;
+      }
+      chunks.push(buf.slice(0, nread));
+    }
+    return chunks.map((chunk) => decoder2.decode(chunk)).join("");
+  }
+};
+function printResult(result) {
+  const status = result.timeout ? colors2.yellow + "TIMEOUT" : result.failed ? colors2.red + "FAIL" : colors2.green + "OK";
+  console.log(`${result.name.padEnd(40, " ")} ${status + colors2.none}`);
+  if (result.failed) {
+    console.log("status:");
+    console.log(result.status);
+    if (result.stdout) {
+      console.log("stdout:");
+      console.log(result.stdout);
+    }
+    if (result.stderr) {
+      console.log("stderr:");
+      console.log(result.stderr);
+    }
+  }
+}
+async function runTests(d) {
+  const std = await import("@tjs/std");
+  __path = std.path;
+  const dir = await tjs.realpath(d || tjs.cwd());
+  const dirIter = await tjs.readdir(dir);
+  const tests = [];
+  for await (const item of dirIter) {
+    const { name } = item;
+    if (name.startsWith("test-") && name.endsWith(".js")) {
+      tests.push(new Test(__path.join(dir, name)));
+    }
+  }
+  let failed = 0;
+  const testConcurrency = tjs.environ.TJS_TEST_CONCURRENCY ?? tjs.availableParallelism();
+  const running = /* @__PURE__ */ new Set();
+  while (true) {
+    if (tests.length === 0 && running.size === 0) {
+      break;
+    }
+    const n = testConcurrency - running.size;
+    const willRun = tests.splice(0, n);
+    for (const test of willRun) {
+      test.run();
+      const p = test.wait().then((r) => {
+        running.delete(p);
+        return r;
+      });
+      running.add(p);
+    }
+    const result = await Promise.race(running);
+    printResult(result);
+    if (result.failed) {
+      failed += 1;
+    }
+  }
+  tjs.exit(failed);
+}
+
 // src/js/core/tjs/signal.js
 var core7 = globalThis.__bootstrap;
 function signal(sig, handler) {
@@ -16078,6 +16199,7 @@ for (const propName of internals) {
 tjs2[kInternal]["bootstrapWorker"] = bootstrapWorker;
 tjs2[kInternal]["evalStdin"] = evalStdin;
 tjs2[kInternal]["runRepl"] = runRepl;
+tjs2[kInternal]["runTests"] = runTests;
 Object.defineProperty(globalThis, "tjs", {
   enumerable: true,
   configurable: false,

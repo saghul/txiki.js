@@ -8,6 +8,7 @@ const {
     evalStdin,
     isStdinTty,
     runRepl,
+    runTests,
     setMaxStackSize,
     setMemoryLimit
 } = tjs[Symbol.for('tjs.internal')];
@@ -33,7 +34,10 @@ Subcommands:
         Run a JavaScript program
 
   eval
-        Evaluate a JavaScript expression`;
+        Evaluate a JavaScript expression
+
+  test
+        Run tests in the given directory`;
 
 const helpEval = `Usage: ${exeName} eval EXPRESSION`;
 
@@ -101,6 +105,10 @@ if (options.help) {
         // XXX: This looks weird. This file is being JS_Eval'd when we call `evalFile`,
         // which does another JS_Eval, and something get's messed up :-(
         globalThis.queueMicrotask(() => evalFile(filename));
+    } else if (command === 'test') {
+        const [ dir ] = subargv;
+
+        runTests(dir);
     } else {
         console.log(help);
         tjs.exit(1);

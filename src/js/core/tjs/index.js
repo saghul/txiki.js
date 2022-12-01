@@ -6,6 +6,7 @@ import * as FFI from './ffi.js';
 import { open, mkstemp } from './fs.js';
 import { PosixSocket } from './posix-socket.js';
 import { runRepl } from './repl.js';
+import { runTests } from './run-tests.js';
 import { signal } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
@@ -170,6 +171,7 @@ for (const propName of internals) {
 tjs[kInternal]['bootstrapWorker'] = bootstrapWorker;
 tjs[kInternal]['evalStdin'] = evalStdin;
 tjs[kInternal]['runRepl'] = runRepl;
+tjs[kInternal]['runTests'] = runTests;
 
 // tjs global.
 Object.defineProperty(globalThis, 'tjs', {
