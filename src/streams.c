@@ -374,6 +374,21 @@ static JSValue tjs_stream_accept(JSContext *ctx, TJSStream *s, int argc, JSValue
     return TJS_InitPromise(ctx, &s->accept.result);
 }
 
+static JSValue tjs_stream_set_blocking(JSContext *ctx, TJSStream *s, int argc, JSValueConst *argv) {
+    if (!s)
+        return JS_EXCEPTION;
+
+    int blocking;
+    if ((blocking = JS_ToBool(ctx, argv[0])) == -1)
+        return JS_EXCEPTION;
+
+    int r = uv_stream_set_blocking(&s->h.stream, blocking);
+    if (r != 0) {
+        return tjs_throw_errno(ctx, r);
+    }
+    return JS_UNDEFINED;
+}
+
 static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
     s->ctx = ctx;
     s->closed = 0;
@@ -890,6 +905,11 @@ static JSValue tjs_pipe_accept(JSContext *ctx, JSValueConst this_val, int argc, 
     return tjs_stream_accept(ctx, t, argc, argv);
 }
 
+static JSValue tjs_pipe_set_blocking(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    TJSStream *t = tjs_pipe_get(ctx, this_val);
+    return tjs_stream_set_blocking(ctx, t, argc, argv);
+}
+
 static const JSCFunctionListEntry tjs_tcp_proto_funcs[] = {
     /* Stream functions */
     TJS_CFUNC_DEF("close", 0, tjs_tcp_close),
@@ -939,6 +959,7 @@ static const JSCFunctionListEntry tjs_pipe_proto_funcs[] = {
     TJS_CFUNC_DEF("listen", 1, tjs_pipe_listen),
     TJS_CFUNC_DEF("accept", 0, tjs_pipe_accept),
     TJS_CFUNC_DEF("open", 1, tjs_pipe_open),
+    TJS_CFUNC_DEF("setBlocking", 1, tjs_pipe_set_blocking),
     /* Pipe functions */
     JS_CFUNC_MAGIC_DEF("getsockname", 0, tjs_pipe_getsockpeername, 0),
     JS_CFUNC_MAGIC_DEF("getpeername", 0, tjs_pipe_getsockpeername, 1),
