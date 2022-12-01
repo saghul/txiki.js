@@ -75,7 +75,7 @@ function createStdioStream(fd) {
             handle.open(fd);
 
             // Do blocking writes on Windows.
-            if (core.platform === 'windows') {
+            if (!isStdin && core.platform === 'windows') {
                 handle.setBlocking(true);
             }
 
