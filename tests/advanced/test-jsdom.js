@@ -1,9 +1,5 @@
 import { assert } from '@tjs/std';
 
-if (tjs.platform === 'linux' && tjs.environ['CI']) {
-    // Skip test on Linux, it creates a stack overflow on some CIs.
-    tjs.exit(0);
-}
 
 (async () => {
   await import('./generated/jsdom.js')
