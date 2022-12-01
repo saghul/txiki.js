@@ -10,7 +10,7 @@
     const buf = new Uint8Array(4096);
     while (true) {
         const nread = await p.read(buf);
-        if (!nread) {
+        if (nread === null) {
             console.log('connection closed!');
             break;
         }

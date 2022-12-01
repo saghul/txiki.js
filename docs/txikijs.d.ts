@@ -9,11 +9,11 @@ declare namespace tjs {
      */
     interface Reader {
         /**
-         * Reads data into the given buffer. Resolves to the number of read bytes.
+         * Reads data into the given buffer. Resolves to the number of read bytes or null for EOF.
          *
          * @param buf Buffer to read data into.
          */
-        read(buf: Uint8Array): Promise<number>;
+        read(buf: Uint8Array): Promise<number|null>;
     }
 
     /**
@@ -420,12 +420,12 @@ declare namespace tjs {
     interface FileHandle {
         /**
          * Reads data into the given buffer at the given file offset. Returns
-         * the amount of read data.
+         * the amount of read data or null for EOF.
          *
          * @param buffer Buffer to read data into.
          * @param offset Offset in the file to read from.
          */
-        read(buffer: Uint8Array, offset?: number): Promise<number>;
+        read(buffer: Uint8Array, offset?: number): Promise<number|null>;
 
         /**
          * Writes data from the given buffer at the given file offset. Returns
@@ -835,7 +835,7 @@ declare namespace tjs {
     }
 
     interface Connection {
-        read(buf: Uint8Array): Promise<number>;
+        read(buf: Uint8Array): Promise<number|null>;
         write(buf: Uint8Array): Promise<number>;
         setKeepAlive(enable?: boolean): void;
         setNoDelay(enable?: boolean): void;

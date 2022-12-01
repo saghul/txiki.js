@@ -11,7 +11,7 @@ async function handleConnection(conn) {
     const buf = new Uint8Array(65536);
     while (true) {
         const nread = await conn.read(buf);
-        if (!nread) {
+        if (nread === null) {
             console.log('connection closed!');
             break;
         }

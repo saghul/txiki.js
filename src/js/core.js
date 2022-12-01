@@ -13495,7 +13495,7 @@ async function evalStdin() {
   const buf = [];
   while (true) {
     const n = await tjs.stdin.read(readBuf);
-    if (n === 0 || n === void 0) {
+    if (n === null) {
       break;
     }
     buf.push(...readBuf.subarray(0, n));
@@ -14254,7 +14254,7 @@ function readableStreamForHandle(handle) {
       const buf = controller.byobRequest.view;
       try {
         const nread = await handle.read(buf);
-        if (!nread) {
+        if (nread === null) {
           silentClose(handle);
           controller.close();
           controller.byobRequest.respond(0);
@@ -15679,7 +15679,7 @@ var Test = class {
     const buf = new Uint8Array(4096);
     while (true) {
       const nread = await s.read(buf);
-      if (!nread) {
+      if (nread === null) {
         break;
       }
       chunks.push(buf.slice(0, nread));

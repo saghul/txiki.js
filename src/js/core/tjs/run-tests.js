@@ -71,7 +71,7 @@ class Test {
         while (true) {
             const nread = await s.read(buf);
 
-            if (!nread) {
+            if (nread === null) {
                 break;
             }
 

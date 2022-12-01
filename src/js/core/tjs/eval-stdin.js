@@ -10,7 +10,7 @@ export async function evalStdin() {
     while (true) {
         const n = await tjs.stdin.read(readBuf);
 
-        if (n === 0 || n === undefined) {
+        if (n === null) {
             break;
         }
 
