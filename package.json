@@ -5,8 +5,8 @@
   "private": true,
   "scripts": {
     "postinstall": "patch-package",
-    "bundle": "esbuild src/js/index.js --bundle --outfile=src/js/bundle.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module --external:@tjs/*",
-    "stdlib": "esbuild src/js/stdlib/index.js --bundle --outfile=src/js/std.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module",
+    "build-core": "esbuild src/js/core/index.js --bundle --outfile=src/js/core.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module --external:@tjs/*",
+    "build-stdlib": "esbuild src/js/stdlib/index.js --bundle --outfile=src/js/std.js --target=es2020 --platform=neutral --format=esm --main-fields=main,module",
     "api-docs": "typedoc --tsconfig docs/tsconfig.doc.json",
     "api-docs-watch": "typedoc --tsconfig docs/tsconfig.doc.json --watch",
     "deploy-api-docs": "gh-pages -d docs/api -e api -u \"github-actions-bot <support+actions@github.com>\"",

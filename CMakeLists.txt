@@ -57,7 +57,7 @@ add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
 find_package(CURL REQUIRED)
 
-set(INCLUDED_JS_FILES "bundle.js;std.js;runMain.js")
+set(INCLUDED_JS_FILES "core.js;std.js;runMain.js")
 foreach(jsfile ${INCLUDED_JS_FILES})
     configure_file(
         ${CMAKE_SOURCE_DIR}/src/js/${jsfile}
