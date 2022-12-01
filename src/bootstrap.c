@@ -27,14 +27,14 @@
 #include "tjs.h"
 
 
-INCTXT(bundle, "bundle.js");
+INCTXT(core, "core.js");
 
 /**
  * These are defined now:
  *
- * const unsigned char tjs__code_bundle_data[];
- * const unsigned char *const tjs__code_bundle_end;
- * const unsigned int tjs__code_bundle_size;
+ * const unsigned char tjs__code_core_data[];
+ * const unsigned char *const tjs__code_core_end;
+ * const unsigned int tjs__code_core_size;
  *
  */
 
@@ -62,7 +62,7 @@ int tjs__eval_text(JSContext *ctx, const char *buf, size_t buf_len, const char *
 }
 
 void tjs__bootstrap_globals(JSContext *ctx) {
-    CHECK_EQ(0, tjs__eval_text(ctx, tjs__code_bundle_data, tjs__code_bundle_size, "bundle.js"));
+    CHECK_EQ(0, tjs__eval_text(ctx, tjs__code_core_data, tjs__code_core_size, "core.js"));
 }
 
 static int tjs__add_builtin_module(JSContext *ctx, const char *name, const char *buf, size_t buf_len) {

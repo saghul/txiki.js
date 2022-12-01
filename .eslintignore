@@ -3,5 +3,5 @@ deps
 docs
 examples
 tests
-src/js/bundle.js
+src/js/core.js
 src/js/std.js
