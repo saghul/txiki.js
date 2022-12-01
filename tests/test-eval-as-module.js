@@ -5,6 +5,7 @@ import { path } from '@tjs/std';
 (async () => {
     const args = [
         tjs.exepath,
+        'run',
         path.join(import.meta.dirname, 'helpers', 'log-import-meta.js')
     ];
     const proc = tjs.spawn(args);

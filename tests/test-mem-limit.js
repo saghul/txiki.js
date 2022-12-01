@@ -5,7 +5,7 @@ import assert from './assert.js';
         tjs.exepath,
         '--memory-limit',
         '10485760',
-        '-e',
+        'eval',
         'new Uint8Array(104857600)'
     ];
     const proc = tjs.spawn(args, { stdout: 'ignore', stderr: 'pipe' });

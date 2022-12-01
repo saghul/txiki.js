@@ -13,14 +13,31 @@ const {
 } = tjs[Symbol.for('tjs.internal')];
 
 const exeName = path.basename(tjs.args[0]);
-const help = `Usage: ${exeName} [options] [file]
+const help = `Usage: ${exeName} [options] [subcommand]
 
 Options:
-  -v, --version                   print version
-  -h, --help                      list options
-  -e, --eval EXPR                 evaluate EXPR
-  --memory-limit LIMIT            set the memory limit
-  --stack-size STACKSIZE          set max stack size`;
+  -v, --version
+        Print version information
+
+  -h, --help
+        Print help
+
+  --memory-limit LIMIT
+        Set the memory limit for the JavaScript runtime
+
+  --stack-size STACKSIZE
+        Set the maximum JavaScript stack size
+
+Subcommands:
+  run
+        Run a JavaScript program
+
+  eval
+        Evaluate a JavaScript expression`;
+
+const helpEval = `Usage: ${exeName} eval EXPRESSION`;
+
+const helpRun = `Usage: ${exeName} run FILE`;
 
 const options = getopts(tjs.args.slice(1), {
     alias: {
@@ -56,18 +73,37 @@ if (options.help) {
         setMaxStackSize(parseNumberOption(stackSize, 'stack-size'));
     }
 
-    const [ filename ] = options._;
+    const [ command, ...subargv ] = options._;
 
-    if (options.eval) {
-        evalScript(options.eval);
-    } else if (filename) {
+    if (!command) {
+        if (isStdinTty()) {
+            runRepl();
+        } else {
+            evalStdin();
+        }
+    } else if (command === 'eval') {
+        const [ expr ] = subargv;
+
+        if (!expr) {
+            console.log(helpEval);
+            tjs.exit(1);
+        }
+
+        evalScript(expr);
+    } else if (command === 'run') {
+        const [ filename ] = subargv;
+
+        if (!filename) {
+            console.log(helpRun);
+            tjs.exit(1);
+        }
+
         // XXX: This looks weird. This file is being JS_Eval'd when we call `evalFile`,
         // which does another JS_Eval, and something get's messed up :-(
         globalThis.queueMicrotask(() => evalFile(filename));
-    } else if (isStdinTty()) {
-        runRepl();
     } else {
-        evalStdin();
+        console.log(help);
+        tjs.exit(1);
     }
 }
 
