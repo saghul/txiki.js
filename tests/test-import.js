@@ -1,4 +1,4 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
 import { foo } from './helpers/a/b/c/d/e/foo.js';
 
 

@@ -1,5 +1,6 @@
-import assert from './assert.js';
-import initCParser from '../src/js/tjs/ffiutils.js';
+import { assert } from '@tjs/std';
+import initCParser from '../src/js/core/tjs/ffiutils.js';
+
 const FFI = tjs.ffi;
 
 (function(){

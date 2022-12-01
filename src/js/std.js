@@ -4142,6 +4142,179 @@ function version(uuid) {
 }
 var version_default = version;
 
+// src/js/stdlib/assert.js
+var fastDeepEqual = function equal(a, b) {
+  if (a === b)
+    return true;
+  if (a && b && typeof a == "object" && typeof b == "object") {
+    if (a.constructor !== b.constructor)
+      return false;
+    var length, i, keys;
+    if (Array.isArray(a)) {
+      length = a.length;
+      if (length != b.length)
+        return false;
+      for (i = length; i-- !== 0; )
+        if (!equal(a[i], b[i]))
+          return false;
+      return true;
+    }
+    if (a.constructor === RegExp)
+      return a.source === b.source && a.flags === b.flags;
+    if (a.valueOf && a.valueOf !== Object.prototype.valueOf)
+      return a.valueOf() === b.valueOf();
+    if (a.toString && a.toString !== Object.prototype.toString)
+      return a.toString() === b.toString();
+    keys = Object.keys(a);
+    length = keys.length;
+    if (length !== Object.keys(b).length)
+      return false;
+    for (i = length; i-- !== 0; )
+      if (!Object.prototype.hasOwnProperty.call(b, keys[i]))
+        return false;
+    for (i = length; i-- !== 0; ) {
+      var key = keys[i];
+      if (!equal(a[key], b[key]))
+        return false;
+    }
+    return true;
+  }
+  return a !== a && b !== b;
+};
+var AssertionError = class extends Error {
+  constructor(result) {
+    super(result.description);
+    this.name = "AssertionError";
+    const stack = this.stack.split("\n").map((l) => l.trim()).filter((l) => l && !/@tjs\/std/.test(l));
+    const stackLine = stack[0].replace(/^at/, "").trim();
+    this.stack = [
+      `at: ${stackLine}`,
+      `wanted: ${result.expected}`,
+      `found: ${result.actual}`,
+      `operator: ${result.operator}`
+    ].join("\n");
+  }
+};
+var assertMethodHook = (fn) => function(...args) {
+  const result = fn(...args);
+  if (!result.pass) {
+    throw new AssertionError(result);
+  }
+};
+var aliasMethodHook = (methodName) => function(...args) {
+  return this[methodName](...args);
+};
+var AssertPrototype = {
+  equal: assertMethodHook((actual, expected, description = "should be equivalent") => ({
+    pass: fastDeepEqual(actual, expected),
+    actual,
+    expected,
+    description,
+    operator: "equal"
+  })),
+  equals: aliasMethodHook("equal"),
+  eq: aliasMethodHook("equal"),
+  deepEqual: aliasMethodHook("equal"),
+  notEqual: assertMethodHook((actual, expected, description = "should not be equivalent") => ({
+    pass: !fastDeepEqual(actual, expected),
+    actual,
+    expected,
+    description,
+    operator: "notEqual"
+  })),
+  notEquals: aliasMethodHook("notEqual"),
+  notEq: aliasMethodHook("notEqual"),
+  notDeepEqual: aliasMethodHook("notEqual"),
+  is: assertMethodHook((actual, expected, description = "should be the same") => ({
+    pass: Object.is(actual, expected),
+    actual,
+    expected,
+    description,
+    operator: "is"
+  })),
+  same: aliasMethodHook("is"),
+  isNot: assertMethodHook((actual, expected, description = "should not be the same") => ({
+    pass: !Object.is(actual, expected),
+    actual,
+    expected,
+    description,
+    operator: "isNot"
+  })),
+  notSame: aliasMethodHook("isNot"),
+  ok: assertMethodHook((actual, description = "should be truthy") => ({
+    pass: Boolean(actual),
+    actual,
+    expected: "truthy value",
+    description,
+    operator: "ok"
+  })),
+  truthy: aliasMethodHook("ok"),
+  notOk: assertMethodHook((actual, description = "should be falsy") => ({
+    pass: !Boolean(actual),
+    actual,
+    expected: "falsy value",
+    description,
+    operator: "notOk"
+  })),
+  falsy: aliasMethodHook("notOk"),
+  fail: assertMethodHook((description = "fail called") => ({
+    pass: false,
+    actual: "fail called",
+    expected: "fail not called",
+    description,
+    operator: "fail"
+  })),
+  throws: assertMethodHook((func, expected, description) => {
+    let caught;
+    let pass;
+    let actual;
+    if (typeof expected === "string") {
+      [expected, description] = [description, expected];
+    }
+    try {
+      func();
+    } catch (err) {
+      caught = { error: err };
+    }
+    pass = caught !== void 0;
+    actual = caught && caught.error;
+    if (expected instanceof RegExp) {
+      pass = expected.test(actual) || expected.test(actual && actual.message);
+      actual = actual && actual.message || actual;
+      expected = String(expected);
+    } else if (typeof expected === "function" && caught) {
+      pass = actual instanceof expected;
+      actual = actual.constructor;
+    }
+    return {
+      pass,
+      actual,
+      expected,
+      description: description || "should throw",
+      operator: "throws"
+    };
+  }),
+  doesNotThrow: assertMethodHook((func, expected, description) => {
+    let caught;
+    if (typeof expected === "string") {
+      [expected, description] = [description, expected];
+    }
+    try {
+      func();
+    } catch (err) {
+      caught = { error: err };
+    }
+    return {
+      pass: caught === void 0,
+      expected: "no thrown error",
+      actual: caught && caught.error,
+      operator: "doesNotThrow",
+      description: description || "should not throw"
+    };
+  })
+};
+var assert_default = Object.create(AssertPrototype);
+
 // src/js/stdlib/hashlib.js
 var import_js_md5 = __toESM(require_md5());
 var import_js_sha1 = __toESM(require_sha1());
@@ -5170,6 +5343,7 @@ posix.posix = win32.posix = posix;
 var path_default = platformIsWin32 ? win32 : posix;
 var export_ipaddr = import_ipaddr.default;
 export {
+  assert_default as assert,
   hashlib_default as createHash,
   getopts_default as getopts,
   export_ipaddr as ipaddr,

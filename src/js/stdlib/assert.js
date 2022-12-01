@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 // This file has been adapted from the zora.js assertion part.
 //
 
@@ -48,7 +50,7 @@ class AssertionError extends Error {
         const stack = this.stack
             .split('\n')
             .map(l => l.trim())
-            .filter(l => l && !/assert.js/.test(l));
+            .filter(l => l && !/@tjs\/std/.test(l));
         const stackLine = stack[0].replace(/^at/, '').trim();
         this.stack = [
             `at: ${stackLine}`,

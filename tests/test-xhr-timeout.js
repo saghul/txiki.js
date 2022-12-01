@@ -1,4 +1,4 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
 
 
 const url = 'https://httpbin.org/delay/3';

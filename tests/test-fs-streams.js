@@ -1,4 +1,4 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();

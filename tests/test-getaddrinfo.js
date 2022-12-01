@@ -1,4 +1,5 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
+
 
 (async function() {
     const res1 = await tjs.getaddrinfo('google.com', 80, { socktype: tjs.SOCK_STREAM, protocol: tjs.IPPROTO_TCP });

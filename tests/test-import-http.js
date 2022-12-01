@@ -1,4 +1,4 @@
-import assert from './assert.js';
+import { assert } from '@tjs/std';
 import 'https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.js';
 
 

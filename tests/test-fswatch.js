@@ -1,5 +1,4 @@
-import { path } from '@tjs/std';
-import assert from './assert.js';
+import { assert, path } from '@tjs/std';
 
 const encoder = new TextEncoder();
 const eventTypes = [ 'change', 'rename' ];
