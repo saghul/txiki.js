@@ -17,8 +17,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb -O0 -fno-omit-frame-pointer")
 
-set(USE_EXTERNAL_FFI FALSE CACHE STRING "Specify to use external ffi dependency")
-
 message(STATUS "C flags:         ${CMAKE_C_FLAGS}")
 message(STATUS "C Debug flags:   ${CMAKE_C_FLAGS_DEBUG}")
 message(STATUS "C Release flags: ${CMAKE_C_FLAGS_RELEASE}")
@@ -46,6 +44,7 @@ macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
 endmacro()
 
 cpr_option(BUILD_WITH_ASAN "If ON, build with the address sanitizer enabled" OFF)
+cpr_option(USE_EXTERNAL_FFI "Specify to use external ffi dependency" OFF)
 
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
