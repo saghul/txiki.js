@@ -1,7 +1,5 @@
 
-# txiki.js — The tiny JavaScript runtime
-
-[![Build Status](https://github.com/saghul/txiki.js/workflows/CI/badge.svg)](https://github.com/saghul/txiki.js/actions)
+# <p align="center">txiki.js — The tiny JavaScript runtime</p>
 
 ## Overview
 
@@ -10,6 +8,40 @@
 *txiki.js* is a small and powerful JavaScript runtime. It's built on the shoulders of
 giants: it uses [QuickJS] as its JavaScript engine, [libuv] as the platform layer,
 [wasm3] as the WebAssembly engine and [curl] as the HTTP / WebSocket client.
+
+It targets ECMAScript 2020 and implements many web platform features.
+
+See it in action here:
+
+<p align="center">
+    <a href="https://video.fosdem.org/2022/D.javascript/building_a_tiny_javascript_runtime_with_quickjs.mp4" title="Building a tiny JavaScript runtime with QuickJS">
+        <img width="460" src="https://raw.githubusercontent.com/saghul/txiki.js/master/video.png" alt="Building a tiny JavaScript runtime with QuickJS"/>
+    </a>
+</p>
+
+## Getting started
+
+First head over to [building](#building) and build the runtime.
+
+```bash
+$ ./build/tjs eval "console.log('hello world')"
+hello world
+$
+```
+
+If you want to run a script you can use `tjs run`:
+
+```bash
+$ ./build/tjs run examples/hello_world.js
+hello world
+$
+```
+
+Explore all the options:
+
+```bash
+$ ./build/tjs --help
+```
 
 ## Features
 
@@ -57,6 +89,7 @@ Other extras:
 - Import JSON files
 - BigFloat and BigDecimal extensions
 - [FFI]
+- Builtin test runner
 
 ### Standard library
 
@@ -80,7 +113,7 @@ The builtin `@tjs/std` module exports the following:
 
 [CMake] is necessary.
 
-*NOTE:* The txiki.js build depends on a number of git submodules (e.g. [libuv], [wasm3]).
+*NOTE:* The txiki.js build depends on a number of git submodules ([liffi], [libuv] and [wasm3]).
 If you didn't already clone this repository recursively, make sure you initialize these
 submodules with `git submodule update --init` before proceeding to the build.
 
@@ -137,20 +170,13 @@ make test
 
 At this time txiki.js uses [calendar versioning] with the form YY.MM.MICRO.
 
-## Thanks
+<br />
+<br />
 
-txiki.js stands on shoulders of giants. It wouldn't be what it is today without these libraries:
-
-* [QuickJS]: JavaScript engine
-* [libuv]: platform abstraction layer
-* [wasm3]: WASM engine
-* [curl]: HTTP client
-* [libffi]: Call native functions from JS
-
-In addition, txiki.js has these [contributors] to thank for their help.
-
-Thank you all for making this project possible!
-
+<footer>
+<p align="center" style="font-size: smaller;">
+Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul/txiki.js/graphs/contributors" target="_blank">contributors</a>.
+</footer>
 
 [QuickJS]: https://bellard.org/quickjs/
 [libuv]: https://libuv.org/
@@ -160,7 +186,6 @@ Thank you all for making this project possible!
 [full API documentation]: https://bettercallsaghul.com/txiki.js/api/
 [CMake]: https://cmake.org/
 [wasm3]: https://github.com/wasm3/wasm3
-[contributors]: https://github.com/saghul/txiki.js/graphs/contributors
 [alert, confirm, prompt]: https://developer.mozilla.org/en-US/docs/Web/API/Window/alert
 [fetch]: https://fetch.spec.whatwg.org/
 [EventTarget]: https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
