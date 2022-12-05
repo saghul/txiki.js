@@ -30,7 +30,6 @@ configure_file(
     "${CMAKE_SOURCE_DIR}/src/version.h"
 )
 
-
 macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
     option(${OPTION_NAME} ${OPTION_TEXT} ${OPTION_DEFAULT})
     if(DEFINED ENV{${OPTION_NAME}})
@@ -56,7 +55,7 @@ add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
 find_package(CURL REQUIRED)
 
-set(INCLUDED_JS_FILES "core.js;std.js;runMain.js")
+set(INCLUDED_JS_FILES "runMain.js")
 foreach(jsfile ${INCLUDED_JS_FILES})
     configure_file(
         ${CMAKE_SOURCE_DIR}/src/js/${jsfile}
@@ -72,6 +71,7 @@ add_executable(tjs
     src/curl-websocket-utils.c
     src/dns.c
     src/error.c
+    src/eval.c
     src/ffi.c
     src/fs.c
     src/fswatch.c
@@ -91,6 +91,8 @@ add_executable(tjs
     src/worker.c
     src/ws.c
     src/xhr.c
+    src/js/core.c
+    src/js/std.c
     ../deps/quickjs/src/cutils.c
 )
 
@@ -150,3 +152,8 @@ if (BUILD_WITH_ASAN)
     target_compile_options(tjs PRIVATE -fsanitize=address)
     target_link_options(tjs PRIVATE -fsanitize=address)
 endif()
+
+add_executable(qjsc EXCLUDE_FROM_ALL
+    src/qjsc.c
+)
+target_link_libraries(qjsc qjs m)

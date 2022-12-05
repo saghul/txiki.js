@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 
-#include "embedjs.h"
 #include "private.h"
 #include "tjs.h"
 

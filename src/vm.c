@@ -42,6 +42,11 @@ INCTXT(run_main, "runMain.js");
  *
  */
 
+extern const uint8_t tjs__core[];
+extern const uint32_t tjs__core_size;
+extern const uint8_t tjs__std[];
+extern const uint32_t tjs__std_size;
+
 static int tjs__argc = 0;
 static char **tjs__argv = NULL;
 
@@ -212,10 +217,10 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JS_SetProperty(qrt->ctx, global_obj, bootstrap_ns_atom, bootstrap_ns);
 
     tjs__bootstrap_core(qrt->ctx, bootstrap_ns);
-    tjs__bootstrap_globals(qrt->ctx);
+    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__core, tjs__core_size), 0);
 
     /* standard library */
-    tjs__add_stdlib(qrt->ctx);
+    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__std, tjs__std_size), 0);
 
     /* end bootstrap */
     JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);

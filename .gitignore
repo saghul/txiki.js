@@ -1,9 +1,11 @@
 .vscode
 .idea
+.DS_Store
 
 build/
+src/js/core.js
+src/js/std.js
 src/version.h
 node_modules/
 docs/api/
 
-.DS_Store

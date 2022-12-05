@@ -25,13 +25,30 @@
 #include "private.h"
 
 
-int tjs__eval_text(JSContext *ctx, const char *buf, size_t buf_len, const char *filename) {
-    int ret = 0;
-    JSValue val = JS_Eval(ctx, buf, buf_len - 1, filename, JS_EVAL_TYPE_MODULE);
-    if (JS_IsException(val)) {
-        tjs_dump_error(ctx);
-        ret = -1;
+int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
+    JSValue obj = JS_ReadObject(ctx, buf, buf_len, JS_READ_OBJ_BYTECODE);
+
+    if (JS_IsException(obj))
+        goto error;
+
+    if (JS_VALUE_GET_TAG(obj) == JS_TAG_MODULE) {
+        if (JS_ResolveModule(ctx, obj) < 0) {
+            JS_FreeValue(ctx, obj);
+            goto error;
+        }
+
+        js_module_set_import_meta(ctx, obj, FALSE, FALSE);
     }
+
+    JSValue val = JS_EvalFunction(ctx, obj);
+    if (JS_IsException(val))
+        goto error;
+
     JS_FreeValue(ctx, val);
-    return ret;
+
+    return 0;
+
+error:
+    tjs_dump_error(ctx);
+    return -1;
 }
