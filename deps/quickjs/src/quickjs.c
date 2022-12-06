@@ -69,7 +69,8 @@
 
 /* define to include Atomics.* operations which depend on the OS
    threads */
-#if !defined(EMSCRIPTEN) && !defined(_WIN32)
+//#if !defined(EMSCRIPTEN) && !defined(_WIN32)
+#if 0
 #define CONFIG_ATOMICS
 #endif
 

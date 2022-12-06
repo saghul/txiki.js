@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 
-#include "embedjs.h"
 #include "private.h"
 #include "tjs.h"
 
@@ -31,16 +30,12 @@
 
 #define TJS__DEFAULT_STACK_SIZE 1048576
 
-INCTXT(run_main, "runMain.js");
-
-/**
- * These are defined now:
- *
- * const unsigned char tjs__code_run_main_data[];
- * const unsigned char *const tjs__code_run_main_end;
- * const unsigned int tjs__code_run_main_size;
- *
- */
+extern const uint8_t tjs__core[];
+extern const uint32_t tjs__core_size;
+extern const uint8_t tjs__std[];
+extern const uint32_t tjs__std_size;
+extern const uint8_t tjs__run_main[];
+extern const uint32_t tjs__run_main_size;
 
 static int tjs__argc = 0;
 static char **tjs__argv = NULL;
@@ -212,10 +207,10 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JS_SetProperty(qrt->ctx, global_obj, bootstrap_ns_atom, bootstrap_ns);
 
     tjs__bootstrap_core(qrt->ctx, bootstrap_ns);
-    tjs__bootstrap_globals(qrt->ctx);
+    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__core, tjs__core_size), 0);
 
     /* standard library */
-    tjs__add_stdlib(qrt->ctx);
+    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__std, tjs__std_size), 0);
 
     /* end bootstrap */
     JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);
@@ -347,7 +342,7 @@ int TJS_Run(TJSRuntime *qrt) {
         uv_unref((uv_handle_t *) &qrt->stop);
 
         /* If we are running the main interpreter, run the entrypoint. */
-        ret = tjs__eval_text(qrt->ctx, tjs__code_run_main_data, tjs__code_run_main_size, "runMain.js");
+        ret = tjs__eval_bytecode(qrt->ctx, tjs__run_main, tjs__run_main_size);
     }
 
     if (ret != 0)

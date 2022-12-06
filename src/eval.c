@@ -1,5 +1,5 @@
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -22,59 +22,28 @@
  * THE SOFTWARE.
  */
 
-#include "embedjs.h"
 #include "private.h"
-#include "tjs.h"
 
 
-INCTXT(core, "core.js");
+int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
+    JSValue obj = JS_ReadObject(ctx, buf, buf_len, JS_READ_OBJ_BYTECODE);
 
-/**
- * These are defined now:
- *
- * const unsigned char tjs__code_core_data[];
- * const unsigned char *const tjs__code_core_end;
- * const unsigned int tjs__code_core_size;
- *
- */
-
-INCTXT(std, "std.js");
-
-/**
- * These are defined now:
- *
- * const unsigned char tjs__code_std_data[];
- * const unsigned char *const tjs__code_std_end;
- * const unsigned int tjs__code_std_size;
- *
- */
-
-
-int tjs__eval_text(JSContext *ctx, const char *buf, size_t buf_len, const char *filename) {
-    int ret = 0;
-    JSValue val = JS_Eval(ctx, buf, buf_len - 1, filename, JS_EVAL_TYPE_MODULE);
-    if (JS_IsException(val)) {
-        tjs_dump_error(ctx);
-        ret = -1;
-    }
-    JS_FreeValue(ctx, val);
-    return ret;
-}
-
-void tjs__bootstrap_globals(JSContext *ctx) {
-    CHECK_EQ(0, tjs__eval_text(ctx, tjs__code_core_data, tjs__code_core_size, "core.js"));
-}
-
-static int tjs__add_builtin_module(JSContext *ctx, const char *name, const char *buf, size_t buf_len) {
-    JSValue obj = JS_Eval(ctx, buf, buf_len - 1, name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     if (JS_IsException(obj))
         goto error;
 
-    js_module_set_import_meta(ctx, obj, FALSE, FALSE);
+    if (JS_VALUE_GET_TAG(obj) == JS_TAG_MODULE) {
+        if (JS_ResolveModule(ctx, obj) < 0) {
+            JS_FreeValue(ctx, obj);
+            goto error;
+        }
+
+        js_module_set_import_meta(ctx, obj, FALSE, FALSE);
+    }
 
     JSValue val = JS_EvalFunction(ctx, obj);
     if (JS_IsException(val))
         goto error;
+
     JS_FreeValue(ctx, val);
 
     return 0;
@@ -82,8 +51,4 @@ static int tjs__add_builtin_module(JSContext *ctx, const char *name, const char 
 error:
     tjs_dump_error(ctx);
     return -1;
-}
-
-void tjs__add_stdlib(JSContext *ctx) {
-    CHECK_EQ(0, tjs__add_builtin_module(ctx, "@tjs/std", tjs__code_std_data, tjs__code_std_size));
 }
