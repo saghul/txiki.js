@@ -55,16 +55,7 @@ add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
 find_package(CURL REQUIRED)
 
-set(INCLUDED_JS_FILES "runMain.js")
-foreach(jsfile ${INCLUDED_JS_FILES})
-    configure_file(
-        ${CMAKE_SOURCE_DIR}/src/js/${jsfile}
-        ${CMAKE_CURRENT_BINARY_DIR}/${jsfile}
-        COPYONLY)
-endforeach()
-
 add_executable(tjs
-    src/bootstrap.c
     src/cli.c
     src/curl-utils.c
     src/curl-websocket.c
@@ -93,6 +84,7 @@ add_executable(tjs
     src/xhr.c
     src/js/core.c
     src/js/std.c
+    src/js/run-main.c
     ../deps/quickjs/src/cutils.c
 )
 

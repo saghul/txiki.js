@@ -100,7 +100,6 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
 JSValue tjs__get_args(JSContext *ctx);
 
 int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len);
-int tjs__eval_text(JSContext *ctx, const char *buf, size_t buf_len, const char *filename);
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);
