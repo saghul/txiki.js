@@ -6,13 +6,19 @@ all: build
 build: $(BUILD_DIR)/Makefile
 	cmake --build $(BUILD_DIR) -j $(shell nproc)
 
-qjsc: $(BUILD_DIR)/Makefile
+$(BUILD_DIR)/qjsc: $(BUILD_DIR)/Makefile
 	cmake --build $(BUILD_DIR) --target qjsc -j $(shell nproc)
 
-src/js/core.c: qjsc src/js/core.js
+src/js/core.js: src/js/core/*.js src/js/core/polyfills/*.js src/js/core/tjs/*.js
+	npm run build-core
+
+src/js/std.js: src/js/stdlib/*.js
+	npm run build-stdlib
+
+src/js/core.c: $(BUILD_DIR)/qjsc src/js/core.js
 	$(BUILD_DIR)/qjsc -m -o src/js/core.c -n core.js -p tjs__ src/js/core.js
 
-src/js/std.c: qjsc src/js/std.js
+src/js/std.c: $(BUILD_DIR)/qjsc src/js/std.js
 	$(BUILD_DIR)/qjsc -m -o src/js/std.c -n "@tjs/std" -p tjs__ src/js/std.js
 
 js: src/js/core.c src/js/std.c
@@ -43,4 +49,4 @@ test-advanced:
 	cd tests/advanced && npm install
 	./$(BUILD_DIR)/tjs test tests/advanced/
 
-.PHONY: all build qjsc js debug install clean distclean format test test-advanced
+.PHONY: all build js debug install clean distclean format test test-advanced
