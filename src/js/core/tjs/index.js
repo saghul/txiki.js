@@ -32,6 +32,7 @@ const noExport = [
     'XMLHttpRequest',
     'clearInterval',
     'clearTimeout',
+    'environ',
     'evalFile',
     'evalScript',
     'ffi',
@@ -83,6 +84,15 @@ Object.defineProperty(tjs, 'prompt', {
     configurable: false,
     writable: false,
     value: prompt
+});
+
+// Environ.
+Object.defineProperty(tjs, 'environ', {
+    enumerable: true,
+    configurable: false,
+    get() {
+        return core.environ();
+    }
 });
 
 // FS.
