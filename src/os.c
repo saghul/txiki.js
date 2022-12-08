@@ -429,11 +429,11 @@ static JSValue tjs_gethostname(JSContext *ctx, JSValueConst this_val, int argc, 
     return JS_NewStringLen(ctx, buf, size);
 }
 
-static JSValue tjs_getpid(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_getpid(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     return JS_NewInt32(ctx, uv_os_getpid());
 }
 
-static JSValue tjs_getppid(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_getppid(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     return JS_NewInt32(ctx, uv_os_getppid());
 }
 
@@ -485,8 +485,8 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("networkInterfaces", 0, tjs_network_interfaces),
     TJS_CFUNC_DEF("gethostname", 0, tjs_gethostname),
     TJS_CFUNC_DEF("environ", 0, tjs_environ),
-    TJS_CGETSET_DEF("pid", tjs_getpid, NULL),
-    TJS_CGETSET_DEF("ppid", tjs_getppid, NULL),
+    TJS_CFUNC_DEF("getPid", 0, tjs_getpid),
+    TJS_CFUNC_DEF("getPpid", 0, tjs_getppid),
     TJS_CFUNC_DEF("userInfo", 0, tjs_userInfo),
     TJS_CFUNC_DEF("availableParallelism", 0, tjs_availableParallelism),
 };

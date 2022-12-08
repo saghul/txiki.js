@@ -86,12 +86,26 @@ Object.defineProperty(tjs, 'prompt', {
     value: prompt
 });
 
-// Environ.
+// Getters.
 Object.defineProperty(tjs, 'environ', {
     enumerable: true,
     configurable: false,
     get() {
         return core.environ();
+    }
+});
+Object.defineProperty(tjs, 'pid', {
+    enumerable: true,
+    configurable: false,
+    get() {
+        return core.getPid();
+    }
+});
+Object.defineProperty(tjs, 'ppid', {
+    enumerable: true,
+    configurable: false,
+    get() {
+        return core.getPpid();
     }
 });
 
