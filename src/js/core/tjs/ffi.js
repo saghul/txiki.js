@@ -2,8 +2,7 @@ const core = globalThis.__bootstrap;
 
 export const ffiInt = core.ffi;
 
-import Cparser from './ffiutils.js';
-
+import Cparser from './utils/ffiutils.js';
 
 export class DlSymbol {
     constructor(name, uvlib, dlsym) {
@@ -25,7 +24,7 @@ function formatTypeName(name) {
         let struct = false;
 
         if (parts.includes('struct')) {
-            parts = parts.filter(e=>e !== 'struct');
+            parts = parts.filter(e => e !== 'struct');
             struct = true;
         }
 
@@ -50,7 +49,7 @@ export class Lib {
         this._funcs = new Map();
         this._types = new Map();
 
-        for (const [ t, aliases ] of typeMap) {
+        for (const [t, aliases] of typeMap) {
             for (const alias of aliases) {
                 this.registerType(alias, t);
             }
@@ -119,7 +118,9 @@ export class AdvancedType {
         return this._ffiType;
     }
     get ffiTypeStruct() {
-        return this._conf.getFfiTypeStruct ? this._conf.getFfiTypeStruct() : this._ffiType;
+        return this._conf.getFfiTypeStruct
+            ? this._conf.getFfiTypeStruct()
+            : this._ffiType;
     }
     get name() {
         return this._conf.name;
@@ -143,7 +144,11 @@ export class CFunction {
             return t;
         }
 
-        this._cif = new ffiInt.FfiCif(getFfiType(rtype), ...argtypes.map(getFfiType), fixed);
+        this._cif = new ffiInt.FfiCif(
+            getFfiType(rtype),
+            ...argtypes.map(getFfiType),
+            fixed
+        );
         this._fixed = fixed;
     }
     call(...argsJs) {
@@ -190,29 +195,31 @@ export const types = {
     ssize: ffiInt.type_ssize,
 
     string: new AdvancedType(ffiInt.type_pointer, {
-        toBuffer: (str, ctx)=>{
-            ctx.buf = (new TextEncoder()).encode(str+'\0');
+        toBuffer: (str, ctx) => {
+            ctx.buf = new TextEncoder().encode(str + '\0');
 
             // cstrings are pointers char*, the pointer itself is the argument, and since ffi expects pointers
             // to the argument data, so we effectively need a char**.
             // If we return the ptr to the buffer, the C code will handle the allocation for us.
             return ffiInt.getArrayBufPtr(ctx.buf);
         },
-        fromBuffer: buf=>{
+        fromBuffer: buf => {
             const ptr = ffiInt.type_pointer.fromBuffer(buf); // char*
             const str = ffiInt.getCString(ptr); // string
 
             return str;
         },
-        name: 'string'
+        name: 'string',
     }),
 
     buffer: new AdvancedType(ffiInt.type_pointer, {
         toBuffer: buf => ffiInt.getArrayBufPtr(buf),
-        fromBuffer: () =>{
-            throw new Error('type buffer cannot be used as a return type, since the size is not known!');
+        fromBuffer: () => {
+            throw new Error(
+                'type buffer cannot be used as a return type, since the size is not known!'
+            );
         },
-        name: 'string'
+        name: 'string',
     }),
 
     jscallback: new AdvancedType(ffiInt.type_pointer, {
@@ -223,39 +230,50 @@ export const types = {
 
             return jsc.addr;
         },
-        fromBuffer: () =>{
+        fromBuffer: () => {
             throw new Error('JSCallback as a return is not supported!');
         },
-        name: 'jscallback'
-    })
+        name: 'jscallback',
+    }),
 };
 
 const typeMap = [
-    [ types.uint8, [ 'uint8_t' ] ],
-    [ types.uint16, [ 'uint16_t' ] ],
-    [ types.uint32, [ 'uint32_t', 'signed long long', 'signed long long int', 'long long', 'long long int' ] ],
-    [ types.uint64, [ 'uint64_t', 'unsigned long long', 'unsigned long long int' ] ],
-    [ types.sint8, [ 'int8_t' ] ],
-    [ types.sint16, [ 'int16_t' ] ],
-    [ types.sint32, [ 'int32_t' ] ],
-    [ types.sint64, [ 'int64_t' ] ],
-    [ types.float, [ 'float' ] ],
-    [ types.double, [ 'double' ] ],
-    [ types.pointer, [ 'void*' ] ],
-    [ types.longdouble, [ 'long double' ] ],
-    [ types.uchar, [ 'unsigned char' ] ],
-    [ types.schar, [ 'signed char', 'char' ] ],
-    [ types.ushort, [ 'unsigned short', 'unsigned short int' ] ],
-    [ types.sshort, [ 'signed short', 'signed short int', 'short int' ] ],
-    [ types.uint, [ 'unsigned int', 'unsigned' ] ],
-    [ types.sint, [ 'signed int', 'int' ] ],
-    [ types.ulong, [ 'unsigned long', 'unsigned long int' ] ],
-    [ types.slong, [ 'signed long', 'signed long int', 'long', 'long int' ] ],
+    [types.uint8, ['uint8_t']],
+    [types.uint16, ['uint16_t']],
+    [
+        types.uint32,
+        [
+            'uint32_t',
+            'signed long long',
+            'signed long long int',
+            'long long',
+            'long long int',
+        ],
+    ],
+    [
+        types.uint64,
+        ['uint64_t', 'unsigned long long', 'unsigned long long int'],
+    ],
+    [types.sint8, ['int8_t']],
+    [types.sint16, ['int16_t']],
+    [types.sint32, ['int32_t']],
+    [types.sint64, ['int64_t']],
+    [types.float, ['float']],
+    [types.double, ['double']],
+    [types.pointer, ['void*']],
+    [types.longdouble, ['long double']],
+    [types.uchar, ['unsigned char']],
+    [types.schar, ['signed char', 'char']],
+    [types.ushort, ['unsigned short', 'unsigned short int']],
+    [types.sshort, ['signed short', 'signed short int', 'short int']],
+    [types.uint, ['unsigned int', 'unsigned']],
+    [types.sint, ['signed int', 'int']],
+    [types.ulong, ['unsigned long', 'unsigned long int']],
+    [types.slong, ['signed long', 'signed long int', 'long', 'long int']],
 
-    [ types.size, [ 'size_t' ] ],
-    [ types.ssize, [ 'ssize_t' ] ],
-    [ types.string, [ 'char*' ] ],
-
+    [types.size, ['size_t']],
+    [types.ssize, ['ssize_t']],
+    [types.string, ['char*']],
 ];
 
 export function bufferToString(buf) {
@@ -293,7 +311,7 @@ export class Pointer {
         }
     }
     derefAll() {
-        const addr = ffiInt.derefPtr(this._addr, this._level-1);
+        const addr = ffiInt.derefPtr(this._addr, this._level - 1);
         const buf = ffiInt.ptrToBuffer(addr, this._type.size);
 
         return this._type.fromBuffer(buf, {});
@@ -316,7 +334,7 @@ export class Pointer {
 export class PointerType extends AdvancedType {
     constructor(type, level = 1) {
         super(types.pointer || type, {
-            name: (type.name || 'void') + ('*').repeat(level),
+            name: (type.name || 'void') + '*'.repeat(level),
         });
         this._level = level;
         this._type = type;
@@ -329,7 +347,11 @@ export class PointerType extends AdvancedType {
         }
     }
     fromBuffer(buf) {
-        return new Pointer(types.pointer.fromBuffer(buf), this._level, this._type);
+        return new Pointer(
+            types.pointer.fromBuffer(buf),
+            this._level,
+            this._type
+        );
     }
     get type() {
         return this._type;
@@ -341,15 +363,17 @@ export class PointerType extends AdvancedType {
 
 export class StructType extends AdvancedType {
     constructor(fields, name) {
-        const ffitype = new ffiInt.FfiType(...fields.map(([ _f, t ]) => t.ffiTypeStruct || t.ffiType || t));
+        const ffitype = new ffiInt.FfiType(
+            ...fields.map(([_f, t]) => t.ffiTypeStruct || t.ffiType || t)
+        );
 
         super(ffitype, {
-            toBuffer: (obj, ctx)=>{
+            toBuffer: (obj, ctx) => {
                 const buf = new Uint8Array(this._ffiType.size);
                 const offsets = this._ffiType.offsets;
 
-                for (let i=0; i<offsets.length; i++) {
-                    const [ field, type ] = this._fields[i];
+                for (let i = 0; i < offsets.length; i++) {
+                    const [field, type] = this._fields[i];
 
                     // eslint-disable-next-line no-prototype-builtins
                     if (obj.hasOwnProperty(field)) {
@@ -361,12 +385,12 @@ export class StructType extends AdvancedType {
 
                 return buf;
             },
-            fromBuffer: (buf, ctx)=>{
+            fromBuffer: (buf, ctx) => {
                 let obj = {};
                 const offsets = this._ffiType.offsets;
 
-                for (let i=0; i<offsets.length; i++) {
-                    const [ field, type ] = this._fields[i];
+                for (let i = 0; i < offsets.length; i++) {
+                    const [field, type] = this._fields[i];
                     const fbuf = buf.slice(offsets[i], offsets[i] + type.size);
 
                     obj[field] = type.fromBuffer(fbuf, ctx);
@@ -374,7 +398,7 @@ export class StructType extends AdvancedType {
 
                 return obj;
             },
-            name
+            name,
         });
         this._fields = fields;
     }
@@ -389,26 +413,29 @@ export class ArrayType extends AdvancedType {
         const ffisz = ffitype.size;
 
         super(ffitype, {
-            toBuffer: (arr, ctx)=>{
+            toBuffer: (arr, ctx) => {
                 if (arr.length > this._length) {
                     throw new RangeError('Array length exceeds type length');
                 }
 
-                const buf = new Uint8Array(ffisz*length);
+                const buf = new Uint8Array(ffisz * length);
 
-                for (let i=0; i<arr.length; i++) {
+                for (let i = 0; i < arr.length; i++) {
                     let sbuf = type.fromBuffer(arr[i], ctx);
 
-                    buf.set(sbuf, i*ffisz);
+                    buf.set(sbuf, i * ffisz);
                 }
 
                 return buf;
             },
-            fromBuffer: (buf, ctx)=>{
+            fromBuffer: (buf, ctx) => {
                 let arr = [];
 
-                for (let i=0; i<this._length; i++) {
-                    arr[i] = type.fromBuffer(buf.slice(i*ffisz, (i+1)*ffisz), ctx);
+                for (let i = 0; i < this._length; i++) {
+                    arr[i] = type.fromBuffer(
+                        buf.slice(i * ffisz, (i + 1) * ffisz),
+                        ctx
+                    );
                 }
 
                 return arr;
@@ -438,7 +465,7 @@ export class StaticStringType extends ArrayType {
         super(types.sint8, length, name);
     }
     toBuffer(str, ctx = {}) {
-        const txtBuf = (new TextEncoder()).encode(str);
+        const txtBuf = new TextEncoder().encode(str);
 
         return super.toBuffer(txtBuf, ctx);
     }
@@ -455,14 +482,13 @@ export function strerror(err = errno()) {
     return ffiInt.strerror(err);
 }
 
-
 export class JSCallback {
     constructor(rtype, argtypes, func) {
         this._func = (...args) => {
             const arr = [];
             const ctx = {};
 
-            for (let i=0;i<argtypes.length;i++) {
+            for (let i = 0; i < argtypes.length; i++) {
                 ctx[i] = {};
                 arr.push(argtypes[i].fromBuffer(args[i], ctx[i]));
             }
@@ -474,7 +500,10 @@ export class JSCallback {
 
         this._rtype = rtype;
         this._argtypes = argtypes;
-        this._cif = new ffiInt.FfiCif(rtype.ffiType ?? rtype, ...argtypes.map(t => t.ffiType ?? t));
+        this._cif = new ffiInt.FfiCif(
+            rtype.ffiType ?? rtype,
+            ...argtypes.map(t => t.ffiType ?? t)
+        );
         this._closure = new ffiInt.FfiClosure(this._cif, this._func);
     }
     get addr() {
@@ -482,4 +511,8 @@ export class JSCallback {
     }
 }
 
-const { parseCProto, astToLib } = Cparser({ StructType, CFunction, PointerType });
+const { parseCProto, astToLib } = Cparser({
+    StructType,
+    CFunction,
+    PointerType,
+});

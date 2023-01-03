@@ -1,206 +1,270 @@
 const core = globalThis.__bootstrap;
 
-import { alert, confirm, prompt } from './alert-confirm-prompt.js';
-import { evalStdin } from './eval-stdin.js';
-import * as FFI from './ffi.js';
-import { open, mkstemp } from './fs.js';
-import { PosixSocket } from './posix-socket.js';
-import { runRepl } from './repl.js';
-import { runTests } from './run-tests.js';
-import { signal } from './signal.js';
-import { connect, listen } from './sockets.js';
-import { createStdin, createStdout, createStderr } from './stdio.js';
-import { bootstrapWorker } from './worker-bootstrap.js';
+import '../polyfills/base';
+import '../polyfills/event-target-polyfill';
 
+// import { alert, confirm, prompt } from './alert-confirm-prompt.js';
+// import { evalStdin } from './eval-stdin.js';
+// import * as FFI from './ffi.js';
+// import { open, mkstemp } from './fs.js';
+// import { PosixSocket } from './posix-socket.js';
+// import { runRepl } from './repl.js';
+// import { runTests } from './run-tests.js';
+// import { signal } from './signal.js';
+// import { connect, listen } from './sockets.js';
+import { createStdin, createStdout, createStderr } from './stdio.js';
+// import { bootstrapWorker } from './worker-bootstrap.js';
 
 // The "tjs" global.
 //
 
 const tjs = Object.create(null);
-const noExport = [
-    'STDIN_FILENO',
-    'STDOUT_FILENO',
-    'STDERR_FILENO',
-    'TCP_IPV6ONLY',
-    'UDP_IPV6ONLY',
-    'UDP_REUSEADDR',
-    'Pipe',
-    'TCP',
-    'TTY',
-    'UDP',
-    'Worker',
-    'XMLHttpRequest',
-    'clearInterval',
-    'clearTimeout',
-    'environ',
-    'evalFile',
-    'evalScript',
-    'ffi',
-    'guessHandle',
-    'hrtimeMs',
-    'isStdinTty',
-    'mkstemp',
-    'newStdioFile',
-    'open',
-    'posix_socket',
-    'random',
-    'setInterval',
-    'setMaxStackSize',
-    'setMemoryLimit',
-    'setTimeout',
-    'signal',
-    'signals',
-    'wasm'
-];
+// const noExport = [
+//   "STDIN_FILENO",
+//   "STDOUT_FILENO",
+//   "STDERR_FILENO",
+//   "TCP_IPV6ONLY",
+//   "UDP_IPV6ONLY",
+//   "UDP_REUSEADDR",
+//   "Pipe",
+//   "TCP",
+//   "TTY",
+//   "UDP",
+//   "Worker",
+//   "XMLHttpRequest",
+//   "clearInterval",
+//   "clearTimeout",
+//   "environ",
+//   "evalFile",
+//   "evalScript",
+//   "ffi",
+//   "guessHandle",
+//   "hrtimeMs",
+//   "isStdinTty",
+//   "mkstemp",
+//   "newStdioFile",
+//   "open",
+//   "posix_socket",
+//   "random",
+//   "setInterval",
+//   "setMaxStackSize",
+//   "setMemoryLimit",
+//   "setTimeout",
+//   "signal",
+//   "signals",
+//   "wasm",
+// ];
 
-for (const [ key, value ] of Object.entries(core)) {
-    if (noExport.includes(key)) {
-        continue;
-    }
+// for (const [key, value] of Object.entries(core)) {
+//   if (noExport.includes(key)) {
+//     continue;
+//   }
 
-    tjs[key] = value;
-}
+//   tjs[key] = value;
+// }
 
-// These values should be immutable.
+// // These values should be immutable.
 tjs.args = Object.freeze(core.args);
-tjs.versions = Object.freeze(core.versions);
+// tjs.versions = Object.freeze(core.versions);
 
-// Alert, confirm, prompt.
-// These differ slightly from browsers, they are async.
-Object.defineProperty(tjs, 'alert', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: alert
-});
-Object.defineProperty(tjs, 'confirm', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: confirm
-});
-Object.defineProperty(tjs, 'prompt', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: prompt
-});
+// // Alert, confirm, prompt.
+// // These differ slightly from browsers, they are async.
+// Object.defineProperty(tjs, "alert", {
+//   enumerable: true,
+//   configurable: false,
+//   writable: false,
+//   value: alert,
+// });
+// Object.defineProperty(tjs, "confirm", {
+//   enumerable: true,
+//   configurable: false,
+//   writable: false,
+//   value: confirm,
+// });
+// Object.defineProperty(tjs, "prompt", {
+//   enumerable: true,
+//   configurable: false,
+//   writable: false,
+//   value: prompt,
+// });
 
-// Getters.
-Object.defineProperty(tjs, 'environ', {
-    enumerable: true,
-    configurable: false,
-    get() {
-        return core.environ();
-    }
-});
-Object.defineProperty(tjs, 'pid', {
-    enumerable: true,
-    configurable: false,
-    get() {
-        return core.getPid();
-    }
-});
-Object.defineProperty(tjs, 'ppid', {
-    enumerable: true,
-    configurable: false,
-    get() {
-        return core.getPpid();
-    }
-});
+// // Getters.
+// Object.defineProperty(tjs, "environ", {
+//   enumerable: true,
+//   configurable: false,
+//   get() {
+//     return core.environ();
+//   },
+// });
+// Object.defineProperty(tjs, "pid", {
+//   enumerable: true,
+//   configurable: false,
+//   get() {
+//     return core.getPid();
+//   },
+// });
+// Object.defineProperty(tjs, "ppid", {
+//   enumerable: true,
+//   configurable: false,
+//   get() {
+//     return core.getPpid();
+//   },
+// });
 
-// FS.
-Object.defineProperty(tjs, 'open', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: open
-});
-Object.defineProperty(tjs, 'mkstemp', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: mkstemp
-});
+// // FS.
+// Object.defineProperty(tjs, "open", {
+//   enumerable: true,
+//   configurable: false,
+//   writable: false,
+//   value: open,
+// });
+// Object.defineProperty(tjs, "mkstemp", {
+//   enumerable: true,
+//   configurable: false,
+//   writable: false,
+//   value: mkstemp,
+// });
 
-// Signals.
-Object.defineProperty(tjs, 'signal', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: signal
-});
+// // Signals.
+// Object.defineProperty(tjs, "signal", {
+//   enumerable: true,
+//   configurable: false,
+//   writable: false,
+//   value: signal,
+// });
 
-// Sockets.
-Object.defineProperty(tjs, 'connect', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: connect
-});
-Object.defineProperty(tjs, 'listen', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: listen
-});
+// // Sockets.
+// Object.defineProperty(tjs, "connect", {
+//   enumerable: true,
+//   configurable: false,
+//   writable: false,
+//   value: connect,
+// });
+// Object.defineProperty(tjs, "listen", {
+//   enumerable: true,
+//   configurable: false,
+//   writable: false,
+//   value: listen,
+// });
 
-// Stdio.
+// // Stdio.
 Object.defineProperty(tjs, 'stdin', {
     enumerable: true,
     configurable: false,
     writable: false,
-    value: createStdin()
+    value: createStdin(),
 });
 Object.defineProperty(tjs, 'stdout', {
     enumerable: true,
     configurable: false,
     writable: false,
-    value: createStdout()
+    value: createStdout(),
 });
 Object.defineProperty(tjs, 'stderr', {
     enumerable: true,
     configurable: false,
     writable: false,
-    value: createStderr()
+    value: createStderr(),
 });
 
-// FFI
-Object.defineProperty(tjs, 'ffi', {
+Object.defineProperty(tjs, 'textEncode', {
     enumerable: true,
     configurable: false,
     writable: false,
-    value: FFI
+    value: core.textEncode,
 });
 
-if (core.posix_socket) {
-    Object.defineProperty(tjs, 'PosixSocket', {
-        enumerable: true,
-        configurable: false,
-        writable: false,
-        value: PosixSocket
+Object.defineProperty(tjs, 'textDecode', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: core.textDecode,
+});
+
+// // FFI
+// Object.defineProperty(tjs, "ffi", {
+//   enumerable: true,
+//   configurable: false,
+//   writable: false,
+//   value: FFI,
+// });
+
+// if (core.posix_socket) {
+//   Object.defineProperty(tjs, "PosixSocket", {
+//     enumerable: true,
+//     configurable: false,
+//     writable: false,
+//     value: PosixSocket,
+//   });
+// }
+
+function print(...args) {
+    const text =
+        args
+            .map(a => {
+                if (typeof a === 'object') {
+                    return JSON.stringify(a);
+                }
+
+                return a.toString();
+            })
+            .join(' ') + '\n';
+
+    tjs.stdout.write(core.textEncode(text));
+}
+
+class Console {
+    log(...args) {
+        print(...args);
+    }
+}
+
+Object.defineProperty(globalThis, 'console', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: new Console(),
+});
+
+// // Internal stuff needed by the runtime.
+const kInternal = Symbol.for('tjs.internal');
+const internals = [
+    'require',
+    'evalFile',
+    'evalScript',
+    'isStdinTty',
+    'setMaxStackSize',
+    'setMemoryLimit',
+];
+
+tjs[kInternal] = Object.create(null);
+const interalObj = tjs[kInternal];
+
+for (const propName of internals) {
+    interalObj[propName] = core[propName];
+}
+
+// tjs[kInternal]["bootstrapWorker"] = bootstrapWorker;
+// tjs[kInternal]["evalStdin"] = evalStdin;
+// tjs[kInternal]["runTests"] = runTests;
+
+function lazyImport(obj, key, module, value) {
+    if (!value) {
+        value = key;
+    }
+
+    Object.defineProperty(obj, key, {
+        get: () => core.require(module)[key],
+        set: () => {}
     });
 }
 
-// Internal stuff needed by the runtime.
-const kInternal = Symbol.for('tjs.internal');
-const internals = [ 'evalFile', 'evalScript', 'isStdinTty', 'setMaxStackSize', 'setMemoryLimit' ];
-
-tjs[kInternal] = Object.create(null);
-
-for (const propName of internals) {
-    tjs[kInternal][propName] = core[propName];
-}
-
-tjs[kInternal]['bootstrapWorker'] = bootstrapWorker;
-tjs[kInternal]['evalStdin'] = evalStdin;
-tjs[kInternal]['runRepl'] = runRepl;
-tjs[kInternal]['runTests'] = runTests;
+lazyImport(interalObj, 'runRepl', '@tjs/repl', 'runRepl');
 
 // tjs global.
 Object.defineProperty(globalThis, 'tjs', {
     enumerable: true,
     configurable: false,
     writable: false,
-    value: Object.freeze(tjs)
+    value: Object.freeze(tjs),
 });

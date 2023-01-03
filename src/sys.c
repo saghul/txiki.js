@@ -29,6 +29,38 @@
 #include <unistd.h>
 #include <uv.h>
 
+static JSValue js_textDecode(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    size_t size;
+    uint8_t *buf = JS_GetUint8Array(ctx, &size, argv[0]);
+    if (!buf)
+        return JS_EXCEPTION;
+
+    return JS_NewStringLen(ctx, (const char *) buf, size);
+    ;
+}
+
+static JSValue js_textEncode(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    const char *str;
+    size_t len;
+    uint8_t *buf;
+
+    str = JS_ToCStringLen(ctx, &len, argv[0]);
+    if (!str)
+        return JS_EXCEPTION;
+
+    buf = js_malloc(ctx, len);
+    if (!buf)
+        return JS_EXCEPTION;
+
+    // memcpy(buf, str, len);
+    unsigned int i;
+    for (i = 0; i < len; i++) {
+        buf[i] = 256 + str[i];
+    }
+
+    return TJS_NewUint8Array(ctx, buf, len);
+    // return JS_UNDEFINED;
+}
 
 static JSValue js_std_gc(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JS_RunGC(JS_GetRuntime(ctx));
@@ -107,6 +139,49 @@ static JSValue tjs_setMaxStackSize(JSContext *ctx, JSValueConst this_val, int ar
     return JS_UNDEFINED;
 }
 
+static JSValue js_require(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    
+    JSModuleDef *m;
+    JSAtom basename_atom;
+    JSValue basename_val;
+    JSValue ns;
+    const char *filename;
+
+
+
+    basename_atom = JS_GetScriptOrModuleName(ctx, 0);
+    if (basename_atom == JS_ATOM_NULL)
+        basename_val = JS_NULL;
+    else
+        basename_val = JS_AtomToValue(ctx, basename_atom);
+    JS_FreeAtom(ctx, basename_atom);
+    if (JS_IsException(basename_val))
+        return basename_val;
+
+    const char *basename = NULL;
+    basename = JS_ToCString(ctx, basename_val);
+
+    
+
+    filename = JS_ToCString(ctx, argv[0]);
+
+    m = JS_RunModule(ctx, basename, filename);
+    JS_FreeCString(ctx, filename);
+    if (!m)
+        goto exception;
+
+    /* return the module namespace */
+    ns = js_get_module_ns(ctx, m);
+    if (JS_IsException(ns))
+        goto exception;
+
+    return ns;
+
+ exception:
+    return JS_GetException(ctx);
+    return JS_UNDEFINED;
+}
+
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("gc", 0, js_std_gc),
     TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
@@ -115,6 +190,9 @@ static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("setMemoryLimit", 1, tjs_setMemoryLimit),
     TJS_CFUNC_DEF("setMaxStackSize", 1, tjs_setMaxStackSize),
     TJS_CGETSET_DEF("exepath", tjs_exepath, NULL),
+    TJS_CFUNC_DEF("textDecode", 1, js_textDecode),
+    TJS_CFUNC_DEF("textEncode", 1, js_textEncode),
+    TJS_CFUNC_DEF("require", 1, js_require),
 };
 
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {

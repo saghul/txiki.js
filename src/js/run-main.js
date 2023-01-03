@@ -1,19 +1,19 @@
 /* global tjs */
 
-import { getopts, path } from '@tjs/std';
+import getopts from '@tjs/std/getopts';
 
 const {
     evalFile,
     evalScript,
     evalStdin,
     isStdinTty,
-    runRepl,
     runTests,
     setMaxStackSize,
-    setMemoryLimit
+    setMemoryLimit,
+    require,
 } = tjs[Symbol.for('tjs.internal')];
 
-const exeName = path.basename(tjs.args[0]);
+const exeName = tjs.args[0];
 const help = `Usage: ${exeName} [options] [subcommand]
 
 Options:
@@ -47,7 +47,7 @@ const options = getopts(tjs.args.slice(1), {
     alias: {
         eval: 'e',
         help: 'h',
-        version: 'v'
+        version: 'v',
     },
     boolean: [ 'h', 'v' ],
     string: [ 'e' ],
@@ -58,7 +58,7 @@ const options = getopts(tjs.args.slice(1), {
         }
 
         return option;
-    }
+    },
 });
 
 if (options.help) {
@@ -81,7 +81,7 @@ if (options.help) {
 
     if (!command) {
         if (isStdinTty()) {
-            runRepl();
+            tjs[Symbol.for('tjs.internal')].runRepl();
         } else {
             evalStdin();
         }
@@ -104,7 +104,11 @@ if (options.help) {
 
         // XXX: This looks weird. This file is being JS_Eval'd when we call `evalFile`,
         // which does another JS_Eval, and something get's messed up :-(
-        globalThis.queueMicrotask(() => evalFile(filename));
+        // evalFile(filename);
+        tjs[Symbol.for('tjs.internal')].runRepl;
+        tjs[Symbol.for('tjs.internal')].runRepl;
+        require(filename);
+        // globalThis.queueMicrotask(() => evalFile(filename));
     } else if (command === 'test') {
         const [ dir ] = subargv;
 
@@ -114,7 +118,6 @@ if (options.help) {
         tjs.exit(1);
     }
 }
-
 
 function parseNumberOption(num, option) {
     const n = Number.parseInt(num, 10);

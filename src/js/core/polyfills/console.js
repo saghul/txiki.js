@@ -10,12 +10,11 @@ function print() {
     tjs.stdout.write(encoder.encode(text));
 }
 
-
 // Copyright Joyent, Inc. and other Node contributors. MIT license.
 // Forked from Node's lib/internal/cli_table.js
 
 function hasOwnProperty(obj, v) {
-    if (obj === null  || typeof obj === 'undefined') {
+    if (obj === null || typeof obj === 'undefined') {
         return false;
     }
 
@@ -35,7 +34,7 @@ const tableChars = {
     rightMiddle: '┤',
     left: '│ ',
     right: ' │',
-    middle: ' │ '
+    middle: ' │ ',
 };
 
 // eslint-disable-next-line no-control-regex
@@ -76,10 +75,7 @@ function renderRow(row, columnWidths) {
 function cliTable(head, columns) {
     const rows = [];
     const columnWidths = head.map(h => countBytes(h));
-    const longestColumn = columns.reduce(
-        (n, a) => Math.max(n, a.length),
-        0
-    );
+    const longestColumn = columns.reduce((n, a) => Math.max(n, a.length), 0);
 
     for (let i = 0; i < head.length; i++) {
         const column = columns[i];
@@ -89,7 +85,9 @@ function cliTable(head, columns) {
                 rows[j] = [];
             }
 
-            const value = (rows[j][i] = hasOwnProperty(column, j) ? column[j] : '');
+            const value = (rows[j][i] = hasOwnProperty(column, j)
+                ? column[j]
+                : '');
             const width = columnWidths[i] || 0;
             const counted = countBytes(value);
 
@@ -97,25 +95,26 @@ function cliTable(head, columns) {
         }
     }
 
-    const divider = columnWidths.map(i => tableChars.middleMiddle.repeat(i + 2));
+    const divider = columnWidths.map(i =>
+        tableChars.middleMiddle.repeat(i + 2)
+    );
 
     let result =
-    `${tableChars.topLeft}${divider.join(tableChars.topMiddle)}` +
-    `${tableChars.topRight}\n${renderRow(head, columnWidths)}\n` +
-    `${tableChars.leftMiddle}${divider.join(tableChars.rowMiddle)}` +
-    `${tableChars.rightMiddle}\n`;
+        `${tableChars.topLeft}${divider.join(tableChars.topMiddle)}` +
+        `${tableChars.topRight}\n${renderRow(head, columnWidths)}\n` +
+        `${tableChars.leftMiddle}${divider.join(tableChars.rowMiddle)}` +
+        `${tableChars.rightMiddle}\n`;
 
     for (const row of rows) {
         result += `${renderRow(row, columnWidths)}\n`;
     }
 
     result +=
-    `${tableChars.bottomLeft}${divider.join(tableChars.bottomMiddle)}` +
-    tableChars.bottomRight;
+        `${tableChars.bottomLeft}${divider.join(tableChars.bottomMiddle)}` +
+        tableChars.bottomRight;
 
     return result;
 }
-
 
 class Console {
     log(...args) {
@@ -151,8 +150,8 @@ class Console {
     table(data, properties) {
         if (properties !== undefined && !Array.isArray(properties)) {
             throw new Error(
-                'The \'properties\' argument must be of type Array. ' +
-              'Received type string'
+                "The 'properties' argument must be of type Array. " +
+                    'Received type string'
             );
         }
 
@@ -167,8 +166,8 @@ class Console {
         const stringifyValue = value => util.format(value);
         const toTable = (header, body) => this.log(cliTable(header, body));
         const createColumn = (value, shift) => [
-            ...(shift ? [ ...new Array(shift) ].map(() => '') : []),
-            stringifyValue(value)
+            ...(shift ? [...new Array(shift)].map(() => '') : []),
+            stringifyValue(value),
         ];
 
         let resultData;
@@ -178,49 +177,43 @@ class Console {
         const indexKey = isSet || isMap ? '(iteration index)' : '(index)';
 
         if (data instanceof Set) {
-            resultData = [ ...data ];
+            resultData = [...data];
         } else if (data instanceof Map) {
             let idx = 0;
 
             resultData = {};
 
-            data.forEach(
-                (v, k) => {
-                    resultData[idx] = { Key: k, Values: v };
-                    idx++;
-                }
-            );
+            data.forEach((v, k) => {
+                resultData[idx] = { Key: k, Values: v };
+                idx++;
+            });
         } else {
             resultData = data;
         }
 
-        Object.keys(resultData).forEach(
-            (k, idx) => {
-                const value = resultData[k];
+        Object.keys(resultData).forEach((k, idx) => {
+            const value = resultData[k];
 
-                if (value !== null && typeof value === 'object') {
-                    Object.entries(value).forEach(
-                        ([ k, v ]) => {
-                            if (properties && !properties.includes(k)) {
-                                return;
-                            }
+            if (value !== null && typeof value === 'object') {
+                Object.entries(value).forEach(([k, v]) => {
+                    if (properties && !properties.includes(k)) {
+                        return;
+                    }
 
-                            if (objectValues[k]) {
-                                objectValues[k].push(stringifyValue(v));
-                            } else {
-                                objectValues[k] = createColumn(v, idx);
-                            }
-                        }
-                    );
+                    if (objectValues[k]) {
+                        objectValues[k].push(stringifyValue(v));
+                    } else {
+                        objectValues[k] = createColumn(v, idx);
+                    }
+                });
 
-                    values.push('');
-                } else {
-                    values.push(stringifyValue(value));
-                }
-
-                indexKeys.push(k);
+                values.push('');
+            } else {
+                values.push(stringifyValue(value));
             }
-        );
+
+            indexKeys.push(k);
+        });
 
         const headerKeys = Object.keys(objectValues);
         const bodyValues = Object.values(objectValues);
@@ -228,10 +221,10 @@ class Console {
             indexKey,
             ...(properties || [
                 ...headerKeys,
-                !isMap && values.length > 0 && valuesKey
-            ])
+                !isMap && values.length > 0 && valuesKey,
+            ]),
         ].filter(Boolean);
-        const body = [ indexKeys, ...bodyValues, values ];
+        const body = [indexKeys, ...bodyValues, values];
 
         toTable(header, body);
     }
@@ -249,10 +242,9 @@ class Console {
     }
 }
 
-
 Object.defineProperty(window, 'console', {
     enumerable: true,
     configurable: true,
     writable: true,
-    value: new Console()
+    value: new Console(),
 });

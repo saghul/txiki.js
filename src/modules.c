@@ -29,6 +29,7 @@
 
 #include <string.h>
 
+extern void *tjs__precompiled_lookup(const char *name, int **size);
 
 JSModuleDef *tjs__load_http(JSContext *ctx, const char *url) {
     JSModuleDef *m;
@@ -65,6 +66,16 @@ end:
     return m;
 }
 
+// char *substringend(const char *value, size_t from_index) {
+//     const size_t value_len = strlen(value);
+//     const size_t substring_len = value_len - from_index;
+//     char *substring = malloc(substring_len + 1);
+//     memcpy(substring, &value[from_index + 1], substring_len);
+//     substring[substring_len] = '\0';
+
+//     return substring;
+// }
+
 JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *opaque) {
     static const char http[] = "http://";
     static const char https[] = "https://";
@@ -75,6 +86,22 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     JSValue func_val;
     int r, is_json;
     DynBuf dbuf;
+    int *module_size_ptr;
+
+    printf("Loading module: %s\n", module_name);
+
+    const uint8_t *module_buffer = (const uint8_t *) tjs__precompiled_lookup(module_name, &module_size_ptr);
+
+    if (module_buffer != NULL) {
+
+        printf("Found module in compile cache: %s\n", module_name);
+        
+        JSValue obj = JS_ReadObject(ctx, module_buffer, *module_size_ptr, JS_READ_OBJ_BYTECODE);
+        m = JS_VALUE_GET_PTR(obj);
+
+        JS_FreeValue(ctx, obj);
+        return m;
+    }
 
     if (strncmp(http, module_name, strlen(http)) == 0 || strncmp(https, module_name, strlen(https)) == 0) {
         return tjs__load_http(ctx, module_name);
@@ -121,10 +148,10 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
 
 #define TJS__PATHSEP_POSIX '/'
 #if defined(_WIN32)
-#define TJS__PATHSEP '\\'
+#define TJS__PATHSEP     '\\'
 #define TJS__PATHSEP_STR "\\"
 #else
-#define TJS__PATHSEP '/'
+#define TJS__PATHSEP     '/'
 #define TJS__PATHSEP_STR "/"
 #endif
 
@@ -202,7 +229,7 @@ static inline void tjs__normalize_pathsep(const char *name) {
         }
     }
 #else
-    (void)name;
+    (void) name;
 #endif
 }
 

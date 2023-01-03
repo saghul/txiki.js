@@ -32,8 +32,6 @@
 
 extern const uint8_t tjs__core[];
 extern const uint32_t tjs__core_size;
-extern const uint8_t tjs__std[];
-extern const uint32_t tjs__std_size;
 extern const uint8_t tjs__run_main[];
 extern const uint32_t tjs__run_main_size;
 
@@ -206,11 +204,18 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JS_DupValue(qrt->ctx, bootstrap_ns);  // JS_SetProperty frees the value.
     JS_SetProperty(qrt->ctx, global_obj, bootstrap_ns_atom, bootstrap_ns);
 
+    /* Load some builtin references for easy access */
+    qrt->builtins.date_ctor = JS_GetPropertyStr(qrt->ctx, global_obj, "Date");
+    CHECK_EQ(JS_IsUndefined(qrt->builtins.date_ctor), 0);
+    qrt->builtins.u8array_ctor = JS_GetPropertyStr(qrt->ctx, global_obj, "Uint8Array");
+    CHECK_EQ(JS_IsUndefined(qrt->builtins.u8array_ctor), 0);
+
     tjs__bootstrap_core(qrt->ctx, bootstrap_ns);
+
     CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__core, tjs__core_size), 0);
 
-    /* standard library */
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__std, tjs__std_size), 0);
+    // /* standard library */
+    // CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__std, tjs__std_size), 0);
 
     /* end bootstrap */
     JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);
@@ -219,12 +224,6 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     /* WASM */
     qrt->wasm_ctx.env = m3_NewEnvironment();
-
-    /* Load some builtin references for easy access */
-    qrt->builtins.date_ctor = JS_GetPropertyStr(qrt->ctx, global_obj, "Date");
-    CHECK_EQ(JS_IsUndefined(qrt->builtins.date_ctor), 0);
-    qrt->builtins.u8array_ctor = JS_GetPropertyStr(qrt->ctx, global_obj, "Uint8Array");
-    CHECK_EQ(JS_IsUndefined(qrt->builtins.u8array_ctor), 0);
 
     JS_FreeValue(qrt->ctx, global_obj);
 

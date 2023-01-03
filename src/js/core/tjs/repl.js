@@ -102,10 +102,8 @@ function _run(g) {
 
     var { evalScript } = tjs[Symbol.for('tjs.internal')];
 
-    var encoder = new TextEncoder();
-
     function stdout_write(data) {
-        tjs.stdout.write(encoder.encode(data));
+        tjs.stdout.write(tjs.textEncode(data));
     }
 
     function termInit() {
@@ -1521,10 +1519,10 @@ function _run(g) {
 }
 
 export async function runRepl() {
-    const std = await import('@tjs/std');
+    // const std = await import('@tjs/std');
 
-    /* expose stdlib */
-    globalThis.std = std;
+    // /* expose stdlib */
+    // globalThis.std = std;
     
     window.addEventListener('unhandledrejection', event => {
         // Avoid aborting in unhandled promised on the REPL.

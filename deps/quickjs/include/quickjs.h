@@ -1028,6 +1028,8 @@ void JS_SetPropertyFunctionList(JSContext *ctx, JSValueConst obj,
 
 typedef int JSModuleInitFunc(JSContext *ctx, JSModuleDef *m);
 
+JSValue js_get_module_ns(JSContext *ctx, JSModuleDef *m);
+
 JSModuleDef *JS_NewCModule(JSContext *ctx, const char *name_str,
                            JSModuleInitFunc *func);
 /* can only be called before the module is instantiated */

@@ -8,4 +8,5 @@ src/js/std.js
 src/version.h
 node_modules/
 docs/api/
+bundles/
 

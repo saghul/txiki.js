@@ -83,7 +83,7 @@ add_executable(tjs
     src/ws.c
     src/xhr.c
     src/js/core.c
-    src/js/std.c
+    src/js/precompiled.c
     src/js/run-main.c
     ../deps/quickjs/src/cutils.c
 )

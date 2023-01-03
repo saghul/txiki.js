@@ -234,7 +234,12 @@ JSModuleDef *jsc_module_loader(JSContext *ctx, const char *module_name, void *op
     return m;
 }
 
-static void compile_file(JSContext *ctx, FILE *fo, const char *filename, int module, const char *prefix, const char *modname) {
+static void compile_file(JSContext *ctx,
+                         FILE *fo,
+                         const char *filename,
+                         int module,
+                         const char *prefix,
+                         const char *modname) {
     uint8_t *buf;
     char c_name[1024];
     int eval_flags;
