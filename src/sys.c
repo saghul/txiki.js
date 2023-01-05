@@ -24,10 +24,12 @@
 
 #include "private.h"
 #include "version.h"
+#include "uuid4.h"
 
 #include <string.h>
 #include <unistd.h>
 #include <uv.h>
+#include <time.h>
 
 static JSValue js_textDecode(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     size_t size;
@@ -147,8 +149,6 @@ static JSValue js_require(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     JSValue ns;
     const char *filename;
 
-
-
     basename_atom = JS_GetScriptOrModuleName(ctx, 0);
     if (basename_atom == JS_ATOM_NULL)
         basename_val = JS_NULL;
@@ -160,9 +160,6 @@ static JSValue js_require(JSContext *ctx, JSValueConst this_val, int argc, JSVal
 
     const char *basename = NULL;
     basename = JS_ToCString(ctx, basename_val);
-
-    
-
     filename = JS_ToCString(ctx, argv[0]);
 
     m = JS_RunModule(ctx, basename, filename);
@@ -182,6 +179,12 @@ static JSValue js_require(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return JS_UNDEFINED;
 }
 
+static JSValue js_uuidv4(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    static __thread char out[UUID4_LEN];
+    uuid4_generate(out);
+    return JS_NewString(ctx,out);
+}
+
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("gc", 0, js_std_gc),
     TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
@@ -193,9 +196,13 @@ static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("textDecode", 1, js_textDecode),
     TJS_CFUNC_DEF("textEncode", 1, js_textEncode),
     TJS_CFUNC_DEF("require", 1, js_require),
+    TJS_CFUNC_DEF("uuidv4", 0, js_uuidv4),
 };
 
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {
+
+    uuid4_init();
+
     JS_SetPropertyFunctionList(ctx, ns, tjs_sys_funcs, countof(tjs_sys_funcs));
     JS_DefinePropertyValueStr(ctx, ns, "args", tjs__get_args(ctx), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "version", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);

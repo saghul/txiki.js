@@ -195,10 +195,5 @@ class WebAssembly {
     }
 }
 
+export const WebAssemblyInstance = new WebAssembly();
 
-Object.defineProperty(globalThis, 'WebAssembly', {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: new WebAssembly()
-});

@@ -2,7 +2,7 @@
     "name": "txiki.js",
     "version": "0.0.0",
     "description": "Utilities for txiki.js",
-    "type":"module",
+    "type": "module",
     "private": true,
     "scripts": {
         "postinstall": "patch-package",
@@ -20,6 +20,7 @@
         "esbuild": "^0.16.12",
         "eslint": "^8.31.0",
         "eslint-plugin-import": "^2.26.0",
+        "fetch-blob": "^3.2.0",
         "getopts": "^2.3.0",
         "gh-pages": "^4.0.0",
         "ipaddr.js": "^2.0.1",
@@ -35,9 +36,9 @@
         "typedoc": "^0.23.16",
         "urlpattern-polyfill": "^6.0.1",
         "util": "^0.12.5",
-        "uuid": "^9.0.0",
         "web-streams-polyfill": "^3.2.1",
-        "whatwg-fetch": "^3.6.2"
+        "whatwg-fetch": "^3.6.2",
+        "whatwg-url-without-unicode": "^8.0.0-3"
     },
     "devDependencies": {
         "eslint-config-prettier": "^8.5.0"

@@ -23,46 +23,32 @@
  */
 
 #include "private.h"
-#include "tjs.h"
 
-JSValue tjs__eval_bytecode_value(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
+
+int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
     JSValue obj = JS_ReadObject(ctx, buf, buf_len, JS_READ_OBJ_BYTECODE);
-
-    JSModuleDef *m;
-
-    JSValue val = JS_NULL;
 
     if (JS_IsException(obj))
         goto error;
 
     if (JS_VALUE_GET_TAG(obj) == JS_TAG_MODULE) {
         if (JS_ResolveModule(ctx, obj) < 0) {
-            val = JS_ThrowTypeError(ctx, "failed to resolve module");
+            JS_FreeValue(ctx, obj);
             goto error;
         }
 
         js_module_set_import_meta(ctx, obj, FALSE, FALSE);
     }
 
-    val = JS_EvalFunction(ctx, obj);
+    JSValue val = JS_EvalFunction(ctx, obj);
     if (JS_IsException(val))
         goto error;
-
-    return val;
-
-error:
-    tjs_dump_error(ctx);
-    return val;
-}
-
-int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
-    JSValue val = tjs__eval_bytecode_value(ctx, buf, buf_len);
-
-    if (JS_IsException(val)) {
-        return -1;
-    }
 
     JS_FreeValue(ctx, val);
 
     return 0;
+
+error:
+    tjs_dump_error(ctx);
+    return -1;
 }

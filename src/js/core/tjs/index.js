@@ -2,152 +2,111 @@ const core = globalThis.__bootstrap;
 
 import '../polyfills/base';
 import '../polyfills/event-target-polyfill';
-
-// import { alert, confirm, prompt } from './alert-confirm-prompt.js';
-// import { evalStdin } from './eval-stdin.js';
-// import * as FFI from './ffi.js';
-// import { open, mkstemp } from './fs.js';
-// import { PosixSocket } from './posix-socket.js';
-// import { runRepl } from './repl.js';
-// import { runTests } from './run-tests.js';
-// import { signal } from './signal.js';
-// import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
-// import { bootstrapWorker } from './worker-bootstrap.js';
+
+
+const defineLazyProperties = core.defineLazyProperties;
 
 // The "tjs" global.
-//
-
 const tjs = Object.create(null);
-// const noExport = [
-//   "STDIN_FILENO",
-//   "STDOUT_FILENO",
-//   "STDERR_FILENO",
-//   "TCP_IPV6ONLY",
-//   "UDP_IPV6ONLY",
-//   "UDP_REUSEADDR",
-//   "Pipe",
-//   "TCP",
-//   "TTY",
-//   "UDP",
-//   "Worker",
-//   "XMLHttpRequest",
-//   "clearInterval",
-//   "clearTimeout",
-//   "environ",
-//   "evalFile",
-//   "evalScript",
-//   "ffi",
-//   "guessHandle",
-//   "hrtimeMs",
-//   "isStdinTty",
-//   "mkstemp",
-//   "newStdioFile",
-//   "open",
-//   "posix_socket",
-//   "random",
-//   "setInterval",
-//   "setMaxStackSize",
-//   "setMemoryLimit",
-//   "setTimeout",
-//   "signal",
-//   "signals",
-//   "wasm",
-// ];
 
-// for (const [key, value] of Object.entries(core)) {
-//   if (noExport.includes(key)) {
-//     continue;
-//   }
 
-//   tjs[key] = value;
-// }
+const noExport = new Set([
+    'STDIN_FILENO',
+    'STDOUT_FILENO',
+    'STDERR_FILENO',
+    'TCP_IPV6ONLY',
+    'UDP_IPV6ONLY',
+    'UDP_REUSEADDR',
+    'Pipe',
+    'TCP',
+    'TTY',
+    'UDP',
+    'Worker',
+    'XMLHttpRequest',
+    'clearInterval',
+    'clearTimeout',
+    'environ',
+    'evalFile',
+    'evalScript',
+    'ffi',
+    'guessHandle',
+    'hrtimeMs',
+    'isStdinTty',
+    'mkstemp',
+    'newStdioFile',
+    'open',
+    'posix_socket',
+    'random',
+    'setInterval',
+    'setMaxStackSize',
+    'setMemoryLimit',
+    'setTimeout',
+    'signal',
+    'signals',
+    'wasm',
+]);
 
-// // These values should be immutable.
+for (const [ key, value ] of Object.entries(core)) {
+    if (noExport.has(key)) {
+        continue;
+    }
+
+    tjs[key] = value;
+}
+
+// These values should be immutable.
 tjs.args = Object.freeze(core.args);
-// tjs.versions = Object.freeze(core.versions);
+tjs.versions = Object.freeze(core.versions);
 
-// // Alert, confirm, prompt.
-// // These differ slightly from browsers, they are async.
-// Object.defineProperty(tjs, "alert", {
-//   enumerable: true,
-//   configurable: false,
-//   writable: false,
-//   value: alert,
-// });
-// Object.defineProperty(tjs, "confirm", {
-//   enumerable: true,
-//   configurable: false,
-//   writable: false,
-//   value: confirm,
-// });
-// Object.defineProperty(tjs, "prompt", {
-//   enumerable: true,
-//   configurable: false,
-//   writable: false,
-//   value: prompt,
-// });
+// Alert, confirm, prompt.
+// These differ slightly from browsers, they are async.
+defineLazyProperties(tjs,'@tjs/alert-confirm-prompt',[ 'alert','confirm','prompt' ]);
 
-// // Getters.
-// Object.defineProperty(tjs, "environ", {
-//   enumerable: true,
-//   configurable: false,
-//   get() {
-//     return core.environ();
-//   },
-// });
-// Object.defineProperty(tjs, "pid", {
-//   enumerable: true,
-//   configurable: false,
-//   get() {
-//     return core.getPid();
-//   },
-// });
-// Object.defineProperty(tjs, "ppid", {
-//   enumerable: true,
-//   configurable: false,
-//   get() {
-//     return core.getPpid();
-//   },
-// });
+// Getters.
+Object.defineProperty(tjs, 'environ', {
+    enumerable: true,
+    configurable: false,
+    get() {
+        return core.environ();
+    },
+});
+Object.defineProperty(tjs, 'pid', {
+    enumerable: true,
+    configurable: false,
+    get() {
+        return core.getPid();
+    },
+});
+Object.defineProperty(tjs, 'ppid', {
+    enumerable: true,
+    configurable: false,
+    get() {
+        return core.getPpid();
+    },
+});
 
-// // FS.
-// Object.defineProperty(tjs, "open", {
-//   enumerable: true,
-//   configurable: false,
-//   writable: false,
-//   value: open,
-// });
-// Object.defineProperty(tjs, "mkstemp", {
-//   enumerable: true,
-//   configurable: false,
-//   writable: false,
-//   value: mkstemp,
-// });
+// FS.
+defineLazyProperties(tjs,'@tjs/fs',[ 'open','mkstemp' ]);
 
-// // Signals.
-// Object.defineProperty(tjs, "signal", {
-//   enumerable: true,
-//   configurable: false,
-//   writable: false,
-//   value: signal,
-// });
+// Signals.
+defineLazyProperties(tjs,'@tjs/signal',[ 'signal' ]);
 
-// // Sockets.
-// Object.defineProperty(tjs, "connect", {
-//   enumerable: true,
-//   configurable: false,
-//   writable: false,
-//   value: connect,
-// });
-// Object.defineProperty(tjs, "listen", {
-//   enumerable: true,
-//   configurable: false,
-//   writable: false,
-//   value: listen,
-// });
+// Sockets.
+defineLazyProperties(tjs,'@tjs/sockets',[ 'connect','listen' ]);
 
-// // Stdio.
+// FFI
+Object.defineProperty(tjs, 'FFI', {
+    enumerable: true,
+    get: () =>  core.require('@tjs/ffi'),
+    set:() => {}
+});
+
+if (core.posix_socket) {
+    defineLazyProperties(tjs,'@tjs/posix-socket',[ 'PosixSocket' ]);
+}
+
+// Stdio.
 Object.defineProperty(tjs, 'stdin', {
     enumerable: true,
     configurable: false,
@@ -181,29 +140,35 @@ Object.defineProperty(tjs, 'textDecode', {
     value: core.textDecode,
 });
 
-// // FFI
-// Object.defineProperty(tjs, "ffi", {
-//   enumerable: true,
-//   configurable: false,
-//   writable: false,
-//   value: FFI,
-// });
+function getCircularReplacer() {
+    const seen = new WeakSet();
 
-// if (core.posix_socket) {
-//   Object.defineProperty(tjs, "PosixSocket", {
-//     enumerable: true,
-//     configurable: false,
-//     writable: false,
-//     value: PosixSocket,
-//   });
-// }
+    return (_, value) => {
+        if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) {
+                return;
+            }
+
+            seen.add(value);
+        }
+
+        return value;
+    };
+}
 
 function print(...args) {
     const text =
         args
             .map(a => {
-                if (typeof a === 'object') {
-                    return JSON.stringify(a);
+                const type = typeof a;
+
+                switch (type) {
+                    case 'undefined':
+                        return 'undefined';
+                    case 'object':
+                        return JSON.stringify(a,getCircularReplacer(),2);
+                    case 'function':
+                        return `[function: ${a.name || '(anonymous)'}]`;
                 }
 
                 return a.toString();
@@ -213,18 +178,28 @@ function print(...args) {
     tjs.stdout.write(core.textEncode(text));
 }
 
-class Console {
-    log(...args) {
-        print(...args);
-    }
-}
+const console = {
+    log: print,
+    info: print,
+    warn: print,
+    error:print,
+    assert: (expression, ...args) => {
+        if (!expression) {
+            print(...args);
+        }
+    },
+    dir: print,
+    dirxml:print
+};
 
 Object.defineProperty(globalThis, 'console', {
     enumerable: true,
     configurable: false,
     writable: false,
-    value: new Console(),
+    value: console,
 });
+
+defineLazyProperties(console,'@tjs/internal/polyfill/console',[ 'table','trace' ]);
 
 // // Internal stuff needed by the runtime.
 const kInternal = Symbol.for('tjs.internal');
@@ -238,28 +213,15 @@ const internals = [
 ];
 
 tjs[kInternal] = Object.create(null);
-const interalObj = tjs[kInternal];
+const internalObj = tjs[kInternal];
 
 for (const propName of internals) {
-    interalObj[propName] = core[propName];
+    internalObj[propName] = core[propName];
 }
 
-// tjs[kInternal]["bootstrapWorker"] = bootstrapWorker;
-// tjs[kInternal]["evalStdin"] = evalStdin;
-// tjs[kInternal]["runTests"] = runTests;
-
-function lazyImport(obj, key, module, value) {
-    if (!value) {
-        value = key;
-    }
-
-    Object.defineProperty(obj, key, {
-        get: () => core.require(module)[key],
-        set: () => {}
-    });
-}
-
-lazyImport(interalObj, 'runRepl', '@tjs/repl', 'runRepl');
+defineLazyProperties(internalObj,  '@tjs/repl', [ 'runRepl' ]);
+defineLazyProperties(internalObj,  '@tjs/run-tests', [ 'runTests' ]);
+defineLazyProperties(internalObj,  '@tjs/worker-bootstrap', [ 'bootstrapWorker' ]);
 
 // tjs global.
 Object.defineProperty(globalThis, 'tjs', {
@@ -268,3 +230,54 @@ Object.defineProperty(globalThis, 'tjs', {
     writable: false,
     value: Object.freeze(tjs),
 });
+
+// polyfills
+// URL
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/url',[ 'URL', 'URLSeachParams' ]);
+
+// URLPattern
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/url-pattern',[ 'URLPattern' ]);
+
+// XHR
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/xhr',[ 'XMLHttpRequest' ]);
+
+// fetch
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/whatwg-fetch',[ 'Headers','Request','Response','fetch' ]);
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/abortcontroller',[ 'AbortController' ]);
+
+// web streams
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/web-streams', [ 'ByteLengthQueuingStrategy',
+    'CountQueuingStrategy',
+    'ReadableByteStreamController',
+    'ReadableStream',
+    'ReadableStreamBYOBReader',
+    'ReadableStreamBYOBRequest',
+    'ReadableStreamDefaultController',
+    'ReadableStreamDefaultReader',
+    'TransformStream',
+    'TransformStreamDefaultController',
+    'WritableStream',
+    'WritableStreamDefaultController',
+    'WritableStreamDefaultWriter' ]);
+
+// text encoding (remove in favor of encoding from qjs?)
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/text-encoding',[ 'TextEncoder', 'TextDecode' ]);
+
+// blob
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/blob',[ 'Blob' ]);
+
+// crypto
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/crypto', 'crypto');
+
+// performance
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/performance',[ 'performance' ]);
+
+// wasm
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/wasm',[ 'WebAssemblyInstance' ],[ 'WebAssembly' ]);
+
+// worker
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/worker', [ 'Worker' ]);
+
+// ws
+defineLazyProperties(globalThis,'@tjs/internal/polyfill/ws', [ 'WebSocket' ]);
+

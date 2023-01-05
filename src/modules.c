@@ -88,13 +88,9 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     DynBuf dbuf;
     int *module_size_ptr;
 
-    printf("Loading module: %s\n", module_name);
-
     const uint8_t *module_buffer = (const uint8_t *) tjs__precompiled_lookup(module_name, &module_size_ptr);
 
     if (module_buffer != NULL) {
-
-        printf("Found module in compile cache: %s\n", module_name);
         
         JSValue obj = JS_ReadObject(ctx, module_buffer, *module_size_ptr, JS_READ_OBJ_BYTECODE);
         m = JS_VALUE_GET_PTR(obj);

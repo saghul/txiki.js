@@ -95,10 +95,4 @@ class Performance {
     }
 }
 
-
-Object.defineProperty(window, 'performance', {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: new Performance()
-});
+export const performance = new Performance();

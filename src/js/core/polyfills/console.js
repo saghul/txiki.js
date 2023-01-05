@@ -1,14 +1,5 @@
 /* global tjs */
-
-import util from 'util';
-
-const encoder = new TextEncoder();
-
-function print() {
-    const text = util.format.apply(null, arguments) + '\n';
-
-    tjs.stdout.write(encoder.encode(text));
-}
+const encode = tjs.textEncode;
 
 // Copyright Joyent, Inc. and other Node contributors. MIT license.
 // Forked from Node's lib/internal/cli_table.js
@@ -47,7 +38,7 @@ function removeColors(str) {
 function countBytes(str) {
     const normalized = removeColors(String(str)).normalize('NFC');
 
-    return encoder.encode(normalized).byteLength;
+    return encode(normalized).byteLength;
 }
 
 function renderRow(row, columnWidths) {
@@ -116,135 +107,97 @@ function cliTable(head, columns) {
     return result;
 }
 
-class Console {
-    log(...args) {
-        print(...args);
-    }
-
-    info(...args) {
-        print(...args);
-    }
-
-    warn(...args) {
-        print(...args);
-    }
-
-    error(...args) {
-        print(...args);
-    }
-
-    assert(expression, ...args) {
-        if (!expression) {
-            this.error(...args);
-        }
-    }
-
-    dir(o) {
-        this.log(util.inspect(o));
-    }
-
-    dirxml(o) {
-        this.dir(o);
-    }
-
-    table(data, properties) {
-        if (properties !== undefined && !Array.isArray(properties)) {
-            throw new Error(
-                "The 'properties' argument must be of type Array. " +
+export function table(data, properties) {
+    if (properties !== undefined && !Array.isArray(properties)) {
+        throw new Error(
+            'The \'properties\' argument must be of type Array. ' +
                     'Received type string'
-            );
-        }
+        );
+    }
 
-        if (data === null || typeof data !== 'object') {
-            return this.log(data);
-        }
+    if (data === null || typeof data !== 'object') {
+        return this.log(data);
+    }
 
-        const objectValues = {};
-        const indexKeys = [];
-        const values = [];
+    const objectValues = {};
+    const indexKeys = [];
+    const values = [];
 
-        const stringifyValue = value => util.format(value);
-        const toTable = (header, body) => this.log(cliTable(header, body));
-        const createColumn = (value, shift) => [
-            ...(shift ? [...new Array(shift)].map(() => '') : []),
-            stringifyValue(value),
-        ];
+    const stringifyValue = value => util.format(value);
+    const toTable = (header, body) => this.log(cliTable(header, body));
+    const createColumn = (value, shift) => [
+        ...(shift ? [ ...new Array(shift) ].map(() => '') : []),
+        stringifyValue(value),
+    ];
 
-        let resultData;
-        const isSet = data instanceof Set;
-        const isMap = data instanceof Map;
-        const valuesKey = 'Values';
-        const indexKey = isSet || isMap ? '(iteration index)' : '(index)';
+    let resultData;
+    const isSet = data instanceof Set;
+    const isMap = data instanceof Map;
+    const valuesKey = 'Values';
+    const indexKey = isSet || isMap ? '(iteration index)' : '(index)';
 
-        if (data instanceof Set) {
-            resultData = [...data];
-        } else if (data instanceof Map) {
-            let idx = 0;
+    if (data instanceof Set) {
+        resultData = [ ...data ];
+    } else if (data instanceof Map) {
+        let idx = 0;
 
-            resultData = {};
+        resultData = {};
 
-            data.forEach((v, k) => {
-                resultData[idx] = { Key: k, Values: v };
-                idx++;
-            });
-        } else {
-            resultData = data;
-        }
-
-        Object.keys(resultData).forEach((k, idx) => {
-            const value = resultData[k];
-
-            if (value !== null && typeof value === 'object') {
-                Object.entries(value).forEach(([k, v]) => {
-                    if (properties && !properties.includes(k)) {
-                        return;
-                    }
-
-                    if (objectValues[k]) {
-                        objectValues[k].push(stringifyValue(v));
-                    } else {
-                        objectValues[k] = createColumn(v, idx);
-                    }
-                });
-
-                values.push('');
-            } else {
-                values.push(stringifyValue(value));
-            }
-
-            indexKeys.push(k);
+        data.forEach((v, k) => {
+            resultData[idx] = { Key: k, Values: v };
+            idx++;
         });
-
-        const headerKeys = Object.keys(objectValues);
-        const bodyValues = Object.values(objectValues);
-        const header = [
-            indexKey,
-            ...(properties || [
-                ...headerKeys,
-                !isMap && values.length > 0 && valuesKey,
-            ]),
-        ].filter(Boolean);
-        const body = [indexKeys, ...bodyValues, values];
-
-        toTable(header, body);
+    } else {
+        resultData = data;
     }
 
-    trace(...args) {
-        const err = new Error();
+    Object.keys(resultData).forEach((k, idx) => {
+        const value = resultData[k];
 
-        err.name = 'Trace';
-        err.message = args.map(String).join(' ');
-        const tmpStack = err.stack.split('\n');
+        if (value !== null && typeof value === 'object') {
+            Object.entries(value).forEach(([ k, v ]) => {
+                if (properties && !properties.includes(k)) {
+                    return;
+                }
 
-        tmpStack.splice(0, 1);
-        err.stack = tmpStack.join('\n');
-        this.error(err);
-    }
+                if (objectValues[k]) {
+                    objectValues[k].push(stringifyValue(v));
+                } else {
+                    objectValues[k] = createColumn(v, idx);
+                }
+            });
+
+            values.push('');
+        } else {
+            values.push(stringifyValue(value));
+        }
+
+        indexKeys.push(k);
+    });
+
+    const headerKeys = Object.keys(objectValues);
+    const bodyValues = Object.values(objectValues);
+    const header = [
+        indexKey,
+        ...(properties || [
+            ...headerKeys,
+            !isMap && values.length > 0 && valuesKey,
+        ]),
+    ].filter(Boolean);
+    const body = [ indexKeys, ...bodyValues, values ];
+
+    toTable(header, body);
 }
 
-Object.defineProperty(window, 'console', {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: new Console(),
-});
+export function trace(...args) {
+    const err = new Error();
+
+    err.name = 'Trace';
+    err.message = args.map(String).join(' ');
+    const tmpStack = err.stack.split('\n');
+
+    tmpStack.splice(0, 1);
+    err.stack = tmpStack.join('\n');
+    console.error(err);
+}
+

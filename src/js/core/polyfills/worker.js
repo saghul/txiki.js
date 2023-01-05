@@ -1,6 +1,6 @@
 const { Worker: _Worker } = globalThis.__bootstrap;
 
-import { defineEventAttribute } from './event-target';
+import { defineEventAttribute } from '@tjs/internal/polyfill/event-target';
 
 const kWorker = Symbol('kWorker');
 
@@ -40,9 +40,6 @@ defineEventAttribute(workerProto, 'message');
 defineEventAttribute(workerProto, 'messageerror');
 defineEventAttribute(workerProto, 'error');
 
-Object.defineProperty(window, 'Worker', {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: Worker
-});
+export {
+    Worker
+};

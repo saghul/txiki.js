@@ -25,17 +25,6 @@ cat << EOF >> $FILE
 
 #define SEED    0x12345678
 
-static inline uint32_t tjs__murmur_oaat_32(const char* str)
-{
-    uint32_t h = SEED;
-    for (; *str; ++str) {
-        h ^= *str;
-        h *= 0x5bd1e995;
-        h ^= h >> 15;
-    }
-    return h;
-}
-
 typedef struct lookup_item_t { const char *key; uint8_t key_len; void *value; uint32_t size;  } lookup_item_t;
 
 
@@ -51,7 +40,7 @@ do
       "core")
         MODULE_FILE_NAME="${FILE_PARTS[4]}"
         if [[ "${FILE_PARTS[3]}" == "polyfills" ]]; then
-            MODULE_BASE="polyfill"
+            MODULE_BASE="internal/polyfill"
         else
             MODULE_BASE=""
         fi
@@ -69,7 +58,7 @@ do
 
    if [ ! -z $MODULE_BASE ]; then
       MODULE_NAME="${MODULE_NAME}${MODULE_BASE}/"
-      COMPILED_NAME="${COMPILED_NAME}${MODULE_BASE}_"
+      COMPILED_NAME="${COMPILED_NAME}$(echo $MODULE_BASE | tr '/' '_')_"
    else
      COMPILED_NAME="${COMPILED_NAME}core_"
    fi

@@ -77,6 +77,7 @@ add_executable(tjs
     src/udp.c
     src/utils.c
     src/version.c
+    src/uuid4.c
     src/vm.c
     src/wasm.c
     src/worker.c

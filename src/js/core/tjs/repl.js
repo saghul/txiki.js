@@ -24,6 +24,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+const encode = tjs.textEncode;
 
 function _run(g) {
     /* close global objects */
@@ -103,7 +104,7 @@ function _run(g) {
     var { evalScript } = tjs[Symbol.for('tjs.internal')];
 
     function stdout_write(data) {
-        tjs.stdout.write(tjs.textEncode(data));
+        tjs.stdout.write(encode(data));
     }
 
     function termInit() {
@@ -215,6 +216,11 @@ function _run(g) {
     }
 
     function move_cursor(delta) {
+        const p = tjs.open("curors.txt", 'w');
+        p.then((a) => {
+            a.write(textEncode(delta));
+            a.write(textEncode('\n'));
+        })
         var i, l;
 
         if (delta > 0) {

@@ -170,6 +170,6 @@ void tjs__mod_signals_init(JSContext *ctx, JSValue ns) {
         }
     }
     JS_SetPropertyStr(ctx, ns, "signals", signals);
-
+    
     JS_SetPropertyFunctionList(ctx, ns, tjs_signal_funcs, countof(tjs_signal_funcs));
 }

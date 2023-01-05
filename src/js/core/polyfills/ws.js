@@ -1,6 +1,6 @@
 const { WebSocket: WS } = globalThis.__bootstrap;
 
-import { defineEventAttribute } from './event-target.js';
+import { defineEventAttribute } from '@tjs/internal/polyfill/event-target';
 
 const kWS = Symbol('kWS');
 const kWsBinaryType = Symbol('kWsBinaryType');
@@ -141,9 +141,6 @@ defineEventAttribute(xhrProto, 'error');
 defineEventAttribute(xhrProto, 'message');
 defineEventAttribute(xhrProto, 'open');
 
-Object.defineProperty(window, 'WebSocket', {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: WebSocket
-});
+export {
+    WebSocket
+};

@@ -360,7 +360,10 @@ int main(int argc, char **argv) {
             "/* File generated automatically by the QuickJS compiler. */\n"
             "\n"
             "#include <inttypes.h>\n"
-            "\n");
+            "\n"
+            "//%s\n",
+            modname
+            );
 
     for (i = optind; i < argc; i++) {
         const char *filename = argv[i];

@@ -8,6 +8,35 @@ globalThis.setInterval = core.setInterval;
 globalThis.clearInterval = core.clearInterval;
 globalThis.queueMicrotask = queueMicrotask;
 
+const noop = () => {};
+
+function defineLazyProperties(obj,module,moduleKeys,propertyKeys=[]) {
+    let key;
+    let propertyKey;
+    let mod;
+
+    for (let i = 0; i < moduleKeys.length; i++) {
+        key = moduleKeys[i];
+        propertyKey = propertyKeys[i]||key;
+        Object.defineProperty(obj, propertyKey, {
+            enumerable: true,
+            get: () => {
+                mod ??= core.require(module);
+
+                return mod[key];
+            },
+            set: noop
+        });
+    }
+}
+
+Object.defineProperty(core,'defineLazyProperties',{
+    enumerable:true,
+    writable: false,
+    configurable: false,
+    value: defineLazyProperties
+});
+
 Object.defineProperty(globalThis, 'global', {
     enumerable: true,
     get() {

@@ -187,7 +187,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(uv_check_init(&qrt->loop, &qrt->jobs.check), 0);
     qrt->jobs.check.data = qrt;
 
-    /* hande for stopping this runtime (also works from another thread) */
+    /* handle for stopping this runtime (also works from another thread) */
     CHECK_EQ(uv_async_init(&qrt->loop, &qrt->stop, uv__stop), 0);
     qrt->stop.data = qrt;
 
@@ -218,7 +218,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     // CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__std, tjs__std_size), 0);
 
     /* end bootstrap */
-    JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);
+    // JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);
     JS_FreeAtom(qrt->ctx, bootstrap_ns_atom);
     JS_FreeValue(qrt->ctx, bootstrap_ns);
 
@@ -318,6 +318,14 @@ void tjs_execute_jobs(JSContext *ctx) {
     }
 }
 
+// TODO: move to a path.c where we expose js path functions from <libgen.h>
+static const char *tjs_get_file_ext(const char* path) {
+    // Find the position of the last '.' in the string
+    const char* dot = strrchr(path, '.');
+    if(!dot || dot == path) return "";
+    return dot + 1;
+}
+
 static void uv__check_cb(uv_check_t *handle) {
     TJSRuntime *qrt = handle->data;
     CHECK_NOT_NULL(qrt);
@@ -340,8 +348,24 @@ int TJS_Run(TJSRuntime *qrt) {
     if (!qrt->is_worker) {
         uv_unref((uv_handle_t *) &qrt->stop);
 
-        /* If we are running the main interpreter, run the entrypoint. */
-        ret = tjs__eval_bytecode(qrt->ctx, tjs__run_main, tjs__run_main_size);
+        const char *arg1 = tjs__argv[1];
+        const char *file_ext;
+        if(arg1){
+            file_ext = tjs_get_file_ext(arg1);
+        }
+
+        /* If first argument is a JavaScript file, skip running main for performance benefits */
+        if(file_ext && (strcmp(file_ext,"js") == 0  || strcmp(file_ext,"mjs") == 0 || strcmp(file_ext,"cjs") == 0)){
+            JSValue val = TJS_EvalModule(qrt->ctx,arg1,true);
+            if (JS_IsException(val)) {
+                tjs_dump_error(qrt->ctx);
+                ret = -1;
+            }
+            JS_FreeValue(qrt->ctx, val);
+        }else{
+            /* If we are running the main interpreter, run the entrypoint. */
+            ret = tjs__eval_bytecode(qrt->ctx, tjs__run_main, tjs__run_main_size);
+        }
     }
 
     if (ret != 0)

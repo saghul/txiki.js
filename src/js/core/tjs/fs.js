@@ -1,4 +1,4 @@
-import { readableStreamForHandle, writableStreamForHandle } from './stream-utils.js';
+import { readableStreamForHandle, writableStreamForHandle } from '@tjs/stream-utils';
 
 const core = globalThis.__bootstrap;
 

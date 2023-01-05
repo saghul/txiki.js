@@ -1,7 +1,5 @@
 const core = globalThis.__bootstrap;
 
-import { v4 } from 'uuid';
-
 const TypedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
 const TypedArrayProto_toStringTag = Object.getOwnPropertyDescriptor(TypedArrayPrototype, Symbol.toStringTag).get;
 
@@ -34,20 +32,12 @@ function getRandomValues(obj) {
 }
 
 function randomUUID() {
-    return v4();
+    return core.uuidv4();
 }
 
-
-const crypto = Object.freeze({
+export const crypto = Object.freeze({
     getRandomValues,
     randomUUID,
     subtle: undefined
-});
-
-Object.defineProperty(window, 'crypto', {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: crypto
 });
 

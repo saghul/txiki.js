@@ -1,4 +1,4 @@
-import { defineEventAttribute, EventTarget, Event, CustomEvent } from './event-target.js';
+import { defineEventAttribute, EventTarget, Event, CustomEvent } from '@tjs/internal/polyfill/event-target';
 
 const kCloseEventCode = Symbol('kCloseEventCode');
 const kCloseEventReason = Symbol('kCloseEventReason');

@@ -1,6 +1,6 @@
 const { XMLHttpRequest: XHR } = globalThis.__bootstrap;
 
-import { defineEventAttribute } from './event-target.js';
+import { defineEventAttribute } from '@tjs/internal/polyfill/event-target';
 
 const kXHR = Symbol('kXHR');
 
@@ -148,9 +148,4 @@ defineEventAttribute(xhrProto, 'progress');
 defineEventAttribute(xhrProto, 'readystatechange');
 defineEventAttribute(xhrProto, 'timeout');
 
-Object.defineProperty(window, 'XMLHttpRequest', {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: XMLHttpRequest
-});
+export { XMLHttpRequest };
