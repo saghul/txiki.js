@@ -1,5 +1,4 @@
-import { assert } from '@tjs/std';
-
+import assert from '@tjs/std/assert';
 
 (async () => {
     assert.ok(tjs.pid > 0);

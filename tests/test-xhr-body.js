@@ -1,5 +1,4 @@
-import { assert } from '@tjs/std';
-
+import assert from '@tjs/std/assert';
 
 const data = JSON.stringify({ foo: 'bar', bar: 'baz' });
 const url = 'https://httpbin.org/post';

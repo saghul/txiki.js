@@ -1,5 +1,4 @@
-import { assert } from '@tjs/std';
-
+import assert from '@tjs/std/assert';
 
 const url = 'https://httpbin.org/delay/3';
 const xhr = new XMLHttpRequest();

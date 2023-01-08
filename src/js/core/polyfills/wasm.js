@@ -9,7 +9,6 @@ const kWasiLinked = Symbol('kWasiLinked');
 const kWasiStarted = Symbol('kWasiStarted');
 const kWasiOptions = Symbol('kWasiOptions');
 
-
 class CompileError extends Error {
     constructor(...args) {
         super(...args);
@@ -30,7 +29,6 @@ class RuntimeError extends Error {
         this.name = 'RuntimeError';
     }
 }
-
 
 function getWasmError(e) {
     switch (e.wasmError) {
@@ -97,7 +95,7 @@ function parseModule(buf) {
 
 class Module {
     constructor(buf) {
-        this[kWasmModule] =  parseModule(buf);
+        this[kWasmModule] = parseModule(buf);
     }
 
     static exports(module) {
@@ -141,7 +139,7 @@ class Instance {
 }
 
 class WASI {
-    wasiImport = 'w4s1';  // Doesn't matter right now.
+    wasiImport = 'w4s1'; // Doesn't matter right now.
 
     constructor(options = { args: [], env: {}, preopens: {} }) {
         this[kWasiStarted] = false;
@@ -159,7 +157,8 @@ class WASI {
         }
 
         if (!instance[kWasiLinked]) {
-            throw new Error('WASM instance doesn\'t have WASI linked');
+            // eslint-disable-next-line quotes
+            throw new Error("WASM instance doesn't have WASI linked");
         }
 
         if (!instance.exports._start) {
@@ -196,4 +195,3 @@ class WebAssembly {
 }
 
 export const WebAssemblyInstance = new WebAssembly();
-

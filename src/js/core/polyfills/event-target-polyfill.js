@@ -1,4 +1,9 @@
-import { defineEventAttribute, EventTarget, Event, CustomEvent } from '@tjs/internal/polyfill/event-target';
+import {
+    defineEventAttribute,
+    EventTarget,
+    Event,
+    CustomEvent,
+} from '@tjs/internal/polyfill/event-target';
 
 const kCloseEventCode = Symbol('kCloseEventCode');
 const kCloseEventReason = Symbol('kCloseEventReason');
@@ -121,50 +126,50 @@ Object.defineProperties(window, {
         enumerable: true,
         configurable: true,
         writable: true,
-        value: CloseEvent
+        value: CloseEvent,
     },
     EventTarget: {
         enumerable: true,
         configurable: true,
         writable: true,
-        value: EventTarget
+        value: EventTarget,
     },
     Event: {
         enumerable: true,
         configurable: true,
         writable: true,
-        value: Event
+        value: Event,
     },
     ErrorEvent: {
         enumerable: true,
         configurable: true,
         writable: true,
-        value: ErrorEvent
+        value: ErrorEvent,
     },
     MessageEvent: {
         enumerable: true,
         configurable: true,
         writable: true,
-        value: MessageEvent
+        value: MessageEvent,
     },
     PromiseRejectionEvent: {
         enumerable: true,
         configurable: true,
         writable: true,
-        value: PromiseRejectionEvent
+        value: PromiseRejectionEvent,
     },
     ProgressEvent: {
         enumerable: true,
         configurable: true,
         writable: true,
-        value: ProgressEvent
+        value: ProgressEvent,
     },
     CustomEvent: {
         enumerable: true,
         configurable: true,
         writable: true,
-        value: CustomEvent
-    }
+        value: CustomEvent,
+    },
 });
 
 Object.setPrototypeOf(window, EventTarget.prototype);

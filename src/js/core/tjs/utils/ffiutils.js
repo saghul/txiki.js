@@ -29,7 +29,11 @@ export default function init({ StructType, CFunction, PointerType }) {
             let index = offs;
             const firstToken = tokens[index];
 
-            if (firstToken === '[' || firstToken === '(' || firstToken === '{') {
+            if (
+                firstToken === '[' ||
+                firstToken === '(' ||
+                firstToken === '{'
+            ) {
                 index++;
                 statements._block = firstToken;
             }
@@ -63,18 +67,20 @@ export default function init({ StructType, CFunction, PointerType }) {
 
                     case '}':
                         if (firstToken !== '{') {
-                            throw new Error('Unexpected '+t);
+                            throw new Error('Unexpected ' + t);
                         }
 
                         if (stTokens.length > 0) {
-                            throw new Error('expected semicolon as last token of block');
+                            throw new Error(
+                                'expected semicolon as last token of block'
+                            );
                         }
 
                         return [ statements, index ];
 
                     case ')':
                         if (firstToken !== '(') {
-                            throw new Error('Unexpected '+t);
+                            throw new Error('Unexpected ' + t);
                         }
 
                         if (stTokens.length) {
@@ -85,7 +91,7 @@ export default function init({ StructType, CFunction, PointerType }) {
 
                     case ']':
                         if (firstToken !== '[') {
-                            throw new Error('Unexpected '+t);
+                            throw new Error('Unexpected ' + t);
                         }
 
                         if (stTokens.length) {
@@ -117,10 +123,10 @@ export default function init({ StructType, CFunction, PointerType }) {
                 kind: 'type',
                 typeModifiers: [],
                 name: '',
-                ptr: 0
+                ptr: 0,
             };
 
-            for (let i=0; i<st.length; i++) {
+            for (let i = 0; i < st.length; i++) {
                 if (st[i]._block === '[') {
                     info.arr = st[i].length > 0 ? parseInt(st[i][0]) : true;
                     continue;
@@ -154,9 +160,9 @@ export default function init({ StructType, CFunction, PointerType }) {
         }
 
         function parseType(st) {
-            const curlyBlockInd = st.findIndex(e=>e._block === '{');
-            const roundBlockInd = st.findIndex(e=>e._block === '(');
-            const ptr = st.filter(e=>e === '*').length;
+            const curlyBlockInd = st.findIndex(e => e._block === '{');
+            const roundBlockInd = st.findIndex(e => e._block === '(');
+            const ptr = st.filter(e => e === '*').length;
 
             if (st[0] === 'struct' && curlyBlockInd > -1) {
                 return {
@@ -164,7 +170,7 @@ export default function init({ StructType, CFunction, PointerType }) {
                     typeModifiers: [],
                     name: '',
                     ptr,
-                    struct: parseStruct(st)
+                    struct: parseStruct(st),
                 };
             } else if (roundBlockInd > -1) {
                 return {
@@ -172,7 +178,7 @@ export default function init({ StructType, CFunction, PointerType }) {
                     typeModifiers: [],
                     name: '',
                     ptr,
-                    func: parseFunctionProto(st)
+                    func: parseFunctionProto(st),
                 };
             } else {
                 return parseSimpleType(st);
@@ -210,14 +216,14 @@ export default function init({ StructType, CFunction, PointerType }) {
                 return {
                     kind: 'typedef',
                     name: func.name,
-                    child: func
+                    child: func,
                 };
             }
 
             return {
                 kind: 'typedef',
                 name: st.slice(-1)[0],
-                child: parseType(st.slice(1, -1))
+                child: parseType(st.slice(1, -1)),
             };
         }
 
@@ -225,7 +231,7 @@ export default function init({ StructType, CFunction, PointerType }) {
             const info = {
                 kind: 'struct',
             };
-            const curlyBlockInd = st.findIndex(e=>e._block === '{');
+            const curlyBlockInd = st.findIndex(e => e._block === '{');
 
             if (curlyBlockInd >= 2) {
                 if (curlyBlockInd > 2) {
@@ -241,21 +247,30 @@ export default function init({ StructType, CFunction, PointerType }) {
         }
 
         function parseFunctionProto(st) {
-            let firstBrackInd = st.findIndex(e=>e._block === '(');
-            let secondBrackInd = st[firstBrackInd+1]?._block === '(' ? firstBrackInd + 1 : -1;
+            let firstBrackInd = st.findIndex(e => e._block === '(');
+            let secondBrackInd =
+                st[firstBrackInd + 1]?._block === '(' ? firstBrackInd + 1 : -1;
 
-            const argBlock = secondBrackInd > 0 ? st[secondBrackInd] : st[firstBrackInd];
+            const argBlock =
+                secondBrackInd > 0 ? st[secondBrackInd] : st[firstBrackInd];
 
-            const name = secondBrackInd > 0 ? st[firstBrackInd][0].slice(-1)[0] : st[firstBrackInd - 1];
-            const ptr = secondBrackInd > 0 ? st[firstBrackInd][0].filter(e=>e === '*').length : 0;
-            const retTypeMaxInd = secondBrackInd > 0 ? firstBrackInd - 1 : firstBrackInd - 2;
+            const name =
+                secondBrackInd > 0
+                    ? st[firstBrackInd][0].slice(-1)[0]
+                    : st[firstBrackInd - 1];
+            const ptr =
+                secondBrackInd > 0
+                    ? st[firstBrackInd][0].filter(e => e === '*').length
+                    : 0;
+            const retTypeMaxInd =
+                secondBrackInd > 0 ? firstBrackInd - 1 : firstBrackInd - 2;
 
             const info = {
                 kind: 'function',
                 name: name,
                 args: argBlock.map(parseVardef),
                 modifiers: [],
-                ptr
+                ptr,
             };
             let offs = 0;
 
@@ -273,7 +288,7 @@ export default function init({ StructType, CFunction, PointerType }) {
                 offs++;
             }
 
-            info.return = parseType(st.slice(offs, retTypeMaxInd+1));
+            info.return = parseType(st.slice(offs, retTypeMaxInd + 1));
 
             return info;
         }
@@ -300,7 +315,7 @@ export default function init({ StructType, CFunction, PointerType }) {
         let unnamedCnt = 0;
 
         function getType(name, ptr = 0) {
-            let ffiType = lib.getType(name+('*').repeat(ptr));
+            let ffiType = lib.getType(name + '*'.repeat(ptr));
 
             if (ffiType) {
                 // look for type specific pointer type first, currently used to map char* to string and void* to pointer
@@ -316,7 +331,7 @@ export default function init({ StructType, CFunction, PointerType }) {
             if (ptr > 0) {
                 const t = new PointerType(ffiType, ptr);
 
-                lib.registerType(name+('*').repeat(ptr), t);
+                lib.registerType(name + '*'.repeat(ptr), t);
 
                 return t;
             }
@@ -333,7 +348,7 @@ export default function init({ StructType, CFunction, PointerType }) {
 
                     if (m.type.struct) {
                         registerStruct(m.type.struct.name, m.type.struct);
-                        t = getType('struct '+m.type.struct.name, m.type.ptr);
+                        t = getType('struct ' + m.type.struct.name, m.type.ptr);
                     } else {
                         t = getType(m.type.name, m.type.ptr);
                     }
@@ -346,7 +361,9 @@ export default function init({ StructType, CFunction, PointerType }) {
 
             const stt = new StructType(
                 fields,
-                st.name ? st.name : `__unnamed_struct_${regname}_${unnamedCnt++}`,
+                st.name
+                    ? st.name
+                    : `__unnamed_struct_${regname}_${unnamedCnt++}`,
                 st.align
             );
 
@@ -360,20 +377,34 @@ export default function init({ StructType, CFunction, PointerType }) {
                 case 'typedef':
                     if (e.child.kind === 'type') {
                         if (e.child.struct) {
-                            registerStruct(e.name ?? 'struct '+e.child.struct.name, e.child.struct);
-                            lib.registerType(e.name, getType(e.name ?? 'struct '+e.child.struct.name, e.child.ptr));
+                            registerStruct(
+                                e.name ?? 'struct ' + e.child.struct.name,
+                                e.child.struct
+                            );
+                            lib.registerType(
+                                e.name,
+                                getType(
+                                    e.name ?? 'struct ' + e.child.struct.name,
+                                    e.child.ptr
+                                )
+                            );
                         } else {
                             lib.registerType(e.name, getType(e.child.name));
                         }
                     } else if (e.child.kind === 'function') {
-                        lib.registerType(e.name || e.child.name, tjs.ffi.types.jscallback);
+                        lib.registerType(
+                            e.name || e.child.name,
+                            tjs.ffi.types.jscallback
+                        );
                     } else {
-                        throw new Error('unsupported typedef: ' + JSON.stringify(e));
+                        throw new Error(
+                            'unsupported typedef: ' + JSON.stringify(e)
+                        );
                     }
 
                     break;
                 case 'struct':
-                    registerStruct('struct '+e.name, e);
+                    registerStruct('struct ' + e.name, e);
                     break;
 
                 case 'function': {

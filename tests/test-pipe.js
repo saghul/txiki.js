@@ -1,4 +1,4 @@
-import { assert } from '@tjs/std';
+import assert from '@tjs/std/assert';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -39,9 +39,21 @@ async function doEchoServer(server) {
     let dataStr, nread;
     nread = await client.read(buf);
     dataStr = decoder.decode(buf.subarray(0, nread));
-    assert.eq(dataStr, "PING", "sending works");
-    assert.throws(() => { client.write('PING'); }, TypeError, "sending anything else gives TypeError");
-    assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
+    assert.eq(dataStr, 'PING', 'sending works');
+    assert.throws(
+        () => {
+            client.write('PING');
+        },
+        TypeError,
+        'sending anything else gives TypeError'
+    );
+    assert.throws(
+        () => {
+            client.write(1234);
+        },
+        TypeError,
+        'sending anything else gives TypeError'
+    );
     client.close();
     server.close();
 

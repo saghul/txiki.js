@@ -25,6 +25,8 @@ class WebSocket extends EventTarget {
 
         let urlStr;
 
+        console.log('==========101');
+
         try {
             urlStr = new URL(url).toString();
         } catch (_) {
@@ -35,6 +37,8 @@ class WebSocket extends EventTarget {
             throw new Error('Invalid URL');
         }
 
+        console.log('==========101');
+
         this[kWsUrl] = urlStr;
 
         const protocolStr = protocols.join(',') || null;
@@ -44,7 +48,9 @@ class WebSocket extends EventTarget {
         ws.onclose = ev => {
             const { code, reason, wasClean } = ev;
 
-            this.dispatchEvent(new CloseEvent('close', { code, reason, wasClean }));
+            this.dispatchEvent(
+                new CloseEvent('close', { code, reason, wasClean })
+            );
         };
 
         ws.onerror = () => {
@@ -141,6 +147,4 @@ defineEventAttribute(xhrProto, 'error');
 defineEventAttribute(xhrProto, 'message');
 defineEventAttribute(xhrProto, 'open');
 
-export {
-    WebSocket
-};
+export { WebSocket };

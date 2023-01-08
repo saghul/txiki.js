@@ -1,8 +1,7 @@
-import { assert } from '@tjs/std';
-
+import assert from '@tjs/std/assert';
 
 function sleep(seconds) {
-    return new Promise(resolve => setTimeout(resolve, seconds*1000));
+    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
 }
 
 (async () => {
@@ -21,4 +20,4 @@ function sleep(seconds) {
     tjs.kill(tjs.pid, 'SIGINT');
     await sleep(1);
     assert.fail('Timed out waiting for signal');
-})()
+})();

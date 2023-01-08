@@ -8,7 +8,7 @@ if (posixSocket) {
         constructor(domain, type, protocol) {
             this._psock = new posixSocket.PosixSocket(domain, type, protocol);
             this._info = {
-                socket: { domain, type, protocol }
+                socket: { domain, type, protocol },
             };
         }
 
@@ -92,19 +92,31 @@ if (posixSocket) {
                 } else {
                     this._cbs.all?.(events);
 
-                    if (events & PosixSocket.pollEvents.READABLE && this._cbs.read) {
+                    if (
+                        events & PosixSocket.pollEvents.READABLE &&
+                        this._cbs.read
+                    ) {
                         this._cbs.read(events);
                     }
 
-                    if (events & PosixSocket.pollEvents.WRITABLE && this._cbs.write) {
+                    if (
+                        events & PosixSocket.pollEvents.WRITABLE &&
+                        this._cbs.write
+                    ) {
                         this._cbs.write(events);
                     }
 
-                    if (events & PosixSocket.pollEvents.DISCONNECT && this._cbs.disconnect) {
+                    if (
+                        events & PosixSocket.pollEvents.DISCONNECT &&
+                        this._cbs.disconnect
+                    ) {
                         this._cbs.disconnect(events);
                     }
 
-                    if (events & PosixSocket.pollEvents.PRIORITIZED && this._cbs.prioritized) {
+                    if (
+                        events & PosixSocket.pollEvents.PRIORITIZED &&
+                        this._cbs.prioritized
+                    ) {
                         this._cbs.prioritized(events);
                     }
                 }
@@ -113,7 +125,8 @@ if (posixSocket) {
             let mask = 0;
 
             if (cbs.all) {
-                mask = PosixSocket.pollEvents.READABLE |
+                mask =
+                    PosixSocket.pollEvents.READABLE |
                     PosixSocket.pollEvents.WRITABLE |
                     PosixSocket.pollEvents.DISCONNECT |
                     PosixSocket.pollEvents.PRIORITIZED;

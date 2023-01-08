@@ -1,11 +1,12 @@
-import { assert } from '@tjs/std';
+import assert from '@tjs/std/assert';
 
-
-let lengthComputable = false,  loaded, total;
+let lengthComputable = false,
+    loaded,
+    total;
 const url = 'https://httpbin.org/get';
 const xhrSync = new XMLHttpRequest();
 xhrSync.open('GET', url, false);
-xhrSync.onprogress = (evt) => {
+xhrSync.onprogress = evt => {
     lengthComputable = evt.lengthComputable;
     loaded = evt.loaded;
     total = evt.total;

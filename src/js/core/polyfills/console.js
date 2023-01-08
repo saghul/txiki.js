@@ -111,7 +111,7 @@ export function table(data, properties) {
     if (properties !== undefined && !Array.isArray(properties)) {
         throw new Error(
             'The \'properties\' argument must be of type Array. ' +
-                    'Received type string'
+                'Received type string'
         );
     }
 
@@ -123,7 +123,7 @@ export function table(data, properties) {
     const indexKeys = [];
     const values = [];
 
-    const stringifyValue = value => util.format(value);
+    const stringifyValue = value => console.__format(value);
     const toTable = (header, body) => this.log(cliTable(header, body));
     const createColumn = (value, shift) => [
         ...(shift ? [ ...new Array(shift) ].map(() => '') : []),
@@ -200,4 +200,3 @@ export function trace(...args) {
     err.stack = tmpStack.join('\n');
     console.error(err);
 }
-

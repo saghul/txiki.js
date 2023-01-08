@@ -1,9 +1,11 @@
 /* global tjs */
 
-import { readableStreamForHandle, writableStreamForHandle } from '@tjs/stream-utils';
+import {
+    readableStreamForHandle,
+    writableStreamForHandle,
+} from '@tjs/stream-utils';
 
 const core = globalThis.__bootstrap;
-
 
 export async function connect(transport, host, port, options = {}) {
     const addr = await prepareAddress(transport, host, port);
@@ -106,7 +108,7 @@ async function prepareAddress(transport, host, port) {
         case 'tcp': {
             const opts = {
                 socktype: tjs.SOCK_STREAM,
-                protocol: tjs.IPPROTO_TCP
+                protocol: tjs.IPPROTO_TCP,
             };
             const r = await tjs.getaddrinfo(host ?? '0.0.0.0', port ?? 0, opts);
 
@@ -119,7 +121,7 @@ async function prepareAddress(transport, host, port) {
         case 'udp': {
             const opts = {
                 socktype: tjs.SOCK_DGRAM,
-                protocol: tjs.IPPROTO_UDP
+                protocol: tjs.IPPROTO_UDP,
             };
             const r = await tjs.getaddrinfo(host ?? '0.0.0.0', port ?? 0, opts);
 
@@ -238,7 +240,7 @@ class Listener {
 
         return {
             value,
-            done: typeof value === 'undefined'
+            done: typeof value === 'undefined',
         };
     }
 }

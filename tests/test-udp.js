@@ -1,8 +1,7 @@
-import { assert } from '@tjs/std';
+import assert from '@tjs/std/assert';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-
 
 async function doEchoServer(server) {
     const dataBuf = new Uint8Array(1024);
@@ -33,9 +32,21 @@ async function doEchoServer(server) {
     rinfo = await client.recv(rcvBuf);
     dataStr = decoder.decode(rcvBuf.subarray(0, rinfo.nread));
     assert.eq(dataStr, 'PING', 'sending works');
-    assert.eq(serverAddr, rinfo.addr, "source address matches");
-    assert.throws(() => { client.send('PING', serverAddr); }, TypeError, "sending anything else gives TypeError");
-    assert.throws(() => { client.send(1234, serverAddr); }, TypeError, "sending anything else gives TypeError");
+    assert.eq(serverAddr, rinfo.addr, 'source address matches');
+    assert.throws(
+        () => {
+            client.send('PING', serverAddr);
+        },
+        TypeError,
+        'sending anything else gives TypeError'
+    );
+    assert.throws(
+        () => {
+            client.send(1234, serverAddr);
+        },
+        TypeError,
+        'sending anything else gives TypeError'
+    );
     client.close();
     server.close();
 })();

@@ -1,5 +1,3 @@
 import { URLPattern } from 'urlpattern-polyfill';
 
-export {
-    URLPattern
-};
+export { URLPattern };

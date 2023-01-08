@@ -8,6 +8,7 @@
 #include "stdlib/uuid.c"
 #include "core/polyfills/abortcontroller.c"
 #include "core/polyfills/blob.c"
+#include "core/polyfills/console.c"
 #include "core/polyfills/crypto.c"
 #include "core/polyfills/event-target.c"
 #include "core/polyfills/performance.c"
@@ -46,6 +47,7 @@ lookup_item_t precompiled_lookup_table[] = {
    { "@tjs/std/uuid", 13, (void *)&tjs__std_uuid, tjs__std_uuid_size },
    { "@tjs/internal/polyfill/abortcontroller", 38, (void *)&tjs__internal_polyfill_abortcontroller, tjs__internal_polyfill_abortcontroller_size },
    { "@tjs/internal/polyfill/blob", 27, (void *)&tjs__internal_polyfill_blob, tjs__internal_polyfill_blob_size },
+   { "@tjs/internal/polyfill/console", 30, (void *)&tjs__internal_polyfill_console, tjs__internal_polyfill_console_size },
    { "@tjs/internal/polyfill/crypto", 29, (void *)&tjs__internal_polyfill_crypto, tjs__internal_polyfill_crypto_size },
    { "@tjs/internal/polyfill/event-target", 35, (void *)&tjs__internal_polyfill_event_target, tjs__internal_polyfill_event_target_size },
    { "@tjs/internal/polyfill/performance", 34, (void *)&tjs__internal_polyfill_performance, tjs__internal_polyfill_performance_size },

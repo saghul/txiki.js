@@ -2,6 +2,7 @@
 
 #include <inttypes.h>
 
+//run-main.js
 const uint32_t tjs__run_main_size = 2022;
 
 const uint8_t tjs__run_main[2022] = {

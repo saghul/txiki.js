@@ -1,4 +1,3 @@
-
 export function bootstrapWorker() {
     // `workerThis` is a reference to a in internal `Worker` objet.
 

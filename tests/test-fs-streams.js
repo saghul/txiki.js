@@ -1,10 +1,10 @@
-import { assert } from '@tjs/std';
+import assert from '@tjs/std/assert';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 (async () => {
-    const file = await tjs.mkstemp('testFile_XXXXXX');
+    const file = await tjs.mkstemp(`${tjs.tmpdir()}/testFile_XXXXXX`);
     const path = file.path;
 
     assert.ok(file.writable instanceof WritableStream);
@@ -19,7 +19,7 @@ const decoder = new TextDecoder();
     await readable.pipeTo(file.writable);
 
     const data = await tjs.readFile(path);
-    assert.eq(decoder.decode(data), "hello world!");
+    assert.eq(decoder.decode(data), 'hello world!');
 
     await tjs.unlink(path);
 })();

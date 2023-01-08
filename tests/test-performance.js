@@ -1,4 +1,4 @@
-import { assert } from '@tjs/std';
+import assert from '@tjs/std/assert';
 
 const LIMIT = 2000;
 const THRESHOLD = 25;
@@ -16,7 +16,6 @@ while (Date.now() - now < LIMIT);
 
 const diff = Math.round(performance.now() - start);
 assert.ok(Math.abs(LIMIT - diff) < THRESHOLD, 'performance.now() works');
-
 
 // performance mark
 

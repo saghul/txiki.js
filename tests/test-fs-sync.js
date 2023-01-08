@@ -1,7 +1,6 @@
-import { assert } from '@tjs/std';
+import assert from '@tjs/std/assert';
 
 const encoder = new TextEncoder();
-
 
 (async () => {
     const f = await tjs.mkstemp('test_fileXXXXXX');

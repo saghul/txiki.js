@@ -6,7 +6,7 @@ function silentClose(handle) {
     }
 }
 
-const CHUNK_SIZE = 16640;  // Borrowed from Deno.
+const CHUNK_SIZE = 16640; // Borrowed from Deno.
 
 export function readableStreamForHandle(handle) {
     return new ReadableStream({
@@ -32,7 +32,7 @@ export function readableStreamForHandle(handle) {
         },
         cancel() {
             silentClose(handle);
-        }
+        },
     });
 }
 
@@ -51,6 +51,6 @@ export function writableStreamForHandle(handle) {
         },
         abort() {
             silentClose(handle);
-        }
+        },
     });
 }

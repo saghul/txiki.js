@@ -3,7 +3,6 @@ const core = globalThis.__bootstrap;
 const kStdioHandle = Symbol('kStdioHandle');
 const kStdioHandleType = Symbol('kStdioHandleType');
 
-
 class BaseIOStream {
     constructor(handle, type) {
         this[kStdioHandle] = handle;
@@ -11,7 +10,7 @@ class BaseIOStream {
     }
 
     get isTTY() {
-        return this.type ===  'tty';
+        return this.type === 'tty';
     }
 
     get type() {
@@ -29,7 +28,9 @@ class InputStream extends BaseIOStream {
             throw new Error('not a TTY');
         }
 
-        const ttyMode = rawMode ? core.TTY.TTY_MODE_RAW : core.TTY.TTY_MODE_NORMAL;
+        const ttyMode = rawMode
+            ? core.TTY.TTY_MODE_RAW
+            : core.TTY.TTY_MODE_NORMAL;
 
         this[kStdioHandle].setMode(ttyMode);
     }

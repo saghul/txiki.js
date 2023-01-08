@@ -1,4 +1,7 @@
-import { readableStreamForHandle, writableStreamForHandle } from '@tjs/stream-utils';
+import {
+    readableStreamForHandle,
+    writableStreamForHandle,
+} from '@tjs/stream-utils';
 
 const core = globalThis.__bootstrap;
 
@@ -6,7 +9,7 @@ const kReadable = Symbol('kReadable');
 const kWritable = Symbol('kWritable');
 
 const fhProxyHandler = {
-    get (target, prop) {
+    get(target, prop) {
         switch (prop) {
             case 'readable': {
                 if (!target[kReadable]) {
@@ -32,7 +35,7 @@ const fhProxyHandler = {
                 return target[prop];
             }
         }
-    }
+    },
 };
 
 export async function open(path, mode) {

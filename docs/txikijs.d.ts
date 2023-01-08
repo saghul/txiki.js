@@ -13,7 +13,7 @@ declare namespace tjs {
          *
          * @param buf Buffer to read data into.
          */
-        read(buf: Uint8Array): Promise<number|null>;
+        read(buf: Uint8Array): Promise<number | null>;
     }
 
     /**
@@ -33,34 +33,60 @@ declare namespace tjs {
      *
      * @param masg The message that will be displayed.
      */
-    function alert(msg:string): Promise<void>;
+    function alert(msg: string): Promise<void>;
 
     /**
      * Asks the user for confirmation.
      *
      * @param msg The message which will be printed as the question. Defaults to "Confirm".
      */
-    function confirm(msg:string): Promise<boolean>;
-    
+    function confirm(msg: string): Promise<boolean>;
+
     /**
      * Prompt the user for input.
      *
      * @param msg Message to ask the user.
      * @param def Default value in case nothing was entered.
      */
-    function prompt(msg:string, def?:string): Promise<string|null>;
+    function prompt(msg: string, def?: string): Promise<string | null>;
 
     /**
      * Array with the arguments passed to the binary.
      */
     const args: string[];
 
-    type Signal = 'SIGHUP' | 'SIGINT' | 'SIGQUIT' | 'SIGILL' | 'SIGTRAP'
-      | 'SIGABRT' | 'SIGBUS' | 'SIGFPE' | 'SIGKILL' | 'SIGUSR1' | 'SIGSEGV'
-      | 'SIGUSR2' | 'SIGPIPE' | 'SIGALRM' | 'SIGTERM' | 'SIGSTKFLT'
-      | 'SIGCHLD' | 'SIGCONT' | 'SIGSTOP' | 'SIGTSTP' | 'SIGTTIN' | 'SIGTTOU'
-      | 'SIGURG' | 'SIGXCPU' | 'SIGXFSZ' | 'SIGVTALRM' | 'SIGPROF' | 'SIGWINCH'
-      | 'SIGPOLL' | 'SIGPWR' | 'SIGSYS';
+    type Signal =
+        | 'SIGHUP'
+        | 'SIGINT'
+        | 'SIGQUIT'
+        | 'SIGILL'
+        | 'SIGTRAP'
+        | 'SIGABRT'
+        | 'SIGBUS'
+        | 'SIGFPE'
+        | 'SIGKILL'
+        | 'SIGUSR1'
+        | 'SIGSEGV'
+        | 'SIGUSR2'
+        | 'SIGPIPE'
+        | 'SIGALRM'
+        | 'SIGTERM'
+        | 'SIGSTKFLT'
+        | 'SIGCHLD'
+        | 'SIGCONT'
+        | 'SIGSTOP'
+        | 'SIGTSTP'
+        | 'SIGTTIN'
+        | 'SIGTTOU'
+        | 'SIGURG'
+        | 'SIGXCPU'
+        | 'SIGXFSZ'
+        | 'SIGVTALRM'
+        | 'SIGPROF'
+        | 'SIGWINCH'
+        | 'SIGPOLL'
+        | 'SIGPWR'
+        | 'SIGSYS';
 
     /**
      * Signal handler function.
@@ -262,14 +288,17 @@ declare namespace tjs {
      * @param service Service / port to be looked up.
      * @param hints Criteria for selecting the results.
      */
-    function getaddrinfo(node: string, service?: string | number, hints?: Hints): Promise<Addrinfo[]>;
+    function getaddrinfo(
+        node: string,
+        service?: string | number,
+        hints?: Hints
+    ): Promise<Addrinfo[]>;
 
     /**
      * Error type. It mostly encapsulates the libuv and other platform library errors.
      * The available error number properties depends on the platform.
      */
     class Error {
-
         constructor(errno: number);
 
         /**
@@ -425,7 +454,7 @@ declare namespace tjs {
          * @param buffer Buffer to read data into.
          * @param offset Offset in the file to read from.
          */
-        read(buffer: Uint8Array, offset?: number): Promise<number|null>;
+        read(buffer: Uint8Array, offset?: number): Promise<number | null>;
 
         /**
          * Writes data from the given buffer at the given file offset. Returns
@@ -578,7 +607,11 @@ declare namespace tjs {
      * @param flags Flags with which to open the file.
      * @param mode File mode bits applied if the file is created. Defaults to `0o666`.
      */
-    function open(path: string, flags: string, mode?: number): Promise<FileHandle>;
+    function open(
+        path: string,
+        flags: string,
+        mode?: number
+    ): Promise<FileHandle>;
 
     /**
      * Removes the directory at the given path.
@@ -610,7 +643,11 @@ declare namespace tjs {
      * @param newPath Target path.
      * @param flags Specify the mode for copying the file.
      */
-    function copyfile(path: string, newPath: string, flags?: number): Promise<void>;
+    function copyfile(
+        path: string,
+        newPath: string,
+        flags?: number
+    ): Promise<void>;
 
     interface DirEnt {
         name: string;
@@ -634,7 +671,6 @@ declare namespace tjs {
      * ```
      */
     interface DirHandle extends AsyncIterableIterator<DirEnt> {
-
         /**
          * Closes the directory handle.
          */
@@ -664,7 +700,10 @@ declare namespace tjs {
     /**
      * File watch event handler function.
      */
-    type WatchEventHandler = (filename: string, event: 'change' | 'rename') => void;
+    type WatchEventHandler = (
+        filename: string,
+        event: 'change' | 'rename'
+    ) => void;
 
     interface FileWatcher {
         /**
@@ -717,7 +756,7 @@ declare namespace tjs {
      * Gets the system load average.
      * See [getloadavg(3)](https://man7.org/linux/man-pages/man3/getloadavg.3.html)
      */
-    function loadavg(): [ number, number, number ];
+    function loadavg(): [number, number, number];
 
     interface CpuTimes {
         user: number;
@@ -784,7 +823,7 @@ declare namespace tjs {
 
     interface ProcessStatus {
         exit_status: number;
-        term_signal: Signal|null;
+        term_signal: Signal | null;
     }
 
     interface Process {
@@ -835,7 +874,7 @@ declare namespace tjs {
     }
 
     interface Connection {
-        read(buf: Uint8Array): Promise<number|null>;
+        read(buf: Uint8Array): Promise<number | null>;
         write(buf: Uint8Array): Promise<number>;
         setKeepAlive(enable?: boolean): void;
         setNoDelay(enable?: boolean): void;
@@ -883,7 +922,12 @@ declare namespace tjs {
      * @param port Destination port (where applicable).
      * @param options Extra connection options.
      */
-    function connect(transport: Transport, host: string, port?: string | number, options?: ConnectOptions): Promise<Connection | DatagramEndpoint>;
+    function connect(
+        transport: Transport,
+        host: string,
+        port?: string | number,
+        options?: ConnectOptions
+    ): Promise<Connection | DatagramEndpoint>;
 
     interface Listener extends AsyncIterable<Connection> {
         accept(): Promise<Connection>;
@@ -917,7 +961,12 @@ declare namespace tjs {
      * @param port Listening port (where applicable).
      * @param options Extra listen options.
      */
-    function listen(transport: Transport, host: string, port?: string | number, options?: ListenOptions): Promise<Listener | DatagramEndpoint>;
+    function listen(
+        transport: Transport,
+        host: string,
+        port?: string | number,
+        options?: ListenOptions
+    ): Promise<Listener | DatagramEndpoint>;
 
     /**
      * Current process ID.
@@ -957,48 +1006,48 @@ declare namespace tjs {
      * It can be listened to with poll (libuv poll)
      * *not available on windows*
      */
-    class PosixSocket{
+    class PosixSocket {
         constructor(domain: number, type: number, protocol: number);
 
         readonly info: {
-            socket?: {domain: number, type: number, protocol: number}
+            socket?: { domain: number; type: number; protocol: number };
         };
 
         static readonly defines: {
-            AF_INET: number,
-            AF_INET6: number,
-            AF_NETLINK: number,
-            AF_PACKET: number,
+            AF_INET: number;
+            AF_INET6: number;
+            AF_NETLINK: number;
+            AF_PACKET: number;
 
-            SOCK_STREAM: number,
-            SOCK_DGRAM: number,
-            SOCK_RAW: number,
-            SOCK_SEQPACKET: number,
-            SOCK_RDM: number,
+            SOCK_STREAM: number;
+            SOCK_DGRAM: number;
+            SOCK_RAW: number;
+            SOCK_SEQPACKET: number;
+            SOCK_RDM: number;
 
-            SOL_SOCKET: number,
-            SOL_PACKET: number,
-            SOL_NETLINK: number,
+            SOL_SOCKET: number;
+            SOL_PACKET: number;
+            SOL_NETLINK: number;
 
-            SO_REUSEADDR: number,
-            SO_KEEPALIVE: number,
-            SO_LINGER: number,
-            SO_BROADCAST: number,
-            SO_OOBINLINE: number,
-            SO_RCVBUF: number,
-            SO_SNDBUF: number,
-            SO_RCVTIMEO: number,
-            SO_SNDTIMEO: number,
-            SO_ERROR: number,
-            SO_TYPE: number,
-            SO_DEBUG: number,
-            SO_DONTROUTE: number,
-            SO_SNDBUFFORCE: number,
-            SO_RCVBUFFORCE: number,
-            SO_NO_CHECK: number,
-            SO_PRIORITY: number,
-            SO_BSDCOMPAT: number,
-            SO_REUSEPORT: number,
+            SO_REUSEADDR: number;
+            SO_KEEPALIVE: number;
+            SO_LINGER: number;
+            SO_BROADCAST: number;
+            SO_OOBINLINE: number;
+            SO_RCVBUF: number;
+            SO_SNDBUF: number;
+            SO_RCVTIMEO: number;
+            SO_SNDTIMEO: number;
+            SO_ERROR: number;
+            SO_TYPE: number;
+            SO_DEBUG: number;
+            SO_DONTROUTE: number;
+            SO_SNDBUFFORCE: number;
+            SO_RCVBUFFORCE: number;
+            SO_NO_CHECK: number;
+            SO_PRIORITY: number;
+            SO_BSDCOMPAT: number;
+            SO_REUSEPORT: number;
         };
         static createFromFD(fd: number): PosixSocket;
 
@@ -1006,10 +1055,18 @@ declare namespace tjs {
         connect(addr: Uint8Array): void;
         listen(backlog: number): void;
         accept(): PosixSocket;
-        sendmsg(addr: Uint8Array|undefined, control: Uint8Array|undefined, flags: number, ...data: Uint8Array[]): number;
+        sendmsg(
+            addr: Uint8Array | undefined,
+            control: Uint8Array | undefined,
+            flags: number,
+            ...data: Uint8Array[]
+        ): number;
         recv(size: number): Uint8Array;
-        recvmsg(size: number): {data: Uint8Array, addr: Uint8Array};
-        recvmsg(size: number, controllen: number): {data: Uint8Array, addr: Uint8Array, control: Uint8Array};
+        recvmsg(size: number): { data: Uint8Array; addr: Uint8Array };
+        recvmsg(
+            size: number,
+            controllen: number
+        ): { data: Uint8Array; addr: Uint8Array; control: Uint8Array };
         close(): void;
         setopt(level: number, name: number, value: Uint8Array): void;
         /**
@@ -1020,22 +1077,22 @@ declare namespace tjs {
         write(data: Uint8Array): number;
 
         poll(cbs: {
-            all?: (events: number) => void,
-            read?: (events: number) => void,
-            write?: (events: number) => void,
-            disconnect?: (events: number) => void,
-            prioritized?: (events: number) => void,
-            error?: (errcode: number) => void,
+            all?: (events: number) => void;
+            read?: (events: number) => void;
+            write?: (events: number) => void;
+            disconnect?: (events: number) => void;
+            prioritized?: (events: number) => void;
+            error?: (errcode: number) => void;
         }): void;
         stopPoll(): void;
 
         static ip4ToBuf(ipstr: string): Uint8Array;
         static createSockaddrIn(ip: string, port: number): Uint8Array;
         static readonly pollEvents: {
-            READABLE: number,
-            WRITABLE: number,
-            DISCONNECT: number,
-            PRIORITIZED: number,
+            READABLE: number;
+            WRITABLE: number;
+            DISCONNECT: number;
+            PRIORITIZED: number;
         };
 
         static indextoname(index: number): string;
@@ -1044,12 +1101,12 @@ declare namespace tjs {
         /**
          * Caculates internet checksum: the 16-bit ones' complement of the ones' complement sum of all 16-bit words in the buffer.
          * Used in ipv4, udp, tcp, icmp...
-         * @param buf 
+         * @param buf
          */
         static checksum(buf: Uint8Array): number;
     }
 
-        /**
+    /**
      * UTF-8 decode the buffer's contents into a string.
      */
     function textDecode(buffer: Uint8Array): string;

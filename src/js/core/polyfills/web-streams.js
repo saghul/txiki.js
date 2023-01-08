@@ -11,8 +11,8 @@ import {
     TransformStreamDefaultController,
     WritableStream,
     WritableStreamDefaultController,
-    WritableStreamDefaultWriter
-} from 'web-streams-polyfill/es2018';
+    WritableStreamDefaultWriter,
+} from 'web-streams-polyfill/ponyfill/es2018';
 
 export {
     ByteLengthQueuingStrategy,
@@ -27,5 +27,5 @@ export {
     TransformStreamDefaultController,
     WritableStream,
     WritableStreamDefaultController,
-    WritableStreamDefaultWriter
+    WritableStreamDefaultWriter,
 };

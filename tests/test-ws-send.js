@@ -1,17 +1,11 @@
-import { assert } from '@tjs/std';
+import assert from '@tjs/std/assert';
 
 const ab = new ArrayBuffer(16);
 const u8 = new Uint8Array(ab, 8).fill(1);
 u8[7] = 2;
 let cnt = 0;
 let round = 0;
-const msgs = [
-    'PING',
-    'PANG',
-    ab,
-    u8,
-    new Blob(ab)
-];
+const msgs = ['PING', 'PANG', ab, u8, new Blob(ab)];
 const url = 'wss://websocket-echo.com';
 const ws = new WebSocket(url);
 
@@ -24,8 +18,12 @@ ws.addEventListener('message', async ev => {
     if (typeof data === 'string') {
         assert.eq(data, orig, 'received data matches');
     } else {
-        const origView = new Uint8Array(orig instanceof Blob ? await orig.arrayBuffer() : orig);
-        const view = new Uint8Array(data instanceof Blob ? await data.arrayBuffer() : data);
+        const origView = new Uint8Array(
+            orig instanceof Blob ? await orig.arrayBuffer() : orig
+        );
+        const view = new Uint8Array(
+            data instanceof Blob ? await data.arrayBuffer() : data
+        );
 
         for (let i = 0; i < view.byteLength; i++) {
             assert.eq(view[i], origView[i], 'received data matches');

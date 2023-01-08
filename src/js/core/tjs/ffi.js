@@ -49,7 +49,7 @@ export class Lib {
         this._funcs = new Map();
         this._types = new Map();
 
-        for (const [t, aliases] of typeMap) {
+        for (const [ t, aliases ] of typeMap) {
             for (const alias of aliases) {
                 this.registerType(alias, t);
             }
@@ -238,8 +238,8 @@ export const types = {
 };
 
 const typeMap = [
-    [types.uint8, ['uint8_t']],
-    [types.uint16, ['uint16_t']],
+    [ types.uint8, [ 'uint8_t' ] ],
+    [ types.uint16, [ 'uint16_t' ] ],
     [
         types.uint32,
         [
@@ -252,28 +252,28 @@ const typeMap = [
     ],
     [
         types.uint64,
-        ['uint64_t', 'unsigned long long', 'unsigned long long int'],
+        [ 'uint64_t', 'unsigned long long', 'unsigned long long int' ],
     ],
-    [types.sint8, ['int8_t']],
-    [types.sint16, ['int16_t']],
-    [types.sint32, ['int32_t']],
-    [types.sint64, ['int64_t']],
-    [types.float, ['float']],
-    [types.double, ['double']],
-    [types.pointer, ['void*']],
-    [types.longdouble, ['long double']],
-    [types.uchar, ['unsigned char']],
-    [types.schar, ['signed char', 'char']],
-    [types.ushort, ['unsigned short', 'unsigned short int']],
-    [types.sshort, ['signed short', 'signed short int', 'short int']],
-    [types.uint, ['unsigned int', 'unsigned']],
-    [types.sint, ['signed int', 'int']],
-    [types.ulong, ['unsigned long', 'unsigned long int']],
-    [types.slong, ['signed long', 'signed long int', 'long', 'long int']],
+    [ types.sint8, [ 'int8_t' ] ],
+    [ types.sint16, [ 'int16_t' ] ],
+    [ types.sint32, [ 'int32_t' ] ],
+    [ types.sint64, [ 'int64_t' ] ],
+    [ types.float, [ 'float' ] ],
+    [ types.double, [ 'double' ] ],
+    [ types.pointer, [ 'void*' ] ],
+    [ types.longdouble, [ 'long double' ] ],
+    [ types.uchar, [ 'unsigned char' ] ],
+    [ types.schar, [ 'signed char', 'char' ] ],
+    [ types.ushort, [ 'unsigned short', 'unsigned short int' ] ],
+    [ types.sshort, [ 'signed short', 'signed short int', 'short int' ] ],
+    [ types.uint, [ 'unsigned int', 'unsigned' ] ],
+    [ types.sint, [ 'signed int', 'int' ] ],
+    [ types.ulong, [ 'unsigned long', 'unsigned long int' ] ],
+    [ types.slong, [ 'signed long', 'signed long int', 'long', 'long int' ] ],
 
-    [types.size, ['size_t']],
-    [types.ssize, ['ssize_t']],
-    [types.string, ['char*']],
+    [ types.size, [ 'size_t' ] ],
+    [ types.ssize, [ 'ssize_t' ] ],
+    [ types.string, [ 'char*' ] ],
 ];
 
 export function bufferToString(buf) {
@@ -364,7 +364,7 @@ export class PointerType extends AdvancedType {
 export class StructType extends AdvancedType {
     constructor(fields, name) {
         const ffitype = new ffiInt.FfiType(
-            ...fields.map(([_f, t]) => t.ffiTypeStruct || t.ffiType || t)
+            ...fields.map(([ _f, t ]) => t.ffiTypeStruct || t.ffiType || t)
         );
 
         super(ffitype, {
@@ -373,7 +373,7 @@ export class StructType extends AdvancedType {
                 const offsets = this._ffiType.offsets;
 
                 for (let i = 0; i < offsets.length; i++) {
-                    const [field, type] = this._fields[i];
+                    const [ field, type ] = this._fields[i];
 
                     // eslint-disable-next-line no-prototype-builtins
                     if (obj.hasOwnProperty(field)) {
@@ -390,7 +390,7 @@ export class StructType extends AdvancedType {
                 const offsets = this._ffiType.offsets;
 
                 for (let i = 0; i < offsets.length; i++) {
-                    const [field, type] = this._fields[i];
+                    const [ field, type ] = this._fields[i];
                     const fbuf = buf.slice(offsets[i], offsets[i] + type.size);
 
                     obj[field] = type.fromBuffer(fbuf, ctx);

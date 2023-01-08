@@ -1,18 +1,18 @@
-import { assert } from '@tjs/std';
+import assert from '@tjs/std/assert';
+import { mkstemp, open } from '@tjs/fs';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-
 (async () => {
-    const f = await tjs.mkstemp('test_fileXXXXXX');
+    const f = await mkstemp(`${tjs.tmpdir()}/testFile_XXXXXX`);
     const path = f.path;
     await f.write(encoder.encode('hello world'));
     const st1 = await f.stat();
     assert.eq(st1.size, 11);
     await f.truncate(5);
     await f.close();
-    const f2 = await tjs.open(path, 'r+');
+    const f2 = await open(path, 'r+');
     const buf = new Uint8Array(32);
     const nread = await f2.read(buf);
     const dataStr = decoder.decode(buf.subarray(0, nread));

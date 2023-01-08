@@ -10,14 +10,13 @@ globalThis.queueMicrotask = queueMicrotask;
 
 const noop = () => {};
 
-function defineLazyProperties(obj,module,moduleKeys,propertyKeys=[]) {
-    let key;
-    let propertyKey;
+function defineLazyProperties(obj, module, moduleKeys, propertyKeys = []) {
     let mod;
 
     for (let i = 0; i < moduleKeys.length; i++) {
-        key = moduleKeys[i];
-        propertyKey = propertyKeys[i]||key;
+        let key = moduleKeys[i];
+        let propertyKey = propertyKeys[i] || key;
+
         Object.defineProperty(obj, propertyKey, {
             enumerable: true,
             get: () => {
@@ -25,16 +24,16 @@ function defineLazyProperties(obj,module,moduleKeys,propertyKeys=[]) {
 
                 return mod[key];
             },
-            set: noop
+            set: noop,
         });
     }
 }
 
-Object.defineProperty(core,'defineLazyProperties',{
-    enumerable:true,
+Object.defineProperty(core, 'defineLazyProperties', {
+    enumerable: true,
     writable: false,
     configurable: false,
-    value: defineLazyProperties
+    value: defineLazyProperties,
 });
 
 Object.defineProperty(globalThis, 'global', {
@@ -42,7 +41,7 @@ Object.defineProperty(globalThis, 'global', {
     get() {
         return globalThis;
     },
-    set() {}
+    set() {},
 });
 
 Object.defineProperty(globalThis, 'window', {
@@ -50,7 +49,7 @@ Object.defineProperty(globalThis, 'window', {
     get() {
         return globalThis;
     },
-    set() {}
+    set() {},
 });
 
 Object.defineProperty(globalThis, 'self', {
@@ -58,5 +57,5 @@ Object.defineProperty(globalThis, 'self', {
     get() {
         return globalThis;
     },
-    set() {}
+    set() {},
 });

@@ -3,5 +3,6 @@ deps
 docs
 examples
 tests
+bundles
 src/js/core.js
 src/js/std.js

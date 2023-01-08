@@ -1,12 +1,18 @@
 BUILD_DIR=build
 BUILDTYPE?=Release
-MINIFYJS=--minify
-EXCLUDED_POLIFILLS=$(addprefix src/js/core/polyfills/, console.c event-target-polyfill.c base.c index.c)
+MINIFYJS=
+EXCLUDED_POLIFILLS=$(addprefix src/js/core/polyfills/, path-utils.c path-posix.c path-win32.c event-target-polyfill.c base.c)
 EXCLUDED_CORE=$(addprefix src/js/core/tjs/, stdio.c index.c)
 POLYFILL_SOURCES=$(filter-out $(EXCLUDED_POLIFILLS), $(patsubst %.js, %.c, $(wildcard src/js/core/polyfills/*.js)))
 CORE_SOURCES=$(filter-out $(EXCLUDED_CORE), $(patsubst %.js, %.c, $(wildcard src/js/core/tjs/*.js)))
 STD_SOURCES=$(filter-out src/js/stdlib/index.c, $(patsubst %.js, %.c, $(wildcard src/js/stdlib/*.js)))
 ESBUILD_ARGS=$(MINIFYJS) --bundle --target=es2020 --platform=neutral --format=esm --main-fields=main,module
+
+ifdef OS
+   BUILD_PLATFORM=win32a
+else
+   BUILD_PLATFORM=posix
+endif
 
 all: js build
 
@@ -34,7 +40,7 @@ jsclean:
 	@rm -rf bundles src/js/core/tjs/*.c src/js/core/polyfills/*.c src/js/stdlib/*.c src/js/precompiled.c src/js/core.c src/js/core.js
 
 bundles/stdlib/%.js:
-	npm run esbuild -- src/js/stdlib/$(notdir $@) --outfile=$@ $(ESBUILD_ARGS)
+	npm run esbuild -- src/js/stdlib/$(notdir $@) --outfile=$@ $(ESBUILD_ARGS) --alias:path=./src/js/core/polyfills/path-${BUILD_PLATFORM}.js
 
 bundles/core/polyfills/%.js:
 	npm run esbuild -- src/js/core/polyfills/$(notdir $@) --outfile=$@ $(ESBUILD_ARGS) --external:@tjs/*
@@ -74,6 +80,9 @@ distclean:
 format:
 	clang-format -i src/*.{c,h}
 
+test-simple:
+	make jsclean && make js -j8 && make && ./build/tjs test.js
+
 test:
 	./$(BUILD_DIR)/tjs test tests/
 
@@ -83,4 +92,4 @@ test-advanced:
 
 .PRECIOUS: bundles/stdlib/%.js bundles/core/tjs/%.js bundles/core/polyfills/%.js
 
-.PHONY: all build prejs js debug install jsclean clean distclean format test test-advanced debug1
+.PHONY: all build test-simple js debug install jsclean clean distclean format test test-advanced debug1

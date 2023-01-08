@@ -1,8 +1,8 @@
-import { assert } from '@tjs/std';
-
+import assert from '@tjs/std/assert';
 
 (async () => {
     /* Run a program that is expected to exit 0 */
-    tjs.exec([ tjs.exepath, '-v' ]);
+    //tjs.exec([tjs.exepath, '-v']);
+    tjs.exec('false');
     assert.fail('Should not be reached');
 })();

@@ -36,39 +36,39 @@ function _run(g) {
     var isFinite = g.isFinite;
 
     var colors = {
-        none:    '\x1b[0m',
-        black:   '\x1b[30m',
-        red:     '\x1b[31m',
-        green:   '\x1b[32m',
-        yellow:  '\x1b[33m',
-        blue:    '\x1b[34m',
+        none: '\x1b[0m',
+        black: '\x1b[30m',
+        red: '\x1b[31m',
+        green: '\x1b[32m',
+        yellow: '\x1b[33m',
+        blue: '\x1b[34m',
         magenta: '\x1b[35m',
-        cyan:    '\x1b[36m',
-        white:   '\x1b[37m',
-        gray:    '\x1b[30;1m',
-        grey:    '\x1b[30;1m',
-        bright_red:     '\x1b[31;1m',
-        bright_green:   '\x1b[32;1m',
-        bright_yellow:  '\x1b[33;1m',
-        bright_blue:    '\x1b[34;1m',
+        cyan: '\x1b[36m',
+        white: '\x1b[37m',
+        gray: '\x1b[30;1m',
+        grey: '\x1b[30;1m',
+        bright_red: '\x1b[31;1m',
+        bright_green: '\x1b[32;1m',
+        bright_yellow: '\x1b[33;1m',
+        bright_blue: '\x1b[34;1m',
         bright_magenta: '\x1b[35;1m',
-        bright_cyan:    '\x1b[36;1m',
-        bright_white:   '\x1b[37;1m',
+        bright_cyan: '\x1b[36;1m',
+        bright_white: '\x1b[37;1m',
     };
 
     var styles = {
-        'default':    'bright_green',
-        'comment':    'white',
-        'string':     'bright_cyan',
-        'regex':      'cyan',
-        'number':     'green',
-        'keyword':    'bright_white',
-        'function':   'bright_yellow',
-        'type':       'bright_magenta',
-        'identifier': 'bright_green',
-        'error':      'red',
-        'result':     'bright_white',
-        'error_msg':  'bright_red',
+        default: 'bright_green',
+        comment: 'white',
+        string: 'bright_cyan',
+        regex: 'cyan',
+        number: 'green',
+        keyword: 'bright_white',
+        function: 'bright_yellow',
+        type: 'bright_magenta',
+        identifier: 'bright_green',
+        error: 'red',
+        result: 'bright_white',
+        error_msg: 'bright_red',
     };
 
     var history = [];
@@ -154,8 +154,8 @@ function _run(g) {
     function handle_byte(c) {
         if (!utf8) {
             handle_char(c);
-        } else if (utf8_state !== 0 && (c >= 0x80 && c < 0xc0)) {
-            utf8_val = (utf8_val << 6) | (c & 0x3F);
+        } else if (utf8_state !== 0 && c >= 0x80 && c < 0xc0) {
+            utf8_val = (utf8_val << 6) | (c & 0x3f);
             utf8_state--;
 
             if (utf8_state === 0) {
@@ -171,17 +171,21 @@ function _run(g) {
     }
 
     function is_alpha(c) {
-        return typeof c === 'string' &&
-            ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
+        return (
+            typeof c === 'string' &&
+            ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+        );
     }
 
     function is_digit(c) {
-        return typeof c === 'string' && (c >= '0' && c <= '9');
+        return typeof c === 'string' && c >= '0' && c <= '9';
     }
 
     function is_word(c) {
-        return typeof c === 'string' &&
-            (is_alpha(c) || is_digit(c) || c == '_' || c == '$');
+        return (
+            typeof c === 'string' &&
+            (is_alpha(c) || is_digit(c) || c == '_' || c == '$')
+        );
     }
 
     function is_balanced(a, b) {
@@ -198,8 +202,8 @@ function _run(g) {
     function print_color_text(str, start, style_names) {
         var i, j;
 
-        for (j = start; j < str.length;) {
-            var style = style_names[i = j];
+        for (j = start; j < str.length; ) {
+            var style = style_names[(i = j)];
 
             while (++j < str.length && style_names[j] == style) {
                 continue;
@@ -212,20 +216,20 @@ function _run(g) {
     }
 
     function print_csi(n, code) {
-        stdout_write('\x1b[' + ((n != 1) ? n : '') + code);
+        stdout_write('\x1b[' + (n != 1 ? n : '') + code);
     }
 
     function move_cursor(delta) {
-        const p = tjs.open("curors.txt", 'w');
-        p.then((a) => {
+        const p = tjs.open('curors.txt', 'w');
+        p.then(a => {
             a.write(textEncode(delta));
             a.write(textEncode('\n'));
-        })
+        });
         var i, l;
 
         if (delta > 0) {
             while (delta != 0) {
-                if (term_cursor_x == (term_width - 1)) {
+                if (term_cursor_x == term_width - 1) {
                     stdout_write('\n'); /* translated to CRLF */
                     term_cursor_x = 0;
                     delta--;
@@ -259,7 +263,11 @@ function _run(g) {
         var i;
 
         if (cmd != last_cmd) {
-            if (!show_colors && last_cmd.substring(0, last_cursor_pos) == cmd.substring(0, last_cursor_pos)) {
+            if (
+                !show_colors &&
+                last_cmd.substring(0, last_cursor_pos) ==
+                    cmd.substring(0, last_cursor_pos)
+            ) {
                 /* optimize common case */
                 stdout_write(cmd.substring(last_cursor_pos));
             } else {
@@ -298,7 +306,8 @@ function _run(g) {
     /* editing commands */
     function insert(str) {
         if (str) {
-            cmd = cmd.substring(0, cursor_pos) + str + cmd.substring(cursor_pos);
+            cmd =
+                cmd.substring(0, cursor_pos) + str + cmd.substring(cursor_pos);
             cursor_pos += str.length;
         }
     }
@@ -314,8 +323,7 @@ function _run(g) {
         return -2;
     }
 
-    function alert() {
-    }
+    function alert() {}
 
     function clear_screen() {
         stdout_write('\x1b[H\x1b[J');
@@ -414,7 +422,8 @@ function _run(g) {
         var pos = cursor_pos;
 
         for (var i = 1; i <= history.length; i++) {
-            var index = (history.length + i * dir + history_index) % history.length;
+            var index =
+                (history.length + i * dir + history_index) % history.length;
 
             if (history[index].substring(0, pos) == cmd.substring(0, pos)) {
                 history_index = index;
@@ -472,8 +481,11 @@ function _run(g) {
                 pos--;
             }
 
-            cmd = cmd.substring(0, pos - 1) + cmd.substring(pos, pos + 1) +
-                cmd.substring(pos - 1, pos) + cmd.substring(pos + 1);
+            cmd =
+                cmd.substring(0, pos - 1) +
+                cmd.substring(pos, pos + 1) +
+                cmd.substring(pos - 1, pos) +
+                cmd.substring(pos + 1);
             cursor_pos = pos + 1;
         }
     }
@@ -485,8 +497,11 @@ function _run(g) {
         var p3 = skip_word_backward(p4);
 
         if (p1 < p2 && p2 <= cursor_pos && cursor_pos <= p3 && p3 < p4) {
-            cmd = cmd.substring(0, p1) + cmd.substring(p3, p4) +
-            cmd.substring(p2, p3) + cmd.substring(p1, p2);
+            cmd =
+                cmd.substring(0, p1) +
+                cmd.substring(p3, p4) +
+                cmd.substring(p2, p3) +
+                cmd.substring(p1, p2);
             cursor_pos = p4;
         }
     }
@@ -494,7 +509,8 @@ function _run(g) {
     function upcase_word() {
         var end = skip_word_forward(cursor_pos);
 
-        cmd = cmd.substring(0, cursor_pos) +
+        cmd =
+            cmd.substring(0, cursor_pos) +
             cmd.substring(cursor_pos, end).toUpperCase() +
             cmd.substring(end);
     }
@@ -502,7 +518,8 @@ function _run(g) {
     function downcase_word() {
         var end = skip_word_forward(cursor_pos);
 
-        cmd = cmd.substring(0, cursor_pos) +
+        cmd =
+            cmd.substring(0, cursor_pos) +
             cmd.substring(cursor_pos, end).toLowerCase() +
             cmd.substring(end);
     }
@@ -586,9 +603,9 @@ function _run(g) {
             pos--;
             obj = {};
 
-            switch (c = line[pos - 1]) {
-                case '\'':
-                case '\"':
+            switch ((c = line[pos - 1])) {
+                case "'":
+                case '"':
                     return 'a';
                 case ']':
                     return [];
@@ -600,7 +617,10 @@ function _run(g) {
                     if (is_word(c)) {
                         base = get_context_word(line, pos);
 
-                        if ([ 'true', 'false', 'null', 'this' ].includes(base) || !isNaN(+base)) {
+                        if (
+                            ['true', 'false', 'null', 'this'].includes(base) ||
+                            !isNaN(+base)
+                        ) {
                             return eval(base);
                         }
 
@@ -634,14 +654,22 @@ function _run(g) {
         /* enumerate properties from object and its prototype chain,
            add non-numeric regular properties with s as e prefix
          */
-        for (i = 0, obj = ctx_obj; i < 10 && obj !== null && obj !== void 0; i++) {
+        for (
+            i = 0, obj = ctx_obj;
+            i < 10 && obj !== null && obj !== void 0;
+            i++
+        ) {
             var props = Object.getOwnPropertyNames(obj);
 
             /* add non-numeric regular properties */
             for (j = 0; j < props.length; j++) {
                 var prop = props[j];
 
-                if (typeof prop === 'string' && ''+(+prop) != prop && prop.startsWith(s)) {
+                if (
+                    typeof prop === 'string' &&
+                    '' + +prop != prop &&
+                    prop.startsWith(s)
+                ) {
                     r.push(prop);
                 }
             }
@@ -772,56 +800,56 @@ function _run(g) {
         }
     }
 
-    var commands = {        /* command table */
-        '\x01':     beginning_of_line,      /* ^A - bol */
-        '\x02':     backward_char,          /* ^B - backward-char */
-        '\x03':     control_c,              /* ^C - abort */
-        '\x04':     control_d,              /* ^D - delete-char or exit */
-        '\x05':     end_of_line,            /* ^E - eol */
-        '\x06':     forward_char,           /* ^F - forward-char */
-        '\x07':     abort,                  /* ^G - bell */
-        '\x08':     backward_delete_char,   /* ^H - backspace */
-        '\x09':     completion,             /* ^I - history-search-backward */
-        '\x0a':     accept_line,            /* ^J - newline */
-        '\x0b':     kill_line,              /* ^K - delete to end of line */
-        '\x0c':     clear_screen,           /* ^L - clear screen */
-        '\x0d':     accept_line,            /* ^M - enter */
-        '\x0e':     next_history,           /* ^N - down */
-        '\x10':     previous_history,       /* ^P - up */
-        '\x11':     quoted_insert,          /* ^Q - quoted-insert */
-        '\x12':     alert,                  /* ^R - reverse-search */
-        '\x13':     alert,                  /* ^S - search */
-        '\x14':     transpose_chars,        /* ^T - transpose */
-        '\x18':     reset,                  /* ^X - cancel */
-        '\x19':     yank,                   /* ^Y - yank */
-        '\x1bOA':   previous_history,       /* ^[OA - up */
-        '\x1bOB':   next_history,           /* ^[OB - down */
-        '\x1bOC':   forward_char,           /* ^[OC - right */
-        '\x1bOD':   backward_char,          /* ^[OD - left */
-        '\x1bOF':   forward_word,           /* ^[OF - ctrl-right */
-        '\x1bOH':   backward_word,          /* ^[OH - ctrl-left */
-        '\x1b[1;5C': forward_word,          /* ^[[1;5C - ctrl-right */
-        '\x1b[1;5D': backward_word,         /* ^[[1;5D - ctrl-left */
-        '\x1b[1~':  beginning_of_line,      /* ^[[1~ - bol */
-        '\x1b[3~':  delete_char,            /* ^[[3~ - delete */
-        '\x1b[4~':  end_of_line,            /* ^[[4~ - eol */
-        '\x1b[5~':  history_search_backward,/* ^[[5~ - page up */
-        '\x1b[6~':  history_search_forward, /* ^[[5~ - page down */
-        '\x1b[A':   previous_history,       /* ^[[A - up */
-        '\x1b[B':   next_history,           /* ^[[B - down */
-        '\x1b[C':   forward_char,           /* ^[[C - right */
-        '\x1b[D':   backward_char,          /* ^[[D - left */
-        '\x1b[F':   end_of_line,            /* ^[[F - end */
-        '\x1b[H':   beginning_of_line,      /* ^[[H - home */
-        '\x1b\x7f': backward_kill_word,     /* M-C-? - backward_kill_word */
-        '\x1bb':    backward_word,          /* M-b - backward_word */
-        '\x1bd':    kill_word,              /* M-d - kill_word */
-        '\x1bf':    forward_word,           /* M-f - backward_word */
-        '\x1bk':    backward_kill_line,     /* M-k - backward_kill_line */
-        '\x1bl':    downcase_word,          /* M-l - downcase_word */
-        '\x1bt':    transpose_words,        /* M-t - transpose_words */
-        '\x1bu':    upcase_word,            /* M-u - upcase_word */
-        '\x7f':     backward_delete_char,   /* ^? - delete */
+    var commands = {
+        /* command table */ '\x01': beginning_of_line /* ^A - bol */,
+        '\x02': backward_char /* ^B - backward-char */,
+        '\x03': control_c /* ^C - abort */,
+        '\x04': control_d /* ^D - delete-char or exit */,
+        '\x05': end_of_line /* ^E - eol */,
+        '\x06': forward_char /* ^F - forward-char */,
+        '\x07': abort /* ^G - bell */,
+        '\x08': backward_delete_char /* ^H - backspace */,
+        '\x09': completion /* ^I - history-search-backward */,
+        '\x0a': accept_line /* ^J - newline */,
+        '\x0b': kill_line /* ^K - delete to end of line */,
+        '\x0c': clear_screen /* ^L - clear screen */,
+        '\x0d': accept_line /* ^M - enter */,
+        '\x0e': next_history /* ^N - down */,
+        '\x10': previous_history /* ^P - up */,
+        '\x11': quoted_insert /* ^Q - quoted-insert */,
+        '\x12': alert /* ^R - reverse-search */,
+        '\x13': alert /* ^S - search */,
+        '\x14': transpose_chars /* ^T - transpose */,
+        '\x18': reset /* ^X - cancel */,
+        '\x19': yank /* ^Y - yank */,
+        '\x1bOA': previous_history /* ^[OA - up */,
+        '\x1bOB': next_history /* ^[OB - down */,
+        '\x1bOC': forward_char /* ^[OC - right */,
+        '\x1bOD': backward_char /* ^[OD - left */,
+        '\x1bOF': forward_word /* ^[OF - ctrl-right */,
+        '\x1bOH': backward_word /* ^[OH - ctrl-left */,
+        '\x1b[1;5C': forward_word /* ^[[1;5C - ctrl-right */,
+        '\x1b[1;5D': backward_word /* ^[[1;5D - ctrl-left */,
+        '\x1b[1~': beginning_of_line /* ^[[1~ - bol */,
+        '\x1b[3~': delete_char /* ^[[3~ - delete */,
+        '\x1b[4~': end_of_line /* ^[[4~ - eol */,
+        '\x1b[5~': history_search_backward /* ^[[5~ - page up */,
+        '\x1b[6~': history_search_forward /* ^[[5~ - page down */,
+        '\x1b[A': previous_history /* ^[[A - up */,
+        '\x1b[B': next_history /* ^[[B - down */,
+        '\x1b[C': forward_char /* ^[[C - right */,
+        '\x1b[D': backward_char /* ^[[D - left */,
+        '\x1b[F': end_of_line /* ^[[F - end */,
+        '\x1b[H': beginning_of_line /* ^[[H - home */,
+        '\x1b\x7f': backward_kill_word /* M-C-? - backward_kill_word */,
+        '\x1bb': backward_word /* M-b - backward_word */,
+        '\x1bd': kill_word /* M-d - kill_word */,
+        '\x1bf': forward_word /* M-f - backward_word */,
+        '\x1bk': backward_kill_line /* M-k - backward_kill_line */,
+        '\x1bl': downcase_word /* M-l - downcase_word */,
+        '\x1bt': transpose_words /* M-t - transpose_words */,
+        '\x1bu': upcase_word /* M-u - upcase_word */,
+        '\x7f': backward_delete_char /* ^? - delete */,
     };
 
     function dupstr(str, count) {
@@ -873,7 +901,8 @@ function _run(g) {
 
         switch (readline_state) {
             case 0:
-                if (c == '\x1b') {  /* '^[' - ESC */
+                if (c == '\x1b') {
+                    /* '^[' - ESC */
                     readline_keys = c;
                     readline_state = 1;
                 } else {
@@ -881,7 +910,7 @@ function _run(g) {
                 }
 
                 break;
-            case 1: /* '^[ */
+            case 1 /* '^[ */:
                 readline_keys += c;
 
                 if (c == '[') {
@@ -894,7 +923,7 @@ function _run(g) {
                 }
 
                 break;
-            case 2: /* '^[[' - CSI */
+            case 2 /* '^[[' - CSI */:
                 readline_keys += c;
 
                 if (!(c == ';' || (c >= '0' && c <= '9'))) {
@@ -903,7 +932,7 @@ function _run(g) {
                 }
 
                 break;
-            case 3: /* '^[O' - ESC2 */
+            case 3 /* '^[O' - ESC2 */:
                 readline_keys += c;
                 handle_key(readline_keys);
                 readline_state = 0;
@@ -920,7 +949,7 @@ function _run(g) {
             }
 
             quote_flag = false;
-        } else if (fun = commands[keys]) {
+        } else if ((fun = commands[keys])) {
             this_fun = fun;
 
             switch (fun(keys)) {
@@ -942,8 +971,12 @@ function _run(g) {
             alert(); /* beep! */
         }
 
-        cursor_pos = (cursor_pos < 0) ? 0 :
-            (cursor_pos > cmd.length) ? cmd.length : cursor_pos;
+        cursor_pos =
+            cursor_pos < 0
+                ? 0
+                : cursor_pos > cmd.length
+                ? cmd.length
+                : cursor_pos;
         update();
     }
 
@@ -1058,8 +1091,7 @@ function _run(g) {
                         keys = Object.keys(a);
                         n = keys.length;
                         var name = a[Symbol.toStringTag];
-                        if (name)
-                            stdout_write(name + ' ');
+                        if (name) stdout_write(name + ' ');
                         stdout_write('{ ');
 
                         for (i = 0; i < n; i++) {
@@ -1129,9 +1161,11 @@ function _run(g) {
     }
 
     function help() {
-        stdout_write('\\h      this help\n' +
-                     '\\clear  clear the terminal\n' +
-                     '\\q      exit\n');
+        stdout_write(
+            '\\h      this help\n' +
+                '\\clear  clear the terminal\n' +
+                '\\q      exit\n'
+        );
     }
 
     function eval_and_print(expr) {
@@ -1168,7 +1202,9 @@ function _run(g) {
     }
 
     function cmd_start() {
-        stdout_write('Welcome to txiki.js — The tiny JavaScript runtime\nType "\\h" for help\n');
+        stdout_write(
+            'Welcome to txiki.js — The tiny JavaScript runtime\nType "\\h" for help\n'
+        );
         cmd_readline_start();
     }
 
@@ -1235,9 +1271,15 @@ function _run(g) {
     }
 
     function colorize_js(str) {
-        var i, c, start, n = str.length;
-        var style, state = '', level = 0;
-        var primary, can_regex = 1;
+        var i,
+            c,
+            start,
+            n = str.length;
+        var style,
+            state = '',
+            level = 0;
+        var primary,
+            can_regex = 1;
         var r = [];
 
         function push_state(c) {
@@ -1297,8 +1339,7 @@ function _run(g) {
                     }
 
                     i++;
-                } else
-                if (c == delim) {
+                } else if (c == delim) {
                     pop_state();
                     break;
                 }
@@ -1359,12 +1400,17 @@ function _run(g) {
         function parse_number() {
             style = 'number';
 
-            while (i < n && (is_word(str[i]) || (str[i] == '.' && (i == n - 1 || str[i + 1] != '.')))) {
+            while (
+                i < n &&
+                (is_word(str[i]) ||
+                    (str[i] == '.' && (i == n - 1 || str[i + 1] != '.')))
+            ) {
                 i++;
             }
         }
 
-        var js_keywords = '|' +
+        var js_keywords =
+            '|' +
             'break|case|catch|continue|debugger|default|delete|do|' +
             'else|finally|for|function|if|in|instanceof|new|' +
             'return|switch|this|throw|try|typeof|while|with|' +
@@ -1375,7 +1421,8 @@ function _run(g) {
             'eval|arguments|' +
             'await|';
 
-        var js_no_regex = '|this|super|undefined|null|true|false|Infinity|NaN|arguments|';
+        var js_no_regex =
+            '|this|super|undefined|null|true|false|Infinity|NaN|arguments|';
         var js_types = '|void|var|';
 
         function parse_identifier() {
@@ -1429,11 +1476,11 @@ function _run(g) {
             }
         }
 
-        for (i = 0; i < n;) {
+        for (i = 0; i < n; ) {
             style = null;
             start = i;
 
-            switch (c = str[i++]) {
+            switch ((c = str[i++])) {
                 case ' ':
                 case '\t':
                 case '\r':
@@ -1449,12 +1496,14 @@ function _run(g) {
                     can_regex = 1;
                     continue;
                 case '/':
-                    if (i < n && str[i] == '*') { // block comment
+                    if (i < n && str[i] == '*') {
+                        // block comment
                         parse_block_comment();
                         break;
                     }
 
-                    if (i < n && str[i] == '/') { // line comment
+                    if (i < n && str[i] == '/') {
+                        // line comment
                         parse_line_comment();
                         break;
                     }
@@ -1467,8 +1516,8 @@ function _run(g) {
 
                     can_regex = 1;
                     continue;
-                case '\'':
-                case '\"':
+                case "'":
+                case '"':
                 case '`':
                     parse_string(c);
                     can_regex = 0;
@@ -1516,7 +1565,7 @@ function _run(g) {
 
         set_style(n, n);
 
-        return [ state, level, r ];
+        return [state, level, r];
     }
 
     termInit();
@@ -1529,7 +1578,7 @@ export async function runRepl() {
 
     // /* expose stdlib */
     // globalThis.std = std;
-    
+
     window.addEventListener('unhandledrejection', event => {
         // Avoid aborting in unhandled promised on the REPL.
         event.preventDefault();

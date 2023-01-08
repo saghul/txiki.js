@@ -1,5 +1,4 @@
-import { assert } from '@tjs/std';
-
+import assert from '@tjs/std/assert';
 
 globalThis.global = 'foo';
 assert.is(globalThis, global, 'globalThis is global');

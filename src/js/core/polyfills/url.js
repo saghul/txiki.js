@@ -1,10 +1,3 @@
-import URL from 'core-js/actual/url';
-import URLSearchParams from 'core-js/actual/url-search-params';
+import { URL, URLSearchParams } from 'whatwg-url-without-unicode';
 
-URL.prototype.toJSON = function toJSON() {
-    return this.toString();
-};
-
-export { URL,URLSearchParams };
-
-
+export { URL, URLSearchParams };

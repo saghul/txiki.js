@@ -1,25 +1,22 @@
-import { assert } from '@tjs/std';
-
+import assert from '@tjs/std/assert';
 
 (async () => {
     async function testCliVersion() {
-        const args = [
-            tjs.exepath,
-            '-v'
-        ];
+        const args = [tjs.exepath, '-v'];
         const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'ignore' });
         const buf = new Uint8Array(4096);
         const nread = await proc.stdout.read(buf);
         const stdoutStr = new TextDecoder().decode(buf.subarray(0, nread));
         await proc.wait();
-        assert.eq(stdoutStr.trim(), `v${tjs.version}`, 'returns the right version');
+        assert.eq(
+            stdoutStr.trim(),
+            `v${tjs.version}`,
+            'returns the right version'
+        );
     }
 
     async function testCliHelp() {
-        const args = [
-            tjs.exepath,
-            '-h'
-        ];
+        const args = [tjs.exepath, '-h'];
         const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'ignore' });
         const buf = new Uint8Array(4096);
         const nread = await proc.stdout.read(buf);
@@ -29,16 +26,16 @@ import { assert } from '@tjs/std';
     }
 
     async function testCliBadOption() {
-        const args = [
-            tjs.exepath,
-            '--foo'
-        ];
+        const args = [tjs.exepath, '--foo'];
         const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'ignore' });
         const buf = new Uint8Array(4096);
         const nread = await proc.stdout.read(buf);
         const stdoutStr = new TextDecoder().decode(buf.subarray(0, nread));
         await proc.wait();
-        assert.ok(stdoutStr.includes('unrecognized option: foo'), 'recognizes a bad option');
+        assert.ok(
+            stdoutStr.includes('unrecognized option: foo'),
+            'recognizes a bad option'
+        );
     }
 
     await testCliVersion();

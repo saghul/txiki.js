@@ -36,7 +36,7 @@ function pd(event) {
     const retv = privateData.get(event);
 
     if (!retv) {
-        throw new Error('\'this\' is expected an Event object, but got ' + event);
+        throw new Error(`'this' is expected an Event object, but got ${event}`);
     }
 
     return retv;
@@ -50,7 +50,8 @@ function setCancelFlag(data) {
     if (data.passiveListener !== null) {
         console.error(
             'Unable to preventDefault inside passive event listener invocation.',
-            data.passiveListener);
+            data.passiveListener
+        );
 
         return;
     }
@@ -61,7 +62,6 @@ function setCancelFlag(data) {
 
     data.canceled = true;
 }
-
 
 class Event {
     constructor(eventType, eventInit = {}) {
@@ -82,7 +82,10 @@ class Event {
         });
 
         // https://heycam.github.io/webidl/#Unforgeable
-        Object.defineProperty(this, 'isTrusted', { value: false, enumerable: true });
+        Object.defineProperty(this, 'isTrusted', {
+            value: false,
+            enumerable: true,
+        });
     }
 
     /**
@@ -230,7 +233,6 @@ class Event {
     }
 }
 
-
 /**
  * CustomEvent.
  */
@@ -243,7 +245,6 @@ class CustomEvent extends Event {
         return Boolean(pd(this).eventInit.detail);
     }
 }
-
 
 /**
  * Get the immediateStopped flag of a given event.
@@ -448,7 +449,9 @@ class EventTarget {
         }
 
         if (typeof listener !== 'function' && !isObject(listener)) {
-            throw new TypeError('\'listener\' should be a function or an object.');
+            throw new TypeError(
+                '\'listener\' should be a function or an object.'
+            );
         }
 
         const listeners = getListeners(this);
@@ -543,11 +546,15 @@ class EventTarget {
      */
     dispatchEvent(event) {
         if (typeof event !== 'object') {
-            throw new TypeError('Argument 1 of EventTarget.dispatchEvent is not an object.');
+            throw new TypeError(
+                'Argument 1 of EventTarget.dispatchEvent is not an object.'
+            );
         }
 
         if (!(event instanceof Event)) {
-            throw new TypeError('Argument 1 of EventTarget.dispatchEvent does not implement interface Event.');
+            throw new TypeError(
+                'Argument 1 of EventTarget.dispatchEvent does not implement interface Event.'
+            );
         }
 
         // Set the current target.
@@ -589,7 +596,10 @@ class EventTarget {
                 } catch (err) {
                     console.error(err);
                 }
-            } else if (node.listenerType !== ATTRIBUTE && typeof node.listener.handleEvent === 'function') {
+            } else if (
+                node.listenerType !== ATTRIBUTE &&
+                typeof node.listener.handleEvent === 'function'
+            ) {
                 node.listener.handleEvent(event);
             }
 
@@ -608,6 +618,5 @@ class EventTarget {
         return !event.defaultPrevented;
     }
 }
-
 
 export { defineEventAttribute, EventTarget, Event, CustomEvent };

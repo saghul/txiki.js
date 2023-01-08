@@ -1,7 +1,6 @@
-import { assert } from '@tjs/std';
+import assert from '@tjs/std/assert';
 
-const dirs = [ 'advanced', 'fixtures', 'helpers', 'wasi', 'wasm' ];
-
+const dirs = ['advanced', 'fixtures', 'helpers', 'wasi', 'wasm'];
 
 (async () => {
     const dirIter = await tjs.readdir(import.meta.dirname);

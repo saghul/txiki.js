@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 
-
-
 function filename(){
     local name="${1##*/}"
     echo ${name%.*}
@@ -67,7 +65,7 @@ do
    MODULE_NAME="${MODULE_NAME}${MODULE_FILE_NAME}"
    COMPILED_NAME="${COMPILED_NAME}${COMPILED_FILE_NAME}"
 
-   echo "Generating $MODULE_NAME"
+   echo "Generating \"$MODULE_NAME\" with \"${COMPILED_NAME}\""
    echo "   { \"${MODULE_NAME}\", ${#MODULE_NAME}, (void *)&${COMPILED_NAME}, ${COMPILED_NAME}_size }," >> $FILE
 done
 

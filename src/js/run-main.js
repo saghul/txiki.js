@@ -58,7 +58,9 @@ if (options.help) {
     const stackSize = options['stack-size'];
 
     if (typeof memoryLimit !== 'undefined') {
-        internals.setMemoryLimit(parseNumberOption(memoryLimit, 'memory-limit'));
+        internals.setMemoryLimit(
+            parseNumberOption(memoryLimit, 'memory-limit')
+        );
     }
 
     if (typeof stackSize !== 'undefined') {

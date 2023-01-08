@@ -40,6 +40,4 @@ defineEventAttribute(workerProto, 'message');
 defineEventAttribute(workerProto, 'messageerror');
 defineEventAttribute(workerProto, 'error');
 
-export {
-    Worker
-};
+export { Worker };

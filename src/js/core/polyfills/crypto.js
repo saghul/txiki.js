@@ -1,8 +1,10 @@
 const core = globalThis.__bootstrap;
 
 const TypedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
-const TypedArrayProto_toStringTag = Object.getOwnPropertyDescriptor(TypedArrayPrototype, Symbol.toStringTag).get;
-
+const TypedArrayProto_toStringTag = Object.getOwnPropertyDescriptor(
+    TypedArrayPrototype,
+    Symbol.toStringTag
+).get;
 
 function getRandomValues(obj) {
     const type = TypedArrayProto_toStringTag.call(obj);
@@ -16,7 +18,9 @@ function getRandomValues(obj) {
         case 'Uint32Array':
             break;
         default:
-            throw new TypeError('Argument 1 of Crypto.getRandomValues does not implement interface ArrayBufferView');
+            throw new TypeError(
+                'Argument 1 of Crypto.getRandomValues does not implement interface ArrayBufferView'
+            );
     }
 
     if (obj.byteLength > 65536) {
@@ -38,6 +42,5 @@ function randomUUID() {
 export const crypto = Object.freeze({
     getRandomValues,
     randomUUID,
-    subtle: undefined
+    subtle: undefined,
 });
-

@@ -70,5 +70,5 @@ export async function prompt(msg = 'Prompt', def = null) {
 
     await tjs.stdout.write(encoder.encode(msg + ' '));
 
-    return await readStdinLine() || def;
+    return (await readStdinLine()) || def;
 }

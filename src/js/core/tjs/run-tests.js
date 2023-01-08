@@ -2,30 +2,28 @@
 
 let __path; // lazy loaded.
 
-
 const TIMEOUT = 10 * 1000;
 
 const colors = {
-    none:    '\x1b[0m',
-    black:   '\x1b[30m',
-    red:     '\x1b[31m',
-    green:   '\x1b[32m',
-    yellow:  '\x1b[33m',
-    blue:    '\x1b[34m',
+    none: '\x1b[0m',
+    black: '\x1b[30m',
+    red: '\x1b[31m',
+    green: '\x1b[32m',
+    yellow: '\x1b[33m',
+    blue: '\x1b[34m',
     magenta: '\x1b[35m',
-    cyan:    '\x1b[36m',
-    white:   '\x1b[37m',
-    gray:    '\x1b[30;1m',
-    grey:    '\x1b[30;1m',
-    bright_red:     '\x1b[31;1m',
-    bright_green:   '\x1b[32;1m',
-    bright_yellow:  '\x1b[33;1m',
-    bright_blue:    '\x1b[34;1m',
+    cyan: '\x1b[36m',
+    white: '\x1b[37m',
+    gray: '\x1b[30;1m',
+    grey: '\x1b[30;1m',
+    bright_red: '\x1b[31;1m',
+    bright_green: '\x1b[32;1m',
+    bright_yellow: '\x1b[33;1m',
+    bright_blue: '\x1b[34;1m',
     bright_magenta: '\x1b[35;1m',
-    bright_cyan:    '\x1b[36;1m',
-    bright_white:   '\x1b[37;1m',
+    bright_cyan: '\x1b[36;1m',
+    bright_white: '\x1b[37;1m',
 };
-
 
 class Test {
     constructor(fileName) {
@@ -49,7 +47,11 @@ class Test {
     }
 
     async wait() {
-        const [ status_, stdout, stderr ] = await Promise.allSettled([ this._proc_exit, this._stdout, this._stderr ]);
+        const [ status_, stdout, stderr ] = await Promise.allSettled([
+            this._proc_exit,
+            this._stdout,
+            this._stderr,
+        ]);
         const status = status_.value;
 
         return {
@@ -58,7 +60,7 @@ class Test {
             status,
             stdout: stdout.value,
             stderr: stderr.value,
-            timeout: Boolean(this._timeout)
+            timeout: Boolean(this._timeout),
         };
     }
 
@@ -84,9 +86,13 @@ class Test {
 
 function printResult(result) {
     // eslint-disable-next-line no-nested-ternary
-    const status = result.timeout ? colors.yellow+'TIMEOUT' : (result.failed ? colors.red+'FAIL' : colors.green+'OK');
+    const status = result.timeout
+        ? colors.yellow + 'TIMEOUT'
+        : result.failed
+            ? colors.red + 'FAIL'
+            : colors.green + 'OK';
 
-    console.log(`${result.name.padEnd(40, ' ')} ${status+colors.none}`);
+    console.log(`${result.name.padEnd(40, ' ')} ${status + colors.none}`);
 
     if (result.failed) {
         console.log('status:');
@@ -105,9 +111,9 @@ function printResult(result) {
 }
 
 export async function runTests(d) {
-    const std = await import('@tjs/std');
+    const { default: path } = await import('@tjs/std/path');
 
-    __path = std.path;
+    __path = path;
 
     const dir = await tjs.realpath(d || tjs.cwd());
     const dirIter = await tjs.readdir(dir);
@@ -122,7 +128,8 @@ export async function runTests(d) {
     }
 
     let failed = 0;
-    const testConcurrency = tjs.environ.TJS_TEST_CONCURRENCY ?? tjs.availableParallelism();
+    const testConcurrency =
+        tjs.environ.TJS_TEST_CONCURRENCY ?? tjs.availableParallelism();
     const running = new Set();
 
     // eslint-disable-next-line no-constant-condition

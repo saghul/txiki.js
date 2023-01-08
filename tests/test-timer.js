@@ -1,5 +1,4 @@
-import { assert } from '@tjs/std';
-
+import assert from '@tjs/std/assert';
 
 (async () => {
     const runner1 = () => Promise.resolve();
