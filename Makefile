@@ -1,6 +1,6 @@
 BUILD_DIR=build
 BUILDTYPE?=Release
-MINIFYJS=
+MINIFYJS=--minify
 EXCLUDED_POLIFILLS=$(addprefix src/js/core/polyfills/, path-utils.c path-posix.c path-win32.c event-target-polyfill.c base.c)
 EXCLUDED_CORE=$(addprefix src/js/core/tjs/, stdio.c index.c)
 POLYFILL_SOURCES=$(filter-out $(EXCLUDED_POLIFILLS), $(patsubst %.js, %.c, $(wildcard src/js/core/polyfills/*.js)))
