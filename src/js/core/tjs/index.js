@@ -178,7 +178,7 @@ function format(...args) {
 }
 
 function print(...args) {
-    const text = `${format(args)}\n`;
+    const text = `${format(...args)}\n`;
 
     tjs.stdout.write(core.textEncode(text));
 }
