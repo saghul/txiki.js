@@ -130,9 +130,8 @@ function concatTypedArrays(chunks) {
 /*                   Blob constructor                   */
 /** ******************************************************/
 class Blob {
-    constructor(chunks, opts) {
+    constructor(chunks, opts = {}) {
         chunks = chunks ? chunks.slice() : [];
-        opts = opts === null ? {} : opts;
 
         for (let i = 0, len = chunks.length; i < len; i++) {
             const chunk = chunks[i];
