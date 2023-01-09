@@ -1,5 +1,5 @@
-import { assert, path } from '@tjs/std';
-
+import path from '@tjs/std/path';
+import assert from '@tjs/std/assert';
 
 (async () => {
     const data = await tjs.readFile(path.join(import.meta.dirname, 'wasm', 'f32.wasm'));

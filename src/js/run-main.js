@@ -92,6 +92,7 @@ if (options.help) {
             tjs.exit(1);
         }
 
+
         internals.require(filename);
     } else if (command === 'test') {
         const [ dir ] = subargv;

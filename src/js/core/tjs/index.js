@@ -98,7 +98,7 @@ defineLazyProperties(tjs, '@tjs/signal', [ 'signal' ]);
 defineLazyProperties(tjs, '@tjs/sockets', [ 'connect', 'listen' ]);
 
 // FFI
-Object.defineProperty(tjs, 'FFI', {
+Object.defineProperty(tjs, 'ffi', {
     enumerable: true,
     get: () => core.require('@tjs/ffi'),
     set: () => {},
@@ -167,6 +167,10 @@ function format(...args) {
                 case 'undefined':
                     return 'undefined';
                 case 'object':
+                    if (a instanceof Error) {
+                        return `${a.name}: ${a.message}\n${a.stack}`;
+                    }
+
                     return JSON.stringify(a, getCircularReplacer(), 2);
                 case 'function':
                     return `[function: ${a.name || '(anonymous)'}]`;

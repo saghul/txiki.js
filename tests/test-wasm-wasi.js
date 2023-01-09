@@ -1,4 +1,5 @@
-import { assert, path } from '@tjs/std';
+import path from '@tjs/std/path';
+import assert from '@tjs/std/assert';
 
 
 (async () => {

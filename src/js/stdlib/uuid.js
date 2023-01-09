@@ -1,5 +1,32 @@
-const core = globalThis.__bootstrap;
+import {
+    parse,
+    stringify,
+    v1,
+    v3,
+    v4,
+    v5,
+    validate,
+    version,
+} from 'uuid';
 
-const uuid = core.uuidv4;
+export default {
+    parse,
+    stringify,
+    v1,
+    v3,
+    v4,
+    v5,
+    validate,
+    version,
+};
 
-export default uuid;
+export {
+    parse,
+    stringify,
+    v1,
+    v3,
+    v4,
+    v5,
+    validate,
+    version,
+};

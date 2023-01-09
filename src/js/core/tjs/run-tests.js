@@ -31,7 +31,7 @@ class Test {
     }
 
     run() {
-        const args = [ tjs.exepath, 'run', this._fileName ];
+        const args = [ tjs.exepath, this._fileName ];
 
         this._proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'pipe' });
         this._stdout = this._slurpStdio(this._proc.stdout);

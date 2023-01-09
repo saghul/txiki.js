@@ -1,5 +1,5 @@
-import { assert, path } from '@tjs/std';
-
+import path from '@tjs/std/path';
+import assert from '@tjs/std/assert';
 
 const w = new Worker(path.join(import.meta.dirname, 'helpers', 'worker.js'));
 const timer = setTimeout(() => {

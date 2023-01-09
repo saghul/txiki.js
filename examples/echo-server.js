@@ -1,7 +1,7 @@
 // Sample TCP echo server.
 //
 
-import { getopts } from '@tjs/std';
+import getopts from '@tjs/std/getopts';
 import { addr } from './utils.js';
 
 

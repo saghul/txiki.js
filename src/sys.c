@@ -147,6 +147,7 @@ static JSValue js_require(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     JSAtom basename_atom;
     JSValue basename_val;
     JSValue ns;
+    JSValue ex;
     const char *filename;
 
     basename_atom = JS_GetScriptOrModuleName(ctx, 0);
@@ -175,8 +176,8 @@ static JSValue js_require(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return ns;
 
  exception:
-    return JS_GetException(ctx);
-    return JS_UNDEFINED;
+    ex = JS_GetException(ctx);
+    return JS_Throw(ctx, ex);
 }
 
 static JSValue js_uuidv4(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
