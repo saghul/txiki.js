@@ -1,7 +1,7 @@
 import { assert } from '@tjs/std';
 
 const encoder = new TextEncoder();
-const decoer = new TextDecoder();
+const decoder = new TextDecoder();
 
 
 async function doEchoServer(server) {
@@ -35,7 +35,7 @@ async function doEchoServer(server) {
     client.write(encoder.encode('PING'));
     let dataStr, nread;
     nread = await client.read(readBuf);
-    dataStr = decoer.decode(readBuf.subarray(0, nread));
+    dataStr = decoder.decode(readBuf.subarray(0, nread));
     assert.eq(dataStr, "PING", "sending works");
     assert.throws(() => { client.write("PING"); }, TypeError, "sending anything else gives TypeError");
     assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
