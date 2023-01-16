@@ -1,4 +1,4 @@
-import { assert } from '@tjs/std';
+import assert from 'tjs:assert';
 
 
 const TypedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);

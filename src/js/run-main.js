@@ -1,6 +1,7 @@
 /* global tjs */
 
-import { getopts, path } from '@tjs/std';
+import getopts from 'tjs:getopts';
+import path from 'tjs:path';
 
 const {
     evalFile,

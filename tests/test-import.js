@@ -1,4 +1,4 @@
-import { assert } from '@tjs/std';
+import assert from 'tjs:assert';
 import { foo } from './helpers/a/b/c/d/e/foo.js';
 
 

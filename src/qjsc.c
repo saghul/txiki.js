@@ -210,7 +210,7 @@ static int js_module_dummy_init(JSContext *ctx, JSModuleDef *m) {
 }
 
 JSModuleDef *jsc_module_loader(JSContext *ctx, const char *module_name, void *opaque) {
-    static const char prefix[] = "@tjs/";
+    static const char prefix[] = "tjs:";
 
     JSModuleDef *m;
     namelist_entry_t *e;

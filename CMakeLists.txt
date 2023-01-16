@@ -82,9 +82,14 @@ add_executable(tjs
     src/worker.c
     src/ws.c
     src/xhr.c
-    src/js/core.c
-    src/js/std.c
-    src/js/run-main.c
+    src/bundles/c/core/core.c
+    src/bundles/c/core/run-main.c
+    src/bundles/c/stdlib/assert.c
+    src/bundles/c/stdlib/getopts.c
+    src/bundles/c/stdlib/hashing.c
+    src/bundles/c/stdlib/ipaddr.c
+    src/bundles/c/stdlib/path.c
+    src/bundles/c/stdlib/uuid.c
     ../deps/quickjs/src/cutils.c
 )
 

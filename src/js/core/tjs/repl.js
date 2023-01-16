@@ -1521,11 +1521,23 @@ function _run(g) {
 }
 
 export async function runRepl() {
-    const std = await import('@tjs/std');
-
     /* expose stdlib */
-    globalThis.std = std;
-    
+    const r = await Promise.allSettled([
+        import('tjs:assert'),
+        import('tjs:getopts'),
+        import('tjs:hashing'),
+        import('tjs:ipaddr'),
+        import('tjs:path'),
+        import('tjs:uuid')
+    ]);
+
+    globalThis.assert = r[0].value.default;
+    globalThis.getopts = r[1].value.default;
+    globalThis.hashing = r[2].value.default;
+    globalThis.ipaddr = r[3].value.default;
+    globalThis.path = r[4].value.default;
+    globalThis.uuid = r[5].value.default;
+
     window.addEventListener('unhandledrejection', event => {
         // Avoid aborting in unhandled promised on the REPL.
         event.preventDefault();

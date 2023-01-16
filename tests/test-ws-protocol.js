@@ -1,4 +1,4 @@
-import { assert } from '@tjs/std';
+import assert from 'tjs:assert';
 
 const proto = 'echo1234';
 const url = 'wss://websocket-echo.com';

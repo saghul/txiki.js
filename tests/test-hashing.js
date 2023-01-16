@@ -1,4 +1,5 @@
-import { assert, createHash } from '@tjs/std';
+import assert from 'tjs:assert';
+import { createHash } from 'tjs:hashing';
 
 
 const text = 'The quick brown fox jumps over the lazy dog';

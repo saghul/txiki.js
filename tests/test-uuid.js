@@ -1,4 +1,5 @@
-import { assert, uuid } from '@tjs/std';
+import assert from 'tjs:assert';
+import uuid from 'tjs:uuid';
 
 
 // Verify ordering of v1 ids created with explicit times
