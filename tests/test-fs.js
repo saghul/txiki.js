@@ -1,4 +1,5 @@
-import { assert, path as pathModule } from '@tjs/std';
+import assert from 'tjs:assert';
+import pathModule from 'tjs:path';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();

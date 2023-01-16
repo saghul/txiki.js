@@ -1,4 +1,4 @@
-import { assert } from '@tjs/std';
+import assert from 'tjs:assert';
 import initCParser from '../src/js/core/tjs/ffiutils.js';
 
 const FFI = tjs.ffi;

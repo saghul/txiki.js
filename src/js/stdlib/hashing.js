@@ -53,4 +53,4 @@ function createHash(type) {
 
 createHash.SUPPORTED_TYPES = Object.keys(supportedHashes);
 
-export default createHash;
+export { createHash };

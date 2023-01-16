@@ -1,4 +1,4 @@
-import { path } from '@tjs/std';
+import path from 'tjs:path';
 
 
 (async () => {

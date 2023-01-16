@@ -1,4 +1,4 @@
-import { assert } from '@tjs/std';
+import assert from 'tjs:assert';
 
 const PosixSocket = tjs.PosixSocket;
 

@@ -1,6 +1,9 @@
 BUILD_DIR=build
 BUILDTYPE?=Release
 
+QJSC=$(BUILD_DIR)/qjsc
+STDLIB_MODULES=$(wildcard src/js/stdlib/*.js)
+
 all: build
 
 build: $(BUILD_DIR)/Makefile
@@ -9,22 +12,62 @@ build: $(BUILD_DIR)/Makefile
 $(BUILD_DIR)/qjsc: $(BUILD_DIR)/Makefile
 	cmake --build $(BUILD_DIR) --target qjsc -j $(shell nproc)
 
-src/js/core.js: src/js/core/*.js src/js/core/polyfills/*.js src/js/core/tjs/*.js
-	npm run build-core
+src/bundles/js/core/core.js: src/js/core/*.js src/js/core/polyfills/*.js src/js/core/tjs/*.js
+	npx esbuild src/js/core/index.js \
+		--bundle \
+		--outfile=$@ \
+		--target=es2020 \
+		--platform=neutral \
+		--format=esm \
+		--main-fields=main,module \
+		--external:tjs:*
 
-src/js/std.js: src/js/stdlib/*.js
-	npm run build-stdlib
+src/bundles/c/core/core.c: $(QJSC) src/bundles/js/core/core.js
+	@mkdir -p $(basename $(dir $@))
+	$(BUILD_DIR)/qjsc -m \
+		-o $@ \
+		-n "core.js" \
+		-p tjs__ \
+		src/bundles/js/core/core.js
 
-src/js/core.c: $(BUILD_DIR)/qjsc src/js/core.js
-	$(BUILD_DIR)/qjsc -m -o src/js/core.c -n core.js -p tjs__ src/js/core.js
+src/bundles/c/core/run-main.c: $(QJSC) src/js/run-main.js
+	@mkdir -p $(basename $(dir $@))
+	$(BUILD_DIR)/qjsc -m \
+		-o $@ \
+		-n "run-main.js" \
+		-p tjs__ \
+		src/js/run-main.js
 
-src/js/std.c: $(BUILD_DIR)/qjsc src/js/std.js
-	$(BUILD_DIR)/qjsc -m -o src/js/std.c -n "@tjs/std" -p tjs__ src/js/std.js
+core: src/bundles/c/core/core.c src/bundles/c/core/run-main.c
 
-src/js/run-main.c: $(BUILD_DIR)/qjsc src/js/run-main.js
-	$(BUILD_DIR)/qjsc -m -o src/js/run-main.c -n run-main.js -p tjs__ src/js/run-main.js
+src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
+	@mkdir -p $(basename $(dir $@))
+	$(BUILD_DIR)/qjsc -m \
+		-o $@ \
+		-n "tjs:$(basename $(notdir $@))" \
+		-p tjs__ \
+		src/bundles/js/stdlib/$(basename $(notdir $@)).js
 
-js: src/js/core.c src/js/std.c src/js/run-main.c
+src/bundles/js/stdlib/%.js: src/js/stdlib/*.js
+	npx esbuild src/js/stdlib/$(notdir $@) \
+		--bundle \
+		--outfile=$@ \
+		--target=es2020 \
+		--platform=neutral \
+		--format=esm \
+		--main-fields=main,module
+
+src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
+	@mkdir -p $(basename $(dir $@))
+	$(BUILD_DIR)/qjsc -m \
+		-o $@ \
+		-n "tjs:$(basename $(notdir $@))" \
+		-p tjs__ \
+		src/bundles/js/stdlib/$(basename $(notdir $@)).js
+
+stdlib: $(addprefix src/bundles/c/stdlib/, $(patsubst %.js, %.c, $(notdir $(STDLIB_MODULES))))
+
+js: core stdlib
 
 $(BUILD_DIR)/Makefile:
 	@mkdir -p $(BUILD_DIR)
@@ -41,6 +84,7 @@ debug:
 
 distclean:
 	@rm -rf $(BUILD_DIR)
+	@rm -rf src/bundles/js/
 
 format:
 	clang-format -i src/*.{c,h}
@@ -52,4 +96,5 @@ test-advanced:
 	cd tests/advanced && npm install
 	./$(BUILD_DIR)/tjs test tests/advanced/
 
-.PHONY: all build js debug install clean distclean format test test-advanced
+.PRECIOUS: src/bundles/js/core/%.js src/bundles/js/stdlib/%.js
+.PHONY: all build js debug install clean distclean format test test-advanced core stdlib

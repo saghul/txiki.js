@@ -105,9 +105,10 @@ function printResult(result) {
 }
 
 export async function runTests(d) {
-    const std = await import('@tjs/std');
+    // Lazy load.
+    const { default: pathModule } = await import('tjs:path');
 
-    __path = std.path;
+    __path = pathModule;
 
     const dir = await tjs.realpath(d || tjs.cwd());
     const dirIter = await tjs.readdir(dir);
