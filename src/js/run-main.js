@@ -102,9 +102,7 @@ if (options.help) {
             tjs.exit(1);
         }
 
-        // XXX: This looks weird. This file is being JS_Eval'd when we call `evalFile`,
-        // which does another JS_Eval, and something get's messed up :-(
-        globalThis.queueMicrotask(() => evalFile(filename));
+        evalFile(filename);
     } else if (command === 'test') {
         const [ dir ] = subargv;
 

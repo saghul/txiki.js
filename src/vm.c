@@ -424,7 +424,7 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     dbuf_putc(&dbuf, '\0');
 
     /* Compile then run to be able to set import.meta */
-    ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf_size, filename, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf_size - 1, filename, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     if (!JS_IsException(ret)) {
         js_module_set_import_meta(ctx, ret, TRUE, is_main);
         ret = JS_EvalFunction(ctx, ret);
