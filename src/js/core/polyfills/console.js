@@ -1,11 +1,11 @@
 /* global tjs */
 
-import util from 'util';
+import { format } from 'util';
 
 const encoder = new TextEncoder();
 
 function print() {
-    const text = util.format.apply(null, arguments) + '\n';
+    const text = format.apply(null, arguments) + '\n';
 
     tjs.stdout.write(encoder.encode(text));
 }
@@ -141,11 +141,11 @@ class Console {
     }
 
     dir(o) {
-        this.log(util.inspect(o));
+        print(o);
     }
 
     dirxml(o) {
-        this.dir(o);
+        print(o);
     }
 
     table(data, properties) {
@@ -157,15 +157,15 @@ class Console {
         }
 
         if (data === null || typeof data !== 'object') {
-            return this.log(data);
+            return print(data);
         }
 
         const objectValues = {};
         const indexKeys = [];
         const values = [];
 
-        const stringifyValue = value => util.format(value);
-        const toTable = (header, body) => this.log(cliTable(header, body));
+        const stringifyValue = value => format(value);
+        const toTable = (header, body) => print(cliTable(header, body));
         const createColumn = (value, shift) => [
             ...(shift ? [ ...new Array(shift) ].map(() => '') : []),
             stringifyValue(value)
