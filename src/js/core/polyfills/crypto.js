@@ -1,7 +1,5 @@
 const core = globalThis.__bootstrap;
 
-import { v4 } from 'uuid';
-
 const TypedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
 const TypedArrayProto_toStringTag = Object.getOwnPropertyDescriptor(TypedArrayPrototype, Symbol.toStringTag).get;
 
@@ -34,7 +32,7 @@ function getRandomValues(obj) {
 }
 
 function randomUUID() {
-    return v4();
+    return core.randomUUID();
 }
 
 
