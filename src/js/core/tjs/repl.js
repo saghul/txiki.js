@@ -100,7 +100,7 @@ function _run(g) {
 
     var sigint_h;
 
-    var { evalScript } = tjs[Symbol.for('tjs.internal')];
+    var { evalScript } = tjs[Symbol.for('tjs.internal')].core;
 
     var encoder = new TextEncoder();
 

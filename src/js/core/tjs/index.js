@@ -176,16 +176,10 @@ if (core.posix_socket) {
 
 // Internal stuff needed by the runtime.
 const kInternal = Symbol.for('tjs.internal');
-const internals = [ 'evalFile', 'evalScript', 'isStdinTty', 'setMaxStackSize', 'setMemoryLimit' ];
 
 tjs[kInternal] = Object.create(null);
-tjs[kInternal]['core'] = core;
-
-for (const propName of internals) {
-    tjs[kInternal][propName] = core[propName];
-}
-
 tjs[kInternal]['bootstrapWorker'] = bootstrapWorker;
+tjs[kInternal]['core'] = core;
 tjs[kInternal]['evalStdin'] = evalStdin;
 tjs[kInternal]['runRepl'] = runRepl;
 tjs[kInternal]['runTests'] = runTests;
