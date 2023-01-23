@@ -1,7 +1,6 @@
 import assert from 'tjs:assert';
-import initCParser from '../src/js/core/tjs/ffiutils.js';
-
-const FFI = tjs.ffi;
+import FFI from 'tjs:ffi';
+import initCParser from '../src/js/stdlib/ffi/ffiutils.js';
 
 (function(){
 	const libm = new FFI.Lib(FFI.Lib.LIBM_NAME);

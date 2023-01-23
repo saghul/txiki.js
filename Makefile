@@ -48,7 +48,7 @@ src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
 		-p tjs__ \
 		src/bundles/js/stdlib/$(basename $(notdir $@)).js
 
-src/bundles/js/stdlib/%.js: src/js/stdlib/*.js
+src/bundles/js/stdlib/%.js: src/js/stdlib/*.js src/js/stdlib/ffi/*.js
 	npx esbuild src/js/stdlib/$(notdir $@) \
 		--bundle \
 		--outfile=$@ \

@@ -85,6 +85,7 @@ add_executable(tjs
     src/bundles/c/core/core.c
     src/bundles/c/core/run-main.c
     src/bundles/c/stdlib/assert.c
+    src/bundles/c/stdlib/ffi.c
     src/bundles/c/stdlib/getopts.c
     src/bundles/c/stdlib/hashing.c
     src/bundles/c/stdlib/ipaddr.c

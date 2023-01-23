@@ -6,6 +6,8 @@
  * including the ethernet header.
  */
 
+import ffi from 'tjs:ffi';
+
 function swap16(val) {
     return ((val & 0xFF) << 8)
            | ((val >> 8) & 0xFF);
@@ -27,7 +29,7 @@ export class PacketSocket {
 		dv.setUint16(0, PosixSocket.defines.AF_PACKET, true); // sll_family
 		dv.setUint16(2, ETH_P_IP, false); // sll_protocol = htons(ETH_P_IP);
 		if (iface != undefined) {
-			const libc = new tjs.ffi.Lib(tjs.ffi.Lib.LIBC_NAME);
+			const libc = new ffi.Lib(ffi.Lib.LIBC_NAME);
 			libc.parseCProto('unsigned int if_nametoindex(const char *ifname);');
 			const ifindex = libc.call('if_nametoindex', [iface]);
 

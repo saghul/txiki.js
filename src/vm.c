@@ -39,6 +39,8 @@ extern const uint32_t tjs__run_main_size;
 /* stdlib */
 extern const uint8_t tjs__assert[];
 extern const uint32_t tjs__assert_size;
+extern const uint8_t tjs__ffi[];
+extern const uint32_t tjs__ffi_size;
 extern const uint8_t tjs__getopts[];
 extern const uint32_t tjs__getopts_size;
 extern const uint8_t tjs__hashing[];
@@ -224,6 +226,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     /* standard library (TODO: lazy load) */
     CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__assert, tjs__assert_size), 0);
+    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__ffi, tjs__ffi_size), 0);
     CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__getopts, tjs__getopts_size), 0);
     CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__hashing, tjs__hashing_size), 0);
     CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__ipaddr, tjs__ipaddr_size), 0);

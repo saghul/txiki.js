@@ -1,8 +1,10 @@
-const core = globalThis.__bootstrap;
+/* global tjs */
 
-export const ffiInt = core.ffi;
+const { core } = tjs[Symbol.for('tjs.internal')];
 
-import Cparser from './ffiutils.js';
+const ffiInt = core.ffi;
+
+import buildCParser from './ffiutils.js';
 
 
 export class DlSymbol {
@@ -482,4 +484,4 @@ export class JSCallback {
     }
 }
 
-const { parseCProto, astToLib } = Cparser({ StructType, CFunction, PointerType });
+const { parseCProto, astToLib } = buildCParser({ StructType, CFunction, PointerType, types });
