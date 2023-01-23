@@ -3,16 +3,7 @@
 import getopts from 'tjs:getopts';
 import path from 'tjs:path';
 
-const {
-    evalFile,
-    evalScript,
-    evalStdin,
-    isStdinTty,
-    runRepl,
-    runTests,
-    setMaxStackSize,
-    setMemoryLimit
-} = tjs[Symbol.for('tjs.internal')];
+const internals = tjs[Symbol.for('tjs.internal')];
 
 const exeName = path.basename(tjs.args[0]);
 const help = `Usage: ${exeName} [options] [subcommand]
@@ -71,20 +62,20 @@ if (options.help) {
     const stackSize = options['stack-size'];
 
     if (typeof memoryLimit !== 'undefined') {
-        setMemoryLimit(parseNumberOption(memoryLimit, 'memory-limit'));
+        internals.core.setMemoryLimit(parseNumberOption(memoryLimit, 'memory-limit'));
     }
 
     if (typeof stackSize !== 'undefined') {
-        setMaxStackSize(parseNumberOption(stackSize, 'stack-size'));
+        internals.core.setMaxStackSize(parseNumberOption(stackSize, 'stack-size'));
     }
 
     const [ command, ...subargv ] = options._;
 
     if (!command) {
-        if (isStdinTty()) {
-            runRepl();
+        if (internals.core.isStdinTty()) {
+            internals.runRepl();
         } else {
-            evalStdin();
+            internals.evalStdin();
         }
     } else if (command === 'eval') {
         const [ expr ] = subargv;
@@ -94,7 +85,7 @@ if (options.help) {
             tjs.exit(1);
         }
 
-        evalScript(expr);
+        internals.core.evalScript(expr);
     } else if (command === 'run') {
         const [ filename ] = subargv;
 
@@ -103,11 +94,11 @@ if (options.help) {
             tjs.exit(1);
         }
 
-        evalFile(filename);
+        internals.core.evalFile(filename);
     } else if (command === 'test') {
         const [ dir ] = subargv;
 
-        runTests(dir);
+        internals.runTests(dir);
     } else {
         console.log(help);
         tjs.exit(1);

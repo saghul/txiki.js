@@ -204,7 +204,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(uv_check_init(&qrt->loop, &qrt->jobs.check), 0);
     qrt->jobs.check.data = qrt;
 
-    /* hande for stopping this runtime (also works from another thread) */
+    /* handle for stopping this runtime (also works from another thread) */
     CHECK_EQ(uv_async_init(&qrt->loop, &qrt->stop, uv__stop), 0);
     qrt->stop.data = qrt;
 
