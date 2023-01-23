@@ -91,6 +91,29 @@ static JSValue tjs_isStdinTty(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_NewBool(ctx, uv_guess_handle(STDIN_FILENO) == UV_TTY);
 }
 
+static JSValue tjs_randomUUID(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    char v[37];
+    unsigned char u[16];
+
+    int r = uv_random(NULL, NULL, u, sizeof(u), 0, NULL);
+    if (r != 0)
+        return tjs_throw_errno(ctx, r);
+
+    u[6] &= 15;
+    u[6] |= 64; // '4x'
+
+    u[8] &= 63;
+    u[8] |= 128; // 0b10xxxxxx
+
+    snprintf(v, sizeof(v),
+            "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+            "%02x%02x-%02x%02x%02x%02x%02x%02x",
+            u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7],
+            u[8], u[9], u[10], u[11], u[12], u[13], u[14], u[15]);
+
+    return JS_NewString(ctx, v);
+}
+
 static JSValue tjs_setMemoryLimit(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     uint32_t v;
     if (JS_ToUint32(ctx, &v, argv[0]))
@@ -112,6 +135,7 @@ static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
     TJS_CFUNC_DEF("evalScript", 1, tjs_evalScript),
     TJS_CFUNC_DEF("isStdinTty", 0, tjs_isStdinTty),
+    TJS_CFUNC_DEF("randomUUID", 0, tjs_randomUUID),
     TJS_CFUNC_DEF("setMemoryLimit", 1, tjs_setMemoryLimit),
     TJS_CFUNC_DEF("setMaxStackSize", 1, tjs_setMaxStackSize),
     TJS_CGETSET_DEF("exepath", tjs_exepath, NULL),
