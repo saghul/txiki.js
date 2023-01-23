@@ -88,7 +88,6 @@ Other extras:
 - Import directly from HTTP(S) URLs
 - Import JSON files
 - BigFloat and BigDecimal extensions
-- [FFI]
 - Builtin test runner
 
 ### Standard library
@@ -96,6 +95,7 @@ Other extras:
 The following modules compose the standard library:
 
 - `tjs:assert`: `assert` module
+- `tjs:ffi`: [FFI] module
 - `tjs:getopts`: [getopts] module
 - `tjs:ipaddr`: [ipaddr] module
 - `tjs:path`: [path] module

@@ -2,7 +2,6 @@ const core = globalThis.__bootstrap;
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import { evalStdin } from './eval-stdin.js';
-import * as FFI from './ffi.js';
 import { open, mkstemp } from './fs.js';
 import { PosixSocket } from './posix-socket.js';
 import { runRepl } from './repl.js';
@@ -165,14 +164,7 @@ Object.defineProperty(tjs, 'stderr', {
     value: createStderr()
 });
 
-// FFI
-Object.defineProperty(tjs, 'ffi', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: FFI
-});
-
+// PosixSocket.
 if (core.posix_socket) {
     Object.defineProperty(tjs, 'PosixSocket', {
         enumerable: true,
@@ -187,6 +179,7 @@ const kInternal = Symbol.for('tjs.internal');
 const internals = [ 'evalFile', 'evalScript', 'isStdinTty', 'setMaxStackSize', 'setMemoryLimit' ];
 
 tjs[kInternal] = Object.create(null);
+tjs[kInternal]['core'] = core;
 
 for (const propName of internals) {
     tjs[kInternal][propName] = core[propName];

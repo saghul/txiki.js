@@ -1,6 +1,4 @@
-/* global tjs */
-
-export default function init({ StructType, CFunction, PointerType }) {
+export default function buildCParser({ StructType, CFunction, PointerType, types }) {
     function parseCProto(header) {
         function tokenize(str) {
             const words = str.split(/\s+/);
@@ -366,7 +364,7 @@ export default function init({ StructType, CFunction, PointerType }) {
                             lib.registerType(e.name, getType(e.child.name));
                         }
                     } else if (e.child.kind === 'function') {
-                        lib.registerType(e.name || e.child.name, tjs.ffi.types.jscallback);
+                        lib.registerType(e.name || e.child.name, types.jscallback);
                     } else {
                         throw new Error('unsupported typedef: ' + JSON.stringify(e));
                     }
