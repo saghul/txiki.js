@@ -6,8 +6,7 @@ import path from 'tjs:path';
     const args = [
         tjs.exepath,
         'run',
-        path.join(import.meta.dirname, 'wasi', 'launcher.js'),
-        'test.wasm'
+        path.join(import.meta.dirname, 'wasi', 'test.wasm')
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe' });
     const status = await proc.wait();
