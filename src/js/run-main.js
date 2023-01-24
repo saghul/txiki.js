@@ -95,7 +95,30 @@ if (options.help) {
             tjs.exit(1);
         }
 
-        internals.core.evalFile(filename);
+        const ext = path.extname(filename).toLowerCase();
+
+        if (![ '.js', '.mjs', '.cjs', '.wasm' ].includes(ext)) {
+            console.log(helpRun);
+            tjs.exit(1);
+        }
+
+        if (ext === '.wasm') {
+            tjs.readFile(filename)
+                .then(bytes => {
+                    const module = new WebAssembly.Module(bytes);
+                    const wasi = new WebAssembly.WASI({ args: subargv.slice(1) });
+                    const importObject = { wasi_unstable: wasi.wasiImport };
+                    const instance = new WebAssembly.Instance(module, importObject);
+
+                    wasi.start(instance);
+                })
+                .catch(e => {
+                    console.log('Error loading WASM file: ', e);
+                    tjs.exit(1);
+                });
+        } else {
+            internals.core.evalFile(filename);
+        }
     } else if (command === 'test') {
         const [ dir ] = subargv;
 
