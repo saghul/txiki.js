@@ -43,6 +43,7 @@ const options = getopts(tjs.args.slice(1), {
     },
     boolean: [ 'h', 'v' ],
     string: [ 'e' ],
+    stopEarly: true,
     unknown: option => {
         if (![ 'memory-limit', 'stack-size' ].includes(option)) {
             console.log(`${exeName}: unrecognized option: ${option}`);
