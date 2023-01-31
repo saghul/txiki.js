@@ -34,8 +34,6 @@ async function fetchWithPostAndBody() {
 };
 
 
-(async () => {
-    await basicFetch();
-    await abortFetch();
-    await fetchWithPostAndBody();
-})();
+await basicFetch();
+await abortFetch();
+await fetchWithPostAndBody();
