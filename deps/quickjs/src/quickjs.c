@@ -28366,6 +28366,7 @@ static JSValue js_evaluate_module(JSContext *ctx, JSModuleDef *m)
     if (JS_IsException(promises))
         return JS_EXCEPTION;
 
+    JSValue promise = JS_UNDEFINED;
     BOOL async = FALSE;
     for(i = 0; i < m->req_module_entries_count; i++) {
         JSReqModuleEntry *rme = &m->req_module_entries[i];
@@ -28384,7 +28385,7 @@ static JSValue js_evaluate_module(JSContext *ctx, JSModuleDef *m)
         }
     }
 
-    JSValue promise = js_promise_all(ctx, ctx->promise_ctor, 1, &promises, 0);
+    promise = js_promise_all(ctx, ctx->promise_ctor, 1, &promises, 0);
     if (JS_IsException(promise)) {
         JS_FreeValue(ctx, (JSValue)promises);
         return JS_EXCEPTION;
