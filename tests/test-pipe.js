@@ -27,40 +27,38 @@ async function doEchoServer(server) {
     }
 }
 
-(async () => {
-    const server = await tjs.listen('pipe', pipeName);
+const server = await tjs.listen('pipe', pipeName);
 
-    doEchoServer(server);
+doEchoServer(server);
 
-    const client = await tjs.connect('pipe', server.localAddress);
+const client = await tjs.connect('pipe', server.localAddress);
 
-    client.write(encoder.encode('PING'));
-    const buf = new Uint8Array(4096);
-    let dataStr, nread;
-    nread = await client.read(buf);
-    dataStr = decoder.decode(buf.subarray(0, nread));
-    assert.eq(dataStr, "PING", "sending works");
-    assert.throws(() => { client.write('PING'); }, TypeError, "sending anything else gives TypeError");
-    assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
-    client.close();
-    server.close();
+client.write(encoder.encode('PING'));
+const buf = new Uint8Array(4096);
+let dataStr, nread;
+nread = await client.read(buf);
+dataStr = decoder.decode(buf.subarray(0, nread));
+assert.eq(dataStr, "PING", "sending works");
+assert.throws(() => { client.write('PING'); }, TypeError, "sending anything else gives TypeError");
+assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
+client.close();
+server.close();
 
-    let error;
-    try {
-        await tjs.listen('pipe');
-    } catch (e) {
-        error = e;
-    }
-    assert.isNot(error, undefined);
-    assert.eq(error.name, 'TypeError');
+let error;
+try {
+    await tjs.listen('pipe');
+} catch (e) {
+    error = e;
+}
+assert.isNot(error, undefined);
+assert.eq(error.name, 'TypeError');
 
-    error = undefined;
+error = undefined;
 
-    try {
-        await tjs.connect('pipe');
-    } catch (e) {
-        error = e;
-    }
-    assert.isNot(error, undefined);
-    assert.eq(error.name, 'TypeError');
-})();
+try {
+    await tjs.connect('pipe');
+} catch (e) {
+    error = e;
+}
+assert.isNot(error, undefined);
+assert.eq(error.name, 'TypeError');

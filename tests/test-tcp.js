@@ -21,28 +21,26 @@ async function doEchoServer(server) {
     }
 }
 
-(async () => {
-    const server = await tjs.listen('tcp', '0.0.0.0');
+const server = await tjs.listen('tcp', '0.0.0.0');
 
-    doEchoServer(server);
+doEchoServer(server);
 
-    const readBuf = new Uint8Array(4096);
+const readBuf = new Uint8Array(4096);
 
-    const serverAddr = server.localAddress;
-    const client = await tjs.connect('tcp', serverAddr.ip, serverAddr.port);
-    client.setKeepAlive();
-    client.setNoDelay(true);
-    client.write(encoder.encode('PING'));
-    let dataStr, nread;
-    nread = await client.read(readBuf);
-    dataStr = decoder.decode(readBuf.subarray(0, nread));
-    assert.eq(dataStr, "PING", "sending works");
-    assert.throws(() => { client.write("PING"); }, TypeError, "sending anything else gives TypeError");
-    assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
-    client.close();
-    server.close();
+const serverAddr = server.localAddress;
+const client = await tjs.connect('tcp', serverAddr.ip, serverAddr.port);
+client.setKeepAlive();
+client.setNoDelay(true);
+client.write(encoder.encode('PING'));
+let dataStr, nread;
+nread = await client.read(readBuf);
+dataStr = decoder.decode(readBuf.subarray(0, nread));
+assert.eq(dataStr, "PING", "sending works");
+assert.throws(() => { client.write("PING"); }, TypeError, "sending anything else gives TypeError");
+assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
+client.close();
+server.close();
 
-    const server1 = await tjs.listen('tcp', '127.0.0.1');
-    doEchoServer(server1);
-    server1.close();
-})();
+const server1 = await tjs.listen('tcp', '127.0.0.1');
+doEchoServer(server1);
+server1.close();

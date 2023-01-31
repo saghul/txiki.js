@@ -80,10 +80,8 @@ async function chdir() {
     await tjs.rmdir(subDir);
 };
 
-(async () => {
-    await readWrite();
-    await mkstemp();
-    await mkdir();
-    await chmod();
-    await chdir();
-})();
+await readWrite();
+await mkstemp();
+await mkdir();
+await chmod();
+await chdir();
