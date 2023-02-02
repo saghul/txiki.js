@@ -17,15 +17,13 @@ async function handleConnection(conn) {
     }
 }
 
-(async () => {
-    const p = await tjs.listen('pipe', tjs.args[2] || '/tmp/fooPipe');
+const p = await tjs.listen('pipe', tjs.args[2] || '/tmp/fooPipe');
 
-    console.log(`Listening on ${p.localAddress}`);
+console.log(`Listening on ${p.localAddress}`);
 
-    let conn;
-    while (true) {
-        conn = await p.accept();
-        handleConnection(conn);
-        conn = undefined;
-    }
-})();
+let conn;
+while (true) {
+    conn = await p.accept();
+    handleConnection(conn);
+    conn = undefined;
+}

@@ -19,25 +19,22 @@ async function handleConnection(conn) {
     }
 }
 
-(async () => {
-    const options = getopts(tjs.args.slice(2), {
-        alias: {
-            listen: 'l',
-            port: 'p'
-        },
-        default: {
-            listen: '127.0.0.1',
-            port: 1234
-        }
-    });
-
-    const l = await tjs.listen('tcp', options.listen, options.port);
-
-    console.log(`Listening on ${addr(l.localAddress)}`); 
-
-    for await (let conn of l) {
-        handleConnection(conn);
-        conn = undefined;
+const options = getopts(tjs.args.slice(2), {
+    alias: {
+        listen: 'l',
+        port: 'p'
+    },
+    default: {
+        listen: '127.0.0.1',
+        port: 1234
     }
+});
 
-})();
+const l = await tjs.listen('tcp', options.listen, options.port);
+
+console.log(`Listening on ${addr(l.localAddress)}`); 
+
+for await (let conn of l) {
+    handleConnection(conn);
+    conn = undefined;
+}
