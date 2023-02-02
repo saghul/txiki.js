@@ -150,6 +150,7 @@ void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val) {
             tjs_dump_obj(ctx, stderr, val);
         JS_FreeValue(ctx, val);
     }
+    fflush(stderr);
 }
 
 void tjs_call_handler(JSContext *ctx, JSValueConst func, int argc, JSValue *argv) {
