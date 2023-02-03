@@ -51,6 +51,6 @@ function createHash(type) {
     return new Hash(obj);
 }
 
-createHash.SUPPORTED_TYPES = Object.keys(supportedHashes);
+const SUPPORTED_TYPES = Object.keys(supportedHashes);
 
-export { createHash };
+export { createHash, SUPPORTED_TYPES };
