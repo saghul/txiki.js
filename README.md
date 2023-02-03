@@ -45,6 +45,8 @@ $ ./build/tjs --help
 
 ## Features
 
+Support for the [ES2020] specification plus some ES2020+ features like top level await.
+
 ### Web Platform APIs
 
 - [alert, confirm, prompt] (1)
@@ -94,13 +96,13 @@ Other extras:
 
 The following modules compose the standard library:
 
-- `tjs:assert`: `assert` module
-- `tjs:ffi`: [FFI] module
-- `tjs:getopts`: [getopts] module
-- `tjs:ipaddr`: [ipaddr] module
-- `tjs:path`: [path] module
-- `tjs:uuid`: [uuid] module
-- `tjs:hashing`: `createHash` function
+- [`tjs:assert`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_assert.html)
+- [`tjs:ffi`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_ffi.html)
+- [`tjs:getopts`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_getopts.html)
+- [`tjs:hashing`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_hashing.html)
+- [`tjs:ipaddr`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_ipaddr.html)
+- [`tjs:path`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_path.html)
+- [`tjs:uuid`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_uuid.html)
 
 ## Supported platforms
 
@@ -113,7 +115,7 @@ The following modules compose the standard library:
 
 [CMake] is necessary.
 
-*NOTE:* The txiki.js build depends on a number of git submodules ([liffi], [libuv] and [wasm3]).
+*NOTE:* The txiki.js build depends on a number of git submodules ([libffi], [libuv] and [wasm3]).
 If you didn't already clone this repository recursively, make sure you initialize these
 submodules with `git submodule update --init` before proceeding to the build.
 
@@ -182,7 +184,6 @@ Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul
 [libuv]: https://libuv.org/
 [curl]: https://github.com/curl/curl
 [libffi]: https://github.com/libffi/libffi
-[FFI]: https://bettercallsaghul.com/txiki.js/api/modules/ffi.FFI.html
 [full API documentation]: https://bettercallsaghul.com/txiki.js/api/
 [CMake]: https://cmake.org/
 [wasm3]: https://github.com/wasm3/wasm3
@@ -202,8 +203,5 @@ Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul
 [Web Workers API]: https://developer.mozilla.org/en-US/docs/Web/API/Worker
 [WebAssembly]: https://developer.mozilla.org/en-US/docs/WebAssembly
 [WebSocket]: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-[getopts]: https://github.com/jorgebucaran/getopts
-[ipaddr]: https://github.com/whitequark/ipaddr.js
-[path]: https://nodejs.org/docs/latest-v18.x/api/path.html
-[uuid]: https://github.com/uuidjs/uuid
+[ES2020]: https://tc39.es/ecma262/
 [calendar versioning]: https://calver.org/
