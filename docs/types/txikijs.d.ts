@@ -597,8 +597,9 @@ declare global {
         *
         * @param path The path to of the directory to be created.
         * @param mode The file mode for the new directory. Defaults to `0o777`.
+        * @param recursive Whether the directories will be created recursively or not.
         */
-        function mkdir(path: string, mode?: number): Promise<void>;
+        function mkdir(path: string, options: { mode?: number, recursive?: boolean }): Promise<void>;
         
         /**
         * Copies the source file into the target.

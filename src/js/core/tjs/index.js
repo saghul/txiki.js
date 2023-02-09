@@ -2,7 +2,7 @@ const core = globalThis.__bootstrap;
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import { evalStdin } from './eval-stdin.js';
-import { open, mkstemp } from './fs.js';
+import { open, mkdir, mkstemp } from './fs.js';
 import { PosixSocket } from './posix-socket.js';
 import { runRepl } from './repl.js';
 import { runTests } from './run-tests.js';
@@ -38,6 +38,7 @@ const noExport = [
     'guessHandle',
     'hrtimeMs',
     'isStdinTty',
+    'mkdir',
     'mkstemp',
     'newStdioFile',
     'open',
@@ -114,6 +115,12 @@ Object.defineProperty(tjs, 'open', {
     configurable: false,
     writable: false,
     value: open
+});
+Object.defineProperty(tjs, 'mkdir', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: mkdir
 });
 Object.defineProperty(tjs, 'mkstemp', {
     enumerable: true,
