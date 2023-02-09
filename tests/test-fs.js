@@ -39,7 +39,7 @@ async function mkdir() {
     const path = `./test_mkdir${tjs.pid}`;
     const s_irwxu = 0o700;
     const s_ifmt = ~0o777;
-    await tjs.mkdir(path, s_irwxu);
+    await tjs.mkdir(path, { mode: s_irwxu });
     const result = await tjs.stat(path);
     assert.ok(result.isDirectory, 'directory was created ok');
     /* NOTE: File permission mode not supported on Windows. */
@@ -57,7 +57,7 @@ async function chmod() {
     const s_irwxu = 0o700;
     const s_irwxg = 0o070;
     const s_ifmt = ~0o777;
-    await tjs.mkdir(path, s_irwxu);
+    await tjs.mkdir(path, { mode: s_irwxu });
     await tjs.chmod(path, s_irwxu | s_irwxg);
 
     const result = await tjs.stat(path);

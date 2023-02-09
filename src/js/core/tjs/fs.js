@@ -41,6 +41,40 @@ export async function open(path, mode) {
     return new Proxy(handle, fhProxyHandler);
 }
 
+// Lazy load.
+let pathMod;
+
+export async function mkdir(path, options = { mode: 0o777, recursive: false }) {
+    if (!options.recursive) {
+        return core.mkdir(path, options.mode);
+    }
+
+    if (!pathMod) {
+        const { default: pathModule } = await import('tjs:path');
+
+        pathMod = pathModule;
+    }
+
+    const paths = path.split(pathMod.sep);
+    let curPath = '';
+
+    for (const p of paths) {
+        curPath = pathMod.join(curPath, p);
+
+        try {
+            await core.mkdir(curPath, options.mode);
+        } catch (e) {
+            // Cannot rely on checking for EEXIST since the OS could throw other errors like EROFS.
+
+            const st = await core.stat(curPath);
+
+            if (!st.isDirectory) {
+                throw e;
+            }
+        }
+    }
+}
+
 export async function mkstemp(template) {
     const handle = await core.mkstemp(template);
 
