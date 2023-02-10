@@ -41,19 +41,29 @@ export async function open(path, mode) {
     return new Proxy(handle, fhProxyHandler);
 }
 
+export async function mkstemp(template) {
+    const handle = await core.mkstemp(template);
+
+    return new Proxy(handle, fhProxyHandler);
+}
+
 // Lazy load.
 let pathMod;
+
+async function _lazyLoadPath() {
+    if (!pathMod) {
+        const { default: pathModule } = await import('tjs:path');
+
+        pathMod = pathModule;
+    }
+}
 
 export async function mkdir(path, options = { mode: 0o777, recursive: false }) {
     if (!options.recursive) {
         return core.mkdir(path, options.mode);
     }
 
-    if (!pathMod) {
-        const { default: pathModule } = await import('tjs:path');
-
-        pathMod = pathModule;
-    }
+    await _lazyLoadPath();
 
     const paths = path.split(pathMod.sep);
     let curPath = '';
@@ -75,8 +85,161 @@ export async function mkdir(path, options = { mode: 0o777, recursive: false }) {
     }
 }
 
-export async function mkstemp(template) {
-    const handle = await core.mkstemp(template);
+// This is an adaptation of the 'rimraf' version bundled in Node.
+//
 
-    return new Proxy(handle, fhProxyHandler);
+const notEmptyErrors = new Set([ core.Error.ENOTEMPTY, core.Error.EEXIST, core.Error.EPERM ]);
+const retryErrors = new Set([
+    core.Error.EBUSY,
+    core.Error.EMFILE,
+    core.Error.ENFILE,
+    core.Error.ENOTEMPTY,
+    core.Error.EPERM
+]);
+const isWindows = core.platform === 'windows';
+const _epermHandler = isWindows ? _fixWinEPERM : _rmdir;
+
+export async function rm(path, options = { maxRetries: 0, retryDelay: 100 }) {
+    let stats;
+
+    try {
+        stats = await core.lstat(path);
+    } catch (err) {
+        if (err.errno === core.Error.ENOENT) {
+            return;
+        }
+
+        // Windows can EPERM on stat.
+        if (isWindows && err.errno === core.Error.EPERM) {
+            await _fixWinEPERM(path, options, err);
+        }
+    }
+
+    try {
+        if (stats?.isDirectory) {
+            await _rmdir(path, options, null);
+        } else {
+            await _unlink(path, options);
+        }
+    } catch (err) {
+        if (err.errno === core.Error.ENOENT) {
+            return;
+        }
+
+        if (err.errno === core.Error.EPERM) {
+            return _epermHandler(path, options, err);
+        }
+
+        if (err.errno !== core.Error.EISDIR) {
+            throw err;
+        }
+
+        await _rmdir(path, options, err);
+    }
+}
+
+
+async function _unlink(path, options) {
+    const tries = options.maxRetries + 1;
+
+    for (let i = 1; i <= tries; i++) {
+        try {
+            return core.unlink(path);
+        } catch (err) {
+            // Only sleep if this is not the last try, and the delay is greater
+            // than zero, and an error was encountered that warrants a retry.
+            if (retryErrors.has(err.errno) && i < tries && options.retryDelay > 0) {
+                core.sleep(i * options.retryDelay);
+            } else if (err.errno === core.Error.ENOENT) {
+                // The file is already gone.
+                return;
+            } else if (i === tries) {
+                throw err;
+            }
+        }
+    }
+}
+
+
+async function _rmdir(path, options, originalErr) {
+    try {
+        await core.rmdir(path);
+    } catch (err) {
+        if (err.errno === core.Error.ENOENT) {
+            return;
+        }
+
+        if (err.errno === core.Error.ENOTDIR) {
+            throw originalErr || err;
+        }
+
+        if (notEmptyErrors.has(err.errno)) {
+            // Removing failed. Try removing all children and then retrying the
+            // original removal. Windows has a habit of not closing handles promptly
+            // when files are deleted, resulting in spurious ENOTEMPTY failures. Work
+            // around that issue by retrying on Windows.
+
+            await _lazyLoadPath();
+
+            const dirIter = await core.readdir(path);
+
+            for await (const item of dirIter) {
+                const childPath = pathMod.join(path, item.name);
+
+                await rm(childPath, options);
+            }
+
+            const tries = options.maxRetries + 1;
+
+            for (let i = 1; i <= tries; i++) {
+                try {
+                    return core.rmdir(path);
+                } catch (err) {
+                    // Only sleep if this is not the last try, and the delay is greater
+                    // than zero, and an error was encountered that warrants a retry.
+                    if (retryErrors.has(err.errno) && i < tries && options.retryDelay > 0) {
+                        core.sleep(i * options.retryDelay);
+                    } else if (err.errno === core.Error.ENOENT) {
+                        // The file is already gone.
+                        return;
+                    } else if (i === tries) {
+                        throw err;
+                    }
+                }
+            }
+        }
+
+        throw originalErr || err;
+    }
+}
+
+
+async function _fixWinEPERM(path, options, originalErr) {
+    try {
+        await core.chmod(path, 0o666);
+    } catch (err) {
+        if (err.errno === core.Error.ENOENT) {
+            return;
+        }
+
+        throw originalErr;
+    }
+
+    let stats;
+
+    try {
+        stats = await core.stat(path);
+    } catch (err) {
+        if (err.errno === core.Error.ENOENT) {
+            return;
+        }
+
+        throw originalErr;
+    }
+
+    if (stats.isDirectory) {
+        return _rmdir(path, options, originalErr);
+    } else {
+        return _unlink(path, options);
+    }
 }

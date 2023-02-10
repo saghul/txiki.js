@@ -592,14 +592,20 @@ declare global {
         */
         function rmdir(path: string): Promise<void>;
         
+        interface MkdirOptions {
+            /* The file mode for the new directory. Defaults to `0o777`. */
+            mode?: number;
+            /* Whether the directories will be created recursively or not. */
+            recursive?: boolean;
+        };
+
         /**
         * Create a directory at the given path.
         *
         * @param path The path to of the directory to be created.
-        * @param mode The file mode for the new directory. Defaults to `0o777`.
-        * @param recursive Whether the directories will be created recursively or not.
+        * @param options Options for making the directory.
         */
-        function mkdir(path: string, options: { mode?: number, recursive?: boolean }): Promise<void>;
+        function mkdir(path: string, options?: MkdirOptions): Promise<void>;
         
         /**
         * Copies the source file into the target.
@@ -666,7 +672,15 @@ declare global {
         * @param path File path.
         */
         function readFile(path: string): Promise<Uint8Array>;
-        
+
+        /**
+         * Recursively delete files and directories at the given path.
+         * Equivalent to POSIX "rm -rf".
+         *
+         * @param path Path to be removed.
+         */
+        function rm(path: string): Promise<void>;
+
         /**
         * File watch event handler function.
         */
