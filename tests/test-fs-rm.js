@@ -1,4 +1,5 @@
 import assert from 'tjs:assert';
+import path from 'tjs:path';
 
 let st;
 let err;
@@ -12,7 +13,7 @@ try {
 assert.eq(err.errno, tjs.Error.ENOENT, 'dir does not exist');
 err = undefined;
 
-await tjs.mkdir('a/b/c/d', { recursive: true });
+await tjs.mkdir(path.join('a', 'b', 'c', 'd'), { recursive: true });
 
 try {
     await tjs.mkdir('a');
