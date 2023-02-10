@@ -2,7 +2,7 @@ const core = globalThis.__bootstrap;
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import { evalStdin } from './eval-stdin.js';
-import { open, mkdir, mkstemp } from './fs.js';
+import { open, mkdir, mkstemp, rm } from './fs.js';
 import { PosixSocket } from './posix-socket.js';
 import { runRepl } from './repl.js';
 import { runTests } from './run-tests.js';
@@ -50,6 +50,7 @@ const noExport = [
     'setTimeout',
     'signal',
     'signals',
+    'sleep',
     'wasm'
 ];
 
@@ -127,6 +128,12 @@ Object.defineProperty(tjs, 'mkstemp', {
     configurable: false,
     writable: false,
     value: mkstemp
+});
+Object.defineProperty(tjs, 'rm', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: rm
 });
 
 // Signals.
