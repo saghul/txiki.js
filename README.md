@@ -117,7 +117,14 @@ The following modules compose the standard library:
 
 *NOTE:* The txiki.js build depends on a number of git submodules ([libffi], [libuv] and [wasm3]).
 If you didn't already clone this repository recursively, make sure you initialize these
-submodules with `git submodule update --init` before proceeding to the build.
+submodules with `git submodule update --init` before proceeding to the build. 
+
+Install dependencies (`libtool`, `makeinfo`, `openssl`, `libcurl`):
+
+```bash
+ sudo apt install libtool texinfo libcurl4-openssl-dev
+```
+
 
 ### Unix systems
 
