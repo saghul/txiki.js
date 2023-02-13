@@ -1,11 +1,8 @@
 const core = globalThis.__bootstrap;
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
-import { evalStdin } from './eval-stdin.js';
 import { open, mkdir, mkstemp, rm } from './fs.js';
 import { PosixSocket } from './posix-socket.js';
-import { runRepl } from './repl.js';
-import { runTests } from './run-tests.js';
 import { signal } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
@@ -194,9 +191,6 @@ const kInternal = Symbol.for('tjs.internal');
 tjs[kInternal] = Object.create(null);
 tjs[kInternal]['bootstrapWorker'] = bootstrapWorker;
 tjs[kInternal]['core'] = core;
-tjs[kInternal]['evalStdin'] = evalStdin;
-tjs[kInternal]['runRepl'] = runRepl;
-tjs[kInternal]['runTests'] = runTests;
 
 // tjs global.
 Object.defineProperty(globalThis, 'tjs', {

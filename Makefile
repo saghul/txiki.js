@@ -48,13 +48,23 @@ src/bundles/c/core/core.c: $(QJSC) src/bundles/js/core/core.js
 		-p tjs__ \
 		src/bundles/js/core/core.js
 
-src/bundles/c/core/run-main.c: $(QJSC) src/js/run-main.js
+src/bundles/js/core/run-main.js: src/js/run-main/*.js
+	npx esbuild src/js/run-main/index.js \
+		--bundle \
+		--outfile=$@ \
+		--target=es2020 \
+		--platform=neutral \
+		--format=esm \
+		--main-fields=main,module \
+		--external:tjs:*
+
+src/bundles/c/core/run-main.c: $(QJSC) src/bundles/js/core/run-main.js
 	@mkdir -p $(basename $(dir $@))
 	$(BUILD_DIR)/qjsc -m \
 		-o $@ \
 		-n "run-main.js" \
 		-p tjs__ \
-		src/js/run-main.js
+		src/bundles/js/core/run-main.js
 
 core: src/bundles/c/core/polyfills.c src/bundles/c/core/core.c src/bundles/c/core/run-main.c
 
