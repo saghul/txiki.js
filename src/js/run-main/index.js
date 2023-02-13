@@ -3,6 +3,10 @@
 import getopts from 'tjs:getopts';
 import path from 'tjs:path';
 
+import { evalStdin } from './eval-stdin.js';
+import { runRepl } from './repl.js';
+import { runTests } from './run-tests.js';
+
 const internals = tjs[Symbol.for('tjs.internal')];
 
 const exeName = path.basename(tjs.args[0]);
@@ -74,9 +78,9 @@ if (options.help) {
 
     if (!command) {
         if (internals.core.isStdinTty()) {
-            internals.runRepl();
+            runRepl();
         } else {
-            internals.evalStdin();
+            evalStdin();
         }
     } else if (command === 'eval') {
         const [ expr ] = subargv;
@@ -132,7 +136,7 @@ if (options.help) {
     } else if (command === 'test') {
         const [ dir ] = subargv;
 
-        internals.runTests(dir);
+        runTests(dir);
     } else {
         console.log(help);
         tjs.exit(1);
