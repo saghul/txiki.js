@@ -33,6 +33,8 @@
 /* core */
 extern const uint8_t tjs__core[];
 extern const uint32_t tjs__core_size;
+extern const uint8_t tjs__polyfills[];
+extern const uint32_t tjs__polyfills_size;
 extern const uint8_t tjs__run_main[];
 extern const uint32_t tjs__run_main_size;
 
@@ -222,6 +224,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JS_SetProperty(qrt->ctx, global_obj, bootstrap_ns_atom, bootstrap_ns);
 
     tjs__bootstrap_core(qrt->ctx, bootstrap_ns);
+
+    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__polyfills, tjs__polyfills_size), 0);
     CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__core, tjs__core_size), 0);
 
     /* standard library (TODO: lazy load) */

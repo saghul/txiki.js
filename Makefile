@@ -12,7 +12,25 @@ build: $(BUILD_DIR)/Makefile
 $(BUILD_DIR)/qjsc: $(BUILD_DIR)/Makefile
 	cmake --build $(BUILD_DIR) --target qjsc -j $(shell nproc)
 
-src/bundles/js/core/core.js: src/js/core/*.js src/js/core/polyfills/*.js src/js/core/tjs/*.js
+src/bundles/js/core/polyfills.js: src/js/polyfills/*.js
+	npx esbuild src/js/polyfills/index.js \
+		--bundle \
+		--outfile=$@ \
+		--target=es2020 \
+		--platform=neutral \
+		--format=esm \
+		--main-fields=main,module \
+		--minify
+
+src/bundles/c/core/polyfills.c: $(QJSC) src/bundles/js/core/polyfills.js
+	@mkdir -p $(basename $(dir $@))
+	$(BUILD_DIR)/qjsc -m \
+		-o $@ \
+		-n "polyfills.js" \
+		-p tjs__ \
+		src/bundles/js/core/polyfills.js
+
+src/bundles/js/core/core.js: src/js/core/*.js
 	npx esbuild src/js/core/index.js \
 		--bundle \
 		--outfile=$@ \
@@ -38,7 +56,7 @@ src/bundles/c/core/run-main.c: $(QJSC) src/js/run-main.js
 		-p tjs__ \
 		src/js/run-main.js
 
-core: src/bundles/c/core/core.c src/bundles/c/core/run-main.c
+core: src/bundles/c/core/polyfills.c src/bundles/c/core/core.c src/bundles/c/core/run-main.c
 
 src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
 	@mkdir -p $(basename $(dir $@))

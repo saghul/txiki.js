@@ -83,6 +83,7 @@ add_executable(tjs
     src/ws.c
     src/xhr.c
     src/bundles/c/core/core.c
+    src/bundles/c/core/polyfills.c
     src/bundles/c/core/run-main.c
     src/bundles/c/stdlib/assert.c
     src/bundles/c/stdlib/ffi.c
