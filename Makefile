@@ -38,6 +38,7 @@ src/bundles/js/core/core.js: src/js/core/*.js
 		--platform=neutral \
 		--format=esm \
 		--main-fields=main,module \
+		--minify \
 		--external:tjs:*
 
 src/bundles/c/core/core.c: $(QJSC) src/bundles/js/core/core.js
@@ -56,6 +57,7 @@ src/bundles/js/core/run-main.js: src/js/run-main/*.js
 		--platform=neutral \
 		--format=esm \
 		--main-fields=main,module \
+		--minify \
 		--external:tjs:*
 
 src/bundles/c/core/run-main.c: $(QJSC) src/bundles/js/core/run-main.js
