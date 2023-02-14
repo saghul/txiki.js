@@ -90,6 +90,7 @@ uv_stream_t *tjs_pipe_get_stream(JSContext *ctx, JSValueConst obj);
 
 void tjs_execute_jobs(JSContext *ctx);
 
+JSModuleDef *tjs__load_builtin(JSContext *ctx, const char *name);
 int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename);
 JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *opaque);
 char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque);
