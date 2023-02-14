@@ -38,21 +38,6 @@ extern const uint32_t tjs__polyfills_size;
 extern const uint8_t tjs__run_main[];
 extern const uint32_t tjs__run_main_size;
 
-/* stdlib */
-extern const uint8_t tjs__assert[];
-extern const uint32_t tjs__assert_size;
-extern const uint8_t tjs__ffi[];
-extern const uint32_t tjs__ffi_size;
-extern const uint8_t tjs__getopts[];
-extern const uint32_t tjs__getopts_size;
-extern const uint8_t tjs__hashing[];
-extern const uint32_t tjs__hashing_size;
-extern const uint8_t tjs__ipaddr[];
-extern const uint32_t tjs__ipaddr_size;
-extern const uint8_t tjs__path[];
-extern const uint32_t tjs__path_size;
-extern const uint8_t tjs__uuid[];
-extern const uint32_t tjs__uuid_size;
 
 static int tjs__argc = 0;
 static char **tjs__argv = NULL;
@@ -227,15 +212,6 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__polyfills, tjs__polyfills_size), 0);
     CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__core, tjs__core_size), 0);
-
-    /* standard library (TODO: lazy load) */
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__assert, tjs__assert_size), 0);
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__ffi, tjs__ffi_size), 0);
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__getopts, tjs__getopts_size), 0);
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__hashing, tjs__hashing_size), 0);
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__ipaddr, tjs__ipaddr_size), 0);
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__path, tjs__path_size), 0);
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__uuid, tjs__uuid_size), 0);
 
     /* end bootstrap */
     JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);

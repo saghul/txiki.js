@@ -56,6 +56,7 @@ add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 find_package(CURL REQUIRED)
 
 add_executable(tjs
+    src/builtins.c
     src/cli.c
     src/curl-utils.c
     src/curl-websocket.c
@@ -85,13 +86,6 @@ add_executable(tjs
     src/bundles/c/core/core.c
     src/bundles/c/core/polyfills.c
     src/bundles/c/core/run-main.c
-    src/bundles/c/stdlib/assert.c
-    src/bundles/c/stdlib/ffi.c
-    src/bundles/c/stdlib/getopts.c
-    src/bundles/c/stdlib/hashing.c
-    src/bundles/c/stdlib/ipaddr.c
-    src/bundles/c/stdlib/path.c
-    src/bundles/c/stdlib/uuid.c
     ../deps/quickjs/src/cutils.c
 )
 

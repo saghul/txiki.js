@@ -70,11 +70,16 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     static const char https[] = "https://";
     static const char json_tpl_start[] = "export default JSON.parse(`";
     static const char json_tpl_end[] = "`);";
+    static const char tjs_prefix[] = "tjs:";
 
     JSModuleDef *m;
     JSValue func_val;
     int r, is_json;
     DynBuf dbuf;
+
+    if (strncmp(tjs_prefix, module_name, strlen(tjs_prefix)) == 0) {
+        return tjs__load_builtin(ctx, module_name);
+    }
 
     if (strncmp(http, module_name, strlen(http)) == 0 || strncmp(https, module_name, strlen(https)) == 0) {
         return tjs__load_http(ctx, module_name);
