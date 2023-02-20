@@ -88,13 +88,17 @@ export async function mkdir(path, options = { mode: 0o777, recursive: false }) {
 // This is an adaptation of the 'rimraf' version bundled in Node.
 //
 
-const notEmptyErrors = new Set([ core.Error.ENOTEMPTY, core.Error.EEXIST, core.Error.EPERM ]);
+const notEmptyErrors = new Set([
+    'ENOTEMPTY',
+    'EEXIST',
+    'EPERM'
+]);
 const retryErrors = new Set([
-    core.Error.EBUSY,
-    core.Error.EMFILE,
-    core.Error.ENFILE,
-    core.Error.ENOTEMPTY,
-    core.Error.EPERM
+    'EBUSY',
+    'EMFILE',
+    'ENFILE',
+    'ENOTEMPTY',
+    'EPERM'
 ]);
 const isWindows = core.platform === 'windows';
 const _epermHandler = isWindows ? _fixWinEPERM : _rmdir;
@@ -105,12 +109,12 @@ export async function rm(path, options = { maxRetries: 0, retryDelay: 100 }) {
     try {
         stats = await core.lstat(path);
     } catch (err) {
-        if (err.errno === core.Error.ENOENT) {
+        if (err.code === 'ENOENT') {
             return;
         }
 
         // Windows can EPERM on stat.
-        if (isWindows && err.errno === core.Error.EPERM) {
+        if (isWindows && err.code === 'EPERM') {
             await _fixWinEPERM(path, options, err);
         }
     }
@@ -122,15 +126,15 @@ export async function rm(path, options = { maxRetries: 0, retryDelay: 100 }) {
             await _unlink(path, options);
         }
     } catch (err) {
-        if (err.errno === core.Error.ENOENT) {
+        if (err.code === 'ENOENT') {
             return;
         }
 
-        if (err.errno === core.Error.EPERM) {
+        if (err.code === 'EPERM') {
             return _epermHandler(path, options, err);
         }
 
-        if (err.errno !== core.Error.EISDIR) {
+        if (err.code !== 'EISDIR') {
             throw err;
         }
 
@@ -148,9 +152,9 @@ async function _unlink(path, options) {
         } catch (err) {
             // Only sleep if this is not the last try, and the delay is greater
             // than zero, and an error was encountered that warrants a retry.
-            if (retryErrors.has(err.errno) && i < tries && options.retryDelay > 0) {
+            if (retryErrors.has(err.code) && i < tries && options.retryDelay > 0) {
                 core.sleep(i * options.retryDelay);
-            } else if (err.errno === core.Error.ENOENT) {
+            } else if (err.code === 'ENOENT') {
                 // The file is already gone.
                 return;
             } else if (i === tries) {
@@ -165,15 +169,15 @@ async function _rmdir(path, options, originalErr) {
     try {
         await core.rmdir(path);
     } catch (err) {
-        if (err.errno === core.Error.ENOENT) {
+        if (err.code === 'ENOENT') {
             return;
         }
 
-        if (err.errno === core.Error.ENOTDIR) {
+        if (err.code === 'ENOTDIR') {
             throw originalErr || err;
         }
 
-        if (notEmptyErrors.has(err.errno)) {
+        if (notEmptyErrors.has(err.code)) {
             // Removing failed. Try removing all children and then retrying the
             // original removal. Windows has a habit of not closing handles promptly
             // when files are deleted, resulting in spurious ENOTEMPTY failures. Work
@@ -197,9 +201,9 @@ async function _rmdir(path, options, originalErr) {
                 } catch (err) {
                     // Only sleep if this is not the last try, and the delay is greater
                     // than zero, and an error was encountered that warrants a retry.
-                    if (retryErrors.has(err.errno) && i < tries && options.retryDelay > 0) {
+                    if (retryErrors.has(err.code) && i < tries && options.retryDelay > 0) {
                         core.sleep(i * options.retryDelay);
-                    } else if (err.errno === core.Error.ENOENT) {
+                    } else if (err.code === 'ENOENT') {
                         // The file is already gone.
                         return;
                     } else if (i === tries) {
@@ -218,7 +222,7 @@ async function _fixWinEPERM(path, options, originalErr) {
     try {
         await core.chmod(path, 0o666);
     } catch (err) {
-        if (err.errno === core.Error.ENOENT) {
+        if (err.code === 'ENOENT') {
             return;
         }
 
@@ -230,7 +234,7 @@ async function _fixWinEPERM(path, options, originalErr) {
     try {
         stats = await core.stat(path);
     } catch (err) {
-        if (err.errno === core.Error.ENOENT) {
+        if (err.code === 'ENOENT') {
             return;
         }
 

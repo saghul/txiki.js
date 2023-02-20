@@ -11,4 +11,4 @@ try  {
     
 assert.is(server, undefined);
 assert.ok(error);
-assert.eq(error.errno, tjs.Error.EINVAL);
+assert.eq(error.code, 'EINVAL');

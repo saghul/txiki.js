@@ -269,14 +269,114 @@ declare global {
         */
         function getaddrinfo(node: string, service?: string | number, hints?: Hints): Promise<Addrinfo[]>;
         
+        interface IErrors {
+            /*
+            * Error code constants.
+            */
+            E2BIG: number;
+            EACCES: number;
+            EADDRINUSE: number;
+            EADDRNOTAVAIL: number;
+            EAFNOSUPPORT: number;
+            EAGAIN: number;
+            EAI_ADDRFAMILY: number;
+            EAI_AGAIN: number;
+            EAI_BADFLAGS: number;
+            EAI_BADHINTS: number;
+            EAI_CANCELED: number;
+            EAI_FAIL: number;
+            EAI_FAMILY: number;
+            EAI_MEMORY: number;
+            EAI_NODATA: number;
+            EAI_NONAME: number;
+            EAI_OVERFLOW: number;
+            EAI_PROTOCOL: number;
+            EAI_SERVICE: number;
+            EAI_SOCKTYPE: number;
+            EALREADY: number;
+            EBADF: number;
+            EBUSY: number;
+            ECANCELED: number;
+            ECHARSET: number;
+            ECONNABORTED: number;
+            ECONNREFUSED: number;
+            ECONNRESET: number;
+            EDESTADDRREQ: number;
+            EEXIST: number;
+            EFAULT: number;
+            EFBIG: number;
+            EHOSTUNREACH: number;
+            EINTR: number;
+            EINVAL: number;
+            EIO: number;
+            EISCONN: number;
+            EISDIR: number;
+            ELOOP: number;
+            EMFILE: number;
+            EMSGSIZE: number;
+            ENAMETOOLONG: number;
+            ENETDOWN: number;
+            ENETUNREACH: number;
+            ENFILE: number;
+            ENOBUFS: number;
+            ENODEV: number;
+            ENOENT: number;
+            ENOMEM: number;
+            ENONET: number;
+            ENOPROTOOPT: number;
+            ENOSPC: number;
+            ENOSYS: number;
+            ENOTCONN: number;
+            ENOTDIR: number;
+            ENOTEMPTY: number;
+            ENOTSOCK: number;
+            ENOTSUP: number;
+            EOVERFLOW: number;
+            EPERM: number;
+            EPIPE: number;
+            EPROTO: number;
+            EPROTONOSUPPORT: number;
+            EPROTOTYPE: number;
+            ERANGE: number;
+            EROFS: number;
+            ESHUTDOWN: number;
+            ESPIPE: number;
+            ESRCH: number;
+            ETIMEDOUT: number;
+            ETXTBSY: number;
+            EXDEV: number;
+            UNKNOWN: number;
+            EOF: number;
+            ENXIO: number;
+            EMLINK: number;
+            EHOSTDOWN: number;
+            EREMOTEIO: number;
+            ENOTTY: number;
+            EFTYPE: number;
+            EILSEQ: number;
+            ESOCKTNOSUPPORT: number;
+
+           /**
+            * Returns the string representing the given error number.
+            *
+            * @param code Error number.
+            */
+            strerror(errno: number): string;
+        }
+
         /**
-        * Error type. It mostly encapsulates the libuv and other platform library errors.
+        * Error type. It mostly encapsulates the libuv errors.
         * The available error number properties depends on the platform.
         */
         class Error {
             
             constructor(errno: number);
-            
+
+            /**
+            * The error code.
+            */
+            code: string;
+
             /**
             * The represented error number.
             */
@@ -286,101 +386,10 @@ declare global {
             * The error string representation.
             */
             message: string;
-            
-            /*
-            * Error code constants.
-            */
-            static E2BIG: number;
-            static EACCES: number;
-            static EADDRINUSE: number;
-            static EADDRNOTAVAIL: number;
-            static EAFNOSUPPORT: number;
-            static EAGAIN: number;
-            static EAI_ADDRFAMILY: number;
-            static EAI_AGAIN: number;
-            static EAI_BADFLAGS: number;
-            static EAI_BADHINTS: number;
-            static EAI_CANCELED: number;
-            static EAI_FAIL: number;
-            static EAI_FAMILY: number;
-            static EAI_MEMORY: number;
-            static EAI_NODATA: number;
-            static EAI_NONAME: number;
-            static EAI_OVERFLOW: number;
-            static EAI_PROTOCOL: number;
-            static EAI_SERVICE: number;
-            static EAI_SOCKTYPE: number;
-            static EALREADY: number;
-            static EBADF: number;
-            static EBUSY: number;
-            static ECANCELED: number;
-            static ECHARSET: number;
-            static ECONNABORTED: number;
-            static ECONNREFUSED: number;
-            static ECONNRESET: number;
-            static EDESTADDRREQ: number;
-            static EEXIST: number;
-            static EFAULT: number;
-            static EFBIG: number;
-            static EHOSTUNREACH: number;
-            static EINTR: number;
-            static EINVAL: number;
-            static EIO: number;
-            static EISCONN: number;
-            static EISDIR: number;
-            static ELOOP: number;
-            static EMFILE: number;
-            static EMSGSIZE: number;
-            static ENAMETOOLONG: number;
-            static ENETDOWN: number;
-            static ENETUNREACH: number;
-            static ENFILE: number;
-            static ENOBUFS: number;
-            static ENODEV: number;
-            static ENOENT: number;
-            static ENOMEM: number;
-            static ENONET: number;
-            static ENOPROTOOPT: number;
-            static ENOSPC: number;
-            static ENOSYS: number;
-            static ENOTCONN: number;
-            static ENOTDIR: number;
-            static ENOTEMPTY: number;
-            static ENOTSOCK: number;
-            static ENOTSUP: number;
-            static EOVERFLOW: number;
-            static EPERM: number;
-            static EPIPE: number;
-            static EPROTO: number;
-            static EPROTONOSUPPORT: number;
-            static EPROTOTYPE: number;
-            static ERANGE: number;
-            static EROFS: number;
-            static ESHUTDOWN: number;
-            static ESPIPE: number;
-            static ESRCH: number;
-            static ETIMEDOUT: number;
-            static ETXTBSY: number;
-            static EXDEV: number;
-            static UNKNOWN: number;
-            static EOF: number;
-            static ENXIO: number;
-            static EMLINK: number;
-            static EHOSTDOWN: number;
-            static EREMOTEIO: number;
-            static ENOTTY: number;
-            static EFTYPE: number;
-            static EILSEQ: number;
-            static ESOCKTNOSUPPORT: number;
-            
-            /**
-            * Returns the string representing the given error number.
-            *
-            * @param code Error number.
-            */
-            static strerror(errno: number): string;
         }
-        
+
+        const errors: IErrors;
+
         /**
         * Returns the canonicalized absolute pathname.
         *
@@ -597,7 +606,7 @@ declare global {
             mode?: number;
             /* Whether the directories will be created recursively or not. */
             recursive?: boolean;
-        };
+        }
 
         /**
         * Create a directory at the given path.

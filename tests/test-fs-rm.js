@@ -10,7 +10,7 @@ try {
     err = e;
 }
 
-assert.eq(err.errno, tjs.Error.ENOENT, 'dir does not exist');
+assert.eq(err.code, 'ENOENT', 'dir does not exist');
 err = undefined;
 
 await tjs.mkdir(path.join('a', 'b', 'c', 'd'), { recursive: true });
@@ -21,7 +21,7 @@ try {
     err = e;
 }
 
-assert.eq(err.errno, tjs.Error.EEXIST, 'dir does exist');
+assert.eq(err.code, 'EEXIST', 'dir does exist');
 err = undefined;
 
 await tjs.rm('a');
@@ -32,4 +32,4 @@ try {
     err = e;
 }
 
-assert.eq(err.errno, tjs.Error.ENOENT, 'dir does not exist');
+assert.eq(err.code, 'ENOENT', 'dir does not exist');
