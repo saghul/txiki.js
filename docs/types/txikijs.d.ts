@@ -192,50 +192,34 @@ declare global {
         
         /**
         * Constants describing a socket family.
-        * Available values:
-        *
-        *   - AF_INET
-        *   - AF_INET6
-        *   - AF_UNSPEC
         */
-        const AF_XXX: number;
-        
-        /**
-        * Constants to be used with {@link getaddrinfo}'s `hints` parameter.
-        * Available values:
-        *
-        *   - SOCK_STREAM
-        *   - SOCK_DGRAM
-        */
-        const SOCK_XXX: number;
-        
-        /**
-        * Constants to be used with {@link getaddrinfo}'s `hints` parameter.
-        * Available values:
-        *
-        *   - IPPROTO_TCP
-        *   - IPPROTO_UDP
-        */
-        const IPPROTO_XXX: number;
+        const AF_INET: number;
+        const AF_INE6: number;
+        const AF_UNSPEC: number;
         
         /**
         * Constants to be used with {@link getaddrinfo}'s `hints` parameter.
         */
-        const AI_PASSIVE: number;
-        
+        const SOCK_STREAM: number;
+        const SOCK_DGRAM: number;
+
+        /**
+        * Constants to be used with {@link getaddrinfo}'s `hints` parameter.
+        */
+        const IPPROTO_TCP: number;
+        const IPPROTO_UDP: number;
+
         /**
         * Constant to be used with {@link getaddrinfo}'s `hints` parameter.
-        * Available values:
-        *
-        *   - AI_CANONNAME
-        *   - AI_NUMERICHOST
-        *   - AI_V4MAPPED
-        *   - AI_ALL
-        *   - AI_ADDRCONFIG
-        *   - AI_NUMERICSERV
         */
-        const AI_XXX: number;
-        
+        const AI_PASSIVE: number;
+        const AI_CANONNAME: number;
+        const AI_NUMERICHOST: number;
+        const AI_V4MAPPED: number;
+        const AI_ALL: number;
+        const AI_ADDRCONFIG: number;
+        const AI_NUMERICSERV: number;
+
         /**
         * Hints for {@link getaddrinfo}.
         */
@@ -515,20 +499,18 @@ declare global {
         * Flag used to check in {@link StatResult}'s `st_mode` field.
         * See [stat(2)](https://man7.org/linux/man-pages/man2/lstat.2.html)
         * Available values:
-        *
-        *   - S_IFMT
-        *   - S_IFIFO
-        *   - S_IFCHR
-        *   - S_IFDIR
-        *   - S_IFBLK
-        *   - S_IFREG
-        *   - S_IFSOCK
-        *   - S_IFLNK
-        *   - S_ISGID
-        *   - S_ISUID
         */
-        const S_XXX: number;
-        
+        const S_IFMT: number;
+        const S_IFIFO: number;
+        const S_IFCHR: number;
+        const S_IFDIR: number;
+        const S_IFBLK: number;
+        const S_IFREG: number;
+        const S_IFSOCK: number;
+        const S_IFLNK: number;
+        const S_ISGID: number;
+        const S_ISUID: number;
+
         /**
         * Gets file status information.
         * See [stat(2)](https://man7.org/linux/man-pages/man2/stat.2.html)
