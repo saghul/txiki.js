@@ -278,8 +278,13 @@ static int curl__progress_cb(void *clientp,
     CHECK_NOT_NULL(x);
 
     if (x->ready_state == XHR_RSTATE_LOADING) {
+#if LIBCURL_VERSION_NUM >= 0x073700 /* added in 7.55.0 */
+        curl_off_t cl = -1;
+        curl_easy_getinfo(x->curl_h, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
+#else
         double cl = -1;
         curl_easy_getinfo(x->curl_h, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &cl);
+#endif
         JSContext *ctx = x->ctx;
         JSValue event = JS_NewObjectProto(ctx, JS_NULL);
         JS_DefinePropertyValueStr(ctx, event, "lengthComputable", JS_NewBool(ctx, cl > 0), JS_PROP_C_W_E);
