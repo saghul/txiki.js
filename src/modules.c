@@ -39,7 +39,13 @@ JSModuleDef *tjs__load_http(JSContext *ctx, const char *url) {
     int r = tjs_curl_load_http(&dbuf, url);
     if (r != 200) {
         m = NULL;
-        JS_ThrowReferenceError(ctx, "could not load '%s' code: %d", url, r);
+        if (r < 0) {
+            /* curl error */
+            JS_ThrowReferenceError(ctx, "could not load '%s': %s", url, curl_easy_strerror(-r));
+        } else {
+            /* http error */
+            JS_ThrowReferenceError(ctx, "could not load '%s': %d", url, r);
+        }
         goto end;
     }
 

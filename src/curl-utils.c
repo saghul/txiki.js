@@ -105,9 +105,6 @@ int tjs_curl_load_http(DynBuf *dbuf, const char *url) {
 
     if (res != CURLE_OK) {
         r = -res;
-#if 0
-        printf("CURL ERROR: %d %s\n", res,  curl_easy_strerror(res));
-#endif
     }
 
     /* cleanup curl stuff */
