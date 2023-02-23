@@ -50,7 +50,7 @@ CURL *tjs__curl_easy_init(CURL *curl_h) {
     curl_easy_setopt(curl_h, CURLOPT_USERAGENT, TJS__UA_STRING);
     curl_easy_setopt(curl_h, CURLOPT_FOLLOWLOCATION, 1L);
     /* only allow HTTP */
-#if defined(CURLOPT_PROTOCOLS_STR)
+#if LIBCURL_VERSION_NUM >= 0x075500 /* added in 7.85.0 */
     curl_easy_setopt(curl_h, CURLOPT_PROTOCOLS_STR, "http,https");
     curl_easy_setopt(curl_h, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
 #else
@@ -58,7 +58,7 @@ CURL *tjs__curl_easy_init(CURL *curl_h) {
     curl_easy_setopt(curl_h, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
 #endif
     /* use TLS v1.1 or higher */
-#if defined(CURL_SSLVERSION_TLSv1_1)
+#if LIBCURL_VERSION_NUM >= 0x072200 /* added in 7.34.0 */
     curl_easy_setopt(curl_h, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_1);
 #endif
 
