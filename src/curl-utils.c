@@ -1,5 +1,5 @@
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -83,6 +83,9 @@ int tjs_curl_load_http(DynBuf *dbuf, const char *url) {
 
     /* specify URL to get */
     curl_easy_setopt(curl_handle, CURLOPT_URL, url);
+
+    /* set a 5 second timeout */
+    curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT_MS, 5000);
 
     /* send all data to this function  */
     curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, curl__write_cb);
