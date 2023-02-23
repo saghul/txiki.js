@@ -119,10 +119,10 @@ The following modules compose the standard library:
 If you didn't already clone this repository recursively, make sure you initialize these
 submodules with `git submodule update --init` before proceeding to the build. 
 
-Install dependencies (`libtool`, `makeinfo`, `openssl`, `libcurl`):
+Install dependencies (`libtool`, `makeinfo`, `openssl`, `libcurl`, `build-essential`):
 
 ```bash
- sudo apt install libtool texinfo libcurl4-openssl-dev
+ sudo apt install libtool texinfo libcurl4-openssl-dev build-essential
 ```
 
 
