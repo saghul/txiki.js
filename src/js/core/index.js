@@ -54,6 +54,10 @@ const noExport = [
 ];
 
 for (const [ key, value ] of Object.entries(core)) {
+    if (key.startsWith('_')) {
+        continue;
+    }
+
     if (noExport.includes(key)) {
         continue;
     }
