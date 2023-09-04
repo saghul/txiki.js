@@ -50,6 +50,8 @@ add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 
+add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
+
 set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
 add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
@@ -83,6 +85,7 @@ add_executable(tjs
     src/worker.c
     src/ws.c
     src/xhr.c
+    src/_sqlite3.c
     src/bundles/c/core/core.c
     src/bundles/c/core/polyfills.c
     src/bundles/c/core/run-main.c
@@ -136,7 +139,7 @@ set_target_properties(tjs PROPERTIES
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
-target_link_libraries(tjs qjs uv_a m3 m ${CURL_LIBRARIES})
+target_link_libraries(tjs qjs uv_a m3 sqlite3 m ${CURL_LIBRARIES})
 if(MINGW)
     target_link_libraries(tjs pthread)
 endif()

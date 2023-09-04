@@ -102,6 +102,7 @@ The following modules compose the standard library:
 - [`tjs:hashing`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_hashing.html)
 - [`tjs:ipaddr`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_ipaddr.html)
 - [`tjs:path`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_path.html)
+- `tjs:sqlite`
 - [`tjs:uuid`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_uuid.html)
 
 ## Supported platforms
