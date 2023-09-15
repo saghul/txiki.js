@@ -9,6 +9,7 @@
         "entryPointStrategy": "expand",
         "out": "api/",
         "readme": "intro.md",
-        "disableSources": true
+        "disableSources": true,
+        "exclude":["types/index.d.ts"]
     }
 }

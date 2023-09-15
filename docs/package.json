@@ -1,0 +1,22 @@
+{
+  "name": "@txikijs/types",
+  "version": "23.1.0",
+  "description": "",
+  "main": "",
+  "types": "types/index.d.ts",
+  "keywords": ["tjs","txiki","txikijs"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/saghul/txiki.js.git",
+    "directory": "docs"
+  },
+  "bugs": {
+    "url": "https://github.com/saghul/txiki.js/issues"
+  },
+  "author": "Saúl Ibarra Corretgé <s@saghul.net>",
+  "license": "MIT",
+  "files": [
+    "types",
+    "README.md"
+  ]
+}
