@@ -1,6 +1,5 @@
-
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -262,6 +261,17 @@ static void tjs__buf_free(JSRuntime *rt, void *opaque, void *ptr) {
 
 JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size) {
     JSValue abuf = JS_NewArrayBuffer(ctx, data, size, tjs__buf_free, NULL, false);
+    if (JS_IsException(abuf))
+        return abuf;
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+    JSValue buf = JS_CallConstructor(ctx, qrt->builtins.u8array_ctor, 1, &abuf);
+    JS_FreeValue(ctx, abuf);
+    return buf;
+}
+
+JSValue TJS_NewUint8ArrayCopy(JSContext *ctx, uint8_t *data, size_t size) {
+    JSValue abuf = JS_NewArrayBufferCopy(ctx, data, size);
     if (JS_IsException(abuf))
         return abuf;
     TJSRuntime *qrt = TJS_GetRuntime(ctx);
