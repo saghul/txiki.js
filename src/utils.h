@@ -1,5 +1,5 @@
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -122,6 +122,7 @@ JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv);
 
 JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size);
+JSValue TJS_NewUint8ArrayCopy(JSContext *ctx, uint8_t *data, size_t size);
 JSValue TJS_NewDate(JSContext *ctx, double epoch_ms);
 
 extern const char *tjs_signal_map[];
