@@ -129,6 +129,11 @@ static void uv__stop(uv_async_t *handle) {
     uv_stop(&qrt->loop);
 }
 
+static void uv__walk(uv_handle_t* handle, void* arg) {
+    if (!uv_is_closing(handle))
+        uv_close(handle, NULL);
+}
+
 void TJS_DefaultOptions(TJSRunOptions *options) {
     static TJSRunOptions default_options = { .mem_limit = -1, .stack_size = TJS__DEFAULT_STACK_SIZE };
 
@@ -254,6 +259,8 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     /* Destroy WASM runtime. */
     m3_FreeEnvironment(qrt->wasm_ctx.env);
 
+    uv_walk(&qrt->loop, uv__walk, NULL);
+
     /* Cleanup loop. All handles should be closed. */
     int closed = 0;
     for (int i = 0; i < 5; i++) {
@@ -266,8 +273,8 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
 #ifdef DEBUG
     if (!closed)
         uv_print_all_handles(&qrt->loop, stderr);
-#endif
     CHECK_EQ(closed, 1);
+#endif
 
     free(qrt);
 }
