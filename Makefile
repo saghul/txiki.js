@@ -1,5 +1,5 @@
 BUILD_DIR=build
-BUILDTYPE?=Release
+BUILDTYPE?=MinSizeRel
 
 QJSC=$(BUILD_DIR)/qjsc
 STDLIB_MODULES=$(wildcard src/js/stdlib/*.js)
