@@ -27,9 +27,11 @@
 
 #include <curl/curl.h>
 
+#define TJS__CURL_PRIVATE_MAGIC 0xde4dc0d3
 
 typedef void (*tjs_curl_done_cb)(CURLMsg *message, void *arg);
 typedef struct {
+    uint32_t magic;
     void *arg;
     tjs_curl_done_cb done_cb;
 } tjs_curl_private_t;

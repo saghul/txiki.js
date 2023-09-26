@@ -326,6 +326,7 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValueConst new_target, int 
         x->events[i] = JS_UNDEFINED;
     }
 
+    x->curl_private.magic = TJS__CURL_PRIVATE_MAGIC;
     x->curl_private.arg = x;
     x->curl_private.done_cb = curlm__done_cb;
 
