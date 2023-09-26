@@ -127,8 +127,7 @@ if (options.help) {
             globalThis.queueMicrotask(() => {
                 try {
                     internals.core.evalFile(filename);
-                } catch (e) {
-                    console.error(e);
+                } catch (_) {
                     tjs.exit(1);
                 }
             });
