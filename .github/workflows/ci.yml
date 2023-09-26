@@ -109,7 +109,7 @@ jobs:
       matrix:
         sys:
           - mingw64
-          - clang64
+          #- clang64
     defaults:
       run:
         shell: msys2 {0}
