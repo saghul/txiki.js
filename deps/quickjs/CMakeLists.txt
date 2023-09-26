@@ -13,6 +13,8 @@ if(CMAKE_C_COMPILER_ID MATCHES "AppleClang|Clang")
         -funsigned-char)
 else()
     list(APPEND qjs_cflags
+        -Wno-sign-compare
+        -Wno-unused-parameter
         -Wno-array-bounds
         -Wno-unused-variable
         -Wno-unused-but-set-variable)
