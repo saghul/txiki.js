@@ -100,16 +100,31 @@ static JSValue tjs_randomUUID(JSContext *ctx, JSValueConst this_val, int argc, J
         return tjs_throw_errno(ctx, r);
 
     u[6] &= 15;
-    u[6] |= 64; // '4x'
+    u[6] |= 64;  // '4x'
 
     u[8] &= 63;
-    u[8] |= 128; // 0b10xxxxxx
+    u[8] |= 128;  // 0b10xxxxxx
 
-    snprintf(v, sizeof(v),
-            "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
-            "%02x%02x-%02x%02x%02x%02x%02x%02x",
-            u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7],
-            u[8], u[9], u[10], u[11], u[12], u[13], u[14], u[15]);
+    snprintf(v,
+             sizeof(v),
+             "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+             "%02x%02x-%02x%02x%02x%02x%02x%02x",
+             u[0],
+             u[1],
+             u[2],
+             u[3],
+             u[4],
+             u[5],
+             u[6],
+             u[7],
+             u[8],
+             u[9],
+             u[10],
+             u[11],
+             u[12],
+             u[13],
+             u[14],
+             u[15]);
 
     return JS_NewString(ctx, v);
 }

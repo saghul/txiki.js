@@ -130,7 +130,7 @@ static void uv__stop(uv_async_t *handle) {
     uv_stop(&qrt->loop);
 }
 
-static void uv__walk(uv_handle_t* handle, void* arg) {
+static void uv__walk(uv_handle_t *handle, void *arg) {
     if (!uv_is_closing(handle))
         uv_close(handle, NULL);
 }

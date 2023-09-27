@@ -1,3 +1,5 @@
+/* clang-format off */
+
 /*
  * QuickJS command line compiler
  *

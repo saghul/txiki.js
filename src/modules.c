@@ -132,10 +132,10 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
 
 #define TJS__PATHSEP_POSIX '/'
 #if defined(_WIN32)
-#define TJS__PATHSEP '\\'
+#define TJS__PATHSEP     '\\'
 #define TJS__PATHSEP_STR "\\"
 #else
-#define TJS__PATHSEP '/'
+#define TJS__PATHSEP     '/'
 #define TJS__PATHSEP_STR "/"
 #endif
 
@@ -213,7 +213,7 @@ static inline void tjs__normalize_pathsep(const char *name) {
         }
     }
 #else
-    (void)name;
+    (void) name;
 #endif
 }
 

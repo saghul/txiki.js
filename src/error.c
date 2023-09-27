@@ -34,7 +34,11 @@ JSValue tjs_new_error(JSContext *ctx, int err) {
                               "message",
                               JS_NewString(ctx, uv_strerror(err)),
                               JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
-    JS_DefinePropertyValueStr(ctx, obj, "code", JS_NewString(ctx, uv_err_name(err)), JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
+    JS_DefinePropertyValueStr(ctx,
+                              obj,
+                              "code",
+                              JS_NewString(ctx, uv_err_name(err)),
+                              JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
     JS_DefinePropertyValueStr(ctx, obj, "errno", JS_NewInt32(ctx, err), JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
     return obj;
 }
@@ -64,7 +68,7 @@ JSValue tjs_throw_errno(JSContext *ctx, int err) {
 static const JSCFunctionListEntry tjs_errors_funcs[] = { TJS_CFUNC_DEF("strerror", 1, tjs_error_strerror),
 /* various errno values */
 #define DEF(x, s) JS_PROP_INT32_DEF(#x, UV_##x, JS_PROP_C_W_E),
-                                                        UV_ERRNO_MAP(DEF)
+                                                         UV_ERRNO_MAP(DEF)
 #undef DEF
 };
 
