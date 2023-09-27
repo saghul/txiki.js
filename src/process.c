@@ -236,6 +236,7 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
             if (JS_IsException(v))
                 goto fail;
             const char *arg_str = JS_ToCString(ctx, v);
+            JS_FreeValue(ctx, v);
             if (!arg_str)
                 goto fail;
             options.args[i] = js_strdup(ctx, arg_str);
@@ -277,6 +278,7 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
                 }
                 const char *key = JS_AtomToCString(ctx, ptab[i].atom);
                 const char *value = JS_ToCString(ctx, prop);
+                JS_FreeValue(ctx, prop);
                 size_t len = strlen(key) + strlen(value) + 2; /* KEY=VALUE\0 */
                 options.env[i] = js_malloc(ctx, len);
                 if (!options.env[i]) {
