@@ -58,6 +58,7 @@ Support for the [ES2020] specification plus some ES2020+ features like top level
 - [JSON modules]
 - [Performance]
 - [setTimeout, setInterval]
+- [Storage API]
 - [Streams API]
 - [URL]
 - [URLPattern]
@@ -214,6 +215,7 @@ Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul
 [JSON modules]: https://github.com/tc39/proposal-json-modules
 [Performance]: https://developer.mozilla.org/en-US/docs/Web/API/Performance
 [setTimeout, setInterval]: https://developer.mozilla.org/en-US/docs/Web/API/setTimeout
+[Storage API]: https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API
 [Streams API]: https://developer.mozilla.org/en-US/docs/Web/API/Streams_API
 [URL]: https://developer.mozilla.org/en-US/docs/Web/API/URL
 [URLPattern]: https://developer.mozilla.org/en-US/docs/Web/API/URLPattern
