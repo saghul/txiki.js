@@ -127,7 +127,11 @@ if (options.help) {
             globalThis.queueMicrotask(() => {
                 try {
                     internals.core.evalFile(filename);
-                } catch (_) {
+                } catch (e) {
+                    if (e instanceof SyntaxError) {
+                        console.error(e);
+                    }
+
                     tjs.exit(1);
                 }
             });
