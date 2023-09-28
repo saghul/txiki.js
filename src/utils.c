@@ -127,7 +127,8 @@ void tjs_addr2obj(JSContext *ctx, JSValue obj, const struct sockaddr *sa) {
 static void tjs_dump_obj(JSContext *ctx, FILE *f, JSValueConst val) {
     const char *str = JS_ToCString(ctx, val);
     if (str) {
-        fprintf(f, "%s\n", str);
+        const char *prefix = JS_IsException(val) || JS_IsError(ctx, val) ? "Uncaught " : "";
+        fprintf(f, "%s%s\n", prefix, str);
         JS_FreeCString(ctx, str);
     } else {
         fprintf(f, "[exception]\n");
