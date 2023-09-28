@@ -584,11 +584,7 @@ class EventTarget {
             setPassiveListener(event, node.passive ? node.listener : null);
 
             if (typeof node.listener === 'function') {
-                try {
-                    node.listener.call(this, event);
-                } catch (err) {
-                    console.error(err);
-                }
+                node.listener.call(this, event);
             } else if (node.listenerType !== ATTRIBUTE && typeof node.listener.handleEvent === 'function') {
                 node.listener.handleEvent(event);
             }
