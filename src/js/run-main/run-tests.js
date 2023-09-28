@@ -2,7 +2,7 @@
 
 let __path; // lazy loaded.
 
-
+const verbose = Boolean(tjs.environ.VERBOSE_TESTS);
 const TIMEOUT = 10 * 1000;
 
 const colors = {
@@ -88,7 +88,7 @@ function printResult(result) {
 
     console.log(`${result.name.padEnd(40, ' ')} ${status+colors.none}`);
 
-    if (result.failed) {
+    if (result.failed || verbose) {
         console.log('status:');
         console.log(result.status);
 
