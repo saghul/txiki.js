@@ -545,7 +545,7 @@ JSValue JS_NewBigUint64(JSContext *ctx, uint64_t v);
 
 static js_force_inline JSValue JS_NewFloat64(JSContext *ctx, double d)
 {
-    if (isinf(d) || isnan(d)) {
+    if (unlikely(isinf(d) || isnan(d))) {
         return __JS_NewFloat64(ctx, d);
     }
     JSValue v;
