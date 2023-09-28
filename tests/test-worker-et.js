@@ -2,6 +2,7 @@ import assert from 'tjs:assert';
 import path from 'tjs:path';
 
 
+const data = JSON.stringify({foo: 42, bar: 'baz!'});
 const w = new Worker(path.join(import.meta.dirname, 'helpers', 'worker.js'));
 const timer = setTimeout(() => {
     w.terminate();
