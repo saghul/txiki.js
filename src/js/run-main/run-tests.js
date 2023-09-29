@@ -1,6 +1,7 @@
 /* global tjs */
 
-let __path; // lazy loaded.
+const internals = tjs[Symbol.for('tjs.internal')];
+const { pathModule } = internals;
 
 const verbose = Boolean(tjs.environ.VERBOSE_TESTS);
 const TIMEOUT = 10 * 1000;
@@ -53,7 +54,7 @@ class Test {
         const status = status_.value;
 
         return {
-            name: __path.basename(this._fileName),
+            name: pathModule.basename(this._fileName),
             failed: status.exit_status !== 0 || status.term_signal !== null,
             status,
             stdout: stdout.value,
@@ -105,11 +106,6 @@ function printResult(result) {
 }
 
 export async function runTests(d) {
-    // Lazy load.
-    const { default: pathModule } = await import('tjs:path');
-
-    __path = pathModule;
-
     const dir = await tjs.realpath(d || tjs.cwd());
     const dirIter = await tjs.readdir(dir);
     const tests = [];
@@ -118,7 +114,7 @@ export async function runTests(d) {
         const { name } = item;
 
         if (name.startsWith('test-') && name.endsWith('.js')) {
-            tests.push(new Test(__path.join(dir, name)));
+            tests.push(new Test(pathModule.join(dir, name)));
         }
     }
 

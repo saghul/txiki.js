@@ -2,6 +2,7 @@ const core = globalThis.__bootstrap;
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import { open, mkdir, mkstemp, rm } from './fs.js';
+import pathModule from './path.js';
 import { PosixSocket } from './posix-socket.js';
 import { signal } from './signal.js';
 import { connect, listen } from './sockets.js';
@@ -197,6 +198,7 @@ const kInternal = Symbol.for('tjs.internal');
 tjs[kInternal] = Object.create(null);
 tjs[kInternal]['bootstrapWorker'] = bootstrapWorker;
 tjs[kInternal]['core'] = core;
+tjs[kInternal]['pathModule'] = pathModule;
 
 // tjs global.
 Object.defineProperty(globalThis, 'tjs', {
