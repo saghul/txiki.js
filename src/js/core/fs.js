@@ -1,3 +1,4 @@
+import pathModule from './path.js';
 import { readableStreamForHandle, writableStreamForHandle } from './stream-utils.js';
 
 const core = globalThis.__bootstrap;
@@ -47,29 +48,16 @@ export async function mkstemp(template) {
     return new Proxy(handle, fhProxyHandler);
 }
 
-// Lazy load.
-let pathMod;
-
-async function _lazyLoadPath() {
-    if (!pathMod) {
-        const { default: pathModule } = await import('tjs:path');
-
-        pathMod = pathModule;
-    }
-}
-
 export async function mkdir(path, options = { mode: 0o777, recursive: false }) {
     if (!options.recursive) {
         return core.mkdir(path, options.mode);
     }
 
-    await _lazyLoadPath();
-
-    const paths = path.split(pathMod.sep);
+    const paths = path.split(pathModule.sep);
     let curPath = '';
 
     for (const p of paths) {
-        curPath = pathMod.join(curPath, p);
+        curPath = pathModule.join(curPath, p);
 
         try {
             await core.mkdir(curPath, options.mode);
@@ -183,12 +171,10 @@ async function _rmdir(path, options, originalErr) {
             // when files are deleted, resulting in spurious ENOTEMPTY failures. Work
             // around that issue by retrying on Windows.
 
-            await _lazyLoadPath();
-
             const dirIter = await core.readdir(path);
 
             for await (const item of dirIter) {
-                const childPath = pathMod.join(path, item.name);
+                const childPath = pathModule.join(path, item.name);
 
                 await rm(childPath, options);
             }
