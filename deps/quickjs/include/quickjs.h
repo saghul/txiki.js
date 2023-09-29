@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <math.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -544,6 +545,9 @@ JSValue JS_NewBigUint64(JSContext *ctx, uint64_t v);
 
 static js_force_inline JSValue JS_NewFloat64(JSContext *ctx, double d)
 {
+    if (js_unlikely(isinf(d) || isnan(d))) {
+        return __JS_NewFloat64(ctx, d);
+    }
     JSValue v;
     int32_t val;
     union {
