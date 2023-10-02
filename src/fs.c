@@ -821,6 +821,25 @@ static JSValue tjs_fs_stat(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
+static JSValue tjs_fs_stat_sync(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    uv_fs_t req;
+    int r = uv_fs_stat(NULL, &req, path, NULL);
+    JS_FreeCString(ctx, path);
+    if (r != 0) {
+        uv_fs_req_cleanup(&req);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    JSValue ret = tjs_new_stat(ctx, &req.statbuf);
+    uv_fs_req_cleanup(&req);
+
+    return ret;
+}
+
 static JSValue tjs_fs_realpath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
@@ -982,6 +1001,29 @@ static JSValue tjs_fs_mkdir(JSContext *ctx, JSValueConst this_val, int argc, JSV
     }
 
     return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
+}
+
+static JSValue tjs_fs_mkdir_sync(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    int32_t mode = 0777;
+    if (argc >= 2 && !JS_IsUndefined(argv[1])) {
+        if (JS_ToInt32(ctx, &mode, argv[1])) {
+            JS_FreeCString(ctx, path);
+            return JS_EXCEPTION;
+        }
+    }
+
+    uv_fs_t req;
+    int r = uv_fs_mkdir(NULL, &req, path, mode, NULL);
+    JS_FreeCString(ctx, path);
+    uv_fs_req_cleanup(&req);
+    if (r != 0)
+        return tjs_throw_errno(ctx, r);
+
+    return JS_UNDEFINED;
 }
 
 static JSValue tjs_fs_copyfile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -1237,6 +1279,9 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CFUNC_DEF("chown", 3, tjs_fs_chown),
     TJS_CFUNC_DEF("lchown", 3, tjs_fs_lchown),
     TJS_CFUNC_DEF("chmod", 2, tjs_fs_chmod),
+    /* Internal */
+    TJS_CFUNC_DEF("_mkdirSync", 2, tjs_fs_mkdir_sync),
+    TJS_CFUNC_DEF("_statSync", 1, tjs_fs_stat_sync),
 };
 
 void tjs__mod_fs_init(JSContext *ctx, JSValue ns) {
