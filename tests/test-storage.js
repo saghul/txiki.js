@@ -20,7 +20,7 @@ assert.eq(window.localStorage.getItem('foo'), '123');
 const args = [
     tjs.exepath,
     'run',
-    path.join(import.meta.dirname, import.meta.basename)
+    import.meta.path
 ];
 const proc = tjs.spawn(args, { env: { TJS_HOME: path.join(import.meta.dirname, 'fixtures') } });
 const status = await proc.wait();
