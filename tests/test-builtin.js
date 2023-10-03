@@ -38,6 +38,28 @@ function test_number()
     assert.eq((-1.125).toFixed(2), "-1.13");
     assert.eq((1.124).toFixed(2), "1.12");
     assert.eq((-1.124).toFixed(2), "-1.12");
+
+    
+    assert.eq((1000000006).toExponential(8), "1.00000001e+9");
+    assert.eq((-1000000006).toExponential(8), "-1.00000001e+9");
+    assert.eq((1000000005).toExponential(8), "1.00000001e+9");
+    assert.eq((-1000000005).toExponential(8), "-1.00000001e+9");
+    assert.eq((1000000004).toExponential(8), "1.00000000e+9");
+    assert.eq((-1000000004).toExponential(8), "-1.00000000e+9");
+
+    assert.eq((0.000001000000064).toExponential(7), "1.0000001e-6");
+    assert.eq((-0.000001000000064).toExponential(7), "-1.0000001e-6");
+    assert.eq((0.000001000000054).toExponential(7), "1.0000001e-6");
+    assert.eq((-0.000001000000054).toExponential(7), "-1.0000001e-6");
+    assert.eq((0.000001000000044).toExponential(7), "1.0000000e-6");
+    assert.eq((-0.000001000000044).toExponential(7), "-1.0000000e-6");
+
+    assert.eq((1.000000006).toFixed(8), "1.00000001");
+    assert.eq((-1.000000006).toFixed(8), "-1.00000001");
+    assert.eq((1.000000005).toFixed(8), "1.00000001");
+    assert.eq((-1.000000005).toFixed(8), "-1.00000001");
+    assert.eq((1.000000004).toFixed(8), "1.00000000");
+    assert.eq((-1.000000004).toFixed(8), "-1.00000000");
 }
 
 test_number()

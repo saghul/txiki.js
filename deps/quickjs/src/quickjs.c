@@ -64,7 +64,6 @@
 
 /* define it if printf uses the RNDN rounding mode instead of RNDNA */
 #define CONFIG_PRINTF_RNDN
-#define JS_PRINTF_EPSILON 1e-6
 
 /* define to include Atomics.* operations which depend on the OS
    threads */
@@ -11379,7 +11378,8 @@ static int js_ecvt(double d, int n_digits, int *decpt, int *sign, char *buf,
             /* XXX: could use 2 digits to reduce the average running time */
             if (buf1[n_digits] == '5') {
 #if defined(__MINGW32__)
-                d += (sign1 ? -JS_PRINTF_EPSILON : JS_PRINTF_EPSILON);
+                double epsilon = decpt1 < 0 ? 1.0 / pow(10, (n_digits + 1) - decpt1) : 1.0 * pow(10, decpt1 - (n_digits + 1));
+                d += (sign1 ? -epsilon : epsilon);
 #else
                 js_ecvt1(d, n_digits + 1, &decpt1, &sign1, buf1, FE_DOWNWARD,
                          buf_tmp, sizeof(buf_tmp));
@@ -11434,7 +11434,8 @@ static void js_fcvt(char *buf, int buf_size, double d, int n_digits)
         /* XXX: could use 2 digits to reduce the average running time */
         if (buf1[n1 - 1] == '5') {
 #if defined(__MINGW32__)
-            d += (buf1[0] == '-' ? -JS_PRINTF_EPSILON : JS_PRINTF_EPSILON);
+            double epsilon = 1.0 / pow(10, n_digits + 1);
+            d += (buf1[0] == '-' ? -epsilon : epsilon);
 #else
             n1 = js_fcvt1(buf1, sizeof(buf1), d, n_digits + 1, FE_DOWNWARD);
             n2 = js_fcvt1(buf2, sizeof(buf2), d, n_digits + 1, FE_UPWARD);
