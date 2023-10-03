@@ -18,12 +18,26 @@ function test_number()
     assert.ok(Number.isNaN(Number("-")));
     assert.ok(Number.isNaN(Number("\x00a")));
 
-    // assert.eq((25).toExponential(0), "3e+1");
-    // assert.eq((-25).toExponential(0), "-3e+1");
-    // assert.eq((2.5).toPrecision(1), "3");
-    // assert.eq((-2.5).toPrecision(1), "-3");
-    // assert.eq((1.125).toFixed(2), "1.13");
-    // assert.eq((-1.125).toFixed(2), "-1.13");
+    assert.eq((26).toExponential(0), "3e+1");
+    assert.eq((-26).toExponential(0), "-3e+1");
+    assert.eq((25).toExponential(0), "3e+1");
+    assert.eq((-25).toExponential(0), "-3e+1");
+    assert.eq((24).toExponential(0), "2e+1");
+    assert.eq((-24).toExponential(0), "-2e+1");
+
+    assert.eq((2.6).toPrecision(1), "3");
+    assert.eq((-2.6).toPrecision(1), "-3");
+    assert.eq((2.5).toPrecision(1), "3");
+    assert.eq((-2.5).toPrecision(1), "-3");
+    assert.eq((-2.4).toPrecision(1), "-2");
+    assert.eq((2.4).toPrecision(1), "2");
+
+    assert.eq((1.126).toFixed(2), "1.13");
+    assert.eq((-1.126).toFixed(2), "-1.13");
+    assert.eq((1.125).toFixed(2), "1.13");
+    assert.eq((-1.125).toFixed(2), "-1.13");
+    assert.eq((1.124).toFixed(2), "1.12");
+    assert.eq((-1.124).toFixed(2), "-1.12");
 }
 
 test_number()

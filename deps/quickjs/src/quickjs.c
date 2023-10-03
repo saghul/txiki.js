@@ -62,10 +62,9 @@
 #define MALLOC_OVERHEAD  8
 #endif
 
-#if !defined(_WIN32)
 /* define it if printf uses the RNDN rounding mode instead of RNDNA */
 #define CONFIG_PRINTF_RNDN
-#endif
+#define JS_PRINTF_EPSILON 1e-6
 
 /* define to include Atomics.* operations which depend on the OS
    threads */
@@ -11379,6 +11378,9 @@ static int js_ecvt(double d, int n_digits, int *decpt, int *sign, char *buf,
                      buf_tmp, sizeof(buf_tmp));
             /* XXX: could use 2 digits to reduce the average running time */
             if (buf1[n_digits] == '5') {
+#if defined(__MINGW32__)
+                d += (sign1 ? -JS_PRINTF_EPSILON : JS_PRINTF_EPSILON);
+#else
                 js_ecvt1(d, n_digits + 1, &decpt1, &sign1, buf1, FE_DOWNWARD,
                          buf_tmp, sizeof(buf_tmp));
                 js_ecvt1(d, n_digits + 1, &decpt2, &sign2, buf2, FE_UPWARD,
@@ -11390,6 +11392,7 @@ static int js_ecvt(double d, int n_digits, int *decpt, int *sign, char *buf,
                     else
                         rounding_mode = FE_UPWARD;
                 }
+#endif
             }
         }
 #endif /* CONFIG_PRINTF_RNDN */
@@ -11430,6 +11433,9 @@ static void js_fcvt(char *buf, int buf_size, double d, int n_digits)
         rounding_mode = FE_TONEAREST;
         /* XXX: could use 2 digits to reduce the average running time */
         if (buf1[n1 - 1] == '5') {
+#if defined(__MINGW32__)
+            d += (buf1[0] == '-' ? -JS_PRINTF_EPSILON : JS_PRINTF_EPSILON);
+#else
             n1 = js_fcvt1(buf1, sizeof(buf1), d, n_digits + 1, FE_DOWNWARD);
             n2 = js_fcvt1(buf2, sizeof(buf2), d, n_digits + 1, FE_UPWARD);
             if (n1 == n2 && memcmp(buf1, buf2, n1) == 0) {
@@ -11439,6 +11445,7 @@ static void js_fcvt(char *buf, int buf_size, double d, int n_digits)
                 else
                     rounding_mode = FE_UPWARD;
             }
+#endif
         }
     }
 #endif /* CONFIG_PRINTF_RNDN */
