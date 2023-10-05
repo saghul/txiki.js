@@ -423,7 +423,7 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     r = tjs__load_file(ctx, &dbuf, filename);
     if (r != 0) {
         dbuf_free(&dbuf);
-        JS_ThrowReferenceError(ctx, "could not load '%s'", filename);
+        JS_ThrowReferenceError(ctx, "could not load '%s' - %s: %s", filename, uv_err_name(r), uv_strerror(r));
         return JS_EXCEPTION;
     }
 
