@@ -101,11 +101,6 @@ if (options.help) {
 
         const ext = path.extname(filename).toLowerCase();
 
-        if (![ '.js', '.mjs', '.cjs', '.wasm' ].includes(ext)) {
-            console.log(helpRun);
-            tjs.exit(1);
-        }
-
         if (ext === '.wasm') {
             tjs.readFile(filename)
                 .then(bytes => {
