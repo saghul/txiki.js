@@ -262,7 +262,7 @@ static JSValue tjs__stmt2obj(JSContext *ctx, TJSSqlite3Stmt *h) {
                 break;
             }
             case SQLITE3_TEXT: {
-                value = JS_NewString(ctx, sqlite3_column_text(h->stmt, i));
+                value = JS_NewString(ctx, (const char *) sqlite3_column_text(h->stmt, i));
                 break;
             }
             case SQLITE_BLOB: {
