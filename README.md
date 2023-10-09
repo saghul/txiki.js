@@ -123,19 +123,19 @@ submodules with `git submodule update --init` before proceeding to the build.
 
 ### GNU/Linux
 
-Install dependencies (`libcurl`, `build-essential`, `cmake`):
+Install dependencies (`libcurl`, `build-essential`, `cmake`, `libtool`):
 
 ```bash
 # On Debian / Ubuntu
-sudo apt install libcurl4-openssl-dev build-essential cmake
+sudo apt install libcurl4-openssl-dev build-essential cmake libtool
 ```
 
 ### macOS
 
-Install dependencies (`cmake`, `autoconf`):
+Install dependencies (`cmake`, `autoconf`, `libtool`):
 
 ```bash
-brew install cmake autoconf
+brew install cmake autoconf libtool
 ```
 
 ### Unix systems
