@@ -29,11 +29,13 @@
     "patch-package": "^6.4.7",
     "queue-microtask": "^1.2.3",
     "text-encoding-utf-8": "^1.0.2",
-    "typedoc": "^0.23.16",
     "urlpattern-polyfill": "^6.0.1",
     "util": "^0.12.5",
     "uuid": "^9.0.0",
     "web-streams-polyfill": "^3.2.1",
     "whatwg-fetch": "^3.6.2"
+  },
+  "devDependencies": {
+    "typedoc": "^0.25.2"
   }
 }
