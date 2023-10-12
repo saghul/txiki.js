@@ -4,10 +4,10 @@ To use the typings in your TS project, install it via `npm i @txikijs/types --sa
 
 Then either add `node_modules/@txikijs/types` to the `typeRoots` in your `tsconfig.json`:
 ```json
-"typeRoots": {
+"typeRoots": [
 	"node_modules/@txikijs/types",
 	"node_modules/@types"
-}
+]
 ```
 
 Or alternatively add `import type from '@txikijs/types';` somewhere in your code.

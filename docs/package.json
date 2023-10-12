@@ -1,10 +1,13 @@
 {
   "name": "@txikijs/types",
-  "version": "23.1.0",
-  "description": "",
+  "description": "Typescript types for the txikijs runtime",
   "main": "",
   "types": "types/index.d.ts",
-  "keywords": ["tjs","txiki","txikijs"],
+  "keywords": [
+    "tjs",
+    "txiki",
+    "txikijs"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/saghul/txiki.js.git",
@@ -13,6 +16,7 @@
   "bugs": {
     "url": "https://github.com/saghul/txiki.js/issues"
   },
+  "homepage": "https://github.com/saghul/txiki.js/blob/master/docs/README.md",
   "author": "Saúl Ibarra Corretgé <s@saghul.net>",
   "license": "MIT",
   "files": [

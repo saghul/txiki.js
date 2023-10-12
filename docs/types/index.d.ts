@@ -6,3 +6,5 @@
 /// <reference path="./ipaddr.d.ts" />
 /// <reference path="./path.d.ts" />
 /// <reference path="./uuid.d.ts" />
+
+export {};

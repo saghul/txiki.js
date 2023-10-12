@@ -43,6 +43,8 @@ Explore all the options:
 $ ./build/tjs --help
 ```
 
+For TS support see [@txikijs/types](https://www.npmjs.com/package/@txikijs/types).
+
 ## Features
 
 Support for the [ES2020] specification plus some ES2020+ features like top level await.

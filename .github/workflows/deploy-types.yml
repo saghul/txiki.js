@@ -1,0 +1,25 @@
+name: Publish @txikijs/types
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          registry-url: https://registry.npmjs.org/
+      - name: Publish package
+        working-directory: ./docs
+        # ensure that the version of the tag is used for publishing
+        run: |
+          npm version ${GITHUB_REF_NAME#v}
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
