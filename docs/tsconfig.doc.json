@@ -11,5 +11,8 @@
         "readme": "intro.md",
         "disableSources": true,
         "exclude":["types/index.d.ts"]
+    },
+    "watchOptions": {
+        "excludeDirectories": ["api/*"]
     }
 }
