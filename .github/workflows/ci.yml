@@ -103,14 +103,14 @@ jobs:
     env:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
+    - name: Prepare
+      run: apk add git build-base cmake curl-dev autoconf automake libtool texinfo linux-headers --update-cache
     - uses: actions/checkout@v3
       with:
         submodules: true
     - uses: actions/setup-node@v3
       with:
         node-version: 16
-    - name: Prepare
-      run: apk add build-base cmake curl-dev autoconf automake libtool texinfo linux-headers --update-cache
     - name: Build it
       run: make
     - name: Test it
