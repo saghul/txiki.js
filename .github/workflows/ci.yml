@@ -7,7 +7,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
         submodules: true
     - uses: actions/setup-node@v3
@@ -17,6 +17,20 @@ jobs:
       run: npm install
     - name: Run the linter
       run: npm run lint
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: true
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16
+    - name: Install dependencies
+      run: npm install
+    - name: Run the linter
+      run: npm run api-docs
   build-linux:
     name: Linux
     runs-on: ubuntu-latest
@@ -31,7 +45,7 @@ jobs:
     env:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
         submodules: true
     - uses: actions/setup-node@v3
@@ -66,7 +80,7 @@ jobs:
     steps:
     - name: Install automake
       run: brew install automake
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
         submodules: true
     - uses: actions/setup-node@v3
@@ -89,14 +103,14 @@ jobs:
     env:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
-    - uses: actions/checkout@v1
+    - name: Prepare
+      run: apk add git build-base cmake curl-dev autoconf automake libtool texinfo linux-headers --update-cache
+    - uses: actions/checkout@v3
       with:
         submodules: true
     - uses: actions/setup-node@v3
       with:
         node-version: 16
-    - name: Prepare
-      run: apk add build-base cmake curl-dev autoconf automake libtool texinfo linux-headers --update-cache
     - name: Build it
       run: make
     - name: Test it
@@ -114,7 +128,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
         submodules: true
     - name: Setup MSYS2
