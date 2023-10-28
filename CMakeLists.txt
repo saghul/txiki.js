@@ -44,6 +44,7 @@ endmacro()
 
 cpr_option(BUILD_WITH_ASAN "If ON, build with the address sanitizer enabled" OFF)
 cpr_option(USE_EXTERNAL_FFI "Specify to use external ffi dependency" OFF)
+cpr_option(CONFIG_QUICKJS_DEBUGGER "Enable QuickJS Debugger Support" OFF)
 
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
