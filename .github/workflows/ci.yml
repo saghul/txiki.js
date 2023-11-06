@@ -124,6 +124,7 @@ jobs:
         sys:
           - mingw64
           #- clang64
+          - ucrt64
     defaults:
       run:
         shell: msys2 {0}
