@@ -106,12 +106,11 @@ static void tjs__promise_rejection_tracker(JSContext *ctx,
 
         if (JS_IsException(ret)) {
             tjs_dump_error(ctx);
+            goto fail;
         } else {
-            fprintf(stderr, "Unhandled promise rejection: ");
-            tjs_dump_error1(ctx, reason);
-
             if (JS_ToBool(ctx, ret)) {
                 // The event wasn't cancelled, maybe abort.
+                fail:;
                 TJSRuntime *qrt = TJS_GetRuntime(ctx);
                 CHECK_NOT_NULL(qrt);
                 JS_Throw(qrt->ctx, JS_DupValue(qrt->ctx, reason));
@@ -239,6 +238,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 }
 
 void TJS_FreeRuntime(TJSRuntime *qrt) {
+    JS_RunGC(qrt->rt);
+
     /* Close all loop handles. */
     uv_close((uv_handle_t *) &qrt->jobs.prepare, NULL);
     uv_close((uv_handle_t *) &qrt->jobs.idle, NULL);

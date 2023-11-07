@@ -12,5 +12,5 @@ const buf = new Uint8Array(4096);
 const nread = await proc.stderr.read(buf);
 const stderrStr = new TextDecoder().decode(buf.subarray(0, nread));
 const status = await proc.wait();
-assert.ok(stderrStr.match(/Unhandled promise rejection/) !== null, 'dumps to stderr');
-assert.ok(status.exit_status === 1 && status.term_signal === null, 'succeeded');
+assert.ok(stderrStr.match(/Error: oops!/) !== null, 'dumps to stderr');
+assert.ok(status.exit_status !== 0 && status.term_signal === null, 'succeeded');
