@@ -35,10 +35,7 @@ int main(int argc, char **argv) {
 
     int exit_code = TJS_Run(qrt);
 
-    if (exit_code == EXIT_SUCCESS) {
-        // TODO: maybe mark the runtime as aborted and skip some steps?
-        TJS_FreeRuntime(qrt);
-    }
+    TJS_FreeRuntime(qrt);
 
     return exit_code;
 }

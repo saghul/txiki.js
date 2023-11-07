@@ -1,11 +1,7 @@
-const core = globalThis.__bootstrap;
+import './timers.js';
 
 import queueMicrotask from 'queue-microtask';
 
-globalThis.setTimeout = core.setTimeout;
-globalThis.clearTimeout = core.clearTimeout;
-globalThis.setInterval = core.setInterval;
-globalThis.clearInterval = core.clearInterval;
 globalThis.queueMicrotask = queueMicrotask;
 
 Object.defineProperty(globalThis, 'global', {

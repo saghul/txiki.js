@@ -30,7 +30,6 @@ typedef struct {
     JSContext *ctx;
     uv_timer_t handle;
     int interval;
-    JSValue obj;
     JSValue func;
     int argc;
     JSValue argv[];
@@ -47,10 +46,6 @@ static void clear_timer(TJSTimer *th) {
         th->argv[i] = JS_UNDEFINED;
     }
     th->argc = 0;
-
-    JSValue obj = th->obj;
-    th->obj = JS_UNDEFINED;
-    JS_FreeValue(ctx, obj);
 }
 
 static void call_timer(TJSTimer *th) {
@@ -145,7 +140,6 @@ static JSValue tjs_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
     CHECK_EQ(uv_timer_init(tjs_get_loop(ctx), &th->handle), 0);
     th->handle.data = th;
     th->interval = magic;
-    th->obj = JS_DupValue(ctx, obj);
     th->func = JS_DupValue(ctx, func);
     th->argc = nargs;
     for (int i = 0; i < nargs; i++)
