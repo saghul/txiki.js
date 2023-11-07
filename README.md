@@ -126,11 +126,11 @@ submodules with `git submodule update --init` before proceeding to the build.
 
 ### GNU/Linux
 
-Install dependencies (`libcurl`, `build-essential`, `cmake`, `makeinfo`, `autoreconf`):
+Install dependencies (`libcurl`, `build-essential`, `cmake`, `makeinfo`, `autoreconf`, `libtool`):
 
 ```bash
 # On Debian / Ubuntu
-sudo apt install libcurl4-openssl-dev build-essential cmake autoconf texinfo
+sudo apt install libcurl4-openssl-dev build-essential cmake autoconf texinfo libtool
 ```
 
 ### macOS
