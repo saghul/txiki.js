@@ -116,18 +116,13 @@ if (options.help) {
                     tjs.exit(1);
                 });
         } else {
-            // XXX: This looks weird. This file is being JS_Eval'd when we call `evalFile`,
-            // which does another JS_Eval, and something get's messed up, specially if the
-            // execution of the file results in an exception... :-(
-            globalThis.queueMicrotask(() => {
-                try {
-                    internals.core.evalFile(filename);
-                } catch (e) {
-                    console.error(e);
+            try {
+                internals.core.evalFile(filename);
+            } catch (e) {
+                console.error(e);
 
-                    tjs.exit(1);
-                }
-            });
+                tjs.exit(1);
+            }
         }
     } else if (command === 'test') {
         const [ dir ] = subargv;
