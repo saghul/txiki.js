@@ -10,4 +10,4 @@ const args = [
 const proc = tjs.spawn(args);
 const status = await proc.wait();
 
-assert.ok(status.exit_status === 1 && status.term_signal === null);
+assert.ok(status.exit_status !== 0 && status.term_signal === null);

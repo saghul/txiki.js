@@ -116,13 +116,7 @@ if (options.help) {
                     tjs.exit(1);
                 });
         } else {
-            try {
-                internals.core.evalFile(filename);
-            } catch (e) {
-                console.error(e);
-
-                tjs.exit(1);
-            }
+            internals.core.evalFile(filename);
         }
     } else if (command === 'test') {
         const [ dir ] = subargv;
