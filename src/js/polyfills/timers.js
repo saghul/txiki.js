@@ -1,29 +1,61 @@
 const core = globalThis.__bootstrap;
 
-const timers = new Set();
+const timers = new Map();
+let nextId = 1;
 
-globalThis.setTimeout = (fn, ms) => {
-    const t = core.setTimeout(fn, ms);
+function getNextId() {
+    let id;
 
-    timers.add(t);
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+        id = nextId++;
 
-    return t;
+        if (!timers.has(id)) {
+            break;
+        }
+
+        if (nextId >= Number.MAX_SAFE_INTEGER) {
+            nextId = 1;
+        }
+    }
+
+    return id;
+}
+
+globalThis.setTimeout = (fn, ms, ...args) => {
+    const timer = core.setTimeout(fn, ms, ...args);
+    const id = getNextId();
+
+    timers.set(id, timer);
+
+    return id;
 };
 
-globalThis.clearTimeout = t => {
-    core.clearTimeout(t);
-    timers.delete(t);
+globalThis.clearTimeout = id => {
+    const timer = timers.get(id);
+
+    if (timer) {
+        core.clearTimeout(timer);
+    }
+
+    timers.delete(id);
 };
 
-globalThis.setInterval = (fn, ms) => {
-    const t = core.setInterval(fn, ms);
+globalThis.setInterval = (fn, ms, ...args) => {
+    const timer = core.setInterval(fn, ms, ...args);
+    const id = getNextId();
 
-    timers.add(t);
+    timers.set(id, timer);
 
-    return t;
+    return id;
 };
 
-globalThis.clearInterval = t => {
-    core.clearInterval(t);
-    timers.delete(t);
+globalThis.clearInterval = id => {
+    const timer = timers.get(id);
+
+    if (timer) {
+        core.clearInterval(timer);
+    }
+
+    timers.delete(id);
 };
