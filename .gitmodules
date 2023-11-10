@@ -9,3 +9,6 @@
 [submodule "deps/libffi"]
 	path = deps/libffi
 	url = https://github.com/libffi/libffi
+[submodule "deps/quickjs"]
+	path = deps/quickjs
+	url = https://github.com/quickjs-ng/quickjs.git
