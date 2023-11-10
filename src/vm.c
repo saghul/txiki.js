@@ -176,10 +176,6 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     /* Set stack size */
     JS_SetMaxStackSize(qrt->rt, options->stack_size);
 
-    /* Enable BigFloat and BigDecimal */
-    JS_AddIntrinsicBigFloat(qrt->ctx);
-    JS_AddIntrinsicBigDecimal(qrt->ctx);
-
     qrt->is_worker = is_worker;
 
     CHECK_EQ(uv_loop_init(&qrt->loop), 0);
