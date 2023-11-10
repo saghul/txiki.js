@@ -1,5 +1,6 @@
 BUILD_DIR=build
 BUILDTYPE?=MinSizeRel
+JOBS?=$(shell getconf _NPROCESSORS_ONLN)
 
 QJSC=$(BUILD_DIR)/qjsc
 STDLIB_MODULES=$(wildcard src/js/stdlib/*.js)
@@ -7,10 +8,10 @@ STDLIB_MODULES=$(wildcard src/js/stdlib/*.js)
 all: build
 
 build: $(BUILD_DIR)/Makefile
-	cmake --build $(BUILD_DIR) -j $(shell nproc)
+	cmake --build $(BUILD_DIR) -j $(JOBS)
 
 $(BUILD_DIR)/qjsc: $(BUILD_DIR)/Makefile
-	cmake --build $(BUILD_DIR) --target qjsc -j $(shell nproc)
+	cmake --build $(BUILD_DIR) --target qjsc -j $(JOBS)
 
 src/bundles/js/core/polyfills.js: src/js/polyfills/*.js
 	npx esbuild src/js/polyfills/index.js \
