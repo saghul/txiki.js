@@ -138,7 +138,7 @@ sudo apt install libcurl4-openssl-dev build-essential cmake autoconf texinfo lib
 Install dependencies (`cmake`, `autoconf`):
 
 ```bash
-brew install cmake autoconf
+brew install cmake autoconf automake libtool texinfo
 ```
 
 ### Unix systems
