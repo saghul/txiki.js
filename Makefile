@@ -1,8 +1,8 @@
 BUILD_DIR=build
-BUILDTYPE?=MinSizeRel
+BUILDTYPE?=Release
 JOBS?=$(shell getconf _NPROCESSORS_ONLN)
 
-QJSC=$(BUILD_DIR)/qjsc
+QJSC=$(BUILD_DIR)/tjsc
 STDLIB_MODULES=$(wildcard src/js/stdlib/*.js)
 
 all: build
@@ -10,8 +10,8 @@ all: build
 build: $(BUILD_DIR)/Makefile
 	cmake --build $(BUILD_DIR) -j $(JOBS)
 
-$(BUILD_DIR)/qjsc: $(BUILD_DIR)/Makefile
-	cmake --build $(BUILD_DIR) --target qjsc -j $(JOBS)
+$(QJSC): $(BUILD_DIR)/Makefile
+	cmake --build $(BUILD_DIR) --target tjsc -j $(JOBS)
 
 src/bundles/js/core/polyfills.js: src/js/polyfills/*.js
 	npx esbuild src/js/polyfills/index.js \
@@ -25,7 +25,7 @@ src/bundles/js/core/polyfills.js: src/js/polyfills/*.js
 
 src/bundles/c/core/polyfills.c: $(QJSC) src/bundles/js/core/polyfills.js
 	@mkdir -p $(basename $(dir $@))
-	$(BUILD_DIR)/qjsc -m \
+	$(QJSC) -m \
 		-o $@ \
 		-n "polyfills.js" \
 		-p tjs__ \
@@ -44,7 +44,7 @@ src/bundles/js/core/core.js: src/js/core/*.js
 
 src/bundles/c/core/core.c: $(QJSC) src/bundles/js/core/core.js
 	@mkdir -p $(basename $(dir $@))
-	$(BUILD_DIR)/qjsc -m \
+	$(QJSC) -m \
 		-o $@ \
 		-n "core.js" \
 		-p tjs__ \
@@ -63,7 +63,7 @@ src/bundles/js/core/run-main.js: src/js/run-main/*.js
 
 src/bundles/c/core/run-main.c: $(QJSC) src/bundles/js/core/run-main.js
 	@mkdir -p $(basename $(dir $@))
-	$(BUILD_DIR)/qjsc -m \
+	$(QJSC) -m \
 		-o $@ \
 		-n "run-main.js" \
 		-p tjs__ \
@@ -73,7 +73,7 @@ core: src/bundles/c/core/polyfills.c src/bundles/c/core/core.c src/bundles/c/cor
 
 src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
 	@mkdir -p $(basename $(dir $@))
-	$(BUILD_DIR)/qjsc -m \
+	$(QJSC) -m \
 		-o $@ \
 		-n "tjs:$(basename $(notdir $@))" \
 		-p tjs__ \
@@ -90,7 +90,7 @@ src/bundles/js/stdlib/%.js: src/js/stdlib/*.js src/js/stdlib/ffi/*.js
 
 src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
 	@mkdir -p $(basename $(dir $@))
-	$(BUILD_DIR)/qjsc -m \
+	$(QJSC) -m \
 		-o $@ \
 		-n "tjs:$(basename $(notdir $@))" \
 		-p tjs__ \

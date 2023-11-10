@@ -23,7 +23,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include "../deps/quickjs/src/cutils.h"
+#include "../deps/quickjs/cutils.h"
 #include "quickjs.h"
 
 #include <assert.h>
@@ -271,7 +271,7 @@ static void compile_file(JSContext *ctx, FILE *fo, const char *filename, int mod
 
 
 void help(void) {
-    printf("QuickJS Compiler version " QJS_VERSION_STR "\n"
+    printf("QuickJS Compiler version %s\n"
            "usage: qjsc [options] [files]\n"
            "\n"
            "options are:\n"
@@ -279,7 +279,8 @@ void help(void) {
            "-p prefix   set a prefix for the generated variables\n"
            "-n name     set the module name\n"
            "-m          compile as Javascript module (default=autodetect)\n"
-           "-x          byte swapped output\n");
+           "-x          byte swapped output\n",
+           JS_GetVersion());
     exit(1);
 }
 
@@ -345,10 +346,6 @@ int main(int argc, char **argv) {
 
     rt = JS_NewRuntime();
     ctx = JS_NewContext(rt);
-
-    /* Enable BigFloat and BigDecimal */
-    JS_AddIntrinsicBigFloat(ctx);
-    JS_AddIntrinsicBigDecimal(ctx);
 
     /* loader for ES6 modules */
     JS_SetModuleLoaderFunc(rt, NULL, jsc_module_loader, NULL);

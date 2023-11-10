@@ -12,14 +12,25 @@ endif()
 message(STATUS "Building in ${CMAKE_BUILD_TYPE} mode")
 message(STATUS "Building with ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION} on ${CMAKE_SYSTEM}")
 
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS ON)
+set(CMAKE_C_STANDARD 11)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(CMAKE_C_COMPILER_ID MATCHES "AppleClang|Clang")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-variable -Wno-unused-but-set-variable -funsigned-char")
+else()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-array-bounds -Wno-format-truncation -Wno-unused-variable -Wno-unused-but-set-variable")
+endif()
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb -O0 -fno-omit-frame-pointer")
 
 message(STATUS "C flags:         ${CMAKE_C_FLAGS}")
 message(STATUS "C Debug flags:   ${CMAKE_C_FLAGS_DEBUG}")
 message(STATUS "C Release flags: ${CMAKE_C_FLAGS_RELEASE}")
+
+set(CMAKE_VERBOSE_MAKEFILE TRUE)
 
 set(TJS__VERSION_MAJOR 23)
 set(TJS__VERSION_MINOR 10)
@@ -89,7 +100,7 @@ add_executable(tjs
     src/bundles/c/core/core.c
     src/bundles/c/core/polyfills.c
     src/bundles/c/core/run-main.c
-    ../deps/quickjs/src/cutils.c
+    ../deps/quickjs/cutils.c
 )
 
 if(NOT MINGW)
@@ -149,7 +160,7 @@ if (BUILD_WITH_ASAN)
     target_link_options(tjs PRIVATE -fsanitize=address)
 endif()
 
-add_executable(qjsc EXCLUDE_FROM_ALL
+add_executable(tjsc EXCLUDE_FROM_ALL
     src/qjsc.c
 )
-target_link_libraries(qjsc qjs m)
+target_link_libraries(tjsc qjs m)
