@@ -6779,7 +6779,7 @@ static JSValue JS_ThrowReferenceErrorUninitialized2(JSContext *ctx,
     return JS_ThrowReferenceErrorUninitialized(ctx, atom);
 }
 
-static JSValue JS_ThrowTypeErrorInvalidClass(JSContext *ctx, int class_id)
+JSValue JS_ThrowTypeErrorInvalidClass(JSContext *ctx, JSClassID class_id)
 {
     JSRuntime *rt = ctx->rt;
     JSAtom name;
@@ -9829,6 +9829,18 @@ void *JS_GetOpaque2(JSContext *ctx, JSValueConst obj, JSClassID class_id)
         JS_ThrowTypeErrorInvalidClass(ctx, class_id);
     }
     return p;
+}
+
+void *JS_GetAnyOpaque(JSValueConst obj, JSClassID *class_id)
+{
+    JSObject *p;
+    if (JS_VALUE_GET_TAG(obj) != JS_TAG_OBJECT) {
+        *class_id = 0;
+        return NULL;
+    }
+    p = JS_VALUE_GET_OBJ(obj);
+    *class_id = p->class_id;
+    return p->u.opaque;
 }
 
 #define HINT_STRING  0
