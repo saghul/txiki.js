@@ -55,7 +55,7 @@ class WebSocket extends EventTarget {
             let data = msg;
 
             if (typeof msg !== 'string' && this[kWsBinaryType] === 'blob') {
-                data = new Blob(msg);
+                data = new Blob([ msg ]);
             }
 
             this.dispatchEvent(new MessageEvent('message', data));
