@@ -1,6 +1,7 @@
 // Order is important!
 
 import './base.js';
+import './dom-exception.js';
 import './event-target-polyfill.js';
 import './url-polyfill.js';
 
