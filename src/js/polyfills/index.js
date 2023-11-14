@@ -13,6 +13,7 @@ import 'web-streams-polyfill/es2018';
 import './text-encoding.js';
 
 import './blob.js';
+import './file.js';
 import './console.js';
 import './crypto.js';
 import './performance.js';

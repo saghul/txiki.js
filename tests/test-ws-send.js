@@ -10,7 +10,7 @@ const msgs = [
     'PANG',
     ab,
     u8,
-    new Blob(ab)
+    new Blob([ab])
 ];
 const url = 'wss://websocket-echo.com';
 const ws = new WebSocket(url);
