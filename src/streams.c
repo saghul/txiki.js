@@ -74,7 +74,6 @@ typedef struct {
     TJSPromise result;
 } TJSWriteReq;
 
-static TJSStream *tjs_stream_get(JSContext *ctx, JSValueConst obj);
 static TJSStream *tjs_tcp_get(JSContext *ctx, JSValueConst obj);
 static TJSStream *tjs_pipe_get(JSContext *ctx, JSValueConst obj);
 
