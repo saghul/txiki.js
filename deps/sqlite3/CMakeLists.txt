@@ -9,10 +9,6 @@ set_target_properties(sqlite3 PROPERTIES
     C_STANDARD 99
     C_STANDARD_REQUIRED ON
 )
-target_compile_options(qjs PRIVATE ${qjs_cflags}
-    -Wall
-    -Wextra
-)
 target_compile_definitions(sqlite3 PRIVATE
     HAVE_INT16_T=1
     HAVE_INT32_T=1
