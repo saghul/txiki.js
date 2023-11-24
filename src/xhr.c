@@ -765,11 +765,12 @@ static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
 };
 
 void tjs__mod_xhr_init(JSContext *ctx, JSValue ns) {
+    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
     /* XHR class */
-    JS_NewClassID(&tjs_xhr_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_xhr_class_id, &tjs_xhr_class);
+    JS_NewClassID(rt, &tjs_xhr_class_id);
+    JS_NewClass(rt, tjs_xhr_class_id, &tjs_xhr_class);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_xhr_proto_funcs, countof(tjs_xhr_proto_funcs));
     JS_SetClassProto(ctx, tjs_xhr_class_id, proto);

@@ -63,7 +63,7 @@ jobs:
           echo "::set-env name=CXX::clang++"
         fi
     - name: Build it
-      run: make
+      run: make VERBOSE=1
     - name: Test it
       run: make test
     - name: Test it (advanced)
@@ -87,7 +87,7 @@ jobs:
       with:
         node-version: 16
     - name: Build it
-      run: make
+      run: make VERBOSE=1
     - name: Test it
       run: make test
     - name: Test it (advanced)
@@ -112,7 +112,7 @@ jobs:
       with:
         node-version: 16
     - name: Build it
-      run: make
+      run: make VERBOSE=1
     - name: Test it
       run: make test
   build-windows:
@@ -148,6 +148,6 @@ jobs:
           ninja:p
           libffi:p
     - name: Build it
-      run: make
+      run: make VERBOSE=1
     - name: Test it
       run: make test

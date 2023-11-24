@@ -562,8 +562,10 @@ static const JSCFunctionListEntry tjs_process_funcs[] = {
 };
 
 void tjs__mod_process_init(JSContext *ctx, JSValue ns) {
-    JS_NewClassID(&tjs_process_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_process_class_id, &tjs_process_class);
+    JSRuntime *rt = JS_GetRuntime(ctx);
+
+    JS_NewClassID(rt, &tjs_process_class_id);
+    JS_NewClass(rt, tjs_process_class_id, &tjs_process_class);
     JSValue proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_process_proto_funcs, countof(tjs_process_proto_funcs));
     JS_SetClassProto(ctx, tjs_process_class_id, proto);

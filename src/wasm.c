@@ -364,14 +364,16 @@ static const JSCFunctionListEntry tjs_wasm_instance_funcs[] = {
 };
 
 void tjs__mod_wasm_init(JSContext *ctx, JSValue ns) {
+    JSRuntime *rt = JS_GetRuntime(ctx);
+
     /* Module object */
-    JS_NewClassID(&tjs_wasm_module_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_wasm_module_class_id, &tjs_wasm_module_class);
+    JS_NewClassID(rt, &tjs_wasm_module_class_id);
+    JS_NewClass(rt, tjs_wasm_module_class_id, &tjs_wasm_module_class);
     JS_SetClassProto(ctx, tjs_wasm_module_class_id, JS_NULL);
 
     /* Instance object */
-    JS_NewClassID(&tjs_wasm_instance_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_wasm_instance_class_id, &tjs_wasm_instance_class);
+    JS_NewClassID(rt, &tjs_wasm_instance_class_id);
+    JS_NewClass(rt, tjs_wasm_instance_class_id, &tjs_wasm_instance_class);
     JSValue proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_wasm_instance_funcs, countof(tjs_wasm_instance_funcs));
     JS_SetClassProto(ctx, tjs_wasm_instance_class_id, proto);

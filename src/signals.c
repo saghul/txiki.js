@@ -156,8 +156,10 @@ static const JSCFunctionListEntry tjs_signal_funcs[] = {
 };
 
 void tjs__mod_signals_init(JSContext *ctx, JSValue ns) {
-    JS_NewClassID(&tjs_signal_handler_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_signal_handler_class_id, &tjs_signal_handler_class);
+    JSRuntime *rt = JS_GetRuntime(ctx);
+
+    JS_NewClassID(rt, &tjs_signal_handler_class_id);
+    JS_NewClass(rt, tjs_signal_handler_class_id, &tjs_signal_handler_class);
     JSValue proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_signal_handler_proto_funcs, countof(tjs_signal_handler_proto_funcs));
     JS_SetClassProto(ctx, tjs_signal_handler_class_id, proto);

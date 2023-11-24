@@ -845,15 +845,8 @@ static JSValue js_get_cstring(JSContext *ctx, JSValueConst this_val, int argc, J
 }
 
 
-static JSValue JS_NewUint8ArrayShared(JSContext *ctx, uint8_t *data, size_t size) {
-    JSValue abuf = JS_NewArrayBuffer(ctx, data, size, NULL, NULL, true);
-    if (JS_IsException(abuf))
-        return abuf;
-    TJSRuntime *qrt = TJS_GetRuntime(ctx);
-    CHECK_NOT_NULL(qrt);
-    JSValue buf = JS_CallConstructor(ctx, qrt->builtins.u8array_ctor, 1, &abuf);
-    JS_FreeValue(ctx, abuf);
-    return buf;
+static JSValue TJS_NewUint8ArrayShared(JSContext *ctx, uint8_t *data, size_t size) {
+    return JS_NewUint8Array(ctx, data, size, NULL, NULL, true);
 }
 
 static JSValue js_ptr_to_buffer(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -863,7 +856,7 @@ static JSValue js_ptr_to_buffer(JSContext *ctx, JSValueConst this_val, int argc,
     JS_TO_UINTPTR_T(ctx, &ptr, argv[0]);
     size_t sz;
     JS_TO_SIZE_T(ctx, &sz, argv[1]);
-    return JS_NewUint8ArrayShared(ctx, ptr, sz);
+    return TJS_NewUint8ArrayShared(ctx, ptr, sz);
 }
 
 static JSValue js_deref_ptr(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -924,7 +917,7 @@ void js_ffi_closure_invoke(ffi_cif *cif, void *ret, void **args, void *userptr) 
     JSValueConst *jsargs = js_malloc(ctx, sizeof(JSValue) * cif->nargs);
 
     for (unsigned i = 0; i < cif->nargs; i++) {
-        jsargs[i] = JS_NewUint8ArrayShared(ctx, args[i], ffi_type_get_sz(cif->arg_types[i]));
+        jsargs[i] = TJS_NewUint8ArrayShared(ctx, args[i], ffi_type_get_sz(cif->arg_types[i]));
     }
     JSValue jsret = JS_Call(ctx, jscl->func, JS_UNDEFINED, cif->nargs, jsargs);
     for (unsigned i = 0; i < cif->nargs; i++) {
@@ -1032,7 +1025,7 @@ static JSCFunctionListEntry funcs[] = {
 };
 
 #define REGISTER_CLASS(ctx, name)                                                                                      \
-    JS_NewClassID(&name##_classid);                                                                                    \
+    JS_NewClassID(JS_GetRuntime(ctx), &name##_classid);                                                                \
     JS_NewClass(JS_GetRuntime(ctx), name##_classid, &name##_class);                                                    \
     JSValue name##_proto = JS_NewObject(ctx);                                                                          \
     JS_SetPropertyFunctionList(ctx, name##_proto, name##_proto_funcs, countof(name##_proto_funcs));                    \

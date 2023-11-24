@@ -915,6 +915,7 @@ static const JSCFunctionListEntry tjs_streams_funcs[] = {
 };
 
 void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
+    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj, stream_proto;
 
     /* Stream prototype */
@@ -922,8 +923,8 @@ void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
     JS_SetPropertyFunctionList(ctx, stream_proto, tjs_stream_proto_funcs, countof(tjs_stream_proto_funcs));
 
     /* TCP class */
-    JS_NewClassID(&tjs_tcp_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_tcp_class_id, &tjs_tcp_class);
+    JS_NewClassID(rt, &tjs_tcp_class_id);
+    JS_NewClass(rt, tjs_tcp_class_id, &tjs_tcp_class);
     proto = JS_NewObjectProto(ctx, stream_proto);
     JS_SetPropertyFunctionList(ctx, proto, tjs_tcp_proto_funcs, countof(tjs_tcp_proto_funcs));
     JS_SetClassProto(ctx, tjs_tcp_class_id, proto);
@@ -934,8 +935,8 @@ void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
     JS_DefinePropertyValueStr(ctx, ns, "TCP", obj, JS_PROP_C_W_E);
 
     /* TTY class */
-    JS_NewClassID(&tjs_tty_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_tty_class_id, &tjs_tty_class);
+    JS_NewClassID(rt, &tjs_tty_class_id);
+    JS_NewClass(rt, tjs_tty_class_id, &tjs_tty_class);
     proto = JS_NewObjectProto(ctx, stream_proto);
     JS_SetPropertyFunctionList(ctx, proto, tjs_tty_proto_funcs, countof(tjs_tty_proto_funcs));
     JS_SetClassProto(ctx, tjs_tty_class_id, proto);
@@ -946,8 +947,8 @@ void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
     JS_DefinePropertyValueStr(ctx, ns, "TTY", obj, JS_PROP_C_W_E);
 
     /* Pipe class */
-    JS_NewClassID(&tjs_pipe_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_pipe_class_id, &tjs_pipe_class);
+    JS_NewClassID(rt, &tjs_pipe_class_id);
+    JS_NewClass(rt, tjs_pipe_class_id, &tjs_pipe_class);
     proto = JS_NewObjectProto(ctx, stream_proto);
     JS_SetPropertyFunctionList(ctx, proto, tjs_pipe_proto_funcs, countof(tjs_pipe_proto_funcs));
     JS_SetClassProto(ctx, tjs_pipe_class_id, proto);

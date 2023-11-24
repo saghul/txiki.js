@@ -168,7 +168,9 @@ static const JSCFunctionListEntry tjs_timer_funcs[] = { JS_CFUNC_MAGIC_DEF("setT
                                                         TJS_CFUNC_DEF("clearInterval", 1, tjs_clearTimeout) };
 
 void tjs__mod_timers_init(JSContext *ctx, JSValue ns) {
-    JS_NewClassID(&tjs_timer_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_timer_class_id, &tjs_timer_class);
+    JSRuntime *rt = JS_GetRuntime(ctx);
+
+    JS_NewClassID(rt, &tjs_timer_class_id);
+    JS_NewClass(rt, tjs_timer_class_id, &tjs_timer_class);
     JS_SetPropertyFunctionList(ctx, ns, tjs_timer_funcs, countof(tjs_timer_funcs));
 }
