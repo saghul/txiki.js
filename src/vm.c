@@ -272,6 +272,8 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     if (!closed)
         uv_print_all_handles(&qrt->loop, stderr);
     CHECK_EQ(closed, 1);
+#else
+    (void)closed;
 #endif
 
     free(qrt);
