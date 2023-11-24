@@ -384,11 +384,12 @@ static const JSCFunctionListEntry tjs_worker_proto_funcs[] = {
 };
 
 void tjs__mod_worker_init(JSContext *ctx, JSValue ns) {
+    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
     /* Worker class */
-    JS_NewClassID(&tjs_worker_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_worker_class_id, &tjs_worker_class);
+    JS_NewClassID(rt, &tjs_worker_class_id);
+    JS_NewClass(rt, tjs_worker_class_id, &tjs_worker_class);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_worker_proto_funcs, countof(tjs_worker_proto_funcs));
     JS_SetClassProto(ctx, tjs_worker_class_id, proto);

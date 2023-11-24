@@ -266,9 +266,9 @@ static JSValue tjs__stmt2obj(JSContext *ctx, TJSSqlite3Stmt *h) {
                 break;
             }
             case SQLITE_BLOB: {
-                value = TJS_NewUint8ArrayCopy(ctx,
-                                              (uint8_t *) sqlite3_column_blob(h->stmt, i),
-                                              sqlite3_column_bytes(h->stmt, i));
+                value = JS_NewUint8ArrayCopy(ctx,
+                                             (uint8_t *) sqlite3_column_blob(h->stmt, i),
+                                             sqlite3_column_bytes(h->stmt, i));
                 break;
             }
             default: {
@@ -498,14 +498,16 @@ static const JSCFunctionListEntry tjs_sqlite3_funcs[] = {
 };
 
 void tjs__mod_sqlite3_init(JSContext *ctx, JSValue ns) {
+    JSRuntime *rt = JS_GetRuntime(ctx);
+
     /* Handle object */
-    JS_NewClassID(&tjs_sqlite3_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_sqlite3_class_id, &tjs_sqlite3_class);
+    JS_NewClassID(rt, &tjs_sqlite3_class_id);
+    JS_NewClass(rt, tjs_sqlite3_class_id, &tjs_sqlite3_class);
     JS_SetClassProto(ctx, tjs_sqlite3_class_id, JS_NULL);
 
     /* Statement object */
-    JS_NewClassID(&tjs_sqlite3_stmt_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_sqlite3_stmt_class_id, &tjs_sqlite3_stmt_class);
+    JS_NewClassID(rt, &tjs_sqlite3_stmt_class_id);
+    JS_NewClass(rt, tjs_sqlite3_stmt_class_id, &tjs_sqlite3_stmt_class);
     JS_SetClassProto(ctx, tjs_sqlite3_stmt_class_id, JS_NULL);
 
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);

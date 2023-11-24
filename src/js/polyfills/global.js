@@ -1,9 +1,3 @@
-import './timers.js';
-
-import queueMicrotask from 'queue-microtask';
-
-globalThis.queueMicrotask = queueMicrotask;
-
 Object.defineProperty(globalThis, 'global', {
     enumerable: true,
     get() {

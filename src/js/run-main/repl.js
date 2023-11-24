@@ -948,11 +948,7 @@ function _run(g) {
 
         if (!isFinite(a)) {
             /* NaN, Infinite */
-            if (typeof a === 'bigfloat') {
-                return 'BigFloat(' + a.toString() + ')';
-            } else {
-                return a.toString();
-            }
+            return a.toString();
         } else {
             if (a == 0) {
                 if (1 / a < 0) {
@@ -975,10 +971,6 @@ function _run(g) {
                 } else {
                     s = a.toString();
                 }
-            }
-
-            if (typeof a === 'bigfloat') {
-                s += 'l';
             }
 
             return s;

@@ -41,10 +41,6 @@ static JSValue tjs_exit(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_hrtime_ms(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    return JS_NewFloat64(ctx, uv_hrtime() / 1e6);
-}
-
 static JSValue tjs_uname(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue obj;
     int r;
@@ -476,7 +472,6 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CONST(STDOUT_FILENO),
     TJS_CONST(STDERR_FILENO),
     TJS_CFUNC_DEF("exit", 1, tjs_exit),
-    TJS_CFUNC_DEF("hrtimeMs", 0, tjs_hrtime_ms),
     TJS_CFUNC_DEF("uname", 0, tjs_uname),
     TJS_CFUNC_DEF("uptime", 0, tjs_uptime),
     TJS_CFUNC_DEF("guessHandle", 1, tjs_guess_handle),

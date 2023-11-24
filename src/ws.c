@@ -276,11 +276,12 @@ static const JSCFunctionListEntry tjs_ws_proto_funcs[] = {
 };
 
 void tjs__mod_ws_init(JSContext *ctx, JSValue ns) {
+    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
     /* WebSocket class */
-    JS_NewClassID(&tjs_ws_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_ws_class_id, &tjs_ws_class);
+    JS_NewClassID(rt, &tjs_ws_class_id);
+    JS_NewClass(rt, tjs_ws_class_id, &tjs_ws_class);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_ws_proto_funcs, countof(tjs_ws_proto_funcs));
     JS_SetClassProto(ctx, tjs_ws_class_id, proto);

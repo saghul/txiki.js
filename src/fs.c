@@ -239,7 +239,7 @@ static JSValue tjs_new_stat(JSContext *ctx, uv_stat_t *st) {
     JS_DefinePropertyValueStr(ctx,                                                                                     \
                               obj,                                                                                     \
                               STRINGIFY(x),                                                                            \
-                              TJS_NewDate(ctx, st->st_##x.tv_sec * 1e3 + st->st_##x.tv_nsec / 1e6),                    \
+                              JS_NewDate(ctx, st->st_##x.tv_sec * 1e3 + st->st_##x.tv_nsec / 1e6),                     \
                               JS_PROP_C_W_E);
     SET_TIMESPEC_FIELD(atim);
     SET_TIMESPEC_FIELD(mtim);
@@ -1285,32 +1285,33 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
 };
 
 void tjs__mod_fs_init(JSContext *ctx, JSValue ns) {
+    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto;
 
     /* File object */
-    JS_NewClassID(&tjs_file_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_file_class_id, &tjs_file_class);
+    JS_NewClassID(rt, &tjs_file_class_id);
+    JS_NewClass(rt, tjs_file_class_id, &tjs_file_class);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_file_proto_funcs, countof(tjs_file_proto_funcs));
     JS_SetClassProto(ctx, tjs_file_class_id, proto);
 
     /* Dir object */
-    JS_NewClassID(&tjs_dir_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_dir_class_id, &tjs_dir_class);
+    JS_NewClassID(rt, &tjs_dir_class_id);
+    JS_NewClass(rt, tjs_dir_class_id, &tjs_dir_class);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_dir_proto_funcs, countof(tjs_dir_proto_funcs));
     JS_SetClassProto(ctx, tjs_dir_class_id, proto);
 
     /* DirEnt object */
-    JS_NewClassID(&tjs_dirent_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_dirent_class_id, &tjs_dirent_class);
+    JS_NewClassID(rt, &tjs_dirent_class_id);
+    JS_NewClass(rt, tjs_dirent_class_id, &tjs_dirent_class);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_dirent_proto_funcs, countof(tjs_dirent_proto_funcs));
     JS_SetClassProto(ctx, tjs_dirent_class_id, proto);
 
     /* StatResult object */
-    JS_NewClassID(&tjs_stat_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_stat_class_id, &tjs_stat_class);
+    JS_NewClassID(rt, &tjs_stat_class_id);
+    JS_NewClass(rt, tjs_stat_class_id, &tjs_stat_class);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_stat_proto_funcs, countof(tjs_stat_proto_funcs));
     JS_SetClassProto(ctx, tjs_stat_class_id, proto);

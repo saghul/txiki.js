@@ -222,12 +222,6 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     /* WASM */
     qrt->wasm_ctx.env = m3_NewEnvironment();
 
-    /* Load some builtin references for easy access */
-    qrt->builtins.date_ctor = JS_GetPropertyStr(qrt->ctx, global_obj, "Date");
-    CHECK_EQ(JS_IsUndefined(qrt->builtins.date_ctor), 0);
-    qrt->builtins.u8array_ctor = JS_GetPropertyStr(qrt->ctx, global_obj, "Uint8Array");
-    CHECK_EQ(JS_IsUndefined(qrt->builtins.u8array_ctor), 0);
-
     JS_FreeValue(qrt->ctx, global_obj);
 
     return qrt;
@@ -241,9 +235,6 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     uv_close((uv_handle_t *) &qrt->jobs.idle, NULL);
     uv_close((uv_handle_t *) &qrt->jobs.check, NULL);
     uv_close((uv_handle_t *) &qrt->stop, NULL);
-
-    JS_FreeValue(qrt->ctx, qrt->builtins.date_ctor);
-    JS_FreeValue(qrt->ctx, qrt->builtins.u8array_ctor);
 
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);

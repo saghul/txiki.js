@@ -397,11 +397,12 @@ static const JSCFunctionListEntry tjs_udp_funcs[] = {
 };
 
 void tjs__mod_udp_init(JSContext *ctx, JSValue ns) {
+    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
     /* UDP class */
-    JS_NewClassID(&tjs_udp_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_udp_class_id, &tjs_udp_class);
+    JS_NewClassID(rt, &tjs_udp_class_id);
+    JS_NewClass(rt, tjs_udp_class_id, &tjs_udp_class);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_udp_proto_funcs, countof(tjs_udp_proto_funcs));
     JS_SetClassProto(ctx, tjs_udp_class_id, proto);

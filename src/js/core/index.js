@@ -35,7 +35,6 @@ const noExport = [
     'evalScript',
     'ffi',
     'guessHandle',
-    'hrtimeMs',
     'isStdinTty',
     'mkdir',
     'mkstemp',
