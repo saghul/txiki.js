@@ -64,7 +64,6 @@ add_executable(tjs
     src/cli.c
     src/curl-utils.c
     src/curl-websocket.c
-    src/curl-websocket-utils.c
     src/dns.c
     src/error.c
     src/eval.c
