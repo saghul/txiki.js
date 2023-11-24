@@ -137,6 +137,7 @@ static void uv__fs_event_cb(uv_fs_event_t *handle, const char *filename, int eve
     } else {
         // This shouldn't happen.
         CHECK(0 && "invalid fs events");
+        return;
     }
 
     JSValue args[2] = {
