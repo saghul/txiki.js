@@ -525,6 +525,7 @@ static const JSCFunctionListEntry tjs_sock_proto_funcs[] = {
     TJS_CFUNC_DEF("listen", 1, tjs_sock_listen),
     TJS_CFUNC_DEF("read", 1, tjs_sock_read),
     TJS_CFUNC_DEF("write", 1, tjs_sock_write),
+    TJS_CFUNC_DEF("shutdown", 1, tjs_sock_shutdown),
     TJS_CFUNC_DEF("recv", 2, tjs_sock_recv),
     TJS_CFUNC_DEF("sendmsg", 4, tjs_sock_sendmsg),
     TJS_CFUNC_DEF("recvmsg", 2, tjs_sock_recvmsg),
