@@ -18,19 +18,10 @@ set(CMAKE_C_STANDARD 11)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if(CMAKE_C_COMPILER_ID MATCHES "AppleClang|Clang")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-variable -Wno-unused-but-set-variable -funsigned-char")
-else()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-array-bounds -Wno-format-truncation -Wno-unused-variable -Wno-unused-but-set-variable")
+list(APPEND tjs_cflags -Wall -g)
+if (CMAKE_BUILD_TYPE MATCHES "Debug")
+    list(APPEND tjs_cflags -ggdb -O0 -fno-omit-frame-pointer)
 endif()
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb -O0 -fno-omit-frame-pointer")
-
-message(STATUS "C flags:         ${CMAKE_C_FLAGS}")
-message(STATUS "C Debug flags:   ${CMAKE_C_FLAGS_DEBUG}")
-message(STATUS "C Release flags: ${CMAKE_C_FLAGS_RELEASE}")
-
-set(CMAKE_VERBOSE_MAKEFILE TRUE)
 
 set(TJS__VERSION_MAJOR 23)
 set(TJS__VERSION_MINOR 10)
@@ -148,12 +139,10 @@ set_target_properties(tjs PROPERTIES
 )
 
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
+target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
-target_link_libraries(tjs qjs uv_a m3 sqlite3 m ${CURL_LIBRARIES})
-if(MINGW)
-    target_link_libraries(tjs pthread)
-endif()
+target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread ${CURL_LIBRARIES})
 
 if (BUILD_WITH_ASAN)
     target_compile_options(tjs PRIVATE -fsanitize=address)
