@@ -1,5 +1,9 @@
 
-# <p align="center">txiki.js — The tiny JavaScript runtime</p>
+<p align="center">
+    <img width="480" src="https://raw.githubusercontent.com/saghul/txiki.js/master/logo.png" />
+</p>
+
+# txiki.js — The tiny JavaScript runtime
 
 ## Overview
 
