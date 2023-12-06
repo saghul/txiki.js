@@ -2,15 +2,19 @@ BUILD_DIR=build
 BUILDTYPE?=Release
 JOBS?=$(shell getconf _NPROCESSORS_ONLN)
 
+TJS=$(BUILD_DIR)/tjs
 QJSC=$(BUILD_DIR)/tjsc
 STDLIB_MODULES=$(wildcard src/js/stdlib/*.js)
 
-all: build
+all: $(TJS)
 
-build: $(BUILD_DIR)/Makefile
+build:
+	cmake -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=$(BUILDTYPE)
+
+$(TJS): build
 	cmake --build $(BUILD_DIR) -j $(JOBS)
 
-$(QJSC): $(BUILD_DIR)/Makefile
+$(QJSC): build
 	cmake --build $(BUILD_DIR) --target tjsc -j $(JOBS)
 
 src/bundles/js/core/polyfills.js: src/js/polyfills/*.js
@@ -99,10 +103,6 @@ src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
 stdlib: $(addprefix src/bundles/c/stdlib/, $(patsubst %.js, %.c, $(notdir $(STDLIB_MODULES))))
 
 js: core stdlib
-
-$(BUILD_DIR)/Makefile:
-	@mkdir -p $(BUILD_DIR)
-	cd $(BUILD_DIR); cmake ../ -DCMAKE_BUILD_TYPE=$(BUILDTYPE)
 
 install:
 	cmake --build $(BUILD_DIR) --target install
