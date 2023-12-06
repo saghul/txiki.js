@@ -9,12 +9,10 @@
 
 > **txikia** (basque): small, tiny.
 
-*txiki.js* is a small and powerful JavaScript runtime.  It targets ECMAScript 2020
+*txiki.js* is a small and powerful JavaScript runtime.  It targets stae-of-the-art ECMAScript
 and implements many web platform features.
 
-It's built on the shoulders of
-giants: it uses [QuickJS] as its JavaScript engine, [libuv] as the platform layer,
-[wasm3] as the WebAssembly engine and [curl] as the HTTP / WebSocket client.
+It's built on the shoulders of giants: it uses [QuickJS-ng] as its JavaScript engine and [libuv] as the platform layer.
 
 See it in action here:
 
