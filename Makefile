@@ -9,13 +9,13 @@ ESBUILD_PARAMS_COMMON=--target=es2022 --platform=neutral --format=esm --main-fie
 
 all: $(TJS)
 
-build:
+$(BUILD_DIR):
 	cmake -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=$(BUILDTYPE)
 
-$(TJS): build
+$(TJS): $(BUILD_DIR)
 	cmake --build $(BUILD_DIR) -j $(JOBS)
 
-$(QJSC): build
+$(QJSC): $(BUILD_DIR)
 	cmake --build $(BUILD_DIR) --target tjsc -j $(JOBS)
 
 src/bundles/js/core/polyfills.js: src/js/polyfills/*.js
@@ -93,10 +93,10 @@ stdlib: $(addprefix src/bundles/c/stdlib/, $(patsubst %.js, %.c, $(notdir $(STDL
 
 js: core stdlib
 
-install:
+install: $(TJS)
 	cmake --build $(BUILD_DIR) --target install
 
-clean:
+clean: $(BUILD_DIR)
 	cmake --build $(BUILD_DIR) --target clean
 
 debug:
@@ -117,4 +117,4 @@ test-advanced:
 	./$(BUILD_DIR)/tjs test tests/advanced/
 
 .PRECIOUS: src/bundles/js/core/%.js src/bundles/js/stdlib/%.js
-.PHONY: all build js debug install clean distclean format test test-advanced core stdlib
+.PHONY: all js debug install clean distclean format test test-advanced core stdlib
