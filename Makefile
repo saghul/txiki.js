@@ -5,6 +5,7 @@ JOBS?=$(shell getconf _NPROCESSORS_ONLN)
 TJS=$(BUILD_DIR)/tjs
 QJSC=$(BUILD_DIR)/tjsc
 STDLIB_MODULES=$(wildcard src/js/stdlib/*.js)
+ESBUILD?=npx esbuild
 ESBUILD_PARAMS_COMMON=--target=es2022 --platform=neutral --format=esm --main-fields=main,module
 
 all: $(TJS)
@@ -19,7 +20,7 @@ $(QJSC): $(BUILD_DIR)
 	cmake --build $(BUILD_DIR) --target tjsc -j $(JOBS)
 
 src/bundles/js/core/polyfills.js: src/js/polyfills/*.js
-	npx esbuild src/js/polyfills/index.js \
+	$(ESBUILD) src/js/polyfills/index.js \
 		--bundle \
 		--outfile=$@ \
 		--minify \
@@ -34,7 +35,7 @@ src/bundles/c/core/polyfills.c: $(QJSC) src/bundles/js/core/polyfills.js
 		src/bundles/js/core/polyfills.js
 
 src/bundles/js/core/core.js: src/js/core/*.js
-	npx esbuild src/js/core/index.js \
+	$(ESBUILD) src/js/core/index.js \
 		--bundle \
 		--outfile=$@ \
 		--minify \
@@ -50,7 +51,7 @@ src/bundles/c/core/core.c: $(QJSC) src/bundles/js/core/core.js
 		src/bundles/js/core/core.js
 
 src/bundles/js/core/run-main.js: src/js/run-main/*.js
-	npx esbuild src/js/run-main/index.js \
+	$(ESBUILD) src/js/run-main/index.js \
 		--bundle \
 		--outfile=$@ \
 		--minify \
@@ -76,7 +77,7 @@ src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
 		src/bundles/js/stdlib/$(basename $(notdir $@)).js
 
 src/bundles/js/stdlib/%.js: src/js/stdlib/*.js src/js/stdlib/ffi/*.js
-	npx esbuild src/js/stdlib/$(notdir $@) \
+	$(ESBUILD) src/js/stdlib/$(notdir $@) \
 		--bundle \
 		--outfile=$@ \
 		$(ESBUILD_PARAMS_COMMON)
