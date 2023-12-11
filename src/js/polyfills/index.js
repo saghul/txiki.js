@@ -14,6 +14,7 @@ import 'abortcontroller-polyfill/dist/polyfill-patch-fetch';
 import 'web-streams-polyfill/es2018';
 
 import './text-encoding.js';
+import './text-encode-transform.js';
 
 import './blob.js';
 import './file.js';
