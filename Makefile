@@ -118,4 +118,4 @@ test-advanced:
 	./$(BUILD_DIR)/tjs test tests/advanced/
 
 .PRECIOUS: src/bundles/js/core/%.js src/bundles/js/stdlib/%.js
-.PHONY: all js debug install clean distclean format test test-advanced core stdlib
+.PHONY: all js debug install clean distclean format test test-advanced core stdlib $(TJS)
