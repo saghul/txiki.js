@@ -9,7 +9,7 @@
 
 > **txikia** (basque): small, tiny.
 
-*txiki.js* is a small and powerful JavaScript runtime.  It targets stae-of-the-art ECMAScript
+*txiki.js* is a small and powerful JavaScript runtime.  It targets state-of-the-art ECMAScript
 and implements many web platform features.
 
 It's built on the shoulders of giants: it uses [QuickJS-ng] as its JavaScript engine and [libuv] as the platform layer.
@@ -204,7 +204,7 @@ At this time txiki.js uses [calendar versioning] with the form YY.MM.MICRO.
 Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul/txiki.js/graphs/contributors" target="_blank">contributors</a>.
 </footer>
 
-[QuickJS]: https://bellard.org/quickjs/
+[QuickJS-ng]: https://github.com/quickjs-ng/quickjs
 [libuv]: https://libuv.org/
 [curl]: https://github.com/curl/curl
 [libffi]: https://github.com/libffi/libffi
