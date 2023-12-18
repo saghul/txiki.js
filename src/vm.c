@@ -303,7 +303,7 @@ static void uv__prepare_cb(uv_prepare_t *handle) {
     uv__maybe_idle(qrt);
 }
 
-void tjs_execute_jobs(JSContext *ctx) {
+void tjs__execute_jobs(JSContext *ctx) {
     JSContext *ctx1;
     int err;
 
@@ -322,7 +322,7 @@ static void uv__check_cb(uv_check_t *handle) {
     TJSRuntime *qrt = handle->data;
     CHECK_NOT_NULL(qrt);
 
-    tjs_execute_jobs(qrt->ctx);
+    tjs__execute_jobs(qrt->ctx);
 
     uv__maybe_idle(qrt);
 }
@@ -347,9 +347,11 @@ int TJS_Run(TJSRuntime *qrt) {
     if (ret != 0)
         return ret;
 
-    uv__maybe_idle(qrt);
-
-    uv_run(&qrt->loop, UV_RUN_DEFAULT);
+    int r;
+    do {
+        uv__maybe_idle(qrt);
+        r = uv_run(&qrt->loop, UV_RUN_DEFAULT);
+    } while (r == 0 && JS_IsJobPending(qrt->rt));
 
     JSValue exc = JS_GetException(qrt->ctx);
     if (!JS_IsNull(exc)) {

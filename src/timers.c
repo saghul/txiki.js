@@ -70,9 +70,8 @@ static void uv__timer_cb(uv_timer_t *handle) {
     TJSTimer *th = handle->data;
     CHECK_NOT_NULL(th);
 
-    /* Timer always executes before check phase in libuv,
-       so clear the microtask queue here before running setTimeout macrotasks */
-    tjs_execute_jobs(th->ctx);
+    /* Micro-tasks should run before timers. */
+    tjs__execute_jobs(th->ctx);
 
     call_timer(th);
     if (!th->interval)
