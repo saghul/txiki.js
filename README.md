@@ -50,7 +50,7 @@ For TS support see [@txikijs/types](https://www.npmjs.com/package/@txikijs/types
 
 ## Features
 
-Support for the [ES2020] specification plus some ES2020+ features like top level await.
+Support for the [ES2023] specification (almost complete).
 
 ### Web Platform APIs
 
@@ -228,5 +228,5 @@ Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul
 [Web Workers API]: https://developer.mozilla.org/en-US/docs/Web/API/Worker
 [WebAssembly]: https://developer.mozilla.org/en-US/docs/WebAssembly
 [WebSocket]: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-[ES2020]: https://tc39.es/ecma262/
+[ES2023]: https://tc39.es/ecma262/
 [calendar versioning]: https://calver.org/
