@@ -67,6 +67,7 @@ void tjs__mod_signals_init(JSContext *ctx, JSValue ns);
 void tjs__mod_sqlite3_init(JSContext *ctx, JSValue ns);
 void tjs__mod_streams_init(JSContext *ctx, JSValue ns);
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns);
+void tjs__mod_text_coding_init(JSContext *ctx, JSValue ns);
 void tjs__mod_timers_init(JSContext *ctx, JSValue ns);
 void tjs__mod_udp_init(JSContext *ctx, JSValue ns);
 void tjs__mod_wasm_init(JSContext *ctx, JSValue ns);

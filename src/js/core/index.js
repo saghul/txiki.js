@@ -50,7 +50,8 @@ const noExport = [
     'signal',
     'signals',
     'sleep',
-    'wasm'
+    'wasm',
+    'textCoding'
 ];
 
 for (const [ key, value ] of Object.entries(core)) {

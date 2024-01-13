@@ -77,6 +77,7 @@ add_executable(tjs
     src/streams.c
     src/signals.c
     src/sys.c
+    src/text-coding.c
     src/timers.c
     src/udp.c
     src/utils.c
