@@ -113,7 +113,7 @@ if(NOT USE_EXTERNAL_FFI AND NOT MINGW)
         libffi
         BUILD_IN_SOURCE 1
         SOURCE_DIR "${LIBFFI_SRC}"
-        CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure --enable-static=yes --disable-shared
+        CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure --enable-static=yes --disable-shared --disable-multi-os-directory
         BUILD_COMMAND make
         INSTALL_DIR ${TMP_INSTALL_DIR}
         INSTALL_COMMAND make DESTDIR=${TMP_INSTALL_DIR} install
