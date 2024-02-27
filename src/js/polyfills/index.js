@@ -3,6 +3,8 @@
 import './global.js';
 import './timers.js';
 import './dom-exception.js';
+
+import './abba.js';
 import './navigator.js';
 import './event-target-polyfill.js';
 import './url-polyfill.js';
