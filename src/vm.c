@@ -228,25 +228,28 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 }
 
 void TJS_FreeRuntime(TJSRuntime *qrt) {
+    JS_FreeValue(qrt->ctx, JS_GetException(qrt->ctx));
+    JS_FreeContext(qrt->ctx);
+    qrt->ctx = NULL;
     JS_RunGC(qrt->rt);
 
-    /* Close all loop handles. */
+    /* Close all core loop handles. */
     uv_close((uv_handle_t *) &qrt->jobs.prepare, NULL);
     uv_close((uv_handle_t *) &qrt->jobs.idle, NULL);
     uv_close((uv_handle_t *) &qrt->jobs.check, NULL);
     uv_close((uv_handle_t *) &qrt->stop, NULL);
-
-    JS_FreeContext(qrt->ctx);
-    JS_FreeRuntime(qrt->rt);
-
-    /* Destroy CURLM handle. */
     if (qrt->curl_ctx.curlm_h) {
-        curl_multi_cleanup(qrt->curl_ctx.curlm_h);
         uv_close((uv_handle_t *) &qrt->curl_ctx.timer, NULL);
     }
 
     /* Destroy WASM runtime. */
     m3_FreeEnvironment(qrt->wasm_ctx.env);
+    qrt->wasm_ctx.env = NULL;
+
+    /* Give close handles a chance to run. */
+    for (int i = 0; i < 5; i++) {
+        uv_run(&qrt->loop, UV_RUN_NOWAIT);
+    }
 
     uv_walk(&qrt->loop, uv__walk, NULL);
 
@@ -266,6 +269,15 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
 #else
     (void)closed;
 #endif
+
+    /* Destroy CURLM handle. */
+    if (qrt->curl_ctx.curlm_h) {
+        curl_multi_cleanup(qrt->curl_ctx.curlm_h);
+        qrt->curl_ctx.curlm_h = NULL;
+    }
+
+    JS_FreeRuntime(qrt->rt);
+    qrt->rt = NULL;
 
     free(qrt);
 }
