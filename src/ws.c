@@ -50,7 +50,7 @@ static void tjs_ws_finalizer(JSRuntime *rt, JSValue val) {
         }
         for (int i = 0; i < WS_EVENT_MAX; i++)
             JS_FreeValueRT(rt, w->events[i]);
-        free(w);
+        js_free_rt(rt, w);
     }
 }
 
@@ -140,7 +140,7 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValueConst new_target, int a
     if (JS_IsException(obj))
         return obj;
 
-    TJSWs *w = calloc(1, sizeof(*w));
+    TJSWs *w = js_mallocz(ctx, sizeof(*w));
     if (!w) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;

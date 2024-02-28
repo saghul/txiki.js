@@ -107,7 +107,7 @@ static void tjs_xhr_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, x->result.response_text);
         dbuf_free(&x->result.hbuf);
         dbuf_free(&x->result.bbuf);
-        free(x);
+        js_free_rt(rt, x);
     }
 }
 
@@ -301,7 +301,7 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValueConst new_target, int 
     if (JS_IsException(obj))
         return obj;
 
-    TJSXhr *x = calloc(1, sizeof(*x));
+    TJSXhr *x = js_mallocz(ctx, sizeof(*x));
     if (!x) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;

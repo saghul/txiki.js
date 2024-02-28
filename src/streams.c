@@ -36,6 +36,7 @@ static JSValue tjs_new_tcp(JSContext *ctx, int af);
 
 typedef struct {
     JSContext *ctx;
+    JSRuntime *rt;
     int closed;
     int finalized;
     union {
@@ -82,7 +83,7 @@ static void uv__stream_close_cb(uv_handle_t *handle) {
     CHECK_NOT_NULL(s);
     s->closed = 1;
     if (s->finalized)
-        free(s);
+        js_free_rt(s->rt, s);
 }
 
 static void maybe_close(TJSStream *s) {
@@ -399,6 +400,7 @@ static JSValue tjs_stream_set_blocking(JSContext *ctx, TJSStream *s, int argc, J
 
 static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
     s->ctx = ctx;
+    s->rt = JS_GetRuntime(ctx);
     s->closed = 0;
     s->finalized = 0;
 
@@ -422,7 +424,7 @@ static void tjs_stream_finalizer(JSRuntime *rt, TJSStream *s) {
         JS_FreeValueRT(rt, s->read.b.tarray);
         s->finalized = 1;
         if (s->closed)
-            free(s);
+            js_free_rt(rt, s);
         else
             maybe_close(s);
     }
@@ -466,7 +468,7 @@ static JSValue tjs_new_tcp(JSContext *ctx, int af) {
     if (JS_IsException(obj))
         return obj;
 
-    s = calloc(1, sizeof(*s));
+    s = js_mallocz(ctx, sizeof(*s));
     if (!s) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -475,7 +477,7 @@ static JSValue tjs_new_tcp(JSContext *ctx, int af) {
     r = uv_tcp_init_ex(tjs_get_loop(ctx), &s->h.tcp, af);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        free(s);
+        js_free(ctx, s);
         return JS_ThrowInternalError(ctx, "couldn't initialize TCP handle");
     }
 
@@ -644,7 +646,7 @@ static JSValue tjs_tty_constructor(JSContext *ctx, JSValueConst new_target, int 
     if (JS_IsException(obj))
         return obj;
 
-    s = calloc(1, sizeof(*s));
+    s = js_mallocz(ctx, sizeof(*s));
     if (!s) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -653,7 +655,7 @@ static JSValue tjs_tty_constructor(JSContext *ctx, JSValueConst new_target, int 
     r = uv_tty_init(tjs_get_loop(ctx), &s->h.tty, fd, readable);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        free(s);
+        js_free(ctx, s);
         return JS_ThrowInternalError(ctx, "couldn't initialize TTY handle");
     }
 
@@ -726,7 +728,7 @@ JSValue tjs_new_pipe(JSContext *ctx) {
     if (JS_IsException(obj))
         return obj;
 
-    s = calloc(1, sizeof(*s));
+    s = js_mallocz(ctx, sizeof(*s));
     if (!s) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -735,7 +737,7 @@ JSValue tjs_new_pipe(JSContext *ctx) {
     r = uv_pipe_init(tjs_get_loop(ctx), &s->h.pipe, 0);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        free(s);
+        js_free(ctx, s);
         return JS_ThrowInternalError(ctx, "couldn't initialize Pipe handle");
     }
 

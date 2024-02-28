@@ -44,7 +44,7 @@ static void uv__fsevent_close_cb(uv_handle_t *handle) {
     if (fw) {
         fw->closed = 1;
         if (fw->finalized)
-            free(fw);
+            js_free(fw->ctx, fw);
     }
 }
 
@@ -59,7 +59,7 @@ static void tjs_fswatch_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, fw->callback);
         fw->finalized = 1;
         if (fw->closed)
-            free(fw);
+            js_free_rt(rt, fw);
         else
             maybe_close(fw);
     }
@@ -167,7 +167,7 @@ static JSValue tjs_fs_watch(JSContext *ctx, JSValueConst this_val, int argc, JSV
         return JS_EXCEPTION;
     }
 
-    TJSFsWatch *fw = calloc(1, sizeof(*fw));
+    TJSFsWatch *fw = js_mallocz(ctx, sizeof(*fw));
     if (!fw) {
         JS_FreeCString(ctx, path);
         JS_FreeValue(ctx, obj);
@@ -178,7 +178,7 @@ static JSValue tjs_fs_watch(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (r != 0) {
         JS_FreeCString(ctx, path);
         JS_FreeValue(ctx, obj);
-        free(fw);
+        js_free(ctx, fw);
         return JS_ThrowInternalError(ctx, "couldn't initialize handle");
     }
 
@@ -186,7 +186,7 @@ static JSValue tjs_fs_watch(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (r != 0) {
         JS_FreeCString(ctx, path);
         JS_FreeValue(ctx, obj);
-        free(fw);
+        js_free(ctx, fw);
         return tjs_throw_errno(ctx, r);
     }
 
