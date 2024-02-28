@@ -411,7 +411,7 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     int r;
     JSValue ret;
 
-    dbuf_init(&dbuf);
+    tjs_dbuf_init(ctx, &dbuf);
     r = tjs__load_file(ctx, &dbuf, filename);
     if (r != 0) {
         dbuf_free(&dbuf);

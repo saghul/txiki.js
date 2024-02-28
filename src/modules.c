@@ -34,7 +34,7 @@ JSModuleDef *tjs__load_http(JSContext *ctx, const char *url) {
     JSModuleDef *m;
     DynBuf dbuf;
 
-    dbuf_init(&dbuf);
+    tjs_dbuf_init(ctx, &dbuf);
 
     int r = tjs_curl_load_http(&dbuf, url);
     if (r != 200) {
@@ -91,7 +91,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
         return tjs__load_http(ctx, module_name);
     }
 
-    dbuf_init(&dbuf);
+    tjs_dbuf_init(ctx, &dbuf);
 
     is_json = has_suffix(module_name, ".json");
 

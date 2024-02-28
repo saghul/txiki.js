@@ -1130,7 +1130,7 @@ static JSValue tjs_fs_readfile(JSContext *ctx, JSValueConst this_val, int argc, 
     }
 
     fr->ctx = ctx;
-    dbuf_init(&fr->dbuf);
+    tjs_dbuf_init(ctx, &fr->dbuf);
     fr->r = -1;
     fr->filename = js_strdup(ctx, path);
     fr->req.data = fr;

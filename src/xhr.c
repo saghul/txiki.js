@@ -231,7 +231,7 @@ static size_t curl__header_cb(char *ptr, size_t size, size_t nmemb, void *userda
             maybe_emit_event(x, XHR_EVENT_LOAD_START, JS_UNDEFINED);
         } else {
             dbuf_free(hbuf);
-            dbuf_init(hbuf);
+            tjs_dbuf_init(x->ctx, hbuf);
         }
         if (x->status.raw) {
             js_free(x->ctx, x->status.raw);
@@ -312,8 +312,8 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValueConst new_target, int 
     x->result.headers = JS_NULL;
     x->result.response = JS_NULL;
     x->result.response_text = JS_NULL;
-    dbuf_init(&x->result.hbuf);
-    dbuf_init(&x->result.bbuf);
+    tjs_dbuf_init(ctx, &x->result.hbuf);
+    tjs_dbuf_init(ctx, &x->result.bbuf);
     x->ready_state = XHR_RSTATE_UNSENT;
     x->status.raw = NULL;
     x->status.status = JS_UNDEFINED;
@@ -566,7 +566,7 @@ static JSValue tjs_xhr_getresponseheader(JSContext *ctx, JSValueConst this_val, 
         *tmp = tolower(*tmp);
 
     DynBuf r;
-    dbuf_init(&r);
+    tjs_dbuf_init(ctx, &r);
     char *ptr = (char *) hbuf->buf;
     for (;;) {
         // Find the header name
@@ -630,8 +630,8 @@ static JSValue tjs_xhr_open(JSContext *ctx, JSValueConst this_val, int argc, JSV
         dbuf_free(&x->result.hbuf);
         dbuf_free(&x->result.bbuf);
 
-        dbuf_init(&x->result.hbuf);
-        dbuf_init(&x->result.bbuf);
+        tjs_dbuf_init(ctx, &x->result.hbuf);
+        tjs_dbuf_init(ctx, &x->result.bbuf);
         x->result.url = JS_NULL;
         x->result.headers = JS_NULL;
         x->result.response = JS_NULL;

@@ -25,6 +25,8 @@
 #ifndef TJS_UTILS_H
 #define TJS_UTILS_H
 
+#include "../deps/quickjs/cutils.h"
+
 #include <quickjs.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -136,3 +138,5 @@ int tjs_getsignum(const char *sig_str);
     }
 
 #endif
+
+void tjs_dbuf_init(JSContext *ctx, DynBuf *s);
