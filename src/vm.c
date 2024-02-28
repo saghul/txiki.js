@@ -27,8 +27,118 @@
 
 #include <string.h>
 
+#ifdef TJS__HAS_MIMALLOC
+#include <mimalloc.h>
+#endif
 
 #define TJS__DEFAULT_STACK_SIZE 1048576
+
+static inline size_t tjs__malloc_usable_size(const void *ptr) {
+#if defined(TJS__HAS_MIMALLOC)
+    return mi_malloc_usable_size(ptr);
+#elif defined(__APPLE__)
+    return malloc_size(ptr);
+#elif defined(_WIN32)
+    return _msize(ptr);
+#elif defined(__linux__) || defined (__CYGWIN__)
+    return malloc_usable_size(ptr);
+#else
+    // Unknown.
+    return 0;
+#endif
+}
+
+static inline void *tjs__malloc(size_t size) {
+#ifdef TJS__HAS_MIMALLOC
+    return mi_malloc(size);
+#else
+    return malloc(size);
+#endif
+}
+
+static inline void *tjs__calloc(size_t count, size_t size) {
+#ifdef TJS__HAS_MIMALLOC
+    return mi_calloc(count, size);
+#else
+    return calloc(count, size);
+#endif
+}
+
+static inline void tjs__free(void *ptr) {
+#ifdef TJS__HAS_MIMALLOC
+    mi_free(ptr);
+#else
+    free(ptr);
+#endif
+}
+
+static inline void *tjs__realloc(void *ptr, size_t size) {
+#ifdef TJS__HAS_MIMALLOC
+    return mi_realloc(ptr, size);
+#else
+    return realloc(ptr, size);
+#endif
+}
+
+static void *tjs__mf_malloc(JSMallocState *s, size_t size) {
+    void *ptr;
+
+    /* Do not allocate zero bytes: behavior is platform dependent */
+    assert(size != 0);
+
+    if (unlikely(s->malloc_size + size > s->malloc_limit))
+        return NULL;
+
+    ptr = tjs__malloc(size);
+    if (!ptr)
+        return NULL;
+
+    s->malloc_count++;
+    s->malloc_size += tjs__malloc_usable_size(ptr);
+    return ptr;
+}
+
+static void tjs__mf_free(JSMallocState *s, void *ptr) {
+    if (!ptr)
+        return;
+
+    s->malloc_count--;
+    s->malloc_size -= tjs__malloc_usable_size(ptr);
+    tjs__free(ptr);
+}
+
+static void *tjs__mf_realloc(JSMallocState *s, void *ptr, size_t size) {
+    size_t old_size;
+
+    if (!ptr) {
+        if (size == 0)
+            return NULL;
+        return tjs__mf_malloc(s, size);
+    }
+    old_size = tjs__malloc_usable_size(ptr);
+    if (size == 0) {
+        s->malloc_count--;
+        s->malloc_size -= old_size;
+        tjs__free(ptr);
+        return NULL;
+    }
+    if (s->malloc_size + size - old_size > s->malloc_limit)
+        return NULL;
+
+    ptr = tjs__realloc(ptr, size);
+    if (!ptr)
+        return NULL;
+
+    s->malloc_size += tjs__malloc_usable_size(ptr) - old_size;
+    return ptr;
+}
+
+static const JSMallocFunctions tjs_mf = {
+    tjs__mf_malloc,
+    tjs__mf_free,
+    tjs__mf_realloc,
+    tjs__malloc_usable_size
+};
 
 /* core */
 extern const uint8_t tjs__core[];
@@ -157,11 +267,11 @@ TJSRuntime *TJS_NewRuntimeWorker(void) {
 }
 
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
-    TJSRuntime *qrt = calloc(1, sizeof(*qrt));
+    TJSRuntime *qrt = tjs__calloc(1, sizeof(*qrt));
 
     memcpy(&qrt->options, options, sizeof(*options));
 
-    qrt->rt = JS_NewRuntime();
+    qrt->rt = JS_NewRuntime2(&tjs_mf, NULL);
     CHECK_NOT_NULL(qrt->rt);
 
     qrt->ctx = JS_NewContext(qrt->rt);
@@ -279,11 +389,13 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     JS_FreeRuntime(qrt->rt);
     qrt->rt = NULL;
 
-    free(qrt);
+    tjs__free(qrt);
 }
 
 void TJS_Initialize(int argc, char **argv) {
     curl_global_init(CURL_GLOBAL_ALL);
+
+    CHECK_EQ(0, uv_replace_allocator(tjs__malloc, tjs__realloc, tjs__calloc, tjs__free));
 
     tjs__argc = argc;
     tjs__argv = uv_setup_args(argc, argv);

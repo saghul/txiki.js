@@ -45,6 +45,7 @@ macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
 endmacro()
 
 cpr_option(BUILD_WITH_ASAN "If ON, build with the address sanitizer enabled" OFF)
+cpr_option(BUILD_WITH_MIMALLOC "If ON, build with mimalloc" OFF)
 cpr_option(USE_EXTERNAL_FFI "Specify to use external ffi dependency" OFF)
 
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
@@ -56,6 +57,15 @@ add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
 
 set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
 add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
+
+if(BUILD_WITH_MIMALLOC)
+    option(MI_OVERRIDE "" OFF)
+    option(MI_BUILD_SHARED "" OFF)
+    option(MI_BUILD_STATIC "" ON)
+    option(MI_BUILD_OBJECT "" OFF)
+    option(MI_BUILD_TESTS "" OFF)
+    add_subdirectory(deps/mimalloc EXCLUDE_FROM_ALL)
+endif()
 
 find_package(CURL REQUIRED)
 
@@ -142,6 +152,11 @@ target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
 target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread ${CURL_LIBRARIES})
+
+if (BUILD_WITH_MIMALLOC)
+    target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)
+    target_link_libraries(tjs mimalloc-static)
+endif()
 
 if (BUILD_WITH_ASAN)
     target_compile_options(tjs PRIVATE -fsanitize=address)
