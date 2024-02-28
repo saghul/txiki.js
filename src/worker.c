@@ -131,7 +131,7 @@ static void worker_entry(void *arg) {
 static void uv__close_cb(uv_handle_t *handle) {
     TJSWorker *w = handle->data;
     CHECK_NOT_NULL(w);
-    free(w);
+    js_free(w->ctx, w);
 }
 
 static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
@@ -227,7 +227,7 @@ static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_m
     if (JS_IsException(obj))
         return obj;
 
-    TJSWorker *w = calloc(1, sizeof(*w));
+    TJSWorker *w = js_mallocz(ctx, sizeof(*w));
     if (!w) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;

@@ -50,7 +50,7 @@ static void uv__close_cb(uv_handle_t *handle) {
     CHECK_NOT_NULL(p);
     p->closed = true;
     if (p->finalized)
-        free(p);
+        js_free(p->ctx, p);
 }
 
 static void maybe_close(TJSProcess *p) {
@@ -67,7 +67,7 @@ static void tjs_process_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, p->stdio[2]);
         p->finalized = true;
         if (p->closed)
-            free(p);
+            js_free_rt(rt, p);
         else
             maybe_close(p);
     }
@@ -178,7 +178,7 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     if (JS_IsException(obj))
         return obj;
 
-    TJSProcess *p = calloc(1, sizeof(*p));
+    TJSProcess *p = js_mallocz(ctx, sizeof(*p));
     if (!p) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -441,7 +441,7 @@ fail:
     JS_FreeValue(ctx, p->stdio[0]);
     JS_FreeValue(ctx, p->stdio[1]);
     JS_FreeValue(ctx, p->stdio[2]);
-    free(p);
+    js_free(ctx, p);
     JS_FreeValue(ctx, obj);
     ret = JS_EXCEPTION;
 cleanup:

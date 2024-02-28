@@ -56,7 +56,7 @@ static void uv__udp_close_cb(uv_handle_t *handle) {
     CHECK_NOT_NULL(u);
     u->closed = 1;
     if (u->finalized)
-        free(u);
+        js_free(u->ctx, u);
 }
 
 static void maybe_close(TJSUdp *u) {
@@ -71,7 +71,7 @@ static void tjs_udp_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, u->read.b.tarray);
         u->finalized = 1;
         if (u->closed)
-            free(u);
+            js_free_rt(rt, u);
         else
             maybe_close(u);
     }
@@ -282,7 +282,7 @@ static JSValue tjs_new_udp(JSContext *ctx, int af) {
     if (JS_IsException(obj))
         return obj;
 
-    u = calloc(1, sizeof(*u));
+    u = js_mallocz(ctx, sizeof(*u));
     if (!u) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -291,7 +291,7 @@ static JSValue tjs_new_udp(JSContext *ctx, int af) {
     r = uv_udp_init_ex(tjs_get_loop(ctx), &u->udp, af);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        free(u);
+        js_free(ctx, u);
         return JS_ThrowInternalError(ctx, "couldn't initialize UDP handle");
     }
 

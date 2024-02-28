@@ -28,6 +28,7 @@
 
 typedef struct {
     JSContext *ctx;
+    JSRuntime *rt;
     uv_timer_t handle;
     int interval;
     JSValue func;
@@ -63,7 +64,7 @@ static void call_timer(TJSTimer *th) {
 static void uv__timer_close(uv_handle_t *handle) {
     TJSTimer *th = handle->data;
     CHECK_NOT_NULL(th);
-    free(th);
+    js_free_rt(th->rt, th);
 }
 
 static void uv__timer_cb(uv_timer_t *handle) {
@@ -129,13 +130,14 @@ static JSValue tjs_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
         nargs = 0;
     }
 
-    th = calloc(1, sizeof(*th) + nargs * sizeof(JSValue));
+    th = js_mallocz(ctx, sizeof(*th) + nargs * sizeof(JSValue));
     if (!th) {
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
     }
 
     th->ctx = ctx;
+    th->rt = JS_GetRuntime(ctx);
     CHECK_EQ(uv_timer_init(tjs_get_loop(ctx), &th->handle), 0);
     th->handle.data = th;
     th->interval = magic;
