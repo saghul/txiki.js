@@ -408,14 +408,12 @@ static JSValue js_ffi_type_to_buffer(JSContext *ctx, JSValueConst this_val, int 
         JS_TO_UINTPTR_T(ctx, &bla, argv[0]);
     }
     uint8_t *buf = js_malloc(ctx, sz);
-    uint8_t *buf2 = js_malloc(ctx, sz);
-    int ret = ffi_type_to_buffer(ctx, argv[0], type->ffi_type, buf2);
+    int ret = ffi_type_to_buffer(ctx, argv[0], type->ffi_type, buf);
     if (ret < 0) {
-        js_free(ctx, buf2);
+        js_free(ctx, buf);
         return JS_EXCEPTION;
     }
-    js_free(ctx, buf);
-    return TJS_NewUint8Array(ctx, buf2, sz);
+    return TJS_NewUint8Array(ctx, buf, sz);
 }
 
 static int ffi_type_from_buffer(JSContext *ctx, ffi_type *type, uint8_t *buf, JSValue *val) {
