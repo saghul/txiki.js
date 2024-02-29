@@ -1,5 +1,5 @@
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -50,6 +50,7 @@ typedef struct {
 
 typedef struct {
     JSContext *ctx;
+    JSRuntime *rt;
     union {
         uv_handle_t handle;
         uv_stream_t stream;
@@ -131,7 +132,7 @@ static void worker_entry(void *arg) {
 static void uv__close_cb(uv_handle_t *handle) {
     TJSWorker *w = handle->data;
     CHECK_NOT_NULL(w);
-    js_free(w->ctx, w);
+    js_free_rt(w->rt, w);
 }
 
 static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
@@ -234,6 +235,7 @@ static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_m
     }
 
     w->ctx = ctx;
+    w->rt = JS_GetRuntime(ctx);
     w->is_main = is_main;
     w->h.handle.data = w;
 

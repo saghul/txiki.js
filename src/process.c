@@ -33,6 +33,7 @@ static JSClassID tjs_process_class_id;
 
 typedef struct {
     JSContext *ctx;
+    JSRuntime *rt;
     bool closed;
     bool finalized;
     uv_process_t process;
@@ -50,7 +51,7 @@ static void uv__close_cb(uv_handle_t *handle) {
     CHECK_NOT_NULL(p);
     p->closed = true;
     if (p->finalized)
-        js_free(p->ctx, p);
+        js_free_rt(p->rt, p);
 }
 
 static void maybe_close(TJSProcess *p) {
@@ -185,6 +186,7 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     }
 
     p->ctx = ctx;
+    p->rt = JS_GetRuntime(ctx);
     p->process.data = p;
 
     TJS_ClearPromise(ctx, &p->status.result);

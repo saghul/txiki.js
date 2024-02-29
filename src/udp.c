@@ -30,6 +30,7 @@
 
 typedef struct {
     JSContext *ctx;
+    JSRuntime *rt;
     int closed;
     int finalized;
     uv_udp_t udp;
@@ -56,7 +57,7 @@ static void uv__udp_close_cb(uv_handle_t *handle) {
     CHECK_NOT_NULL(u);
     u->closed = 1;
     if (u->finalized)
-        js_free(u->ctx, u);
+        js_free_rt(u->rt, u);
 }
 
 static void maybe_close(TJSUdp *u) {
@@ -296,6 +297,7 @@ static JSValue tjs_new_udp(JSContext *ctx, int af) {
     }
 
     u->ctx = ctx;
+    u->rt = JS_GetRuntime(ctx);
     u->closed = 0;
     u->finalized = 0;
 

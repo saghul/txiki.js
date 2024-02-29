@@ -28,6 +28,7 @@
 
 typedef struct {
     JSContext *ctx;
+    JSRuntime *rt;
     int closed;
     int finalized;
     uv_signal_t handle;
@@ -43,7 +44,7 @@ static void uv__signal_close_cb(uv_handle_t *handle) {
     if (sh) {
         sh->closed = 1;
         if (sh->finalized)
-            js_free(sh->ctx, sh);
+            js_free_rt(sh->rt, sh);
     }
 }
 
@@ -118,6 +119,7 @@ static JSValue tjs_signal(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     uv_unref((uv_handle_t *) &sh->handle);
 
     sh->ctx = ctx;
+    sh->rt = JS_GetRuntime(ctx);
     sh->sig_num = sig_num;
     sh->handle.data = sh;
     sh->func = JS_DupValue(ctx, func);
