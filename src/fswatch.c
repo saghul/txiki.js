@@ -26,8 +26,9 @@
 #include "utils.h"
 
 typedef struct {
-    uv_fs_event_t handle;
     JSContext *ctx;
+    JSRuntime *rt;
+    uv_fs_event_t handle;
     JSValue callback;
     int closed;
     int finalized;
@@ -44,7 +45,7 @@ static void uv__fsevent_close_cb(uv_handle_t *handle) {
     if (fw) {
         fw->closed = 1;
         if (fw->finalized)
-            js_free(fw->ctx, fw);
+            js_free_rt(fw->rt, fw);
     }
 }
 
@@ -193,6 +194,7 @@ static JSValue tjs_fs_watch(JSContext *ctx, JSValueConst this_val, int argc, JSV
     JS_FreeCString(ctx, path);
 
     fw->ctx = ctx;
+    fw->rt = JS_GetRuntime(ctx);
     fw->handle.data = fw;
     fw->callback = JS_DupValue(ctx, argv[1]);
 
