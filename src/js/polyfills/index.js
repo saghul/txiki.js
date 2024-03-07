@@ -16,7 +16,7 @@ import './xhr.js';
 import 'whatwg-fetch';
 import 'abortcontroller-polyfill/dist/polyfill-patch-fetch';
 
-import 'web-streams-polyfill/es2018';
+import 'web-streams-polyfill/polyfill';
 
 import './blob.js';
 import './file.js';

@@ -39,7 +39,6 @@ src/bundles/js/core/core.js: src/js/core/*.js
 		--bundle \
 		--outfile=$@ \
 		--minify \
-		--external:tjs:* \
 		$(ESBUILD_PARAMS_COMMON)
 
 src/bundles/c/core/core.c: $(QJSC) src/bundles/js/core/core.js
@@ -80,6 +79,8 @@ src/bundles/js/stdlib/%.js: src/js/stdlib/*.js src/js/stdlib/ffi/*.js
 	$(ESBUILD) src/js/stdlib/$(notdir $@) \
 		--bundle \
 		--outfile=$@ \
+		--external:buffer \
+		--external:crypto \
 		$(ESBUILD_PARAMS_COMMON)
 
 src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
