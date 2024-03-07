@@ -13,8 +13,8 @@ import './url.js';
 import './navigator.js';
 
 import './xhr.js';
+import 'abortcontroller-polyfill/dist/abortcontroller-polyfill-only';
 import 'whatwg-fetch';
-import 'abortcontroller-polyfill/dist/polyfill-patch-fetch';
 
 import 'web-streams-polyfill/polyfill';
 
