@@ -17,6 +17,7 @@ import 'abortcontroller-polyfill/dist/abortcontroller-polyfill-only';
 import 'whatwg-fetch';
 
 import 'web-streams-polyfill/polyfill';
+import 'compression-streams-polyfill';
 
 import './blob.js';
 import './file.js';
