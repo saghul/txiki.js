@@ -14,7 +14,6 @@
   "dependencies": {
     "abab": "^2.0.6",
     "abortcontroller-polyfill": "^1.7.5",
-    "core-js": "^3.25.5",
     "esbuild": "^0.15.11",
     "eslint": "^8.24.0",
     "eslint-plugin-import": "^2.26.0",
@@ -32,7 +31,8 @@
     "util": "^0.12.5",
     "uuid": "^9.0.0",
     "web-streams-polyfill": "^3.2.1",
-    "whatwg-fetch": "^3.6.2"
+    "whatwg-fetch": "^3.6.2",
+    "whatwg-url": "^14.0.0"
   },
   "devDependencies": {
     "typedoc": "^0.25.2"
