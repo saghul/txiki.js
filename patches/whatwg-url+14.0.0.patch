@@ -1,0 +1,40 @@
+diff --git a/node_modules/whatwg-url/lib/url-state-machine.js b/node_modules/whatwg-url/lib/url-state-machine.js
+index 9903392..ada0cc9 100644
+--- a/node_modules/whatwg-url/lib/url-state-machine.js
++++ b/node_modules/whatwg-url/lib/url-state-machine.js
+@@ -1,5 +1,4 @@
+ "use strict";
+-const tr46 = require("tr46");
+ 
+ const infra = require("./infra");
+ const { utf8DecodeWithoutBOM } = require("./encoding");
+@@ -339,7 +338,7 @@ function parseHost(input, isNotSpecialArg = false) {
+   }
+ 
+   const domain = utf8DecodeWithoutBOM(percentDecodeString(input));
+-  const asciiDomain = domainToASCII(domain);
++  const asciiDomain = domain;
+   if (asciiDomain === failure) {
+     return failure;
+   }
+@@ -428,20 +427,6 @@ function serializeHost(host) {
+   return host;
+ }
+ 
+-function domainToASCII(domain, beStrict = false) {
+-  const result = tr46.toASCII(domain, {
+-    checkBidi: true,
+-    checkHyphens: false,
+-    checkJoiners: true,
+-    useSTD3ASCIIRules: beStrict,
+-    verifyDNSLength: beStrict
+-  });
+-  if (result === null || result === "") {
+-    return failure;
+-  }
+-  return result;
+-}
+-
+ function trimControlChars(url) {
+   return url.replace(/^[\u0000-\u001F\u0020]+|[\u0000-\u001F\u0020]+$/ug, "");
+ }
