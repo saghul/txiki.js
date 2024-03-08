@@ -283,6 +283,8 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
 }
 
 void TJS_SetupArgs(int argc, char **argv) {
+    curl_global_init(CURL_GLOBAL_ALL);
+
     tjs__argc = argc;
     tjs__argv = uv_setup_args(argc, argv);
     if (!tjs__argv)

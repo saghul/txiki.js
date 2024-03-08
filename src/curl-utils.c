@@ -31,19 +31,7 @@
     "txiki.js/" STRINGIFY(TJS_VERSION_MAJOR) "." STRINGIFY(TJS_VERSION_MINOR) "." STRINGIFY(TJS_VERSION_PATCH)         \
         TJS_VERSION_SUFFIX
 
-static uv_once_t curl__init_once = UV_ONCE_INIT;
-
-static void tjs__curl_init_once(void) {
-    curl_global_init(CURL_GLOBAL_ALL);
-}
-
-static void tjs__curl_init(void) {
-    uv_once(&curl__init_once, tjs__curl_init_once);
-}
-
 CURL *tjs__curl_easy_init(CURL *curl_h) {
-    tjs__curl_init();
-
     if (curl_h == NULL)
         curl_h = curl_easy_init();
 
@@ -261,8 +249,6 @@ CURLM *tjs__get_curlm(JSContext *ctx) {
     CHECK_NOT_NULL(qrt);
 
     if (!qrt->curl_ctx.curlm_h) {
-        tjs__curl_init();
-
         CURLM *curlm_h = curl_multi_init();
         curl_multi_setopt(curlm_h, CURLMOPT_SOCKETFUNCTION, curl__handle_socket);
         curl_multi_setopt(curlm_h, CURLMOPT_SOCKETDATA, qrt);
