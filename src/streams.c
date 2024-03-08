@@ -571,7 +571,7 @@ static JSValue tjs_tcp_keepalive(JSContext *ctx, JSValueConst this_val, int argc
     if ((enable = JS_ToBool(ctx, argv[0])) == -1)
         return JS_EXCEPTION;
 
-    int r = uv_tcp_keepalive(&t->h.tcp, enable, 0);
+    int r = uv_tcp_keepalive(&t->h.tcp, enable, 1 /* TODO: make delay configurable? */);
     if (r != 0 &&
         r != UV_EINVAL)  // Filter out EINVAL: https://github.com/libuv/libuv/pull/3488#issuecomment-1057836172
         return tjs_throw_errno(ctx, r);
