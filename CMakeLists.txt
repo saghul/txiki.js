@@ -60,6 +60,7 @@ if (BUILD_WITH_ASAN)
         -fno-sanitize-recover=all
         -fno-omit-frame-pointer
     )
+    add_compile_definitions(__ASAN__=1)
 elseif(BUILD_WITH_MSAN)
     add_compile_options(
         -fsanitize=memory
@@ -71,6 +72,7 @@ elseif(BUILD_WITH_MSAN)
         -fno-sanitize-recover=all
         -fno-omit-frame-pointer
     )
+    add_compile_definitions(__MSAN__=1)
 elseif(BUILD_WITH_UBSAN)
     add_compile_options(
         -fsanitize=undefined
@@ -82,6 +84,7 @@ elseif(BUILD_WITH_UBSAN)
         -fno-sanitize-recover=all
         -fno-omit-frame-pointer
     )
+    add_compile_definitions(__UBSAN__=1)
 endif()
 
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
