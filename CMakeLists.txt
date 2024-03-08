@@ -49,6 +49,41 @@ cpr_option(BUILD_WITH_MSAN "If ON, build with the memory sanitizer enabled" OFF)
 cpr_option(BUILD_WITH_UBSAN "If ON, build with the undefined behavior sanitizer enabled" OFF)
 cpr_option(USE_EXTERNAL_FFI "Specify to use external ffi dependency" OFF)
 
+if (BUILD_WITH_ASAN)
+    add_compile_options(
+        -fsanitize=address
+        -fno-sanitize-recover=all
+        -fno-omit-frame-pointer
+    )
+    add_link_options(
+        -fsanitize=address
+        -fno-sanitize-recover=all
+        -fno-omit-frame-pointer
+    )
+elseif(BUILD_WITH_MSAN)
+    add_compile_options(
+        -fsanitize=memory
+        -fno-sanitize-recover=all
+        -fno-omit-frame-pointer
+    )
+    add_link_options(
+        -fsanitize=memory
+        -fno-sanitize-recover=all
+        -fno-omit-frame-pointer
+    )
+elseif(BUILD_WITH_UBSAN)
+    add_compile_options(
+        -fsanitize=undefined
+        -fno-sanitize-recover=all
+        -fno-omit-frame-pointer
+    )
+    add_link_options(
+        -fsanitize=undefined
+        -fno-sanitize-recover=all
+        -fno-omit-frame-pointer
+    )
+endif()
+
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
 option(libuv_buildtests "" OFF)
@@ -144,17 +179,6 @@ target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
 target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread ${CURL_LIBRARIES})
-
-if (BUILD_WITH_ASAN)
-    target_compile_options(tjs PRIVATE -fsanitize=address -fno-sanitize-recover=all -fno-omit-frame-pointer)
-    target_link_options(tjs PRIVATE -fsanitize=address -fno-sanitize-recover=all -fno-omit-frame-pointer)
-elseif(BUILD_WITH_MSAN)
-    target_compile_options(tjs PRIVATE -fsanitize=memory -fno-sanitize-recover=all -fno-omit-frame-pointer)
-    target_link_options(tjs PRIVATE -fsanitize=memory -fno-sanitize-recover=all -fno-omit-frame-pointer)
-elseif(BUILD_WITH_UBSAN)
-    target_compile_options(tjs PRIVATE -fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
-    target_link_options(tjs PRIVATE -fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
-endif()
 
 add_executable(tjsc EXCLUDE_FROM_ALL
     src/qjsc.c
