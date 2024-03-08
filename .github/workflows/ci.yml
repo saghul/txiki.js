@@ -151,3 +151,20 @@ jobs:
       run: make VERBOSE=1
     - name: Test it
       run: make test
+  linux-asan:
+    name: ASAN
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y libcurl4-openssl-dev
+    - name: Build it
+      run: make BUILD_WITH_ASAN=ON
+    - name: Test it
+      env:
+        ASAN_OPTIONS: halt_on_error=1
+      run: make test
