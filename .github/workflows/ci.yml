@@ -168,3 +168,39 @@ jobs:
       env:
         ASAN_OPTIONS: halt_on_error=1
       run: make test
+  linux-msan:
+    name: MSAN
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y libcurl4-openssl-dev
+    - name: Build it
+      env:
+        CC: clang
+      run: make debug BUILD_WITH_MSAN=ON
+    - name: Test it
+      env:
+        MSAN_OPTIONS: halt_on_error=1
+      run: make test
+  linux-ubsan:
+    name: UBSAN
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y libcurl4-openssl-dev
+    - name: Build it
+      run: make debug BUILD_WITH_UBSAN=ON
+    - name: Test it
+      env:
+        UBSAN_OPTIONS: halt_on_error=1
+      run: make test
