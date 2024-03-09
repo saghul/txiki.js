@@ -28,7 +28,7 @@
 
 
 int main(int argc, char **argv) {
-    TJS_SetupArgs(argc, argv);
+    TJS_Initialize(argc, argv);
 
     TJSRuntime *qrt = TJS_NewRuntime();
     CHECK_NOT_NULL(qrt);

@@ -42,7 +42,7 @@ void TJS_DefaultOptions(TJSRunOptions *options);
 TJSRuntime *TJS_NewRuntime(void);
 TJSRuntime *TJS_NewRuntimeOptions(TJSRunOptions *options);
 void TJS_FreeRuntime(TJSRuntime *qrt);
-void TJS_SetupArgs(int argc, char **argv);
+void TJS_Initialize(int argc, char **argv);
 JSContext *TJS_GetJSContext(TJSRuntime *qrt);
 TJSRuntime *TJS_GetRuntime(JSContext *ctx);
 int TJS_Run(TJSRuntime *qrt);
