@@ -29,7 +29,7 @@ const readBuf = new Uint8Array(4096);
 
 const serverAddr = server.localAddress;
 const client = await tjs.connect('tcp', serverAddr.ip, serverAddr.port);
-client.setKeepAlive();
+client.setKeepAlive(true, 30);
 client.setNoDelay(true);
 client.write(encoder.encode('PING'));
 let dataStr, nread;

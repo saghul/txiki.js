@@ -182,8 +182,8 @@ class Connection {
         return this[kHandle].write(buf);
     }
 
-    setKeepAlive(enable = true) {
-        this[kHandle].setKeepAlive(enable);
+    setKeepAlive(enable, delay) {
+        this[kHandle].setKeepAlive(enable, delay);
     }
 
     setNoDelay(enable = true) {
