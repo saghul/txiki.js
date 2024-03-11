@@ -571,9 +571,12 @@ static JSValue tjs_tcp_keepalive(JSContext *ctx, JSValueConst this_val, int argc
     if ((enable = JS_ToBool(ctx, argv[0])) == -1)
         return JS_EXCEPTION;
 
-    int r = uv_tcp_keepalive(&t->h.tcp, enable, 1 /* TODO: make delay configurable? */);
-    if (r != 0 &&
-        r != UV_EINVAL)  // Filter out EINVAL: https://github.com/libuv/libuv/pull/3488#issuecomment-1057836172
+    int delay;
+    if (JS_ToInt32(ctx, &delay, argv[1]))
+        return JS_EXCEPTION;
+
+    int r = uv_tcp_keepalive(&t->h.tcp, enable, delay);
+    if (r != 0)
         return tjs_throw_errno(ctx, r);
 
     return JS_UNDEFINED;
@@ -877,7 +880,7 @@ static const JSCFunctionListEntry tjs_tcp_proto_funcs[] = {
     JS_CFUNC_MAGIC_DEF("getpeername", 0, tjs_tcp_getsockpeername, 1),
     TJS_CFUNC_DEF("connect", 1, tjs_tcp_connect),
     TJS_CFUNC_DEF("bind", 2, tjs_tcp_bind),
-    TJS_CFUNC_DEF("setKeepAlive", 1, tjs_tcp_keepalive),
+    TJS_CFUNC_DEF("setKeepAlive", 2, tjs_tcp_keepalive),
     TJS_CFUNC_DEF("setNoDelay", 1, tjs_tcp_nodelay),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "TCP", JS_PROP_CONFIGURABLE),
 };

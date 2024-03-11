@@ -848,7 +848,7 @@ declare global {
         interface Connection {
             read(buf: Uint8Array): Promise<number|null>;
             write(buf: Uint8Array): Promise<number>;
-            setKeepAlive(enable?: boolean): void;
+            setKeepAlive(enable: boolean, delay: number): void;
             setNoDelay(enable?: boolean): void;
             shutdown(): void;
             close(): void;
