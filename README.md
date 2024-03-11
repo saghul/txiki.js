@@ -95,7 +95,6 @@ Other extras:
 
 - Import directly from HTTP(S) URLs
 - Import JSON files
-- BigFloat and BigDecimal extensions
 - Builtin test runner
 
 ### Standard library
