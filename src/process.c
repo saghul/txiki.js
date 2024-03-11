@@ -198,6 +198,8 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     uv_process_options_t options;
     memset(&options, 0, sizeof(uv_process_options_t));
 
+    options.flags = UV_PROCESS_WINDOWS_FILE_PATH_EXACT_NAME;
+
     uv_stdio_container_t stdio[3];
     stdio[0].flags = UV_INHERIT_FD;
     stdio[0].data.fd = STDIN_FILENO;
