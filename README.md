@@ -10,7 +10,7 @@
 > **txikia** (basque): small, tiny.
 
 *txiki.js* is a small and powerful JavaScript runtime.  It targets state-of-the-art ECMAScript
-and implements many web platform features.
+and aims to be [WinterCG] compliant.
 
 It's built on the shoulders of giants: it uses [QuickJS-ng] as its JavaScript engine and [libuv] as the platform layer.
 
@@ -51,6 +51,10 @@ For TS support see [@txikijs/types](https://www.npmjs.com/package/@txikijs/types
 ## Features
 
 Support for the [ES2023] specification (almost complete).
+
+### WinterCG
+
+*txiki.js* aims to be [WinterCG] compliant, you can track the progress [here](https://github.com/saghul/txiki.js/issues/418).
 
 ### Web Platform APIs
 
@@ -229,3 +233,4 @@ Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul
 [WebSocket]: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 [ES2023]: https://tc39.es/ecma262/
 [calendar versioning]: https://calver.org/
+[WinterCG]: https://wintercg.org/
