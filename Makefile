@@ -55,6 +55,7 @@ src/bundles/js/core/run-main.js: src/js/run-main/*.js
 		--outfile=$@ \
 		--minify \
 		--external:tjs:* \
+		--log-override:direct-eval=silent \
 		$(ESBUILD_PARAMS_COMMON)
 
 src/bundles/c/core/run-main.c: $(QJSC) src/bundles/js/core/run-main.js
