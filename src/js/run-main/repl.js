@@ -1013,6 +1013,10 @@ function _run(g) {
                     stdout_write(String(a));
                 } else if (stack.indexOf(a) >= 0) {
                     stdout_write('[circular]');
+                } else if (a instanceof Date) {
+                    stdout_write(`Date ${JSON.stringify(a.toGMTString())}`);
+                } else if (a instanceof RegExp) {
+                    stdout_write(a.toString());
                 } else {
                     stack.push(a);
 
@@ -1038,10 +1042,6 @@ function _run(g) {
                         }
 
                         stdout_write(' ]');
-                    } else if (Object.__getClass(a) === 'Date') {
-                        stdout_write(a.toISOString());
-                    } else if (Object.__getClass(a) === 'RegExp') {
-                        stdout_write(a.toString());
                     } else {
                         keys = Object.keys(a);
                         n = keys.length;
@@ -1066,8 +1066,11 @@ function _run(g) {
                     stack.pop(a);
                 }
             } else if (type === 'string') {
-                stdout_write(a.__quote());
-            } else if (type === 'number' || type === 'bigfloat') {
+                var s = JSON.stringify(a);
+                if (s.length > 79)
+                    s = s.substring(0, 75) + "...\"";
+                stdout_write(s);
+            } else if (type === 'number') {
                 stdout_write(number_to_string(a, 10));
             } else if (type === 'bigint') {
                 stdout_write(bigint_to_string(a, 10));
