@@ -41,7 +41,7 @@ static inline size_t tjs__malloc_usable_size(const void *ptr) {
 #elif defined(_WIN32)
     return _msize(ptr);
 #elif defined(__linux__) || defined (__CYGWIN__)
-    return malloc_usable_size(ptr);
+    return malloc_usable_size((void*) ptr);
 #else
     // Unknown.
     return 0;
