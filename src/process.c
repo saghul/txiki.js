@@ -130,6 +130,8 @@ static JSValue tjs_process_wait(JSContext *ctx, JSValueConst this_val, int argc,
             p->status.term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(p->status.term_signal));
         JS_DefinePropertyValueStr(ctx, obj, "term_signal", term_signal, JS_PROP_C_W_E);
         return TJS_NewResolvedPromise(ctx, 1, &obj);
+    } else if (!JS_IsUndefined(p->status.result.p)) {
+        return JS_DupValue(ctx, p->status.result.p);
     } else {
         return TJS_InitPromise(ctx, &p->status.result);
     }
