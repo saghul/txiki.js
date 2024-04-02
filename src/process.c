@@ -1,5 +1,5 @@
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -34,6 +34,7 @@ static JSClassID tjs_process_class_id;
 typedef struct {
     JSContext *ctx;
     JSRuntime *rt;
+    JSValue obj;
     bool closed;
     bool finalized;
     uv_process_t process;
@@ -120,6 +121,7 @@ static JSValue tjs_process_wait(JSContext *ctx, JSValueConst this_val, int argc,
     TJSProcess *p = tjs_process_get(ctx, this_val);
     if (!p)
         return JS_EXCEPTION;
+    CHECK(!p->closed);
 
     if (p->status.exited) {
         JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
@@ -128,8 +130,6 @@ static JSValue tjs_process_wait(JSContext *ctx, JSValueConst this_val, int argc,
             p->status.term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(p->status.term_signal));
         JS_DefinePropertyValueStr(ctx, obj, "term_signal", term_signal, JS_PROP_C_W_E);
         return TJS_NewResolvedPromise(ctx, 1, &obj);
-    } else if (p->closed) {
-        return JS_UNDEFINED;
     } else {
         return TJS_InitPromise(ctx, &p->status.result);
     }
@@ -152,13 +152,13 @@ static JSValue tjs_process_stdio_get(JSContext *ctx, JSValueConst this_val, int 
 static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_signal) {
     TJSProcess *p = handle->data;
     CHECK_NOT_NULL(p);
+    JSContext *ctx = p->ctx;
 
     p->status.exited = true;
     p->status.exit_status = exit_status;
     p->status.term_signal = term_signal;
 
     if (!JS_IsUndefined(p->status.result.p)) {
-        JSContext *ctx = p->ctx;
         JSValue arg = JS_NewObjectProto(ctx, JS_NULL);
         JS_DefinePropertyValueStr(ctx, arg, "exit_status", JS_NewInt32(ctx, exit_status), JS_PROP_C_W_E);
         JSValue term_signal =
@@ -168,6 +168,9 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
         TJS_SettlePromise(ctx, &p->status.result, false, 1, (JSValueConst *) &arg);
         TJS_ClearPromise(ctx, &p->status.result);
     }
+
+    JS_FreeValue(ctx, p->obj);
+    p->obj = JS_UNDEFINED;
 
     maybe_close(p);
 }
@@ -439,6 +442,7 @@ static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValu
 
     JS_SetOpaque(obj, p);
     ret = obj;
+    p->obj = JS_DupValue(ctx, obj);
     goto cleanup;
 
 fail:
