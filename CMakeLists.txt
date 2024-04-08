@@ -44,7 +44,6 @@ macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
     message(STATUS "  ${OPTION_NAME}: ${${OPTION_NAME}}")
 endmacro()
 
-cpr_option(BUILD_WITH_ASAN "If ON, build with the address sanitizer enabled" OFF)
 cpr_option(BUILD_WITH_MIMALLOC "If ON, build with mimalloc" OFF)
 cpr_option(USE_EXTERNAL_FFI "Specify to use external ffi dependency" OFF)
 
@@ -156,11 +155,6 @@ target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread ${CURL_LIBRARIES})
 if (BUILD_WITH_MIMALLOC)
     target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)
     target_link_libraries(tjs mimalloc-static)
-endif()
-
-if (BUILD_WITH_ASAN)
-    target_compile_options(tjs PRIVATE -fsanitize=address)
-    target_link_options(tjs PRIVATE -fsanitize=address)
 endif()
 
 add_executable(tjsc EXCLUDE_FROM_ALL
