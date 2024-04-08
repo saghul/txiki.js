@@ -57,16 +57,16 @@ function _run(g) {
 
     var styles = {
         'default':    'bright_green',
-        'comment':    'white',
+        'comment':    'grey',
         'string':     'bright_cyan',
         'regex':      'cyan',
         'number':     'green',
-        'keyword':    'bright_white',
+        'keyword':    'bright_magenta',
         'function':   'bright_yellow',
-        'type':       'bright_magenta',
+        'type':       'grey',
         'identifier': 'bright_green',
         'error':      'red',
-        'result':     'bright_white',
+        'result':     'grey',
         'error_msg':  'bright_red',
     };
 
