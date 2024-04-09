@@ -140,18 +140,20 @@ Object.defineProperty(tjs, 'rm', {
 });
 
 // Signals.
-Object.defineProperty(tjs, 'addSignalListener', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: addSignalListener
-});
-Object.defineProperty(tjs, 'removeSignalListener', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: removeSignalListener
-});
+if (!core.isWorker) {
+    Object.defineProperty(tjs, 'addSignalListener', {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: addSignalListener
+    });
+    Object.defineProperty(tjs, 'removeSignalListener', {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: removeSignalListener
+    });
+}
 
 // Sockets.
 Object.defineProperty(tjs, 'connect', {

@@ -317,8 +317,9 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JSValue global_obj = JS_GetGlobalObject(qrt->ctx);
     JSAtom bootstrap_ns_atom = JS_NewAtom(qrt->ctx, "__bootstrap");
     JSValue bootstrap_ns = JS_NewObjectProto(qrt->ctx, JS_NULL);
-    JS_DupValue(qrt->ctx, bootstrap_ns);  // JS_SetProperty frees the value.
-    JS_SetProperty(qrt->ctx, global_obj, bootstrap_ns_atom, bootstrap_ns);
+
+    CHECK_EQ(JS_SetProperty(qrt->ctx, global_obj, bootstrap_ns_atom, JS_DupValue(qrt->ctx, bootstrap_ns)), 1);
+    CHECK_EQ(JS_SetPropertyStr(qrt->ctx, bootstrap_ns, "isWorker", JS_NewBool(qrt->ctx, is_worker)), 1);
 
     tjs__bootstrap_core(qrt->ctx, bootstrap_ns);
 
