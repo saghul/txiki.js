@@ -2,7 +2,7 @@ import assert from 'tjs:assert';
 
 
 const data = JSON.stringify({ foo: 'bar', bar: 'baz' });
-const url = 'https://httpbin.org/post';
+const url = 'https://postman-echo.com/post';
 const xhr = new XMLHttpRequest();
 xhr.open('POST', url);
 xhr.responseType = 'json';

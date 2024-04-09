@@ -2,7 +2,7 @@ import assert from 'tjs:assert';
 
 
 let lengthComputable = false,  loaded, total;
-const url = 'https://httpbin.org/get';
+const url = 'https://postman-echo.com/get';
 const xhrSync = new XMLHttpRequest();
 xhrSync.open('GET', url, false);
 xhrSync.onprogress = (evt) => {
