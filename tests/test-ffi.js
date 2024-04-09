@@ -38,7 +38,7 @@ import initCParser from '../src/js/stdlib/ffi/ffiutils.js';
 
 		
 		const sprintfF3 = new FFI.CFunction(libc.symbol('sprintf'), FFI.types.sint, [FFI.types.buffer, FFI.types.string, FFI.types.sint], 1);
-		const strbuf = new Uint8Array(14);
+		const strbuf = new Uint8Array(15); // 14 byte string + null byte
 		assert.eq(sprintfF3.call(strbuf, 'printf test %d\n', 5), 14);
 		assert.eq(FFI.bufferToString(strbuf), 'printf test 5\n');
 

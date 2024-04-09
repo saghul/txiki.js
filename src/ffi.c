@@ -147,7 +147,7 @@ static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValueConst this_val, 
     for (unsigned i = 0; i < typeCnt; i++) {
         ffi_type *t = JS_GetOpaque(types[i], js_ffi_type_classid);
         if (t == NULL) {
-            JS_ThrowTypeError(ctx, "argument %ld is not a FfiType", (types - argv) + i + 1);
+            JS_ThrowTypeError(ctx, "argument %lld is not a FfiType", (long long int)((types - argv) + i + 1));
             return JS_EXCEPTION;
         }
     }
@@ -502,7 +502,7 @@ static JSValue js_ffi_type_from_buffer(JSContext *ctx, JSValueConst this_val, in
         return JS_EXCEPTION;
     size_t typesz = ffi_type_get_sz(type->ffi_type);
     if (bufsz != typesz) {
-        JS_ThrowRangeError(ctx, "expected buffer to be of size %zu", typesz);
+        JS_ThrowRangeError(ctx, "expected buffer to be of size %lu", typesz);
         return JS_EXCEPTION;
     }
     JSValue val = JS_UNDEFINED;
@@ -703,7 +703,8 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValueConst this_val, int argc, 
     }
 
     size_t retsz = ffi_type_get_sz(cif->ffi_cif.rtype);
-    void *rptr = js_malloc(ctx, retsz);
+    // man page requires at least sizeof(long) for return value
+    void *rptr = js_malloc(ctx, retsz > sizeof(long) ? retsz : sizeof(long));
 
     ffi_call(&cif->ffi_cif, func, rptr, aval);
     if (aval != NULL)
