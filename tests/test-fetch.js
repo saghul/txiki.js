@@ -2,7 +2,7 @@ import assert from 'tjs:assert';
 
 
 async function basicFetch() {
-    const r = await fetch('https://httpbin.org/get');
+    const r = await fetch('https://postman-echo.com/get');
     assert.eq(r.status, 200, 'status is 200');
 };
 
@@ -13,7 +13,7 @@ async function abortFetch() {
         controller.abort();
     }, 500);
     try {
-        await fetch('https://httpbin.org/delay/3', { signal });
+        await fetch('https://postman-echo.com/delay/3', { signal });
     } catch (e) {
         assert.eq(e.name, 'AbortError', 'fetch was aborted');
     }
@@ -21,7 +21,7 @@ async function abortFetch() {
 
 async function fetchWithPostAndBody() {
     const data = JSON.stringify({ foo: 'bar', bar: 'baz' });
-    const r = await fetch('https://httpbin.org/post', {
+    const r = await fetch('https://postman-echo.com/post', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -30,7 +30,7 @@ async function fetchWithPostAndBody() {
     });
     assert.eq(r.status, 200, 'status is 200');
     const json = await r.json();
-    assert.eq(json.data, data, 'sent and received data match');
+    assert.eq(JSON.stringify(json.data), data, 'sent and received data match');
 };
 
 

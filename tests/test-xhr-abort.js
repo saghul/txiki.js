@@ -1,7 +1,7 @@
 import assert from 'tjs:assert';
 
 
-const url = 'https://httpbin.org/delay/3';
+const url = 'https://postman-echo.com/delay/3';
 const xhr = new XMLHttpRequest();
 xhr.open('GET', url);
 xhr.onabort = () => {

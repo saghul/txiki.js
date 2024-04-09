@@ -1,7 +1,7 @@
 import assert from 'tjs:assert';
 
 
-const url = 'https://httpbin.org/get';
+const url = 'https://postman-echo.com/get';
 const xhr = new XMLHttpRequest();
 xhr.open('GET', url);
 xhr.addEventListener('loadend', () => {
