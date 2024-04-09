@@ -25,6 +25,7 @@
 #include "private.h"
 #include "tjs.h"
 
+#include <signal.h>
 #include <string.h>
 
 #ifdef TJS__HAS_MIMALLOC
@@ -399,6 +400,10 @@ void TJS_Initialize(int argc, char **argv) {
 
     tjs__argc = argc;
     tjs__argv = uv_setup_args(argc, argv);
+
+#ifdef SIGPIPE
+    signal(SIGPIPE, SIG_IGN);
+#endif
 }
 
 JSContext *TJS_GetJSContext(TJSRuntime *qrt) {
