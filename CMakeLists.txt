@@ -44,7 +44,7 @@ macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
     message(STATUS "  ${OPTION_NAME}: ${${OPTION_NAME}}")
 endmacro()
 
-cpr_option(BUILD_WITH_MIMALLOC "If ON, build with mimalloc" OFF)
+cpr_option(BUILD_WITH_MIMALLOC "If ON (default), build with mimalloc" ON)
 cpr_option(USE_EXTERNAL_FFI "Specify to use external ffi dependency" OFF)
 
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
