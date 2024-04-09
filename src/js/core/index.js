@@ -4,7 +4,7 @@ import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import { open, mkdir, mkstemp, rm } from './fs.js';
 import pathModule from './path.js';
 import { PosixSocket } from './posix-socket.js';
-import { signal } from './signal.js';
+import { addSignalListener, removeSignalListener } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
 import { bootstrapWorker } from './worker-bootstrap.js';
@@ -140,11 +140,17 @@ Object.defineProperty(tjs, 'rm', {
 });
 
 // Signals.
-Object.defineProperty(tjs, 'signal', {
+Object.defineProperty(tjs, 'addSignalListener', {
     enumerable: true,
     configurable: false,
     writable: false,
-    value: signal
+    value: addSignalListener
+});
+Object.defineProperty(tjs, 'removeSignalListener', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: removeSignalListener
 });
 
 // Sockets.
