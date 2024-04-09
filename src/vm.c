@@ -26,6 +26,7 @@
 #include "tjs.h"
 
 #include <signal.h>
+#include <stdio.h>
 #include <string.h>
 
 #ifdef TJS__HAS_MIMALLOC
@@ -401,6 +402,9 @@ void TJS_Initialize(int argc, char **argv) {
 
     tjs__argc = argc;
     tjs__argv = uv_setup_args(argc, argv);
+
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
 
 #ifdef SIGPIPE
     signal(SIGPIPE, SIG_IGN);
