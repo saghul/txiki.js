@@ -98,8 +98,6 @@ function _run(g) {
     /* current X position of the cursor in the terminal */
     var term_cursor_x = 0;
 
-    var sigint_h;
-
     var { evalScript } = tjs[Symbol.for('tjs.internal')].core;
 
     var encoder = new TextEncoder();
@@ -120,7 +118,7 @@ function _run(g) {
         tjs.stdin.setRawMode(true);
 
         /* install a Ctrl-C signal handler */
-        sigint_h = tjs.signal('SIGINT', sigint_handler);
+        tjs.addSignalListener('SIGINT', sigint_handler);
 
         /* handler to read stdin */
         term_read_handler();

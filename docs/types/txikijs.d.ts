@@ -68,35 +68,34 @@ declare global {
         | 'SIGPOLL' | 'SIGPWR' | 'SIGSYS';
         
         /**
-        * Signal handler function.
+        * Signal listener function.
         */
-        type SignalHandlerFunction = () => void;
-        
-        interface SignalHandler {
-            /**
-            * The signal that this signal handler was registered for.
-            */
-            signal: Signal;
-            
-            /**
-            * Stop the signal handler. The registered signal handler function
-            * will no longer be called.
-            */
-            close(): void;
-        }
-        
+        type SignalListener = () => void;
+
         /**
-        * Registers a handler for the given signal.
+        * Registers a listener for the given signal.
         *
         * ```js
-        * const h = tjs.signal('SIGINT', handleSigint);
+        * tjs.addSignalListener('SIGINT', handleSigint);
         * ```
         *
-        * @param sig Which signal to register a handler for.
-        * @param handler Handler function.
+        * @param sig Which signal to register a listener for.
+        * @param listener Listener function.
         */
-        function signal(sig: Signal, handler: SignalHandlerFunction): SignalHandler;
-        
+        function addSignalListener(sig: Signal, listener: SignalListener): void;
+
+        /**
+        * Un-registers a listener for the given signal.
+        *
+        * ```js
+        * tjs.removeSignalListener('SIGINT', handleSigint);
+        * ```
+        *
+        * @param sig Which signal to un-register a listener for.
+        * @param listener Listener function.
+        */
+        function removeSignalListener(sig: Signal, listener: SignalListener): void;
+
         /**
         * Send a signal to a process.
         *
