@@ -70,16 +70,17 @@ jobs:
       run: make test-advanced
   build-macos:
     name: macOS
-    runs-on: macOS-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         buildType: [Debug, Release]
+        os: [macOS-12, macOS-14]
     env:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
     - name: Install automake
-      run: brew install automake
+      run: brew install automake autoconf libtool texinfo
     - uses: actions/checkout@v4
       with:
         submodules: true
