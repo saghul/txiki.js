@@ -2,13 +2,7 @@ import assert from 'tjs:assert';
 import FFI from 'tjs:ffi';
 import initCParser from '../src/js/stdlib/ffi/ffiutils.js';
 
-const isMacArm = tjs.platform === 'darwin' && tjs.uname().machine === 'arm64';
-const isWindows = tjs.platform === 'windows';
-
 (function(){
-	const libm = new FFI.Lib(FFI.Lib.LIBM_NAME);
-	const libc = new FFI.Lib(FFI.Lib.LIBC_NAME);
-
 	let sopath = './build/libffi-test.so';
 	switch(tjs.platform){
 		case 'linux':
@@ -21,33 +15,30 @@ const isWindows = tjs.platform === 'windows';
 			sopath = './build/libffi-test.dll';
 		break;
 	}
+	const testlib = new FFI.Lib(sopath);
 
 	function testSimpleCalls(){
-		
-		const absF = new FFI.CFunction(libm.symbol('abs'), FFI.types.sint, [FFI.types.sint]);
-		assert.eq(absF.call(-9), 9);
+		const simple_func1 = new FFI.CFunction(testlib.symbol('simple_func1'), FFI.types.sint, [FFI.types.sint]);
+		assert.eq(simple_func1.call(-9), -8);
 
-		if(!isWindows){ // for some reason, windows (mingw) does not find this function
-			const fabsfF = new FFI.CFunction(libm.symbol('fabsf'), FFI.types.float, [FFI.types.float]);
-			assert.ok(Math.abs(fabsfF.call(-3.45) - 3.45) < 0.00001);
-			assert.eq(fabsfF.call(-4), 4);
-		}
+		const simple_func2 = new FFI.CFunction(testlib.symbol('simple_func2'), FFI.types.float, [FFI.types.float]);
+		assert.ok(Math.abs(simple_func2.call(98.9) - 99.9) < 0.00001);
 
-		const atoiF = new FFI.CFunction(libc.symbol('atoi'), FFI.types.sint, [FFI.types.string]);
+		const simple_func3 = new FFI.CFunction(testlib.symbol('simple_func3'), FFI.types.double, [FFI.types.double]);
+		assert.ok(Math.abs(simple_func3.call(98.9) - 99.9) < 0.00001);
+
+		const atoiF = new FFI.CFunction(testlib.symbol('parse_int'), FFI.types.sint, [FFI.types.string]);
 		assert.eq(atoiF.call("1234"), 1234);
 
-		const strerrorF = new FFI.CFunction(libc.symbol('strerror'), FFI.types.string, [FFI.types.sint]);
-		assert.eq(strerrorF.call(1 /* EPERM */), "Operation not permitted");
+		const strerrorF = new FFI.CFunction(testlib.symbol('int_to_string'), FFI.types.string, [FFI.types.sint]);
+		assert.eq(strerrorF.call(345), "345");
 
-		// Not sure what's wrong on macOS + arm64
-        if (!isMacArm) {
-            const sprintfF3 = new FFI.CFunction(libc.symbol('sprintf'), FFI.types.sint, [FFI.types.buffer, FFI.types.string, FFI.types.sint], 1);
-            const strbuf = new Uint8Array(15); // 14 byte string + null byte
-            assert.eq(sprintfF3.call(strbuf, 'printf test %d\n', 5), 14);
-            assert.eq(FFI.bufferToString(strbuf), 'printf test 5\n');
-        }
+		const sprintfF3 = new FFI.CFunction(testlib.symbol('test_sprintf'), FFI.types.sint, [FFI.types.buffer, FFI.types.string, FFI.types.sint], 2);
+		const strbuf = new Uint8Array(15); // 14 byte string + null byte
+		assert.eq(sprintfF3.call(strbuf, 'printf test %d\n', 5), 14);
+		assert.eq(FFI.bufferToString(strbuf), 'printf test 5\n');
 
-		const strcatF = new FFI.CFunction(libc.symbol('strcat'), FFI.types.string, [FFI.types.buffer, FFI.types.string]);
+		const strcatF = new FFI.CFunction(testlib.symbol('test_strcat'), FFI.types.string, [FFI.types.buffer, FFI.types.string]);
 		const strbuf2 = new Uint8Array(12);
 		strbuf2.set((new TextEncoder()).encode('part1:'));
 		assert.eq(strcatF.call(strbuf2, "part2"), "part1:part2");
@@ -55,8 +46,6 @@ const isWindows = tjs.platform === 'windows';
 	}
 
 	function testSimpleVariables() {
-		const testlib = new FFI.Lib(sopath);
-
 		const testIntSymbol = testlib.symbol('test_int');
 		const testIntPointer = new FFI.Pointer(testIntSymbol.addr, 1, FFI.types.sint);
 		assert.eq(testIntPointer.deref(), 123);
@@ -69,59 +58,36 @@ const isWindows = tjs.platform === 'windows';
 	}
 	
 	function testStructs(){
-		const divT = new FFI.StructType([['quot', FFI.types.sint], ['rem', FFI.types.sint]], 'div_t');
-		const divF = new FFI.CFunction(libc.symbol('div'), divT, [FFI.types.sint, FFI.types.sint]);
-		assert.equal(divF.call(10, 3), {quot:3, rem:1});
+		const test_t = new FFI.StructType([['a', FFI.types.sint], ['b', FFI.types.uchar], ['c', FFI.types.uint64]], 'test_struct');
+		const return_struct_test = new FFI.CFunction(testlib.symbol('return_struct_test'), test_t, [FFI.types.sint]);
+		assert.equal(return_struct_test.call(10), {a:10, b: "b".charCodeAt(0), c: 123});
 	}
 	
 	function testPointersAndStructsOpendir(){
-        // for some reason, windows (mingw) does not find this function
-        // for some (other) reason, macOS on arm segfaults
-		if(isMacArm || isWindows) {
-			return;
-		}
-		const opendirF = new FFI.CFunction(libc.symbol('opendir'), FFI.types.pointer, [FFI.types.string]);
-		let direntSt;
-		if(tjs.platform == 'darwin'){ // macos has another dirent definition
-			direntSt = new FFI.StructType([
-				['fileno', FFI.types.uint32],
-				['reclen', FFI.types.uint16],
-				['type', FFI.types.uint8],
-				['namelen', FFI.types.uint8],
-				['name', new FFI.StaticStringType(255, 'char255') ],
-			], 'dirent');
-		}else{
-			direntSt = new FFI.StructType([
-				['ino', FFI.types.size],
-				['type', FFI.types.size],
-				['reclen', FFI.types.uint16],
-				['type', FFI.types.uint8],
-				['name', new FFI.StaticStringType(255, 'char255') ],
-			], 'dirent');
-		}
-		const direntPtrT = new FFI.PointerType(direntSt, 1);
-		const readdirF = new FFI.CFunction(libc.symbol('readdir'), direntPtrT, [FFI.types.pointer]);
-		const closedirF = new FFI.CFunction(libc.symbol('closedir'), FFI.types.sint, [FFI.types.pointer]);
+		const open_test_handle = new FFI.CFunction(testlib.symbol('open_test_handle'), FFI.types.pointer, [FFI.types.sint]);
+		const entry_t = new FFI.StructType([['a', FFI.types.sint]]);
+		const entry_ptr_t = new FFI.PointerType(entry_t, 1);
+		const get_next_entry = new FFI.CFunction(testlib.symbol('get_next_entry'), entry_ptr_t, [FFI.types.pointer]);
+		const close_test_handle = new FFI.CFunction(testlib.symbol('close_test_handle'), FFI.types.void, [FFI.types.pointer]);
 
-		const dirH = opendirF.call(import.meta.dirname);
-		assert.ok(dirH !== null);
-		const fileList = [];
-		let direntPtr;
+		const handle = open_test_handle.call(5);
+		let i = 0;
+		let entry;
 		do{
-			direntPtr = readdirF.call(dirH);
-			if(!direntPtr.isNull){
-				const obj = direntPtr.deref();
+			entry = get_next_entry.call(handle);
+			if(!entry.isNull){
+				i++;
+				const obj = entry.deref();
 				assert.eq(typeof obj, 'object');
-				fileList.push(obj);
-			}else{
-				assert.eq(direntPtr.addr, 0n);
+				assert.eq(obj.a, i);
 			}
-		}while(!direntPtr.isNull);
-		assert.ok(fileList.some(e=>e.name == 'test-ffi.js'));
-		assert.eq(closedirF.call(dirH), 0);
+		}while(!entry.isNull);
+		close_test_handle.call(handle);
+		assert.eq(i, 5);
 	}
 
 	function testPointersAndStructsTime(){
+		const libc = new FFI.Lib(FFI.Lib.LIBC_NAME);
 		const tmT = new FFI.StructType([
 			['sec', FFI.types.sint],
 			['min', FFI.types.sint],
@@ -618,51 +584,39 @@ const isWindows = tjs.platform === 'windows';
 	}
 
 	function testLibFromCProto() {
-		const libc = new FFI.Lib(FFI.Lib.LIBC_NAME);
-		libc.parseCProto(`
-			typedef long int time_t;
-			typedef long clock_t;
-			
-			struct tm
-			{
-			int sec;
-			int min;
-			int hour;
-			int mday;
-			int mon;
-			int year;
-			int wday;
-			int yday;
-			int isdst;
-			long int gmtoff;
-			const char *tm_zone;
+		const testlib = new FFI.Lib(sopath);
+		testlib.parseCProto(`
+			char* test_strcat(char* a, char* b);
+			struct test{
+				int a;
+				char b;
+				uint64_t c;
 			};
-			
-			clock_t clock();
-			time_t time (time_t *__timer);
-			double difftime (time_t __time1, time_t __time0);
-			char* asctime (struct tm *__tp);
+			typedef struct test s_test;
+			s_test return_struct_test(int a);
+			char* sprint_struct_test(s_test* t);
 		`);
 
-		const clockVal = libc.call('clock');
-		assert.ok(typeof clockVal == 'number' && clockVal > 0);
-		assert.ok(libc.call('time', [null]) - Date.now()/1000 + 1 < 2 );
-		assert.eq(libc.call('difftime', 100, 50), 50);
-		const structTmT = libc.getType('struct tm');
-		const tmData = {
-			sec: 0, min: 0, hour: 0,
-			year: 122, mon: 6, mday: 1,
-			isdst: 0, gmtoff: 0, tm_zone: 'UTC'
+		const strcatF = new FFI.CFunction(testlib.symbol('test_strcat'), FFI.types.string, [FFI.types.buffer, FFI.types.string]);
+		const strbuf2 = new Uint8Array(12);
+		strbuf2.set((new TextEncoder()).encode('part1:'));
+		assert.eq(strcatF.call(strbuf2, "part2"), "part1:part2");
+		assert.eq(FFI.bufferToString(strbuf2), "part1:part2");
+		
+		const structTest = testlib.getType('struct test');
+		assert.eq(structTest, testlib.getType('s_test'));
+		const structData = {
+			a: 1, b: 2, c: 3
 		};
-		const tmBuf = structTmT.toBuffer(tmData);
-		const regex = /^Sun Jul [0 ]1 00:00:00 2022\n$/;
-		assert.truthy(libc.call('asctime', FFI.Pointer.createRefFromBuf(structTmT, tmBuf)).match(regex));
-		assert.truthy(libc.call('asctime', FFI.Pointer.createRef(structTmT, tmData)).match(regex));
+		const tmBuf = structTest.toBuffer(structData);
+		const expect = 'a: 1, b: 2, c: 3';
+		assert.eq(testlib.call('sprint_struct_test', FFI.Pointer.createRefFromBuf(structTest, tmBuf)), expect);
+		assert.eq(testlib.call('sprint_struct_test', FFI.Pointer.createRef(structTest, structData)), expect);
 	}
 
 	function testCProtoPtrInStruct(){
-		const libc = new FFI.Lib(FFI.Lib.LIBC_NAME);
-		libc.parseCProto(`
+		const testlib = new FFI.Lib(sopath);
+		testlib.parseCProto(`
 		struct a{
 			int a;
 			int b;
@@ -678,8 +632,8 @@ const isWindows = tjs.platform === 'windows';
 			int f;
 		}* asdasd2;
 		`);
-		assert.eq(libc.getType('asdasd').size, 2*FFI.types.pointer.size);
-		assert.eq(libc.getType('asdasd2').size, FFI.types.pointer.size);
+		assert.eq(testlib.getType('asdasd').size, 2*FFI.types.pointer.size);
+		assert.eq(testlib.getType('asdasd2').size, FFI.types.pointer.size);
 	}
 
 	testSimpleCalls();
@@ -691,5 +645,4 @@ const isWindows = tjs.platform === 'windows';
 	testCProtoParser();
 	testLibFromCProto();
 	testCProtoPtrInStruct();
-
 })();
