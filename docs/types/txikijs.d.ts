@@ -1054,6 +1054,30 @@ declare global {
             static checksum(buf: Uint8Array): number;
         }
     }
+
+    interface ConsolePrinterOptions {
+        /** output message to stderr instead of stdout */
+        isWarn?: boolean;
+
+        /** how much to indent the message (level of groups) */
+        indent: number;
+    }
+
+    /**
+    * Returns an estimate of the default amount of parallelism a program should use.
+    */
+    function createConsole(opts: {
+        /** function to print messages to somewhere, see https://console.spec.whatwg.org/#printer */
+        printer: (logLevel: string, args: any[], options: ConsolePrinterOptions) => void,
+        /** function to handle normal log messages, see https://console.spec.whatwg.org/#logger */
+        logger?: (logLevel: string, args: any[], options: ConsolePrinterOptions) => void,
+        /** function to clear the console, e.g. send the ASCII ctrl character */
+        clearConsole?: () => void,
+        /** format given values, either by using a format string as first param or otherwise display values in a well readable format, see https://console.spec.whatwg.org/#formatter */
+        formatter?: (args: any[]) => string,
+        /** format js values to be well readable */
+        inspect?: (args: any[]) => string,
+    }): typeof console;
 }
 
 export {};

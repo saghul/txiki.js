@@ -29,7 +29,6 @@
     "patch-package": "^6.4.7",
     "text-encoding-utf-8": "^1.0.2",
     "urlpattern-polyfill": "^10.0.0",
-    "util": "^0.12.5",
     "uuid": "^9.0.0",
     "web-streams-polyfill": "^4.0.0",
     "whatwg-fetch": "^3.6.20",
