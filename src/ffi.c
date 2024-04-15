@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2022 lal12
+Copyright (c) 2022-2024 lal12
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1045,10 +1045,9 @@ static JSCFunctionListEntry funcs[] = {
     JS_SetPropertyStr(ctx, obj, #name, name##_jsval)
 #define ADD_ALIAS_TYPE(ctx, obj, alias, oldname) JS_SetPropertyStr(ctx, obj, #alias, JS_DupValue(ctx, oldname##_jsval))
 
-void tjs__mod_ffi_init(JSContext *ctx, JSValue ns) {
+static JSValue tjs__mod_ffi_init_js(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue ffiobj = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, ffiobj, funcs, countof(funcs));
-    JS_SetPropertyStr(ctx, ns, "ffi", ffiobj);
 
     REGISTER_CLASS(ctx, js_ffi_type);
     CLASS_CREATE_CONSTRUCTOR(ctx, js_ffi_type, ffiobj, js_ffi_type_create_struct);
@@ -1097,4 +1096,10 @@ void tjs__mod_ffi_init(JSContext *ctx, JSValue ns) {
 #endif
 
     // ffi also supports some complex types, currently not implemented
+    return ffiobj;
+}
+
+void tjs__mod_ffi_init(JSContext *ctx, JSValue ns) {
+    JSValue func = JS_NewCFunction(ctx, tjs__mod_ffi_init_js, "ffi_load_native", 0);
+    JS_SetPropertyStr(ctx, ns, "ffi_load_native", func);
 }

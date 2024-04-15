@@ -33,7 +33,7 @@ const noExport = [
     'environ',
     'evalFile',
     'evalScript',
-    'ffi',
+    'ffi_load_native',
     'guessHandle',
     'isStdinTty',
     'mkdir',
