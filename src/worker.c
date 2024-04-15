@@ -27,8 +27,8 @@
 
 #include <unistd.h>
 
-
-static char tjs__worker_bootstrap[] = "tjs[Symbol.for('tjs.internal')].bootstrapWorker()";
+extern const uint8_t tjs__worker_bootstrap[];
+extern const uint32_t tjs__worker_bootstrap_size;
 
 enum {
     WORKER_EVENT_MESSAGE = 0,
@@ -108,11 +108,14 @@ static void worker_entry(void *arg) {
     /* Bootstrap the worker scope. */
     JSValue global_obj = JS_GetGlobalObject(ctx);
     JSValue worker_obj = tjs_new_worker(ctx, wd->channel_fd, false);
-    JS_DefinePropertyValueStr(ctx, global_obj, "workerThis", worker_obj, JS_PROP_C_W_E);
+    JSValue sym = JS_NewSymbol(ctx, "tjs.internal.worker", TRUE);
+    JSAtom atom = JS_ValueToAtom(ctx, sym);
+    JS_DefinePropertyValue(ctx, global_obj, atom, worker_obj, JS_PROP_C_W_E);
+    JS_FreeAtom(ctx, atom);
+    JS_FreeValue(ctx, sym);
     JS_FreeValue(ctx, global_obj);
 
-    JSValue ret = JS_Eval(ctx, tjs__worker_bootstrap, strlen(tjs__worker_bootstrap), "<global>", JS_EVAL_TYPE_GLOBAL);
-    CHECK_EQ(JS_IsException(ret), 0);
+    CHECK_EQ(tjs__eval_bytecode(ctx, tjs__worker_bootstrap, tjs__worker_bootstrap_size), 0);
 
     /* Load the file and eval the file when the loop runs. */
     JSValue filename = JS_NewString(ctx, wd->path);

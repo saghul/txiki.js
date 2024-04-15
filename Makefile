@@ -66,7 +66,15 @@ src/bundles/c/core/run-main.c: $(QJSC) src/bundles/js/core/run-main.js
 		-p tjs__ \
 		src/bundles/js/core/run-main.js
 
-core: src/bundles/c/core/polyfills.c src/bundles/c/core/core.c src/bundles/c/core/run-main.c
+src/bundles/c/core/worker-bootstrap.c: $(QJSC) src/js/worker/worker-bootstrap.js
+	@mkdir -p $(basename $(dir $@))
+	$(QJSC) \
+		-o $@ \
+		-n "worker-bootstrap.js" \
+		-p tjs__ \
+		src/js/worker/worker-bootstrap.js
+
+core: src/bundles/c/core/polyfills.c src/bundles/c/core/core.c src/bundles/c/core/run-main.c src/bundles/c/core/worker-bootstrap.c
 
 src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
 	@mkdir -p $(basename $(dir $@))
