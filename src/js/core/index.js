@@ -7,7 +7,6 @@ import { PosixSocket } from './posix-socket.js';
 import { addSignalListener, removeSignalListener } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
-import { bootstrapWorker } from './worker-bootstrap.js';
 
 
 // The "tjs" global.
@@ -203,7 +202,6 @@ if (core.posix_socket) {
 const kInternal = Symbol.for('tjs.internal');
 
 tjs[kInternal] = Object.create(null);
-tjs[kInternal]['bootstrapWorker'] = bootstrapWorker;
 tjs[kInternal]['core'] = core;
 tjs[kInternal]['pathModule'] = pathModule;
 
