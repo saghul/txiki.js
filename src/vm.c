@@ -38,15 +38,8 @@
 static inline size_t tjs__malloc_usable_size(const void *ptr) {
 #if defined(TJS__HAS_MIMALLOC)
     return mi_malloc_usable_size(ptr);
-#elif defined(__APPLE__)
-    return malloc_size(ptr);
-#elif defined(_WIN32)
-    return _msize(ptr);
-#elif defined(__linux__) || defined (__CYGWIN__)
-    return malloc_usable_size((void*) ptr);
 #else
-    // Unknown.
-    return 0;
+    return js__malloc_usable_size(ptr):
 #endif
 }
 
