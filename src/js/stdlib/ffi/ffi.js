@@ -1,7 +1,4 @@
-/* global tjs */
-
-const { core } = tjs[Symbol.for('tjs.internal')];
-
+const core = globalThis[Symbol.for('tjs.internal.core')];
 const ffiInt = core.ffi_load_native();
 
 import buildCParser from './ffiutils.js';

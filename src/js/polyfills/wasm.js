@@ -1,4 +1,5 @@
-const { wasm } = globalThis.__bootstrap;
+const core = globalThis[Symbol.for('tjs.internal.core')];
+const wasm = core.wasm;
 
 const kWasmModule = Symbol('kWasmModule');
 const kWasmModuleRef = Symbol('kWasmModuleRef');

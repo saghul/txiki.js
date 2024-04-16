@@ -1,4 +1,4 @@
-const core = globalThis.__bootstrap;
+const core = globalThis[Symbol.for('tjs.internal.core')];
 
 const timers = new Map();
 let nextId = 1;

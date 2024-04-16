@@ -20,9 +20,6 @@ import 'abortcontroller-polyfill/dist/abortcontroller-polyfill-only';
 import 'whatwg-fetch';
 import './form-data.js';
 
-import 'web-streams-polyfill/polyfill';
-import 'compression-streams-polyfill';
-
 import './console.js';
 import './crypto.js';
 import './performance.js';
@@ -30,3 +27,6 @@ import './storage.js';
 import './wasm.js';
 import './worker.js';
 import './ws.js';
+
+import 'web-streams-polyfill/polyfill';
+import 'compression-streams-polyfill';

@@ -1,4 +1,4 @@
-const core = globalThis.__bootstrap;
+const core = globalThis[Symbol.for('tjs.internal.core')];
 const posixSocket = core.posix_socket;
 
 export let PosixSocket;

@@ -22,7 +22,7 @@
 /* eslint-disable */
 
 // Adapted for txiki.js
-const core = globalThis.__bootstrap;
+const core = globalThis[Symbol.for('tjs.internal.core')];
 
 // Primordials
 

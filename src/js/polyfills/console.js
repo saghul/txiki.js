@@ -324,4 +324,5 @@ Object.defineProperty(window, 'console', {
     })
 });
 
-globalThis.__bootstrap.createConsole = createConsole;
+
+globalThis[Symbol.for('tjs.internal.core')].createConsole = createConsole;
