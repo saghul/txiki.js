@@ -1,6 +1,4 @@
-/* global tjs */
-
-const { core } = tjs[Symbol.for('tjs.internal')];
+const core = globalThis[Symbol.for('tjs.internal.core')];
 const sqlite3 = core._sqlite3;
 
 const kSqlite3Handle = Symbol('kSqlite3Handle');

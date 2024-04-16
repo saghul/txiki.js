@@ -309,34 +309,30 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     /* start bootstrap */
     JSValue global_obj = JS_GetGlobalObject(qrt->ctx);
-    JSAtom bootstrap_ns_atom = JS_NewAtom(qrt->ctx, "__bootstrap");
-    JSValue bootstrap_ns = JS_NewObjectProto(qrt->ctx, JS_NULL);
+    JSValue core_sym = JS_NewSymbol(qrt->ctx, "tjs.internal.core", TRUE);
+    JSAtom core_atom = JS_ValueToAtom(qrt->ctx, core_sym);
+    JSValue core = JS_NewObjectProto(qrt->ctx, JS_NULL);
 
-    CHECK_EQ(JS_SetProperty(qrt->ctx, global_obj, bootstrap_ns_atom, JS_DupValue(qrt->ctx, bootstrap_ns)), 1);
-    CHECK_EQ(JS_SetPropertyStr(qrt->ctx, bootstrap_ns, "isWorker", JS_NewBool(qrt->ctx, is_worker)), 1);
+    CHECK_EQ(JS_DefinePropertyValue(qrt->ctx, global_obj, core_atom, core, JS_PROP_C_W_E), TRUE);
+    CHECK_EQ(JS_DefinePropertyValueStr(qrt->ctx, core, "isWorker", JS_NewBool(qrt->ctx, is_worker), JS_PROP_C_W_E), TRUE);
 
-    tjs__bootstrap_core(qrt->ctx, bootstrap_ns);
+    tjs__bootstrap_core(qrt->ctx, core);
 
     CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__polyfills, tjs__polyfills_size), 0);
     CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__core, tjs__core_size), 0);
 
     /* end bootstrap */
-    JS_DeleteProperty(qrt->ctx, global_obj, bootstrap_ns_atom, 0);
-    JS_FreeAtom(qrt->ctx, bootstrap_ns_atom);
-    JS_FreeValue(qrt->ctx, bootstrap_ns);
+    JS_FreeAtom(qrt->ctx, core_atom);
+    JS_FreeValue(qrt->ctx, core_sym);
+    JS_FreeValue(qrt->ctx, global_obj);
 
     /* WASM */
     qrt->wasm_ctx.env = m3_NewEnvironment();
-
-    JS_FreeValue(qrt->ctx, global_obj);
 
     return qrt;
 }
 
 void TJS_FreeRuntime(TJSRuntime *qrt) {
-    JS_FreeValue(qrt->ctx, JS_GetException(qrt->ctx));
-    JS_FreeContext(qrt->ctx);
-    qrt->ctx = NULL;
     JS_RunGC(qrt->rt);
 
     /* Close all core loop handles. */
@@ -382,8 +378,8 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         qrt->curl_ctx.curlm_h = NULL;
     }
 
+    JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
-    qrt->rt = NULL;
 
     tjs__free(qrt);
 }

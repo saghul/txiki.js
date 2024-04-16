@@ -1,4 +1,4 @@
-const core = globalThis.__bootstrap;
+const core = globalThis[Symbol.for('tjs.internal.core')];
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import { open, mkdir, mkstemp, rm } from './fs.js';
@@ -199,11 +199,7 @@ if (core.posix_socket) {
 }
 
 // Internal stuff needed by the runtime.
-const kInternal = Symbol.for('tjs.internal');
-
-tjs[kInternal] = Object.create(null);
-tjs[kInternal]['core'] = core;
-tjs[kInternal]['pathModule'] = pathModule;
+globalThis[Symbol.for('tjs.internal.modules.path')] = pathModule;
 
 // tjs global.
 Object.defineProperty(globalThis, 'tjs', {

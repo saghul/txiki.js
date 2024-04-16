@@ -85,7 +85,9 @@ static void tjs_timer_finalizer(JSRuntime *rt, JSValue val) {
     TJSTimer *th = JS_GetOpaque(val, tjs_timer_class_id);
     if (th) {
         clear_timer(th);
-        uv_close((uv_handle_t *) &th->handle, uv__timer_close);
+        /* The handle might have been closed by the loop destruction in TJS_FreeRuntime. */
+        if (!uv_is_closing((uv_handle_t *) &th->handle))
+            uv_close((uv_handle_t *) &th->handle, uv__timer_close);
     }
 }
 

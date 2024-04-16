@@ -1,7 +1,7 @@
+const core = globalThis[Symbol.for('tjs.internal.core')];
+
 import pathModule from './path.js';
 import { readableStreamForHandle, writableStreamForHandle } from './stream-utils.js';
-
-const core = globalThis.__bootstrap;
 
 const kReadable = Symbol('kReadable');
 const kWritable = Symbol('kWritable');

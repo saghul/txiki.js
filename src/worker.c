@@ -143,7 +143,9 @@ static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
     if (w) {
         for (int i = 0; i < WORKER_EVENT_MAX; i++)
             JS_FreeValueRT(rt, w->events[i]);
-        uv_close(&w->h.handle, uv__close_cb);
+        /* The handle might have been closed by the loop destruction in TJS_FreeRuntime. */
+        if (!uv_is_closing((uv_handle_t *) &w->h.handle))
+            uv_close(&w->h.handle, uv__close_cb);
     }
 }
 

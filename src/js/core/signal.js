@@ -1,4 +1,4 @@
-const core = globalThis.__bootstrap;
+const core = globalThis[Symbol.for('tjs.internal.core')];
 
 const data = Object.create(null);
 

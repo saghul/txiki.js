@@ -1,4 +1,5 @@
-const { Worker: _Worker } = globalThis.__bootstrap;
+const core = globalThis[Symbol.for('tjs.internal.core')];
+const _Worker = core.Worker;
 
 import { defineEventAttribute } from './event-target';
 

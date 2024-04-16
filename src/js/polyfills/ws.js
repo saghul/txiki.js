@@ -1,7 +1,7 @@
-const { WebSocket: WS } = globalThis.__bootstrap;
-
 import { defineEventAttribute } from './event-target.js';
 
+const core = globalThis[Symbol.for('tjs.internal.core')];
+const WS = core.WebSocket;
 const kWS = Symbol('kWS');
 const kWsBinaryType = Symbol('kWsBinaryType');
 const kWsProtocol = Symbol('kWsProtocol');
