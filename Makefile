@@ -22,6 +22,7 @@ $(QJSC): $(BUILD_DIR)
 src/bundles/js/core/polyfills.js: src/js/polyfills/*.js
 	$(ESBUILD) src/js/polyfills/index.js \
 		--bundle \
+		--metafile=$@.json \
 		--outfile=$@ \
 		--minify \
 		$(ESBUILD_PARAMS_COMMON)
@@ -37,6 +38,7 @@ src/bundles/c/core/polyfills.c: $(QJSC) src/bundles/js/core/polyfills.js
 src/bundles/js/core/core.js: src/js/core/*.js
 	$(ESBUILD) src/js/core/index.js \
 		--bundle \
+		--metafile=$@.json \
 		--outfile=$@ \
 		--minify \
 		$(ESBUILD_PARAMS_COMMON)
@@ -52,6 +54,7 @@ src/bundles/c/core/core.c: $(QJSC) src/bundles/js/core/core.js
 src/bundles/js/core/run-main.js: src/js/run-main/*.js
 	$(ESBUILD) src/js/run-main/index.js \
 		--bundle \
+		--metafile=$@.json \
 		--outfile=$@ \
 		--minify \
 		--external:tjs:* \
