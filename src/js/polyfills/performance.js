@@ -15,6 +15,8 @@ function mark(name) {
 
     entries.push(mark);
     marksIndex[name] = mark;
+
+    return mark;
 }
 
 function measure(name, startMark, endMark) {
@@ -51,6 +53,8 @@ function measure(name, startMark, endMark) {
     };
 
     entries.push(mark);
+
+    return mark;
 }
 
 function getEntriesByType(type) {
