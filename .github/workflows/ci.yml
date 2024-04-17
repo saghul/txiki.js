@@ -17,6 +17,26 @@ jobs:
       run: npm install
     - name: Run the linter
       run: npm run lint
+  codegen:
+    name: Codegen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: |
+          npm install
+          sudo apt update
+          sudo apt install -y libcurl4-openssl-dev
+      - name: Build it
+        run: |
+          make js
+      - name: Check if the git repository is clean
+        run: $(exit $(git status --porcelain --untracked-files=no | head -255 | wc -l)) || (echo "Dirty git tree"; git diff; exit 1)
   docs:
     name: Docs
     runs-on: ubuntu-latest
