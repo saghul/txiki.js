@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <uv.h>
 
+typedef struct TJSTimer TJSTimer;
 
 struct TJSRuntime {
     TJSRunOptions options;
@@ -54,6 +55,10 @@ struct TJSRuntime {
     struct {
         IM3Environment env;
     } wasm_ctx;
+    struct {
+        TJSTimer *timers;
+        int64_t next_timer;
+    } timers;
 };
 
 void tjs__mod_dns_init(JSContext *ctx, JSValue ns);
@@ -95,6 +100,8 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
 JSValue tjs__get_args(JSContext *ctx);
 
 int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len);
+
+void tjs__destroy_timers(TJSRuntime *qrt);
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);
