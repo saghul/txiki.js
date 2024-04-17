@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "mem.h"
 #include "private.h"
 #include "tjs.h"
 
@@ -29,51 +30,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef TJS__HAS_MIMALLOC
-#include <mimalloc.h>
-#endif
-
 #define TJS__DEFAULT_STACK_SIZE 1048576
-
-static inline size_t tjs__malloc_usable_size(const void *ptr) {
-#if defined(TJS__HAS_MIMALLOC)
-    return mi_malloc_usable_size(ptr);
-#else
-    return js__malloc_usable_size(ptr):
-#endif
-}
-
-static inline void *tjs__malloc(size_t size) {
-#ifdef TJS__HAS_MIMALLOC
-    return mi_malloc(size);
-#else
-    return malloc(size);
-#endif
-}
-
-static inline void *tjs__calloc(size_t count, size_t size) {
-#ifdef TJS__HAS_MIMALLOC
-    return mi_calloc(count, size);
-#else
-    return calloc(count, size);
-#endif
-}
-
-static inline void tjs__free(void *ptr) {
-#ifdef TJS__HAS_MIMALLOC
-    mi_free(ptr);
-#else
-    free(ptr);
-#endif
-}
-
-static inline void *tjs__realloc(void *ptr, size_t size) {
-#ifdef TJS__HAS_MIMALLOC
-    return mi_realloc(ptr, size);
-#else
-    return realloc(ptr, size);
-#endif
-}
 
 static void *tjs__mf_malloc(JSMallocState *s, size_t size) {
     void *ptr;
@@ -329,6 +286,10 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     /* WASM */
     qrt->wasm_ctx.env = m3_NewEnvironment();
 
+    /* Timers */
+    qrt->timers.timers = NULL;
+    qrt->timers.next_timer = 1;
+
     return qrt;
 }
 
@@ -343,6 +304,9 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     if (qrt->curl_ctx.curlm_h) {
         uv_close((uv_handle_t *) &qrt->curl_ctx.timer, NULL);
     }
+
+    /* Destroy all timers */
+    tjs__destroy_timers(qrt);
 
     /* Destroy WASM runtime. */
     m3_FreeEnvironment(qrt->wasm_ctx.env);

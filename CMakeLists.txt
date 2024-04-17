@@ -79,6 +79,7 @@ add_executable(tjs
     src/ffi.c
     src/fs.c
     src/fswatch.c
+    src/mem.c
     src/modules.c
     src/os.c
     src/process.c

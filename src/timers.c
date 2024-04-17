@@ -22,22 +22,34 @@
  * THE SOFTWARE.
  */
 
+#include "hash.h"
+#include "mem.h"
 #include "private.h"
 #include "utils.h"
 
+#define MAX_SAFE_INTEGER (((int64_t)1 << 53) - 1)
 
-typedef struct {
+struct TJSTimer {
     JSContext *ctx;
-    JSRuntime *rt;
+    int64_t id;
     uv_timer_t handle;
+    UT_hash_handle hh;
     int interval;
     JSValue func;
     int argc;
     JSValue argv[];
-} TJSTimer;
+};
 
-static void clear_timer(TJSTimer *th) {
+static void uv__timer_close(uv_handle_t *handle) {
+    TJSTimer *th = handle->data;
+    CHECK_NOT_NULL(th);
+    tjs__free(th);
+}
+
+static void destroy_timer(TJSTimer *th) {
     JSContext *ctx = th->ctx;
+    TJSRuntime *qrt = JS_GetContextOpaque(ctx);
+    CHECK_NOT_NULL(qrt);
 
     JS_FreeValue(ctx, th->func);
     th->func = JS_UNDEFINED;
@@ -47,6 +59,18 @@ static void clear_timer(TJSTimer *th) {
         th->argv[i] = JS_UNDEFINED;
     }
     th->argc = 0;
+
+    HASH_DEL(qrt->timers.timers, th);
+
+    uv_close((uv_handle_t *) &th->handle, uv__timer_close);
+}
+
+void tjs__destroy_timers(TJSRuntime *qrt) {
+    TJSTimer *th, *tmp;
+
+    HASH_ITER(hh, qrt->timers.timers, th, tmp) {
+        destroy_timer(th);
+    }
 }
 
 static void call_timer(TJSTimer *th) {
@@ -61,12 +85,6 @@ static void call_timer(TJSTimer *th) {
     JS_FreeValue(ctx, ret);
 }
 
-static void uv__timer_close(uv_handle_t *handle) {
-    TJSTimer *th = handle->data;
-    CHECK_NOT_NULL(th);
-    js_free_rt(th->rt, th);
-}
-
 static void uv__timer_cb(uv_timer_t *handle) {
     TJSTimer *th = handle->data;
     CHECK_NOT_NULL(th);
@@ -75,42 +93,18 @@ static void uv__timer_cb(uv_timer_t *handle) {
     tjs__execute_jobs(th->ctx);
 
     call_timer(th);
+
     if (!th->interval)
-        clear_timer(th);
+        destroy_timer(th);
 }
 
-static JSClassID tjs_timer_class_id;
+static JSValue tjs_setTimeout(JSContext *ctx, JSValue this_val, int argc, JSValue *argv, int magic) {
+    TJSRuntime *qrt = JS_GetContextOpaque(ctx);
+    CHECK_NOT_NULL(qrt);
 
-static void tjs_timer_finalizer(JSRuntime *rt, JSValue val) {
-    TJSTimer *th = JS_GetOpaque(val, tjs_timer_class_id);
-    if (th) {
-        clear_timer(th);
-        /* The handle might have been closed by the loop destruction in TJS_FreeRuntime. */
-        if (!uv_is_closing((uv_handle_t *) &th->handle))
-            uv_close((uv_handle_t *) &th->handle, uv__timer_close);
-    }
-}
-
-static void tjs_timer_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
-    TJSTimer *th = JS_GetOpaque(val, tjs_timer_class_id);
-    if (th) {
-        JS_MarkValue(rt, th->func, mark_func);
-        for (int i = 0; i < th->argc; i++)
-            JS_MarkValue(rt, th->argv[i], mark_func);
-    }
-}
-
-static JSClassDef tjs_timer_class = {
-    "Timer",
-    .finalizer = tjs_timer_finalizer,
-    .gc_mark = tjs_timer_mark,
-};
-
-static JSValue tjs_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic) {
     int64_t delay;
-    JSValueConst func;
+    JSValue func;
     TJSTimer *th;
-    JSValue obj;
 
     func = argv[0];
     if (!JS_IsFunction(ctx, func))
@@ -118,28 +112,24 @@ static JSValue tjs_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
 
     if (argc <= 1) {
         delay = 0;
-    } else {
-        if (JS_ToInt64(ctx, &delay, argv[1]))
-            return JS_EXCEPTION;
+    } else if (JS_ToInt64(ctx, &delay, argv[1])) {
+        return JS_EXCEPTION;
     }
-
-    obj = JS_NewObjectClass(ctx, tjs_timer_class_id);
-    if (JS_IsException(obj))
-        return obj;
 
     int nargs = argc - 2;
     if (nargs < 0) {
         nargs = 0;
     }
 
-    th = js_mallocz(ctx, sizeof(*th) + nargs * sizeof(JSValue));
-    if (!th) {
-        JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
-    }
+    th = tjs__malloc(sizeof(*th) + nargs * sizeof(JSValue));
+    if (!th)
+        return JS_ThrowOutOfMemory(ctx);
+
+    th->id = qrt->timers.next_timer++;
+    if (qrt->timers.next_timer > MAX_SAFE_INTEGER)
+        qrt->timers.next_timer = 1;
 
     th->ctx = ctx;
-    th->rt = JS_GetRuntime(ctx);
     CHECK_EQ(uv_timer_init(tjs_get_loop(ctx), &th->handle), 0);
     th->handle.data = th;
     th->interval = magic;
@@ -150,17 +140,26 @@ static JSValue tjs_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, J
 
     CHECK_EQ(uv_timer_start(&th->handle, uv__timer_cb, delay, magic ? delay : 0 /* repeat */), 0);
 
-    JS_SetOpaque(obj, th);
-    return obj;
+    HASH_ADD_INT64(qrt->timers.timers, id, th);
+
+    return JS_NewInt64(ctx, th->id);
 }
 
-static JSValue tjs_clearTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    TJSTimer *th = JS_GetOpaque2(ctx, argv[0], tjs_timer_class_id);
-    if (!th)
+static JSValue tjs_clearTimeout(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSRuntime *qrt = JS_GetContextOpaque(ctx);
+    CHECK_NOT_NULL(qrt);
+    int64_t timer_id;
+    TJSTimer *th = NULL;
+
+    if (JS_ToInt64(ctx, &timer_id, argv[0]))
         return JS_EXCEPTION;
 
-    CHECK_EQ(uv_timer_stop(&th->handle), 0);
-    clear_timer(th);
+    HASH_FIND_INT64(qrt->timers.timers, &timer_id, th);
+
+    if (th != NULL) {
+        CHECK_EQ(uv_timer_stop(&th->handle), 0);
+        destroy_timer(th);
+    }
 
     return JS_UNDEFINED;
 }
@@ -171,9 +170,5 @@ static const JSCFunctionListEntry tjs_timer_funcs[] = { JS_CFUNC_MAGIC_DEF("setT
                                                         TJS_CFUNC_DEF("clearInterval", 1, tjs_clearTimeout) };
 
 void tjs__mod_timers_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
-
-    JS_NewClassID(rt, &tjs_timer_class_id);
-    JS_NewClass(rt, tjs_timer_class_id, &tjs_timer_class);
     JS_SetPropertyFunctionList(ctx, ns, tjs_timer_funcs, countof(tjs_timer_funcs));
 }
