@@ -10,7 +10,7 @@ function timerCb() {
         performance.mark('end');
 
         console.log(performance.measure('full', 'start', 'end'));
-        console.log(performance.measure('just-timers', 'end-start', 'end'));
+        console.log(performance.measure('timer-scheduling', 'start', 'end-timer-scheduling'));
     }
 }
 
@@ -24,4 +24,4 @@ for (let i = 0; i < NUM_TIMERS; i++) {
     setTimeout(timerCb, timeout);
 }
 
-performance.mark('end-start');
+performance.mark('end-timer-scheduling');
