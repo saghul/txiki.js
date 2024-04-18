@@ -98,7 +98,7 @@ function _run(g) {
     /* current X position of the cursor in the terminal */
     var term_cursor_x = 0;
 
-    var { evalScript } = globalThis[Symbol.for('tjs.internal.core')];
+    var { evalScript } = import.meta.core;
 
     var encoder = new TextEncoder();
 

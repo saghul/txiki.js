@@ -325,4 +325,4 @@ Object.defineProperty(window, 'console', {
 });
 
 
-globalThis[Symbol.for('tjs.internal.core')].createConsole = createConsole;
+import.meta.core.createConsole = createConsole;

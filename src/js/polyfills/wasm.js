@@ -1,4 +1,4 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
+const core = import.meta.core;
 const wasm = core.wasm;
 
 const kWasmModule = Symbol('kWasmModule');

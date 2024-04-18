@@ -1,4 +1,4 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
+const core = import.meta.core;
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import { open, mkdir, mkstemp, rm } from './fs.js';

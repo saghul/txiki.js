@@ -1,4 +1,4 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
+const core = import.meta.core;
 
 import pathModule from './path.js';
 import { readableStreamForHandle, writableStreamForHandle } from './stream-utils.js';

@@ -218,6 +218,16 @@ TJSRuntime *TJS_NewRuntimeWorker(void) {
     return TJS_NewRuntimeInternal(true, &options);
 }
 
+void tjs_provide_internals(JSContext *ctx, JSValue func){
+    TJSRuntime *qrt = JS_GetContextOpaque(ctx);
+
+    CHECK_EQ(JS_VALUE_GET_TAG(func), JS_TAG_MODULE);
+    JSModuleDef* m = JS_VALUE_GET_PTR(func);
+    JSValue meta_obj = JS_GetImportMeta(ctx, m);
+    JS_DefinePropertyValueStr(ctx, meta_obj, "core", JS_DupValue(ctx, qrt->core), JS_PROP_ENUMERABLE);
+    JS_FreeValue(ctx, meta_obj);
+}
+
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     TJSRuntime *qrt = tjs__calloc(1, sizeof(*qrt));
 
@@ -265,23 +275,16 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JS_SetHostPromiseRejectionTracker(qrt->rt, tjs__promise_rejection_tracker, NULL);
 
     /* start bootstrap */
-    JSValue global_obj = JS_GetGlobalObject(qrt->ctx);
-    JSValue core_sym = JS_NewSymbol(qrt->ctx, "tjs.internal.core", TRUE);
-    JSAtom core_atom = JS_ValueToAtom(qrt->ctx, core_sym);
-    JSValue core = JS_NewObjectProto(qrt->ctx, JS_NULL);
+    qrt->core = JS_NewObjectProto(qrt->ctx, JS_NULL);
 
-    CHECK_EQ(JS_DefinePropertyValue(qrt->ctx, global_obj, core_atom, core, JS_PROP_C_W_E), TRUE);
-    CHECK_EQ(JS_DefinePropertyValueStr(qrt->ctx, core, "isWorker", JS_NewBool(qrt->ctx, is_worker), JS_PROP_C_W_E), TRUE);
+    CHECK_EQ(JS_DefinePropertyValueStr(qrt->ctx, qrt->core, "isWorker", JS_NewBool(qrt->ctx, is_worker), JS_PROP_C_W_E), TRUE);
 
-    tjs__bootstrap_core(qrt->ctx, core);
+    tjs__bootstrap_core(qrt->ctx, qrt->core);
 
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__polyfills, tjs__polyfills_size), 0);
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__core, tjs__core_size), 0);
+    CHECK_EQ(tjs__eval_bytecode_internal(qrt->ctx, tjs__polyfills, tjs__polyfills_size), 0);
+    CHECK_EQ(tjs__eval_bytecode_internal(qrt->ctx, tjs__core, tjs__core_size), 0);
 
     /* end bootstrap */
-    JS_FreeAtom(qrt->ctx, core_atom);
-    JS_FreeValue(qrt->ctx, core_sym);
-    JS_FreeValue(qrt->ctx, global_obj);
 
     /* WASM */
     qrt->wasm_ctx.env = m3_NewEnvironment();
@@ -342,6 +345,7 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         qrt->curl_ctx.curlm_h = NULL;
     }
 
+	JS_FreeValue(qrt->ctx, qrt->core);
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
 
@@ -428,7 +432,7 @@ int TJS_Run(TJSRuntime *qrt) {
         uv_unref((uv_handle_t *) &qrt->stop);
 
         /* If we are running the main interpreter, run the entrypoint. */
-        ret = tjs__eval_bytecode(qrt->ctx, tjs__run_main, tjs__run_main_size);
+        ret = tjs__eval_bytecode_internal(qrt->ctx, tjs__run_main, tjs__run_main_size);
     }
 
     if (ret != 0)
