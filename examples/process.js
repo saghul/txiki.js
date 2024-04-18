@@ -27,7 +27,7 @@ logStatus(status);
 status = await proc.wait();
 logStatus(status);
 
-args = [exe, '-e', 'console.log(JSON.stringify(tjs.environ))'];
+args = [exe, '-e', 'console.log(JSON.stringify(tjs.env))'];
 proc = tjs.spawn(args, { env: { FOO: 'BAR', SPAM: 'EGGS'} });
 console.log(`proc PID: ${proc.pid}`);
 status = await proc.wait();

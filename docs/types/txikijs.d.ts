@@ -132,40 +132,20 @@ declare global {
         
         /**
         * Object containing environment variables.
+        * Setting and deleting properties on this object causes
+        * environment variables to be set / deleted.
         */
         type Environment = { [index: string]: string };
         
         /**
         * System environment variables.
         */
-        const environ: Environment;
+        const env: Environment;
         
         /**
         * Returns the current system hostname.
         */
         function gethostname(): string;
-        
-        /**
-        * Gets the environment variable of the given name.
-        *
-        * @param name Name of the environment variable to get.
-        */
-        function getenv(name: string): string;
-        
-        /**
-        * Sets the given environment variable to the given value.
-        *
-        * @param name Name of the environment variable to be set.
-        * @param value Value to be set to.
-        */
-        function setenv(name: string, value: string): void;
-        
-        /**
-        * Unsets the given environment variable.
-        *
-        * @param name Name of the environment variable to unset.
-        */
-        function unsetenv(name: string): void;
         
         /**
         * String representation of the current platform.

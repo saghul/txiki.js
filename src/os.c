@@ -105,6 +105,25 @@ static JSValue tjs_environ(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return obj;
 }
 
+static JSValue tjs_envKeys(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    uv_env_item_t *env;
+    int envcount, r;
+
+    r = uv_os_environ(&env, &envcount);
+    if (r != 0)
+        return tjs_throw_errno(ctx, r);
+
+    JSValue obj = JS_NewArray(ctx);
+
+    for (int i = 0; i < envcount; i++) {
+        JS_SetPropertyUint32(ctx, obj, i, JS_NewString(ctx, env[i].name));
+    }
+
+    uv_os_free_environ(env, envcount);
+
+    return obj;
+}
+
 static JSValue tjs_getenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     if (!JS_IsString(argv[0]))
         return JS_ThrowTypeError(ctx, "expected a string");
@@ -475,9 +494,11 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("uname", 0, tjs_uname),
     TJS_CFUNC_DEF("uptime", 0, tjs_uptime),
     TJS_CFUNC_DEF("guessHandle", 1, tjs_guess_handle),
-    TJS_CFUNC_DEF("getenv", 0, tjs_getenv),
-    TJS_CFUNC_DEF("setenv", 2, tjs_setenv),
-    TJS_CFUNC_DEF("unsetenv", 1, tjs_unsetenv),
+    TJS_CFUNC_DEF("_getenv", 0, tjs_getenv),
+    TJS_CFUNC_DEF("_setenv", 2, tjs_setenv),
+    TJS_CFUNC_DEF("_unsetenv", 1, tjs_unsetenv),
+    TJS_CFUNC_DEF("_envKeys", 0, tjs_envKeys),
+    TJS_CFUNC_DEF("_environ", 0, tjs_environ),
     TJS_CFUNC_DEF("chdir", 1, tjs_chdir),
     TJS_CFUNC_DEF("cwd", 0, tjs_cwd),
     TJS_CFUNC_DEF("homedir", 0, tjs_homedir),
@@ -487,7 +508,6 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("loadavg", 0, tjs_loadavg),
     TJS_CFUNC_DEF("networkInterfaces", 0, tjs_network_interfaces),
     TJS_CFUNC_DEF("gethostname", 0, tjs_gethostname),
-    TJS_CFUNC_DEF("environ", 0, tjs_environ),
     TJS_CFUNC_DEF("getPid", 0, tjs_getpid),
     TJS_CFUNC_DEF("getPpid", 0, tjs_getppid),
     TJS_CFUNC_DEF("userInfo", 0, tjs_userInfo),
