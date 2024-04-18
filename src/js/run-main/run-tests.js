@@ -2,7 +2,7 @@
 
 const pathModule = globalThis[Symbol.for('tjs.internal.modules.path')];
 
-const verbose = Boolean(tjs.environ.VERBOSE_TESTS);
+const verbose = Boolean(tjs.env.VERBOSE_TESTS);
 const TIMEOUT = 10 * 1000;
 
 const colors = {
@@ -118,7 +118,7 @@ export async function runTests(d) {
     }
 
     let failed = 0;
-    const testConcurrency = tjs.environ.TJS_TEST_CONCURRENCY ?? tjs.availableParallelism();
+    const testConcurrency = tjs.env.TJS_TEST_CONCURRENCY ?? tjs.availableParallelism();
     const running = new Set();
 
     // eslint-disable-next-line no-constant-condition

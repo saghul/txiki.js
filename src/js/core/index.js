@@ -1,6 +1,7 @@
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
+import env from './env.js';
 import { open, mkdir, mkstemp, rm } from './fs.js';
 import pathModule from './path.js';
 import { PosixSocket } from './posix-socket.js';
@@ -29,7 +30,6 @@ const noExport = [
     'XMLHttpRequest',
     'clearInterval',
     'clearTimeout',
-    'environ',
     'evalFile',
     'evalScript',
     'ffi_load_native',
@@ -90,13 +90,6 @@ Object.defineProperty(tjs, 'prompt', {
 });
 
 // Getters.
-Object.defineProperty(tjs, 'environ', {
-    enumerable: true,
-    configurable: false,
-    get() {
-        return core.environ();
-    }
-});
 Object.defineProperty(tjs, 'pid', {
     enumerable: true,
     configurable: false,
@@ -110,6 +103,14 @@ Object.defineProperty(tjs, 'ppid', {
     get() {
         return core.getPpid();
     }
+});
+
+// Environment.
+Object.defineProperty(tjs, 'env', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: env
 });
 
 // FS.

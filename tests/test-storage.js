@@ -2,7 +2,7 @@ import assert from 'tjs:assert';
 import path from 'tjs:path';
 
 
-if (tjs.environ.TJS_HOME) {
+if (tjs.env.TJS_HOME) {
     // This is the second test.
     assert.eq(window.localStorage.getItem('foo'), '123');
 
