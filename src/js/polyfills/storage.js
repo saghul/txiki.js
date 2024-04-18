@@ -1,6 +1,6 @@
 /* global tjs */
 
-const core = globalThis[Symbol.for('tjs.internal.core')];
+const core = import.meta.core;
 const sqlite3 = core._sqlite3;
 
 const kStorageMap = Symbol('kStorageMap');

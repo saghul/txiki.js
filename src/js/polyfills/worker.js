@@ -1,4 +1,4 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
+const core = import.meta.core;
 const _Worker = core.Worker;
 
 import { defineEventAttribute } from './event-target';

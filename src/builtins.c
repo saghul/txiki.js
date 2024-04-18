@@ -70,6 +70,8 @@ JSModuleDef *tjs__load_builtin(JSContext *ctx, const char *name) {
     CHECK_EQ(JS_IsException(obj), 0);
     CHECK_EQ(JS_VALUE_GET_TAG(obj), JS_TAG_MODULE);
 
+    tjs_provide_internals(ctx, obj);
+
     JSModuleDef *m = JS_VALUE_GET_PTR(obj);
     JS_FreeValue(ctx, obj);
 

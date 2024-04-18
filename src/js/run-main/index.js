@@ -7,7 +7,7 @@ import { evalStdin } from './eval-stdin.js';
 import { runRepl } from './repl.js';
 import { runTests } from './run-tests.js';
 
-const core = globalThis[Symbol.for('tjs.internal.core')];
+const core = import.meta.core;
 
 const exeName = path.basename(tjs.args[0]);
 const help = `Usage: ${exeName} [options] [subcommand]

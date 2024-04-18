@@ -59,6 +59,7 @@ struct TJSRuntime {
         TJSTimer *timers;
         int64_t next_timer;
     } timers;
+	JSValue core;
 };
 
 void tjs__mod_dns_init(JSContext *ctx, JSValue ns);
@@ -99,7 +100,9 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use
 
 JSValue tjs__get_args(JSContext *ctx);
 
+JSValue tjs__load_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len);
 int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len);
+int tjs__eval_bytecode_internal(JSContext *ctx, const uint8_t *buf, size_t buf_len);
 
 void tjs__destroy_timers(TJSRuntime *qrt);
 
@@ -107,5 +110,6 @@ uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options);
 JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main);
+void tjs_provide_internals(JSContext *ctx, JSValue func);
 
 #endif

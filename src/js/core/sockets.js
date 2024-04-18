@@ -2,7 +2,7 @@
 
 import { readableStreamForHandle, writableStreamForHandle } from './stream-utils.js';
 
-const core = globalThis[Symbol.for('tjs.internal.core')];
+const core = import.meta.core;
 
 
 export async function connect(transport, host, port, options = {}) {

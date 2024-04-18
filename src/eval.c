@@ -24,21 +24,47 @@
 
 #include "private.h"
 
-
-int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
+JSValue tjs__bytecode_load(JSContext *ctx, const uint8_t *buf, size_t buf_len){
     JSValue obj = JS_ReadObject(ctx, buf, buf_len, JS_READ_OBJ_BYTECODE);
 
     if (JS_IsException(obj))
-        goto error;
+        return obj;
 
     if (JS_VALUE_GET_TAG(obj) == JS_TAG_MODULE) {
         if (JS_ResolveModule(ctx, obj) < 0) {
             JS_FreeValue(ctx, obj);
-            goto error;
+            return JS_EXCEPTION;
         }
 
         js_module_set_import_meta(ctx, obj, FALSE, FALSE);
     }
+    return obj;
+}
+
+int tjs__eval_bytecode_internal(JSContext* ctx, const uint8_t *buf, size_t buf_len) {
+    JSValue obj = tjs__bytecode_load(ctx, buf, buf_len);
+    if (JS_IsException(obj))
+        goto error;
+
+    tjs_provide_internals(ctx, obj);
+
+    JSValue val = JS_EvalFunction(ctx, obj);
+    if (JS_IsException(val))
+        goto error;
+
+    JS_FreeValue(ctx, val);
+
+    return 0;
+
+error:
+    tjs_dump_error(ctx);
+    return -1;
+}
+
+int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
+    JSValue obj = tjs__bytecode_load(ctx, buf, buf_len);
+    if (JS_IsException(obj))
+        goto error;
 
     JSValue val = JS_EvalFunction(ctx, obj);
     if (JS_IsException(val))
