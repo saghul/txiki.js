@@ -1058,6 +1058,25 @@ declare global {
         /** format js values to be well readable */
         inspect?: (args: any[]) => string,
     }): typeof console;
+
+    /**
+     * format any js value to be well readable
+     * @returns resulting string
+     */
+    function inspect(value: any, options?: { depth?: number, colors?: boolean, showHidden?: boolean }): string;
+
+    /**
+     * print format string and insert given values, see https://console.spec.whatwg.org/#formatter
+     * leftover values are appended to the end
+     * @returns resulting string
+     */
+    function format(format: string, ...args: any[]): string;
+
+    /**
+     * format given values to a well readable string 
+     * @returns resulting string
+     */
+    function format(...values: any[]): string;
 }
 
 export {};

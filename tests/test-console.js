@@ -47,6 +47,24 @@ const tests = [
 	// Test console.clear() effect on group
 	{ code: 'console.group("Group 1");console.log("Hello from Group 1!");console.clear();console.log("Hello from Group 0!");', resultStdout: 'Group 1\n  Hello from Group 1!\nHello from Group 0!\n' },
 
+	// Test some symbol usages
+	{ code: 'console.log({[Symbol(123)]: "123"})', resultStdout: `{ [Symbol(123)]: '123' }\n` },
+	{ code: 'console.log({asd: "123"})', resultStdout: `{ asd: '123' }\n` },
+	{ code: 'console.log({"1234": "123"})', resultStdout: `{ '1234': '123' }\n` },
+
+	// Test hidden properties
+	{ 
+		code: 'const obj = {};Object.defineProperty(obj, "123", {value: 123, enumerable: false});console.log(obj)', 
+		resultStdout: `{}\n`
+	},
+	{ 
+		code: 'const obj = {};Object.defineProperty(obj, "123", {value: 123, enumerable: true});console.log(obj)', 
+		resultStdout: `{ '123': 123 }\n`
+	},
+	{ 
+		code: 'const obj = {};Object.defineProperty(obj, Symbol(123), {value: 123, enumerable: false});console.log(obj)', 
+		resultStdout: `{}\n`
+	},
 
 	// Tests took from web platform tests:
 	{ code: 'console.count();console.count(undefined);console.count("default");console.count({toString() {return "default"}});', resultStdout: 'default: 1\ndefault: 2\ndefault: 3\ndefault: 4\n' },

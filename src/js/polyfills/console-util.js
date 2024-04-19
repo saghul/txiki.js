@@ -129,10 +129,7 @@ export function inspect(obj, opts) {
         ctx.colors = arguments[3];
     }
 
-    if (typeof opts === 'boolean') {
-    // legacy...
-        ctx.showHidden = opts;
-    } else if (opts) {
+    if (opts) {
     // got an "options" object
         extend(ctx, opts);
     }
@@ -205,38 +202,28 @@ function stylizeNoColor(str) {
     return str;
 }
 
-
-function arrayToHash(array) {
-    var hash = {};
-
-    array.forEach(function(val) {
-        hash[val] = true;
-    });
-
-    return hash;
-}
-
-
 function formatValue(ctx, value, recurseTimes) {
     // Primitive types cannot have properties
-    var primitive = formatPrimitive(ctx, value);
+    const primitive = formatPrimitive(ctx, value);
 
     if (primitive) {
         return primitive;
     }
 
     // Look up the keys of the object.
-    var keys = Object.keys(value);
-    var visibleKeys = arrayToHash(keys);
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const descriptorsArr = Reflect.ownKeys(descriptors).map(k=>([ k, descriptors[k] ]));
+    let keys = descriptorsArr.filter(([ _v, desc ])=>desc.enumerable).map(([ v, _desc ])=>v);
+    const visibleKeys = new Set(keys);
 
     if (ctx.showHidden) {
-        keys = Object.getOwnPropertyNames(value);
+        keys = descriptorsArr.map(([ v, _desc ])=>v);
     }
 
     // Some type of object without properties can be shortcutted.
     if (keys.length === 0) {
         if (typeof value === 'function') {
-            var name = value.name ? ': ' + value.name : '';
+            const name = value.name ? ': ' + value.name : '';
 
             return ctx.stylize('[Function' + name + ']', 'special');
         }
@@ -373,6 +360,23 @@ function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
     return output;
 }
 
+function formatKey(ctx, key, visible) {
+    let str = visible ? '' : '[';
+
+    if (typeof key === 'symbol') {
+        str += ctx.stylize('[' + formatValue(ctx, key, null) + ']', 'special');
+    } else if (key.match(/^([a-zA-Z_][a-zA-Z_0-9]*)$/)) {
+        str += ctx.stylize(key, 'name');
+    } else {
+        str += ctx.stylize('\'' + JSON.stringify(key).slice(1,-1).replace(/\\"/g, '"') + '\'', 'string');
+    }
+
+    if (!visible) {
+        str += ']';
+    }
+
+    return str;
+}
 
 function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
     var name, str, desc;
@@ -389,10 +393,6 @@ function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
         if (desc.set) {
             str = ctx.stylize('[Setter]', 'special');
         }
-    }
-
-    if (!Object.prototype.hasOwnProperty.call(visibleKeys, key)) {
-        name = '[' + key + ']';
     }
 
     if (!str) {
@@ -420,21 +420,11 @@ function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
     }
 
     if (name === void 0) {
-        if (array && key.match(/^\d+$/)) {
+        if (array && typeof key === 'string' && key.match(/^\d+$/)) {
             return str;
         }
 
-        name = JSON.stringify('' + key);
-
-        if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
-            name = name.slice(1, -1);
-            name = ctx.stylize(name, 'name');
-        } else {
-            name = name.replace(/'/g, '\\\'')
-                .replace(/\\"/g, '"')
-                .replace(/(^"|"$)/g, '\'');
-            name = ctx.stylize(name, 'string');
-        }
+        name = formatKey(ctx, key, visibleKeys.has(key));
     }
 
     return name + ': ' + str;
@@ -449,10 +439,10 @@ function reduceToSingleString(output, base, braces) {
 
     if (length > 60) {
         return braces[0] +
-           (base === '' ? '' : base + '\n ') +
+           (base === '' ? '\n' : base + '\n ') +
            ' ' +
            output.join(',\n  ') +
-           ' ' +
+           '\n' +
            braces[1];
     }
 

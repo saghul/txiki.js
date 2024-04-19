@@ -324,5 +324,6 @@ Object.defineProperty(window, 'console', {
     })
 });
 
-
 globalThis[Symbol.for('tjs.internal.core')].createConsole = createConsole;
+globalThis[Symbol.for('tjs.internal.core')].inspect = utilInspect;
+globalThis[Symbol.for('tjs.internal.core')].format = utilFormat;
