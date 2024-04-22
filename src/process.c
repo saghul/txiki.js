@@ -75,7 +75,7 @@ static void tjs_process_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static void tjs_process_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+static void tjs_process_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     TJSProcess *p = JS_GetOpaque(val, tjs_process_class_id);
     if (p) {
         TJS_MarkPromise(rt, &p->status.result, mark_func);
@@ -91,11 +91,11 @@ static JSClassDef tjs_process_class = {
     .gc_mark = tjs_process_mark,
 };
 
-static TJSProcess *tjs_process_get(JSContext *ctx, JSValueConst obj) {
+static TJSProcess *tjs_process_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_process_class_id);
 }
 
-static JSValue tjs_process_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_process_kill(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSProcess *p = tjs_process_get(ctx, this_val);
     if (!p)
         return JS_EXCEPTION;
@@ -117,7 +117,7 @@ static JSValue tjs_process_kill(JSContext *ctx, JSValueConst this_val, int argc,
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_process_wait(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_process_wait(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSProcess *p = tjs_process_get(ctx, this_val);
     if (!p)
         return JS_EXCEPTION;
@@ -137,14 +137,14 @@ static JSValue tjs_process_wait(JSContext *ctx, JSValueConst this_val, int argc,
     }
 }
 
-static JSValue tjs_process_pid_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_process_pid_get(JSContext *ctx, JSValue this_val) {
     TJSProcess *p = tjs_process_get(ctx, this_val);
     if (!p)
         return JS_EXCEPTION;
     return JS_NewInt32(ctx, uv_process_get_pid(&p->process));
 }
 
-static JSValue tjs_process_stdio_get(JSContext *ctx, JSValueConst this_val, int magic) {
+static JSValue tjs_process_stdio_get(JSContext *ctx, JSValue this_val, int magic) {
     TJSProcess *p = tjs_process_get(ctx, this_val);
     if (!p)
         return JS_EXCEPTION;
@@ -167,7 +167,7 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
             p->status.term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(p->status.term_signal));
         JS_DefinePropertyValueStr(ctx, arg, "term_signal", term_signal, JS_PROP_C_W_E);
 
-        TJS_SettlePromise(ctx, &p->status.result, false, 1, (JSValueConst *) &arg);
+        TJS_SettlePromise(ctx, &p->status.result, false, 1, &arg);
         TJS_ClearPromise(ctx, &p->status.result);
     }
 
@@ -177,7 +177,7 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
     maybe_close(p);
 }
 
-static JSValue tjs_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JSValue ret;
 
     JSValue obj = JS_NewObjectClass(ctx, tjs_process_class_id);
@@ -471,7 +471,7 @@ cleanup:
     return ret;
 }
 
-static JSValue tjs_exec(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_exec(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JSValue ret;
 
     char **args = NULL;
@@ -533,7 +533,7 @@ fail:
     return ret;
 }
 
-static JSValue tjs_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_kill(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     int32_t pid;
     if (JS_IsUndefined(argv[0]) || JS_ToInt32(ctx, &pid, argv[0]))
         return JS_ThrowTypeError(ctx, "expected an integer");

@@ -43,14 +43,14 @@ JSValue tjs_new_error(JSContext *ctx, int err) {
     return obj;
 }
 
-static JSValue tjs_error_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
+static JSValue tjs_error_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
     int err;
     if (JS_ToInt32(ctx, &err, argv[0]))
         return JS_EXCEPTION;
     return tjs_new_error(ctx, err);
 }
 
-static JSValue tjs_error_strerror(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_error_strerror(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     int err;
     if (JS_ToInt32(ctx, &err, argv[0]))
         return JS_EXCEPTION;

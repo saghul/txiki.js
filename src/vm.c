@@ -137,8 +137,8 @@ JSValue tjs__get_args(JSContext *ctx) {
 }
 
 static void tjs__promise_rejection_tracker(JSContext *ctx,
-                                           JSValueConst promise,
-                                           JSValueConst reason,
+                                           JSValue promise,
+                                           JSValue reason,
                                            BOOL is_handled,
                                            void *opaque) {
     if (!is_handled) {
@@ -148,7 +148,7 @@ static void tjs__promise_rejection_tracker(JSContext *ctx,
         CHECK_EQ(JS_IsUndefined(event_ctor), 0);
 
         JSValue event_name = JS_NewString(ctx, "unhandledrejection");
-        JSValueConst args[3];
+        JSValue args[3];
         args[0] = event_name;
         args[1] = promise;
         args[2] = reason;

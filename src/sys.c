@@ -30,12 +30,12 @@
 #include <uv.h>
 
 
-static JSValue js_std_gc(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_std_gc(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JS_RunGC(JS_GetRuntime(ctx));
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_evalFile(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_evalFile(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     const char *filename;
     size_t len;
     JSValue ret;
@@ -47,7 +47,7 @@ static JSValue tjs_evalFile(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return ret;
 }
 
-static JSValue tjs_evalScript(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_evalScript(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     const char *str;
     size_t len;
     JSValue ret;
@@ -59,7 +59,7 @@ static JSValue tjs_evalScript(JSContext *ctx, JSValueConst this_val, int argc, J
     return ret;
 }
 
-static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_exepath(JSContext *ctx, JSValue this_val) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -87,11 +87,11 @@ static JSValue tjs_exepath(JSContext *ctx, JSValueConst this_val) {
     return ret;
 }
 
-static JSValue tjs_isStdinTty(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_isStdinTty(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     return JS_NewBool(ctx, uv_guess_handle(STDIN_FILENO) == UV_TTY);
 }
 
-static JSValue tjs_randomUUID(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_randomUUID(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     char v[37];
     unsigned char u[16];
 
@@ -129,7 +129,7 @@ static JSValue tjs_randomUUID(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_NewString(ctx, v);
 }
 
-static JSValue tjs_setMemoryLimit(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_setMemoryLimit(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     uint32_t v;
     if (JS_ToUint32(ctx, &v, argv[0]))
         return JS_EXCEPTION;
@@ -137,7 +137,7 @@ static JSValue tjs_setMemoryLimit(JSContext *ctx, JSValueConst this_val, int arg
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_setMaxStackSize(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_setMaxStackSize(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     uint32_t v;
     if (JS_ToUint32(ctx, &v, argv[0]))
         return JS_EXCEPTION;

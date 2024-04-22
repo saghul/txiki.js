@@ -78,7 +78,7 @@ static void call_timer(TJSTimer *th) {
     JSValue ret, func1;
     /* 'func' might be destroyed when calling itself (if it frees the handler), so must take extra care */
     func1 = JS_DupValue(ctx, th->func);
-    ret = JS_Call(ctx, func1, JS_UNDEFINED, th->argc, (JSValueConst *) th->argv);
+    ret = JS_Call(ctx, func1, JS_UNDEFINED, th->argc, th->argv);
     JS_FreeValue(ctx, func1);
     if (JS_IsException(ret))
         tjs_dump_error(ctx);

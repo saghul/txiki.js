@@ -139,7 +139,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
 #define TJS__PATHSEP_STR "/"
 #endif
 
-int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, JS_BOOL use_realpath, JS_BOOL is_main) {
+int js_module_set_import_meta(JSContext *ctx, JSValue func_val, JS_BOOL use_realpath, JS_BOOL is_main) {
     JSModuleDef *m;
     char buf[PATH_MAX + 16] = { 0 };
     int r;

@@ -99,11 +99,11 @@ void tjs_assert(const struct AssertionInfo info);
     }
 
 uv_loop_t *tjs_get_loop(JSContext *ctx);
-int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss);
+int tjs_obj2addr(JSContext *ctx, JSValue obj, struct sockaddr_storage *ss);
 void tjs_addr2obj(JSContext *ctx, JSValue obj, const struct sockaddr *sa);
-void tjs_call_handler(JSContext *ctx, JSValueConst func, int argc, JSValue *argv);
+void tjs_call_handler(JSContext *ctx, JSValue func, int argc, JSValue *argv);
 void tjs_dump_error(JSContext *ctx);
-void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val);
+void tjs_dump_error1(JSContext *ctx, JSValue exception_val);
 void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len);
 
 typedef struct {
@@ -117,11 +117,11 @@ void TJS_FreePromise(JSContext *ctx, TJSPromise *p);
 void TJS_FreePromiseRT(JSRuntime *rt, TJSPromise *p);
 void TJS_ClearPromise(JSContext *ctx, TJSPromise *p);
 void TJS_MarkPromise(JSRuntime *rt, TJSPromise *p, JS_MarkFunc *mark_func);
-void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, int argc, JSValueConst *argv);
-void TJS_ResolvePromise(JSContext *ctx, TJSPromise *p, int argc, JSValueConst *argv);
-void TJS_RejectPromise(JSContext *ctx, TJSPromise *p, int argc, JSValueConst *argv);
-JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv);
-JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv);
+void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, int argc, JSValue *argv);
+void TJS_ResolvePromise(JSContext *ctx, TJSPromise *p, int argc, JSValue *argv);
+void TJS_RejectPromise(JSContext *ctx, TJSPromise *p, int argc, JSValue *argv);
+JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValue *argv);
+JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValue *argv);
 
 JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size);
 

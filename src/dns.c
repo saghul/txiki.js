@@ -95,13 +95,13 @@ static void uv__getaddrinfo_cb(uv_getaddrinfo_t *req, int status, struct addrinf
     else
         arg = tjs_addrinfo2obj(ctx, res);
 
-    TJS_SettlePromise(ctx, &gr->result, is_reject, 1, (JSValueConst *) &arg);
+    TJS_SettlePromise(ctx, &gr->result, is_reject, 1, &arg);
 
     uv_freeaddrinfo(res);
     js_free(ctx, gr);
 }
 
-static JSValue tjs_dns_getaddrinfo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_dns_getaddrinfo(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     const char *service = NULL;
     const char *node = NULL;
 

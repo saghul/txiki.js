@@ -180,7 +180,7 @@ static void dump_hex(FILE *f, const uint8_t *buf, size_t len) {
 
 static void output_object_code(JSContext *ctx,
                                FILE *fo,
-                               JSValueConst obj,
+                               JSValue obj,
                                const char *c_name,
                                const char *prefix,
                                BOOL load_only) {

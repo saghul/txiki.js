@@ -136,8 +136,8 @@ import initCParser from '../src/js/stdlib/ffi/ffiutils.js';
 	function testCProtoParser(){
 		const {parseCProto} = initCParser(FFI);
 		const ast1 = parseCProto(`
-			static inline JSValue JS_DupValue(JSContext *ctx, JSValueConst v);
-			static unsigned long long int* bla(JSContext *ctx, const int32_t **pres, JSValueConst val);
+			static inline JSValue JS_DupValue(JSContext *ctx, JSValue v);
+			static unsigned long long int* bla(JSContext *ctx, const int32_t **pres, JSValue val);
 			struct JSCFunctionListEntry {
 				const char *name;
 				uint8_t prop_flags;
@@ -178,7 +178,7 @@ import initCParser from '../src/js/stdlib/ffi/ffiutils.js';
 						"type": {
 							"kind": "type",
 							"typeModifiers": [],
-							"name": "JSValueConst",
+							"name": "JSValue",
 							"ptr": 0
 						},
 						"name": "v"
@@ -226,7 +226,7 @@ import initCParser from '../src/js/stdlib/ffi/ffiutils.js';
 						"type": {
 							"kind": "type",
 							"typeModifiers": [],
-							"name": "JSValueConst",
+							"name": "JSValue",
 							"ptr": 0
 						},
 						"name": "val"
