@@ -128,8 +128,8 @@ size_t ffi_type_get_sz(ffi_type *type) {
 }
 
 static JSClassID js_ffi_type_classid;
-static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSValueConst *types = argv;
+static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    JSValue *types = argv;
     size_t typeCnt = argc;
     int arrSz = 0;
     if (JS_IsNumber(argv[0])) {
@@ -254,7 +254,7 @@ static void js_ffi_type_finalizer(JSRuntime *rt, JSValue val) {
         js_free_rt(rt, u);
     }
 }
-static void js_ffi_type_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+static void js_ffi_type_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     js_ffi_type *u = JS_GetOpaque(val, js_ffi_type_classid);
     if (u) {
         for (unsigned i = 0; i < u->elemCount; i++) {
@@ -264,7 +264,7 @@ static void js_ffi_type_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_
 }
 JSClassDef js_ffi_type_class = { "FfiType", .finalizer = js_ffi_type_finalizer, .gc_mark = js_ffi_type_mark };
 
-static JSValue js_ffi_type_get_sz(JSContext *ctx, JSValueConst this_val) {
+static JSValue js_ffi_type_get_sz(JSContext *ctx, JSValue this_val) {
     js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
     if (type == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be FfiType");
@@ -273,7 +273,7 @@ static JSValue js_ffi_type_get_sz(JSContext *ctx, JSValueConst this_val) {
     return JS_NEW_SIZE_T(ctx, ffi_type_get_sz(type->ffi_type));
 }
 
-int ffi_type_to_buffer(JSContext *ctx, JSValueConst val, ffi_type *type, uint8_t *buf) {
+int ffi_type_to_buffer(JSContext *ctx, JSValue val, ffi_type *type, uint8_t *buf) {
     if (type->type == FFI_TYPE_STRUCT) {
         if (!JS_IsArray(ctx, val)) {
             JS_ThrowTypeError(ctx, "expected argument 1 to be array");
@@ -392,7 +392,7 @@ int ffi_type_to_buffer(JSContext *ctx, JSValueConst val, ffi_type *type, uint8_t
     }
 }
 
-static JSValue js_ffi_type_to_buffer(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_ffi_type_to_buffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
     if (type == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be FfiType");
@@ -486,7 +486,7 @@ static int ffi_type_from_buffer(JSContext *ctx, ffi_type *type, uint8_t *buf, JS
     }
 }
 
-static JSValue js_ffi_type_from_buffer(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_ffi_type_from_buffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
     if (type == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be FfiType");
@@ -513,7 +513,7 @@ static JSValue js_ffi_type_from_buffer(JSContext *ctx, JSValueConst this_val, in
     return val;
 }
 
-static JSValue js_ffi_type_name(JSContext *ctx, JSValueConst this_val) {
+static JSValue js_ffi_type_name(JSContext *ctx, JSValue this_val) {
     js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
     if (type == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be FfiType");
@@ -539,12 +539,12 @@ JSClassDef js_uv_dlsym_class = {
     "UvDlSym",
 };
 
-static JSValue js_uv_dlsym_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_uv_dlsym_create(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JS_ThrowReferenceError(ctx, "no constructor for UvDlSym available");
     return JS_EXCEPTION;
 }
 
-static JSValue js_uv_dlsym_get_addr(JSContext *ctx, JSValueConst this_val) {
+static JSValue js_uv_dlsym_get_addr(JSContext *ctx, JSValue this_val) {
     void *ptr = JS_GetOpaque(this_val, js_uv_dlsym_classid);
     if (ptr == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be UvDlSym");
@@ -569,7 +569,7 @@ typedef struct {
     JSValue *deps;
 } js_ffi_cif;
 
-static JSValue js_ffi_cif_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_ffi_cif_create(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     ssize_t nfixedargs = -1;
     size_t ntotalargs = argc - 1;
     if (JS_IsNumber(argv[argc - 1])) {
@@ -638,7 +638,7 @@ static JSValue js_ffi_cif_create(JSContext *ctx, JSValueConst this_val, int argc
     return obj;
 }
 
-static void js_ffi_cif_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+static void js_ffi_cif_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     js_ffi_cif *u = JS_GetOpaque(val, js_ffi_cif_classid);
     if (u) {
         for (unsigned i = 0; i < u->depsCount; i++) {
@@ -663,7 +663,7 @@ static void js_ffi_cif_finalizer(JSRuntime *rt, JSValue val) {
 
 JSClassDef js_ffi_cif_class = { "FfiCif", .finalizer = js_ffi_cif_finalizer, .gc_mark = js_ffi_cif_mark };
 
-static JSValue js_ffi_cif_call(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_ffi_cif_call(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     js_ffi_cif *cif = JS_GetOpaque(this_val, js_ffi_cif_classid);
     if (!cif) {
         JS_ThrowTypeError(ctx, "this must be FfiCif");
@@ -676,7 +676,7 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValueConst this_val, int argc, 
     }
 
     unsigned ffi_arg_cnt = argc - 1;
-    JSValueConst *func_argv = &argv[1];
+    JSValue *func_argv = &argv[1];
     if (ffi_arg_cnt != cif->ffi_cif.nargs) {
         JS_ThrowRangeError(ctx, "expected %d arguments but got %d", cif->ffi_cif.nargs, ffi_arg_cnt);
         return JS_EXCEPTION;
@@ -721,7 +721,7 @@ static JSCFunctionListEntry js_ffi_cif_proto_funcs[] = {
 // =====================================
 
 static JSClassID js_uv_lib_classid;
-static JSValue js_uv_lib_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_uv_lib_create(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
     JSValue obj = JS_NewObjectClass(ctx, js_uv_lib_classid);
     if (JS_IsException(obj)) {
@@ -749,7 +749,7 @@ static void js_uv_lib_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static JSValue js_uv_lib_dlsym(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_uv_lib_dlsym(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
 
     uv_lib_t *lib = JS_GetOpaque(this_val, js_uv_lib_classid);
@@ -789,7 +789,7 @@ static JSCFunctionListEntry js_uv_lib_proto_funcs[] = {
 #pragma region "Libc helpers"
 // ===========================
 
-static JSValue js_libc_errno(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_libc_errno(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     if (argc != 0) {
         JS_ThrowTypeError(ctx, "expected 0 arguments");
         return JS_EXCEPTION;
@@ -797,7 +797,7 @@ static JSValue js_libc_errno(JSContext *ctx, JSValueConst this_val, int argc, JS
     return JS_NEW_INT(ctx, errno);
 }
 
-static JSValue js_libc_strerror(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_libc_strerror(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 0, "number");
     int err;
     JS_TO_INT(ctx, &err, argv[0]);
@@ -808,7 +808,7 @@ static JSValue js_libc_strerror(JSContext *ctx, JSValueConst this_val, int argc,
 #pragma region "other helpers"
 // ============================
 
-static JSValue js_array_buffer_get_ptr(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_array_buffer_get_ptr(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     if (argc <= 0) {
         JS_ThrowTypeError(ctx, "expected argument 1 to be ArrayBuffer");
         return JS_EXCEPTION;
@@ -820,7 +820,7 @@ static JSValue js_array_buffer_get_ptr(JSContext *ctx, JSValueConst this_val, in
     return JS_NEW_UINTPTR_T(ctx, (uint64_t) buf);
 }
 
-static JSValue js_get_cstring(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_get_cstring(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     if (argc == 0 || argc >= 2) {
         TJS_CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
         TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[1]), 1, "number");
@@ -848,7 +848,7 @@ static JSValue TJS_NewUint8ArrayShared(JSContext *ctx, uint8_t *data, size_t siz
     return JS_NewUint8Array(ctx, data, size, NULL, NULL, true);
 }
 
-static JSValue js_ptr_to_buffer(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_ptr_to_buffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
     TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[1]), 1, "number");
     uint8_t *ptr;
@@ -858,7 +858,7 @@ static JSValue js_ptr_to_buffer(JSContext *ctx, JSValueConst this_val, int argc,
     return TJS_NewUint8ArrayShared(ctx, ptr, sz);
 }
 
-static JSValue js_deref_ptr(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_deref_ptr(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     unsigned times = 1;
     if (argc <= 0 || !JS_IS_PTR(ctx, argv[0])) {
         JS_ThrowTypeError(ctx, "expected argument 1 to be pointer");
@@ -913,7 +913,7 @@ typedef struct {
 void js_ffi_closure_invoke(ffi_cif *cif, void *ret, void **args, void *userptr) {
     js_ffi_closure *jscl = (js_ffi_closure *) userptr;
     JSContext *ctx = jscl->ctx;
-    JSValueConst *jsargs = js_malloc(ctx, sizeof(JSValue) * cif->nargs);
+    JSValue *jsargs = js_malloc(ctx, sizeof(JSValue) * cif->nargs);
 
     for (unsigned i = 0; i < cif->nargs; i++) {
         jsargs[i] = TJS_NewUint8ArrayShared(ctx, args[i], ffi_type_get_sz(cif->arg_types[i]));
@@ -939,7 +939,7 @@ void js_ffi_closure_invoke(ffi_cif *cif, void *ret, void **args, void *userptr) 
     JS_FreeValue(ctx, jsret);
 }
 
-static JSValue js_ffi_closure_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_ffi_closure_create(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IsObject(argv[0]), 0, "object");
     TJS_CHECK_ARG_RET(ctx, JS_IsFunction(ctx, argv[1]), 1, "function");
 
@@ -972,7 +972,7 @@ static JSValue js_ffi_closure_create(JSContext *ctx, JSValueConst this_val, int 
     return obj;
 }
 
-static void js_ffi_closure_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+static void js_ffi_closure_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     js_ffi_closure *u = JS_GetOpaque(val, js_ffi_closure_classid);
     if (u) {
         JS_MarkValue(rt, u->cif, mark_func);
@@ -993,7 +993,7 @@ JSClassDef js_ffi_closure_class = { "FfiClosure",
                                     .finalizer = js_ffi_closure_finalizer,
                                     .gc_mark = js_ffi_closure_mark };
 
-static JSValue js_ffi_closure_get_addr(JSContext *ctx, JSValueConst this_val) {
+static JSValue js_ffi_closure_get_addr(JSContext *ctx, JSValue this_val) {
     js_ffi_closure *ptr = JS_GetOpaque(this_val, js_ffi_closure_classid);
     if (ptr == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be FfiClosure");
@@ -1045,7 +1045,7 @@ static JSCFunctionListEntry funcs[] = {
     JS_SetPropertyStr(ctx, obj, #name, name##_jsval)
 #define ADD_ALIAS_TYPE(ctx, obj, alias, oldname) JS_SetPropertyStr(ctx, obj, #alias, JS_DupValue(ctx, oldname##_jsval))
 
-static JSValue tjs__mod_ffi_init_js(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs__mod_ffi_init_js(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JSValue ffiobj = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, ffiobj, funcs, countof(funcs));
 

@@ -45,7 +45,7 @@ static JSValue tjs_sock_new_from_fd(JSContext *ctx, int fd) {
     return obj;
 }
 
-static JSValue tjs_sock_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_create(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     unsigned domain, type, protocol;
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &domain, argv[0]), 0, "positive integer");
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &type, argv[1]), 1, "positive integer");
@@ -57,7 +57,7 @@ static JSValue tjs_sock_create(JSContext *ctx, JSValueConst this_val, int argc, 
     return tjs_sock_new_from_fd(ctx, sock);
 }
 
-static JSValue tjs_sock_create_from_fd(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_create_from_fd(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     unsigned fd;
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &fd, argv[0]), 0, "positive integer");
 
@@ -70,7 +70,7 @@ static JSValue tjs_sock_create_from_fd(JSContext *ctx, JSValueConst this_val, in
 }
 
 
-static void tjs_uv_socket_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+static void tjs_uv_socket_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     tjs_sock_t *u = JS_GetOpaque(val, tjs_sock_classid);
     if (u) {
         if (!JS_IsUndefined(u->callback)) {
@@ -111,7 +111,7 @@ static void tjs_sock_finalizer(JSRuntime *rt, JSValue val) {
 
 JSClassDef tjs_sock_class = { TJS_SOCK_CLASS_NAME, .finalizer = tjs_sock_finalizer, .gc_mark = tjs_uv_socket_mark };
 
-static JSValue tjs_sock_bind(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_bind(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -126,7 +126,7 @@ static JSValue tjs_sock_bind(JSContext *ctx, JSValueConst this_val, int argc, JS
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_sock_accept(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_accept(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -146,7 +146,7 @@ static JSValue tjs_sock_accept(JSContext *ctx, JSValueConst this_val, int argc, 
     return newSock;
 }
 
-static JSValue tjs_sock_connect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_connect(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -163,7 +163,7 @@ static JSValue tjs_sock_connect(JSContext *ctx, JSValueConst this_val, int argc,
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_sock_setsockopt(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_setsockopt(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -183,7 +183,7 @@ static JSValue tjs_sock_setsockopt(JSContext *ctx, JSValueConst this_val, int ar
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_sock_getsockopt(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_getsockopt(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -210,7 +210,7 @@ static JSValue tjs_sock_getsockopt(JSContext *ctx, JSValueConst this_val, int ar
     return TJS_NewUint8Array(ctx, optval, optlen);
 }
 
-static JSValue tjs_sock_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -223,7 +223,7 @@ static JSValue tjs_sock_close(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_sock_listen(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_listen(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -236,13 +236,13 @@ static JSValue tjs_sock_listen(JSContext *ctx, JSValueConst this_val, int argc, 
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_sock_get_fd(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_sock_get_fd(JSContext *ctx, JSValue this_val) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     return JS_NewUint32(ctx, s->sock);
 }
 
-static JSValue tjs_sock_read(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_read(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -263,7 +263,7 @@ static JSValue tjs_sock_read(JSContext *ctx, JSValueConst this_val, int argc, JS
     return TJS_NewUint8Array(ctx, buf, ret);
 }
 
-static JSValue tjs_sock_write(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_write(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -277,7 +277,7 @@ static JSValue tjs_sock_write(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_NewUint32(ctx, ret);
 }
 
-static JSValue tjs_sock_shutdown(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_shutdown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -290,7 +290,7 @@ static JSValue tjs_sock_shutdown(JSContext *ctx, JSValueConst this_val, int argc
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_sock_recv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_recv(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -313,7 +313,7 @@ static JSValue tjs_sock_recv(JSContext *ctx, JSValueConst this_val, int argc, JS
     return TJS_NewUint8Array(ctx, buf, ret);
 }
 
-static JSValue tjs_sock_recvmsg(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_recvmsg(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
@@ -356,7 +356,7 @@ static JSValue tjs_sock_recvmsg(JSContext *ctx, JSValueConst this_val, int argc,
 }
 
 /*
-static JSValue tjs_sock_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_send(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
@@ -372,7 +372,7 @@ static JSValue tjs_sock_send(JSContext *ctx, JSValueConst this_val, int argc, JS
     return JS_NewUint32(ctx, ret);
 }
 
-static JSValue tjs_sock_sendto(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_sendto(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
@@ -392,7 +392,7 @@ static JSValue tjs_sock_sendto(JSContext *ctx, JSValueConst this_val, int argc, 
 }
 */
 
-static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     // this: PosixSocket
     // args: Uint8Array|undefined addr, Uint8Array|undefined control, int flags, Uint8Array ...data
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
@@ -452,14 +452,14 @@ static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValueConst this_val, int argc,
 
 static void tjs_sock_uv_poll_cb(uv_poll_t *handle, int status, int events) {
     tjs_sock_t *s = uv_handle_get_data((uv_handle_t *) handle);
-    JSValueConst args[] = { JS_NewInt32(s->jsctx, status), JS_NewInt32(s->jsctx, events) };
+    JSValue args[] = { JS_NewInt32(s->jsctx, status), JS_NewInt32(s->jsctx, events) };
     s->in_cb = true;
     JSValue ret = JS_Call(s->jsctx, s->callback, s->this, countof(args), args);
     s->in_cb = false;
     JS_FreeValue(s->jsctx, ret);
 }
 
-static JSValue tjs_sock_poll(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_poll(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     unsigned events;
@@ -487,7 +487,7 @@ static JSValue tjs_sock_poll(JSContext *ctx, JSValueConst this_val, int argc, JS
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_sock_poll_stop(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_poll_stop(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->in_cb) {
@@ -503,7 +503,7 @@ static JSValue tjs_sock_poll_stop(JSContext *ctx, JSValueConst this_val, int arg
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_uv_poll_get_running(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_uv_poll_get_running(JSContext *ctx, JSValue this_val) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     int ret = uv_is_active((uv_handle_t *) &s->poll);
@@ -538,14 +538,14 @@ static const JSCFunctionListEntry tjs_sock_proto_funcs[] = {
 
 #define JS_PROT_INT_DEF(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE)
 
-static JSValue tjs_uv_strerror(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_uv_strerror(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     int errorno;
     TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 0, "integer");
     TJS_CHECK_ARG_RET(ctx, !JS_ToInt32(ctx, &errorno, argv[0]), 0, "integer");
     return JS_NewString(ctx, uv_strerror(errorno));
 }
 
-static JSValue tjs_sock_sockaddr_inet(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sock_sockaddr_inet(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     struct sockaddr_storage *addrSS = js_malloc(ctx, sizeof(*addrSS));
     // tjs_obj2addr wants sockaddr_storage, so reserve space for it
     int ret = tjs_obj2addr(ctx, argv[0], addrSS);
@@ -606,7 +606,7 @@ static const JSCFunctionListEntry defines_list[] = {
 #endif
 };
 
-static JSValue tjs_posix_if_nametoindex(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_posix_if_nametoindex(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
     const char *cstr = JS_ToCString(ctx, argv[0]);
     TJS_CHECK_ARG_RET(ctx, cstr, 0, "string");
@@ -616,7 +616,7 @@ static JSValue tjs_posix_if_nametoindex(JSContext *ctx, JSValueConst this_val, i
     return JS_NewInt32(ctx, ret);
 }
 
-static JSValue tjs_posix_if_indextoname(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_posix_if_indextoname(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     unsigned fd;
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &fd, argv[0]), 0, "positive integer");
     char ifname[IF_NAMESIZE];
@@ -678,7 +678,7 @@ static uint16_t ip_checksum(void *vdata, size_t length) {
     return htons(~acc);
 }
 
-static JSValue tjs_posix_checksum(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_posix_checksum(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     size_t len;
     uint8_t *data = (uint8_t *) JS_GetUint8Array(ctx, &len, argv[0]);
     TJS_CHECK_ARG_RET(ctx, data != NULL, 0, "Uint8Array");

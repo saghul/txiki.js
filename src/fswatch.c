@@ -36,7 +36,7 @@ typedef struct {
 
 static JSClassID tjs_fswatch_class_id;
 
-static TJSFsWatch *tjs_fswatch_get(JSValueConst obj) {
+static TJSFsWatch *tjs_fswatch_get(JSValue obj) {
     return JS_GetOpaque(obj, tjs_fswatch_class_id);
 }
 
@@ -66,7 +66,7 @@ static void tjs_fswatch_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static void tjs_fswatch_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+static void tjs_fswatch_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     TJSFsWatch *fw = tjs_fswatch_get(val);
     if (fw) {
         JS_MarkValue(rt, fw->callback, mark_func);
@@ -79,7 +79,7 @@ static JSClassDef tjs_fswatch_class = {
     .gc_mark = tjs_fswatch_mark,
 };
 
-static JSValue tjs_fswatch_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_fswatch_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSFsWatch *fw = tjs_fswatch_get(this_val);
     if (!fw)
         return JS_EXCEPTION;
@@ -87,7 +87,7 @@ static JSValue tjs_fswatch_close(JSContext *ctx, JSValueConst this_val, int argc
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_fswatch_path_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_fswatch_path_get(JSContext *ctx, JSValue this_val) {
     TJSFsWatch *fw = tjs_fswatch_get(this_val);
     if (!fw)
         return JS_UNDEFINED;
@@ -152,7 +152,7 @@ static void uv__fs_event_cb(uv_fs_event_t *handle, const char *filename, int eve
     JS_FreeValue(ctx, args[1]);
 }
 
-static JSValue tjs_fs_watch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_fs_watch(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;

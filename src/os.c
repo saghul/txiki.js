@@ -31,7 +31,7 @@
 #include <unistd.h>
 
 
-static JSValue tjs_exit(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_exit(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     int status;
     if (JS_ToInt32(ctx, &status, argv[0]))
         status = -1;
@@ -41,7 +41,7 @@ static JSValue tjs_exit(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_uname(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_uname(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JSValue obj;
     int r;
     uv_utsname_t utsname;
@@ -59,13 +59,13 @@ static JSValue tjs_uname(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return obj;
 }
 
-static JSValue tjs_uptime(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_uptime(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     double upt;
     uv_uptime(&upt);
     return JS_NewFloat64(ctx, upt);
 }
 
-static JSValue tjs_guess_handle(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_guess_handle(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     int fd;
     if (JS_ToInt32(ctx, &fd, argv[0]))
         return JS_EXCEPTION;
@@ -86,7 +86,7 @@ static JSValue tjs_guess_handle(JSContext *ctx, JSValueConst this_val, int argc,
     }
 }
 
-static JSValue tjs_environ(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_environ(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     uv_env_item_t *env;
     int envcount, r;
 
@@ -105,7 +105,7 @@ static JSValue tjs_environ(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return obj;
 }
 
-static JSValue tjs_envKeys(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_envKeys(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     uv_env_item_t *env;
     int envcount, r;
 
@@ -124,7 +124,7 @@ static JSValue tjs_envKeys(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return obj;
 }
 
-static JSValue tjs_getenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_getenv(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     if (!JS_IsString(argv[0]))
         return JS_ThrowTypeError(ctx, "expected a string");
 
@@ -165,7 +165,7 @@ static JSValue tjs_getenv(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return ret;
 }
 
-static JSValue tjs_setenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_setenv(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     if (!JS_IsString(argv[0]))
         return JS_ThrowTypeError(ctx, "expected a string");
     if (JS_IsUndefined(argv[1]))
@@ -188,7 +188,7 @@ static JSValue tjs_setenv(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_unsetenv(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_unsetenv(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     if (!JS_IsString(argv[0]))
         return JS_ThrowTypeError(ctx, "expected a string");
 
@@ -204,7 +204,7 @@ static JSValue tjs_unsetenv(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_chdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_chdir(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     if (!JS_IsString(argv[0]))
         return JS_ThrowTypeError(ctx, "expected a string");
 
@@ -220,7 +220,7 @@ static JSValue tjs_chdir(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_cwd(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_cwd(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -248,7 +248,7 @@ static JSValue tjs_cwd(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     return ret;
 }
 
-static JSValue tjs_homedir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_homedir(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -276,7 +276,7 @@ static JSValue tjs_homedir(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return ret;
 }
 
-static JSValue tjs_tmpdir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_tmpdir(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -304,7 +304,7 @@ static JSValue tjs_tmpdir(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return ret;
 }
 
-static JSValue tjs_random(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_random(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     size_t size;
     uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
     if (!buf)
@@ -328,7 +328,7 @@ static JSValue tjs_random(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_cpu_info(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_cpu_info(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     uv_cpu_info_t *infos;
     int count;
     int r = uv_cpu_info(&infos, &count);
@@ -361,7 +361,7 @@ static JSValue tjs_cpu_info(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return val;
 }
 
-static JSValue tjs_loadavg(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_loadavg(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     double avg[3] = { -1, -1, -1 };
 
     uv_loadavg(avg);
@@ -375,7 +375,7 @@ static JSValue tjs_loadavg(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return val;
 }
 
-static JSValue tjs_network_interfaces(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_network_interfaces(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     uv_interface_address_t *interfaces;
     int count;
     int r = uv_interface_addresses(&interfaces, &count);
@@ -433,7 +433,7 @@ static JSValue tjs_network_interfaces(JSContext *ctx, JSValueConst this_val, int
     return val;
 }
 
-static JSValue tjs_gethostname(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_gethostname(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     char buf[UV_MAXHOSTNAMESIZE];
     size_t size = sizeof(buf);
 
@@ -444,15 +444,15 @@ static JSValue tjs_gethostname(JSContext *ctx, JSValueConst this_val, int argc, 
     return JS_NewStringLen(ctx, buf, size);
 }
 
-static JSValue tjs_getpid(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_getpid(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     return JS_NewInt32(ctx, uv_os_getpid());
 }
 
-static JSValue tjs_getppid(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_getppid(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     return JS_NewInt32(ctx, uv_os_getppid());
 }
 
-static JSValue tjs_userInfo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_userInfo(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     uv_passwd_t p;
 
     int r = uv_os_get_passwd(&p);
@@ -471,11 +471,11 @@ static JSValue tjs_userInfo(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return obj;
 }
 
-static JSValue tjs_availableParallelism(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_availableParallelism(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     return JS_NewUint32(ctx, uv_available_parallelism());
 }
 
-static JSValue tjs_sleep(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sleep(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     uint32_t ms;
     if (JS_ToUint32(ctx, &ms, argv[0]))
         return JS_EXCEPTION;

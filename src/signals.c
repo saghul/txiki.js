@@ -65,7 +65,7 @@ static void tjs_signal_handler_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static void tjs_signal_handler_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+static void tjs_signal_handler_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     TJSSignalHandler *sh = JS_GetOpaque(val, tjs_signal_handler_class_id);
     if (sh) {
         JS_MarkValue(rt, sh->func, mark_func);
@@ -84,12 +84,12 @@ static void uv__signal_cb(uv_signal_t *handle, int sig_num) {
     tjs_call_handler(sh->ctx, sh->func, 0, NULL);
 }
 
-static JSValue tjs_signal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_signal(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     int32_t sig_num;
     if (JS_ToInt32(ctx, &sig_num, argv[0]))
         return JS_EXCEPTION;
 
-    JSValueConst func = argv[1];
+    JSValue func = argv[1];
     if (!JS_IsFunction(ctx, func))
         return JS_ThrowTypeError(ctx, "not a function");
 
@@ -128,11 +128,11 @@ static JSValue tjs_signal(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return obj;
 }
 
-static TJSSignalHandler *tjs_signal_handler_get(JSContext *ctx, JSValueConst obj) {
+static TJSSignalHandler *tjs_signal_handler_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_signal_handler_class_id);
 }
 
-static JSValue tjs_signal_handler_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_signal_handler_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSSignalHandler *sh = tjs_signal_handler_get(ctx, this_val);
     if (!sh)
         return JS_EXCEPTION;
@@ -140,7 +140,7 @@ static JSValue tjs_signal_handler_close(JSContext *ctx, JSValueConst this_val, i
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_signal_handler_signal_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_signal_handler_signal_get(JSContext *ctx, JSValue this_val) {
     TJSSignalHandler *sh = tjs_signal_handler_get(ctx, this_val);
     if (!sh)
         return JS_EXCEPTION;

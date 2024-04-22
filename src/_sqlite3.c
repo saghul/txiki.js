@@ -67,7 +67,7 @@ static JSValue tjs_new_sqlite3(JSContext *ctx, sqlite3 *handle) {
     return obj;
 }
 
-static TJSSqlite3Handle *tjs_sqlite3_get(JSContext *ctx, JSValueConst obj) {
+static TJSSqlite3Handle *tjs_sqlite3_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_sqlite3_class_id);
 }
 
@@ -113,7 +113,7 @@ static JSValue tjs_new_sqlite3_stmt(JSContext *ctx, sqlite3_stmt *stmt) {
     return obj;
 }
 
-static TJSSqlite3Stmt *tjs_sqlite3_stmt_get(JSContext *ctx, JSValueConst obj) {
+static TJSSqlite3Stmt *tjs_sqlite3_stmt_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_sqlite3_stmt_class_id);
 }
 
@@ -131,7 +131,7 @@ JSValue tjs_throw_sqlite3_errno(JSContext *ctx, int err) {
     return JS_Throw(ctx, obj);
 }
 
-static JSValue tjs_sqlite3_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sqlite3_open(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     const char *db_name = JS_ToCString(ctx, argv[0]);
 
     if (!db_name) {
@@ -161,7 +161,7 @@ static JSValue tjs_sqlite3_open(JSContext *ctx, JSValueConst this_val, int argc,
     return obj;
 }
 
-static JSValue tjs_sqlite3_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sqlite3_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSSqlite3Handle *h = tjs_sqlite3_get(ctx, argv[0]);
 
     if (!h)
@@ -177,7 +177,7 @@ static JSValue tjs_sqlite3_close(JSContext *ctx, JSValueConst this_val, int argc
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_sqlite3_prepare(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sqlite3_prepare(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSSqlite3Handle *h = tjs_sqlite3_get(ctx, argv[0]);
 
     if (!h)
@@ -206,7 +206,7 @@ static JSValue tjs_sqlite3_prepare(JSContext *ctx, JSValueConst this_val, int ar
     return obj;
 }
 
-static JSValue tjs_sqlite3_stmt_finalize(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sqlite3_stmt_finalize(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSSqlite3Stmt *h = tjs_sqlite3_stmt_get(ctx, argv[0]);
 
     if (!h)
@@ -227,7 +227,7 @@ static JSValue tjs_sqlite3_stmt_finalize(JSContext *ctx, JSValueConst this_val, 
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_sqlite3_stmt_expand(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sqlite3_stmt_expand(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSSqlite3Stmt *h = tjs_sqlite3_stmt_get(ctx, argv[0]);
 
     if (!h)
@@ -283,7 +283,7 @@ static JSValue tjs__stmt2obj(JSContext *ctx, TJSSqlite3Stmt *h) {
     return obj;
 }
 
-static JSValue tjs__sqlite3_bind_param(JSContext *ctx, sqlite3_stmt *stmt, int idx, JSValueConst v) {
+static JSValue tjs__sqlite3_bind_param(JSContext *ctx, sqlite3_stmt *stmt, int idx, JSValue v) {
     int r;
 
 #define CHECK_VALUE(ret, i)                                                                                            \
@@ -365,7 +365,7 @@ static JSValue tjs__sqlite3_bind_param(JSContext *ctx, sqlite3_stmt *stmt, int i
 #undef CHECK_RET
 }
 
-static JSValue tjs__sqlite3_bind_params(JSContext *ctx, sqlite3_stmt *stmt, JSValueConst params) {
+static JSValue tjs__sqlite3_bind_params(JSContext *ctx, sqlite3_stmt *stmt, JSValue params) {
     sqlite3_clear_bindings(stmt);
 
     if (JS_IsArray(ctx, params)) {
@@ -418,7 +418,7 @@ static JSValue tjs__sqlite3_bind_params(JSContext *ctx, sqlite3_stmt *stmt, JSVa
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_sqlite3_stmt_all(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sqlite3_stmt_all(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSSqlite3Stmt *h = tjs_sqlite3_stmt_get(ctx, argv[0]);
 
     if (!h)
@@ -455,7 +455,7 @@ static JSValue tjs_sqlite3_stmt_all(JSContext *ctx, JSValueConst this_val, int a
     return result;
 }
 
-static JSValue tjs_sqlite3_stmt_run(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_sqlite3_stmt_run(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSSqlite3Stmt *h = tjs_sqlite3_stmt_get(ctx, argv[0]);
 
     if (!h)

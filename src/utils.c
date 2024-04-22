@@ -49,7 +49,7 @@ uv_loop_t *tjs_get_loop(JSContext *ctx) {
     return TJS_GetLoop(qrt);
 }
 
-int tjs_obj2addr(JSContext *ctx, JSValueConst obj, struct sockaddr_storage *ss) {
+int tjs_obj2addr(JSContext *ctx, JSValue obj, struct sockaddr_storage *ss) {
     JSValue js_ip;
     JSValue js_port;
     const char *ip;
@@ -124,7 +124,7 @@ void tjs_addr2obj(JSContext *ctx, JSValue obj, const struct sockaddr *sa) {
     }
 }
 
-static void tjs_dump_obj(JSContext *ctx, FILE *f, JSValueConst val) {
+static void tjs_dump_obj(JSContext *ctx, FILE *f, JSValue val) {
     const char *str = JS_ToCString(ctx, val);
     if (str) {
         fprintf(f, "%s\n", str);
@@ -140,7 +140,7 @@ void tjs_dump_error(JSContext *ctx) {
     JS_FreeValue(ctx, exception_val);
 }
 
-void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val) {
+void tjs_dump_error1(JSContext *ctx, JSValue exception_val) {
     int is_error = JS_IsError(ctx, exception_val);
     tjs_dump_obj(ctx, stderr, exception_val);
     if (is_error) {
@@ -152,7 +152,7 @@ void tjs_dump_error1(JSContext *ctx, JSValueConst exception_val) {
     fflush(stderr);
 }
 
-void tjs_call_handler(JSContext *ctx, JSValueConst func, int argc, JSValue *argv) {
+void tjs_call_handler(JSContext *ctx, JSValue func, int argc, JSValue *argv) {
     JSValue ret, func1;
     /* 'func' might be destroyed when calling itself (if it frees the
        handler), so must take extra care */
@@ -211,7 +211,7 @@ void TJS_MarkPromise(JSRuntime *rt, TJSPromise *p, JS_MarkFunc *mark_func) {
     JS_MarkValue(rt, p->rfuncs[1], mark_func);
 }
 
-void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, int argc, JSValueConst *argv) {
+void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, int argc, JSValue *argv) {
     JSValue ret = JS_Call(ctx, p->rfuncs[is_reject], JS_UNDEFINED, argc, argv);
     for (int i = 0; i < argc; i++)
         JS_FreeValue(ctx, argv[i]);
@@ -221,15 +221,15 @@ void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, int argc, 
     TJS_FreePromise(ctx, p);
 }
 
-void TJS_ResolvePromise(JSContext *ctx, TJSPromise *p, int argc, JSValueConst *argv) {
+void TJS_ResolvePromise(JSContext *ctx, TJSPromise *p, int argc, JSValue *argv) {
     TJS_SettlePromise(ctx, p, false, argc, argv);
 }
 
-void TJS_RejectPromise(JSContext *ctx, TJSPromise *p, int argc, JSValueConst *argv) {
+void TJS_RejectPromise(JSContext *ctx, TJSPromise *p, int argc, JSValue *argv) {
     TJS_SettlePromise(ctx, p, true, argc, argv);
 }
 
-static inline JSValue tjs__settled_promise(JSContext *ctx, bool is_reject, int argc, JSValueConst *argv) {
+static inline JSValue tjs__settled_promise(JSContext *ctx, bool is_reject, int argc, JSValue *argv) {
     JSValue promise, resolving_funcs[2], ret;
 
     promise = JS_NewPromiseCapability(ctx, resolving_funcs);
@@ -247,11 +247,11 @@ static inline JSValue tjs__settled_promise(JSContext *ctx, bool is_reject, int a
     return promise;
 }
 
-JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
+JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValue *argv) {
     return tjs__settled_promise(ctx, false, argc, argv);
 }
 
-JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValueConst *argv) {
+JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValue *argv) {
     return tjs__settled_promise(ctx, true, argc, argv);
 }
 

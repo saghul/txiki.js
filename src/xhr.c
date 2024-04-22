@@ -111,7 +111,7 @@ static void tjs_xhr_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 
-static void tjs_xhr_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
+static void tjs_xhr_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     TJSXhr *x = JS_GetOpaque(val, tjs_xhr_class_id);
     if (x) {
         for (int i = 0; i < XHR_EVENT_MAX; i++)
@@ -131,7 +131,7 @@ static JSClassDef tjs_xhr_class = {
     .gc_mark = tjs_xhr_mark,
 };
 
-static TJSXhr *tjs_xhr_get(JSContext *ctx, JSValueConst obj) {
+static TJSXhr *tjs_xhr_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_xhr_class_id);
 }
 
@@ -144,7 +144,7 @@ static void maybe_emit_event(TJSXhr *x, int event, JSValue arg) {
     }
 
     JSValue func = JS_DupValue(ctx, event_func);
-    JSValue ret = JS_Call(ctx, func, JS_UNDEFINED, 1, (JSValueConst *) &arg);
+    JSValue ret = JS_Call(ctx, func, JS_UNDEFINED, 1, &arg);
     if (JS_IsException(ret))
         tjs_dump_error(ctx);
 
@@ -296,7 +296,7 @@ static int curl__progress_cb(void *clientp,
     return 0;
 }
 
-static JSValue tjs_xhr_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
+static JSValue tjs_xhr_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
     JSValue obj = JS_NewObjectClass(ctx, tjs_xhr_class_id);
     if (JS_IsException(obj))
         return obj;
@@ -347,14 +347,14 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValueConst new_target, int 
     return obj;
 }
 
-static JSValue tjs_xhr_event_get(JSContext *ctx, JSValueConst this_val, int magic) {
+static JSValue tjs_xhr_event_get(JSContext *ctx, JSValue this_val, int magic) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
     return JS_DupValue(ctx, x->events[magic]);
 }
 
-static JSValue tjs_xhr_event_set(JSContext *ctx, JSValueConst this_val, JSValueConst value, int magic) {
+static JSValue tjs_xhr_event_set(JSContext *ctx, JSValue this_val, JSValue value, int magic) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
@@ -365,14 +365,14 @@ static JSValue tjs_xhr_event_set(JSContext *ctx, JSValueConst this_val, JSValueC
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_xhr_readystate_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_xhr_readystate_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
     return JS_NewInt32(ctx, x->ready_state);
 }
 
-static JSValue tjs_xhr_response_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_xhr_response_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
@@ -400,7 +400,7 @@ static JSValue tjs_xhr_response_get(JSContext *ctx, JSValueConst this_val) {
     return JS_DupValue(ctx, x->result.response);
 }
 
-static JSValue tjs_xhr_responsetext_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_xhr_responsetext_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
@@ -412,7 +412,7 @@ static JSValue tjs_xhr_responsetext_get(JSContext *ctx, JSValueConst this_val) {
     return JS_DupValue(ctx, x->result.response_text);
 }
 
-static JSValue tjs_xhr_responsetype_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_xhr_responsetype_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
@@ -430,7 +430,7 @@ static JSValue tjs_xhr_responsetype_get(JSContext *ctx, JSValueConst this_val) {
     }
 }
 
-static JSValue tjs_xhr_responsetype_set(JSContext *ctx, JSValueConst this_val, JSValueConst value) {
+static JSValue tjs_xhr_responsetype_set(JSContext *ctx, JSValue this_val, JSValue value) {
     static const char array_buffer[] = "arraybuffer";
     static const char json[] = "json";
     static const char text[] = "text";
@@ -458,35 +458,35 @@ static JSValue tjs_xhr_responsetype_set(JSContext *ctx, JSValueConst this_val, J
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_xhr_responseurl_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_xhr_responseurl_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
     return JS_DupValue(ctx, x->result.url);
 }
 
-static JSValue tjs_xhr_status_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_xhr_status_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
     return JS_DupValue(ctx, x->status.status);
 }
 
-static JSValue tjs_xhr_statustext_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_xhr_statustext_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
     return JS_DupValue(ctx, x->status.status_text);
 }
 
-static JSValue tjs_xhr_timeout_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_xhr_timeout_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
     return JS_NewInt32(ctx, x->timeout);
 }
 
-static JSValue tjs_xhr_timeout_set(JSContext *ctx, JSValueConst this_val, JSValueConst value) {
+static JSValue tjs_xhr_timeout_set(JSContext *ctx, JSValue this_val, JSValue value) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
@@ -503,22 +503,22 @@ static JSValue tjs_xhr_timeout_set(JSContext *ctx, JSValueConst this_val, JSValu
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_xhr_upload_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_xhr_upload_get(JSContext *ctx, JSValue this_val) {
     // TODO.
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_xhr_withcredentials_get(JSContext *ctx, JSValueConst this_val) {
+static JSValue tjs_xhr_withcredentials_get(JSContext *ctx, JSValue this_val) {
     // TODO.
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_xhr_withcredentials_set(JSContext *ctx, JSValueConst this_val, JSValueConst value) {
+static JSValue tjs_xhr_withcredentials_set(JSContext *ctx, JSValue this_val, JSValue value) {
     // TODO.
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_xhr_abort(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_xhr_abort(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
@@ -538,7 +538,7 @@ static JSValue tjs_xhr_abort(JSContext *ctx, JSValueConst this_val, int argc, JS
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_xhr_getallresponseheaders(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_xhr_getallresponseheaders(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
@@ -550,7 +550,7 @@ static JSValue tjs_xhr_getallresponseheaders(JSContext *ctx, JSValueConst this_v
     return JS_DupValue(ctx, x->result.headers);
 }
 
-static JSValue tjs_xhr_getresponseheader(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_xhr_getresponseheader(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
@@ -605,7 +605,7 @@ static JSValue tjs_xhr_getresponseheader(JSContext *ctx, JSValueConst this_val, 
     return ret;
 }
 
-static JSValue tjs_xhr_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_xhr_open(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     static const char head_method[] = "HEAD";
 
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
@@ -672,11 +672,11 @@ static JSValue tjs_xhr_open(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_xhr_overridemimetype(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_xhr_overridemimetype(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     return JS_ThrowTypeError(ctx, "unsupported");
 }
 
-static JSValue tjs_xhr_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_xhr_send(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;
@@ -704,7 +704,7 @@ static JSValue tjs_xhr_send(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_xhr_setrequestheader(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_xhr_setrequestheader(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
     if (!x)
         return JS_EXCEPTION;

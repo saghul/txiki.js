@@ -100,7 +100,7 @@ static JSValue tjs_new_wasm_module(JSContext *ctx) {
     return obj;
 }
 
-static TJSWasmModule *tjs_wasm_module_get(JSContext *ctx, JSValueConst obj) {
+static TJSWasmModule *tjs_wasm_module_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_wasm_module_class_id);
 }
 
@@ -122,7 +122,7 @@ static JSValue tjs_new_wasm_instance(JSContext *ctx) {
     return obj;
 }
 
-static TJSWasmInstance *tjs_wasm_instance_get(JSContext *ctx, JSValueConst obj) {
+static TJSWasmInstance *tjs_wasm_instance_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_wasm_instance_class_id);
 }
 
@@ -162,7 +162,7 @@ static JSValue tjs__wasm_result(JSContext *ctx, M3ValueType type, const void *st
     }
 }
 
-static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWasmInstance *i = tjs_wasm_instance_get(ctx, this_val);
     if (!i)
         return JS_EXCEPTION;
@@ -231,7 +231,7 @@ static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValueConst this_val, int 
     }
 }
 
-static JSValue tjs_wasm_linkwasi(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_wasm_linkwasi(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWasmInstance *i = tjs_wasm_instance_get(ctx, this_val);
     if (!i)
         return JS_EXCEPTION;
@@ -243,7 +243,7 @@ static JSValue tjs_wasm_linkwasi(JSContext *ctx, JSValueConst this_val, int argc
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWasmModule *m = tjs_wasm_module_get(ctx, argv[0]);
     if (!m)
         return JS_EXCEPTION;
@@ -278,7 +278,7 @@ static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValueConst this_val, int
     return obj;
 }
 
-static JSValue tjs_wasm_moduleexports(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_wasm_moduleexports(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWasmModule *m = tjs_wasm_module_get(ctx, argv[0]);
     if (!m)
         return JS_EXCEPTION;
@@ -304,7 +304,7 @@ static JSValue tjs_wasm_moduleexports(JSContext *ctx, JSValueConst this_val, int
     return exports;
 }
 
-static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
 
