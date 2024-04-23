@@ -19,7 +19,7 @@
     "eslint": "^8.24.0",
     "eslint-plugin-import": "^2.26.0",
     "getopts": "^2.3.0",
-    "gh-pages": "^4.0.0",
+    "gh-pages": "^5.0.0",
     "ipaddr.js": "^2.1.0",
     "js-md5": "^0.8.3",
     "js-sha1": "^0.7.0",
