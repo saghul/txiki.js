@@ -25,8 +25,6 @@
  * THE SOFTWARE.
  */
 
-var { evalScript } = globalThis[Symbol.for('tjs.internal.core')];
-
 function _run(g) {
     /* close global objects */
     var Object = g.Object;
@@ -99,6 +97,8 @@ function _run(g) {
     var term_width;
     /* current X position of the cursor in the terminal */
     var term_cursor_x = 0;
+
+    var { evalScript } = globalThis[Symbol.for('tjs.internal.core')];
 
     var encoder = new TextEncoder();
 
@@ -1535,29 +1535,6 @@ function _run(g) {
 }
 
 export async function runRepl() {
-    /* expose stdlib */
-    const code = `
-        const modules = [
-            'tjs:assert',
-            'tjs:ffi',
-            'tjs:getopts',
-            'tjs:hashing',
-            'tjs:ipaddr',
-            'tjs:path',
-            'tjs:uuid'
-        ];
-        const r = Promise.allSettled(modules.map(m => import(m)))
-            .then(res => {
-                Array.from(res).forEach((r, idx) => {
-                    console.assert(r.status === 'fulfilled');
-                    const name = modules[idx].split(':')[1];
-                    globalThis[name] = r.value.default;
-                });
-            });
-    `;
-
-    evalScript(code);
-
     window.addEventListener('unhandledrejection', event => {
         // Avoid aborting in unhandled promised on the REPL.
         event.preventDefault();
