@@ -99,6 +99,7 @@ static namelist_t cname_list;
 static namelist_t cmodule_list;
 static namelist_t init_module_list;
 static FILE *outfile;
+static int strip;
 
 void namelist_add(namelist_t *lp, const char *name, const char *short_name, int flags) {
     namelist_entry_t *e;
@@ -187,6 +188,11 @@ static void output_object_code(JSContext *ctx,
     size_t out_buf_len;
     int flags;
     flags = JS_WRITE_OBJ_BYTECODE;
+    if (strip) {
+        flags |= JS_WRITE_OBJ_STRIP_SOURCE;
+        if (strip > 1)
+            flags |= JS_WRITE_OBJ_STRIP_DEBUG;
+    }
     out_buf = JS_WriteObject(ctx, &out_buf_len, obj, flags);
     if (!out_buf) {
         js_std_dump_error(ctx);
@@ -275,7 +281,8 @@ void help(void) {
            "-o output   set the output filename\n"
            "-p prefix   set a prefix for the generated variables\n"
            "-n name     set the module name\n"
-           "-m          compile as Javascript module (default=autodetect)\n",
+           "-m          compile as Javascript module (default=autodetect)\n"
+           "-s          strip source code (if -ss is specified debugging info is also stripped)\n",
            JS_GetVersion());
     exit(1);
 }
@@ -296,9 +303,10 @@ int main(int argc, char **argv) {
     out_var_prefix = NULL;
     modname = NULL;
     module = -1;
+    strip = 0;
 
     for (;;) {
-        c = getopt(argc, argv, "ho:p:n:m");
+        c = getopt(argc, argv, "ho:p:n:ms");
         if (c == -1)
             break;
         switch (c) {
@@ -315,6 +323,9 @@ int main(int argc, char **argv) {
                 break;
             case 'm':
                 module = 1;
+                break;
+            case 's':
+                strip++;
                 break;
             default:
                 break;
