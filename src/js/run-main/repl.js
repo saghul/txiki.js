@@ -25,6 +25,8 @@
  * THE SOFTWARE.
  */
 
+var { evalScript } = globalThis[Symbol.for('tjs.internal.core')];
+
 function _run(g) {
     /* close global objects */
     var Object = g.Object;
@@ -97,8 +99,6 @@ function _run(g) {
     var term_width;
     /* current X position of the cursor in the terminal */
     var term_cursor_x = 0;
-
-    var { evalScript } = globalThis[Symbol.for('tjs.internal.core')];
 
     var encoder = new TextEncoder();
 
@@ -1536,23 +1536,27 @@ function _run(g) {
 
 export async function runRepl() {
     /* expose stdlib */
-    const r = await Promise.allSettled([
-        import('tjs:assert'),
-        import('tjs:ffi'),
-        import('tjs:getopts'),
-        import('tjs:hashing'),
-        import('tjs:ipaddr'),
-        import('tjs:path'),
-        import('tjs:uuid')
-    ]);
+    const code = `
+        const modules = [
+            'tjs:assert',
+            'tjs:ffi',
+            'tjs:getopts',
+            'tjs:hashing',
+            'tjs:ipaddr',
+            'tjs:path',
+            'tjs:uuid'
+        ];
+        const r = Promise.allSettled(modules.map(m => import(m)))
+            .then(res => {
+                Array.from(res).forEach((r, idx) => {
+                    console.assert(r.status === 'fulfilled');
+                    const name = modules[idx].split(':')[1];
+                    globalThis[name] = r.value.default;
+                });
+            });
+    `;
 
-    globalThis.assert = r[0].value.default;
-    globalThis.ffi = r[1].value.default;
-    globalThis.getopts = r[2].value.default;
-    globalThis.hashing = r[3].value.default;
-    globalThis.ipaddr = r[4].value.default;
-    globalThis.path = r[5].value.default;
-    globalThis.uuid = r[6].value.default;
+    evalScript(code);
 
     window.addEventListener('unhandledrejection', event => {
         // Avoid aborting in unhandled promised on the REPL.

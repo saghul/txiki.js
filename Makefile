@@ -1,12 +1,20 @@
 BUILD_DIR=build
 BUILDTYPE?=Release
 JOBS?=$(shell getconf _NPROCESSORS_ONLN)
+JS_NO_STRIP?=0
 
 TJS=$(BUILD_DIR)/tjs
 QJSC=$(BUILD_DIR)/tjsc
 STDLIB_MODULES=$(wildcard src/js/stdlib/*.js)
 ESBUILD?=npx esbuild
 ESBUILD_PARAMS_COMMON=--target=es2022 --platform=neutral --format=esm --main-fields=main,module
+ESBUILD_PARAMS_MINIFY=--minify
+QJSC_PARAMS_STIP=-ss
+
+ifeq ($(JS_NO_STRIP),1)
+	ESBUILD_PARAMS_MINIFY=
+	QJSC_PARAMS_STIP=
+endif
 
 all: $(TJS)
 
@@ -24,12 +32,13 @@ src/bundles/js/core/polyfills.js: src/js/polyfills/*.js
 		--bundle \
 		--metafile=$@.json \
 		--outfile=$@ \
-		--minify \
+		$(ESBUILD_PARAMS_MINIFY) \
 		$(ESBUILD_PARAMS_COMMON)
 
 src/bundles/c/core/polyfills.c: $(QJSC) src/bundles/js/core/polyfills.js
 	@mkdir -p $(basename $(dir $@))
 	$(QJSC) -m \
+		$(QJSC_PARAMS_STIP) \
 		-o $@ \
 		-n "polyfills.js" \
 		-p tjs__ \
@@ -40,12 +49,13 @@ src/bundles/js/core/core.js: src/js/core/*.js
 		--bundle \
 		--metafile=$@.json \
 		--outfile=$@ \
-		--minify \
+		$(ESBUILD_PARAMS_MINIFY) \
 		$(ESBUILD_PARAMS_COMMON)
 
 src/bundles/c/core/core.c: $(QJSC) src/bundles/js/core/core.js
 	@mkdir -p $(basename $(dir $@))
 	$(QJSC) -m \
+		$(QJSC_PARAMS_STIP) \
 		-o $@ \
 		-n "core.js" \
 		-p tjs__ \
@@ -56,14 +66,15 @@ src/bundles/js/core/run-main.js: src/js/run-main/*.js
 		--bundle \
 		--metafile=$@.json \
 		--outfile=$@ \
-		--minify \
 		--external:tjs:* \
 		--log-override:direct-eval=silent \
+		$(ESBUILD_PARAMS_MINIFY) \
 		$(ESBUILD_PARAMS_COMMON)
 
 src/bundles/c/core/run-main.c: $(QJSC) src/bundles/js/core/run-main.js
 	@mkdir -p $(basename $(dir $@))
 	$(QJSC) -m \
+		$(QJSC_PARAMS_STIP) \
 		-o $@ \
 		-n "run-main.js" \
 		-p tjs__ \
@@ -72,6 +83,7 @@ src/bundles/c/core/run-main.c: $(QJSC) src/bundles/js/core/run-main.js
 src/bundles/c/core/worker-bootstrap.c: $(QJSC) src/js/worker/worker-bootstrap.js
 	@mkdir -p $(basename $(dir $@))
 	$(QJSC) \
+		$(QJSC_PARAMS_STIP) \
 		-o $@ \
 		-n "worker-bootstrap.js" \
 		-p tjs__ \
@@ -82,6 +94,7 @@ core: src/bundles/c/core/polyfills.c src/bundles/c/core/core.c src/bundles/c/cor
 src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
 	@mkdir -p $(basename $(dir $@))
 	$(QJSC) -m \
+		$(QJSC_PARAMS_STIP) \
 		-o $@ \
 		-n "tjs:$(basename $(notdir $@))" \
 		-p tjs__ \
@@ -93,11 +106,13 @@ src/bundles/js/stdlib/%.js: src/js/stdlib/*.js src/js/stdlib/ffi/*.js
 		--outfile=$@ \
 		--external:buffer \
 		--external:crypto \
+		$(ESBUILD_PARAMS_MINIFY) \
 		$(ESBUILD_PARAMS_COMMON)
 
 src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
 	@mkdir -p $(basename $(dir $@))
 	$(QJSC) -m \
+		$(QJSC_PARAMS_STIP) \
 		-o $@ \
 		-n "tjs:$(basename $(notdir $@))" \
 		-p tjs__ \
