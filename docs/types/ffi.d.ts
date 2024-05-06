@@ -73,10 +73,12 @@ declare module 'tjs:ffi'{
         sint: SimpleType<number>,
         ulong: SimpleType<number>,
         slong: SimpleType<number>,
-        
+        sllong: SimpleType<number>,
+        ullong: SimpleType<number>,
+
         size: SimpleType<number>,
         ssize: SimpleType<number>,
-        
+
         string: SimpleType<string>
         
         buffer: SimpleType<Uint8Array>

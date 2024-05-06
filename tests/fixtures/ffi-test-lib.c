@@ -102,3 +102,47 @@ struct test_handle_entry* get_next_entry(struct test_handle* th){
 	}
 	return th->entry;
 }
+
+size_t sizeof_sllong(){
+	return sizeof(long long);
+}
+
+size_t sizeof_slong(){
+	return sizeof(long);
+}
+
+size_t sizeof_sint(){
+	return sizeof(int);
+}
+
+size_t sizeof_sshort(){
+	return sizeof(short);
+}
+
+size_t sizeof_schar(){
+	return sizeof(char);
+}
+
+size_t sizeof_float(){
+	return sizeof(float);
+}
+
+size_t sizeof_double(){
+	return sizeof(double);
+}
+
+size_t sizeof_pointer(){
+	return sizeof(void*);
+}
+
+size_t sizeof_size_t(){
+	return sizeof(size_t);
+}
+
+size_t sizeof_ulong(){
+	return sizeof(unsigned long);
+}
+
+size_t sizeof_ullong(){
+	return sizeof(unsigned long long);
+}
