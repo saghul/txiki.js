@@ -80,5 +80,5 @@ declare module 'tjs:assert'{
         onResult: (result: IAssertionResult<unknown>) => void;
     }
 
-    export default factory;
+    export default Assert;
 }
