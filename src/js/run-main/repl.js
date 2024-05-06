@@ -98,6 +98,8 @@ function _run(g) {
     /* current X position of the cursor in the terminal */
     var term_cursor_x = 0;
 
+    var read_stdin = true;
+
     var { evalScript } = globalThis[Symbol.for('tjs.internal.core')];
 
     var encoder = new TextEncoder();
@@ -107,15 +109,15 @@ function _run(g) {
     }
 
     function termInit() {
-        if (!tjs.stdin.isTTY) {
-            throw new Error('stdin is not a TTY');
+        term_width = 80;
+
+        if (tjs.stdin.isTTY) {
+            /* get the terminal size */
+            term_width = tjs.stdout.width;
+
+            /* set the TTY to raw mode */
+            tjs.stdin.setRawMode(true);
         }
-
-        /* get the terminal size */
-        term_width = tjs.stdout.width;
-
-        /* set the TTY to raw mode */
-        tjs.stdin.setRawMode(true);
 
         /* install a Ctrl-C signal handler */
         tjs.addSignalListener('SIGINT', sigint_handler);
@@ -137,7 +139,7 @@ function _run(g) {
         var buf = new Uint8Array(4096);
         var nread;
 
-        while (true) {
+        while (read_stdin) {
             try {
                 nread = await tjs.stdin.read(buf);
 
@@ -448,7 +450,7 @@ function _run(g) {
     function control_d() {
         if (cmd.length == 0) {
             stdout_write('\n');
-            exit(0);
+            return -3;
         } else {
             delete_char_dir(1);
         }
@@ -924,6 +926,10 @@ function _run(g) {
                     return;
                 case -2:
                     readline_cb(null);
+
+                    return;
+                case -3:
+                    read_stdin = false;
 
                     return;
             }
