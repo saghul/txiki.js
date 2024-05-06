@@ -1090,9 +1090,22 @@ static JSValue tjs__mod_ffi_init_js(JSContext *ctx, JSValue this_val, int argc, 
 #if SIZE_MAX == UINT32_MAX
     ADD_ALIAS_TYPE(ctx, ffiobj, type_size, type_uint32);
     ADD_ALIAS_TYPE(ctx, ffiobj, type_ssize, type_sint32);
-#else
+#elif SIZE_MAX == UINT64_MAX
     ADD_ALIAS_TYPE(ctx, ffiobj, type_size, type_uint64);
     ADD_ALIAS_TYPE(ctx, ffiobj, type_ssize, type_sint64);
+#else
+    #error("unhandled size_t size")
+#endif
+
+#if ULLONG_MAX == UINT64_MAX
+    ADD_ALIAS_TYPE(ctx, ffiobj, type_ull, type_uint64);
+#else
+    #error("unhandled unsigned long long size")
+#endif
+#if LLONG_MAX == INT64_MAX
+    ADD_ALIAS_TYPE(ctx, ffiobj, type_sll, type_sint64);
+#else
+    #error("unhandled signed long long size")
 #endif
 
     // ffi also supports some complex types, currently not implemented

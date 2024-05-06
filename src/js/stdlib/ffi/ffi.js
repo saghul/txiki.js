@@ -184,6 +184,8 @@ export const types = {
     sint: ffiInt.type_sint,
     ulong: ffiInt.type_ulong,
     slong: ffiInt.type_slong,
+    ullong: ffiInt.type_ull,
+    sllong: ffiInt.type_sll,
 
     size: ffiInt.type_size,
     ssize: ffiInt.type_ssize,
@@ -232,8 +234,8 @@ export const types = {
 const typeMap = [
     [ types.uint8, [ 'uint8_t' ] ],
     [ types.uint16, [ 'uint16_t' ] ],
-    [ types.uint32, [ 'uint32_t', 'signed long long', 'signed long long int', 'long long', 'long long int' ] ],
-    [ types.uint64, [ 'uint64_t', 'unsigned long long', 'unsigned long long int' ] ],
+    [ types.uint32, [ 'uint32_t' ] ],
+    [ types.uint64, [ 'uint64_t' ] ],
     [ types.sint8, [ 'int8_t' ] ],
     [ types.sint16, [ 'int16_t' ] ],
     [ types.sint32, [ 'int32_t' ] ],
@@ -250,6 +252,8 @@ const typeMap = [
     [ types.sint, [ 'signed int', 'int' ] ],
     [ types.ulong, [ 'unsigned long', 'unsigned long int' ] ],
     [ types.slong, [ 'signed long', 'signed long int', 'long', 'long int' ] ],
+    [ types.ullong, [ 'unsigned long long', 'unsigned long long int' ] ],
+    [ types.sllong, [ 'signed long long', 'signed long long int', 'long long', 'long long int' ] ],
 
     [ types.size, [ 'size_t' ] ],
     [ types.ssize, [ 'ssize_t' ] ],
