@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define TJS__DEFAULT_STACK_SIZE 1048576
+#define TJS__DEFAULT_STACK_SIZE 10 * 1024 * 1024 // 10 MB
 
 static void *tjs__mf_malloc(JSMallocState *s, size_t size) {
     void *ptr;
@@ -38,7 +38,7 @@ static void *tjs__mf_malloc(JSMallocState *s, size_t size) {
     /* Do not allocate zero bytes: behavior is platform dependent */
     assert(size != 0);
 
-    if (unlikely(s->malloc_size + size > s->malloc_limit))
+    if (unlikely(s->malloc_size + size > s->malloc_limit - 1))
         return NULL;
 
     ptr = tjs__malloc(size);
@@ -74,7 +74,7 @@ static void *tjs__mf_realloc(JSMallocState *s, void *ptr, size_t size) {
         tjs__free(ptr);
         return NULL;
     }
-    if (s->malloc_size + size - old_size > s->malloc_limit)
+    if (s->malloc_size + size - old_size > s->malloc_limit - 1)
         return NULL;
 
     ptr = tjs__realloc(ptr, size);
@@ -197,7 +197,7 @@ static void uv__walk(uv_handle_t *handle, void *arg) {
 }
 
 void TJS_DefaultOptions(TJSRunOptions *options) {
-    static TJSRunOptions default_options = { .mem_limit = -1, .stack_size = TJS__DEFAULT_STACK_SIZE };
+    static TJSRunOptions default_options = { .mem_limit = 0, .stack_size = TJS__DEFAULT_STACK_SIZE };
 
     memcpy(options, &default_options, sizeof(*options));
 }
