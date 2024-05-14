@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises'
 //install (default)
 //clear
 //reinstall (clear+install)
+//extract [name] Extract a module out of the current configuration and save it (useful for developers of custom modules)
 
 if(existsSync('./modules.json')){
     const config = await readFile('./modules.json')
