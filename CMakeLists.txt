@@ -28,8 +28,8 @@ set(TJS__VERSION_MINOR 12)
 set(TJS__VERSION_PATCH 0)
 set(TJS__VERSION_SUFFIX "")
 configure_file(
-    "${CMAKE_SOURCE_DIR}/src/version.h.in"
-    "${CMAKE_SOURCE_DIR}/src/version.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.in"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h"
 )
 
 macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
@@ -68,9 +68,8 @@ endif()
 
 find_package(CURL REQUIRED)
 
-add_executable(tjs
+add_library(tjs STATIC
     src/builtins.c
-    src/cli.c
     src/curl-utils.c
     src/curl-websocket.c
     src/dns.c
@@ -101,7 +100,7 @@ add_executable(tjs
     src/bundles/c/core/polyfills.c
     src/bundles/c/core/run-main.c
     src/bundles/c/core/worker-bootstrap.c
-    ../deps/quickjs/cutils.c
+    deps/quickjs/cutils.c
 )
 
 if(NOT MINGW)
@@ -113,7 +112,7 @@ add_library(ffi-test SHARED
 )
 
 if(NOT USE_EXTERNAL_FFI AND NOT MINGW AND NOT APPLE)
-    set(LIBFFI_SRC "${CMAKE_SOURCE_DIR}/deps/libffi")
+    set(LIBFFI_SRC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libffi")
     set(TMP_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/ffi_root")
     if(MINGW)
         set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.dll.a)
@@ -152,12 +151,21 @@ string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
+target_include_directories(tjs PUBLIC src)
 target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread ${CURL_LIBRARIES})
 
 if (BUILD_WITH_MIMALLOC)
     target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)
     target_link_libraries(tjs mimalloc-static)
 endif()
+
+add_executable(tjs-cli
+    src/cli.c
+)
+target_link_libraries(tjs-cli tjs)
+set_target_properties(tjs-cli
+    PROPERTIES OUTPUT_NAME tjs
+)
 
 add_executable(tjsc EXCLUDE_FROM_ALL
     src/qjsc.c
