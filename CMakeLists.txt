@@ -57,6 +57,10 @@ add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
 set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
 add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
+if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/deps/extras")
+    add_subdirectory(deps/extras EXCLUDE_FROM_ALL)
+endif()
+
 if(BUILD_WITH_MIMALLOC)
     option(MI_OVERRIDE "" OFF)
     option(MI_BUILD_SHARED "" OFF)
@@ -67,6 +71,9 @@ if(BUILD_WITH_MIMALLOC)
 endif()
 
 find_package(CURL REQUIRED)
+
+file(GLOB src_extras "src/extras/**/*.c")
+file(GLOB src_bundles_extras "src/bundles/c/extras/**/*.c")
 
 add_executable(tjs
     src/builtins.c
@@ -101,6 +108,8 @@ add_executable(tjs
     src/bundles/c/core/polyfills.c
     src/bundles/c/core/run-main.c
     src/bundles/c/core/worker-bootstrap.c
+    ${src_extras}
+    ${src_bundles_extras}
     ../deps/quickjs/cutils.c
 )
 

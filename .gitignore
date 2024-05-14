@@ -10,3 +10,15 @@ src/version.h
 node_modules/
 docs/api/
 test_dir*/
+
+#External modules
+benchmark/extras/
+deps/extras/
+examples/extras/
+tests/extras/
+src/bundles/c/extras/
+src/extras/
+extras/
+
+#Module files
+modules.json

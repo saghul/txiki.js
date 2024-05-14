@@ -35,6 +35,7 @@
     "whatwg-url": "^14.0.0"
   },
   "devDependencies": {
+    "commander": "^12.0.0",
     "typedoc": "^0.25.2"
   }
 }
