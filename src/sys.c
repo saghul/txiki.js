@@ -30,10 +30,25 @@
 #include <uv.h>
 
 
-static JSValue js_std_gc(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+static JSValue js_std_gcRun(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JS_RunGC(JS_GetRuntime(ctx));
     return JS_UNDEFINED;
 }
+
+static JSValue js_std_gcSetThreshold(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    int64_t value;
+
+    if(JS_ToInt64(ctx, &value, argv[0]))
+        return JS_EXCEPTION;
+    JS_SetGCThreshold(JS_GetRuntime(ctx),value);
+
+    return JS_UNDEFINED;
+}
+
+static JSValue js_std_gcGetThreshold(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    return JS_NewNumber(ctx,JS_GetGCThreshold(JS_GetRuntime(ctx)));
+}
+
 
 static JSValue tjs_evalFile(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     const char *filename;
@@ -146,7 +161,9 @@ static JSValue tjs_setMaxStackSize(JSContext *ctx, JSValue this_val, int argc, J
 }
 
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
-    TJS_CFUNC_DEF("gc", 0, js_std_gc),
+    TJS_CFUNC_DEF("gcRun", 0, js_std_gcRun),
+    TJS_CFUNC_DEF("gcSetThreshold", 1, js_std_gcSetThreshold),
+    TJS_CFUNC_DEF("gcGetThreshold", 0, js_std_gcGetThreshold),
     TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
     TJS_CFUNC_DEF("evalScript", 1, tjs_evalScript),
     TJS_CFUNC_DEF("isStdinTty", 0, tjs_isStdinTty),
