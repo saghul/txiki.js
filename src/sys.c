@@ -36,8 +36,8 @@ typedef struct{
     JSContext *jsctx;
 } tjs_gc_cb_t;
 
-static tjs_gc_cb_t tjs_gc_on_before;
-static tjs_gc_cb_t tjs_gc_on_after;
+static tjs_gc_cb_t tjs_gc_on_before = {JS_NULL, JS_NULL, NULL};
+static tjs_gc_cb_t tjs_gc_on_after = {JS_NULL, JS_NULL, NULL};
 
 static JSValue js_std_gcRun(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JS_RunGC(JS_GetRuntime(ctx));
@@ -77,6 +77,7 @@ static BOOL js_std_gc_before_cb(){
 static JSValue js_std_gcSetBeforeCallback(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IsFunction(ctx, argv[0]), 0, "function");
 
+    if(!JS_IsUndefined(tjs_gc_on_before.callback))JS_FreeValue(ctx,tjs_gc_on_before.callback);
     tjs_gc_on_before.callback = JS_DupValue(ctx, argv[0]);
     tjs_gc_on_before.this = this_val;
     tjs_gc_on_before.jsctx = ctx;
@@ -98,6 +99,7 @@ static void js_std_gc_after_cb(){
 static JSValue js_std_gcSetAfterCallback(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IsFunction(ctx, argv[0]), 0, "function");
 
+    if(!JS_IsUndefined(tjs_gc_on_after.callback))JS_FreeValue(ctx,tjs_gc_on_after.callback);
     tjs_gc_on_after.callback = JS_DupValue(ctx, argv[0]);
     tjs_gc_on_after.this = this_val;
     tjs_gc_on_after.jsctx = ctx;
