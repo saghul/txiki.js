@@ -107,7 +107,14 @@ declare global {
         /**
         * Triggers a garbage collection cycle.
         */
-        function gc(): void;
+        interface gc {
+            run: ()=>void;
+            enabled: boolean;
+            threshold: number;
+            fixThreshold: boolean;
+            onBefore: ()=>boolean;
+            onAfter: ()=>void;
+        }
         
         /**
         * The txiki.js version.

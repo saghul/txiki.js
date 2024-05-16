@@ -30,6 +30,15 @@
 #include <uv.h>
 
 
+typedef struct{
+    JSValue callback;
+    JSValue this;
+    JSContext *jsctx;
+} tjs_gc_cb_t;
+
+static tjs_gc_cb_t tjs_gc_on_before;
+static tjs_gc_cb_t tjs_gc_on_after;
+
 static JSValue js_std_gcRun(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JS_RunGC(JS_GetRuntime(ctx));
     return JS_UNDEFINED;
@@ -45,8 +54,60 @@ static JSValue js_std_gcSetThreshold(JSContext *ctx, JSValue this_val, int argc,
     return JS_UNDEFINED;
 }
 
+static JSValue js_std_gcFixThreshold(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    int64_t value;
+
+    if(JS_ToInt64(ctx, &value, argv[0]))
+        return JS_EXCEPTION;
+    JS_SetGCThresholdFixed(JS_GetRuntime(ctx),value);
+
+    return JS_UNDEFINED;
+}
+
 static JSValue js_std_gcGetThreshold(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     return JS_NewNumber(ctx,JS_GetGCThreshold(JS_GetRuntime(ctx)));
+}
+
+static BOOL js_std_gc_before_cb(){
+    JSValue args[] = {};
+    JSValue ret = JS_Call(tjs_gc_on_before.jsctx, tjs_gc_on_before.callback, tjs_gc_on_before.this, 0, args);
+    return ret.u.int32;
+}
+
+static JSValue js_std_gcSetBeforeCallback(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJS_CHECK_ARG_RET(ctx, JS_IsFunction(ctx, argv[0]), 0, "function");
+
+    tjs_gc_on_before.callback = JS_DupValue(ctx, argv[0]);
+    tjs_gc_on_before.this = this_val;
+    tjs_gc_on_before.jsctx = ctx;
+    
+    if (JS_IsUndefined(tjs_gc_on_before.callback))JS_SetGCBeforeCallback(JS_GetRuntime(ctx),NULL);
+    else{
+        JS_SetGCBeforeCallback(JS_GetRuntime(ctx),js_std_gc_before_cb);
+    }
+
+    return JS_UNDEFINED;
+}
+
+static void js_std_gc_after_cb(){
+    JSValue args[] = {};
+    JS_Call(tjs_gc_on_after.jsctx, tjs_gc_on_after.callback, tjs_gc_on_after.this, 0, args);
+    return;
+}
+
+static JSValue js_std_gcSetAfterCallback(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJS_CHECK_ARG_RET(ctx, JS_IsFunction(ctx, argv[0]), 0, "function");
+
+    tjs_gc_on_after.callback = JS_DupValue(ctx, argv[0]);
+    tjs_gc_on_after.this = this_val;
+    tjs_gc_on_after.jsctx = ctx;
+    
+    if (JS_IsUndefined(tjs_gc_on_after.callback))JS_SetGCAfterCallback(JS_GetRuntime(ctx),NULL);
+    else{
+        JS_SetGCAfterCallback(JS_GetRuntime(ctx),js_std_gc_after_cb);
+    }
+
+    return JS_UNDEFINED;
 }
 
 
@@ -164,6 +225,9 @@ static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("gcRun", 0, js_std_gcRun),
     TJS_CFUNC_DEF("gcSetThreshold", 1, js_std_gcSetThreshold),
     TJS_CFUNC_DEF("gcGetThreshold", 0, js_std_gcGetThreshold),
+    TJS_CFUNC_DEF("gcFixThreshold", 1, js_std_gcFixThreshold),
+    TJS_CFUNC_DEF("gcSetBeforeCallback", 1, js_std_gcSetBeforeCallback),
+    TJS_CFUNC_DEF("gcSetAfterCallback", 1, js_std_gcSetAfterCallback),
     TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
     TJS_CFUNC_DEF("evalScript", 1, tjs_evalScript),
     TJS_CFUNC_DEF("isStdinTty", 0, tjs_isStdinTty),

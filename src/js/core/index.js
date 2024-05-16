@@ -222,17 +222,24 @@ Object.defineProperty(tjs, 'gc', {
             if(_gc_state.enabled){core.gcSetThreshold(value);_gc_state.threshold=value;}
             else core.gcSetThreshold(-1)
         },
-        get threshold(){const tmp = core.gcGetThreshold();console.log(_gc_state.threshold,tmp); if(tmp!==-1)_gc_state.threshold = tmp; return tmp},
+        get threshold(){const tmp = core.gcGetThreshold(); if(tmp!==-1)_gc_state.threshold = tmp; return tmp},
         
+        /**
+         * @param {boolean} value
+         */
+        set fixThreshold(value){
+            core.gcFixThreshold(value)
+        },
+
         /**
          * @param {()=>boolean} v If returning true the GC event will take place, otherwise it is skipped.
          */
-        set onBefore(v){throw new Error('GC callbacks not implemented yet')},
+        set onBefore(v){core.gcSetBeforeCallback(v)},
 
         /**
          * @param {()=>void} v
          */
-        set onAfter(v){throw new Error('GC callbacks not implemented yet')}
+        set onAfter(v){core.gcSetAfterCallback(v)}
 
     }
 });
