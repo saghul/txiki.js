@@ -204,42 +204,63 @@ if (core.posix_socket) {
 const _gc_state = {
     enabled: true,
     threshold: core.gcGetThreshold()
-}
+};
+
 Object.defineProperty(tjs, 'gc', {
     enumerable: true,
     configurable: false,
     writable: false,
     value: {
-        run: ()=>{return core.gcRun()},
-      
-        set enabled(value){
-            if(value===true)core.gcSetThreshold(_gc_state.threshold);
-            else core.gcSetThreshold(-1)
+        run: ()=>core.gcRun(),
+
+        set enabled(value) {
+            if (value===true) {
+                core.gcSetThreshold(_gc_state.threshold);
+            } else {
+                core.gcSetThreshold(-1);
+            }
         },
-        get enabled(){return _gc_state.enabled},
-    
-        set threshold(value){
-            if(_gc_state.enabled){core.gcSetThreshold(value);_gc_state.threshold=value;}
-            else core.gcSetThreshold(-1)
+        get enabled() {
+            return _gc_state.enabled;
         },
-        get threshold(){const tmp = core.gcGetThreshold(); if(tmp!==-1)_gc_state.threshold = tmp; return tmp},
-        
+
+        set threshold(value) {
+            if (_gc_state.enabled) {
+                core.gcSetThreshold(value);_gc_state.threshold=value;
+            } else {
+                core.gcSetThreshold(-1);
+            }
+        },
+        get threshold() {
+            const tmp = core.gcGetThreshold();
+
+            if (tmp!==-1) {
+                _gc_state.threshold = tmp;
+            }
+
+            return tmp;
+        },
+
         /**
          * @param {boolean} value
          */
-        set fixThreshold(value){
-            core.gcFixThreshold(value)
+        set fixThreshold(value) {
+            core.gcFixThreshold(value);
         },
 
         /**
          * @param {()=>boolean} v If returning true the GC event will take place, otherwise it is skipped.
          */
-        set onBefore(v){core.gcSetBeforeCallback(v)},
+        set onBefore(v) {
+            core.gcSetBeforeCallback(v);
+        },
 
         /**
          * @param {()=>void} v
          */
-        set onAfter(v){core.gcSetAfterCallback(v)}
+        set onAfter(v) {
+            core.gcSetAfterCallback(v);
+        }
 
     }
 });
