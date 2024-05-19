@@ -6,6 +6,7 @@ JS_NO_STRIP?=0
 TJS=$(BUILD_DIR)/tjs
 QJSC=$(BUILD_DIR)/tjsc
 STDLIB_MODULES=$(wildcard src/js/stdlib/*.js)
+EXTRAS_MODULES=$(wildcard src/js/extras/*.js)
 ESBUILD?=npx esbuild
 ESBUILD_PARAMS_COMMON=--target=es2022 --platform=neutral --format=esm --main-fields=main,module
 ESBUILD_PARAMS_MINIFY=--minify
@@ -109,7 +110,7 @@ src/bundles/js/stdlib/%.js: src/js/stdlib/*.js src/js/stdlib/ffi/*.js
 		$(ESBUILD_PARAMS_MINIFY) \
 		$(ESBUILD_PARAMS_COMMON)
 
-src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
+src/bundles/c/extras/%.c: $(QJSC) src/bundles/js/extras/%.js
 	@mkdir -p $(basename $(dir $@))
 	$(QJSC) -m \
 		$(QJSC_PARAMS_STIP) \
@@ -118,9 +119,19 @@ src/bundles/c/stdlib/%.c: $(QJSC) src/bundles/js/stdlib/%.js
 		-p tjs__ \
 		src/bundles/js/stdlib/$(basename $(notdir $@)).js
 
-stdlib: $(addprefix src/bundles/c/stdlib/, $(patsubst %.js, %.c, $(notdir $(STDLIB_MODULES))))
+src/bundles/js/extras/%.js: src/js/extras/*.js
+	$(ESBUILD) src/js/stdlib/$(notdir $@) \
+		--bundle \
+		--outfile=$@ \
+		--external:buffer \
+		--external:crypto \
+		$(ESBUILD_PARAMS_MINIFY) \
+		$(ESBUILD_PARAMS_COMMON)
 
-js: core stdlib
+stdlib: $(addprefix src/bundles/c/stdlib/, $(patsubst %.js, %.c, $(notdir $(STDLIB_MODULES))))
+extras: $(addprefix src/bundles/c/extras/, $(patsubst %.js, %.c, $(notdir $(EXTRAS_MODULES))))
+
+js: core stdlib extras
 
 install: $(TJS)
 	cmake --build $(BUILD_DIR) --target install

@@ -1,6 +1,6 @@
 #!/bin/env node
 import { existsSync } from 'node:fs'
-import { readFile, mkdir, rm } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, rm } from 'node:fs/promises'
 
 import { program } from 'commander';
 import { randomUUID } from 'node:crypto';
@@ -13,14 +13,14 @@ program
 program.command('clear')
     .description('Clear after your previous configuration')
     .action(async () => {
-        await rm('extras/', {recursive:true,force:true});
-        await rm('src/extras/', {recursive:true,force:true});
-        await rm('src/bundles/c/extras/', {recursive:true,force:true});
-        await rm('tests/extras/', {recursive:true,force:true});
-        await rm('examples/extras/', {recursive:true,force:true});
-        await rm('deps/extras/', {recursive:true,force:true});
-        await rm('benchmark/extras/', {recursive:true,force:true});
-        await rm('docs/types/extras/', {recursive:true,force:true});
+        await rm('extras/', { recursive: true, force: true });
+        await rm('src/extras/', { recursive: true, force: true });
+        await rm('src/js/extras/', { recursive: true, force: true });
+        await rm('tests/extras/', { recursive: true, force: true });
+        await rm('examples/extras/', { recursive: true, force: true });
+        await rm('deps/extras/', { recursive: true, force: true });
+        await rm('benchmark/extras/', { recursive: true, force: true });
+        await rm('docs/types/extras/', { recursive: true, force: true });
 
     })
 
@@ -30,13 +30,15 @@ program.command('clone')
     .action(async (filename) => {
         if (!existsSync("extras/")) await mkdir("extras/");
         if (!existsSync("src/extras/")) await mkdir('src/extras/');
-        if (!existsSync("src/bundles/c/extras/")) await mkdir('src/bundles/c/extras/');
+        if (!existsSync("src/js/extras/")) await mkdir('src/js/extras/');
         if (!existsSync("tests/extras/")) await mkdir('tests/extras/');
         if (!existsSync("examples/extras/")) await mkdir('examples/extras/');
         if (!existsSync("deps/extras/")) await mkdir('deps/extras/');
         if (!existsSync("benchmark/extras/")) await mkdir('benchmark/extras/');
         if (!existsSync("docs/types/extras/")) await mkdir('docs/types/extras/');
 
+        //Placeholder for now
+        await writeFile('deps/extras/CMakeLists.txt', '')
 
         let config = undefined
         try {
