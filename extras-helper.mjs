@@ -1,6 +1,6 @@
 #!/bin/env node
 import { existsSync } from 'node:fs'
-import { readFile, rmdir, mkdir } from 'node:fs/promises'
+import { readFile, mkdir, rm } from 'node:fs/promises'
 
 import { program } from 'commander';
 import { randomUUID } from 'node:crypto';
@@ -13,29 +13,34 @@ program
 program.command('clear')
     .description('Clear after your previous configuration')
     .action(async () => {
-        await rmdir('extras/');
-        await rmdir('src/extras/');
-        await rmdir('src/bundles/c/extras/');
-        await rmdir('tests/extras/');
-        await rmdir('examples/extras/');
-        await rmdir('deps/extras/');
-        await rmdir('benchmark/extras/');
+        await rm('extras/', {recursive:true,force:true});
+        await rm('src/extras/', {recursive:true,force:true});
+        await rm('src/bundles/c/extras/', {recursive:true,force:true});
+        await rm('tests/extras/', {recursive:true,force:true});
+        await rm('examples/extras/', {recursive:true,force:true});
+        await rm('deps/extras/', {recursive:true,force:true});
+        await rm('benchmark/extras/', {recursive:true,force:true});
+        await rm('docs/types/extras/', {recursive:true,force:true});
+
     })
 
 program.command('clone')
     .description('Clear after your previous configuration')
     .argument("[filename]", 'filename for the configuration', './modules.json')
     .action(async (filename) => {
-        await mkdir('extras/');
-        await mkdir('src/extras/');
-        await mkdir('src/bundles/c/extras/');
-        await mkdir('tests/extras/');
-        await mkdir('examples/extras/');
-        await mkdir('deps/extras/');
-        await mkdir('benchmark/extras/');
+        if (!existsSync("extras/")) await mkdir("extras/");
+        if (!existsSync("src/extras/")) await mkdir('src/extras/');
+        if (!existsSync("src/bundles/c/extras/")) await mkdir('src/bundles/c/extras/');
+        if (!existsSync("tests/extras/")) await mkdir('tests/extras/');
+        if (!existsSync("examples/extras/")) await mkdir('examples/extras/');
+        if (!existsSync("deps/extras/")) await mkdir('deps/extras/');
+        if (!existsSync("benchmark/extras/")) await mkdir('benchmark/extras/');
+        if (!existsSync("docs/types/extras/")) await mkdir('docs/types/extras/');
 
+
+        let config = undefined
         try {
-            const config = JSON.parse(await readFile(filename))
+            config = JSON.parse(await readFile(filename))
         }
         catch (e) {
             console.error("Unable to parse the config file.")
@@ -60,8 +65,3 @@ program.command('extract')
     })
 
 program.parse();
-//CLI Options:
-//install (default)
-//clear
-//reinstall (clear+install)
-//extract [name] Extract a module out of the current configuration and save it (useful for developers of custom modules)
