@@ -19,9 +19,10 @@
 /src/bundles/c/extras/
 /src/js/extras/
 /src/extras/
-/src/extras.bootstrap
 /extras/
 /docs/types/extras/
+
+/src/*.c.frag
 
 #Module files
 modules.json

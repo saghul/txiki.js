@@ -72,8 +72,8 @@ endif()
 
 find_package(CURL REQUIRED)
 
-file(GLOB src_extras "src/extras/**/*.c")
-file(GLOB src_bundles_extras "src/bundles/c/extras/**/*.c")
+file(GLOB src_extras "src/extras/*.c")
+file(GLOB src_bundles_extras "src/bundles/c/extras/*.c")
 
 add_executable(tjs
     src/builtins.c

@@ -7,6 +7,10 @@ import { randomUUID } from 'node:crypto';
 
 async function install(path) {
     //TODO
+    await writeFile(`./src/extras/${path}.c`, ((await readFile(`./extras/${path}/src/[module].c`)).toString().replace('__MODULE__', path)))
+    await writeFile(`./src/js/extras/${path}.js`, ((await readFile(`./extras/${path}/src/[module].js`)).toString().replace('__MODULE__', path)))
+    await writeFile(`./docs/types/extras/${path}.js`, ((await readFile(`./extras/${path}/src/[module].d.ts`)).toString().replace('__MODULE__', path)))
+
     //replace [module] && __module__
 }
 
@@ -67,15 +71,20 @@ program.command('clone')
                 //TODO: Copy from local fs
                 await cp(module[1], `./extras/${module[0]}`, { recursive: true, dereference: true, errorOnExist: false })
             }
-            await install(`./extras/${module[0]}`)
+            await install(module[0])
         }
 
         //Placeholder for now
         await writeFile('deps/extras/CMakeLists.txt', '')
         await writeFile('./modules.json', JSON.stringify(config, null, 4))
 
-        //Construct src/extras.bootstrap
-        await writeFile('./src/extras.bootstrap', Object.keys(config).map(x => `tjs__mod_${x}_init(ctx, ns);`).join('\n'))
+        //Construct src/extras.bootstrap to initialize the extra modules
+        await writeFile('./src/extras-bootstrap.c.frag', Object.keys(config).map(x => `tjs__mod_${x}_init(ctx, ns);`).join('\n'))
+        await writeFile('./src/extras-bundles.c.frag', Object.keys(config).map(x => `#include "bundles/c/extras/${x}.c"`).join('\n'))
+        await writeFile('./src/extras-entries.c.frag', Object.keys(config).map(x => `{ "tjs:${x}", tjs__${x}, tjs__${x}_size},`).join('\n'))
+
+        //Construct the ts header
+        await writeFile('./docs/types/extras/index.d.ts', Object.keys(config).map(x => `import "./${x}.d.ts";`).join('\n'))
     })
 
 program.command('extract')

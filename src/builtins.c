@@ -30,6 +30,11 @@
 #include "bundles/c/stdlib/path.c"
 #include "bundles/c/stdlib/sqlite.c"
 #include "bundles/c/stdlib/uuid.c"
+
+#if __has_include("extras-bundles.c.frag")
+#include "extras-bundles.c.frag"
+#endif
+
 #include "private.h"
 
 
@@ -48,6 +53,9 @@ static tjs_builtin_t builtins[] = {
     { "tjs:path", tjs__path, tjs__path_size },
     { "tjs:sqlite", tjs__sqlite, tjs__sqlite_size },
     { "tjs:uuid", tjs__uuid, tjs__uuid_size },
+    #if __has_include("extras-entries.c.frag")
+    #include "extras-entries.c.frag"
+    #endif
     { NULL, NULL, 0 },
 };
 

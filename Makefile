@@ -117,10 +117,10 @@ src/bundles/c/extras/%.c: $(QJSC) src/bundles/js/extras/%.js
 		-o $@ \
 		-n "tjs:$(basename $(notdir $@))" \
 		-p tjs__ \
-		src/bundles/js/stdlib/$(basename $(notdir $@)).js
+		src/bundles/js/extras/$(basename $(notdir $@)).js
 
 src/bundles/js/extras/%.js: src/js/extras/*.js
-	$(ESBUILD) src/js/stdlib/$(notdir $@) \
+	$(ESBUILD) src/js/extras/$(notdir $@) \
 		--bundle \
 		--outfile=$@ \
 		--external:buffer \
