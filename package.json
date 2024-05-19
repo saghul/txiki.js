@@ -8,6 +8,7 @@
     "api-docs": "typedoc --tsconfig docs/tsconfig.doc.json",
     "api-docs-watch": "typedoc --tsconfig docs/tsconfig.doc.json --watch --preserveWatchOutput --logLevel Verbose",
     "deploy-api-docs": "gh-pages -d docs/api -e api -u \"github-actions-bot <support+actions@github.com>\"",
+    "extra-modules": "./extras-helper.mjs clone",
     "lint": "eslint --max-warnings 0 ."
   },
   "license": "MIT",
