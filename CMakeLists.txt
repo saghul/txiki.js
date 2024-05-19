@@ -77,7 +77,6 @@ file(GLOB src_bundles_extras "src/bundles/c/extras/*.c")
 
 add_library(tjs STATIC
     src/builtins.c
-    src/cli.c
     src/curl-utils.c
     src/curl-websocket.c
     src/dns.c
