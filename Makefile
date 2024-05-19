@@ -151,7 +151,7 @@ format:
 
 test:
 	./$(BUILD_DIR)/tjs test tests/
-	[ -d "tests/extras" ] &&  ./$(BUILD_DIR)/tjs test tests/extras/
+	if [ -d "tests/extras" ]; then ./$(BUILD_DIR)/tjs test tests/extras/; fi
 
 test-advanced:
 	cd tests/advanced && npm install
