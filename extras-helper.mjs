@@ -4,46 +4,33 @@ import { readFile, writeFile, mkdir, rm, cp } from 'node:fs/promises'
 
 import { program } from 'commander';
 import { randomUUID } from 'node:crypto';
+import { exec as _exec } from 'node:child_process';
+import { Readable } from 'node:stream'
+import util from 'node:util';
+
+const exec = util.promisify(_exec);
 
 import fg from 'fast-glob'
+
+async function copy_template(path, subdir) {
+    const tests = await fg(`./extras/${path}/${subdir}/*.js`);
+    const prefix = `./${subdir}/${path}/${subdir}/`.length
+    const suffix = ".js".length
+    for (const test of tests) {
+        const name = test.substring(prefix, test.length - suffix).replace("[module]", path)
+        await writeFile(`./${subdir}/extras/${name}.js`, ((await readFile(test)).toString().replace('__MODULE__', path)))
+
+    }
+}
 
 async function install(path) {
     await writeFile(`./src/extras/${path}.c`, ((await readFile(`./extras/${path}/src/[module].c`)).toString().replace('__MODULE__', path)))
     await writeFile(`./src/js/extras/${path}.js`, ((await readFile(`./extras/${path}/src/[module].js`)).toString().replace('__MODULE__', path)))
     await writeFile(`./docs/types/extras/${path}.js`, ((await readFile(`./extras/${path}/src/[module].d.ts`)).toString().replace('__MODULE__', path)))
 
-    {
-        const tests = await fg(`./extras/${path}/tests/*.js`);
-        const prefix = `./extras/${path}/tests/`.length
-        const suffix = ".js".length
-        for (const test of tests) {
-            const name = test.substring(prefix, test.length - suffix).replace("[module]", path)
-            await writeFile(`./tests/extras/${name}.js`, ((await readFile(test)).toString().replace('__MODULE__', path)))
-
-        }
-    }
-
-    {
-        const tests = await fg(`./extras/${path}/examples/*.js`);
-        const prefix = `./extras/${path}/examples/`.length
-        const suffix = ".js".length
-        for (const test of tests) {
-            const name = test.substring(prefix, test.length - suffix).replace("[module]", path)
-            await writeFile(`./examples/extras/${name}.js`, ((await readFile(test)).toString().replace('__MODULE__', path)))
-
-        }
-    }
-
-    {
-        const tests = await fg(`./extras/${path}/benchmarks/*.js`);
-        const prefix = `./extras/${path}/benchmarks/`.length
-        const suffix = ".js".length
-        for (const test of tests) {
-            const name = test.substring(prefix, test.length - suffix).replace("[module]", path)
-            await writeFile(`./benchmarks/extras/${name}.js`, ((await readFile(test)).toString().replace('__MODULE__', path)))
-
-        }
-    }
+    await copy_template(path, 'examples')
+    await copy_template(path, 'benchmarks')
+    await copy_template(path, 'tests')
 }
 
 async function clear() {
@@ -95,8 +82,14 @@ program.command('clone')
         for (const module of Object.entries(config)) {
             //From the internet
             if (module[1].startsWith('https://') || module[1].startsWith('http://')) {
-                //TODO: Copy from the internet & unpack
-                //Need to check for deps
+                await writeFile(
+                    `./extras/${module[0]}.tar.gz`,
+                    Readable.fromWeb(
+                        (await fetch(module[1])).body,
+                    ),
+                )
+                await exec(`mkdir ./extras/${module[0]} &&  tar -xvzf ./extras/${module[0]}.tar.gz -C ./extras/${module[0]} --strip-components=1`);
+                await rm(`./extras/${module[0]}.tar.gz`)
             }
             //Local folder
             else {
