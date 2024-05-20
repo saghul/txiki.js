@@ -125,6 +125,7 @@ src/bundles/js/extras/%.js: src/js/extras/*.js
 		--outfile=$@ \
 		--external:buffer \
 		--external:crypto \
+		--external:"tjs:*" \
 		$(ESBUILD_PARAMS_MINIFY) \
 		$(ESBUILD_PARAMS_COMMON)
 
