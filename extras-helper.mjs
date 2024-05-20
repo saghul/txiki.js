@@ -17,16 +17,16 @@ async function copy_template(path, subdir) {
     const prefix = `./${subdir}/${path}/${subdir}/`.length
     const suffix = ".js".length
     for (const test of tests) {
-        const name = test.substring(prefix, test.length - suffix).replace("[module]", path)
-        await writeFile(`./${subdir}/extras/${name}.js`, ((await readFile(test)).toString().replace('__MODULE__', path)))
+        const name = test.substring(prefix, test.length - suffix).replaceAll("[module]", path)
+        await writeFile(`./${subdir}/extras/${name}.js`, ((await readFile(test)).toString().replaceAll('__MODULE__', path)))
 
     }
 }
 
 async function install(path) {
-    await writeFile(`./src/extras/${path}.c`, ((await readFile(`./extras/${path}/src/[module].c`)).toString().replace('__MODULE__', path)))
-    await writeFile(`./src/js/extras/${path}.js`, ((await readFile(`./extras/${path}/src/[module].js`)).toString().replace('__MODULE__', path)))
-    await writeFile(`./docs/types/extras/${path}.d.ts`, ((await readFile(`./extras/${path}/src/[module].d.ts`)).toString().replace('__MODULE__', path)))
+    await writeFile(`./src/extras/${path}.c`, ((await readFile(`./extras/${path}/src/[module].c`)).toString().replaceAll('__MODULE__', path)))
+    await writeFile(`./src/js/extras/${path}.js`, ((await readFile(`./extras/${path}/src/[module].js`)).toString().replaceAll('__MODULE__', path)))
+    await writeFile(`./docs/types/extras/${path}.d.ts`, ((await readFile(`./extras/${path}/src/[module].d.ts`)).toString().replaceAll('__MODULE__', path)))
 
     await copy_template(path, 'examples')
     await copy_template(path, 'benchmarks')
