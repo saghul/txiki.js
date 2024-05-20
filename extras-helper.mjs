@@ -26,7 +26,7 @@ async function copy_template(path, subdir) {
 async function install(path) {
     await writeFile(`./src/extras/${path}.c`, ((await readFile(`./extras/${path}/src/[module].c`)).toString().replace('__MODULE__', path)))
     await writeFile(`./src/js/extras/${path}.js`, ((await readFile(`./extras/${path}/src/[module].js`)).toString().replace('__MODULE__', path)))
-    await writeFile(`./docs/types/extras/${path}.js`, ((await readFile(`./extras/${path}/src/[module].d.ts`)).toString().replace('__MODULE__', path)))
+    await writeFile(`./docs/types/extras/${path}.d.ts`, ((await readFile(`./extras/${path}/src/[module].d.ts`)).toString().replace('__MODULE__', path)))
 
     await copy_template(path, 'examples')
     await copy_template(path, 'benchmarks')
@@ -112,41 +112,5 @@ program.command('clone')
         await writeFile('./docs/types/extras/index.d.ts', Object.keys(config).map(x => `import "./${x}.d.ts";`).join('\n'))
     })
 
-program.command('extract')
-    .description('Utility command to extract a module from this repo')
-    .argument("<module>", "the module name to select from")
-    .argument("[where]", 'the destination folder for the files to be copied over')
-    .action(async (module, where) => {
-        //TODO: If not found list the ones available
-
-        let config = undefined
-        try {
-            config = JSON.parse(await readFile('./modules.json'))
-        }
-        catch (e) {
-            console.error("Unable to parse the config file.")
-            process.exit(1)
-        }
-
-        if (Object.keys(config).includes(module)) {
-            const location = config[module]
-            //Remote source
-            if (location.startsWith('https://') || location.startsWith('http://')) {
-                where ??= `/tmp/${randomUUID()}`
-                console.error('Packing for remote modules not yet supported')
-            }
-            //Local folder
-            else {
-                where ??= location
-                //TODO: Fold back
-            }
-            console.log(`Files copied over to ${where}`)
-        }
-
-        else {
-            console.error('Name not matched, select from', Object.keys(config))
-        }
-
-    })
 
 program.parse();
