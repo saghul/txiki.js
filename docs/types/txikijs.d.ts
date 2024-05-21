@@ -1048,35 +1048,35 @@ declare global {
     */
     function createConsole(opts: {
         /** function to print messages to somewhere, see https://console.spec.whatwg.org/#printer */
-        printer: (logLevel: string, args: any[], options: ConsolePrinterOptions) => void,
+        printer: (logLevel: string, args: unknown[], options: ConsolePrinterOptions) => void,
         /** function to handle normal log messages, see https://console.spec.whatwg.org/#logger */
-        logger?: (logLevel: string, args: any[], options: ConsolePrinterOptions) => void,
+        logger?: (logLevel: string, args: unknown[], options: ConsolePrinterOptions) => void,
         /** function to clear the console, e.g. send the ASCII ctrl character */
         clearConsole?: () => void,
         /** format given values, either by using a format string as first param or otherwise display values in a well readable format, see https://console.spec.whatwg.org/#formatter */
-        formatter?: (args: any[]) => string,
+        formatter?: (args: unknown[]) => string,
         /** format js values to be well readable */
-        inspect?: (args: any[]) => string,
+        inspect?: (args: unknown[]) => string,
     }): typeof console;
 
     /**
      * format any js value to be well readable
      * @returns resulting string
      */
-    function inspect(value: any, options?: { depth?: number, colors?: boolean, showHidden?: boolean }): string;
+    function inspect(value: unknown, options?: { depth?: number, colors?: boolean, showHidden?: boolean }): string;
 
     /**
      * print format string and insert given values, see https://console.spec.whatwg.org/#formatter
      * leftover values are appended to the end
      * @returns resulting string
      */
-    function format(format: string, ...args: any[]): string;
+    function format(format: string, ...args: unknown[]): string;
 
     /**
      * format given values to a well readable string 
      * @returns resulting string
      */
-    function format(...values: any[]): string;
+    function format(...values: unknown[]): string;
 }
 
 export {};
