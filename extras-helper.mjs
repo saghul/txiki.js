@@ -105,6 +105,7 @@ program.command('clone')
 
         //Construct src/extras.bootstrap to initialize the extra modules
         await writeFile('./src/extras-bootstrap.c.frag', Object.keys(config).map(x => `tjs__mod_${x}_init(ctx, ns);`).join('\n'))
+        await writeFile('./src/extras-proto.c.frag', Object.keys(config).map(x => `void tjs__mod_${x}_init(JSContext *ctx, JSValue ns);`).join('\n'))
         await writeFile('./src/extras-bundles.c.frag', Object.keys(config).map(x => `#include "bundles/c/extras/${x}.c"`).join('\n'))
         await writeFile('./src/extras-entries.c.frag', Object.keys(config).map(x => `{ "tjs:${x}", tjs__${x}, tjs__${x}_size},`).join('\n'))
 
