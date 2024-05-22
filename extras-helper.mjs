@@ -1,6 +1,7 @@
 #!/bin/env node
 import { existsSync, write } from 'node:fs'
 import { readFile, writeFile, mkdir, rm, cp } from 'node:fs/promises'
+import { dirname} from 'node:path'
 
 import { program } from 'commander';
 import { randomUUID } from 'node:crypto';
@@ -13,20 +14,35 @@ const exec = util.promisify(_exec);
 import fg from 'fast-glob'
 
 async function copy_template(path, subdir) {
-    const tests = await fg(`./extras/${path}/${subdir}/*.js`);
+    const files = await fg(`./extras/${path}/${subdir}/*.js`);
     const prefix = `./${subdir}/${path}/${subdir}/`.length
     const suffix = ".js".length
-    for (const test of tests) {
-        const name = test.substring(prefix, test.length - suffix).replaceAll("[module]", path)
-        await writeFile(`./${subdir}/extras/${name}.js`, ((await readFile(test)).toString().replaceAll('__MODULE__', path)))
+    for (const file of files) {
+        const name = file.substring(prefix, file.length - suffix).replaceAll("[module]", path)
+        await writeFile(`./${subdir}/extras/${name}.js`, ((await readFile(file)).toString().replaceAll('__MODULE__', path)))
 
     }
 }
 
 async function install(path) {
-    await writeFile(`./src/extras/${path}.c`, ((await readFile(`./extras/${path}/src/[module].c`)).toString().replaceAll('__MODULE__', path)))
-    await writeFile(`./src/js/extras/${path}.js`, ((await readFile(`./extras/${path}/src/[module].js`)).toString().replaceAll('__MODULE__', path)))
-    await writeFile(`./docs/types/extras/${path}.d.ts`, ((await readFile(`./extras/${path}/src/[module].d.ts`)).toString().replaceAll('__MODULE__', path)))
+    await mkdir(`src/extras/${path}`, { errorOnExist: false });
+
+    //Copy over all files in src
+    {
+        const files = await fg(`./extras/${path}/src/**/*`);
+        const prefix = `./extras/${path}/src/`.length
+        for (const file of files) {
+            const name = file.substring(prefix).replaceAll("[module]", path)
+            const fullPath = `./src/extras/${path}/${name}`
+            await mkdir(dirname(fullPath), { errorOnExist: false, recursive:true });
+            await writeFile(fullPath, ((await readFile(file)).toString().replaceAll('__MODULE__', path)))
+    
+        }
+    }
+
+    //While js/ts files must be already reduced in a bundle by this point.
+    await writeFile(`./src/js/extras/${path}.js`, ((await readFile(`./extras/${path}/bundle/[module].js`)).toString().replaceAll('__MODULE__', path)))
+    await writeFile(`./docs/types/extras/${path}.d.ts`, ((await readFile(`./extras/${path}/bundle/[module].d.ts`)).toString().replaceAll('__MODULE__', path)))
 
     await copy_template(path, 'examples')
     await copy_template(path, 'benchmarks')
@@ -105,7 +121,7 @@ program.command('clone')
 
         //Construct src/extras.bootstrap to initialize the extra modules
         await writeFile('./src/extras-bootstrap.c.frag', Object.keys(config).map(x => `tjs__mod_${x}_init(ctx, ns);`).join('\n'))
-        await writeFile('./src/extras-proto.c.frag', Object.keys(config).map(x => `void tjs__mod_${x}_init(JSContext *ctx, JSValue ns);`).join('\n'))
+        await writeFile('./src/extras-headers.c.frag', Object.keys(config).map(x => `#include "./extras/${x}/module.h"`).join('\n'))
         await writeFile('./src/extras-bundles.c.frag', Object.keys(config).map(x => `#include "bundles/c/extras/${x}.c"`).join('\n'))
         await writeFile('./src/extras-entries.c.frag', Object.keys(config).map(x => `{ "tjs:${x}", tjs__${x}, tjs__${x}_size},`).join('\n'))
 

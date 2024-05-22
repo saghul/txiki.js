@@ -78,8 +78,8 @@ void tjs__mod_wasm_init(JSContext *ctx, JSValue ns);
 void tjs__mod_worker_init(JSContext *ctx, JSValue ns);
 void tjs__mod_ws_init(JSContext *ctx, JSValue ns);
 void tjs__mod_xhr_init(JSContext *ctx, JSValue ns);
-#if __has_include("extras-proto.c.frag")
-#include "extras-proto.c.frag"
+#if __has_include("extras-headers.c.frag")
+#include "extras-headers.c.frag"
 #endif
 
 #ifndef _WIN32

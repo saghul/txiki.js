@@ -2,6 +2,13 @@ cmake_minimum_required(VERSION 3.14)
 
 project(tjs LANGUAGES C)
 
+if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/deps/extras")
+    enable_language(CXX)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    set(CMAKE_CXX_EXTENSIONS ON)
+    set(CMAKE_CXX_STANDARD 20)
+endif()
+
 include(ExternalProject)
 include(GNUInstallDirs)
 
@@ -15,6 +22,8 @@ message(STATUS "Building with ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 set(CMAKE_C_STANDARD 11)
+
+
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -72,7 +81,7 @@ endif()
 
 find_package(CURL REQUIRED)
 
-file(GLOB src_extras "src/extras/*.c")
+file(GLOB_RECURSE src_extras "src/extras/**/*.c" "src/extras/**/*.cpp")
 file(GLOB src_bundles_extras "src/bundles/c/extras/*.c")
 
 add_library(tjs STATIC
