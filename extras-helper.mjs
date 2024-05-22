@@ -58,6 +58,12 @@ async function clear() {
     await rm('deps/extras/', { recursive: true, force: true });
     await rm('benchmark/extras/', { recursive: true, force: true });
     await rm('docs/types/extras/', { recursive: true, force: true });
+
+    await rm('./src/extras-bootstrap.c.frag')
+    await rm('./src/extras-headers.c.frag')
+    await rm('./src/extras-bundles.c.frag')
+    await rm('./src/extras-entries.c.frag')
+
 }
 
 program
