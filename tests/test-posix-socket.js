@@ -62,6 +62,7 @@ async function testTcpSock(){
 
 	await new Promise(res=>setTimeout(res, 500))
 	const con = sock.accept();
+	assert.truthy(con instanceof PosixSocket);
 	assert.eq(con.write(sendbuf), sendbuf.length);
 	await new Promise(res=>setTimeout(res, 300))
 	assert.eq(clientRecv, sendbuf.length);;
@@ -71,6 +72,10 @@ async function testTcpSock(){
 
 async function testPoll(){
 	const sock = new PosixSocket(PosixSocket.defines.AF_INET, PosixSocket.defines.SOCK_DGRAM, 0);
+	const info = sock.info;
+	assert.eq(info.socket.domain, PosixSocket.defines.AF_INET);
+	assert.eq(info.socket.type, PosixSocket.defines.SOCK_DGRAM);
+	assert.eq(info.socket.protocol, PosixSocket.defines.IPPROTO_UDP); // automatically determined by SOCK_DGRAM
 	sock.bind(PosixSocket.createSockaddrIn('0.0.0.0', 12345));
 	const sockaddr_rem = PosixSocket.createSockaddrIn('127.0.0.1', 12345);
 	function send(buf){
