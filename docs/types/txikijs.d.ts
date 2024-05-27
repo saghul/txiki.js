@@ -948,6 +948,8 @@ declare global {
             readonly info: {
                 socket?: {domain: number, type: number, protocol: number}
             };
+            readonly fileno: number;
+            readonly polling: boolean;
             
             static readonly defines: {
                 AF_INET: number,
@@ -984,6 +986,12 @@ declare global {
                 SO_PRIORITY: number,
                 SO_BSDCOMPAT: number,
                 SO_REUSEPORT: number,
+
+                IPPROTO_IP: number,
+                IPPROTO_IPV6: number,
+                IPPROTO_ICMP: number,
+                IPPROTO_TCP: number,
+                IPPROTO_UDP: number,
             };
             static createFromFD(fd: number): PosixSocket;
             

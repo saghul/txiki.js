@@ -4,6 +4,11 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <sys/proc_info.h>
+#include <libproc.h>
+#endif
+
 #define TJS_SOCK_CLASS_NAME "PosixSocket"
 
 static JSClassID tjs_sock_classid;
@@ -240,6 +245,48 @@ static JSValue tjs_sock_get_fd(JSContext *ctx, JSValue this_val) {
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     return JS_NewUint32(ctx, s->sock);
+}
+
+static JSValue tjs_sock_get_info(JSContext *ctx, JSValue this_val) {
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
+    JSValue info = JS_NewObject(ctx);
+    JSValue socket_info = JS_NewObject(ctx);
+
+    int cnt = 0;
+#ifdef __APPLE__
+    struct socket_fdinfo sock_fd_info;
+    int rc = proc_pidfdinfo(getpid(), s->sock, PROC_PIDFDSOCKETINFO, &sock_fd_info, sizeof sock_fd_info);
+    if (rc > 0){
+        JS_SetPropertyStr(ctx, socket_info, "type", JS_NewInt32(ctx, sock_fd_info.psi.soi_type));
+        JS_SetPropertyStr(ctx, socket_info, "domain", JS_NewInt32(ctx, sock_fd_info.psi.soi_family));
+        JS_SetPropertyStr(ctx, socket_info, "protocol", JS_NewInt32(ctx, sock_fd_info.psi.soi_protocol));
+        cnt++;
+    }else{
+        return JS_ThrowInternalError(ctx, "proc_pidfdinfo: %s", strerror(errno));
+    }
+#else
+    int val;
+    socklen_t sock_val_len = sizeof(val);
+    if(getsockopt(s->sock, SOL_SOCKET, SO_TYPE, &val, &sock_val_len) == 0){
+        JS_SetPropertyStr(ctx, socket_info, "type", JS_NewInt32(ctx, val));
+        cnt++;
+    }
+    if(getsockopt(s->sock, SOL_SOCKET, SO_DOMAIN, &val, &sock_val_len) == 0){
+        JS_SetPropertyStr(ctx, socket_info, "domain", JS_NewInt32(ctx, val));
+        cnt++;
+    }
+    if(getsockopt(s->sock, SOL_SOCKET, SO_PROTOCOL, &val, &sock_val_len) == 0){
+        JS_SetPropertyStr(ctx, socket_info, "protocol", JS_NewInt32(ctx, val));
+        cnt++;
+    }
+#endif
+
+    if(cnt > 0){
+        JS_SetPropertyStr(ctx, info, "socket", socket_info);
+    }
+
+    return info;
 }
 
 static JSValue tjs_sock_read(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -534,6 +581,7 @@ static const JSCFunctionListEntry tjs_sock_proto_funcs[] = {
 
     TJS_CGETSET_DEF("polling", tjs_uv_poll_get_running, NULL),
     TJS_CGETSET_DEF("fileno", tjs_sock_get_fd, NULL),
+    TJS_CGETSET_DEF("info", tjs_sock_get_info, NULL),
 };
 
 #define JS_PROT_INT_DEF(x) JS_PROP_INT32_DEF(#x, x, JS_PROP_ENUMERABLE)
@@ -586,6 +634,13 @@ static const JSCFunctionListEntry defines_list[] = {
     JS_PROT_INT_DEF(SO_SNDBUF),      JS_PROT_INT_DEF(SO_RCVTIMEO),  JS_PROT_INT_DEF(SO_SNDTIMEO),
     JS_PROT_INT_DEF(SO_ERROR),       JS_PROT_INT_DEF(SO_TYPE),      JS_PROT_INT_DEF(SO_DEBUG),
     JS_PROT_INT_DEF(SO_DONTROUTE),
+
+    JS_PROT_INT_DEF(IPPROTO_IP),
+    JS_PROT_INT_DEF(IPPROTO_IPV6),
+    JS_PROT_INT_DEF(IPPROTO_ICMP),
+    JS_PROT_INT_DEF(IPPROTO_TCP),
+    JS_PROT_INT_DEF(IPPROTO_UDP),
+
 #ifdef SO_SNDBUFFORCE
     JS_PROT_INT_DEF(SO_SNDBUFFORCE),
 #endif
@@ -715,6 +770,7 @@ void tjs__mod_posix_socket_init(JSContext *ctx, JSValue ns) {
     JS_SetClassProto(ctx, tjs_sock_classid, tjs_sock_proto);
 
     JSValue posixSocketNs = JS_NewObject(ctx);
+    JS_DefinePropertyValueStr(ctx, posixSocketNs, TJS_SOCK_CLASS_NAME "Proto", JS_DupValue(ctx, tjs_sock_proto), JS_PROP_ENUMERABLE);
     JS_SetPropertyFunctionList(ctx, posixSocketNs, posix_ns_funcs, countof(posix_ns_funcs));
     JSValue tjs_sock_constructor =
         JS_NewCFunction2(ctx, tjs_sock_create, TJS_SOCK_CLASS_NAME, 3, JS_CFUNC_constructor, 0);

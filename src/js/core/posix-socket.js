@@ -1,19 +1,20 @@
 const core = globalThis[Symbol.for('tjs.internal.core')];
-const posixSocket = core.posix_socket;
+const posixSocketInt = core.posix_socket;
 
 export let PosixSocket;
 
-if (posixSocket) {
+if (posixSocketInt) {
     PosixSocket = class PosixSocket {
         constructor(domain, type, protocol) {
-            this._psock = new posixSocket.PosixSocket(domain, type, protocol);
-            this._info = {
-                socket: { domain, type, protocol }
-            };
+            if (Object.getPrototypeOf(domain) === posixSocketInt.PosixSocketProto) { // internal posix socket class
+                this._psock = domain;
+            } else {
+                this._psock = new posixSocketInt.PosixSocket(domain, type, protocol);
+            }
         }
 
         get info() {
-            return this._info;
+            return this._psock.info;
         }
 
         get fileno() {
@@ -24,9 +25,9 @@ if (posixSocket) {
             return this._psock.polling;
         }
 
-        static defines = Object.freeze(posixSocket.defines);
+        static defines = Object.freeze(posixSocketInt.defines);
         static createFromFD(fd) {
-            return posixSocket.posix_socket_from_fd(fd);
+            return new PosixSocket(posixSocketInt.posix_socket_from_fd(fd));
         }
 
         bind(...args) {
@@ -39,7 +40,7 @@ if (posixSocket) {
             return this._psock.listen(...args);
         }
         accept(...args) {
-            return this._psock.accept(...args);
+            return new PosixSocket(this._psock.accept(...args));
         }
         sendmsg(...args) {
             return this._psock.sendmsg(...args);
@@ -143,23 +144,23 @@ if (posixSocket) {
         }
 
         static get sockaddrInSize() {
-            return posixSocket.sizeof_struct_sockaddr;
+            return posixSocketInt.sizeof_struct_sockaddr;
         }
 
         static createSockaddrIn(ip, port) {
-            return posixSocket.create_sockaddr_inet({ ip, port });
+            return posixSocketInt.create_sockaddr_inet({ ip, port });
         }
 
-        static pollEvents = Object.freeze(posixSocket.uv_poll_event_bits);
+        static pollEvents = Object.freeze(posixSocketInt.uv_poll_event_bits);
 
         static indextoname(index) {
-            return posixSocket.if_indextoname(index);
+            return posixSocketInt.if_indextoname(index);
         }
         static nametoindex(name) {
-            return posixSocket.if_nametoindex(name);
+            return posixSocketInt.if_nametoindex(name);
         }
         static checksum(buf) {
-            return posixSocket.checksum(buf);
+            return posixSocketInt.checksum(buf);
         }
     };
 }
