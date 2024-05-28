@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "lib": ["ES2020", "dom"],
-    "noImplicitAny": true
+    "noImplicitAny": true,
+    "baseUrl": ".",
+    "typeRoots": ["./node_modules/@types"]
   },
   "typedocOptions": {
     "name": "txiki.js",

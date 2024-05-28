@@ -86,7 +86,6 @@ file(GLOB src_bundles_extras "src/bundles/c/extras/*.c")
 
 add_library(tjs STATIC
     src/builtins.c
-    src/cli.c
     src/curl-utils.c
     src/curl-websocket.c
     src/dns.c
@@ -171,7 +170,7 @@ target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
 target_include_directories(tjs PUBLIC src)
-target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread ${CURL_LIBRARIES})
+target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread ${CURL_LIBRARIES} ${EXTRA_MODULES})
 
 if (BUILD_WITH_MIMALLOC)
     target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)
