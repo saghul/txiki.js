@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define TJS__DEFAULT_STACK_SIZE 10 * 1024 * 1024 // 10 MB
+#define TJS__DEFAULT_STACK_SIZE 10 * 1024 * 1024  // 10 MB
 
 static void *tjs__mf_malloc(JSMallocState *s, size_t size) {
     void *ptr;
@@ -86,10 +86,10 @@ static void *tjs__mf_realloc(JSMallocState *s, void *ptr, size_t size) {
 }
 
 static const JSMallocFunctions tjs_mf = {
-    tjs__mf_malloc,
-    tjs__mf_free,
-    tjs__mf_realloc,
-    tjs__malloc_usable_size
+    .js_malloc = tjs__mf_malloc,
+    .js_free = tjs__mf_free,
+    .js_realloc = tjs__mf_realloc,
+    .js_malloc_usable_size = tjs__malloc_usable_size,
 };
 
 /* core */
@@ -171,8 +171,8 @@ static void tjs__promise_rejection_tracker(JSContext *ctx,
             goto fail;
         } else {
             if (JS_ToBool(ctx, ret)) {
-                // The event wasn't cancelled, maybe abort.
-                fail:;
+            // The event wasn't cancelled, maybe abort.
+            fail:;
                 TJSRuntime *qrt = TJS_GetRuntime(ctx);
                 CHECK_NOT_NULL(qrt);
                 JS_Throw(qrt->ctx, JS_DupValue(qrt->ctx, reason));
@@ -271,7 +271,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JSValue core = JS_NewObjectProto(qrt->ctx, JS_NULL);
 
     CHECK_EQ(JS_DefinePropertyValue(qrt->ctx, global_obj, core_atom, core, JS_PROP_C_W_E), TRUE);
-    CHECK_EQ(JS_DefinePropertyValueStr(qrt->ctx, core, "isWorker", JS_NewBool(qrt->ctx, is_worker), JS_PROP_C_W_E), TRUE);
+    CHECK_EQ(JS_DefinePropertyValueStr(qrt->ctx, core, "isWorker", JS_NewBool(qrt->ctx, is_worker), JS_PROP_C_W_E),
+             TRUE);
 
     tjs__bootstrap_core(qrt->ctx, core);
 
@@ -336,7 +337,7 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         uv_print_all_handles(&qrt->loop, stderr);
     CHECK_EQ(closed, 1);
 #else
-    (void)closed;
+    (void) closed;
 #endif
 
     /* Destroy CURLM handle. */

@@ -65,12 +65,15 @@ JSValue tjs_throw_errno(JSContext *ctx, int err) {
     return JS_Throw(ctx, obj);
 }
 
-static const JSCFunctionListEntry tjs_errors_funcs[] = { TJS_CFUNC_DEF("strerror", 1, tjs_error_strerror),
-/* various errno values */
+/* clang-format off */
 #define DEF(x, s) JS_PROP_INT32_DEF(#x, UV_##x, JS_PROP_C_W_E),
-                                                         UV_ERRNO_MAP(DEF)
-#undef DEF
+static const JSCFunctionListEntry tjs_errors_funcs[] = {
+    TJS_CFUNC_DEF("strerror", 1, tjs_error_strerror),
+    /* various errno values */
+    UV_ERRNO_MAP(DEF)
 };
+#undef DEF
+/* clang-format on */
 
 void tjs__mod_error_init(JSContext *ctx, JSValue ns) {
     /* Error object */

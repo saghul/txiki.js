@@ -22,8 +22,9 @@
  * THE SOFTWARE.
  */
 
-#include "../deps/quickjs/cutils.h"
 #include "mem.h"
+
+#include "../deps/quickjs/cutils.h"
 
 #include <stdlib.h>
 
@@ -35,7 +36,7 @@ size_t tjs__malloc_usable_size(const void *ptr) {
 #if defined(TJS__HAS_MIMALLOC)
     return mi_malloc_usable_size(ptr);
 #else
-    return js__malloc_usable_size(ptr):
+    return js__malloc_usable_size(ptr);
 #endif
 }
 

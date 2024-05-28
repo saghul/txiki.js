@@ -29,14 +29,12 @@
 
 #include <stdint.h>
 
-#define uthash_malloc(sz) tjs__malloc(sz)
-#define uthash_free(ptr,sz) tjs__free(ptr)
+#define uthash_malloc(sz)    tjs__malloc(sz)
+#define uthash_free(ptr, sz) tjs__free(ptr)
 
 #include "uthash.h"
 
-#define HASH_FIND_INT64(head,findint,out)                                          \
-    HASH_FIND(hh,head,findint,sizeof(int64_t),out)
-#define HASH_ADD_INT64(head,intfield,add)                                          \
-    HASH_ADD(hh,head,intfield,sizeof(int64_t),add)
+#define HASH_FIND_INT64(head, findint, out) HASH_FIND(hh, head, findint, sizeof(int64_t), out)
+#define HASH_ADD_INT64(head, intfield, add) HASH_ADD(hh, head, intfield, sizeof(int64_t), add)
 
 #endif

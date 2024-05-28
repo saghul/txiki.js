@@ -387,7 +387,6 @@ int tjs_getsignum(const char *sig_str) {
     return -1;
 }
 
-void tjs_dbuf_init(JSContext *ctx, DynBuf *s)
-{
-    dbuf_init2(s, JS_GetRuntime(ctx), (DynBufReallocFunc *)js_realloc_rt);
+void tjs_dbuf_init(JSContext *ctx, DynBuf *s) {
+    dbuf_init2(s, JS_GetRuntime(ctx), (DynBufReallocFunc *) js_realloc_rt);
 }
