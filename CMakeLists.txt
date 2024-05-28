@@ -2,6 +2,13 @@ cmake_minimum_required(VERSION 3.14)
 
 project(tjs LANGUAGES C)
 
+if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/deps/extras")
+    enable_language(CXX)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    set(CMAKE_CXX_EXTENSIONS ON)
+    set(CMAKE_CXX_STANDARD 20)
+endif()
+
 include(ExternalProject)
 include(GNUInstallDirs)
 
@@ -15,6 +22,8 @@ message(STATUS "Building with ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 set(CMAKE_C_STANDARD 11)
+
+
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -57,6 +66,10 @@ add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
 set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
 add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
 
+if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/deps/extras")
+    add_subdirectory(deps/extras EXCLUDE_FROM_ALL)
+endif()
+
 if(BUILD_WITH_MIMALLOC)
     option(MI_OVERRIDE "" OFF)
     option(MI_BUILD_SHARED "" OFF)
@@ -67,6 +80,9 @@ if(BUILD_WITH_MIMALLOC)
 endif()
 
 find_package(CURL REQUIRED)
+
+file(GLOB_RECURSE src_extras "src/extras/**/*.c" "src/extras/**/*.cpp")
+file(GLOB src_bundles_extras "src/bundles/c/extras/*.c")
 
 add_library(tjs STATIC
     src/builtins.c
@@ -100,6 +116,8 @@ add_library(tjs STATIC
     src/bundles/c/core/polyfills.c
     src/bundles/c/core/run-main.c
     src/bundles/c/core/worker-bootstrap.c
+    ${src_extras}
+    ${src_bundles_extras}
     deps/quickjs/cutils.c
 )
 
@@ -152,7 +170,7 @@ target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
 target_include_directories(tjs PUBLIC src)
-target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread ${CURL_LIBRARIES})
+target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread ${CURL_LIBRARIES} ${EXTRA_MODULES})
 
 if (BUILD_WITH_MIMALLOC)
     target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)

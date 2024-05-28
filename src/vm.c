@@ -126,6 +126,9 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
 #ifndef _WIN32
     tjs__mod_posix_socket_init(ctx, ns);
 #endif
+    #if __has_include("extras-bootstrap.c.frag")
+    #include "extras-bootstrap.c.frag"
+    #endif
 }
 
 JSValue tjs__get_args(JSContext *ctx) {

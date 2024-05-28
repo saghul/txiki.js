@@ -2,11 +2,27 @@
 .idea
 .DS_Store
 
-build/
-src/bundles/js/
-src/js/core.js
-src/js/std.js
-src/version.h
-node_modules/
-docs/api/
-test_dir*/
+/build/
+/src/bundles/js/
+/src/js/core.js
+/src/js/std.js
+/src/version.h
+/node_modules/
+/docs/api/
+/test_dir*/
+
+#External modules
+/benchmark/extras/
+/deps/extras/
+/examples/extras/
+/tests/extras/
+/src/bundles/c/extras/
+/src/js/extras/
+/src/extras/
+/extras/
+/docs/types/extras/
+
+/src/*.c.frag
+
+#Module files
+modules.json
