@@ -14,9 +14,17 @@ jobs:
       with:
         node-version: 20
     - name: Install dependencies
-      run: npm install
+      run: |
+        npm install
+        sudo apt update
+        sudo apt install -y clang-format
+        clang-format --version
     - name: Run the linter
       run: npm run lint
+    - name: Run the formatter
+      run: clang-format -i src/*.{c,h}
+    - name: Check if the tree is dirty
+      run: $(exit $(git status --porcelain --untracked-files=no | head -255 | wc -l)) || (echo "Dirty git tree"; git diff; exit 1)
   codegen:
     name: Codegen
     runs-on: ubuntu-latest
