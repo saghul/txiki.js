@@ -5,8 +5,8 @@
 #include <unistd.h>
 
 #ifdef __APPLE__
-#include <sys/proc_info.h>
 #include <libproc.h>
+#include <sys/proc_info.h>
 #endif
 
 #define TJS_SOCK_CLASS_NAME "PosixSocket"
@@ -257,32 +257,32 @@ static JSValue tjs_sock_get_info(JSContext *ctx, JSValue this_val) {
 #ifdef __APPLE__
     struct socket_fdinfo sock_fd_info;
     int rc = proc_pidfdinfo(getpid(), s->sock, PROC_PIDFDSOCKETINFO, &sock_fd_info, sizeof sock_fd_info);
-    if (rc > 0){
+    if (rc > 0) {
         JS_SetPropertyStr(ctx, socket_info, "type", JS_NewInt32(ctx, sock_fd_info.psi.soi_type));
         JS_SetPropertyStr(ctx, socket_info, "domain", JS_NewInt32(ctx, sock_fd_info.psi.soi_family));
         JS_SetPropertyStr(ctx, socket_info, "protocol", JS_NewInt32(ctx, sock_fd_info.psi.soi_protocol));
         cnt++;
-    }else{
+    } else {
         return JS_ThrowInternalError(ctx, "proc_pidfdinfo: %s", strerror(errno));
     }
 #else
     int val;
     socklen_t sock_val_len = sizeof(val);
-    if(getsockopt(s->sock, SOL_SOCKET, SO_TYPE, &val, &sock_val_len) == 0){
+    if (getsockopt(s->sock, SOL_SOCKET, SO_TYPE, &val, &sock_val_len) == 0) {
         JS_SetPropertyStr(ctx, socket_info, "type", JS_NewInt32(ctx, val));
         cnt++;
     }
-    if(getsockopt(s->sock, SOL_SOCKET, SO_DOMAIN, &val, &sock_val_len) == 0){
+    if (getsockopt(s->sock, SOL_SOCKET, SO_DOMAIN, &val, &sock_val_len) == 0) {
         JS_SetPropertyStr(ctx, socket_info, "domain", JS_NewInt32(ctx, val));
         cnt++;
     }
-    if(getsockopt(s->sock, SOL_SOCKET, SO_PROTOCOL, &val, &sock_val_len) == 0){
+    if (getsockopt(s->sock, SOL_SOCKET, SO_PROTOCOL, &val, &sock_val_len) == 0) {
         JS_SetPropertyStr(ctx, socket_info, "protocol", JS_NewInt32(ctx, val));
         cnt++;
     }
 #endif
 
-    if(cnt > 0){
+    if (cnt > 0) {
         JS_SetPropertyStr(ctx, info, "socket", socket_info);
     }
 
@@ -607,8 +607,10 @@ static JSValue tjs_sock_sockaddr_inet(JSContext *ctx, JSValue this_val, int argc
 }
 
 // only the more common options are defined here
+/* clang-format off */
 static const JSCFunctionListEntry defines_list[] = {
-    JS_PROT_INT_DEF(AF_INET),        JS_PROT_INT_DEF(AF_INET6),
+    JS_PROT_INT_DEF(AF_INET),
+    JS_PROT_INT_DEF(AF_INET6),
 
 #ifdef AF_NETLINK
     JS_PROT_INT_DEF(AF_NETLINK),
@@ -617,8 +619,11 @@ static const JSCFunctionListEntry defines_list[] = {
     JS_PROT_INT_DEF(AF_PACKET),
 #endif
 
-    JS_PROT_INT_DEF(SOCK_STREAM),    JS_PROT_INT_DEF(SOCK_DGRAM),   JS_PROT_INT_DEF(SOCK_RAW),
-    JS_PROT_INT_DEF(SOCK_SEQPACKET), JS_PROT_INT_DEF(SOCK_RDM),
+    JS_PROT_INT_DEF(SOCK_STREAM),
+    JS_PROT_INT_DEF(SOCK_DGRAM),
+    JS_PROT_INT_DEF(SOCK_RAW),
+    JS_PROT_INT_DEF(SOCK_SEQPACKET),
+    JS_PROT_INT_DEF(SOCK_RDM),
 
     JS_PROT_INT_DEF(SOL_SOCKET),
 
@@ -629,10 +634,18 @@ static const JSCFunctionListEntry defines_list[] = {
     JS_PROT_INT_DEF(SOL_NETLINK),
 #endif
 
-    JS_PROT_INT_DEF(SO_REUSEADDR),   JS_PROT_INT_DEF(SO_KEEPALIVE), JS_PROT_INT_DEF(SO_LINGER),
-    JS_PROT_INT_DEF(SO_BROADCAST),   JS_PROT_INT_DEF(SO_OOBINLINE), JS_PROT_INT_DEF(SO_RCVBUF),
-    JS_PROT_INT_DEF(SO_SNDBUF),      JS_PROT_INT_DEF(SO_RCVTIMEO),  JS_PROT_INT_DEF(SO_SNDTIMEO),
-    JS_PROT_INT_DEF(SO_ERROR),       JS_PROT_INT_DEF(SO_TYPE),      JS_PROT_INT_DEF(SO_DEBUG),
+    JS_PROT_INT_DEF(SO_REUSEADDR),
+    JS_PROT_INT_DEF(SO_KEEPALIVE),
+    JS_PROT_INT_DEF(SO_LINGER),
+    JS_PROT_INT_DEF(SO_BROADCAST),
+    JS_PROT_INT_DEF(SO_OOBINLINE),
+    JS_PROT_INT_DEF(SO_RCVBUF),
+    JS_PROT_INT_DEF(SO_SNDBUF),
+    JS_PROT_INT_DEF(SO_RCVTIMEO),
+    JS_PROT_INT_DEF(SO_SNDTIMEO),
+    JS_PROT_INT_DEF(SO_ERROR),
+    JS_PROT_INT_DEF(SO_TYPE),
+    JS_PROT_INT_DEF(SO_DEBUG),
     JS_PROT_INT_DEF(SO_DONTROUTE),
 
     JS_PROT_INT_DEF(IPPROTO_IP),
@@ -660,6 +673,7 @@ static const JSCFunctionListEntry defines_list[] = {
     JS_PROT_INT_DEF(SO_REUSEPORT),
 #endif
 };
+/* clang-format on */
 
 static JSValue tjs_posix_if_nametoindex(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
@@ -741,13 +755,16 @@ static JSValue tjs_posix_checksum(JSContext *ctx, JSValue this_val, int argc, JS
     return JS_NewInt32(ctx, ret);
 }
 
+/* clang-format off */
+static const JSCFunctionListEntry tjs_uv_poll_events[] = {
+    TJS_UVCONST(READABLE),
+    TJS_UVCONST(WRITABLE),
+    TJS_UVCONST(DISCONNECT),
+    TJS_UVCONST(PRIORITIZED)
+};
+/* clang-format on */
 
-static JSCFunctionListEntry tjs_uv_poll_events[] = { TJS_UVCONST(READABLE),
-                                                     TJS_UVCONST(WRITABLE),
-                                                     TJS_UVCONST(DISCONNECT),
-                                                     TJS_UVCONST(PRIORITIZED) };
-
-static JSCFunctionListEntry posix_ns_funcs[] = {
+static const JSCFunctionListEntry posix_ns_funcs[] = {
     TJS_CFUNC_DEF("create_sockaddr_inet", 1, tjs_sock_sockaddr_inet),
     TJS_CFUNC_DEF("uv_strerror", 1, tjs_uv_strerror),
     TJS_CONST2("sizeof_struct_sockaddr", sizeof(struct sockaddr)),
@@ -770,7 +787,11 @@ void tjs__mod_posix_socket_init(JSContext *ctx, JSValue ns) {
     JS_SetClassProto(ctx, tjs_sock_classid, tjs_sock_proto);
 
     JSValue posixSocketNs = JS_NewObject(ctx);
-    JS_DefinePropertyValueStr(ctx, posixSocketNs, TJS_SOCK_CLASS_NAME "Proto", JS_DupValue(ctx, tjs_sock_proto), JS_PROP_ENUMERABLE);
+    JS_DefinePropertyValueStr(ctx,
+                              posixSocketNs,
+                              TJS_SOCK_CLASS_NAME "Proto",
+                              JS_DupValue(ctx, tjs_sock_proto),
+                              JS_PROP_ENUMERABLE);
     JS_SetPropertyFunctionList(ctx, posixSocketNs, posix_ns_funcs, countof(posix_ns_funcs));
     JSValue tjs_sock_constructor =
         JS_NewCFunction2(ctx, tjs_sock_create, TJS_SOCK_CLASS_NAME, 3, JS_CFUNC_constructor, 0);

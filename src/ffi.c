@@ -147,7 +147,7 @@ static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValue this_val, int a
     for (unsigned i = 0; i < typeCnt; i++) {
         ffi_type *t = JS_GetOpaque(types[i], js_ffi_type_classid);
         if (t == NULL) {
-            JS_ThrowTypeError(ctx, "argument %lld is not a FfiType", (long long int)((types - argv) + i + 1));
+            JS_ThrowTypeError(ctx, "argument %lld is not a FfiType", (long long int) ((types - argv) + i + 1));
             return JS_EXCEPTION;
         }
     }
@@ -522,7 +522,7 @@ static JSValue js_ffi_type_name(JSContext *ctx, JSValue this_val) {
     return JS_GetPropertyStr(ctx, this_val, "_name");
 }
 
-static JSCFunctionListEntry js_ffi_type_proto_funcs[] = {
+static const JSCFunctionListEntry js_ffi_type_proto_funcs[] = {
     TJS_CFUNC_DEF("toBuffer", 1, js_ffi_type_to_buffer),
     TJS_CFUNC_DEF("fromBuffer", 1, js_ffi_type_from_buffer),
     TJS_CGETSET_DEF("name", js_ffi_type_name, NULL),
@@ -552,7 +552,7 @@ static JSValue js_uv_dlsym_get_addr(JSContext *ctx, JSValue this_val) {
     }
     return JS_NEW_UINTPTR_T(ctx, ptr);
 }
-static JSCFunctionListEntry js_uv_dlsym_proto_funcs[] = {
+static const JSCFunctionListEntry js_uv_dlsym_proto_funcs[] = {
     TJS_CGETSET_DEF("addr", js_uv_dlsym_get_addr, NULL),
 };
 
@@ -711,7 +711,7 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValue this_val, int argc, JSVal
         js_free(ctx, aval);
     return TJS_NewUint8Array(ctx, rptr, retsz);
 }
-static JSCFunctionListEntry js_ffi_cif_proto_funcs[] = {
+static const JSCFunctionListEntry js_ffi_cif_proto_funcs[] = {
     TJS_CFUNC_DEF("call", 1, js_ffi_cif_call),
 };
 
@@ -781,7 +781,7 @@ JSClassDef js_uv_lib_class = {
     "UvLib",
     .finalizer = js_uv_lib_finalizer,
 };
-static JSCFunctionListEntry js_uv_lib_proto_funcs[] = {
+static const JSCFunctionListEntry js_uv_lib_proto_funcs[] = {
     TJS_CFUNC_DEF("symbol", 1, js_uv_lib_dlsym),
 };
 #pragma endregion "UvLib class definition"
@@ -1001,14 +1001,14 @@ static JSValue js_ffi_closure_get_addr(JSContext *ctx, JSValue this_val) {
     }
     return JS_NEW_UINTPTR_T(ctx, ptr->code);
 }
-static JSCFunctionListEntry js_ffi_closure_proto_funcs[] = {
+static const JSCFunctionListEntry js_ffi_closure_proto_funcs[] = {
     TJS_CGETSET_DEF("addr", js_ffi_closure_get_addr, NULL),
 };
 
 
 #pragma endregion "FfiClosure class definition"
 
-static JSCFunctionListEntry funcs[] = {
+static const JSCFunctionListEntry funcs[] = {
     // basic functions from libc
     TJS_CFUNC_DEF("errno", 0, js_libc_errno),
     TJS_CFUNC_DEF("strerror", 1, js_libc_strerror),
@@ -1094,18 +1094,18 @@ static JSValue tjs__mod_ffi_init_js(JSContext *ctx, JSValue this_val, int argc, 
     ADD_ALIAS_TYPE(ctx, ffiobj, type_size, type_uint64);
     ADD_ALIAS_TYPE(ctx, ffiobj, type_ssize, type_sint64);
 #else
-    #error("unhandled size_t size")
+#error("unhandled size_t size")
 #endif
 
 #if ULLONG_MAX == UINT64_MAX
     ADD_ALIAS_TYPE(ctx, ffiobj, type_ull, type_uint64);
 #else
-    #error("unhandled unsigned long long size")
+#error("unhandled unsigned long long size")
 #endif
 #if LLONG_MAX == INT64_MAX
     ADD_ALIAS_TYPE(ctx, ffiobj, type_sll, type_sint64);
 #else
-    #error("unhandled signed long long size")
+#error("unhandled signed long long size")
 #endif
 
     // ffi also supports some complex types, currently not implemented

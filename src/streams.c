@@ -762,11 +762,7 @@ uv_stream_t *tjs_pipe_get_stream(JSContext *ctx, JSValue obj) {
     return NULL;
 }
 
-static JSValue tjs_pipe_getsockpeername(JSContext *ctx,
-                                        JSValue this_val,
-                                        int argc,
-                                        JSValue *argv,
-                                        int magic) {
+static JSValue tjs_pipe_getsockpeername(JSContext *ctx, JSValue this_val, int argc, JSValue *argv, int magic) {
     TJSStream *t = tjs_pipe_get(ctx, this_val);
     if (!t)
         return JS_EXCEPTION;

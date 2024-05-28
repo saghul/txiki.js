@@ -27,7 +27,7 @@
 #include "private.h"
 #include "utils.h"
 
-#define MAX_SAFE_INTEGER (((int64_t)1 << 53) - 1)
+#define MAX_SAFE_INTEGER (((int64_t) 1 << 53) - 1)
 
 struct TJSTimer {
     JSContext *ctx;
