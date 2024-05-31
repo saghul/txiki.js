@@ -618,6 +618,9 @@ static const JSCFunctionListEntry defines_list[] = {
 #ifdef AF_PACKET
     JS_PROT_INT_DEF(AF_PACKET),
 #endif
+#ifdef AF_UNIX
+    JS_PROT_INT_DEF(AF_UNIX),
+#endif
 
     JS_PROT_INT_DEF(SOCK_STREAM),
     JS_PROT_INT_DEF(SOCK_DGRAM),
