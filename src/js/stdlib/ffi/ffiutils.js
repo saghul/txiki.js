@@ -1,7 +1,7 @@
 export default function buildCParser({ StructType, CFunction, PointerType, types }) {
     function parseCProto(header) {
         function tokenize(str) {
-            const words = str.split(/\s+/);
+            const words = str.split(/[ \t]+/);
             const tokens = [];
             const tokenRegex = /(\w+|[^\w])/g;
 
@@ -20,6 +20,42 @@ export default function buildCParser({ StructType, CFunction, PointerType, types
             }
 
             return tokens;
+        }
+
+        function filterComments(tokens) {
+            let comment = null;
+
+            for (let i = 0; i < tokens.length; i++) {
+                if (comment?.type === 'line' && tokens[i] === '\n' && tokens[i-1] !== '\\') {
+                    tokens.splice(comment.start, i - comment.start + 1);
+                    i = comment.start - 1;
+                    comment = null;
+                } else if (tokens[i] === '*' && tokens[i+1] === '/') {
+                    if (!comment) {
+                        throw new Error('Unexpected */');
+                    }
+
+                    tokens.splice(comment.start, i - comment.start + 2);
+                    i = comment.start - 1;
+                    comment = null;
+                } else if (!comment) {
+                    if (tokens[i] === '/' && tokens[i+1] === '*') {
+                        comment = { start: i, type: 'block' };
+                        i++;
+                    // handle # preprocessor directives as comments
+                    } else if ((tokens[i] === '/' && tokens[i+1] === '/') || tokens[i] === '#') {
+                        comment = { start: i, type: 'line' };
+                        i++;
+                    } else if (tokens[i] === '\n') { // newlines are only needed for line comments
+                        tokens.splice(i, 1);
+                        i--;
+                    }
+                }
+            }
+
+            if (comment?.type === 'block') {
+                throw new Error('Expected closing comment */, but got EOF');
+            }
         }
 
         function sepStatements(tokens, offs = 0) {
@@ -288,6 +324,8 @@ export default function buildCParser({ StructType, CFunction, PointerType, types
         }
 
         const tokens = tokenize(header);
+
+        filterComments(tokens);
         const [ statements ] = sepStatements(tokens);
         const ast = statements.map(parseStatement);
 

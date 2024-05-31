@@ -187,14 +187,22 @@ import initCParser from '../src/js/stdlib/ffi/ffiutils.js';
 				const char *name;
 				uint8_t prop_flags;
 				uint8_t def_type;
-				int16_t magic;
+				int16_t magic; // line comment
 				char bla[23];
 				char abc[];
 			};
+			#preprocessor directive
 			typedef int JSModuleInitFunc(JSContext *ctx, JSModuleDef *m);
+			/* block comment */
 			typedef struct JSRuntime JSRuntime;
 			typedef int my_int;
+			/* multiline block comment 
+				another line
+			*/
 			typedef unsigned long long int my_int2;
+			// multiline line comment \
+			another line \
+			and another line
 			struct struct_in_struct{
 				int a;
 				struct asd{
