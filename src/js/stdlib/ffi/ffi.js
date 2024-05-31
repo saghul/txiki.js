@@ -232,6 +232,7 @@ export const types = {
 };
 
 const typeMap = [
+    [ types.void, [ 'void' ] ],
     [ types.uint8, [ 'uint8_t' ] ],
     [ types.uint16, [ 'uint16_t' ] ],
     [ types.uint32, [ 'uint32_t' ] ],
