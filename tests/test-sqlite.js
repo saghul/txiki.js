@@ -6,6 +6,8 @@ import { Database } from 'tjs:sqlite';
 function testTypes(dbName) {
     const db = new Database(dbName);
 
+    db.exec('PRAGMA journal_mode = WAL;');
+
     db.prepare('CREATE TABLE test (txt TEXT NOT NULL, int INTEGER, double FLOAT, data BLOB)').run();
     
     const ins = db.prepare('INSERT INTO test (txt, int, double, data) VALUES(?, ?, ?, ?)');
