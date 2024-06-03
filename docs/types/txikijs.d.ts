@@ -954,8 +954,12 @@ declare global {
             static readonly defines: {
                 AF_INET: number,
                 AF_INET6: number,
+                /** only on platforms supporting AF_NETLINK */
                 AF_NETLINK: number,
+                /** only on platforms supporting AF_PACKET */
                 AF_PACKET: number,
+                /** only on platforms supporting AF_UNIX */
+                AF_UNIX: number,
                 
                 SOCK_STREAM: number,
                 SOCK_DGRAM: number,
