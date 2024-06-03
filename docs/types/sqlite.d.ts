@@ -60,6 +60,13 @@ declare module 'tjs:sqlite'{
         constructor(dbName: string, options: IDatabaseOptions);
 
         /**
+         * Execute the given SQL statement(s).
+         *
+         * @param sql - The SQL statement(s) that will run.
+         */
+        exec(sql: string): void;
+
+        /**
          * Create a prepared statement, to run SQL queries.
          *
          * @param sql - The SQL query that will run.

@@ -177,6 +177,29 @@ static JSValue tjs_sqlite3_close(JSContext *ctx, JSValue this_val, int argc, JSV
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_sqlite3_exec(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSSqlite3Handle *h = tjs_sqlite3_get(ctx, argv[0]);
+
+    if (!h)
+        return JS_EXCEPTION;
+
+    const char *sql = JS_ToCString(ctx, argv[1]);
+
+    if (!sql) {
+        return JS_EXCEPTION;
+    }
+
+    int r = sqlite3_exec(h->handle, sql, NULL, NULL, NULL);
+
+    JS_FreeCString(ctx, sql);
+
+    if (r != SQLITE_OK) {
+        return tjs_throw_sqlite3_errno(ctx, r);
+    }
+
+    return JS_UNDEFINED;
+}
+
 static JSValue tjs_sqlite3_prepare(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSSqlite3Handle *h = tjs_sqlite3_get(ctx, argv[0]);
 
@@ -487,6 +510,7 @@ static JSValue tjs_sqlite3_stmt_run(JSContext *ctx, JSValue this_val, int argc, 
 static const JSCFunctionListEntry tjs_sqlite3_funcs[] = {
     TJS_CFUNC_DEF("open", 2, tjs_sqlite3_open),
     TJS_CFUNC_DEF("close", 1, tjs_sqlite3_close),
+    TJS_CFUNC_DEF("exec", 2, tjs_sqlite3_exec),
     TJS_CFUNC_DEF("prepare", 2, tjs_sqlite3_prepare),
     TJS_CFUNC_DEF("stmt_finalize", 1, tjs_sqlite3_stmt_finalize),
     TJS_CFUNC_DEF("stmt_expand", 1, tjs_sqlite3_stmt_expand),

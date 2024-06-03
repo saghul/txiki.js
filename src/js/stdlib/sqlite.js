@@ -26,6 +26,14 @@ class Database {
         }
     }
 
+    exec(sql) {
+        if (!this[kSqlite3Handle]) {
+            throw new Error('Invalid DB');
+        }
+
+        sqlite3.exec(this[kSqlite3Handle], sql);
+    }
+
     prepare(sql) {
         if (!this[kSqlite3Handle]) {
             throw new Error('Invalid DB');
