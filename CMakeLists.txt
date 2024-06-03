@@ -150,7 +150,6 @@ set_target_properties(tjs PROPERTIES
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
-# target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
 target_include_directories(tjs PUBLIC src)
 target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread CURL::libcurl)
 
@@ -162,7 +161,7 @@ endif()
 add_executable(tjs-cli
     src/cli.c
 )
-target_link_libraries(tjs-cli tjs qjs uv_a m3 sqlite3 m pthread CURL::libcurl)
+target_link_libraries(tjs-cli tjs)
 set_target_properties(tjs-cli
     PROPERTIES OUTPUT_NAME tjs
 )
