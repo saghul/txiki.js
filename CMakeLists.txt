@@ -103,8 +103,6 @@ add_library(tjs STATIC
     deps/quickjs/cutils.c
 )
 
-target_compile_definitions(tjs PUBLIC CURL_STATICLIB=1)
-
 if(NOT MINGW)
     target_sources(tjs PUBLIC src/posix-socket.c)
 endif()
@@ -152,7 +150,7 @@ set_target_properties(tjs PROPERTIES
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
-target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
+# target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
 target_include_directories(tjs PUBLIC src)
 target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread CURL::libcurl)
 
