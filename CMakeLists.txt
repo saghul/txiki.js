@@ -164,7 +164,7 @@ endif()
 add_executable(tjs-cli
     src/cli.c
 )
-target_link_libraries(tjs-cli tjs)
+target_link_libraries(tjs-cli tjs qjs uv_a m3 sqlite3 m pthread ${CURL_LIBRARIES})
 set_target_properties(tjs-cli
     PROPERTIES OUTPUT_NAME tjs
 )
