@@ -534,8 +534,10 @@ static JSValue tjs_tcp_connect(JSContext *ctx, JSValue this_val, int argc, JSVal
     cr->req.data = cr;
 
     r = uv_tcp_connect(&cr->req, &t->h.tcp, (struct sockaddr *) &ss, uv__stream_connect_cb);
-    if (r != 0)
+    if (r != 0) {
+        js_free(ctx, cr);
         return tjs_throw_errno(ctx, r);
+    }
 
     return TJS_InitPromise(ctx, &cr->result);
 }
