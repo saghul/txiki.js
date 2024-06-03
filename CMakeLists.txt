@@ -103,6 +103,8 @@ add_library(tjs STATIC
     deps/quickjs/cutils.c
 )
 
+target_compile_definitions(tjs PUBLIC CURL_STATICLIB=1)
+
 if(NOT MINGW)
     target_sources(tjs PUBLIC src/posix-socket.c)
 endif()
