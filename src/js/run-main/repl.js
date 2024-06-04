@@ -1247,7 +1247,7 @@ function _run(g) {
         level = 0;
 
         /* run the garbage collector after each command */
-        tjs.gc();
+        tjs.gc.run();
     }
 
     function colorize_js(str) {
