@@ -224,12 +224,6 @@ static JSValue tjs_setMaxStackSize(JSContext *ctx, JSValue this_val, int argc, J
 }
 
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
-    TJS_CFUNC_DEF("gcRun", 0, js_std_gcRun),
-    TJS_CFUNC_DEF("gcSetThreshold", 1, js_std_gcSetThreshold),
-    TJS_CFUNC_DEF("gcGetThreshold", 0, js_std_gcGetThreshold),
-    TJS_CFUNC_DEF("gcFixThreshold", 1, js_std_gcFixThreshold),
-    TJS_CFUNC_DEF("gcSetBeforeCallback", 1, js_std_gcSetBeforeCallback),
-    TJS_CFUNC_DEF("gcSetAfterCallback", 1, js_std_gcSetAfterCallback),
     TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
     TJS_CFUNC_DEF("evalScript", 1, tjs_evalScript),
     TJS_CFUNC_DEF("isStdinTty", 0, tjs_isStdinTty),
@@ -239,10 +233,20 @@ static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CGETSET_DEF("exepath", tjs_exepath, NULL),
 };
 
+static const JSCFunctionListEntry tjs_gc_funcs[] = {
+    TJS_CFUNC_DEF("run", 0, js_std_gcRun),
+    TJS_CFUNC_DEF("setThreshold", 1, js_std_gcSetThreshold),
+    TJS_CFUNC_DEF("getThreshold", 0, js_std_gcGetThreshold),
+    TJS_CFUNC_DEF("fixThreshold", 1, js_std_gcFixThreshold),
+    TJS_CFUNC_DEF("setBeforeCallback", 1, js_std_gcSetBeforeCallback),
+    TJS_CFUNC_DEF("setAfterCallback", 1, js_std_gcSetAfterCallback),
+};
+
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {
     JS_SetPropertyFunctionList(ctx, ns, tjs_sys_funcs, countof(tjs_sys_funcs));
     JS_DefinePropertyValueStr(ctx, ns, "args", tjs__get_args(ctx), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "version", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
+
     JSValue versions = JS_NewObjectProto(ctx, JS_NULL);
     JS_DefinePropertyValueStr(ctx, versions, "quickjs", JS_NewString(ctx, JS_GetVersion()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "tjs", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
@@ -250,5 +254,10 @@ void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, curl_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "wasm3", JS_NewString(ctx, M3_VERSION), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "versions", versions, JS_PROP_C_W_E);
+
+    JSValue gc = JS_NewObjectProto(ctx, JS_NULL);
+    JS_SetPropertyFunctionList(ctx, gc, tjs_gc_funcs, countof(tjs_gc_funcs));
+    JS_DefinePropertyValueStr(ctx, ns, "$gc", gc, 0);
+
     JS_DefinePropertyValueStr(ctx, ns, "platform", JS_NewString(ctx, TJS__PLATFORM), JS_PROP_C_W_E);
 }

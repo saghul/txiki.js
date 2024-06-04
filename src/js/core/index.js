@@ -203,7 +203,7 @@ if (core.posix_socket) {
 // Changes of the threshold will not be backpropagated here.
 const _gc_state = {
     enabled: true,
-    threshold: core.gcGetThreshold()
+    threshold: core.$gc.getThreshold()
 };
 
 Object.defineProperty(tjs, 'gc', {
@@ -211,13 +211,13 @@ Object.defineProperty(tjs, 'gc', {
     configurable: false,
     writable: false,
     value: {
-        run: ()=>core.gcRun(),
+        run: ()=>core.$gc.run(),
 
         set enabled(value) {
             if (value===true) {
-                core.gcSetThreshold(_gc_state.threshold);
+                core.$gc.setThreshold(_gc_state.threshold);
             } else {
-                core.gcSetThreshold(-1);
+                core.$gc.setThreshold(-1);
             }
         },
         get enabled() {
@@ -226,13 +226,13 @@ Object.defineProperty(tjs, 'gc', {
 
         set threshold(value) {
             if (_gc_state.enabled) {
-                core.gcSetThreshold(value);_gc_state.threshold=value;
+                core.$gc.setThreshold(value);_gc_state.threshold=value;
             } else {
-                core.gcSetThreshold(-1);
+                core.$gc.setThreshold(-1);
             }
         },
         get threshold() {
-            const tmp = core.gcGetThreshold();
+            const tmp = core.$gc.getThreshold();
 
             if (tmp!==-1) {
                 _gc_state.threshold = tmp;
@@ -245,21 +245,21 @@ Object.defineProperty(tjs, 'gc', {
          * @param {boolean} value
          */
         set fixThreshold(value) {
-            core.gcFixThreshold(value);
+            core.$gc.fixThreshold(value);
         },
 
         /**
          * @param {()=>boolean} v If returning true the GC event will take place, otherwise it is skipped.
          */
         set onBefore(v) {
-            core.gcSetBeforeCallback(v);
+            core.$gc.setBeforeCallback(v);
         },
 
         /**
          * @param {()=>void} v
          */
         set onAfter(v) {
-            core.gcSetAfterCallback(v);
+            core.$gc.setAfterCallback(v);
         }
 
     }
