@@ -1,4 +1,4 @@
-<!DOCTYPE html><html class="default" lang="en"><head><meta charSet="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>Database | txiki.js</title><meta name="description" content="Documentation for txiki.js"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os"</script><header class="tsd-page-toolbar">
+<!DOCTYPE html><html class="default" lang="en"><head><meta charSet="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>ITransaction | txiki.js</title><meta name="description" content="Documentation for txiki.js"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os"</script><header class="tsd-page-toolbar">
 <div class="tsd-toolbar-contents container">
 <div class="table-cell" id="tsd-search" data-base="..">
 <div class="field"><label for="tsd-search-field" class="tsd-widget tsd-toolbar-icon search no-caption"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><use href="#icon-search"></use></svg></label><input type="text" id="tsd-search-field" aria-label="Search"/></div>
@@ -14,128 +14,178 @@
 <ul class="tsd-breadcrumb">
 <li><a href="../index.html">txiki.js</a></li>
 <li><a href="../modules/tjs_sqlite.html">tjs:sqlite</a></li>
-<li><a href="tjs_sqlite.Database.html">Database</a></li></ul>
-<h1>Class Database</h1></div>
+<li><a href="tjs_sqlite.ITransaction.html">ITransaction</a></li></ul>
+<h1>Interface ITransaction</h1></div>
 <section class="tsd-panel tsd-hierarchy">
 <h4>Hierarchy</h4>
 <ul class="tsd-hierarchy">
-<li><span class="target">Database</span></li></ul></section>
+<li><span class="tsd-signature-type ">Function</span>
+<ul class="tsd-hierarchy">
+<li><span class="target">ITransaction</span></li></ul></li></ul></section>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-index-accordion" open><summary class="tsd-accordion-summary tsd-index-summary">
 <h5 class="tsd-index-heading uppercase" role="button" aria-expanded="false" tabIndex=0><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><use href="#icon-chevronSmall"></use></svg> Index</h5></summary>
 <div class="tsd-accordion-details">
 <section class="tsd-index-section">
-<h3 class="tsd-index-heading">Constructors</h3>
-<div class="tsd-index-list"><a href="tjs_sqlite.Database.html#constructor" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-512"></use></svg><span>constructor</span></a>
+<h3 class="tsd-index-heading">Properties</h3>
+<div class="tsd-index-list"><a href="tjs_sqlite.ITransaction.html#arguments" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>arguments</span></a>
+<a href="tjs_sqlite.ITransaction.html#caller" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>caller</span></a>
+<a href="tjs_sqlite.ITransaction.html#deferred" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>deferred</span></a>
+<a href="tjs_sqlite.ITransaction.html#exclusive" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>exclusive</span></a>
+<a href="tjs_sqlite.ITransaction.html#immediate" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>immediate</span></a>
+<a href="tjs_sqlite.ITransaction.html#length" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>length</span></a>
+<a href="tjs_sqlite.ITransaction.html#name" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>name</span></a>
+<a href="tjs_sqlite.ITransaction.html#prototype" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>prototype</span></a>
 </div></section>
 <section class="tsd-index-section">
 <h3 class="tsd-index-heading">Methods</h3>
-<div class="tsd-index-list"><a href="tjs_sqlite.Database.html#close" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>close</span></a>
-<a href="tjs_sqlite.Database.html#exec" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>exec</span></a>
-<a href="tjs_sqlite.Database.html#prepare" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>prepare</span></a>
-<a href="tjs_sqlite.Database.html#transaction" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>transaction</span></a>
+<div class="tsd-index-list"><a href="tjs_sqlite.ITransaction.html#_hasInstance_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>[has<wbr/>Instance]</span></a>
+<a href="tjs_sqlite.ITransaction.html#apply" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>apply</span></a>
+<a href="tjs_sqlite.ITransaction.html#bind" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>bind</span></a>
+<a href="tjs_sqlite.ITransaction.html#call" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>call</span></a>
+<a href="tjs_sqlite.ITransaction.html#toString" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>to<wbr/>String</span></a>
 </div></section></div></details></section></section>
 <section class="tsd-panel-group tsd-member-group">
-<h2>Constructors</h2>
-<section class="tsd-panel tsd-member"><a id="constructor" class="tsd-anchor"></a>
-<h3 class="tsd-anchor-link"><span>constructor</span><a href="#constructor" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
-<ul class="tsd-signatures">
-<li class="tsd-signature tsd-anchor-link" id="constructor.new_Database"><span class="tsd-kind-constructor-signature">new <wbr/>Database</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">dbName</span>, <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="tjs_sqlite.Database.html" class="tsd-signature-type tsd-kind-class">Database</a><a href="#constructor.new_Database" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
+<h2>Properties</h2>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="arguments" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>arguments</span><a href="#arguments" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">arguments</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">any</span></div><aside class="tsd-sources">
+<p>Inherited from Function.arguments</p></aside></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="caller" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>caller</span><a href="#caller" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">caller</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type ">Function</span></div><aside class="tsd-sources">
+<p>Inherited from Function.caller</p></aside></section>
+<section class="tsd-panel tsd-member"><a id="deferred" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>deferred</span><a href="#deferred" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">deferred</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type ">Function</span></div></section>
+<section class="tsd-panel tsd-member"><a id="exclusive" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>exclusive</span><a href="#exclusive" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">exclusive</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type ">Function</span></div></section>
+<section class="tsd-panel tsd-member"><a id="immediate" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>immediate</span><a href="#immediate" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">immediate</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type ">Function</span></div></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="length" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagReadonly">Readonly</code> <span>length</span><a href="#length" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">length</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div><aside class="tsd-sources">
+<p>Inherited from Function.length</p></aside></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="name" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagReadonly">Readonly</code> <span>name</span><a href="#name" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">name</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+<div class="tsd-comment tsd-typography"><p>Returns the name of the function. Function names are read-only and can not be changed.</p>
+</div>
+<div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
+<p>Inherited from Function.name</p></aside></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="prototype" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>prototype</span><a href="#prototype" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">prototype</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">any</span></div><aside class="tsd-sources">
+<p>Inherited from Function.prototype</p></aside></section></section>
+<section class="tsd-panel-group tsd-member-group">
+<h2>Methods</h2>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_hasInstance_" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>[has<wbr/>Instance]</span><a href="#_hasInstance_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-signature tsd-anchor-link" id="_hasInstance_._hasInstance_-1"><span class="tsd-kind-call-signature">[has<wbr/>Instance]</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">value</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><a href="#_hasInstance_._hasInstance_-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
-<div class="tsd-comment tsd-typography"><p>Opens a SQLite database.</p>
+<div class="tsd-comment tsd-typography"><p>Determines whether the given value inherits from this function if this function was used
+as a constructor function.</p>
+<p>A constructor function can control which objects are recognized as its instances by
+&#39;instanceof&#39; by overriding this method.</p>
 </div>
 <div class="tsd-parameters">
 <h4 class="tsd-parameters-title">Parameters</h4>
 <ul class="tsd-parameter-list">
 <li>
-<h5><span class="tsd-kind-parameter">dbName</span>: <span class="tsd-signature-type">string</span></h5>
-<div class="tsd-comment tsd-typography"><p>The path of the database. Defaults to <code>:memory:</code>, which
-opens an in-memory database.</p>
+<h5><span class="tsd-kind-parameter">value</span>: <span class="tsd-signature-type">any</span></h5></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
+<div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
+<p>Inherited from Function.[hasInstance]</p></aside></li></ul></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="apply" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>apply</span><a href="#apply" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-signature tsd-anchor-link" id="apply.apply-1"><span class="tsd-kind-call-signature">apply</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">this</span>, <span class="tsd-kind-parameter">thisArg</span>, <span class="tsd-kind-parameter">argArray</span><span class="tsd-signature-symbol">?</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><a href="#apply.apply-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
+<li class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Calls the function, substituting the specified object for the this value of the function, and the specified array for the arguments of the function.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li>
+<h5><span class="tsd-kind-parameter">this</span>: <span class="tsd-signature-type ">Function</span></h5></li>
+<li>
+<h5><span class="tsd-kind-parameter">thisArg</span>: <span class="tsd-signature-type">any</span></h5>
+<div class="tsd-comment tsd-typography"><p>The object to be used as the this object.</p>
 </div>
 <div class="tsd-comment tsd-typography"></div></li>
 <li>
-<h5><span class="tsd-kind-parameter">options</span>: <a href="../interfaces/tjs_sqlite.IDatabaseOptions.html" class="tsd-signature-type tsd-kind-interface">IDatabaseOptions</a></h5>
-<div class="tsd-comment tsd-typography"><p>Options when opening the database.</p>
+<h5><code class="tsd-tag ts-flagOptional">Optional</code> <span class="tsd-kind-parameter">argArray</span>: <span class="tsd-signature-type">any</span></h5>
+<div class="tsd-comment tsd-typography"><p>A set of arguments to be passed to the function.</p>
 </div>
 <div class="tsd-comment tsd-typography"></div></li></ul></div>
-<h4 class="tsd-returns-title">Returns <a href="tjs_sqlite.Database.html" class="tsd-signature-type tsd-kind-class">Database</a></h4>
-<div class="tsd-comment tsd-typography"></div></li></ul></section></section>
-<section class="tsd-panel-group tsd-member-group">
-<h2>Methods</h2>
-<section class="tsd-panel tsd-member"><a id="close" class="tsd-anchor"></a>
-<h3 class="tsd-anchor-link"><span>close</span><a href="#close" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
-<ul class="tsd-signatures">
-<li class="tsd-signature tsd-anchor-link" id="close.close-1"><span class="tsd-kind-call-signature">close</span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span><a href="#close.close-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">any</span></h4>
+<div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
+<p>Inherited from Function.apply</p></aside></li></ul></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="bind" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>bind</span><a href="#bind" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-signature tsd-anchor-link" id="bind.bind-1"><span class="tsd-kind-call-signature">bind</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">this</span>, <span class="tsd-kind-parameter">thisArg</span>, <span class="tsd-signature-symbol">...</span><span class="tsd-kind-parameter">argArray</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><a href="#bind.bind-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
-<div class="tsd-comment tsd-typography"><p>Closes the database. No further operations can be performed afterwards.</p>
-</div>
-<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
-<div class="tsd-comment tsd-typography"></div></li></ul></section>
-<section class="tsd-panel tsd-member"><a id="exec" class="tsd-anchor"></a>
-<h3 class="tsd-anchor-link"><span>exec</span><a href="#exec" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
-<ul class="tsd-signatures">
-<li class="tsd-signature tsd-anchor-link" id="exec.exec-1"><span class="tsd-kind-call-signature">exec</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">sql</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span><a href="#exec.exec-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
-<li class="tsd-description">
-<div class="tsd-comment tsd-typography"><p>Execute the given SQL statement(s).</p>
+<div class="tsd-comment tsd-typography"><p>For a given function, creates a bound function that has the same body as the original function.
+The this object of the bound function is associated with the specified object, and has the specified initial parameters.</p>
 </div>
 <div class="tsd-parameters">
 <h4 class="tsd-parameters-title">Parameters</h4>
 <ul class="tsd-parameter-list">
 <li>
-<h5><span class="tsd-kind-parameter">sql</span>: <span class="tsd-signature-type">string</span></h5>
-<div class="tsd-comment tsd-typography"><p>The SQL statement(s) that will run.</p>
+<h5><span class="tsd-kind-parameter">this</span>: <span class="tsd-signature-type ">Function</span></h5></li>
+<li>
+<h5><span class="tsd-kind-parameter">thisArg</span>: <span class="tsd-signature-type">any</span></h5>
+<div class="tsd-comment tsd-typography"><p>An object to which the this keyword can refer inside the new function.</p>
+</div>
+<div class="tsd-comment tsd-typography"></div></li>
+<li>
+<h5><code class="tsd-tag ts-flagRest">Rest</code> <span class="tsd-signature-symbol">...</span><span class="tsd-kind-parameter">argArray</span>: <span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">[]</span></h5>
+<div class="tsd-comment tsd-typography"><p>A list of arguments to be passed to the new function.</p>
 </div>
 <div class="tsd-comment tsd-typography"></div></li></ul></div>
-<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
-<div class="tsd-comment tsd-typography"></div></li></ul></section>
-<section class="tsd-panel tsd-member"><a id="prepare" class="tsd-anchor"></a>
-<h3 class="tsd-anchor-link"><span>prepare</span><a href="#prepare" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
-<ul class="tsd-signatures">
-<li class="tsd-signature tsd-anchor-link" id="prepare.prepare-1"><span class="tsd-kind-call-signature">prepare</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">sql</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../interfaces/tjs_sqlite.IStatement.html" class="tsd-signature-type tsd-kind-interface">IStatement</a><a href="#prepare.prepare-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">any</span></h4>
+<div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
+<p>Inherited from Function.bind</p></aside></li></ul></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="call" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>call</span><a href="#call" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-signature tsd-anchor-link" id="call.call-1"><span class="tsd-kind-call-signature">call</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">this</span>, <span class="tsd-kind-parameter">thisArg</span>, <span class="tsd-signature-symbol">...</span><span class="tsd-kind-parameter">argArray</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><a href="#call.call-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
-<div class="tsd-comment tsd-typography"><p>Create a prepared statement, to run SQL queries.</p>
+<div class="tsd-comment tsd-typography"><p>Calls a method of an object, substituting another object for the current object.</p>
 </div>
 <div class="tsd-parameters">
 <h4 class="tsd-parameters-title">Parameters</h4>
 <ul class="tsd-parameter-list">
 <li>
-<h5><span class="tsd-kind-parameter">sql</span>: <span class="tsd-signature-type">string</span></h5>
-<div class="tsd-comment tsd-typography"><p>The SQL query that will run.</p>
-</div>
-<div class="tsd-comment tsd-typography"></div></li></ul></div>
-<h4 class="tsd-returns-title">Returns <a href="../interfaces/tjs_sqlite.IStatement.html" class="tsd-signature-type tsd-kind-interface">IStatement</a></h4>
-<div class="tsd-comment tsd-typography"></div></li></ul></section>
-<section class="tsd-panel tsd-member"><a id="transaction" class="tsd-anchor"></a>
-<h3 class="tsd-anchor-link"><span>transaction</span><a href="#transaction" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
-<ul class="tsd-signatures">
-<li class="tsd-signature tsd-anchor-link" id="transaction.transaction-1"><span class="tsd-kind-call-signature">transaction</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">fn</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../interfaces/tjs_sqlite.ITransaction.html" class="tsd-signature-type tsd-kind-interface">ITransaction</a><a href="#transaction.transaction-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
-<li class="tsd-description">
-<div class="tsd-comment tsd-typography"><p>Wrap the given function so it runs in a <a href="https://sqlite.org/lang_transaction.html">transaction</a>.
-When the (returned) function is invoked, it will start a new transaction. When the function returns,
-the transaction will be committed. If an exception is thrown, the transaction will be rolled back.</p>
-<pre><code class="language-js"><span class="hl-0">const</span><span class="hl-1"> </span><span class="hl-2">ins</span><span class="hl-1"> = </span><span class="hl-4">db</span><span class="hl-1">.</span><span class="hl-5">prepare</span><span class="hl-1">(</span><span class="hl-6">&#39;INSERT INTO test (txt, int) VALUES(?, ?)&#39;</span><span class="hl-1">);</span><br/><span class="hl-0">const</span><span class="hl-1"> </span><span class="hl-2">insMany</span><span class="hl-1"> = </span><span class="hl-4">db</span><span class="hl-1">.</span><span class="hl-5">transaction</span><span class="hl-1">(</span><span class="hl-4">datas</span><span class="hl-1"> </span><span class="hl-0">=&gt;</span><span class="hl-1"> {</span><br/><span class="hl-1">    </span><span class="hl-3">for</span><span class="hl-1"> (</span><span class="hl-0">const</span><span class="hl-1"> </span><span class="hl-2">data</span><span class="hl-1"> </span><span class="hl-0">of</span><span class="hl-1"> </span><span class="hl-4">datas</span><span class="hl-1">) {</span><br/><span class="hl-1">        </span><span class="hl-4">ins</span><span class="hl-1">.</span><span class="hl-5">run</span><span class="hl-1">(</span><span class="hl-4">data</span><span class="hl-1">);</span><br/><span class="hl-1">    }</span><br/><span class="hl-1">});</span><br/><br/><span class="hl-5">insMany</span><span class="hl-1">([</span><br/><span class="hl-1">    [ </span><span class="hl-6">&#39;1234&#39;</span><span class="hl-1">, </span><span class="hl-7">1234</span><span class="hl-1"> ],</span><br/><span class="hl-1">    [ </span><span class="hl-6">&#39;4321&#39;</span><span class="hl-1">, </span><span class="hl-7">4321</span><span class="hl-1"> ],</span><br/><span class="hl-1">]);</span>
-</code><button>Copy</button></pre>
-<p>Transaction functions can be called from inside other transaction functions. When doing so,
-the inner transaction becomes a <a href="https://www.sqlite.org/lang_savepoint.html">savepoint</a>. If an error
-is thrown inside of a nested transaction function, the nested transaction function will roll back
-to the state just before the savepoint. If the error is not caught in the outer transaction function,
-this will cause the outer transaction function to roll back as well.</p>
-<p>Transactions also come with deferred, immediate, and exclusive versions:</p>
-<pre><code class="language-js"><span class="hl-5">insertMany</span><span class="hl-1">(</span><span class="hl-4">datas</span><span class="hl-1">); </span><span class="hl-8">// uses &quot;BEGIN&quot;</span><br/><span class="hl-4">insertMany</span><span class="hl-1">.</span><span class="hl-5">deferred</span><span class="hl-1">(</span><span class="hl-4">datas</span><span class="hl-1">); </span><span class="hl-8">// uses &quot;BEGIN DEFERRED&quot;</span><br/><span class="hl-4">insertMany</span><span class="hl-1">.</span><span class="hl-5">immediate</span><span class="hl-1">(</span><span class="hl-4">datas</span><span class="hl-1">); </span><span class="hl-8">// uses &quot;BEGIN IMMEDIATE&quot;</span><br/><span class="hl-4">insertMany</span><span class="hl-1">.</span><span class="hl-5">exclusive</span><span class="hl-1">(</span><span class="hl-4">datas</span><span class="hl-1">); </span><span class="hl-8">// uses &quot;BEGIN EXCLUSIVE&quot;</span>
-</code><button>Copy</button></pre>
-<p>NOTE: This implementation was mostly taken from <a href="https://github.com/WiseLibs/better-sqlite3/blob/6acc3fcebe469969aa29319714b187a53ada0934/docs/api.md#transactionfunction---function">better-sqlite3</a>.</p>
-</div>
-<div class="tsd-parameters">
-<h4 class="tsd-parameters-title">Parameters</h4>
-<ul class="tsd-parameter-list">
+<h5><span class="tsd-kind-parameter">this</span>: <span class="tsd-signature-type ">Function</span></h5></li>
 <li>
-<h5><span class="tsd-kind-parameter">fn</span>: <span class="tsd-signature-type ">Function</span></h5>
-<div class="tsd-comment tsd-typography"><p>The function to be wrapped in a transaction.</p>
+<h5><span class="tsd-kind-parameter">thisArg</span>: <span class="tsd-signature-type">any</span></h5>
+<div class="tsd-comment tsd-typography"><p>The object to be used as the current object.</p>
+</div>
+<div class="tsd-comment tsd-typography"></div></li>
+<li>
+<h5><code class="tsd-tag ts-flagRest">Rest</code> <span class="tsd-signature-symbol">...</span><span class="tsd-kind-parameter">argArray</span>: <span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">[]</span></h5>
+<div class="tsd-comment tsd-typography"><p>A list of arguments to be passed to the method.</p>
 </div>
 <div class="tsd-comment tsd-typography"></div></li></ul></div>
-<h4 class="tsd-returns-title">Returns <a href="../interfaces/tjs_sqlite.ITransaction.html" class="tsd-signature-type tsd-kind-interface">ITransaction</a></h4>
-<div class="tsd-comment tsd-typography"></div></li></ul></section></section></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">any</span></h4>
+<div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
+<p>Inherited from Function.call</p></aside></li></ul></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="toString" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>to<wbr/>String</span><a href="#toString" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-signature tsd-anchor-link" id="toString.toString-1"><span class="tsd-kind-call-signature">to<wbr/>String</span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><a href="#toString.toString-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
+<li class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Returns a string representation of a function.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
+<div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
+<p>Inherited from Function.toString</p></aside></li></ul></section></section></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">
@@ -155,11 +205,19 @@ this will cause the outer transaction function to roll back as well.</p>
 <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><use href="#icon-chevronDown"></use></svg>On This Page</h3></summary>
 <div class="tsd-accordion-details">
 <ul>
-<li><a href="#constructor" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-512"></use></svg><span>constructor</span></a></li>
-<li><a href="#close" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>close</span></a></li>
-<li><a href="#exec" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>exec</span></a></li>
-<li><a href="#prepare" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>prepare</span></a></li>
-<li><a href="#transaction" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>transaction</span></a></li></ul></div></details></div>
+<li><a href="#arguments" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>arguments</span></a></li>
+<li><a href="#caller" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>caller</span></a></li>
+<li><a href="#deferred" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>deferred</span></a></li>
+<li><a href="#exclusive" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>exclusive</span></a></li>
+<li><a href="#immediate" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>immediate</span></a></li>
+<li><a href="#length" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>length</span></a></li>
+<li><a href="#name" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>name</span></a></li>
+<li><a href="#prototype" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1024"></use></svg><span>prototype</span></a></li>
+<li><a href="#_hasInstance_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>[has<wbr/>Instance]</span></a></li>
+<li><a href="#apply" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>apply</span></a></li>
+<li><a href="#bind" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>bind</span></a></li>
+<li><a href="#call" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>call</span></a></li>
+<li><a href="#toString" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-2048"></use></svg><span>to<wbr/>String</span></a></li></ul></div></details></div>
 <div class="site-menu">
 <nav class="tsd-navigation"><a href="../index.html"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-1"></use></svg><span>txiki.js</span></a>
 <ul class="tsd-small-nested-navigation" id="tsd-nav-container" data-base="..">
