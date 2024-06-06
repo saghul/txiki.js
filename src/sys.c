@@ -30,9 +30,24 @@
 #include <uv.h>
 
 
-static JSValue js_std_gc(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+static JSValue js_gc_run(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JS_RunGC(JS_GetRuntime(ctx));
     return JS_UNDEFINED;
+}
+
+static JSValue js_gc_setThreshold(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    int64_t value;
+
+    if (JS_ToInt64(ctx, &value, argv[0]))
+        return JS_EXCEPTION;
+
+    JS_SetGCThreshold(JS_GetRuntime(ctx), value);
+
+    return JS_UNDEFINED;
+}
+
+static JSValue js_gc_getThreshold(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    return JS_NewNumber(ctx, JS_GetGCThreshold(JS_GetRuntime(ctx)));
 }
 
 static JSValue tjs_evalFile(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -146,7 +161,6 @@ static JSValue tjs_setMaxStackSize(JSContext *ctx, JSValue this_val, int argc, J
 }
 
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
-    TJS_CFUNC_DEF("gc", 0, js_std_gc),
     TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
     TJS_CFUNC_DEF("evalScript", 1, tjs_evalScript),
     TJS_CFUNC_DEF("isStdinTty", 0, tjs_isStdinTty),
@@ -156,16 +170,30 @@ static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CGETSET_DEF("exepath", tjs_exepath, NULL),
 };
 
+/* clang-format off */
+static const JSCFunctionListEntry tjs_gc_funcs[] = {
+    TJS_CFUNC_DEF("run", 0, js_gc_run),
+    TJS_CFUNC_DEF("setThreshold", 1, js_gc_setThreshold),
+    TJS_CFUNC_DEF("getThreshold", 0, js_gc_getThreshold)
+};
+/* clang-format on */
+
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {
     JS_SetPropertyFunctionList(ctx, ns, tjs_sys_funcs, countof(tjs_sys_funcs));
     JS_DefinePropertyValueStr(ctx, ns, "args", tjs__get_args(ctx), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "version", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
+
     JSValue versions = JS_NewObjectProto(ctx, JS_NULL);
     JS_DefinePropertyValueStr(ctx, versions, "quickjs", JS_NewString(ctx, JS_GetVersion()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "tjs", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "uv", JS_NewString(ctx, uv_version_string()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, curl_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "wasm3", JS_NewString(ctx, M3_VERSION), JS_PROP_C_W_E);
+
+    JSValue gc = JS_NewObjectProto(ctx, JS_NULL);
+    JS_SetPropertyFunctionList(ctx, gc, tjs_gc_funcs, countof(tjs_gc_funcs));
+    JS_DefinePropertyValueStr(ctx, ns, "_gc", gc, 0);
+
     JS_DefinePropertyValueStr(ctx, ns, "versions", versions, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "platform", JS_NewString(ctx, TJS__PLATFORM), JS_PROP_C_W_E);
 }

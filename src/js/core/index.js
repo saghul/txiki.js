@@ -199,6 +199,51 @@ if (core.posix_socket) {
     });
 }
 
+// Interface for the garbage collection
+const _gc_state = {
+    enabled: true,
+    threshold: core._gc.getThreshold()
+};
+
+Object.defineProperty(tjs, 'gc', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: {
+        run: () => core._gc.run(),
+
+        set enabled(value) {
+            if (value) {
+                core._gc.setThreshold(_gc_state.threshold);
+            } else {
+                core._gc.setThreshold(-1);
+            }
+
+            _gc_state.enabled=value;
+        },
+        get enabled() {
+            return _gc_state.enabled;
+        },
+
+        set threshold(value) {
+            if (_gc_state.enabled) {
+                core._gc.setThreshold(value);
+            }
+
+            _gc_state.threshold = value;
+        },
+        get threshold() {
+            const tmp = core._gc.getThreshold();
+
+            if (tmp !== -1) {
+                _gc_state.threshold = tmp;
+            }
+
+            return _gc_state.threshold;
+        },
+    }
+});
+
 // Internal stuff needed by the runtime.
 globalThis[Symbol.for('tjs.internal.modules.path')] = pathModule;
 
