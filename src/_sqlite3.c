@@ -229,6 +229,15 @@ static JSValue tjs_sqlite3_prepare(JSContext *ctx, JSValue this_val, int argc, J
     return obj;
 }
 
+static JSValue tjs_sqlite3_in_transaction(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSSqlite3Handle *h = tjs_sqlite3_get(ctx, argv[0]);
+
+    if (!h)
+        return JS_EXCEPTION;
+
+    return JS_NewBool(ctx, !sqlite3_get_autocommit(h->handle));
+}
+
 static JSValue tjs_sqlite3_stmt_finalize(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSSqlite3Stmt *h = tjs_sqlite3_stmt_get(ctx, argv[0]);
 
@@ -512,6 +521,7 @@ static const JSCFunctionListEntry tjs_sqlite3_funcs[] = {
     TJS_CFUNC_DEF("close", 1, tjs_sqlite3_close),
     TJS_CFUNC_DEF("exec", 2, tjs_sqlite3_exec),
     TJS_CFUNC_DEF("prepare", 2, tjs_sqlite3_prepare),
+    TJS_CFUNC_DEF("in_transaction", 1, tjs_sqlite3_in_transaction),
     TJS_CFUNC_DEF("stmt_finalize", 1, tjs_sqlite3_stmt_finalize),
     TJS_CFUNC_DEF("stmt_expand", 1, tjs_sqlite3_stmt_expand),
     TJS_CFUNC_DEF("stmt_all", 2, tjs_sqlite3_stmt_all),
