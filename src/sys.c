@@ -257,7 +257,7 @@ void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {
 
     JSValue gc = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyFunctionList(ctx, gc, tjs_gc_funcs, countof(tjs_gc_funcs));
-    JS_DefinePropertyValueStr(ctx, ns, "$gc", gc, 0);
+    JS_DefinePropertyValueStr(ctx, ns, "_gc", gc, 0);
 
     JS_DefinePropertyValueStr(ctx, ns, "platform", JS_NewString(ctx, TJS__PLATFORM), JS_PROP_C_W_E);
 }
