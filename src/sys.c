@@ -54,7 +54,7 @@ static JSValue tjs_evalScript(JSContext *ctx, JSValue this_val, int argc, JSValu
     str = JS_ToCStringLen(ctx, &len, argv[0]);
     if (!str)
         return JS_EXCEPTION;
-    ret = JS_Eval(ctx, str, len, "<evalScript>", JS_EVAL_TYPE_GLOBAL);
+    ret = JS_Eval(ctx, str, len, "<evalScript>", JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_ASYNC);
     JS_FreeCString(ctx, str);
     return ret;
 }

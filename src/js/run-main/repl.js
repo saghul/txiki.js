@@ -1129,42 +1129,31 @@ function _run(g) {
                      '\\q      exit\n');
     }
 
-    function preprocessEval(input) {
-        const awaitMatcher = /^(?:\s*(?:(?:let|var|const)\s)?\s*([^=]+)=\s*|^\s*)(await\s[\s\S]*)/;
-        const asyncWrapper = (code, binder) => {
-            let assign = binder ? `global.${binder} = ` : '';
-            return `(function(){ async function _wrap() { return ${assign}${code} } return _wrap();})()`;
-        };
-      
-        // match & transform
-        const match = input.match(awaitMatcher);
-        if (match) {
-            input = `${asyncWrapper(match[2], match[1])}`;
-        }
-        return input;
-      }
-
-    function doEval(input) {
-        const code = preprocessEval(input);
-
-        return evalScript(code);
-    }
-
     function eval_and_print(expr) {
         var result;
 
-        try {
-            /* eval as a script */
-            result = doEval(expr);
+        /* eval as a script */
+        result = evalScript(expr);
+        result.then(res => {
+            result = res.value;
             stdout_write(colors[styles.result]);
             print(result);
             stdout_write('\n');
             stdout_write(colors.none);
             /* set the last result */
             g._ = result;
-        } catch (error) {
+        },
+        error => {
             dump_error(error);
-        }
+        })
+        .finally(() => {
+            level = 0;
+
+            /* run the garbage collector after each command */
+            tjs.gc();
+
+            cmd_readline_start();
+        });
     }
 
     function dump_error(error) {
@@ -1243,11 +1232,6 @@ function _run(g) {
         mexpr = '';
 
         eval_and_print(expr);
-
-        level = 0;
-
-        /* run the garbage collector after each command */
-        tjs.gc();
     }
 
     function colorize_js(str) {
