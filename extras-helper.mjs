@@ -86,6 +86,7 @@ function check_versions(strict, name, modprotocol_version, runtime_version) {
  * @param {string} branch Branch/Tag
  */
 async function clone_shallow(name, url, branch) {
+    await rm(`./deps/extras/${name}`, { recursive: true, force: true })
     await exec(`git clone --recurse-submodules --shallow-submodules --depth 1 --single-branch --branch ${branch} ${url} ./deps/extras/${name}`);
 }
 

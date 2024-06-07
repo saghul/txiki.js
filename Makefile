@@ -158,5 +158,5 @@ test-advanced:
 	cd tests/advanced && npm install
 	./$(BUILD_DIR)/tjs test tests/advanced/
 
-.PRECIOUS: src/bundles/js/core/%.js src/bundles/js/stdlib/%.js
-.PHONY: all js debug install clean distclean format test test-advanced core stdlib $(TJS)
+.PRECIOUS: src/bundles/js/core/%.js src/bundles/js/stdlib/%.js src/bundles/js/extras/%.js
+.PHONY: all js debug install clean distclean format test test-advanced core stdlib extras $(TJS)

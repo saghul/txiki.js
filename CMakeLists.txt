@@ -170,6 +170,7 @@ target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 target_include_directories(tjs PRIVATE ${CURL_INCLUDE_DIRS})
 target_include_directories(tjs PUBLIC src)
+target_include_directories(tjs PRIVATE deps)
 target_link_libraries(tjs qjs uv_a m3 sqlite3 m pthread ${CURL_LIBRARIES} ${EXTRA_MODULES})
 
 if (BUILD_WITH_MIMALLOC)
