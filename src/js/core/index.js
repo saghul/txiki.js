@@ -203,7 +203,7 @@ if (core.posix_socket) {
 // Changes of the threshold will not be backpropagated here.
 const _gc_state = {
     enabled: true,
-    threshold: core.$gc.getThreshold()
+    threshold: core._gc.getThreshold()
 };
 
 Object.defineProperty(tjs, 'gc', {
@@ -211,13 +211,13 @@ Object.defineProperty(tjs, 'gc', {
     configurable: false,
     writable: false,
     value: {
-        run: ()=>core.$gc.run(),
+        run: ()=>core._gc.run(),
 
         set enabled(value) {
             if (value===true) {
-                core.$gc.setThreshold(_gc_state.threshold);
+                core._gc.setThreshold(_gc_state.threshold);
             } else {
-                core.$gc.setThreshold(-1);
+                core._gc.setThreshold(-1);
             }
         },
         get enabled() {
@@ -226,13 +226,13 @@ Object.defineProperty(tjs, 'gc', {
 
         set threshold(value) {
             if (_gc_state.enabled) {
-                core.$gc.setThreshold(value);_gc_state.threshold=value;
+                core._gc.setThreshold(value);_gc_state.threshold=value;
             } else {
-                core.$gc.setThreshold(-1);
+                core._gc.setThreshold(-1);
             }
         },
         get threshold() {
-            const tmp = core.$gc.getThreshold();
+            const tmp = core._gc.getThreshold();
 
             if (tmp!==-1) {
                 _gc_state.threshold = tmp;
@@ -245,21 +245,21 @@ Object.defineProperty(tjs, 'gc', {
          * @param {boolean} value
          */
         set fixThreshold(value) {
-            core.$gc.fixThreshold(value);
+            core._gc.fixThreshold(value);
         },
 
         /**
          * @param {()=>boolean} v If returning true the GC event will take place, otherwise it is skipped.
          */
         set onBefore(v) {
-            core.$gc.setBeforeCallback(v);
+            core._gc.setBeforeCallback(v);
         },
 
         /**
          * @param {()=>void} v
          */
         set onAfter(v) {
-            core.$gc.setAfterCallback(v);
+            core._gc.setAfterCallback(v);
         }
 
     }
