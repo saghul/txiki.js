@@ -1,7 +1,16 @@
 BUILD_DIR=build
 BUILDTYPE?=Release
+
 JOBS?=$(shell getconf _NPROCESSORS_ONLN)
-JS_NO_STRIP?=0
+ifeq ($(JOBS),)
+JOBS := $(shell sysctl -n hw.ncpu)
+endif
+ifeq ($(JOBS),)
+JOBS := $(shell nproc)
+endif
+ifeq ($(JOBS),)
+JOBS := 4
+endif
 
 TJS=$(BUILD_DIR)/tjs
 QJSC=$(BUILD_DIR)/tjsc
@@ -10,6 +19,7 @@ ESBUILD?=npx esbuild
 ESBUILD_PARAMS_COMMON=--target=es2022 --platform=neutral --format=esm --main-fields=main,module
 ESBUILD_PARAMS_MINIFY=--minify
 QJSC_PARAMS_STIP=-ss
+JS_NO_STRIP?=0
 
 ifeq ($(JS_NO_STRIP),1)
 	ESBUILD_PARAMS_MINIFY=
