@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "lib": ["ES2020", "dom"],
+    "target": "ESNext",
     "noImplicitAny": true,
     "baseUrl": ".",
     "typeRoots": ["./node_modules/@types"]
