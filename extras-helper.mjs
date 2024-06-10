@@ -24,7 +24,7 @@ SOFTWARE.
 */
 
 let STRICT = false;
-const protocol_version = [2, 1, 0]
+const protocol_version = [2, 2, 0]
 //TODO: take this from the makefile? There must be a better way to handle this.
 const runtime_version = [23, 12, 0]
 
@@ -100,23 +100,23 @@ async function copy_template(path, subdir) {
     }
 }
 
-async function retrieve(name, path) {
+
+async function retrieve(name, path, prefix) {
     //From the internet
     if (path.startsWith('https://') || path.startsWith('http://')) {
         await writeFile(
-            `./extras/${name}.tar.gz`,
+            `${prefix}${name}.tar.gz`,
             Readable.fromWeb(
                 (await fetch(path)).body,
             ),
         )
-        await exec(`mkdir ./extras/${name} &&  tar -xvzf ./extras/${name}.tar.gz -C ./extras/${name} --strip-components=1`);
-        await rm(`./extras/${name}.tar.gz`)
+        await exec(`mkdir ${prefix}${name} &&  tar -xvzf ${prefix}${name}.tar.gz -C ${prefix}${name} --strip-components=1`);
+        await rm(`${prefix}${name}.tar.gz`)
     }
     //Local folder
     else {
-        await cp(path, `./extras/${name}`, { recursive: true, dereference: true, errorOnExist: false })
+        await cp(path, `${prefix}${name}`, { recursive: true, dereference: true, errorOnExist: false })
     }
-    return await install(name)
 }
 
 async function install(path) {
@@ -131,9 +131,18 @@ async function install(path) {
     const names = []
 
     for (const [name, info] of Object.entries(modcfg["native-deps"] ?? {})) {
-        console.log(`Shallow cloning ${name} @ ${info.repo} branch ${info.branch}`)
-        await clone_shallow(name, info.repo, info.branch)
-
+        if (info.url) {
+            console.log(
+                `Fetch of ${name} @ ${info.url}`,
+            );
+            await retrieve(name, info.url, './deps/extras/')
+        }
+        else {
+            console.log(
+                `Shallow cloning ${name} @ ${info.repo} branch ${info.branch}`,
+            );
+            await clone_shallow(name, info.repo, info.branch);
+        }
         cmake.push("block()")
 
         //Build the extras cmake entries
@@ -217,7 +226,8 @@ program.command('refresh')
             process.exit(1)
         }
 
-        await retrieve(modname, config[modname])
+        await retrieve(modname, config[modname], './extras/')
+        await install(modname)
     })
 
 program.command('clone')
@@ -251,13 +261,14 @@ program.command('clone')
         const names = []
 
         for (const module of Object.entries(config)) {
-            const moduleInfo = (await retrieve(module[0], module[1]))
+            await retrieve(module[0], module[1], './extras/')
+            const moduleInfo = (await install(module[0]))
             cmake.push(moduleInfo.cmake.join('\n'))
             names.push(...moduleInfo.names)
         }
 
         //Placeholder for now
-        await writeFile('deps/extras/CMakeLists.txt', `${cmake.join("\n")}\nset(EXTRA_MODULES ${names.join(' ')})`)
+        await writeFile('deps/extras/CMakeLists.txt', `${cmake.join("\n")}\nset(EXTRA_MODULES "${names.join(' ')}" CACHE STRING "" FORCE)`)
         await writeFile('./modules.json', JSON.stringify(config, null, 4))
 
         //Construct src/extras.bootstrap to initialize the extra modules
