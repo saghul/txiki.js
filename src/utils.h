@@ -83,18 +83,20 @@ void tjs_assert(const struct AssertionInfo info);
 #define TJS_CONST2(name, val) JS_PROP_INT32_DEF(name, val, JS_PROP_ENUMERABLE)
 #define TJS_CFUNC_DEF(name, length, func1)                                                                             \
     {                                                                                                                  \
-        name, JS_PROP_C_W_E, JS_DEF_CFUNC, 0, .u = {.func = { length, JS_CFUNC_generic, { .generic = func1 } } }       \
+        name, JS_PROP_C_W_E, JS_DEF_CFUNC, 0, {                                                                        \
+            .func = { length, JS_CFUNC_generic, { .generic = func1 } }                                                 \
+        }                                                                                                              \
     }
 #define TJS_CFUNC_MAGIC_DEF(name, length, func1, magic)                                                                \
     {                                                                                                                  \
-        name, JS_PROP_C_W_E, JS_DEF_CFUNC, magic, .u = {                                                               \
+        name, JS_PROP_C_W_E, JS_DEF_CFUNC, magic, {                                                                    \
             .func = { length, JS_CFUNC_generic_magic, { .generic_magic = func1 } }                                     \
         }                                                                                                              \
     }
 #define TJS_CGETSET_DEF(name, fgetter, fsetter)                                                                        \
     {                                                                                                                  \
-        name, JS_PROP_C_W_E, JS_DEF_CGETSET, 0, .u = {                                                                 \
-            .getset = { .get = { .getter = fgetter }, .set = { .setter = fsetter } }                                   \
+        name, JS_PROP_C_W_E, JS_DEF_CGETSET, 0, {                                                                      \
+            .getset = {.get = { .getter = fgetter }, .set = { .setter = fsetter } }                                    \
         }                                                                                                              \
     }
 
