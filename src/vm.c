@@ -484,6 +484,31 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
     return r;
 }
 
+JSValue TJS_EvalModuleContent(JSContext *ctx,
+                              const char *specifier,
+                              bool is_main,
+                              bool use_real_path,
+                              const char *content,
+                              size_t len) {
+    /* Compile then run to be able to set import.meta */
+    JSValue ret = JS_Eval(ctx, content, len, specifier, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    if (!JS_IsException(ret)) {
+        js_module_set_import_meta(ctx, ret, use_real_path, is_main);
+        ret = JS_EvalFunction(ctx, ret);
+    }
+
+    /* Emit window 'load' event. */
+    if (!JS_IsException(ret) && is_main) {
+        static char emit_window_load[] = "window.dispatchEvent(new Event('load'));";
+        JSValue ret1 = JS_Eval(ctx, emit_window_load, strlen(emit_window_load), "<global>", JS_EVAL_TYPE_GLOBAL);
+        if (JS_IsException(ret1)) {
+            tjs_dump_error(ctx);
+        }
+    }
+
+    return ret;
+}
+
 JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     DynBuf dbuf;
     size_t dbuf_size;
@@ -503,21 +528,7 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     /* Add null termination, required by JS_Eval. */
     dbuf_putc(&dbuf, '\0');
 
-    /* Compile then run to be able to set import.meta */
-    ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf_size - 1, filename, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
-    if (!JS_IsException(ret)) {
-        js_module_set_import_meta(ctx, ret, TRUE, is_main);
-        ret = JS_EvalFunction(ctx, ret);
-    }
-
-    /* Emit window 'load' event. */
-    if (!JS_IsException(ret) && is_main) {
-        static char emit_window_load[] = "window.dispatchEvent(new Event('load'));";
-        JSValue ret1 = JS_Eval(ctx, emit_window_load, strlen(emit_window_load), "<global>", JS_EVAL_TYPE_GLOBAL);
-        if (JS_IsException(ret1)) {
-            tjs_dump_error(ctx);
-        }
-    }
+    ret = TJS_EvalModuleContent(ctx, filename, is_main, TRUE, (char *) dbuf.buf, dbuf_size - 1);
 
     dbuf_free(&dbuf);
     return ret;
