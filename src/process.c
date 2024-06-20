@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "mem.h"
 #include "private.h"
 #include "utils.h"
 
@@ -33,7 +34,6 @@ static JSClassID tjs_process_class_id;
 
 typedef struct {
     JSContext *ctx;
-    JSRuntime *rt;
     JSValue obj;
     bool closed;
     bool finalized;
@@ -52,7 +52,7 @@ static void uv__close_cb(uv_handle_t *handle) {
     CHECK_NOT_NULL(p);
     p->closed = true;
     if (p->finalized)
-        js_free_rt(p->rt, p);
+        tjs__free(p);
 }
 
 static void maybe_close(TJSProcess *p) {
@@ -69,7 +69,7 @@ static void tjs_process_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, p->stdio[2]);
         p->finalized = true;
         if (p->closed)
-            js_free_rt(rt, p);
+            tjs__free(p);
         else
             maybe_close(p);
     }
@@ -184,14 +184,13 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
     if (JS_IsException(obj))
         return obj;
 
-    TJSProcess *p = js_mallocz(ctx, sizeof(*p));
+    TJSProcess *p = tjs__mallocz(sizeof(*p));
     if (!p) {
         JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
+        return JS_ThrowOutOfMemory(ctx);
     }
 
     p->ctx = ctx;
-    p->rt = JS_GetRuntime(ctx);
     p->process.data = p;
 
     TJS_ClearPromise(ctx, &p->status.result);
@@ -451,7 +450,7 @@ fail:
     JS_FreeValue(ctx, p->stdio[0]);
     JS_FreeValue(ctx, p->stdio[1]);
     JS_FreeValue(ctx, p->stdio[2]);
-    js_free(ctx, p);
+    tjs__free(p);
     JS_FreeValue(ctx, obj);
     ret = JS_EXCEPTION;
 cleanup:

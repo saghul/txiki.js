@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "mem.h"
 #include "private.h"
 #include "utils.h"
 
@@ -30,7 +31,6 @@
 
 typedef struct {
     JSContext *ctx;
-    JSRuntime *rt;
     int closed;
     int finalized;
     uv_udp_t udp;
@@ -57,7 +57,7 @@ static void uv__udp_close_cb(uv_handle_t *handle) {
     CHECK_NOT_NULL(u);
     u->closed = 1;
     if (u->finalized)
-        js_free_rt(u->rt, u);
+        tjs__free(u);
 }
 
 static void maybe_close(TJSUdp *u) {
@@ -72,7 +72,7 @@ static void tjs_udp_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, u->read.b.tarray);
         u->finalized = 1;
         if (u->closed)
-            js_free_rt(rt, u);
+            tjs__free(u);
         else
             maybe_close(u);
     }
@@ -283,26 +283,21 @@ static JSValue tjs_new_udp(JSContext *ctx, int af) {
     if (JS_IsException(obj))
         return obj;
 
-    u = js_mallocz(ctx, sizeof(*u));
+    u = tjs__mallocz(sizeof(*u));
     if (!u) {
         JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
+        return JS_ThrowOutOfMemory(ctx);
     }
 
     r = uv_udp_init_ex(tjs_get_loop(ctx), &u->udp, af);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        js_free(ctx, u);
+        tjs__free(u);
         return JS_ThrowInternalError(ctx, "couldn't initialize UDP handle");
     }
 
     u->ctx = ctx;
-    u->rt = JS_GetRuntime(ctx);
-    u->closed = 0;
-    u->finalized = 0;
-
     u->udp.data = u;
-
     u->read.b.tarray = JS_UNDEFINED;
     u->read.b.data = NULL;
     u->read.b.len = 0;

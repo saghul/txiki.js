@@ -22,12 +22,12 @@
  * THE SOFTWARE.
  */
 
+#include "mem.h"
 #include "private.h"
 #include "utils.h"
 
 typedef struct {
     JSContext *ctx;
-    JSRuntime *rt;
     uv_fs_event_t handle;
     JSValue callback;
     int closed;
@@ -45,7 +45,7 @@ static void uv__fsevent_close_cb(uv_handle_t *handle) {
     if (fw) {
         fw->closed = 1;
         if (fw->finalized)
-            js_free_rt(fw->rt, fw);
+            tjs__free(fw);
     }
 }
 
@@ -60,7 +60,7 @@ static void tjs_fswatch_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, fw->callback);
         fw->finalized = 1;
         if (fw->closed)
-            js_free_rt(rt, fw);
+            tjs__free(fw);
         else
             maybe_close(fw);
     }
@@ -128,7 +128,7 @@ static void uv__fs_event_cb(uv_fs_event_t *handle, const char *filename, int eve
     if (status != 0)
         return;
 
-    // libuv could set both, if we get rename, ignroe change.
+    // libuv could set both, if we get rename, ignore change.
 
     JSValue event;
     if (events & UV_RENAME) {
@@ -168,18 +168,18 @@ static JSValue tjs_fs_watch(JSContext *ctx, JSValue this_val, int argc, JSValue 
         return JS_EXCEPTION;
     }
 
-    TJSFsWatch *fw = js_mallocz(ctx, sizeof(*fw));
+    TJSFsWatch *fw = tjs__mallocz(sizeof(*fw));
     if (!fw) {
         JS_FreeCString(ctx, path);
         JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
+        return JS_ThrowOutOfMemory(ctx);
     }
 
     int r = uv_fs_event_init(tjs_get_loop(ctx), &fw->handle);
     if (r != 0) {
         JS_FreeCString(ctx, path);
         JS_FreeValue(ctx, obj);
-        js_free(ctx, fw);
+        tjs__free(fw);
         return JS_ThrowInternalError(ctx, "couldn't initialize handle");
     }
 
@@ -187,14 +187,13 @@ static JSValue tjs_fs_watch(JSContext *ctx, JSValue this_val, int argc, JSValue 
     if (r != 0) {
         JS_FreeCString(ctx, path);
         JS_FreeValue(ctx, obj);
-        js_free(ctx, fw);
+        tjs__free(fw);
         return tjs_throw_errno(ctx, r);
     }
 
     JS_FreeCString(ctx, path);
 
     fw->ctx = ctx;
-    fw->rt = JS_GetRuntime(ctx);
     fw->handle.data = fw;
     fw->callback = JS_DupValue(ctx, argv[1]);
 

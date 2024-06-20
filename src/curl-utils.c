@@ -24,6 +24,7 @@
 
 #include "curl-utils.h"
 
+#include "mem.h"
 #include "utils.h"
 #include "version.h"
 
@@ -150,7 +151,7 @@ typedef struct {
 static void uv__poll_close_cb(uv_handle_t *handle) {
     tjs_curl_poll_ctx_t *poll_ctx = handle->data;
     CHECK_NOT_NULL(poll_ctx);
-    free(poll_ctx);
+    tjs__free(poll_ctx);
 }
 
 static void uv__poll_cb(uv_poll_t *handle, int status, int events) {
@@ -182,7 +183,7 @@ static int curl__handle_socket(CURL *easy, curl_socket_t s, int action, void *us
             tjs_curl_poll_ctx_t *poll_ctx;
             if (!socketp) {
                 // Initialize poll handle.
-                poll_ctx = malloc(sizeof(*poll_ctx));
+                poll_ctx = tjs__malloc(sizeof(*poll_ctx));
                 if (!poll_ctx)
                     return -1;
                 CHECK_EQ(uv_poll_init_socket(&qrt->loop, &poll_ctx->poll, s), 0);

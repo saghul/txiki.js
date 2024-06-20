@@ -22,13 +22,13 @@
  * THE SOFTWARE.
  */
 
+#include "mem.h"
 #include "private.h"
 #include "utils.h"
 
 
 typedef struct {
     JSContext *ctx;
-    JSRuntime *rt;
     int closed;
     int finalized;
     uv_signal_t handle;
@@ -44,7 +44,7 @@ static void uv__signal_close_cb(uv_handle_t *handle) {
     if (sh) {
         sh->closed = 1;
         if (sh->finalized)
-            js_free_rt(sh->rt, sh);
+            tjs__free(sh);
     }
 }
 
@@ -59,7 +59,7 @@ static void tjs_signal_handler_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, sh->func);
         sh->finalized = 1;
         if (sh->closed)
-            js_free_rt(rt, sh);
+            tjs__free(sh);
         else
             maybe_close(sh);
     }
@@ -97,29 +97,28 @@ static JSValue tjs_signal(JSContext *ctx, JSValue this_val, int argc, JSValue *a
     if (JS_IsException(obj))
         return obj;
 
-    TJSSignalHandler *sh = js_mallocz(ctx, sizeof(*sh));
+    TJSSignalHandler *sh = tjs__mallocz(sizeof(*sh));
     if (!sh) {
         JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
+        return JS_ThrowOutOfMemory(ctx);
     }
 
     int r = uv_signal_init(tjs_get_loop(ctx), &sh->handle);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        js_free(ctx, sh);
+        tjs__free(sh);
         return JS_ThrowInternalError(ctx, "couldn't initialize Signal handle");
     }
 
     r = uv_signal_start(&sh->handle, uv__signal_cb, sig_num);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        js_free(ctx, sh);
+        tjs__free(sh);
         return tjs_throw_errno(ctx, r);
     }
     uv_unref((uv_handle_t *) &sh->handle);
 
     sh->ctx = ctx;
-    sh->rt = JS_GetRuntime(ctx);
     sh->sig_num = sig_num;
     sh->handle.data = sh;
     sh->func = JS_DupValue(ctx, func);
