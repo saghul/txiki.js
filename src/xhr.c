@@ -686,10 +686,17 @@ static JSValue tjs_xhr_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
             size_t size;
             const char *body = JS_ToCStringLen(ctx, &size, arg);
             if (body) {
-                curl_easy_setopt(x->curl_h, CURLOPT_POSTFIELDSIZE, (long) size);
+                curl_easy_setopt(x->curl_h, CURLOPT_POSTFIELDSIZE_LARGE, size);
                 curl_easy_setopt(x->curl_h, CURLOPT_COPYPOSTFIELDS, body);
                 JS_FreeCString(ctx, body);
             }
+        } else if (JS_IsUint8Array(arg)) {
+            size_t size;
+            uint8_t *buf = JS_GetUint8Array(ctx, &size, argv[0]);
+            if (!buf)
+                return JS_EXCEPTION;
+            curl_easy_setopt(x->curl_h, CURLOPT_POSTFIELDSIZE_LARGE, size);
+            curl_easy_setopt(x->curl_h, CURLOPT_COPYPOSTFIELDS, buf);
         }
         if (x->slist)
             curl_easy_setopt(x->curl_h, CURLOPT_HTTPHEADER, x->slist);

@@ -274,17 +274,6 @@ if (typeof Blob !== 'undefined' && (typeof FormData === 'undefined' || !FormData
         })
     }
 
-    ['_asMultipartText'] () {
-        const boundary = '----formdata-polyfill-' + Math.random(),
-          chunks = [],
-          p = `--${boundary}\r\nContent-Disposition: form-data; name="`
-        this.forEach((value, name) => typeof value == 'string'
-          ? chunks.push(p + escape(normalizeLinefeeds(name)) + `"\r\n\r\n${normalizeLinefeeds(value)}\r\n`)
-          : chunks.push(p + escape(normalizeLinefeeds(name)) + `"; filename="${escape(value.name)}"\r\nContent-Type: ${value.type||"application/octet-stream"}\r\n\r\n`, value, `\r\n`))
-        chunks.push(`--${boundary}--`)
-        return [chunks.join(''), "multipart/form-data; boundary=" + boundary]
-    }
-
     /**
      * The class itself is iterable
      * alias for formdata.entries()
