@@ -191,11 +191,6 @@ static void uv__stop(uv_async_t *handle) {
     uv_stop(&qrt->loop);
 }
 
-static void uv__walk(uv_handle_t *handle, void *arg) {
-    if (!uv_is_closing(handle))
-        uv_close(handle, NULL);
-}
-
 void TJS_DefaultOptions(TJSRunOptions *options) {
     static TJSRunOptions default_options = { .mem_limit = 0, .stack_size = TJS__DEFAULT_STACK_SIZE };
 
@@ -219,7 +214,7 @@ TJSRuntime *TJS_NewRuntimeWorker(void) {
 }
 
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
-    TJSRuntime *qrt = tjs__calloc(1, sizeof(*qrt));
+    TJSRuntime *qrt = tjs__mallocz(sizeof(*qrt));
 
     memcpy(&qrt->options, options, sizeof(*options));
 
@@ -295,8 +290,6 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 }
 
 void TJS_FreeRuntime(TJSRuntime *qrt) {
-    JS_RunGC(qrt->rt);
-
     /* Reset TTY state (if it had changed) before exiting. */
     uv_tty_reset_mode();
 
@@ -312,16 +305,9 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     /* Destroy all timers */
     tjs__destroy_timers(qrt);
 
-    /* Destroy WASM runtime. */
-    m3_FreeEnvironment(qrt->wasm_ctx.env);
-    qrt->wasm_ctx.env = NULL;
-
-    /* Give close handles a chance to run. */
-    for (int i = 0; i < 5; i++) {
-        uv_run(&qrt->loop, UV_RUN_NOWAIT);
-    }
-
-    uv_walk(&qrt->loop, uv__walk, NULL);
+    /* Destroy the JS engine. */
+    JS_FreeContext(qrt->ctx);
+    JS_FreeRuntime(qrt->rt);
 
     /* Cleanup loop. All handles should be closed. */
     int closed = 0;
@@ -346,8 +332,9 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         qrt->curl_ctx.curlm_h = NULL;
     }
 
-    JS_FreeContext(qrt->ctx);
-    JS_FreeRuntime(qrt->rt);
+    /* Destroy WASM runtime. */
+    m3_FreeEnvironment(qrt->wasm_ctx.env);
+    qrt->wasm_ctx.env = NULL;
 
     tjs__free(qrt);
 }

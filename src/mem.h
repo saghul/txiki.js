@@ -29,6 +29,7 @@
 
 size_t tjs__malloc_usable_size(const void *ptr);
 void *tjs__malloc(size_t size);
+void *tjs__mallocz(size_t size);
 void *tjs__calloc(size_t count, size_t size);
 void tjs__free(void *ptr);
 void *tjs__realloc(void *ptr, size_t size);

@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "mem.h"
 #include "private.h"
 #include "tjs.h"
 
@@ -50,7 +51,6 @@ typedef struct {
 
 typedef struct {
     JSContext *ctx;
-    JSRuntime *rt;
     union {
         uv_handle_t handle;
         uv_stream_t stream;
@@ -135,7 +135,7 @@ static void worker_entry(void *arg) {
 static void uv__close_cb(uv_handle_t *handle) {
     TJSWorker *w = handle->data;
     CHECK_NOT_NULL(w);
-    js_free_rt(w->rt, w);
+    tjs__free(w);
 }
 
 static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
@@ -143,9 +143,7 @@ static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
     if (w) {
         for (int i = 0; i < WORKER_EVENT_MAX; i++)
             JS_FreeValueRT(rt, w->events[i]);
-        /* The handle might have been closed by the loop destruction in TJS_FreeRuntime. */
-        if (!uv_is_closing((uv_handle_t *) &w->h.handle))
-            uv_close(&w->h.handle, uv__close_cb);
+        uv_close(&w->h.handle, uv__close_cb);
     }
 }
 
@@ -233,14 +231,13 @@ static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_m
     if (JS_IsException(obj))
         return obj;
 
-    TJSWorker *w = js_mallocz(ctx, sizeof(*w));
+    TJSWorker *w = tjs__mallocz(sizeof(*w));
     if (!w) {
         JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
+        return JS_ThrowOutOfMemory(ctx);
     }
 
     w->ctx = ctx;
-    w->rt = JS_GetRuntime(ctx);
     w->is_main = is_main;
     w->h.handle.data = w;
 

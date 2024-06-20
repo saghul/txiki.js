@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "mem.h"
 #include "private.h"
 #include "utils.h"
 
@@ -36,7 +37,6 @@ static JSValue tjs_new_tcp(JSContext *ctx, int af);
 
 typedef struct {
     JSContext *ctx;
-    JSRuntime *rt;
     int closed;
     int finalized;
     union {
@@ -83,7 +83,7 @@ static void uv__stream_close_cb(uv_handle_t *handle) {
     CHECK_NOT_NULL(s);
     s->closed = 1;
     if (s->finalized)
-        js_free_rt(s->rt, s);
+        tjs__free(s);
 }
 
 static void maybe_close(TJSStream *s) {
@@ -400,12 +400,7 @@ static JSValue tjs_stream_set_blocking(JSContext *ctx, TJSStream *s, int argc, J
 
 static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
     s->ctx = ctx;
-    s->rt = JS_GetRuntime(ctx);
-    s->closed = 0;
-    s->finalized = 0;
-
     s->h.handle.data = s;
-
     s->read.b.tarray = JS_UNDEFINED;
     s->read.b.data = NULL;
     s->read.b.len = 0;
@@ -468,16 +463,16 @@ static JSValue tjs_new_tcp(JSContext *ctx, int af) {
     if (JS_IsException(obj))
         return obj;
 
-    s = js_mallocz(ctx, sizeof(*s));
+    s = tjs__mallocz(sizeof(*s));
     if (!s) {
         JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
+        return JS_ThrowOutOfMemory(ctx);
     }
 
     r = uv_tcp_init_ex(tjs_get_loop(ctx), &s->h.tcp, af);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        js_free(ctx, s);
+        tjs__free(s);
         return JS_ThrowInternalError(ctx, "couldn't initialize TCP handle");
     }
 
@@ -651,16 +646,16 @@ static JSValue tjs_tty_constructor(JSContext *ctx, JSValue new_target, int argc,
     if (JS_IsException(obj))
         return obj;
 
-    s = js_mallocz(ctx, sizeof(*s));
+    s = tjs__mallocz(sizeof(*s));
     if (!s) {
         JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
+        return JS_ThrowOutOfMemory(ctx);
     }
 
     r = uv_tty_init(tjs_get_loop(ctx), &s->h.tty, fd, readable);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        js_free(ctx, s);
+        tjs__free(s);
         return JS_ThrowInternalError(ctx, "couldn't initialize TTY handle");
     }
 
@@ -733,16 +728,16 @@ JSValue tjs_new_pipe(JSContext *ctx) {
     if (JS_IsException(obj))
         return obj;
 
-    s = js_mallocz(ctx, sizeof(*s));
+    s = tjs__mallocz(sizeof(*s));
     if (!s) {
         JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
+        return JS_ThrowOutOfMemory(ctx);
     }
 
     r = uv_pipe_init(tjs_get_loop(ctx), &s->h.pipe, 0);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        js_free(ctx, s);
+        tjs__free(s);
         return JS_ThrowInternalError(ctx, "couldn't initialize Pipe handle");
     }
 
