@@ -129,7 +129,27 @@ class XMLHttpRequest extends EventTarget {
     }
 
     send(body) {
-        return this[kXHR].send(body);
+        let payload;
+
+        if (body instanceof ArrayBuffer || ArrayBuffer.isView(body) || body instanceof Blob) {
+            // Not yet supported.
+        } else if (body instanceof URLSearchParams) {
+            payload = body.toString();
+            this.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded;charset=UTF-8');
+        } else if (body instanceof FormData) {
+            const [ data, contentType ] = body['_asMultipartText'](); // We use a polyfill.
+
+            this.setRequestHeader('Content-Type', contentType);
+            payload = data;
+        } else {
+            payload = String(body);
+        }
+
+        if (typeof payload === 'undefined') {
+            throw new Error('Unsupported payload type');
+        }
+
+        this[kXHR].send(payload);
     }
 
     setRequestHeader(name, value) {
