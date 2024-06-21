@@ -99,6 +99,7 @@ add_library(tjs STATIC
     src/bundles/c/core/core.c
     src/bundles/c/core/polyfills.c
     src/bundles/c/core/run-main.c
+    src/bundles/c/core/run-repl.c
     src/bundles/c/core/worker-bootstrap.c
     deps/quickjs/cutils.c
 )
