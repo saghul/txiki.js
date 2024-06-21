@@ -91,7 +91,7 @@ function initDb() {
     const path = globalThis[Symbol.for('tjs.internal.modules.path')];
 
     const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homedir(), '.tjs');
-    const localStorageDb = path.join(TJS_HOME, 'localStorage.sqlite');
+    const localStorageDb = path.join(TJS_HOME, 'localStorage.db');
     const flags = sqlite3.SQLITE_OPEN_CREATE | sqlite3.SQLITE_OPEN_READWRITE;
 
     try {

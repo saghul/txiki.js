@@ -1,10 +1,11 @@
 /* eslint-disable */
 
 /*
- * QuickJS Read Eval Print Loop
+ * txiki.js Read Eval Print Loop
  *
  * Copyright (c) 2017-2019 Fabrice Bellard
  * Copyright (c) 2017-2019 Charlie Gordon
+ * Copyright (c) 2024 Saúl Ibarra Corretgé
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +25,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+import path from 'tjs:path';
+import { Database } from 'tjs:sqlite';
+
 
 function _run(g) {
     /* close global objects */
@@ -70,6 +75,7 @@ function _run(g) {
         'error_msg':  'bright_red',
     };
 
+    var historyDb;
     var history = [];
     var clip_board = '';
 
@@ -123,7 +129,7 @@ function _run(g) {
         tjs.addSignalListener('SIGINT', sigint_handler);
 
         /* handler to read stdin */
-        term_read_handler();
+        initialize();
     }
 
     function exit(code) {
@@ -135,13 +141,48 @@ function _run(g) {
         handle_byte(3);
     }
 
-    async function term_read_handler() {
-        var buf = new Uint8Array(4096);
-        var nread;
+    async function init_history() {
+        const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homedir(), '.tjs');
+        const historyDbPath = path.join(TJS_HOME, 'history.db');
+
+        try {
+            path.mkdir(path.dirname(historyDbPath), { recursive: true });
+        } catch (e) {
+            // Ignore.
+        }
+
+        try {
+            historyDb = new Database(historyDbPath);
+        } catch (e) {
+            // Ignore.
+    
+            return;
+        }
+
+        try {
+            historyDb.prepare('CREATE TABLE IF NOT EXISTS history (entry TEXT NOT NULL)').run();
+        } catch (_) {
+            historyDb.close();
+            historyDb = null;
+
+            return;
+        }
+
+        const data = historyDb.prepare('SELECT entry from history').all();
+
+        history = data.map(row => row.entry);
+
+        // TODO: cap history size.
+    }
+
+    async function initialize() {
+        await init_history();
+
+        const buf = new Uint8Array(4096);
 
         while (read_stdin) {
             try {
-                nread = await tjs.stdin.read(buf);
+                const nread = await tjs.stdin.read(buf);
 
                 for (var i = 0; i < nread; i++) {
                     handle_byte(buf[i]);
@@ -381,6 +422,11 @@ function _run(g) {
     function history_add(str) {
         if (str) {
             history.push(str);
+            if (historyDb) {
+                try {
+                    historyDb.prepare('INSERT INTO history (entry) VALUES(?)').run(str);
+                } catch (_) {}
+            }
         }
 
         history_index = history.length;
@@ -1524,11 +1570,9 @@ function _run(g) {
     cmd_start();
 }
 
-export async function runRepl() {
-    window.addEventListener('unhandledrejection', event => {
-        // Avoid aborting in unhandled promised on the REPL.
-        event.preventDefault();
-    });
+// Avoid aborting in unhandled promised on the REPL.
+window.addEventListener('unhandledrejection', event => {
+    event.preventDefault();
+});
 
-    _run(globalThis);
-}
+_run(globalThis);

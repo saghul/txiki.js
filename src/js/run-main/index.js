@@ -4,7 +4,6 @@ import getopts from 'tjs:getopts';
 import path from 'tjs:path';
 
 import { evalStdin } from './eval-stdin.js';
-import { runRepl } from './repl.js';
 import { runTests } from './run-tests.js';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
@@ -78,7 +77,7 @@ if (options.help) {
 
     if (!command) {
         if (core.isStdinTty()) {
-            runRepl();
+            core.runRepl();
         } else {
             evalStdin();
         }
