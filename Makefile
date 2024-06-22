@@ -16,7 +16,7 @@ TJS=$(BUILD_DIR)/tjs
 QJSC=$(BUILD_DIR)/tjsc
 STDLIB_MODULES=$(wildcard src/js/stdlib/*.js)
 ESBUILD?=npx esbuild
-ESBUILD_PARAMS_COMMON=--target=es2022 --platform=neutral --format=esm --main-fields=main,module
+ESBUILD_PARAMS_COMMON=--target=es2023 --platform=neutral --format=esm --main-fields=main,module
 ESBUILD_PARAMS_MINIFY=--minify
 QJSC_PARAMS_STIP=-ss
 JS_NO_STRIP?=0
