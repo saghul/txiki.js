@@ -13,7 +13,7 @@
         self.dispatchEvent(new ErrorEvent(error));
     };
 
-    self.postMessage = (...args) => worker.postMessage(...args);
+    self.postMessage = message => worker.postMessage(message);
 
     const defineEventAttribute = EventTarget.__defineEventAttribute;
 
