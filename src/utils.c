@@ -159,8 +159,11 @@ void tjs_call_handler(JSContext *ctx, JSValue func, int argc, JSValue *argv) {
     func1 = JS_DupValue(ctx, func);
     ret = JS_Call(ctx, func1, JS_UNDEFINED, argc, argv);
     JS_FreeValue(ctx, func1);
-    if (JS_IsException(ret))
-        tjs_dump_error(ctx);
+    if (JS_IsException(ret)) {
+        TJSRuntime *qrt = TJS_GetRuntime(ctx);
+        CHECK_NOT_NULL(qrt);
+        TJS_Stop(qrt);
+    }
     JS_FreeValue(ctx, ret);
 }
 
