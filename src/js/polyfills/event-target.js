@@ -451,7 +451,8 @@ class EventTarget {
             throw new TypeError('\'listener\' should be a function or an object.');
         }
 
-        const listeners = getListeners(this);
+        const self = this ?? globalThis;
+        const listeners = getListeners(self);
         const optionsIsObj = isObject(options);
         const capture = optionsIsObj
             ? Boolean(options.capture)
@@ -506,7 +507,8 @@ class EventTarget {
             return;
         }
 
-        const listeners = getListeners(this);
+        const self = this ?? globalThis;
+        const listeners = getListeners(self);
         const capture = isObject(options)
             ? Boolean(options.capture)
             : Boolean(options);
@@ -550,11 +552,13 @@ class EventTarget {
             throw new TypeError('Argument 1 of EventTarget.dispatchEvent does not implement interface Event.');
         }
 
+        const self = this ?? globalThis;
+
         // Set the current target.
-        setCurrentTarget(event, this);
+        setCurrentTarget(event, self);
 
         // If listeners aren't registered, terminate.
-        const listeners = getListeners(this);
+        const listeners = getListeners(self);
         const eventName = event.type;
         let node = listeners.get(eventName);
 
@@ -584,7 +588,7 @@ class EventTarget {
             setPassiveListener(event, node.passive ? node.listener : null);
 
             if (typeof node.listener === 'function') {
-                node.listener.call(this, event);
+                node.listener.call(self, event);
             } else if (node.listenerType !== ATTRIBUTE && typeof node.listener.handleEvent === 'function') {
                 node.listener.handleEvent(event);
             }
