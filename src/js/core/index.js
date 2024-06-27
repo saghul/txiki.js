@@ -50,7 +50,9 @@ const noExport = [
     'signal',
     'signals',
     'sleep',
-    'wasm'
+    'wasm',
+    'createObjectURL',
+    'revokeObjectURL'
 ];
 
 for (const [ key, value ] of Object.entries(core)) {
