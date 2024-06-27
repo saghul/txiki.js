@@ -73,18 +73,6 @@ void tjs__destroy_timers(TJSRuntime *qrt) {
     }
 }
 
-static void call_timer(TJSTimer *th) {
-    JSContext *ctx = th->ctx;
-    JSValue ret, func1;
-    /* 'func' might be destroyed when calling itself (if it frees the handler), so must take extra care */
-    func1 = JS_DupValue(ctx, th->func);
-    ret = JS_Call(ctx, func1, JS_UNDEFINED, th->argc, th->argv);
-    JS_FreeValue(ctx, func1);
-    if (JS_IsException(ret))
-        tjs_dump_error(ctx);
-    JS_FreeValue(ctx, ret);
-}
-
 static void uv__timer_cb(uv_timer_t *handle) {
     TJSTimer *th = handle->data;
     CHECK_NOT_NULL(th);
@@ -92,7 +80,7 @@ static void uv__timer_cb(uv_timer_t *handle) {
     /* Micro-tasks should run before timers. */
     tjs__execute_jobs(th->ctx);
 
-    call_timer(th);
+    tjs_call_handler(th->ctx, th->func, th->argc, th->argv);
 
     if (!th->interval)
         destroy_timer(th);
