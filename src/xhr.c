@@ -1,5 +1,5 @@
 /*
- * QuickJS libuv bindings
+ * txiki.js
  *
  * Copyright (c) 2019-present Saúl Ibarra Corretgé <s@saghul.net>
  *
@@ -143,13 +143,8 @@ static void maybe_emit_event(TJSXhr *x, int event, JSValue arg) {
         return;
     }
 
-    JSValue func = JS_DupValue(ctx, event_func);
-    JSValue ret = JS_Call(ctx, func, JS_UNDEFINED, 1, &arg);
-    if (JS_IsException(ret))
-        tjs_dump_error(ctx);
+    tjs_call_handler(ctx, event_func, 1, &arg);
 
-    JS_FreeValue(ctx, ret);
-    JS_FreeValue(ctx, func);
     JS_FreeValue(ctx, arg);
 }
 

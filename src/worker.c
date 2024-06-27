@@ -171,11 +171,8 @@ static JSValue emit_event(JSContext *ctx, int argc, JSValue *argv) {
     JSValue func = argv[0];
     JSValue arg = argv[1];
 
-    JSValue ret = JS_Call(ctx, func, JS_UNDEFINED, 1, &arg);
-    if (JS_IsException(ret))
-        tjs_dump_error(ctx);
+    tjs_call_handler(ctx, func, 1, &arg);
 
-    JS_FreeValue(ctx, ret);
     JS_FreeValue(ctx, func);
     JS_FreeValue(ctx, arg);
 

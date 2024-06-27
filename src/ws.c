@@ -80,13 +80,8 @@ static void maybe_emit_event(TJSWs *w, int event, JSValue arg) {
         return;
     }
 
-    JSValue func = JS_DupValue(ctx, event_func);
-    JSValue ret = JS_Call(ctx, func, JS_UNDEFINED, 1, &arg);
-    if (JS_IsException(ret))
-        tjs_dump_error(ctx);
+    tjs_call_handler(ctx, event_func, 1, &arg);
 
-    JS_FreeValue(ctx, ret);
-    JS_FreeValue(ctx, func);
     JS_FreeValue(ctx, arg);
 }
 
