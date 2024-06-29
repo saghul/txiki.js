@@ -122,6 +122,10 @@ declare global {
              * Sets / gets the threshold (in bytes) for automatic garbage collection.
              */
             threshold: number;
+
+            fixThreshold: boolean;
+            onBefore: () => boolean;
+            onAfter: () => void;
         }
 
         /**
@@ -139,7 +143,6 @@ declare global {
             curl: string;
             wasm3: string;
             sqlite3: string;
-
         };
 
         /**
