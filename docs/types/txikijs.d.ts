@@ -18,9 +18,9 @@ declare global {
             *
             * @param buf Buffer to read data into.
             */
-            read(buf: Uint8Array): Promise<number|null>;
+            read(buf: Uint8Array): Promise<number | null>;
         }
-        
+
         /**
         * Implemented by entities to which data can be written.
         */
@@ -32,41 +32,41 @@ declare global {
             */
             write(buf: Uint8Array): Promise<number>;
         }
-        
+
         /**
         * Alerts the user about something.
         *
         * @param masg The message that will be displayed.
         */
-        function alert(msg:string): Promise<void>;
-        
+        function alert(msg: string): Promise<void>;
+
         /**
         * Asks the user for confirmation.
         *
         * @param msg The message which will be printed as the question. Defaults to "Confirm".
         */
-        function confirm(msg:string): Promise<boolean>;
-        
+        function confirm(msg: string): Promise<boolean>;
+
         /**
         * Prompt the user for input.
         *
         * @param msg Message to ask the user.
         * @param def Default value in case nothing was entered.
         */
-        function prompt(msg:string, def?:string): Promise<string|null>;
-        
+        function prompt(msg: string, def?: string): Promise<string | null>;
+
         /**
         * Array with the arguments passed to the binary.
         */
         const args: string[];
-        
+
         type Signal = 'SIGHUP' | 'SIGINT' | 'SIGQUIT' | 'SIGILL' | 'SIGTRAP'
-        | 'SIGABRT' | 'SIGBUS' | 'SIGFPE' | 'SIGKILL' | 'SIGUSR1' | 'SIGSEGV'
-        | 'SIGUSR2' | 'SIGPIPE' | 'SIGALRM' | 'SIGTERM' | 'SIGSTKFLT'
-        | 'SIGCHLD' | 'SIGCONT' | 'SIGSTOP' | 'SIGTSTP' | 'SIGTTIN' | 'SIGTTOU'
-        | 'SIGURG' | 'SIGXCPU' | 'SIGXFSZ' | 'SIGVTALRM' | 'SIGPROF' | 'SIGWINCH'
-        | 'SIGPOLL' | 'SIGPWR' | 'SIGSYS';
-        
+            | 'SIGABRT' | 'SIGBUS' | 'SIGFPE' | 'SIGKILL' | 'SIGUSR1' | 'SIGSEGV'
+            | 'SIGUSR2' | 'SIGPIPE' | 'SIGALRM' | 'SIGTERM' | 'SIGSTKFLT'
+            | 'SIGCHLD' | 'SIGCONT' | 'SIGSTOP' | 'SIGTSTP' | 'SIGTTIN' | 'SIGTTOU'
+            | 'SIGURG' | 'SIGXCPU' | 'SIGXFSZ' | 'SIGVTALRM' | 'SIGPROF' | 'SIGWINCH'
+            | 'SIGPOLL' | 'SIGPWR' | 'SIGSYS';
+
         /**
         * Signal listener function.
         */
@@ -103,7 +103,7 @@ declare global {
         * @param sig The name of the signal to send. Defaults to "SIGTERM".
         */
         function kill(pid: number, sig?: Signal): void;
-        
+
         /**
         * Management for the garbage collection.
         */
@@ -128,7 +128,7 @@ declare global {
         * The txiki.js version.
         */
         const version: string;
-        
+
         /**
         * Versions of all included libraries and txiki.js itself.
         */
@@ -138,59 +138,61 @@ declare global {
             uv: string;
             curl: string;
             wasm3: string;
+            sqlite3: string;
+
         };
-        
+
         /**
         * Full path to the txiki.js running executable.
         */
         const exepath: string;
-        
+
         /**
         * Object containing environment variables.
         * Setting and deleting properties on this object causes
         * environment variables to be set / deleted.
         */
         type Environment = { [index: string]: string };
-        
+
         /**
         * System environment variables.
         */
         const env: Environment;
-        
+
         /**
         * Returns the current system hostname.
         */
         function gethostname(): string;
-        
+
         /**
         * String representation of the current platform.
         */
         const platform: 'linux' | 'darwin' | 'windows';
-        
+
         /**
         * Exit the current running program.
         *
         * @param code Program exit code.
         */
         function exit(code: number): void;
-        
+
         /**
         * Changes the current working directory.
         */
         function chdir(dir: string): void;
-        
+
         /**
         * Gets the current working directory.
         */
         function cwd(): string;
-        
+
         /**
         * Constants describing a socket family.
         */
         const AF_INET: number;
         const AF_INE6: number;
         const AF_UNSPEC: number;
-        
+
         /**
         * Constants to be used with {@link getaddrinfo}'s `hints` parameter.
         */
@@ -223,7 +225,7 @@ declare global {
             family?: number;
             flags?: number;
         }
-        
+
         /**
         * Result type for {@link getaddrinfo}.
         */
@@ -237,7 +239,7 @@ declare global {
             scopeId?: number;
             flowinfo?: number;
         }
-        
+
         /**
         * Basic DNS resolution using [getaddrinfo(3)](https://man7.org/linux/man-pages/man3/getaddrinfo.3.html).
         *
@@ -246,7 +248,7 @@ declare global {
         * @param hints Criteria for selecting the results.
         */
         function getaddrinfo(node: string, service?: string | number, hints?: Hints): Promise<Addrinfo[]>;
-        
+
         interface IErrors {
             /*
             * Error code constants.
@@ -334,11 +336,11 @@ declare global {
             EILSEQ: number;
             ESOCKTNOSUPPORT: number;
 
-           /**
-            * Returns the string representing the given error number.
-            *
-            * @param code Error number.
-            */
+            /**
+             * Returns the string representing the given error number.
+             *
+             * @param code Error number.
+             */
             strerror(errno: number): string;
         }
 
@@ -347,7 +349,7 @@ declare global {
         * The available error number properties depends on the platform.
         */
         class Error {
-            
+
             constructor(errno: number);
 
             /**
@@ -359,7 +361,7 @@ declare global {
             * The represented error number.
             */
             errno: number;
-            
+
             /**
             * The error string representation.
             */
@@ -374,14 +376,14 @@ declare global {
         * @param path Path to convert.
         */
         function realpath(path: string): Promise<string>;
-        
+
         /**
         * Removes the given file.
         *
         * @param path Path to be removed.
         */
         function unlink(path: string): Promise<void>;
-        
+
         /**
         * Renames the given path.
         *
@@ -389,7 +391,7 @@ declare global {
         * @param newPath New desired path name.
         */
         function rename(path: string, newPath: string): Promise<void>;
-        
+
         /**
         * Create a unique temporary directory. The given template must end in XXXXXX, and the Xs will
         * be replaced to provide a unique directory name.
@@ -400,7 +402,7 @@ declare global {
         * @param template Template for the directory.
         */
         function mkdtemp(template: string): Promise<string>;
-        
+
         /**
         * Create a unique temporary file. The given template must end in XXXXXX, and the Xs will
         * be replaced to provide a unique file name. The returned object is an open file handle.Handle
@@ -408,7 +410,7 @@ declare global {
         * @param template Template for the file name.
         */
         function mkstemp(template: string): Promise<FileHandle>;
-        
+
         interface FileHandle {
             /**
             * Reads data into the given buffer at the given file offset. Returns
@@ -417,8 +419,8 @@ declare global {
             * @param buffer Buffer to read data into.
             * @param offset Offset in the file to read from.
             */
-            read(buffer: Uint8Array, offset?: number): Promise<number|null>;
-            
+            read(buffer: Uint8Array, offset?: number): Promise<number | null>;
+
             /**
             * Writes data from the given buffer at the given file offset. Returns
             * the amount of data written.
@@ -427,44 +429,44 @@ declare global {
             * @param offset Offset in the file to write to.
             */
             write(buffer: Uint8Array, offset?: number): Promise<number>;
-            
+
             /**
             * Closes the file.
             */
             close(): Promise<void>;
-            
+
             /**
             * Get the file status information.
             * See [stat(2)](https://man7.org/linux/man-pages/man2/lstat.2.html)
             */
             stat(): Promise<StatResult>;
-            
+
             /**
             * Truncates the file to the given length.
             *
             * @param offset Length to truncate the file to.
             */
             truncate(offset?: number): Promise<void>;
-            
+
             /**
             * See [fdatasync(2)](https://man7.org/linux/man-pages/man2/fdatasync.2.html)
             */
             datasync(): Promise<void>;
-            
+
             /**
             * See [fsync(2)](https://man7.org/linux/man-pages/man2/fdatasync.2.html)
             */
             sync(): Promise<void>;
-            
+
             /**
             * The file path.
             */
             path: string;
-            
+
             readable: ReadableStream<Uint8Array>;
             writable: WritableStream<Uint8Array>;
         }
-        
+
         interface StatResult {
             dev: number;
             mode: number;
@@ -488,7 +490,7 @@ declare global {
             isSocket: boolean;
             isSymbolicLink: boolean;
         }
-        
+
         /**
         * Flag used to check in {@link StatResult}'s `st_mode` field.
         * See [stat(2)](https://man7.org/linux/man-pages/man2/lstat.2.html)
@@ -512,7 +514,7 @@ declare global {
         * @param path Path to the file.
         */
         function stat(path: string): Promise<StatResult>;
-        
+
         /**
         * Gets file status information. If the path is a link it returns information
         * about the link itself.
@@ -521,7 +523,7 @@ declare global {
         * @param path Path to the file.
         */
         function lstat(path: string): Promise<StatResult>;
-        
+
         /**
         * Change permissions of a file.
         * See [chmod(2)](https://man7.org/linux/man-pages/man2/chmod.2.html)
@@ -530,7 +532,7 @@ declare global {
         * @param mode The file mode consisting of permission, suid, sgid, and sticky bits.
         */
         function chmod(path: string, mode: number): Promise<void>;
-        
+
         /**
         * Change the ownership of a file.
         * See [chown(2)](https://man7.org/linux/man-pages/man2/chown.2.html)
@@ -540,7 +542,7 @@ declare global {
         * @param group The gid to change the file's group to.
         */
         function chown(path: string, owner: number, group: number): Promise<void>;
-        
+
         /**
         * Change the ownership of a file. If the path is a link it changes
         * the ownership of the link itself.
@@ -551,7 +553,7 @@ declare global {
         * @param group The gid to change the file's group to.
         */
         function lchown(path: string, owner: number, group: number): Promise<void>;
-        
+
         /**
         * Opens the file at the given path. Opening flags:
         *
@@ -569,14 +571,14 @@ declare global {
         * @param mode File mode bits applied if the file is created. Defaults to `0o666`.
         */
         function open(path: string, flags: string, mode?: number): Promise<FileHandle>;
-        
+
         /**
         * Removes the directory at the given path.
         *
         * @param path Directory path.
         */
         function rmdir(path: string): Promise<void>;
-        
+
         interface MkdirOptions {
             /* The file mode for the new directory. Defaults to `0o777`. */
             mode?: number;
@@ -591,7 +593,7 @@ declare global {
         * @param options Options for making the directory.
         */
         function mkdir(path: string, options?: MkdirOptions): Promise<void>;
-        
+
         /**
         * Copies the source file into the target.
         *
@@ -608,7 +610,7 @@ declare global {
         * @param flags Specify the mode for copying the file.
         */
         function copyfile(path: string, newPath: string, flags?: number): Promise<void>;
-        
+
         interface DirEnt {
             name: string;
             isBlockDevice: boolean;
@@ -619,7 +621,7 @@ declare global {
             isSocket: boolean;
             isSymbolicLink: boolean;
         }
-        
+
         /**
         * Directory entries can be obtained through asynchronous iteration:
         *
@@ -631,18 +633,18 @@ declare global {
         * ```
         */
         interface DirHandle extends AsyncIterableIterator<DirEnt> {
-            
+
             /**
             * Closes the directory handle.
             */
             close(): Promise<void>;
-            
+
             /**
             * Path of the directory.
             */
             path: string;
         }
-        
+
         /**
         * Open the directory at the given path in order to navigate its content.
         * See [readdir(3)](https://man7.org/linux/man-pages/man3/readdir.3.html)
@@ -650,7 +652,7 @@ declare global {
         * @param path Path to the directory.
         */
         function readdir(path: string): Promise<DirHandle>;
-        
+
         /**
         * Reads the entire contents of a file.
         *
@@ -670,19 +672,19 @@ declare global {
         * File watch event handler function.
         */
         type WatchEventHandler = (filename: string, event: 'change' | 'rename') => void;
-        
+
         interface FileWatcher {
             /**
             * Closes the watcher.
             */
             close(): void;
-            
+
             /**
             * Path which is currently being watched.
             */
             path: string;
         }
-        
+
         /**
         * Watches the given path for changes.
         *
@@ -690,40 +692,40 @@ declare global {
         * @param handler Function to be called when an event occurs.
         */
         function watch(path: string, handler: WatchEventHandler): FileWatcher;
-        
+
         interface Uname {
             sysname: string;
             release: string;
             version: string;
             machine: string;
         }
-        
+
         /**
         * Obtain system information.
         */
         function uname(): Uname;
-        
+
         /**
         * Get system uptime.
         */
         function uptime(): number;
-        
+
         /**
         * Returns the current user's home directory.
         */
         function homedir(): string;
-        
+
         /**
         * Returns the temporary directory.
         */
         function tmpdir(): string;
-        
+
         /**
         * Gets the system load average.
         * See [getloadavg(3)](https://man7.org/linux/man-pages/man3/getloadavg.3.html)
         */
-        function loadavg(): [ number, number, number ];
-        
+        function loadavg(): [number, number, number];
+
         interface CpuTimes {
             user: number;
             nice: number;
@@ -731,18 +733,18 @@ declare global {
             idle: number;
             irq: number;
         }
-        
+
         interface CpuInfo {
             model: string;
             speed: number;
             times: CpuTimes;
         }
-        
+
         /**
         * Gets information about the CPUs in the system.
         */
         function cpuInfo(): CpuInfo[];
-        
+
         interface NetworkInterface {
             name: string;
             address: string;
@@ -751,47 +753,47 @@ declare global {
             netmask: string;
             internal: boolean;
         }
-        
+
         /**
         * Gets information about the network interfaces in the system.
         */
         function networkInterfaces(): NetworkInterface[];
-        
+
         type StdioType = 'tty' | 'pipe' | 'file';
-        
+
         interface StdioInputStream extends Reader {
             isTTY: boolean;
             type: StdioType;
             setRawMode(enable: boolean): void;
         }
-        
+
         interface StdioOutputStream extends Writer {
             isTTY: boolean;
             type: StdioType;
             height: number;
             width: boolean;
         }
-        
+
         /**
         * Object providing access to standard input.
         */
         const stdin: StdioInputStream;
-        
+
         /**
         * Object providing access to standard output.
         */
         const stdout: StdioOutputStream;
-        
+
         /**
         * Object providing access to standard error.
         */
         const stderr: StdioOutputStream;
-        
+
         interface ProcessStatus {
             exit_status: number;
-            term_signal: Signal|null;
+            term_signal: Signal | null;
         }
-        
+
         interface Process {
             kill(signal?: Signal): void;
             wait(): Promise<ProcessStatus>;
@@ -800,9 +802,9 @@ declare global {
             stdout?: Reader;
             stderr?: Reader;
         }
-        
+
         type ProcessStdio = 'inherit' | 'pipe' | 'ignore';
-        
+
         interface ProcessOptions {
             env?: Environment;
             cwd?: string;
@@ -812,7 +814,7 @@ declare global {
             stdout?: ProcessStdio;
             stderr?: ProcessStdio;
         }
-        
+
         /**
         * Spawn a child process.
         *
@@ -820,7 +822,7 @@ declare global {
         * @param options Extra options.
         */
         function spawn(args: string | string[], options?: ProcessOptions): Process;
-        
+
         /**
         * Replace the current process image with a new process image.
         * This function does not return if successful.
@@ -830,7 +832,7 @@ declare global {
         * @param args Command argument list for the new process image.
         */
         function exec(args: string | string[]): void;
-        
+
         interface Address {
             family: number;
             ip: string;
@@ -838,9 +840,9 @@ declare global {
             scopeId?: number;
             flowinfo?: number;
         }
-        
+
         interface Connection {
-            read(buf: Uint8Array): Promise<number|null>;
+            read(buf: Uint8Array): Promise<number | null>;
             write(buf: Uint8Array): Promise<number>;
             setKeepAlive(enable: boolean, delay: number): void;
             setNoDelay(enable?: boolean): void;
@@ -851,13 +853,13 @@ declare global {
             readable: ReadableStream<Uint8Array>;
             writable: WritableStream<Uint8Array>;
         }
-        
+
         interface DatagramData {
             nread: number;
             partial: boolean;
             addr: Address;
         }
-        
+
         interface DatagramEndpoint {
             recv(buf: Uint8Array): Promise<number>;
             send(buf: Uint8Array, addr?: Address): Promise<DatagramData>;
@@ -865,21 +867,21 @@ declare global {
             localAddress: Address;
             remoteAddress: Address;
         }
-        
+
         type Transport = 'tcp' | 'udp' | 'pipe';
-        
+
         interface ConnectOptions {
             /**
             * Local address to bind to.
             */
             bindAddr: Address;
-            
+
             /**
             * Disables dual stack mode.
             */
             ipv6Only?: boolean;
         }
-        
+
         /**
         * Creates a connection to the target host + port over the selected transport.
         *
@@ -889,21 +891,21 @@ declare global {
         * @param options Extra connection options.
         */
         function connect(transport: Transport, host: string, port?: string | number, options?: ConnectOptions): Promise<Connection | DatagramEndpoint>;
-        
+
         interface Listener extends AsyncIterable<Connection> {
             accept(): Promise<Connection>;
             close(): void;
             localAddress: Address;
         }
-        
+
         interface ListenOptions {
             backlog?: number;
-            
+
             /**
             * Disables dual stack mode.
             */
             ipv6Only?: boolean;
-            
+
             /**
             * Used on UDP only.
             * Enable address reusing (when binding). What that means is that
@@ -913,7 +915,7 @@ declare global {
             */
             reuseAddr?: boolean;
         }
-        
+
         /**
         * Listens for incoming connections on the selected transport.
         *
@@ -923,17 +925,17 @@ declare global {
         * @param options Extra listen options.
         */
         function listen(transport: Transport, host: string, port?: string | number, options?: ListenOptions): Promise<Listener | DatagramEndpoint>;
-        
+
         /**
         * Current process ID.
         */
         const pid: number;
-        
+
         /**
         * Parent process ID.
         */
         const ppid: number;
-        
+
         interface UserInfo {
             username: string;
             uid: number;
@@ -941,31 +943,31 @@ declare global {
             shell: string | null;
             homedir: string | null;
         }
-        
+
         /**
         * Retrieves user information from the password database.
         */
         function userInfo(): UserInfo;
-        
+
         /**
         * Returns an estimate of the default amount of parallelism a program should use.
         */
         function availableParallelism(): number;
-        
+
         /**
         * provides access to most of the POSIX socket API.
         * It can be listened to with poll (libuv poll)
         * *not available on windows*
         */
-        class PosixSocket{
+        class PosixSocket {
             constructor(domain: number, type: number, protocol: number);
-            
+
             readonly info: {
-                socket?: {domain: number, type: number, protocol: number}
+                socket?: { domain: number, type: number, protocol: number }
             };
             readonly fileno: number;
             readonly polling: boolean;
-            
+
             static readonly defines: {
                 AF_INET: number,
                 AF_INET6: number,
@@ -975,17 +977,17 @@ declare global {
                 AF_PACKET: number,
                 /** only on platforms supporting AF_UNIX */
                 AF_UNIX: number,
-                
+
                 SOCK_STREAM: number,
                 SOCK_DGRAM: number,
                 SOCK_RAW: number,
                 SOCK_SEQPACKET: number,
                 SOCK_RDM: number,
-                
+
                 SOL_SOCKET: number,
                 SOL_PACKET: number,
                 SOL_NETLINK: number,
-                
+
                 SO_REUSEADDR: number,
                 SO_KEEPALIVE: number,
                 SO_LINGER: number,
@@ -1013,15 +1015,15 @@ declare global {
                 IPPROTO_UDP: number,
             };
             static createFromFD(fd: number): PosixSocket;
-            
+
             bind(addr: Uint8Array): void;
             connect(addr: Uint8Array): void;
             listen(backlog: number): void;
             accept(): PosixSocket;
-            sendmsg(addr: Uint8Array|undefined, control: Uint8Array|undefined, flags: number, ...data: Uint8Array[]): number;
+            sendmsg(addr: Uint8Array | undefined, control: Uint8Array | undefined, flags: number, ...data: Uint8Array[]): number;
             recv(size: number): Uint8Array;
-            recvmsg(size: number): {data: Uint8Array, addr: Uint8Array};
-            recvmsg(size: number, controllen: number): {data: Uint8Array, addr: Uint8Array, control: Uint8Array};
+            recvmsg(size: number): { data: Uint8Array, addr: Uint8Array };
+            recvmsg(size: number, controllen: number): { data: Uint8Array, addr: Uint8Array, control: Uint8Array };
             close(): void;
             setopt(level: number, name: number, value: Uint8Array): void;
             /**
@@ -1030,7 +1032,7 @@ declare global {
             getopt(level: number, name: number, size?: number): Uint8Array;
             read(size: number): Uint8Array;
             write(data: Uint8Array): number;
-            
+
             poll(cbs: {
                 all?: (events: number) => void,
                 read?: (events: number) => void,
@@ -1040,7 +1042,7 @@ declare global {
                 error?: (errcode: number) => void,
             }): void;
             stopPoll(): void;
-            
+
             static ip4ToBuf(ipstr: string): Uint8Array;
             static createSockaddrIn(ip: string, port: number): Uint8Array;
             static readonly pollEvents: {
@@ -1049,10 +1051,10 @@ declare global {
                 DISCONNECT: number,
                 PRIORITIZED: number,
             };
-            
+
             static indextoname(index: number): string;
             static nametoindex(name: string): number;
-            
+
             /**
             * Caculates internet checksum: the 16-bit ones' complement of the ones' complement sum of all 16-bit words in the buffer.
             * Used in ipv4, udp, tcp, icmp...
@@ -1106,4 +1108,4 @@ declare global {
     function format(...values: unknown[]): string;
 }
 
-export {};
+export { };
