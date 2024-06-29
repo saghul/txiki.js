@@ -23,11 +23,11 @@ declare module 'tjs:path'{
         extname(path: string): string;
         format(pathObj: IPathObject): string;
         isAbsolute(path: string): boolean;
-        join(paths: string[]): string;
+        join(...paths: string[]): string;
         normalize(path: string): string;
         parse(path: string): IPathObject;
         relative(from: string, to: string): string;
-        resolve(paths: string[]): string;
+        resolve(...paths: string[]): string;
         toNamespacedPath(path: string): string;
     }
 
