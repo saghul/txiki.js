@@ -36,7 +36,7 @@ declare global {
         /**
         * Alerts the user about something.
         *
-        * @param masg The message that will be displayed.
+        * @param msg The message that will be displayed.
         */
         function alert(msg:string): Promise<void>;
         
@@ -337,7 +337,7 @@ declare global {
            /**
             * Returns the string representing the given error number.
             *
-            * @param code Error number.
+            * @param errno Error number.
             */
             strerror(errno: number): string;
         }
