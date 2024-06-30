@@ -31,6 +31,7 @@
 
 #include <curl/curl.h>
 #include <quickjs.h>
+#include <sqlite3.h>
 #include <stdbool.h>
 #include <uv.h>
 

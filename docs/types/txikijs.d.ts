@@ -138,6 +138,7 @@ declare global {
             uv: string;
             curl: string;
             wasm3: string;
+            sqlite3: string;
         };
         
         /**
