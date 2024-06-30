@@ -31,9 +31,9 @@
 
 #include <curl/curl.h>
 #include <quickjs.h>
+#include <sqlite3.h>
 #include <stdbool.h>
 #include <uv.h>
-#include <sqlite3.h>
 
 typedef struct TJSTimer TJSTimer;
 
