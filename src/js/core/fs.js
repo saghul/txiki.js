@@ -142,7 +142,7 @@ async function _unlink(path, options) {
             // Only sleep if this is not the last try, and the delay is greater
             // than zero, and an error was encountered that warrants a retry.
             if (retryErrors.has(err.code) && i < tries && options.retryDelay > 0) {
-                core.sleep(i * options.retryDelay);
+                await sleep(i * options.retryDelay);
             } else if (err.code === 'ENOENT') {
                 // The file is already gone.
                 return;
@@ -189,7 +189,7 @@ async function _rmdir(path, options, originalErr) {
                     // Only sleep if this is not the last try, and the delay is greater
                     // than zero, and an error was encountered that warrants a retry.
                     if (retryErrors.has(err.code) && i < tries && options.retryDelay > 0) {
-                        core.sleep(i * options.retryDelay);
+                        await sleep(i * options.retryDelay);
                     } else if (err.code === 'ENOENT') {
                         // The file is already gone.
                         return;
@@ -233,4 +233,10 @@ async function _fixWinEPERM(path, options, originalErr) {
     } else {
         return _unlink(path, options);
     }
+}
+
+async function sleep(ms) {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms);
+    });
 }

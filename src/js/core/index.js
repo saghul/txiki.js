@@ -49,7 +49,6 @@ const noExport = [
     'setTimeout',
     'signal',
     'signals',
-    'sleep',
     'wasm'
 ];
 

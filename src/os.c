@@ -475,14 +475,6 @@ static JSValue tjs_availableParallelism(JSContext *ctx, JSValue this_val, int ar
     return JS_NewUint32(ctx, uv_available_parallelism());
 }
 
-static JSValue tjs_sleep(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    uint32_t ms;
-    if (JS_ToUint32(ctx, &ms, argv[0]))
-        return JS_EXCEPTION;
-    uv_sleep(ms);
-    return JS_UNDEFINED;
-}
-
 static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CONST(AF_INET),
     TJS_CONST(AF_INET6),
@@ -512,7 +504,6 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("getPpid", 0, tjs_getppid),
     TJS_CFUNC_DEF("userInfo", 0, tjs_userInfo),
     TJS_CFUNC_DEF("availableParallelism", 0, tjs_availableParallelism),
-    TJS_CFUNC_DEF("sleep", 1, tjs_sleep),
 };
 
 void tjs__mod_os_init(JSContext *ctx, JSValue ns) {
