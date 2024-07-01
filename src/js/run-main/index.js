@@ -6,6 +6,22 @@ import path from 'tjs:path';
 import { evalStdin } from './eval-stdin.js';
 import { runTests } from './run-tests.js';
 
+/**
+ * Trailer for standalone binaries. When some code gets bundled with the tjs
+ * executable we add a 12 byte trailer. The first 8 bytes are the magic
+ * string that helps us understand this is a standalone binary, and the
+ * remaining 4 are the offset (from the beginning of the binary) where the
+ * bundled data is located.
+ *
+ * The offset is stored as a 32bit little-endian number.
+ */
+const Trailer = {
+    Magic: 'tx1k1.js',
+    MagicSize: 8,
+    DataSize: 4,
+    Size: 12
+};
+
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
 const exeName = path.basename(tjs.args[0]);
@@ -32,11 +48,43 @@ Subcommands:
         Evaluate a JavaScript expression
 
   test
-        Run tests in the given directory`;
+        Run tests in the given directory
+
+  compile infile [outfile]
+        Compile the given file into a standalone executable`;
 
 const helpEval = `Usage: ${exeName} eval EXPRESSION`;
 
 const helpRun = `Usage: ${exeName} run FILE`;
+
+// First, let's check if this is a standalone binary.
+await (async () => {
+    const exef = await tjs.open(tjs.exepath, 'rb');
+    const exeSize = (await exef.stat()).size;
+    const trailerBuf = new Uint8Array(Trailer.Size);
+
+    await exef.read(trailerBuf, exeSize - Trailer.Size);
+
+    const magic = new Uint8Array(trailerBuf.buffer, 0, Trailer.MagicSize);
+    const maybeMagic = new TextDecoder().decode(magic);
+
+    if (maybeMagic === Trailer.Magic) {
+        const dw = new DataView(trailerBuf.buffer, Trailer.MagicSize, Trailer.DataSize);
+        const offset = dw.getUint32(0, true);
+        const buf = new Uint8Array(offset - Trailer.Size);
+
+        await exef.read(buf, offset);
+        await exef.close();
+
+        const bytecode = tjs.deserialize(buf);
+
+        await tjs.evalBytecode(bytecode);
+
+        tjs.exit(0);
+    }
+
+    await exef.close();
+})();
 
 const options = getopts(tjs.args.slice(1), {
     alias: {
@@ -115,6 +163,48 @@ if (options.help) {
         const [ dir ] = subargv;
 
         runTests(dir);
+    } else if (command === 'compile') {
+        const [ infile, outfile ] = subargv;
+
+        if (!infile) {
+            console.log(help);
+            tjs.exit(1);
+        }
+
+        const infilePath = path.parse(infile);
+        const data = await tjs.readFile(infile);
+        const bytecode = tjs.serialize(tjs.compile(data, infilePath.base));
+        const exe = await tjs.readFile(tjs.exepath);
+        const exeSize = exe.length;
+        const newBuffer = exe.buffer.transfer(exeSize + bytecode.length + Trailer.Size);
+        const newExe = new Uint8Array(newBuffer);
+
+        newExe.set(bytecode, exeSize);
+        newExe.set(new TextEncoder().encode(Trailer.Magic), exeSize + bytecode.length);
+
+        const dw = new DataView(newBuffer, exeSize + bytecode.length + Trailer.MagicSize, Trailer.DataSize);
+
+        dw.setUint32(0, exeSize, true);
+
+        let newFileName = outfile ?? `${infilePath.name}`;
+
+        if (tjs.platform === 'windows' && !newFileName.endsWith('.exe')) {
+            newFileName += '.exe';
+        }
+
+        try {
+            await tjs.stat(newFileName);
+            console.log('Target file exists already');
+            tjs.exit(1);
+        } catch (_) {
+            // Ignore.
+        }
+
+        const newFile = await tjs.open(newFileName, 'wb');
+
+        await newFile.write(newExe);
+        await newFile.chmod(0o755);
+        await newFile.close();
     } else {
         console.log(help);
         tjs.exit(1);

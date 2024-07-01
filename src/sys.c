@@ -169,6 +169,66 @@ static JSValue tjs_setMaxStackSize(JSContext *ctx, JSValue this_val, int argc, J
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_compile(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    size_t len = 0;
+    const uint8_t *tmp = JS_GetUint8Array(ctx, &len, argv[0]);
+    if (!tmp)
+        return JS_EXCEPTION;
+    // We need to copy the buffer in order to null-terminate it, which JS_Eval needs.
+    uint8_t *buf = js_malloc(ctx, len + 1);
+    if (!buf)
+        return JS_EXCEPTION;
+    memcpy(buf, tmp, len);
+    buf[len] = '\0';
+    const char *module_name = JS_ToCString(ctx, argv[1]);
+    if (!module_name) {
+        js_free(ctx, buf);
+        return JS_EXCEPTION;
+    }
+    int eval_flags = JS_EVAL_FLAG_COMPILE_ONLY | JS_EVAL_TYPE_MODULE;
+    JSValue obj = JS_Eval(ctx, (const char *) buf, len, module_name, eval_flags);
+    JS_FreeCString(ctx, module_name);
+    js_free(ctx, buf);
+    return obj;
+}
+
+static JSValue tjs_serialize(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    size_t len = 0;
+    int flags = JS_WRITE_OBJ_BYTECODE;
+    uint8_t *buf = JS_WriteObject(ctx, &len, argv[0], flags);
+    if (!buf)
+        return JS_EXCEPTION;
+    JSValue ret = TJS_NewUint8Array(ctx, buf, len);
+    if (JS_IsException(ret))
+        js_free(ctx, buf);
+    return ret;
+}
+
+static JSValue tjs_deserialize(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    size_t len = 0;
+    int flags = JS_READ_OBJ_BYTECODE;
+    const uint8_t *buf = JS_GetUint8Array(ctx, &len, argv[0]);
+    if (!buf)
+        return JS_EXCEPTION;
+    return JS_ReadObject(ctx, buf, len, flags);
+}
+
+static JSValue tjs_evalBytecode(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    JSValue obj = argv[0];
+
+    if (JS_IsException(obj))
+        return JS_EXCEPTION;
+
+    if (JS_VALUE_GET_TAG(obj) == JS_TAG_MODULE) {
+        if (JS_ResolveModule(ctx, obj) < 0)
+            return JS_EXCEPTION;
+
+        js_module_set_import_meta(ctx, obj, FALSE, FALSE);
+    }
+
+    return JS_EvalFunction(ctx, obj);
+}
+
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
     TJS_CFUNC_DEF("evalScript", 1, tjs_evalScript),
@@ -177,6 +237,10 @@ static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("runRepl", 0, tjs_runRepl),
     TJS_CFUNC_DEF("setMemoryLimit", 1, tjs_setMemoryLimit),
     TJS_CFUNC_DEF("setMaxStackSize", 1, tjs_setMaxStackSize),
+    TJS_CFUNC_DEF("compile", 2, tjs_compile),
+    TJS_CFUNC_DEF("serialize", 1, tjs_serialize),
+    TJS_CFUNC_DEF("deserialize", 1, tjs_deserialize),
+    TJS_CFUNC_DEF("evalBytecode", 1, tjs_evalBytecode),
     TJS_CGETSET_DEF("exepath", tjs_exepath, NULL),
 };
 

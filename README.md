@@ -84,6 +84,7 @@ Support for the [ES2023] specification (almost complete).
 
 ### Runtime features
 
+- [Standalone executables](#tjs-compile---creating-standalone-executables)
 - TCP and UDP sockets
 - Unix sockets / named pipes
 - Signal handling
@@ -195,9 +196,47 @@ make test
 
 </details>
 
+## `tjs compile` - creating standalone executables
+
+Creating standalone executables is possible with `tjs compile`. The resulting executable
+will bundle the given code and the txiki.js runtime. No compiler is needed.
+
+**NOTE:** The resulting executable will have the same runtime dependencies as the `tjs`
+executable.
+
+Assuming a `bundle.js` file with some JS code, the following command will create
+a standalone executable with it:
+
+```bash
+tjs compile bundle.js
+```
+
+The new executable will be called `bundle` on Unix platforms and `bundle.exe` on Windows.
+The output name can be customized by passing a second option:
+
+```bash
+tjs compile bundle.js myexe
+```
+
+The `tjs compile` command doesn't do any code bundling. If you need to bundle your
+app into a single JS file for use with `tjs compile`, [esbuild] can be a good option.
+Here is how to bundle an app into a single `bundle.js` file:
+
+```bash
+npx esbuild my-app/index.js \
+    --bundle \
+    --outfile=bundle.js \
+    --external:tjs:* \
+    --minify \
+    --target=es2023 \
+    --platform=neutral \
+    --format=esm \
+    --main-fields=main,module
+```
+
 ## Versioning
 
-At this time txiki.js uses [calendar versioning] with the form YY.MM.MICRO.
+txiki.js uses [calendar versioning] with the form YY.MM.MICRO.
 
 <br />
 <br />
@@ -234,3 +273,4 @@ Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul
 [ES2023]: https://tc39.es/ecma262/
 [calendar versioning]: https://calver.org/
 [WinterCG]: https://wintercg.org/
+[esbuild]: https://esbuild.github.io/
