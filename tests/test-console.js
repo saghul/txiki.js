@@ -158,6 +158,25 @@ function checkConsoleNamespace(){
 }
 
 const td = new TextDecoder();
+
+async function slurpStdio(s) {
+    const chunks = [];
+    const buf = new Uint8Array(4096);
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+        const nread = await s.read(buf);
+
+        if (nread === null) {
+            break;
+        }
+
+        chunks.push(buf.slice(0, nread));
+    }
+
+    return chunks.map(chunk => td.decode(chunk)).join('');
+}
+
 async function runTest(code){
 	const args = [
 		tjs.exepath,
@@ -165,13 +184,16 @@ async function runTest(code){
 		code
 	];
 	const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'pipe' });
-	const status = await proc.wait();
-	const buf = new Uint8Array(4096);
-	const nread = await proc.stdout.read(buf);
-	const stdout = td.decode(buf.subarray(0, nread));
-	const nread2 = await proc.stderr.read(buf);
-	const stderr = td.decode(buf.subarray(0, nread2));
-	return {code: status.exit_status, stdout, stderr};
+    const r = await Promise.allSettled([
+        proc.wait(),
+        slurpStdio(proc.stdout),
+        slurpStdio(proc.stderr)
+    ]);
+    const status = r[0].value;
+    const stdout = r[1].value;
+    const stderr = r[2].value;
+
+	return {code: status?.exit_status, stdout, stderr};
 }
 
 function checkResult(resultData, match, name){
