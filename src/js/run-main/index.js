@@ -101,21 +101,15 @@ if (options.help) {
         const ext = path.extname(filename).toLowerCase();
 
         if (ext === '.wasm') {
-            tjs.readFile(filename)
-                .then(bytes => {
-                    const module = new WebAssembly.Module(bytes);
-                    const wasi = new WebAssembly.WASI({ args: subargv.slice(1) });
-                    const importObject = { wasi_unstable: wasi.wasiImport };
-                    const instance = new WebAssembly.Instance(module, importObject);
+            const bytes = await tjs.readFile(filename);
+            const module = new WebAssembly.Module(bytes);
+            const wasi = new WebAssembly.WASI({ args: subargv.slice(1) });
+            const importObject = { wasi_unstable: wasi.wasiImport };
+            const instance = new WebAssembly.Instance(module, importObject);
 
-                    wasi.start(instance);
-                })
-                .catch(e => {
-                    console.log('Error loading WASM file: ', e);
-                    tjs.exit(1);
-                });
+            wasi.start(instance);
         } else {
-            core.evalFile(filename);
+            await core.evalFile(filename);
         }
     } else if (command === 'test') {
         const [ dir ] = subargv;
