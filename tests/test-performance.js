@@ -3,16 +3,20 @@ import assert from 'tjs:assert';
 const LIMIT = 2000;
 const THRESHOLD = 25;
 
+async function sleep(ms) {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms);
+    });
+}
+
+
 // performance now
 
 const start = performance.now();
 assert.eq(typeof start, 'number', 'performance.now() returns Number');
 
-let now;
-
-// Busy loop
-now = Date.now();
-while (Date.now() - now < LIMIT);
+// wait
+await sleep(LIMIT);
 
 const diff = Math.round(performance.now() - start);
 assert.ok(Math.abs(LIMIT - diff) < THRESHOLD, 'performance.now() works');
@@ -24,9 +28,8 @@ const m1 = 'mark1';
 const m2 = 'mark2';
 performance.mark(m1);
 
-// Busy loop
-now = Date.now();
-while (Date.now() - now < LIMIT);
+// wait
+await sleep(LIMIT);
 
 performance.mark(m2);
 performance.measure('m', m1, m2);
