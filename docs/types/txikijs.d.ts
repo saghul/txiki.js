@@ -458,6 +458,14 @@ declare global {
             sync(): Promise<void>;
             
             /**
+            * Change permissions of the file.
+            * See [fchmod(2)](https://man7.org/linux/man-pages/man2/fchmod.2.html)
+            *
+            * @param mode The file mode consisting of permission, suid, sgid, and sticky bits.
+            */
+            chmod(mode: number): Promise<void>;
+
+            /**
             * The file path.
             */
             path: string;

@@ -321,6 +321,7 @@ static void uv__fs_req_cb(uv_fs_t *req) {
         case UV_FS_CHOWN:
         case UV_FS_LCHOWN:
         case UV_FS_CHMOD:
+        case UV_FS_FCHMOD:
             arg = JS_UNDEFINED;
             break;
 
@@ -495,6 +496,28 @@ static JSValue tjs_file_datasync(JSContext *ctx, JSValue this_val, int argc, JSV
         return JS_EXCEPTION;
 
     int r = uv_fs_fdatasync(tjs_get_loop(ctx), &fr->req, f->fd, uv__fs_req_cb);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return tjs_fsreq_init(ctx, fr, this_val);
+}
+
+static JSValue tjs_file_chmod(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSFile *f = tjs_file_get(ctx, this_val);
+    if (!f)
+        return JS_EXCEPTION;
+
+    int mode;
+    if (JS_IsUndefined(argv[0]) || JS_ToInt32(ctx, &mode, argv[0]))
+        return JS_ThrowTypeError(ctx, "expected a number for mode parameter");
+
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
+        return JS_EXCEPTION;
+
+    int r = uv_fs_fchmod(tjs_get_loop(ctx), &fr->req, f->fd, mode, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return tjs_throw_errno(ctx, r);
@@ -1223,6 +1246,7 @@ static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
     TJS_CFUNC_DEF("truncate", 1, tjs_file_truncate),
     TJS_CFUNC_DEF("sync", 0, tjs_file_sync),
     TJS_CFUNC_DEF("datasync", 0, tjs_file_datasync),
+    TJS_CFUNC_DEF("chmod", 1, tjs_file_chmod),
     TJS_CGETSET_DEF("path", tjs_file_path_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "FileHandle", JS_PROP_C_W_E),
 };
