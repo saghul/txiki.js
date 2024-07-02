@@ -196,6 +196,19 @@ make test
 
 </details>
 
+### Customizing the build
+
+If you are making a custom build and are modifying any of the JS files that are
+part of the runtime, you'll need to regenerate the C code for them, so your changes
+become part of the build.
+
+```bash
+# First install the JS dependencies
+npm install
+# Now bundle the code and compile it into C source files
+make js
+```
+
 ## `tjs compile` - creating standalone executables
 
 Creating standalone executables is possible with `tjs compile`. The resulting executable
