@@ -5,7 +5,7 @@ globalThis.URL = URL;
 globalThis.URLPattern = URLPattern;
 globalThis.URLSearchParams = URLSearchParams;
 
-const kGetObjectURL = Symbol('kGetObjectURL');
+const getObjectURL = globalThis[Symbol.for('tjs.internal.url.getObjectURL')];
 const _objectURLs = new Map();
 
 globalThis.URL['createObjectURL'] = object => {
@@ -25,6 +25,4 @@ globalThis.URL['createObjectURL'] = object => {
 };
 
 globalThis.URL['revokeObjectURL'] = url => _objectURLs.delete(url);
-globalThis.URL[kGetObjectURL] = url => _objectURLs.get(url);
-
-export { kGetObjectURL };
+globalThis.URL[getObjectURL] = url => _objectURLs.get(url);

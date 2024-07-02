@@ -1,7 +1,7 @@
 // 64 KiB (same size chrome slice theirs blob into Uint8array's)
 const POOL_SIZE = 65536;
 const { isView } = ArrayBuffer;
-const kBlobGetParts = Symbol('kBlobGetParts');
+const blobGetParts = globalThis[Symbol.for('tjs.internal.blob.getParts')];
 
 /**
  * @param {(Blob | Uint8Array)[]} parts
@@ -230,7 +230,7 @@ class Blob {
         return 'Blob';
     }
 
-    get [kBlobGetParts] () {
+    get [blobGetParts] () {
         return this.#parts;
     }
 }
@@ -247,5 +247,3 @@ Object.defineProperty(window, 'Blob', {
     writable: true,
     value: Blob
 });
-
-export { kBlobGetParts };
