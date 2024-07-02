@@ -604,19 +604,11 @@ declare global {
         /**
         * Copies the source file into the target.
         *
-        * If `COPYFILE_EXCL` is specified the operation will fail if the target exists.
-        *
-        * If `COPYFILE_FICLONE` is specified it will attempt to create a reflink. If
-        * copy-on-write is not supported, a fallback copy mechanism is used.
-        *
-        * If `COPYFILE_FICLONE_FORCE` is specified it will attempt to create a reflink.
-        * If copy-on-write is not supported, an error is thrown.
-        *
         * @param path Source path.
         * @param newPath Target path.
         * @param flags Specify the mode for copying the file.
         */
-        function copyfile(path: string, newPath: string, flags?: number): Promise<void>;
+        function copyFile(path: string, newPath: string): Promise<void>;
         
         interface DirEnt {
             name: string;
