@@ -9,7 +9,7 @@ const kWorker = Symbol('kWorker');
 
 function blobTextSync(blob) {
     const decoder = new TextDecoder();
-    let partsStr = [];
+    const partsStr = [];
 
     for (const part of blob[kBlobGetParts]) {
         if (part instanceof Blob) {
@@ -28,9 +28,15 @@ class Worker extends EventTarget {
     constructor(path) {
         super();
 
+        let source = undefined;
+
         const blob = URL[kGetObjectURL](path);
-        const blob_text = blob ? blobTextSync(blob) : undefined;
-        const worker = new _Worker(path, blob_text);
+
+        if (blob) {
+            source = blobTextSync(blob);
+        }
+
+        const worker = new _Worker(path, source);
 
         worker.onmessage = msg => {
             this.dispatchEvent(new MessageEvent('message', msg));

@@ -44,7 +44,7 @@ static JSClassID tjs_worker_class_id;
 
 typedef struct {
     const char *path;
-    const char *blob;
+    const char *source;
     uv_os_sock_t channel_fd;
     uv_sem_t *sem;
     TJSRuntime *wrt;
@@ -79,9 +79,9 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValue *argv) {
     }
 
     if (!JS_IsUndefined(argv[1])) {
-        const char *blob = JS_ToCString(ctx, argv[1]);
-        ret = TJS_EvalModuleContent(ctx, filename, false, false, blob, strlen(blob));
-        JS_FreeCString(ctx, blob);
+        const char *source = JS_ToCString(ctx, argv[1]);
+        ret = TJS_EvalModuleContent(ctx, filename, false, false, source, strlen(source));
+        JS_FreeCString(ctx, source);
     } else {
         ret = TJS_EvalModule(ctx, filename, false);
     }
@@ -126,12 +126,12 @@ static void worker_entry(void *arg) {
 
     /* Load the file and eval the file when the loop runs. */
     JSValue filename = JS_NewString(ctx, wd->path);
-    JSValue blob = wd->blob ? JS_NewString(ctx, wd->blob) : JS_UNDEFINED;
-    JSValue args[2] = { filename, blob };
+    JSValue source = wd->source ? JS_NewString(ctx, wd->source) : JS_UNDEFINED;
+    JSValue args[2] = { filename, source };
 
     CHECK_EQ(JS_EnqueueJob(ctx, worker_eval, 2, (JSValue *) &args), 0);
 
-    JS_FreeValue(ctx, blob);
+    JS_FreeValue(ctx, source);
     JS_FreeValue(ctx, filename);
 
     /* Notify the caller we are setup.  */
@@ -291,9 +291,9 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValue new_target, int ar
     uv_sem_t sem;
     CHECK_EQ(uv_sem_init(&sem, 0), 0);
 
-    const char *blob = JS_IsUndefined(argv[1]) ? NULL : JS_ToCString(ctx, argv[1]);
+    const char *source = JS_IsUndefined(argv[1]) ? NULL : JS_ToCString(ctx, argv[1]);
 
-    worker_data_t worker_data = { .channel_fd = fds[1], .path = path, .blob = blob, .sem = &sem, .wrt = NULL };
+    worker_data_t worker_data = { .channel_fd = fds[1], .path = path, .source = source, .sem = &sem, .wrt = NULL };
 
     CHECK_EQ(uv_thread_create(&w->tid, worker_entry, (void *) &worker_data), 0);
 
@@ -302,7 +302,7 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValue new_target, int ar
     uv_sem_destroy(&sem);
 
     JS_FreeCString(ctx, path);
-    JS_FreeCString(ctx, blob);
+    JS_FreeCString(ctx, source);
 
     uv_update_time(tjs_get_loop(ctx));
 
