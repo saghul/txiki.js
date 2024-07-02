@@ -5,9 +5,10 @@ globalThis.URL = URL;
 globalThis.URLPattern = URLPattern;
 globalThis.URLSearchParams = URLSearchParams;
 
+const kGetObjectURL = Symbol('kGetObjectURL');
 const _objectURLs = new Map();
 
-globalThis.URL.createObjectURL = object => {
+globalThis.URL['createObjectURL'] = object => {
     // TODO: straggly, without the wrapped console.log, the eval will spam that function
     // more investigation is needed
     console.log('');
@@ -23,5 +24,7 @@ globalThis.URL.createObjectURL = object => {
     return url;
 };
 
-globalThis.URL.revokeObjectURL = url => _objectURLs.delete(url);
-globalThis.URL.getObjectURL = url => _objectURLs.get(url);
+globalThis.URL['revokeObjectURL'] = url => _objectURLs.delete(url);
+globalThis.URL[kGetObjectURL] = url => _objectURLs.get(url);
+
+export { kGetObjectURL };

@@ -1,8 +1,9 @@
 const core = globalThis[Symbol.for('tjs.internal.core')];
 const _Worker = core.Worker;
 
-import { defineEventAttribute } from './event-target';
 import { kBlobGetParts } from './blob';
+import { defineEventAttribute } from './event-target';
+import { kGetObjectURL } from './url';
 
 const kWorker = Symbol('kWorker');
 
@@ -27,7 +28,7 @@ class Worker extends EventTarget {
     constructor(path) {
         super();
 
-        const blob = URL.getObjectURL(path);
+        const blob = URL[kGetObjectURL](path);
         const blob_text = blob ? blobTextSync(blob) : undefined;
         const worker = new _Worker(path, blob_text);
 
