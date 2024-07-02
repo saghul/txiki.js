@@ -9,19 +9,19 @@ const kWorker = Symbol('kWorker');
 
 function blobTextSync(blob) {
     const decoder = new TextDecoder();
-    let str = '';
+    let partsStr = [];
 
     for (const part of blob[kBlobGetParts]) {
         if (part instanceof Blob) {
-            str += blobTextSync(part);
+            partsStr.push(blobTextSync(part));
         } else {
-            str += decoder.decode(part, { stream: true });
+            partsStr.push(decoder.decode(part, { stream: true }));
         }
     }
 
-    str += decoder.decode();
+    partsStr.push(decoder.decode());
 
-    return str;
+    return partsStr.join('');
 }
 
 class Worker extends EventTarget {

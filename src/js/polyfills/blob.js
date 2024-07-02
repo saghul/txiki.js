@@ -120,16 +120,16 @@ class Blob {
         // More optimized than using this.arrayBuffer()
         // that requires twice as much ram
         const decoder = new TextDecoder();
-        let str = '';
+        let partsStr = [];
 
         for await (const part of this.stream()) {
-            str += decoder.decode(part, { stream: true });
+            partsStr.push(decoder.decode(part, { stream: true }));
         }
 
         // Remaining
-        str += decoder.decode();
+        partsStr.push(decoder.decode());
 
-        return str;
+        return partsStr.join('');
     }
 
     /**
