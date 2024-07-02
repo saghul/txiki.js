@@ -484,13 +484,13 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
 }
 
 JSValue TJS_EvalModuleContent(JSContext *ctx,
-                              const char *filename,
+                              const char *specifier,
                               bool is_main,
                               bool use_real_path,
                               const char *content,
                               size_t len) {
     /* Compile then run to be able to set import.meta */
-    JSValue ret = JS_Eval(ctx, content, len, filename, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    JSValue ret = JS_Eval(ctx, content, len, specifier, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     if (!JS_IsException(ret)) {
         js_module_set_import_meta(ctx, ret, use_real_path, is_main);
         ret = JS_EvalFunction(ctx, ret);

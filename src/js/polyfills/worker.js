@@ -29,19 +29,25 @@ function blobTextSync(blob) {
 }
 
 class Worker extends EventTarget {
-    constructor(path) {
+    constructor(specifier) {
         super();
 
-        let source = undefined;
-        let isObjectURL = new URLPattern({ protocol: 'blob:' });
+        let source;
+        let url;
 
-        if (isObjectURL.exec(path) !== null) {
-            const blob = URL[urlGetObjectURL](path);
+        try {
+            url = new URL(specifier);
+        } catch (_) {
+            // specifier is not an url
+        }
+
+        if (url && url.protocol === 'blob:') {
+            const blob = URL[urlGetObjectURL](specifier);
 
             source = blobTextSync(blob);
         }
 
-        const worker = new _Worker(path, source);
+        const worker = new _Worker(specifier, source);
 
         worker.onmessage = msg => {
             this.dispatchEvent(new MessageEvent('message', msg));

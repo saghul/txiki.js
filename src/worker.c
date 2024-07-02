@@ -43,7 +43,7 @@ static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_m
 static JSClassID tjs_worker_class_id;
 
 typedef struct {
-    const char *path;
+    const char *specifier;
     const char *source;
     uv_os_sock_t channel_fd;
     uv_sem_t *sem;
@@ -69,11 +69,11 @@ typedef struct {
 } TJSWorkerWriteReq;
 
 static JSValue worker_eval(JSContext *ctx, int argc, JSValue *argv) {
-    const char *filename;
+    const char *specifier;
     JSValue ret;
 
-    filename = JS_ToCString(ctx, argv[0]);
-    if (!filename) {
+    specifier = JS_ToCString(ctx, argv[0]);
+    if (!specifier) {
         tjs_dump_error(ctx);
         goto error;
     }
@@ -81,12 +81,12 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValue *argv) {
     if (!JS_IsUndefined(argv[1])) {
         size_t len;
         const char *source = JS_ToCStringLen(ctx, &len, argv[1]);
-        ret = TJS_EvalModuleContent(ctx, filename, false, false, source, len);
+        ret = TJS_EvalModuleContent(ctx, specifier, false, false, source, len);
         JS_FreeCString(ctx, source);
     } else {
-        ret = TJS_EvalModule(ctx, filename, false);
+        ret = TJS_EvalModule(ctx, specifier, false);
     }
-    JS_FreeCString(ctx, filename);
+    JS_FreeCString(ctx, specifier);
 
     if (JS_IsException(ret)) {
         tjs_dump_error(ctx);
@@ -125,15 +125,15 @@ static void worker_entry(void *arg) {
 
     CHECK_EQ(tjs__eval_bytecode(ctx, tjs__worker_bootstrap, tjs__worker_bootstrap_size), 0);
 
-    /* Load the file and eval the file when the loop runs. */
-    JSValue filename = JS_NewString(ctx, wd->path);
+    /* Load and eval the specifier when the loop runs. */
+    JSValue specifier = JS_NewString(ctx, wd->specifier);
     JSValue source = wd->source ? JS_NewString(ctx, wd->source) : JS_UNDEFINED;
-    JSValue args[2] = { filename, source };
+    JSValue args[2] = { specifier, source };
 
     CHECK_EQ(JS_EnqueueJob(ctx, worker_eval, 2, (JSValue *) &args), 0);
 
     JS_FreeValue(ctx, source);
-    JS_FreeValue(ctx, filename);
+    JS_FreeValue(ctx, specifier);
 
     /* Notify the caller we are setup.  */
     wd->wrt = wrt;
@@ -267,14 +267,14 @@ static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_m
 }
 
 static JSValue tjs_worker_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
-    const char *path = JS_ToCString(ctx, argv[0]);
-    if (!path)
+    const char *specifier = JS_ToCString(ctx, argv[0]);
+    if (!specifier)
         return JS_EXCEPTION;
 
     uv_os_sock_t fds[2];
     int r = uv_socketpair(SOCK_STREAM, 0, fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE);
     if (r != 0) {
-        JS_FreeCString(ctx, path);
+        JS_FreeCString(ctx, specifier);
         return tjs_throw_errno(ctx, r);
     }
 
@@ -282,7 +282,7 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValue new_target, int ar
     if (JS_IsException(obj)) {
         close(fds[0]);
         close(fds[1]);
-        JS_FreeCString(ctx, path);
+        JS_FreeCString(ctx, specifier);
         return JS_EXCEPTION;
     }
 
@@ -294,7 +294,7 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValue new_target, int ar
 
     const char *source = JS_IsUndefined(argv[1]) ? NULL : JS_ToCString(ctx, argv[1]);
 
-    worker_data_t worker_data = { .channel_fd = fds[1], .path = path, .source = source, .sem = &sem, .wrt = NULL };
+    worker_data_t worker_data = { .channel_fd = fds[1], .specifier = specifier, .source = source, .sem = &sem, .wrt = NULL };
 
     CHECK_EQ(uv_thread_create(&w->tid, worker_entry, (void *) &worker_data), 0);
 
@@ -302,7 +302,7 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValue new_target, int ar
     uv_sem_wait(&sem);
     uv_sem_destroy(&sem);
 
-    JS_FreeCString(ctx, path);
+    JS_FreeCString(ctx, specifier);
     JS_FreeCString(ctx, source);
 
     uv_update_time(tjs_get_loop(ctx));
