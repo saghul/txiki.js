@@ -33,6 +33,7 @@ const noExport = [
     'evalFile',
     'evalScript',
     'ffi_load_native',
+    'gethostname',
     'getPid',
     'getPpid',
     'guessHandle',
@@ -93,6 +94,13 @@ Object.defineProperty(tjs, 'prompt', {
 });
 
 // Getters.
+Object.defineProperty(tjs, 'hostname', {
+    enumerable: true,
+    configurable: false,
+    get() {
+        return core.gethostname();
+    }
+});
 Object.defineProperty(tjs, 'pid', {
     enumerable: true,
     configurable: false,

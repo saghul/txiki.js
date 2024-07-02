@@ -159,9 +159,9 @@ declare global {
         const env: Environment;
         
         /**
-        * Returns the current system hostname.
+        * Current system hostname.
         */
-        function gethostname(): string;
+        const hostname: string;
         
         /**
         * String representation of the current platform.
