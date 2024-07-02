@@ -8,6 +8,10 @@ import { defineEventAttribute } from './event-target';
 const kWorker = Symbol('kWorker');
 
 function blobTextSync(blob) {
+    if (!(blob instanceof Blob)) {
+        return undefined;
+    }
+
     const decoder = new TextDecoder();
     const partsStr = [];
 
@@ -29,10 +33,11 @@ class Worker extends EventTarget {
         super();
 
         let source = undefined;
+        let isObjectURL = new URLPattern({ protocol: 'blob:' });
 
-        const blob = URL[urlGetObjectURL](path);
+        if (isObjectURL.exec(path) !== null) {
+            const blob = URL[urlGetObjectURL](path);
 
-        if (blob) {
             source = blobTextSync(blob);
         }
 
