@@ -79,8 +79,9 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValue *argv) {
     }
 
     if (!JS_IsUndefined(argv[1])) {
-        const char *source = JS_ToCString(ctx, argv[1]);
-        ret = TJS_EvalModuleContent(ctx, filename, false, false, source, strlen(source));
+        size_t len;
+        const char *source = JS_ToCStringLen(ctx, &len, argv[1]);
+        ret = TJS_EvalModuleContent(ctx, filename, false, false, source, len);
         JS_FreeCString(ctx, source);
     } else {
         ret = TJS_EvalModule(ctx, filename, false);
