@@ -230,10 +230,9 @@ class Blob {
         return 'Blob';
     }
 
-   get [kBlobGetParts] () {
-    return this.#parts;
-   }
-
+    get [kBlobGetParts] () {
+        return this.#parts;
+    }
 }
 
 Object.defineProperties(Blob.prototype, {
