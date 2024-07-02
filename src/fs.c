@@ -1060,13 +1060,6 @@ static JSValue tjs_fs_copyfile(JSContext *ctx, JSValue this_val, int argc, JSVal
         return JS_EXCEPTION;
     }
 
-    int32_t flags;
-    if (JS_ToInt32(ctx, &flags, argv[2])) {
-        JS_FreeCString(ctx, path);
-        JS_FreeCString(ctx, new_path);
-        return JS_EXCEPTION;
-    }
-
     TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr) {
         JS_FreeCString(ctx, path);
@@ -1074,7 +1067,7 @@ static JSValue tjs_fs_copyfile(JSContext *ctx, JSValue this_val, int argc, JSVal
         return JS_EXCEPTION;
     }
 
-    int r = uv_fs_copyfile(tjs_get_loop(ctx), &fr->req, path, new_path, flags, uv__fs_req_cb);
+    int r = uv_fs_copyfile(tjs_get_loop(ctx), &fr->req, path, new_path, 0, uv__fs_req_cb);
     JS_FreeCString(ctx, path);
     JS_FreeCString(ctx, new_path);
     if (r != 0) {
@@ -1283,9 +1276,6 @@ static const JSCFunctionListEntry tjs_stat_proto_funcs[] = {
 };
 
 static const JSCFunctionListEntry tjs_fs_funcs[] = {
-    TJS_CONST2("COPYFILE_EXCL", UV_FS_COPYFILE_EXCL),
-    TJS_CONST2("COPYFILE_FICLONE", UV_FS_COPYFILE_FICLONE),
-    TJS_CONST2("COPYFILE_FICLONE_FORCE", UV_FS_COPYFILE_FICLONE_FORCE),
     TJS_CFUNC_DEF("open", 3, tjs_fs_open),
     TJS_CFUNC_DEF("newStdioFile", 2, tjs_fs_new_stdio_file),
     TJS_CFUNC_MAGIC_DEF("stat", 1, tjs_fs_stat, 0),
@@ -1297,7 +1287,7 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CFUNC_DEF("mkstemp", 1, tjs_fs_mkstemp),
     TJS_CFUNC_DEF("rmdir", 1, tjs_fs_rmdir),
     TJS_CFUNC_DEF("mkdir", 2, tjs_fs_mkdir),
-    TJS_CFUNC_DEF("copyfile", 3, tjs_fs_copyfile),
+    TJS_CFUNC_DEF("copyFile", 2, tjs_fs_copyfile),
     TJS_CFUNC_DEF("readdir", 1, tjs_fs_readdir),
     TJS_CFUNC_DEF("readFile", 1, tjs_fs_readfile),
     TJS_CFUNC_DEF("chown", 3, tjs_fs_chown),
