@@ -25,3 +25,5 @@ const stdoutStr = new TextDecoder().decode(buf.subarray(0, nread));
 const status2 = await proc2.wait();
 assert.ok(stdoutStr.match(/hello!/) !== null, 'runs');
 assert.ok(status2.exit_status === 0 && status.term_signal === null, 'succeeded');
+
+await tjs.remove(newExe);

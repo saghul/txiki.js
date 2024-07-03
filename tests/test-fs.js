@@ -17,7 +17,7 @@ async function readWrite() {
     const dataStr = decoder.decode(buf.subarray(0, nread));
     assert.eq(dataStr, 'hello world 42');
     await f2.close();
-    await tjs.unlink(path);
+    await tjs.remove(path);
 };
 
 async function mkstemp() {
@@ -32,7 +32,7 @@ async function mkstemp() {
     const dataStr = decoder.decode(buf.subarray(0, nread));
     assert.eq(dataStr, 'hello world');
     await f2.close();
-    await tjs.unlink(path);
+    await tjs.remove(path);
 };
 
 async function mkdir() {
@@ -45,7 +45,7 @@ async function mkdir() {
     /* NOTE: File permission mode not supported on Windows. */
     if (tjs.platform !== 'windows')
       assert.eq(result.mode & ~s_ifmt, s_irwxu);
-    await tjs.rmdir(path);
+    await tjs.remove(path);
 };
 
 async function chmod() {
@@ -62,7 +62,7 @@ async function chmod() {
 
     const result = await tjs.stat(path);
     assert.eq(result.mode & ~s_ifmt, s_irwxu | s_irwxg);
-    await tjs.rmdir(path);
+    await tjs.remove(path);
 };
 
 async function chdir() {
@@ -77,7 +77,7 @@ async function chdir() {
     tjs.chdir(path);
     assert.eq(tjs.cwd(), path);
 
-    await tjs.rmdir(subDir);
+    await tjs.remove(subDir);
 };
 
 await readWrite();

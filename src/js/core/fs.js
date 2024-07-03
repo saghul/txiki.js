@@ -92,7 +92,7 @@ const retryErrors = new Set([
 const isWindows = core.platform === 'windows';
 const _epermHandler = isWindows ? _fixWinEPERM : _rmdir;
 
-export async function rm(path, options = { maxRetries: 0, retryDelay: 100 }) {
+export async function remove(path, options = { maxRetries: 0, retryDelay: 100 }) {
     let stats;
 
     try {
@@ -177,7 +177,7 @@ async function _rmdir(path, options, originalErr) {
             for await (const item of dirIter) {
                 const childPath = pathModule.join(path, item.name);
 
-                await rm(childPath, options);
+                await remove(childPath, options);
             }
 
             const tries = options.maxRetries + 1;

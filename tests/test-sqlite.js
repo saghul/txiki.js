@@ -79,7 +79,7 @@ const result = await tjs.stat(newDb);
 
 assert.ok(result.isFile, 'file was created ok');
 
-await tjs.unlink(newDb);
+await tjs.remove(newDb);
 
 testNewDbNoCreate();
 

@@ -24,7 +24,7 @@ try {
 assert.eq(err.code, 'EEXIST', 'dir does exist');
 err = undefined;
 
-await tjs.rm('a');
+await tjs.remove('a');
 
 try {
     st = await tjs.stat('a');
@@ -41,7 +41,7 @@ st = await tjs.stat('a');
 
 assert.ok(st.isDirectory, 'it is a directory');
 
-await tjs.rm('a');
+await tjs.remove('a');
 
 try {
     st = await tjs.stat('a');

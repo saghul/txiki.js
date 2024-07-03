@@ -20,4 +20,4 @@ await f2.truncate();
 const st2 = await f2.stat();
 await f2.close();
 assert.eq(st2.size, 0);
-await tjs.unlink(path);
+await tjs.remove(path);
