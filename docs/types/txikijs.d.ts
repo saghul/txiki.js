@@ -929,17 +929,17 @@ declare global {
         const ppid: number;
         
         interface UserInfo {
-            username: string;
+            userName: string;
             uid: number;
             gid: number;
             shell: string | null;
-            homedir: string | null;
+            homeDir: string | null;
         }
         
         /**
-        * Retrieves user information from the password database.
+        * Current user information from the password database.
         */
-        function userInfo(): UserInfo;
+        const userInfo: UserInfo;
         
         /**
         * Returns an estimate of the default amount of parallelism a program should use.
