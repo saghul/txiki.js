@@ -181,9 +181,9 @@ declare global {
         function chdir(dir: string): void;
         
         /**
-        * Gets the current working directory.
+        * Current working directory.
         */
-        function cwd(): string;
+        const cwd: string;
         
         /**
         * Constants describing a socket family.

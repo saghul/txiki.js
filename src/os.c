@@ -220,7 +220,7 @@ static JSValue tjs_chdir(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_cwd(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+static JSValue tjs_cwd(JSContext *ctx, JSValue this_val) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -492,12 +492,12 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("_envKeys", 0, tjs_envKeys),
     TJS_CFUNC_DEF("_environ", 0, tjs_environ),
     TJS_CFUNC_DEF("chdir", 1, tjs_chdir),
-    TJS_CFUNC_DEF("cwd", 0, tjs_cwd),
     TJS_CFUNC_DEF("random", 3, tjs_random),
     TJS_CFUNC_DEF("cpuInfo", 0, tjs_cpu_info),
     TJS_CFUNC_DEF("loadavg", 0, tjs_loadavg),
     TJS_CFUNC_DEF("networkInterfaces", 0, tjs_network_interfaces),
     TJS_CFUNC_DEF("availableParallelism", 0, tjs_availableParallelism),
+    TJS_CGETSET_DEF("cwd", tjs_cwd, NULL),
     TJS_CGETSET_DEF("homeDir", tjs_homedir, NULL),
     TJS_CGETSET_DEF("hostName", tjs_gethostname, NULL),
     TJS_CGETSET_DEF("pid", tjs_getpid, NULL),

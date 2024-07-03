@@ -57,7 +57,7 @@ const noExport = [
     'wasm'
 ];
 
-for (const [ key, value ] of Object.entries(core)) {
+for (const key of Object.keys(core)) {
     if (key.startsWith('_')) {
         continue;
     }
@@ -66,7 +66,7 @@ for (const [ key, value ] of Object.entries(core)) {
         continue;
     }
 
-    tjs[key] = value;
+    Object.defineProperty(tjs, key, Object.getOwnPropertyDescriptor(core, key));
 }
 
 // These values should be immutable.

@@ -18,7 +18,7 @@ const st = await tjs.stat(newExe);
 
 assert.ok(st.isFile, 'is a regular file');
 
-const proc2 = tjs.spawn(path.join(tjs.cwd(), newExe), { stdout: 'pipe' });
+const proc2 = tjs.spawn(path.join(tjs.cwd, newExe), { stdout: 'pipe' });
 const buf = new Uint8Array(4096);
 const nread = await proc2.stdout.read(buf);
 const stdoutStr = new TextDecoder().decode(buf.subarray(0, nread));

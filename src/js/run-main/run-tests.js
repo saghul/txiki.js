@@ -105,7 +105,7 @@ function printResult(result) {
 }
 
 export async function runTests(d) {
-    const dir = await tjs.realPath(d || tjs.cwd());
+    const dir = await tjs.realPath(d || tjs.cwd);
     const dirIter = await tjs.readDir(dir);
     const tests = [];
 
