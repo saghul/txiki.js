@@ -248,7 +248,7 @@ static JSValue tjs_cwd(JSContext *ctx, JSValue this_val, int argc, JSValue *argv
     return ret;
 }
 
-static JSValue tjs_homedir(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+static JSValue tjs_homedir(JSContext *ctx, JSValue this_val) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -433,7 +433,7 @@ static JSValue tjs_network_interfaces(JSContext *ctx, JSValue this_val, int argc
     return val;
 }
 
-static JSValue tjs_gethostname(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+static JSValue tjs_gethostname(JSContext *ctx, JSValue this_val) {
     char buf[UV_MAXHOSTNAMESIZE];
     size_t size = sizeof(buf);
 
@@ -444,11 +444,11 @@ static JSValue tjs_gethostname(JSContext *ctx, JSValue this_val, int argc, JSVal
     return JS_NewStringLen(ctx, buf, size);
 }
 
-static JSValue tjs_getpid(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+static JSValue tjs_getpid(JSContext *ctx, JSValue this_val) {
     return JS_NewInt32(ctx, uv_os_getpid());
 }
 
-static JSValue tjs_getppid(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+static JSValue tjs_getppid(JSContext *ctx, JSValue this_val) {
     return JS_NewInt32(ctx, uv_os_getppid());
 }
 
@@ -493,16 +493,16 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("_environ", 0, tjs_environ),
     TJS_CFUNC_DEF("chdir", 1, tjs_chdir),
     TJS_CFUNC_DEF("cwd", 0, tjs_cwd),
-    TJS_CFUNC_DEF("homedir", 0, tjs_homedir),
     TJS_CFUNC_DEF("random", 3, tjs_random),
     TJS_CFUNC_DEF("cpuInfo", 0, tjs_cpu_info),
     TJS_CFUNC_DEF("loadavg", 0, tjs_loadavg),
     TJS_CFUNC_DEF("networkInterfaces", 0, tjs_network_interfaces),
-    TJS_CFUNC_DEF("gethostname", 0, tjs_gethostname),
-    TJS_CFUNC_DEF("getPid", 0, tjs_getpid),
-    TJS_CFUNC_DEF("getPpid", 0, tjs_getppid),
     TJS_CFUNC_DEF("userInfo", 0, tjs_userInfo),
     TJS_CFUNC_DEF("availableParallelism", 0, tjs_availableParallelism),
+    TJS_CGETSET_DEF("homeDir", tjs_homedir, NULL),
+    TJS_CGETSET_DEF("hostName", tjs_gethostname, NULL),
+    TJS_CGETSET_DEF("pid", tjs_getpid, NULL),
+    TJS_CGETSET_DEF("ppid", tjs_getppid, NULL),
     TJS_CGETSET_DEF("tmpDir", tjs_tmpdir, NULL),
 };
 
