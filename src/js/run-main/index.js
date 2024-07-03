@@ -59,7 +59,7 @@ const helpRun = `Usage: ${exeName} run FILE`;
 
 // First, let's check if this is a standalone binary.
 await (async () => {
-    const exef = await tjs.open(tjs.exepath, 'rb');
+    const exef = await tjs.open(tjs.exePath, 'rb');
     const exeSize = (await exef.stat()).size;
     const trailerBuf = new Uint8Array(Trailer.Size);
 
@@ -174,7 +174,7 @@ if (options.help) {
         const infilePath = path.parse(infile);
         const data = await tjs.readFile(infile);
         const bytecode = tjs.serialize(tjs.compile(data, infilePath.base));
-        const exe = await tjs.readFile(tjs.exepath);
+        const exe = await tjs.readFile(tjs.exePath);
         const exeSize = exe.length;
         const newBuffer = exe.buffer.transfer(exeSize + bytecode.length + Trailer.Size);
         const newExe = new Uint8Array(newBuffer);

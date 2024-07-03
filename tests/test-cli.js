@@ -3,7 +3,7 @@ import assert from 'tjs:assert';
 
 async function testCliVersion() {
     const args = [
-        tjs.exepath,
+        tjs.exePath,
         '-v'
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'ignore' });
@@ -16,7 +16,7 @@ async function testCliVersion() {
 
 async function testCliHelp() {
     const args = [
-        tjs.exepath,
+        tjs.exePath,
         '-h'
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'ignore' });
@@ -29,7 +29,7 @@ async function testCliHelp() {
 
 async function testCliBadOption() {
     const args = [
-        tjs.exepath,
+        tjs.exePath,
         '--foo'
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'ignore' });

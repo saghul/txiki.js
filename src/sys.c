@@ -241,7 +241,7 @@ static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("serialize", 1, tjs_serialize),
     TJS_CFUNC_DEF("deserialize", 1, tjs_deserialize),
     TJS_CFUNC_DEF("evalBytecode", 1, tjs_evalBytecode),
-    TJS_CGETSET_DEF("exepath", tjs_exepath, NULL),
+    TJS_CGETSET_DEF("exePath", tjs_exepath, NULL),
 };
 
 /* clang-format off */

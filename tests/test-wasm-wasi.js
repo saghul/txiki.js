@@ -4,7 +4,7 @@ import path from 'tjs:path';
 
 async function testWasi() {
     const args = [
-        tjs.exepath,
+        tjs.exePath,
         'run',
         path.join(import.meta.dirname, 'wasi', 'test.wasm')
     ];
@@ -24,7 +24,7 @@ async function testWasi() {
 
 async function testEmptyWasm() {
     const args = [
-        tjs.exepath,
+        tjs.exePath,
         'run',
         path.join(import.meta.dirname, 'wasi', 'empty.wasm')
     ];
@@ -40,7 +40,7 @@ async function testEmptyWasm() {
 
 async function testBadWasm() {
     const args = [
-        tjs.exepath,
+        tjs.exePath,
         'run',
         path.join(import.meta.dirname, 'wasi', 'bad.wasm')
     ];

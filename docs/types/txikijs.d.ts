@@ -374,7 +374,7 @@ declare global {
         *
         * @param path Path to convert.
         */
-        function realpath(path: string): Promise<string>;
+        function realPath(path: string): Promise<string>;
         
         /**
         * Renames the given path.
@@ -389,19 +389,19 @@ declare global {
         * be replaced to provide a unique directory name.
         *
         * ```js
-        * const tmpDir = await tjs.mkdtemp('tmpDirXXXXXX');
+        * const tmpDir = await tjs.makeTempDir('tmpDirXXXXXX');
         * ```
         * @param template Template for the directory.
         */
-        function mkdtemp(template: string): Promise<string>;
+        function makeTempDir(template: string): Promise<string>;
         
         /**
         * Create a unique temporary file. The given template must end in XXXXXX, and the Xs will
-        * be replaced to provide a unique file name. The returned object is an open file handle.Handle
+        * be replaced to provide a unique file name. The returned object is an open file handle.
         *
         * @param template Template for the file name.
         */
-        function mkstemp(template: string): Promise<FileHandle>;
+        function makeTempFile(template: string): Promise<FileHandle>;
         
         interface FileHandle {
             /**
@@ -575,7 +575,7 @@ declare global {
         interface MkdirOptions {
             /* The file mode for the new directory. Defaults to `0o777`. */
             mode?: number;
-            /* Whether the directories will be created recursively or not. */
+            /* Whether the directories will be created recursively or not. Default to `false`. */
             recursive?: boolean;
         }
 
@@ -585,7 +585,7 @@ declare global {
         * @param path The path to of the directory to be created.
         * @param options Options for making the directory.
         */
-        function mkdir(path: string, options?: MkdirOptions): Promise<void>;
+        function makeDir(path: string, options?: MkdirOptions): Promise<void>;
         
         /**
         * Copies the source file into the target.
@@ -611,7 +611,7 @@ declare global {
         * Directory entries can be obtained through asynchronous iteration:
         *
         * ```js
-        * const dirIter = await tjs.readdir('.');
+        * const dirIter = await tjs.readDir('.');
         * for await (const item of dirIter) {
         *     console.log(item.name);
         * }
@@ -636,7 +636,7 @@ declare global {
         *
         * @param path Path to the directory.
         */
-        function readdir(path: string): Promise<DirHandle>;
+        function readDir(path: string): Promise<DirHandle>;
         
         /**
         * Reads the entire contents of a file.
@@ -703,14 +703,14 @@ declare global {
         function uptime(): number;
         
         /**
-        * Returns the current user's home directory.
+        * The current user's home directory.
         */
-        function homedir(): string;
+        const homeDir: string;
         
         /**
-        * Returns the temporary directory.
+        * The path to the current temporary directory.
         */
-        function tmpdir(): string;
+        const tmpDir: string;
         
         /**
         * Gets the system load average.

@@ -179,7 +179,7 @@ async function slurpStdio(s) {
 
 async function runTest(code){
 	const args = [
-		tjs.exepath,
+		tjs.exePath,
 		'eval',
 		code
 	];

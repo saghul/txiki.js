@@ -3,7 +3,7 @@ import assert from 'tjs:assert';
 const MB = 1024 * 1024;
 
 const args = [
-    tjs.exepath,
+    tjs.exePath,
     '--memory-limit',
     `${5 * MB}`,
     'eval',

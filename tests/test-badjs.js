@@ -5,7 +5,7 @@ const NUM_TRIES = 10;
 
 for (let i = 0; i < NUM_TRIES; i++) {
     const args = [
-        tjs.exepath,
+        tjs.exePath,
         'run',
         path.join(import.meta.dirname, 'helpers', 'bad.js')
     ];

@@ -42,13 +42,13 @@ export async function open(path, mode) {
     return new Proxy(handle, fhProxyHandler);
 }
 
-export async function mkstemp(template) {
+export async function makeTempFile(template) {
     const handle = await core.mkstemp(template);
 
     return new Proxy(handle, fhProxyHandler);
 }
 
-export async function mkdir(path, options = { mode: 0o777, recursive: false }) {
+export async function makeDir(path, options = { mode: 0o777, recursive: false }) {
     if (!options.recursive) {
         return core.mkdir(path, options.mode);
     }
@@ -59,7 +59,7 @@ export async function mkdir(path, options = { mode: 0o777, recursive: false }) {
         return;
     }
 
-    await mkdir(parent, options);
+    await makeDir(parent, options);
 
     try {
         return await core.mkdir(path, options.mode);
@@ -172,7 +172,7 @@ async function _rmdir(path, options, originalErr) {
             // when files are deleted, resulting in spurious ENOTEMPTY failures. Work
             // around that issue by retrying on Windows.
 
-            const dirIter = await core.readdir(path);
+            const dirIter = await core.readDir(path);
 
             for await (const item of dirIter) {
                 const childPath = pathModule.join(path, item.name);

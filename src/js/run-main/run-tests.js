@@ -33,7 +33,7 @@ class Test {
     }
 
     run() {
-        const args = [ tjs.exepath, 'run', this._fileName ];
+        const args = [ tjs.exePath, 'run', this._fileName ];
 
         this._proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'pipe' });
         this._stdout = this._slurpStdio(this._proc.stdout);
@@ -105,8 +105,8 @@ function printResult(result) {
 }
 
 export async function runTests(d) {
-    const dir = await tjs.realpath(d || tjs.cwd());
-    const dirIter = await tjs.readdir(dir);
+    const dir = await tjs.realPath(d || tjs.cwd());
+    const dirIter = await tjs.readDir(dir);
     const tests = [];
 
     for await (const item of dirIter) {

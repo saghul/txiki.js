@@ -18,7 +18,7 @@ window.localStorage.setItem('foo', 123);
 assert.eq(window.localStorage.getItem('foo'), '123');
 
 const args = [
-    tjs.exepath,
+    tjs.exePath,
     'run',
     import.meta.path
 ];
