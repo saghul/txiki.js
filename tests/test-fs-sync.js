@@ -9,5 +9,5 @@ await f.write(encoder.encode('hello world'));
 await f.datasync();
 await f.sync();
 await f.close();
-await tjs.unlink(path);
+await tjs.remove(path);
 assert.ok(true);

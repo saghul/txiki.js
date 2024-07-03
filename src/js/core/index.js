@@ -2,7 +2,7 @@ const core = globalThis[Symbol.for('tjs.internal.core')];
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import env from './env.js';
-import { open, mkdir, mkstemp, rm } from './fs.js';
+import { open, mkdir, mkstemp, remove } from './fs.js';
 import pathModule from './path.js';
 import { PosixSocket } from './posix-socket.js';
 import { addSignalListener, removeSignalListener } from './signal.js';
@@ -46,6 +46,7 @@ const noExport = [
     'posix_socket',
     'random',
     'randomUUID',
+    'rmdir',
     'runRepl',
     'setInterval',
     'setMaxStackSize',
@@ -53,6 +54,7 @@ const noExport = [
     'setTimeout',
     'signal',
     'signals',
+    'unlink',
     'wasm'
 ];
 
@@ -143,11 +145,11 @@ Object.defineProperty(tjs, 'mkstemp', {
     writable: false,
     value: mkstemp
 });
-Object.defineProperty(tjs, 'rm', {
+Object.defineProperty(tjs, 'remove', {
     enumerable: true,
     configurable: false,
     writable: false,
-    value: rm
+    value: remove
 });
 
 // Signals.

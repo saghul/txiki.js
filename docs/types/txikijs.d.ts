@@ -377,13 +377,6 @@ declare global {
         function realpath(path: string): Promise<string>;
         
         /**
-        * Removes the given file.
-        *
-        * @param path Path to be removed.
-        */
-        function unlink(path: string): Promise<void>;
-        
-        /**
         * Renames the given path.
         *
         * @param path Current path.
@@ -579,13 +572,6 @@ declare global {
         */
         function open(path: string, flags: string, mode?: number): Promise<FileHandle>;
         
-        /**
-        * Removes the directory at the given path.
-        *
-        * @param path Directory path.
-        */
-        function rmdir(path: string): Promise<void>;
-        
         interface MkdirOptions {
             /* The file mode for the new directory. Defaults to `0o777`. */
             mode?: number;
@@ -659,13 +645,20 @@ declare global {
         */
         function readFile(path: string): Promise<Uint8Array>;
 
+        interface RemoveOptions {
+            /* Amount of times to retry the operation in case it fails. Defaults to 0. */
+            maxRetries?: number;
+            /* Time (in milliseconds) to wait between retries. Defaults to 100. */
+            retryDelay?: number;
+        }
+
         /**
          * Recursively delete files and directories at the given path.
          * Equivalent to POSIX "rm -rf".
          *
          * @param path Path to be removed.
          */
-        function rm(path: string): Promise<void>;
+        function remove(path: string, options?: RemoveOptions): Promise<void>;
 
         /**
         * File watch event handler function.
