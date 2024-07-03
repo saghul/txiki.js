@@ -33,11 +33,9 @@ const noExport = [
     'evalFile',
     'evalScript',
     'ffi_load_native',
-    'gethostname',
     'getPid',
     'getPpid',
     'guessHandle',
-    'homedir',
     'isStdinTty',
     'isWorker',
     'mkdir',
@@ -94,36 +92,6 @@ Object.defineProperty(tjs, 'prompt', {
     configurable: false,
     writable: false,
     value: prompt
-});
-
-// Getters.
-Object.defineProperty(tjs, 'homeDir', {
-    enumerable: true,
-    configurable: false,
-    get() {
-        return core.homedir();
-    }
-});
-Object.defineProperty(tjs, 'hostname', {
-    enumerable: true,
-    configurable: false,
-    get() {
-        return core.gethostname();
-    }
-});
-Object.defineProperty(tjs, 'pid', {
-    enumerable: true,
-    configurable: false,
-    get() {
-        return core.getPid();
-    }
-});
-Object.defineProperty(tjs, 'ppid', {
-    enumerable: true,
-    configurable: false,
-    get() {
-        return core.getPpid();
-    }
 });
 
 // Environment.
