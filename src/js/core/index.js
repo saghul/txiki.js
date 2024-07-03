@@ -2,7 +2,7 @@ const core = globalThis[Symbol.for('tjs.internal.core')];
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import env from './env.js';
-import { open, mkdir, mkstemp, remove } from './fs.js';
+import { open, makeDir, makeTempFile, remove } from './fs.js';
 import pathModule from './path.js';
 import { PosixSocket } from './posix-socket.js';
 import { addSignalListener, removeSignalListener } from './signal.js';
@@ -37,6 +37,7 @@ const noExport = [
     'getPid',
     'getPpid',
     'guessHandle',
+    'homedir',
     'isStdinTty',
     'isWorker',
     'mkdir',
@@ -96,6 +97,13 @@ Object.defineProperty(tjs, 'prompt', {
 });
 
 // Getters.
+Object.defineProperty(tjs, 'homeDir', {
+    enumerable: true,
+    configurable: false,
+    get() {
+        return core.homedir();
+    }
+});
 Object.defineProperty(tjs, 'hostname', {
     enumerable: true,
     configurable: false,
@@ -133,17 +141,17 @@ Object.defineProperty(tjs, 'open', {
     writable: false,
     value: open
 });
-Object.defineProperty(tjs, 'mkdir', {
+Object.defineProperty(tjs, 'makeDir', {
     enumerable: true,
     configurable: false,
     writable: false,
-    value: mkdir
+    value: makeDir
 });
-Object.defineProperty(tjs, 'mkstemp', {
+Object.defineProperty(tjs, 'makeTempFile', {
     enumerable: true,
     configurable: false,
     writable: false,
-    value: mkstemp
+    value: makeTempFile
 });
 Object.defineProperty(tjs, 'remove', {
     enumerable: true,

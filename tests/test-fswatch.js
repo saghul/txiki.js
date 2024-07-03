@@ -17,10 +17,10 @@ async function sleep(ms) {
     });
 }
 
-const tmpDir = await tjs.mkdtemp('test_dirXXXXXX');
+const tmpDir = await tjs.makeTempDir('test_dirXXXXXX');
 const watcher = tjs.watch(tmpDir, watchCb);
 await sleep(1000);
-const f = await tjs.mkstemp(path.join(tmpDir, 'test_fileXXXXXX'));
+const f = await tjs.makeTempFile(path.join(tmpDir, 'test_fileXXXXXX'));
 const p = f.path;
 await sleep(1000);
 await f.write(encoder.encode('hello world'));

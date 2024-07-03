@@ -2,7 +2,7 @@ import assert from 'tjs:assert';
 
 const dirs = [ 'advanced', 'fixtures', 'helpers', 'wasi', 'wasm' ];
 
-const dirIter = await tjs.readdir(import.meta.dirname);
+const dirIter = await tjs.readDir(import.meta.dirname);
 
 for await (const item of dirIter) {
     const { name } = item;

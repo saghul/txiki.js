@@ -142,11 +142,11 @@ function _run(g) {
     }
 
     async function init_history() {
-        const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homedir(), '.tjs');
+        const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
         const historyDbPath = path.join(TJS_HOME, 'history.db');
 
         try {
-            path.mkdir(path.dirname(historyDbPath), { recursive: true });
+            tjs.makeDir(path.dirname(historyDbPath), { recursive: true });
         } catch (e) {
             // Ignore.
         }

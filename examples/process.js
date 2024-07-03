@@ -3,7 +3,7 @@ function logStatus(s) {
     console.log(JSON.stringify(s));
 }
 
-const exe = tjs.exepath;
+const exe = tjs.exePath;
 
 let args, status, proc, input, data, encoder = new TextEncoder(), decoder = new TextDecoder();
 

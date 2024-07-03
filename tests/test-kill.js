@@ -3,7 +3,7 @@ import path from 'tjs:path';
 
 
 const args = [
-    tjs.exepath,
+    tjs.exePath,
     path.join(import.meta.dirname, 'helpers', 'sleep.js')
 ];
 const proc = tjs.spawn(args, { stdout: 'ignore', stderr: 'ignore' });

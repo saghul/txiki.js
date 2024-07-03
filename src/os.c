@@ -276,7 +276,7 @@ static JSValue tjs_homedir(JSContext *ctx, JSValue this_val, int argc, JSValue *
     return ret;
 }
 
-static JSValue tjs_tmpdir(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+static JSValue tjs_tmpdir(JSContext *ctx, JSValue this_val) {
     char buf[1024];
     size_t size = sizeof(buf);
     char *dbuf = buf;
@@ -494,7 +494,6 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("chdir", 1, tjs_chdir),
     TJS_CFUNC_DEF("cwd", 0, tjs_cwd),
     TJS_CFUNC_DEF("homedir", 0, tjs_homedir),
-    TJS_CFUNC_DEF("tmpdir", 0, tjs_tmpdir),
     TJS_CFUNC_DEF("random", 3, tjs_random),
     TJS_CFUNC_DEF("cpuInfo", 0, tjs_cpu_info),
     TJS_CFUNC_DEF("loadavg", 0, tjs_loadavg),
@@ -504,6 +503,7 @@ static const JSCFunctionListEntry tjs_os_funcs[] = {
     TJS_CFUNC_DEF("getPpid", 0, tjs_getppid),
     TJS_CFUNC_DEF("userInfo", 0, tjs_userInfo),
     TJS_CFUNC_DEF("availableParallelism", 0, tjs_availableParallelism),
+    TJS_CGETSET_DEF("tmpDir", tjs_tmpdir, NULL),
 };
 
 void tjs__mod_os_init(JSContext *ctx, JSValue ns) {

@@ -3,7 +3,7 @@ import path from 'tjs:path';
 
 
 const compileArgs = [
-    tjs.exepath,
+    tjs.exePath,
     'compile',
     path.join(import.meta.dirname, 'helpers', 'hello.js')
 ];

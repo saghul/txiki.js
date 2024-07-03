@@ -3,7 +3,7 @@ import path from 'tjs:path';
 
 
 const args = [
-    tjs.exepath,
+    tjs.exePath,
     'run',
     path.join(import.meta.dirname, 'helpers', 'syntax-error.js')
 ];

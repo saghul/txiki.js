@@ -13,10 +13,10 @@ try {
 assert.eq(err.code, 'ENOENT', 'dir does not exist');
 err = undefined;
 
-await tjs.mkdir(path.join('a', 'b', 'c', 'd'), { recursive: true });
+await tjs.makeDir(path.join('a', 'b', 'c', 'd'), { recursive: true });
 
 try {
-    await tjs.mkdir('a');
+    await tjs.makeDir('a');
 } catch (e) {
     err = e;
 }
@@ -35,7 +35,7 @@ try {
 assert.eq(err.code, 'ENOENT', 'dir does not exist');
 
 // Now test with the full path.
-await tjs.mkdir(path.join(tjs.cwd(), 'a', 'b', 'c', 'd'), { recursive: true });
+await tjs.makeDir(path.join(tjs.cwd(), 'a', 'b', 'c', 'd'), { recursive: true });
 
 st = await tjs.stat('a');
 
