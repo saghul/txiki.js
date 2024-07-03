@@ -1,17 +1,17 @@
 import assert from 'tjs:assert';
 
 
-const info = tjs.userInfo();
+const { uid, gid, shell, userName, homeDir } = tjs.userInfo;
 
 if (tjs.platform === 'windows') {
-    assert.eq(info.uid, -1);
-    assert.eq(info.gid, -1);
-    assert.eq(info.shell, null);
+    assert.eq(uid, -1);
+    assert.eq(gid, -1);
+    assert.eq(shell, null);
 } else {
-    assert.notEqual(info.uid, -1);
-    assert.notEqual(info.gid, -1);
-    assert.notEqual(info.shell, null);
+    assert.notEqual(uid, -1);
+    assert.notEqual(gid, -1);
+    assert.notEqual(shell, null);
 }
 
-assert.ok(info.username);
-assert.ok(info.homedir);
+assert.ok(userName);
+assert.ok(homeDir);
