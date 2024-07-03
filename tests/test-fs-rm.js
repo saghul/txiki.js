@@ -35,7 +35,7 @@ try {
 assert.eq(err.code, 'ENOENT', 'dir does not exist');
 
 // Now test with the full path.
-await tjs.makeDir(path.join(tjs.cwd(), 'a', 'b', 'c', 'd'), { recursive: true });
+await tjs.makeDir(path.join(tjs.cwd, 'a', 'b', 'c', 'd'), { recursive: true });
 
 st = await tjs.stat('a');
 

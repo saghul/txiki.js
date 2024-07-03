@@ -66,16 +66,16 @@ async function chmod() {
 };
 
 async function chdir() {
-    const path = tjs.cwd();
+    const path = tjs.cwd;
     const subDir = `test_chdir${tjs.pid}`;
 
     await tjs.makeDir(subDir);
 
     tjs.chdir(subDir);
-    assert.eq(tjs.cwd(), pathModule.join(path, subDir));
+    assert.eq(tjs.cwd, pathModule.join(path, subDir));
 
     tjs.chdir(path);
-    assert.eq(tjs.cwd(), path);
+    assert.eq(tjs.cwd, path);
 
     await tjs.remove(subDir);
 };

@@ -188,14 +188,14 @@ const win32 = {
           continue;
         }
       } else if (resolvedDevice.length === 0) {
-        path = tjs.cwd();
+        path = tjs.cwd;
       } else {
         // Windows has the concept of drive-specific current working
         // directories. If we've resolved a drive letter but not yet an
         // absolute path, get cwd for that drive, or the process cwd if
         // the drive cwd is not available. We're sure the device is not
         // a UNC path at this points, because UNC paths are always absolute.
-        path = tjs.env[`=${resolvedDevice}`] || tjs.cwd();
+        path = tjs.env[`=${resolvedDevice}`] || tjs.cwd;
 
         // Verify that a cwd was found and that it actually points
         // to our drive. If not, default to the drive's root.
@@ -302,7 +302,7 @@ const win32 = {
     }
 
     // At this point the path should be resolved to a full absolute path,
-    // but handle relative paths to be safe (might happen when tjs.cwd()
+    // but handle relative paths to be safe (might happen when tjs.cwd
     // fails)
 
     // Normalize the tail path
@@ -1090,13 +1090,13 @@ const posixCwd = (() => {
     // and truncates any drive indicator
     const regexp = /\\/g;
     return () => {
-      const cwd = StringPrototypeReplace(tjs.cwd(), regexp, '/');
+      const cwd = StringPrototypeReplace(tjs.cwd, regexp, '/');
       return StringPrototypeSlice(cwd, StringPrototypeIndexOf(cwd, '/'));
     };
   }
 
   // We're already on POSIX, no need for any transformations
-  return () => tjs.cwd();
+  return () => tjs.cwd;
 })();
 
 const posix = {
@@ -1125,7 +1125,7 @@ const posix = {
     }
 
     // At this point the path should be resolved to a full absolute path, but
-    // handle relative paths to be safe (might happen when tjs.cwd() fails)
+    // handle relative paths to be safe (might happen when tjs.cwd fails)
 
     // Normalize the path
     resolvedPath = normalizeString(resolvedPath, !resolvedAbsolute, '/',
