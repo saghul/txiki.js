@@ -1,6 +1,6 @@
 import assert from 'tjs:assert';
+import { PosixSocket } from 'tjs:posix-socket';
 
-const PosixSocket = tjs.PosixSocket;
 
 const fromHexString = (hexString) =>
   Uint8Array.from(hexString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
@@ -114,7 +114,7 @@ function testHelpers(){
 
 async function run(){
 	if(tjs.platform == 'windows'){
-		// windows (new versions at least) doesn't support posix.
+		// This module is only supported on Unix systems.
 		return;
 	}
 	testUdpSock();
