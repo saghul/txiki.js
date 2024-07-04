@@ -186,67 +186,32 @@ declare global {
         const cwd: string;
         
         /**
-        * Constants describing a socket family.
+        * Result type for {@link lookup}.
         */
-        const AF_INET: number;
-        const AF_INE6: number;
-        const AF_UNSPEC: number;
-        
-        /**
-        * Constants to be used with {@link getaddrinfo}'s `hints` parameter.
-        */
-        const SOCK_STREAM: number;
-        const SOCK_DGRAM: number;
-
-        /**
-        * Constants to be used with {@link getaddrinfo}'s `hints` parameter.
-        */
-        const IPPROTO_TCP: number;
-        const IPPROTO_UDP: number;
-
-        /**
-        * Constant to be used with {@link getaddrinfo}'s `hints` parameter.
-        */
-        const AI_PASSIVE: number;
-        const AI_CANONNAME: number;
-        const AI_NUMERICHOST: number;
-        const AI_V4MAPPED: number;
-        const AI_ALL: number;
-        const AI_ADDRCONFIG: number;
-        const AI_NUMERICSERV: number;
-
-        /**
-        * Hints for {@link getaddrinfo}.
-        */
-        interface Hints {
-            socktype?: number;
-            protocol?: number;
-            family?: number;
-            flags?: number;
-        }
-        
-        /**
-        * Result type for {@link getaddrinfo}.
-        */
-        interface Addrinfo {
-            socktype: number;
-            protocol: number;
-            canonname?: string;
+        interface Addr {
             family: number;
             ip: string;
-            port: number;
-            scopeId?: number;
-            flowinfo?: number;
         }
-        
+
+        interface LookupOptions {
+            /**
+             * Resolve only the given family results.
+             */
+            family?: number;
+
+            /**
+             * If set to `true` returns all the results, it just returns the first one otherwise (default).
+             */
+            all?: boolean;
+        }
+
         /**
         * Basic DNS resolution using [getaddrinfo(3)](https://man7.org/linux/man-pages/man3/getaddrinfo.3.html).
         *
-        * @param node Hostname to be looked up.
-        * @param service Service / port to be looked up.
-        * @param hints Criteria for selecting the results.
+        * @param host Hostname to be looked up.
+        * @param options Criteria for selecting the results.
         */
-        function getaddrinfo(node: string, service?: string | number, hints?: Hints): Promise<Addrinfo[]>;
+        function lookup(host: string, options?: LookupOptions): Promise<Addr|Addr[]>;
         
         interface IErrors {
             /*
@@ -830,7 +795,7 @@ declare global {
             ip: string;
             port: number;
             scopeId?: number;
-            flowinfo?: number;
+            flowInfo?: number;
         }
         
         interface Connection {

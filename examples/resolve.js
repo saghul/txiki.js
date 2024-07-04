@@ -1,5 +1,5 @@
-// getaddrinfo example.
+// lookup example.
 //
 
-const res = await tjs.getaddrinfo(tjs.args[3], tjs.args[4], { socktype: tjs.SOCK_STREAM, protocol: tjs.IPPROTO_TCP });
+const res = await tjs.lookup(tjs.args[3], { all: true });
 console.log(JSON.stringify(res, undefined, 2));
