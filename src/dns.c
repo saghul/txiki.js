@@ -97,6 +97,7 @@ static JSValue tjs_dns_getaddrinfo(JSContext *ctx, JSValue this_val, int argc, J
     memset(&hints, 0, sizeof(hints));
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_family = family;
+    hints.ai_flags = AI_ADDRCONFIG | AI_V4MAPPED;
 
     int r = uv_getaddrinfo(tjs_get_loop(ctx), &gr->req, uv__getaddrinfo_cb, node, NULL, &hints);
 

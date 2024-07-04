@@ -15,18 +15,7 @@ export async function lookup(hostname, options = { family: 0, all: false }) {
             break;
     }
 
-    let r;
-
-    try {
-        r = await core.getaddrinfo(hostname, gaiOpts);
-    } catch (error) {
-        if ([ 'ENODATA', 'ENOTFOUND', 'ENOENT' ].includes(error.code)) {
-            // On Windows we can get ENOENT when the name exists, but not this record type.
-            r = [];
-        } else {
-            throw error;
-        }
-    }
+    const r = await core.getaddrinfo(hostname, gaiOpts);
 
     if (options.all) {
         return r;
