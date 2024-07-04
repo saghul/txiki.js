@@ -572,7 +572,7 @@ declare global {
         */
         function open(path: string, flags: string, mode?: number): Promise<FileHandle>;
         
-        interface MkdirOptions {
+        interface MakeDirOptions {
             /* The file mode for the new directory. Defaults to `0o777`. */
             mode?: number;
             /* Whether the directories will be created recursively or not. Default to `false`. */
@@ -585,7 +585,7 @@ declare global {
         * @param path The path to of the directory to be created.
         * @param options Options for making the directory.
         */
-        function makeDir(path: string, options?: MkdirOptions): Promise<void>;
+        function makeDir(path: string, options?: MakeDirOptions): Promise<void>;
         
         /**
         * Copies the source file into the target.
@@ -930,8 +930,8 @@ declare global {
         
         interface UserInfo {
             userName: string;
-            uid: number;
-            gid: number;
+            userId: number;
+            gorupId: number;
             shell: string | null;
             homeDir: string | null;
         }

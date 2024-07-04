@@ -461,8 +461,8 @@ static JSValue tjs_userInfo(JSContext *ctx, JSValue this_val) {
 
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_DefinePropertyValueStr(ctx, obj, "userName", JS_NewString(ctx, p.username), JS_PROP_C_W_E);
-    JS_DefinePropertyValueStr(ctx, obj, "uid", JS_NewInt32(ctx, p.uid), JS_PROP_C_W_E);
-    JS_DefinePropertyValueStr(ctx, obj, "gid", JS_NewInt32(ctx, p.gid), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, obj, "userId", JS_NewInt32(ctx, p.uid), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, obj, "groupId", JS_NewInt32(ctx, p.gid), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, obj, "shell", p.shell ? JS_NewString(ctx, p.shell) : JS_NULL, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, obj, "homeDir", p.homedir ? JS_NewString(ctx, p.homedir) : JS_NULL, JS_PROP_C_W_E);
 
