@@ -29,6 +29,10 @@
 #include <unistd.h>
 #include <uv.h>
 
+#ifdef TJS__HAS_MIMALLOC
+#include <mimalloc.h>
+#endif
+
 extern const uint8_t tjs__run_repl[];
 extern const uint32_t tjs__run_repl_size;
 
@@ -264,6 +268,9 @@ void tjs__mod_sys_init(JSContext *ctx, JSValue ns) {
     JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, curl_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "wasm3", JS_NewString(ctx, M3_VERSION), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "sqlite3", JS_NewString(ctx, sqlite3_libversion()), JS_PROP_C_W_E);
+#ifdef TJS__HAS_MIMALLOC
+    JS_DefinePropertyValueStr(ctx, versions, "mimalloc", JS_NewInt32(ctx, mi_version()), JS_PROP_C_W_E);
+#endif
 
     JSValue gc = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyFunctionList(ctx, gc, tjs_gc_funcs, countof(tjs_gc_funcs));
