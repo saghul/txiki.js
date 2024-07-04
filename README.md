@@ -90,9 +90,8 @@ Support for the [ES2023] specification (almost complete).
 - Signal handling
 - File operations
 - Child processes
-- DNS (getaddrinfo)
 - WASI
-- Miscellaneous utility functions
+- ...
 
 See the [full API documentation].
 

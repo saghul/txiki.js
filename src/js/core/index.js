@@ -3,6 +3,7 @@ const core = globalThis[Symbol.for('tjs.internal.core')];
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import env from './env.js';
 import { open, makeDir, makeTempFile, remove } from './fs.js';
+import { lookup } from './lookup.js';
 import pathModule from './path.js';
 import { addSignalListener, removeSignalListener } from './signal.js';
 import { connect, listen } from './sockets.js';
@@ -14,6 +15,9 @@ import { createStdin, createStdout, createStderr } from './stdio.js';
 
 const tjs = Object.create(null);
 const noExport = [
+    'AF_INET',
+    'AF_INET6',
+    'AF_UNSPEC',
     'STDIN_FILENO',
     'STDOUT_FILENO',
     'STDERR_FILENO',
@@ -32,8 +36,7 @@ const noExport = [
     'evalFile',
     'evalScript',
     'ffi_load_native',
-    'getPid',
-    'getPpid',
+    'getaddrinfo',
     'guessHandle',
     'isStdinTty',
     'isWorker',
@@ -155,6 +158,12 @@ Object.defineProperty(tjs, 'listen', {
     configurable: false,
     writable: false,
     value: listen
+});
+Object.defineProperty(tjs, 'lookup', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: lookup
 });
 
 // Stdio.

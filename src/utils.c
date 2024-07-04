@@ -90,7 +90,7 @@ end:
     return ret;
 }
 
-void tjs_addr2obj(JSContext *ctx, JSValue obj, const struct sockaddr *sa) {
+void tjs_addr2obj(JSContext *ctx, JSValue obj, const struct sockaddr *sa, bool skip_port) {
     char buf[INET6_ADDRSTRLEN + 1];
 
     switch (sa->sa_family) {
@@ -98,9 +98,10 @@ void tjs_addr2obj(JSContext *ctx, JSValue obj, const struct sockaddr *sa) {
             struct sockaddr_in *addr4 = (struct sockaddr_in *) sa;
             uv_ip4_name(addr4, buf, sizeof(buf));
 
-            JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, AF_INET), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, 4), JS_PROP_C_W_E);
             JS_DefinePropertyValueStr(ctx, obj, "ip", JS_NewString(ctx, buf), JS_PROP_C_W_E);
-            JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr4->sin_port)), JS_PROP_C_W_E);
+            if (!skip_port)
+                JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr4->sin_port)), JS_PROP_C_W_E);
 
             break;
         }
@@ -109,12 +110,13 @@ void tjs_addr2obj(JSContext *ctx, JSValue obj, const struct sockaddr *sa) {
             struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *) sa;
             uv_ip6_name(addr6, buf, sizeof(buf));
 
-            JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, AF_INET6), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, 6), JS_PROP_C_W_E);
             JS_DefinePropertyValueStr(ctx, obj, "ip", JS_NewString(ctx, buf), JS_PROP_C_W_E);
-            JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr6->sin6_port)), JS_PROP_C_W_E);
+            if (!skip_port)
+                JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr6->sin6_port)), JS_PROP_C_W_E);
             JS_DefinePropertyValueStr(ctx,
                                       obj,
-                                      "flowinfo",
+                                      "flowInfo",
                                       JS_NewInt32(ctx, ntohl(addr6->sin6_flowinfo)),
                                       JS_PROP_C_W_E);
             JS_DefinePropertyValueStr(ctx, obj, "scopeId", JS_NewInt32(ctx, addr6->sin6_scope_id), JS_PROP_C_W_E);

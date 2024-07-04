@@ -1,12 +1,11 @@
-/* global tjs */
-
+import { lookup } from './lookup.js';
 import { readableStreamForHandle, writableStreamForHandle } from './stream-utils.js';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
 
 export async function connect(transport, host, port, options = {}) {
-    const addr = await prepareAddress(transport, host, port);
+    const addr = await resolveAddress(transport, host, port);
 
     switch (transport) {
         case 'tcp': {
@@ -56,7 +55,7 @@ export async function connect(transport, host, port, options = {}) {
 }
 
 export async function listen(transport, host, port, options = {}) {
-    const addr = await prepareAddress(transport, host, port);
+    const addr = await resolveAddress(transport, host, port);
 
     switch (transport) {
         case 'tcp': {
@@ -101,30 +100,22 @@ export async function listen(transport, host, port, options = {}) {
     }
 }
 
-async function prepareAddress(transport, host, port) {
+async function resolveAddress(transport, host, port) {
     switch (transport) {
-        case 'tcp': {
-            const opts = {
-                socktype: tjs.SOCK_STREAM,
-                protocol: tjs.IPPROTO_TCP
-            };
-            const r = await tjs.getaddrinfo(host ?? '0.0.0.0', port ?? 0, opts);
+        case 'tcp':
 
-            return r[0];
+        // eslint-disable-next-line no-fallthrough
+        case 'udp': {
+            const r = await lookup(host ?? '0.0.0.0');
+
+            return {
+                ...r,
+                port
+            };
         }
 
         case 'pipe':
             return host;
-
-        case 'udp': {
-            const opts = {
-                socktype: tjs.SOCK_DGRAM,
-                protocol: tjs.IPPROTO_UDP
-            };
-            const r = await tjs.getaddrinfo(host ?? '0.0.0.0', port ?? 0, opts);
-
-            return r[0];
-        }
 
         default:
             throw new Error('invalid transport');
