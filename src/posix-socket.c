@@ -780,7 +780,7 @@ static const JSCFunctionListEntry posix_ns_funcs[] = {
 };
 
 
-void tjs__mod_posix_socket_init(JSContext *ctx, JSValue ns) {
+static JSValue tjs__mod_posix_socket_init_js(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JSRuntime *rt = JS_GetRuntime(ctx);
 
     JS_NewClassID(rt, &tjs_sock_classid);
@@ -800,5 +800,10 @@ void tjs__mod_posix_socket_init(JSContext *ctx, JSValue ns) {
         JS_NewCFunction2(ctx, tjs_sock_create, TJS_SOCK_CLASS_NAME, 3, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx, posixSocketNs, TJS_SOCK_CLASS_NAME, tjs_sock_constructor, JS_PROP_C_W_E);
 
-    JS_DefinePropertyValueStr(ctx, ns, "posix_socket", posixSocketNs, JS_PROP_C_W_E);
+    return posixSocketNs;
+}
+
+void tjs__mod_posix_socket_init(JSContext *ctx, JSValue ns) {
+    JSValue func = JS_NewCFunction(ctx, tjs__mod_posix_socket_init_js, "posixSocketLoad", 0);
+    JS_SetPropertyStr(ctx, ns, "posixSocketLoad", func);
 }

@@ -1,5 +1,5 @@
 const core = globalThis[Symbol.for('tjs.internal.core')];
-const posixSocketInt = core.posix_socket;
+const posixSocketInt = core.posixSocketLoad?.();
 
 export let PosixSocket;
 

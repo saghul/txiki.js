@@ -4,7 +4,6 @@ import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import env from './env.js';
 import { open, makeDir, makeTempFile, remove } from './fs.js';
 import pathModule from './path.js';
-import { PosixSocket } from './posix-socket.js';
 import { addSignalListener, removeSignalListener } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
@@ -42,7 +41,7 @@ const noExport = [
     'mkstemp',
     'newStdioFile',
     'open',
-    'posix_socket',
+    'posixSocketLoad',
     'random',
     'randomUUID',
     'rmdir',
@@ -177,16 +176,6 @@ Object.defineProperty(tjs, 'stderr', {
     writable: false,
     value: createStderr()
 });
-
-// PosixSocket.
-if (core.posix_socket) {
-    Object.defineProperty(tjs, 'PosixSocket', {
-        enumerable: true,
-        configurable: false,
-        writable: false,
-        value: PosixSocket
-    });
-}
 
 // Interface for the garbage collection
 const _gc_state = {

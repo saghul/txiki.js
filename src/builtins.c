@@ -28,6 +28,7 @@
 #include "bundles/c/stdlib/hashing.c"
 #include "bundles/c/stdlib/ipaddr.c"
 #include "bundles/c/stdlib/path.c"
+#include "bundles/c/stdlib/posix-socket.c"
 #include "bundles/c/stdlib/sqlite.c"
 #include "bundles/c/stdlib/uuid.c"
 #include "private.h"
@@ -46,6 +47,7 @@ static tjs_builtin_t builtins[] = {
     { "tjs:hashing", tjs__hashing, tjs__hashing_size },
     { "tjs:ipaddr", tjs__ipaddr, tjs__ipaddr_size },
     { "tjs:path", tjs__path, tjs__path_size },
+    { "tjs:posix-socket", tjs__posix_socket, tjs__posix_socket_size },
     { "tjs:sqlite", tjs__sqlite, tjs__sqlite_size },
     { "tjs:uuid", tjs__uuid, tjs__uuid_size },
     { NULL, NULL, 0 },
