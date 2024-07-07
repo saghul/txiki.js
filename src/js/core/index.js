@@ -14,60 +14,54 @@ import { createStdin, createStdout, createStderr } from './stdio.js';
 //
 
 const tjs = Object.create(null);
-const noExport = [
-    'AF_INET',
-    'AF_INET6',
-    'AF_UNSPEC',
-    'STDIN_FILENO',
-    'STDOUT_FILENO',
-    'STDERR_FILENO',
-    'TCP_IPV6ONLY',
-    'UDP_IPV6ONLY',
-    'UDP_REUSEADDR',
-    'Pipe',
-    'TCP',
-    'TTY',
-    'UDP',
-    'WebSocket',
-    'Worker',
-    'XMLHttpRequest',
-    'clearInterval',
-    'clearTimeout',
-    'evalFile',
-    'evalScript',
-    'ffi_load_native',
-    'getaddrinfo',
-    'guessHandle',
-    'isStdinTty',
-    'isWorker',
-    'mkdir',
-    'mkstemp',
-    'newStdioFile',
-    'open',
-    'posixSocketLoad',
-    'random',
-    'randomUUID',
-    'rmdir',
-    'runRepl',
-    'setInterval',
-    'setMaxStackSize',
-    'setMemoryLimit',
-    'setTimeout',
-    'signal',
-    'signals',
-    'unlink',
-    'wasm'
+
+// Export these properties directly from the core.
+const exports = [
+    'Error',
+    'availableParallelism',
+    'chdir',
+    'chmod',
+    'chown',
+    'compile',
+    'copyFile',
+    'cpuInfo',
+    'createConsole',
+    'cwd',
+    'deserialize',
+    'errors',
+    'evalBytecode',
+    'exePath',
+    'exec',
+    'exit',
+    'format',
+    'homeDir',
+    'hostName',
+    'inspect',
+    'kill',
+    'lchown',
+    'loadavg',
+    'lstat',
+    'makeTempDir',
+    'networkInterfaces',
+    'pid',
+    'platform',
+    'ppid',
+    'readDir',
+    'readFile',
+    'realPath',
+    'rename',
+    'serialize',
+    'spawn',
+    'stat',
+    'tmpDir',
+    'uname',
+    'uptime',
+    'userInfo',
+    'version',
+    'watch'
 ];
 
-for (const key of Object.keys(core)) {
-    if (key.startsWith('_')) {
-        continue;
-    }
-
-    if (noExport.includes(key)) {
-        continue;
-    }
-
+for (const key of exports) {
     Object.defineProperty(tjs, key, Object.getOwnPropertyDescriptor(core, key));
 }
 
