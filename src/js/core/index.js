@@ -28,7 +28,6 @@ const exports = [
     'createConsole',
     'cwd',
     'deserialize',
-    'errors',
     'evalBytecode',
     'exePath',
     'exec',
