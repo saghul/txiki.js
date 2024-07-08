@@ -1,15 +1,17 @@
 # Welcome to the txiki.js documentation
 
 [*txiki.js*](https://github.com/saghul/txiki.js) is a small and powerful JavaScript runtime.
-It targets ECMAScript 2020 and implements many web platform features.
+It targets state-of-the-art ECMAScript and aims to be [WinterCG] compliant.
 
 On this site you'll find documentation on all the APIs provided by it.
 
-If there is any missing, please [open an issue](https://github.com/saghul/txiki.js/issues/new).
-
 ## Features
 
-Support for the [ES2020] specification plus some ES2020+ features like top level await.
+Support for the [ES2023] specification (almost complete).
+
+### WinterCG
+
+*txiki.js* aims to be [WinterCG] compliant, you can track the progress [here](https://github.com/saghul/txiki.js/issues/418).
 
 ### Web Platform APIs
 
@@ -39,6 +41,7 @@ Support for the [ES2020] specification plus some ES2020+ features like top level
 
 ### Runtime features
 
+- Standalone executables
 - TCP and UDP sockets
 - Unix sockets / named pipes
 - Signal handling
@@ -46,13 +49,12 @@ Support for the [ES2020] specification plus some ES2020+ features like top level
 - Child processes
 - DNS (getaddrinfo)
 - WASI
-- Miscellaneous utility functions
+- ...
 
 Other extras:
 
 - Import directly from HTTP(S) URLs
 - Import JSON files
-- BigFloat and BigDecimal extensions
 - Builtin test runner
 
 ### Standard library
@@ -76,4 +78,5 @@ Look at the modules on the left sidebar.
 [Web Workers API]: https://developer.mozilla.org/en-US/docs/Web/API/Worker
 [WebAssembly]: https://developer.mozilla.org/en-US/docs/WebAssembly
 [WebSocket]: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-[ES2020]: https://tc39.es/ecma262/
+[ES2023]: https://tc39.es/ecma262/
+[WinterCG]: https://wintercg.org/
