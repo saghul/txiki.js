@@ -10,7 +10,8 @@
         "out": "api/",
         "readme": "intro.md",
         "disableSources": true,
-        "exclude":["types/index.d.ts"]
+        "exclude":["types/index.d.ts"],
+        "treatWarningsAsErrors": true
     },
     "watchOptions": {
         "excludeDirectories": ["api/*"]
