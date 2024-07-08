@@ -188,7 +188,7 @@ declare global {
         /**
         * Full path to the txiki.js running executable.
         */
-        const exepath: string;
+        const exePath: string;
         
         /**
         * Object containing environment variables.
