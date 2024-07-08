@@ -212,127 +212,24 @@ declare global {
         * @param options Criteria for selecting the results.
         */
         function lookup(host: string, options?: LookupOptions): Promise<Addr|Addr[]>;
-        
-        interface IErrors {
-            /*
-            * Error code constants.
-            */
-            E2BIG: number;
-            EACCES: number;
-            EADDRINUSE: number;
-            EADDRNOTAVAIL: number;
-            EAFNOSUPPORT: number;
-            EAGAIN: number;
-            EAI_ADDRFAMILY: number;
-            EAI_AGAIN: number;
-            EAI_BADFLAGS: number;
-            EAI_BADHINTS: number;
-            EAI_CANCELED: number;
-            EAI_FAIL: number;
-            EAI_FAMILY: number;
-            EAI_MEMORY: number;
-            EAI_NODATA: number;
-            EAI_NONAME: number;
-            EAI_OVERFLOW: number;
-            EAI_PROTOCOL: number;
-            EAI_SERVICE: number;
-            EAI_SOCKTYPE: number;
-            EALREADY: number;
-            EBADF: number;
-            EBUSY: number;
-            ECANCELED: number;
-            ECHARSET: number;
-            ECONNABORTED: number;
-            ECONNREFUSED: number;
-            ECONNRESET: number;
-            EDESTADDRREQ: number;
-            EEXIST: number;
-            EFAULT: number;
-            EFBIG: number;
-            EHOSTUNREACH: number;
-            EINTR: number;
-            EINVAL: number;
-            EIO: number;
-            EISCONN: number;
-            EISDIR: number;
-            ELOOP: number;
-            EMFILE: number;
-            EMSGSIZE: number;
-            ENAMETOOLONG: number;
-            ENETDOWN: number;
-            ENETUNREACH: number;
-            ENFILE: number;
-            ENOBUFS: number;
-            ENODEV: number;
-            ENOENT: number;
-            ENOMEM: number;
-            ENONET: number;
-            ENOPROTOOPT: number;
-            ENOSPC: number;
-            ENOSYS: number;
-            ENOTCONN: number;
-            ENOTDIR: number;
-            ENOTEMPTY: number;
-            ENOTSOCK: number;
-            ENOTSUP: number;
-            EOVERFLOW: number;
-            EPERM: number;
-            EPIPE: number;
-            EPROTO: number;
-            EPROTONOSUPPORT: number;
-            EPROTOTYPE: number;
-            ERANGE: number;
-            EROFS: number;
-            ESHUTDOWN: number;
-            ESPIPE: number;
-            ESRCH: number;
-            ETIMEDOUT: number;
-            ETXTBSY: number;
-            EXDEV: number;
-            UNKNOWN: number;
-            EOF: number;
-            ENXIO: number;
-            EMLINK: number;
-            EHOSTDOWN: number;
-            EREMOTEIO: number;
-            ENOTTY: number;
-            EFTYPE: number;
-            EILSEQ: number;
-            ESOCKTNOSUPPORT: number;
-
-           /**
-            * Returns the string representing the given error number.
-            *
-            * @param errno Error number.
-            */
-            strerror(errno: number): string;
-        }
 
         /**
         * Error type. It mostly encapsulates the libuv errors.
-        * The available error number properties depends on the platform.
         */
         class Error {
             
             constructor(errno: number);
 
             /**
-            * The error code.
+            * The system error code as a string. For example `EPERM`.
             */
             code: string;
 
             /**
-            * The represented error number.
-            */
-            errno: number;
-            
-            /**
-            * The error string representation.
+            * The error string representation in the form `code: description`.
             */
             message: string;
         }
-
-        const errors: IErrors;
 
         /**
         * Returns the canonicalized absolute pathname.
@@ -921,7 +818,7 @@ declare global {
     }
 
     /**
-    * Returns an estimate of the default amount of parallelism a program should use.
+    * Creates a custom `console` object.
     */
     function createConsole(opts: {
         /** function to print messages to somewhere, see https://console.spec.whatwg.org/#printer */
