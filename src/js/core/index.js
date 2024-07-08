@@ -1,6 +1,7 @@
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
 import { alert, confirm, prompt } from './alert-confirm-prompt.js';
+import engine from './engine.js';
 import env from './env.js';
 import { open, makeDir, makeTempFile, remove } from './fs.js';
 import { lookup } from './lookup.js';
@@ -22,13 +23,10 @@ const exports = [
     'chdir',
     'chmod',
     'chown',
-    'compile',
     'copyFile',
     'cpuInfo',
     'createConsole',
     'cwd',
-    'deserialize',
-    'evalBytecode',
     'exePath',
     'exec',
     'exit',
@@ -49,7 +47,6 @@ const exports = [
     'readFile',
     'realPath',
     'rename',
-    'serialize',
     'spawn',
     'stat',
     'tmpDir',
@@ -66,7 +63,6 @@ for (const key of exports) {
 
 // These values should be immutable.
 tjs.args = Object.freeze(core.args);
-tjs.versions = Object.freeze(core.versions);
 
 // Alert, confirm, prompt.
 // These differ slightly from browsers, they are async.
@@ -87,6 +83,14 @@ Object.defineProperty(tjs, 'prompt', {
     configurable: false,
     writable: false,
     value: prompt
+});
+
+// Engine.
+Object.defineProperty(tjs, 'engine', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: engine
 });
 
 // Environment.
@@ -177,51 +181,6 @@ Object.defineProperty(tjs, 'stderr', {
     configurable: false,
     writable: false,
     value: createStderr()
-});
-
-// Interface for the garbage collection
-const _gc_state = {
-    enabled: true,
-    threshold: core.gc.getThreshold()
-};
-
-Object.defineProperty(tjs, 'gc', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: {
-        run: () => core.gc.run(),
-
-        set enabled(value) {
-            if (value) {
-                core.gc.setThreshold(_gc_state.threshold);
-            } else {
-                core.gc.setThreshold(-1);
-            }
-
-            _gc_state.enabled=value;
-        },
-        get enabled() {
-            return _gc_state.enabled;
-        },
-
-        set threshold(value) {
-            if (_gc_state.enabled) {
-                core.gc.setThreshold(value);
-            }
-
-            _gc_state.threshold = value;
-        },
-        get threshold() {
-            const tmp = core.gc.getThreshold();
-
-            if (tmp !== -1) {
-                _gc_state.threshold = tmp;
-            }
-
-            return _gc_state.threshold;
-        },
-    }
 });
 
 // Internal stuff needed by the runtime.

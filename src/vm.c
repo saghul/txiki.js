@@ -107,6 +107,7 @@ static char **tjs__argv = NULL;
 
 static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
+    tjs__mod_engine_init(ctx, ns);
     tjs__mod_error_init(ctx, ns);
     tjs__mod_ffi_init(ctx, ns);
     tjs__mod_fs_init(ctx, ns);
