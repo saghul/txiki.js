@@ -547,5 +547,5 @@ void tjs__mod_sqlite3_init(JSContext *ctx, JSValue ns) {
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyFunctionList(ctx, obj, tjs_sqlite3_funcs, countof(tjs_sqlite3_funcs));
 
-    JS_DefinePropertyValueStr(ctx, ns, "_sqlite3", obj, JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, ns, "sqlite3", obj, JS_PROP_C_W_E);
 }

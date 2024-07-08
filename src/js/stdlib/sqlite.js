@@ -1,5 +1,5 @@
 const core = globalThis[Symbol.for('tjs.internal.core')];
-const sqlite3 = core._sqlite3;
+const sqlite3 = core.sqlite3;
 
 const kSqlite3Handle = Symbol('kSqlite3Handle');
 let controllers;

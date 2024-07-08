@@ -183,7 +183,7 @@ Object.defineProperty(tjs, 'stderr', {
 // Interface for the garbage collection
 const _gc_state = {
     enabled: true,
-    threshold: core._gc.getThreshold()
+    threshold: core.gc.getThreshold()
 };
 
 Object.defineProperty(tjs, 'gc', {
@@ -191,13 +191,13 @@ Object.defineProperty(tjs, 'gc', {
     configurable: false,
     writable: false,
     value: {
-        run: () => core._gc.run(),
+        run: () => core.gc.run(),
 
         set enabled(value) {
             if (value) {
-                core._gc.setThreshold(_gc_state.threshold);
+                core.gc.setThreshold(_gc_state.threshold);
             } else {
-                core._gc.setThreshold(-1);
+                core.gc.setThreshold(-1);
             }
 
             _gc_state.enabled=value;
@@ -208,13 +208,13 @@ Object.defineProperty(tjs, 'gc', {
 
         set threshold(value) {
             if (_gc_state.enabled) {
-                core._gc.setThreshold(value);
+                core.gc.setThreshold(value);
             }
 
             _gc_state.threshold = value;
         },
         get threshold() {
-            const tmp = core._gc.getThreshold();
+            const tmp = core.gc.getThreshold();
 
             if (tmp !== -1) {
                 _gc_state.threshold = tmp;

@@ -1294,8 +1294,8 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CFUNC_DEF("lchown", 3, tjs_fs_lchown),
     TJS_CFUNC_DEF("chmod", 2, tjs_fs_chmod),
     /* Internal */
-    TJS_CFUNC_DEF("_mkdirSync", 2, tjs_fs_mkdir_sync),
-    TJS_CFUNC_DEF("_statSync", 1, tjs_fs_stat_sync),
+    TJS_CFUNC_DEF("mkdirSync", 2, tjs_fs_mkdir_sync),
+    TJS_CFUNC_DEF("statSync", 1, tjs_fs_stat_sync),
 };
 
 void tjs__mod_fs_init(JSContext *ctx, JSValue ns) {
