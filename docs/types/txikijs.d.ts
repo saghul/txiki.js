@@ -768,7 +768,7 @@ declare global {
         * Creates a connection to the target host + port over the selected transport.
         *
         * @param transport Type of transport for the connection.
-        * @param host Hostname for the connection. Basic lookup using {@link getaddrinfo} will be performed.
+        * @param host Hostname for the connection. Basic lookup using {@link lookup} will be performed.
         * @param port Destination port (where applicable).
         * @param options Extra connection options.
         */
