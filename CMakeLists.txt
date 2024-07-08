@@ -72,22 +72,13 @@ add_library(tjs STATIC
     src/builtins.c
     src/curl-utils.c
     src/curl-websocket.c
-    src/dns.c
     src/error.c
     src/eval.c
-    src/ffi.c
-    src/fs.c
-    src/fswatch.c
     src/mem.c
     src/modules.c
-    src/os.c
-    src/process.c
     src/sha1.c
-    src/streams.c
     src/signals.c
-    src/sys.c
     src/timers.c
-    src/udp.c
     src/utils.c
     src/version.c
     src/vm.c
@@ -95,7 +86,16 @@ add_library(tjs STATIC
     src/worker.c
     src/ws.c
     src/xhr.c
-    src/_sqlite3.c
+    src/mod_dns.c
+    src/mod_ffi.c
+    src/mod_fs.c
+    src/mod_fswatch.c
+    src/mod_os.c
+    src/mod_process.c
+    src/mod_sqlite3.c
+    src/mod_streams.c
+    src/mod_sys.c
+    src/mod_udp.c
     src/bundles/c/core/core.c
     src/bundles/c/core/polyfills.c
     src/bundles/c/core/run-main.c
@@ -105,7 +105,7 @@ add_library(tjs STATIC
 )
 
 if(UNIX)
-    target_sources(tjs PUBLIC src/posix-socket.c)
+    target_sources(tjs PUBLIC src/mod_posix-socket.c)
 endif()
 
 add_library(ffi-test SHARED
