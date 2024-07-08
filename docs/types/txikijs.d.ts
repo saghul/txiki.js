@@ -107,7 +107,7 @@ declare global {
         /**
         * Management for the garbage collection.
         */
-        interface gc {
+        interface IGarbageCollection {
             /**
              * Force garbage collection now.
              */
@@ -124,22 +124,66 @@ declare global {
             threshold: number;
         }
 
+        type CompiledCode = unknown;
+
+        interface IEngine {
+            /**
+             * Compiles the provided code into bytecode ready to be evaluated or serialized.
+             *
+             * @param code The code to be compiled.
+             * @returns The compiled code.
+             */
+            compile: (code: Uint8Array) => CompiledCode;
+
+            /**
+             * Serializes the compiled code into something that can be easily written to a file.
+             *
+             * @param compiledCode The compiled code that needs to be serialized.
+             * @returns Serialized bytecode.
+             */
+            serialize: (compiledCode: CompiledCode) => Uint8Array;
+
+            /**
+             * Deserializes the given bytecode.
+             *
+             * @param bytes The serialized bytecode.
+             * @returns The de-serialized code.
+             */
+            deserialize: (bytes: Uint8Array) => CompiledCode;
+
+            /**
+             * Executes the given compiled code.
+             *
+             * @param code Pre-compiled code that needs to be executed.
+             * @returns A `Promise` resolving to the value returned by the code, if any.
+             */
+            evalBytecode: (code: CompiledCode) => Promise<unknown>;
+
+            /**
+             * Garbage collection management.
+             */
+            gc: IGarbageCollection;
+
+            /**
+            * Versions of all included libraries and txiki.js itself.
+            */
+            versions: {
+                quickjs: string;
+                tjs: string;
+                uv: string;
+                curl: string;
+                wasm3: string;
+                sqlite3: string;
+                mimalloc?: string;
+            };
+        }
+
+        const engine: IEngine;
+
         /**
         * The txiki.js version.
         */
         const version: string;
-        
-        /**
-        * Versions of all included libraries and txiki.js itself.
-        */
-        const versions: {
-            quickjs: string;
-            tjs: string;
-            uv: string;
-            curl: string;
-            wasm3: string;
-            sqlite3: string;
-        };
         
         /**
         * Full path to the txiki.js running executable.

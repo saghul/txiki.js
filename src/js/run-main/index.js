@@ -76,9 +76,9 @@ await (async () => {
         await exef.read(buf, offset);
         await exef.close();
 
-        const bytecode = tjs.deserialize(buf);
+        const bytecode = tjs.engine.deserialize(buf);
 
-        await tjs.evalBytecode(bytecode);
+        await tjs.engine.evalBytecode(bytecode);
 
         tjs.exit(0);
     }
@@ -173,7 +173,7 @@ if (options.help) {
 
         const infilePath = path.parse(infile);
         const data = await tjs.readFile(infile);
-        const bytecode = tjs.serialize(tjs.compile(data, infilePath.base));
+        const bytecode = tjs.engine.serialize(tjs.engine.compile(data, infilePath.base));
         const exe = await tjs.readFile(tjs.exePath);
         const exeSize = exe.length;
         const newBuffer = exe.buffer.transfer(exeSize + bytecode.length + Trailer.Size);
