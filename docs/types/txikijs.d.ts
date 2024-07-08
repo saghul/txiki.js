@@ -396,22 +396,6 @@ declare global {
             isSocket: boolean;
             isSymbolicLink: boolean;
         }
-        
-        /**
-        * Flag used to check in {@link StatResult}'s `st_mode` field.
-        * See [stat(2)](https://man7.org/linux/man-pages/man2/lstat.2.html)
-        * Available values:
-        */
-        const S_IFMT: number;
-        const S_IFIFO: number;
-        const S_IFCHR: number;
-        const S_IFDIR: number;
-        const S_IFBLK: number;
-        const S_IFREG: number;
-        const S_IFSOCK: number;
-        const S_IFLNK: number;
-        const S_ISGID: number;
-        const S_ISUID: number;
 
         /**
         * Gets file status information.
