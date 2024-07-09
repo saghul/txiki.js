@@ -16,7 +16,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
       - name: Publish package
-        working-directory: ./docs
+        working-directory: ./types
         # ensure that the version of the tag is used for publishing
         run: |
           npm version ${GITHUB_REF_NAME#v}
