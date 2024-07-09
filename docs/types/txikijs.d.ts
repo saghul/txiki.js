@@ -482,7 +482,6 @@ declare global {
         *
         * @param path Source path.
         * @param newPath Target path.
-        * @param flags Specify the mode for copying the file.
         */
         function copyFile(path: string, newPath: string): Promise<void>;
         
