@@ -1,0 +1,42 @@
+diff --git a/node_modules/compression-streams-polyfill/esm/ponyfill.mjs b/node_modules/compression-streams-polyfill/esm/ponyfill.mjs
+index 878b1fc..9e88d28 100644
+--- a/node_modules/compression-streams-polyfill/esm/ponyfill.mjs
++++ b/node_modules/compression-streams-polyfill/esm/ponyfill.mjs
+@@ -22,15 +22,7 @@ const wrapSync = (Stream) => {
+     }
+     return AsyncWrappedStream;
+ };
+-// Safari fix
+-let hasWorker = 1;
+-try {
+-    const test = new AsyncDeflate();
+-    test.terminate();
+-}
+-catch (err) {
+-    hasWorker = 0;
+-}
++const hasWorker = 0;
+ const compressors = hasWorker ? {
+     'gzip': AsyncGzip,
+     'deflate': AsyncZlib,
+diff --git a/node_modules/compression-streams-polyfill/lib/ponyfill.js b/node_modules/compression-streams-polyfill/lib/ponyfill.js
+index fda556d..fb4f109 100644
+--- a/node_modules/compression-streams-polyfill/lib/ponyfill.js
++++ b/node_modules/compression-streams-polyfill/lib/ponyfill.js
+@@ -25,15 +25,7 @@ const wrapSync = (Stream) => {
+     }
+     return AsyncWrappedStream;
+ };
+-// Safari fix
+-let hasWorker = 1;
+-try {
+-    const test = new fflate_1.AsyncDeflate();
+-    test.terminate();
+-}
+-catch (err) {
+-    hasWorker = 0;
+-}
++const hasWorker = 0;
+ const compressors = hasWorker ? {
+     'gzip': fflate_1.AsyncGzip,
+     'deflate': fflate_1.AsyncZlib,
