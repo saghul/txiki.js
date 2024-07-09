@@ -43,7 +43,7 @@ async function readStdinLine() {
 }
 
 export async function alert(msg) {
-    if (!tjs.stdin.isTTY) {
+    if (!tjs.stdin.isTerminal) {
         return;
     }
 
@@ -52,7 +52,7 @@ export async function alert(msg) {
 }
 
 export async function confirm(msg = 'Confirm') {
-    if (!tjs.stdin.isTTY) {
+    if (!tjs.stdin.isTerminal) {
         return false;
     }
 
@@ -64,7 +64,7 @@ export async function confirm(msg = 'Confirm') {
 }
 
 export async function prompt(msg = 'Prompt', def = null) {
-    if (!tjs.stdin.isTTY) {
+    if (!tjs.stdin.isTerminal) {
         return null;
     }
 
