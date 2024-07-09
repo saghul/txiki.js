@@ -10,7 +10,7 @@ class BaseIOStream {
         this[kStdioHandleType] = type;
     }
 
-    get isTTY() {
+    get isTerminal() {
         return this.type ===  'tty';
     }
 
@@ -25,8 +25,8 @@ class InputStream extends BaseIOStream {
     }
 
     setRawMode(rawMode) {
-        if (!this.isTTY) {
-            throw new Error('not a TTY');
+        if (!this.isTerminal) {
+            throw new Error('not a terminal');
         }
 
         const ttyMode = rawMode ? core.TTY.TTY_MODE_RAW : core.TTY.TTY_MODE_NORMAL;
@@ -41,16 +41,16 @@ class OutputStream extends BaseIOStream {
     }
 
     get height() {
-        if (!this.isTTY) {
-            throw new Error('not a TTY');
+        if (!this.isTerminal) {
+            throw new Error('not a terminal');
         }
 
         return this[kStdioHandle].getWinSize().height;
     }
 
     get width() {
-        if (!this.isTTY) {
-            throw new Error('not a TTY');
+        if (!this.isTerminal) {
+            throw new Error('not a terminal');
         }
 
         return this[kStdioHandle].getWinSize().width;

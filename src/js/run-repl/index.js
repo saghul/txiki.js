@@ -117,7 +117,7 @@ function _run(g) {
     function termInit() {
         term_width = 80;
 
-        if (tjs.stdin.isTTY) {
+        if (tjs.stdin.isTerminal) {
             /* get the terminal size */
             term_width = tjs.stdout.width;
 

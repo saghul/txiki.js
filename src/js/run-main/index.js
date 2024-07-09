@@ -124,7 +124,7 @@ if (options.help) {
     const [ command, ...subargv ] = options._;
 
     if (!command) {
-        if (core.isStdinTty()) {
+        if (tjs.stdin.isTerminal) {
             core.runRepl();
         } else {
             evalStdin();

@@ -300,7 +300,7 @@ Object.defineProperty(window, 'console', {
     writable: true,
     value: createConsole({
         clearConsole() {
-            if (tjs.stdout.isTTY) {
+            if (tjs.stdout.isTerminal) {
                 tjs.stdout.write(encoder.encode('\x1Bc'));
             }
         },

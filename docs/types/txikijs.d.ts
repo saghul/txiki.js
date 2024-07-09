@@ -643,13 +643,13 @@ declare global {
         type StdioType = 'tty' | 'pipe' | 'file';
         
         interface StdioInputStream extends Reader {
-            isTTY: boolean;
+            isTerminal: boolean;
             type: StdioType;
             setRawMode(enable: boolean): void;
         }
         
         interface StdioOutputStream extends Writer {
-            isTTY: boolean;
+            isTerminal: boolean;
             type: StdioType;
             height: number;
             width: boolean;

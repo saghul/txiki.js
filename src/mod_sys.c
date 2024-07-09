@@ -91,10 +91,6 @@ static JSValue tjs_exepath(JSContext *ctx, JSValue this_val) {
     return ret;
 }
 
-static JSValue tjs_isStdinTty(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    return JS_NewBool(ctx, uv_guess_handle(STDIN_FILENO) == UV_TTY);
-}
-
 static JSValue tjs_randomUUID(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     char v[37];
     unsigned char u[16];
@@ -137,7 +133,6 @@ static JSValue tjs_randomUUID(JSContext *ctx, JSValue this_val, int argc, JSValu
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
     TJS_CFUNC_DEF("evalScript", 1, tjs_evalScript),
-    TJS_CFUNC_DEF("isStdinTty", 0, tjs_isStdinTty),
     TJS_CFUNC_DEF("randomUUID", 0, tjs_randomUUID),
     TJS_CFUNC_DEF("runRepl", 0, tjs_runRepl),
     TJS_CGETSET_DEF("exePath", tjs_exepath, NULL),
