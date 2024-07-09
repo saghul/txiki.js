@@ -834,50 +834,50 @@ declare global {
         * Returns an estimate of the default amount of parallelism a program should use.
         */
         function availableParallelism(): number;
+
+        interface ConsolePrinterOptions {
+            /** output message to stderr instead of stdout */
+            isWarn?: boolean;
+    
+            /** how much to indent the message (level of groups) */
+            indent: number;
+        }
+    
+        /**
+        * Creates a custom `console` object.
+        */
+        function createConsole(opts: {
+            /** function to print messages to somewhere, see https://console.spec.whatwg.org/#printer */
+            printer: (logLevel: string, args: unknown[], options: ConsolePrinterOptions) => void,
+            /** function to handle normal log messages, see https://console.spec.whatwg.org/#logger */
+            logger?: (logLevel: string, args: unknown[], options: ConsolePrinterOptions) => void,
+            /** function to clear the console, e.g. send the ASCII ctrl character */
+            clearConsole?: () => void,
+            /** format given values, either by using a format string as first param or otherwise display values in a well readable format, see https://console.spec.whatwg.org/#formatter */
+            formatter?: (args: unknown[]) => string,
+            /** format js values to be well readable */
+            inspect?: (args: unknown[]) => string,
+        }): typeof console;
+    
+        /**
+         * format any js value to be well readable
+         * @returns resulting string
+         */
+        function inspect(value: unknown, options?: { depth?: number, colors?: boolean, showHidden?: boolean }): string;
+    
+        /**
+         * print format string and insert given values, see https://console.spec.whatwg.org/#formatter
+         * leftover values are appended to the end
+         * @returns resulting string
+         */
+        function format(format: string, ...args: unknown[]): string;
+    
+        /**
+         * format given values to a well readable string 
+         * @returns resulting string
+         */
+        function format(...values: unknown[]): string;
     }
-
-    interface ConsolePrinterOptions {
-        /** output message to stderr instead of stdout */
-        isWarn?: boolean;
-
-        /** how much to indent the message (level of groups) */
-        indent: number;
-    }
-
-    /**
-    * Creates a custom `console` object.
-    */
-    function createConsole(opts: {
-        /** function to print messages to somewhere, see https://console.spec.whatwg.org/#printer */
-        printer: (logLevel: string, args: unknown[], options: ConsolePrinterOptions) => void,
-        /** function to handle normal log messages, see https://console.spec.whatwg.org/#logger */
-        logger?: (logLevel: string, args: unknown[], options: ConsolePrinterOptions) => void,
-        /** function to clear the console, e.g. send the ASCII ctrl character */
-        clearConsole?: () => void,
-        /** format given values, either by using a format string as first param or otherwise display values in a well readable format, see https://console.spec.whatwg.org/#formatter */
-        formatter?: (args: unknown[]) => string,
-        /** format js values to be well readable */
-        inspect?: (args: unknown[]) => string,
-    }): typeof console;
-
-    /**
-     * format any js value to be well readable
-     * @returns resulting string
-     */
-    function inspect(value: unknown, options?: { depth?: number, colors?: boolean, showHidden?: boolean }): string;
-
-    /**
-     * print format string and insert given values, see https://console.spec.whatwg.org/#formatter
-     * leftover values are appended to the end
-     * @returns resulting string
-     */
-    function format(format: string, ...args: unknown[]): string;
-
-    /**
-     * format given values to a well readable string 
-     * @returns resulting string
-     */
-    function format(...values: unknown[]): string;
 }
 
 export {};
