@@ -1,16 +1,16 @@
 {
     "compilerOptions": {
-        "lib": ["ES2020", "dom"],
+        "lib": ["ES2022", "dom"],
         "noImplicitAny": true
     },
     "typedocOptions": {
         "name": "txiki.js",
-        "entryPoints": [ "types/" ],
+        "entryPoints": [ "src/" ],
         "entryPointStrategy": "expand",
         "out": "api/",
         "readme": "intro.md",
         "disableSources": true,
-        "exclude":["types/index.d.ts"],
+        "exclude":["src/index.d.ts"],
         "treatWarningsAsErrors": true
     },
     "watchOptions": {

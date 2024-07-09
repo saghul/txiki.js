@@ -8,5 +8,5 @@ src/js/core.js
 src/js/std.js
 src/version.h
 node_modules/
-docs/api/
+types/api/
 test_dir*/
