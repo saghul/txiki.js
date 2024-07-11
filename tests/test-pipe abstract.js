@@ -2,7 +2,7 @@ import assert from 'tjs:assert';
 
 // Abstract sockets are a Linux only thing.
 
-if (tjs.platform === 'linux') {
+if (tjs.system.platform === 'linux') {
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     const pipeName = '\0testPipe';

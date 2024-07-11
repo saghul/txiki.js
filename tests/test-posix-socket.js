@@ -8,7 +8,7 @@ const fromHexString = (hexString) =>
 function testUdpSock(){
 	const sock = new PosixSocket(PosixSocket.defines.AF_INET, PosixSocket.defines.SOCK_DGRAM, 0);
 	const sockaddr_bind = PosixSocket.createSockaddrIn('0.0.0.0', 12345);
-	if(tjs.platform == 'darwin'){ // macos has a slightly different sockaddr definition
+	if(tjs.system.platform == 'darwin'){ // macos has a slightly different sockaddr definition
 		assert.eq(sockaddr_bind, fromHexString('00023039000000000000000000000000'));
 	}else{
 		assert.eq(sockaddr_bind, fromHexString('02003039000000000000000000000000'));
@@ -20,7 +20,7 @@ function testUdpSock(){
 	assert.eq(sendsz, sendbuf.length);
 	const recv = sock.recvmsg(sendbuf.length, 0);
 	assert.eq(sendbuf, recv.data);
-	if(tjs.platform == 'darwin'){ // macos prefixes sockaddr with length (when coming from kernel), so we just skip it
+	if(tjs.system.platform == 'darwin'){ // macos prefixes sockaddr with length (when coming from kernel), so we just skip it
 		assert.eq(sockaddr_rem.slice(1), recv.addr.slice(1));
 	}else{
 		assert.eq(sockaddr_rem, recv.addr);
@@ -31,7 +31,7 @@ function testUdpSock(){
 async function testTcpSock(){
 	const sock = new PosixSocket(PosixSocket.defines.AF_INET, PosixSocket.defines.SOCK_STREAM, 0);
 	const sockaddr_bind = PosixSocket.createSockaddrIn('0.0.0.0', 55678);
-	if(tjs.platform == 'darwin'){ // macos has a slightly different sockaddr definition
+	if(tjs.system.platform == 'darwin'){ // macos has a slightly different sockaddr definition
 		assert.eq(sockaddr_bind, fromHexString('0002d97e000000000000000000000000'));
 	}else{
 		assert.eq(sockaddr_bind, fromHexString('0200d97e000000000000000000000000'));
@@ -44,7 +44,7 @@ async function testTcpSock(){
 	assert.throws(()=>sock.getopt(PosixSocket.defines.SOL_SOCKET, PosixSocket.defines.SO_REUSEADDR, 0));
 	assert.throws(()=>sock.getopt(PosixSocket.defines.SOL_SOCKET, PosixSocket.defines.SO_BINDTODEVICE, 1));
 	const optval2 = sock.getopt(PosixSocket.defines.SOL_SOCKET, PosixSocket.defines.SO_REUSEADDR, 4);
-	if(tjs.platform != 'darwin'){ // skip this one on macos, the result there seems to be different
+	if(tjs.system.platform != 'darwin'){ // skip this one on macos, the result there seems to be different
 		assert.eq(optval, optval2);
 	}
 	
@@ -99,7 +99,7 @@ async function testPoll(){
 }
 
 function testHelpers(){
-	const nis = tjs.networkInterfaces();
+	const nis = tjs.system.networkInterfaces;
 	for(const ni of nis){
 		const ind = PosixSocket.nametoindex(ni.name);
 		assert.truthy(ind >= 0);
@@ -113,7 +113,7 @@ function testHelpers(){
 }
 
 async function run(){
-	if(tjs.platform == 'windows'){
+	if(tjs.system.platform == 'windows'){
 		// This module is only supported on Unix systems.
 		return;
 	}

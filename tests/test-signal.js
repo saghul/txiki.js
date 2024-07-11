@@ -1,6 +1,6 @@
 import assert from 'tjs:assert';
 
-if (tjs.platform === 'windows') {
+if (tjs.system.platform === 'windows') {
     /* Signals emulated on Windows do not allow this to be tested
      * by sending a signal via kill(), so don't continue the test.
      */

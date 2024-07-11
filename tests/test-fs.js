@@ -43,14 +43,14 @@ async function mkdir() {
     const result = await tjs.stat(path);
     assert.ok(result.isDirectory, 'directory was created ok');
     /* NOTE: File permission mode not supported on Windows. */
-    if (tjs.platform !== 'windows')
+    if (tjs.system.platform !== 'windows')
       assert.eq(result.mode & ~s_ifmt, s_irwxu);
     await tjs.remove(path);
 };
 
 async function chmod() {
     /* NOTE: File permission mode not supported on Windows. */
-    if (tjs.platform === 'windows')
+    if (tjs.system.platform === 'windows')
       return;
 
     const path = `./test_mkdir${tjs.pid}`;
