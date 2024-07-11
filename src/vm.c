@@ -272,8 +272,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     tjs__bootstrap_core(qrt->ctx, core);
 
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__polyfills, tjs__polyfills_size), 0);
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__core, tjs__core_size), 0);
+    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__polyfills, tjs__polyfills_size, true), 0);
+    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__core, tjs__core_size, true), 0);
 
     /* end bootstrap */
     JS_FreeAtom(qrt->ctx, core_atom);
@@ -420,7 +420,7 @@ int TJS_Run(TJSRuntime *qrt) {
         uv_unref((uv_handle_t *) &qrt->stop);
 
         /* If we are running the main interpreter, run the entrypoint. */
-        ret = tjs__eval_bytecode(qrt->ctx, tjs__run_main, tjs__run_main_size);
+        ret = tjs__eval_bytecode(qrt->ctx, tjs__run_main, tjs__run_main_size, true);
     }
 
     if (ret != 0)

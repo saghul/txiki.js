@@ -25,7 +25,7 @@
 #include "private.h"
 
 
-int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
+int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len, bool check_promise) {
     JSValue obj = JS_ReadObject(ctx, buf, buf_len, JS_READ_OBJ_BYTECODE);
 
     if (JS_IsException(obj))
@@ -43,6 +43,21 @@ int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len) {
     JSValue val = JS_EvalFunction(ctx, obj);
     if (JS_IsException(val))
         goto error;
+
+    if (check_promise) {
+        JSPromiseStateEnum promise_state = JS_PromiseState(ctx, val);
+        if (promise_state != -1) {
+            // It's a promise!
+            if (promise_state == JS_PROMISE_REJECTED) {
+                JSValue res = JS_PromiseResult(ctx, val);
+                tjs_dump_error1(ctx, res);
+                JS_FreeValue(ctx, res);
+                JS_FreeValue(ctx, val);
+
+                return -1;
+            }
+        }
+    }
 
     JS_FreeValue(ctx, val);
 

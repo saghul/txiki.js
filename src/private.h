@@ -101,7 +101,7 @@ int js_module_set_import_meta(JSContext *ctx, JSValue func_val, JS_BOOL use_real
 
 JSValue tjs__get_args(JSContext *ctx);
 
-int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len);
+int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len, bool check_promise);
 
 void tjs__destroy_timers(TJSRuntime *qrt);
 
