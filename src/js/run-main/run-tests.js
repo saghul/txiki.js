@@ -39,7 +39,7 @@ class Test {
         this._stdout = this._slurpStdio(this._proc.stdout);
         this._stderr = this._slurpStdio(this._proc.stderr);
         this._timer = setTimeout(() => {
-            this._proc.kill(tjs.SIGKILL);
+            this._proc.kill('SIGKILL');
             this._timeout = true;
         }, TIMEOUT);
         this._proc_exit = this._proc.wait();
