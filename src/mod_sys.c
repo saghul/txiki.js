@@ -58,7 +58,7 @@ static JSValue tjs_evalScript(JSContext *ctx, JSValue this_val, int argc, JSValu
 }
 
 static JSValue tjs_runRepl(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs__eval_bytecode(ctx, tjs__run_repl, tjs__run_repl_size);
+    tjs__eval_bytecode(ctx, tjs__run_repl, tjs__run_repl_size, false);
 
     return JS_UNDEFINED;
 }
