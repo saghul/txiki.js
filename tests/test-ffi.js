@@ -4,7 +4,7 @@ import initCParser from '../src/js/stdlib/ffi/ffiutils.js';
 
 (function(){
 	let sopath = './build/libffi-test.so';
-	switch(tjs.platform){
+	switch(tjs.system.platform){
 		case 'linux':
 			sopath = './build/libffi-test.so';
 			break;

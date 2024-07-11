@@ -12,7 +12,7 @@ const status = await proc.wait();
 
 assert.ok(status.exit_status === 0 && status.term_signal === null, 'succeeded');
 
-const newExe = tjs.platform === 'windows' ? 'hello.exe' : 'hello';
+const newExe = tjs.system.platform === 'windows' ? 'hello.exe' : 'hello';
 
 const st = await tjs.stat(newExe);
 

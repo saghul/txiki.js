@@ -9,6 +9,7 @@ import pathModule from './path.js';
 import { addSignalListener, removeSignalListener } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
+import system from './system.js';
 
 
 // The "tjs" global.
@@ -19,12 +20,10 @@ const tjs = Object.create(null);
 // Export these properties directly from the core.
 const exports = [
     'Error',
-    'availableParallelism',
     'chdir',
     'chmod',
     'chown',
     'copyFile',
-    'cpuInfo',
     'createConsole',
     'cwd',
     'exePath',
@@ -36,12 +35,9 @@ const exports = [
     'inspect',
     'kill',
     'lchown',
-    'loadavg',
     'lstat',
     'makeTempDir',
-    'networkInterfaces',
     'pid',
-    'platform',
     'ppid',
     'readDir',
     'readFile',
@@ -50,9 +46,6 @@ const exports = [
     'spawn',
     'stat',
     'tmpDir',
-    'uname',
-    'uptime',
-    'userInfo',
     'version',
     'watch'
 ];
@@ -181,6 +174,14 @@ Object.defineProperty(tjs, 'stderr', {
     configurable: false,
     writable: false,
     value: createStderr()
+});
+
+// System.
+Object.defineProperty(tjs, 'system', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: system
 });
 
 // Internal stuff needed by the runtime.

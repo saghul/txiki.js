@@ -208,11 +208,6 @@ declare global {
         const hostName: string;
         
         /**
-        * String representation of the current platform.
-        */
-        const platform: 'linux' | 'darwin' | 'windows';
-        
-        /**
         * Exit the current running program.
         *
         * @param code Program exit code.
@@ -574,23 +569,6 @@ declare global {
         */
         function watch(path: string, handler: WatchEventHandler): FileWatcher;
         
-        interface Uname {
-            sysname: string;
-            release: string;
-            version: string;
-            machine: string;
-        }
-        
-        /**
-        * Obtain system information.
-        */
-        function uname(): Uname;
-        
-        /**
-        * Get system uptime.
-        */
-        function uptime(): number;
-        
         /**
         * The current user's home directory.
         */
@@ -600,45 +578,6 @@ declare global {
         * The path to the current temporary directory.
         */
         const tmpDir: string;
-        
-        /**
-        * Gets the system load average.
-        * See [getloadavg(3)](https://man7.org/linux/man-pages/man3/getloadavg.3.html)
-        */
-        function loadavg(): [ number, number, number ];
-        
-        interface CpuTimes {
-            user: number;
-            nice: number;
-            sys: number;
-            idle: number;
-            irq: number;
-        }
-        
-        interface CpuInfo {
-            model: string;
-            speed: number;
-            times: CpuTimes;
-        }
-        
-        /**
-        * Gets information about the CPUs in the system.
-        */
-        function cpuInfo(): CpuInfo[];
-        
-        interface NetworkInterface {
-            name: string;
-            address: string;
-            mac: string;
-            scopeId?: number;
-            netmask: string;
-            internal: boolean;
-        }
-        
-        /**
-        * Gets information about the network interfaces in the system.
-        */
-        function networkInterfaces(): NetworkInterface[];
         
         type StdioType = 'tty' | 'pipe' | 'file';
         
@@ -825,15 +764,81 @@ declare global {
             homeDir: string | null;
         }
         
-        /**
-        * Current user information from the password database.
-        */
-        const userInfo: UserInfo;
+        interface CpuTimes {
+            user: number;
+            nice: number;
+            sys: number;
+            idle: number;
+            irq: number;
+        }
         
+        interface CpuInfo {
+            model: string;
+            speed: number;
+            times: CpuTimes;
+        }
+        
+        interface NetworkInterface {
+            name: string;
+            address: string;
+            mac: string;
+            scopeId?: number;
+            netmask: string;
+            internal: boolean;
+        }
+
+        interface ISystem {
+            /**
+             * Machine architecture.
+             */
+            arch: string;
+
+            /**
+            * An estimate of the default amount of parallelism a program should use.
+            */
+            availableParallelism: number;
+
+            /**
+            * Information about the CPUs in the system.
+            */
+            cpus: CpuInfo[];
+
+            /**
+            * System load average.
+            * See [getloadavg(3)](https://man7.org/linux/man-pages/man3/getloadavg.3.html)
+            */
+            loadAvg: [ number, number, number ];
+
+            /**
+            * Information about the network interfaces in the system.
+            */
+            networkInterfaces: NetworkInterface[];
+
+            /**
+             * Operating System kernel version.
+             */
+            osRelease: string;
+
+            /**
+            * Current platform.
+            */
+            platform: 'linux' | 'darwin' | 'windows';
+
+            /**
+            * System uptime.
+            */
+            uptime: number;
+
+            /**
+            * Current user information from the password database.
+            */
+            userInfo: UserInfo;
+        }
+
         /**
-        * Returns an estimate of the default amount of parallelism a program should use.
-        */
-        function availableParallelism(): number;
+         * System information.
+         */
+        const system: ISystem;
 
         interface ConsolePrinterOptions {
             /** output message to stderr instead of stdout */
