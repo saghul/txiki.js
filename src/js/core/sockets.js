@@ -1,4 +1,4 @@
-import { lookup } from './lookup.js';
+import { isIP, lookup } from './lookup.js';
 import { readableStreamForHandle, writableStreamForHandle } from './stream-utils.js';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
@@ -106,7 +106,16 @@ async function resolveAddress(transport, host, port) {
 
         // eslint-disable-next-line no-fallthrough
         case 'udp': {
-            const r = await lookup(host ?? '0.0.0.0');
+            const h = host ?? '0.0.0.0';
+
+            if (isIP(h)) {
+                return {
+                    ip: h,
+                    port
+                };
+            }
+
+            const r = await lookup(h);
 
             return {
                 ...r,
