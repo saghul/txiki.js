@@ -4,6 +4,7 @@ import './global.js';
 import './timers.js';
 import './dom-exception.js';
 import './event-target-polyfill.js';
+import './structured-clone.js';
 
 import './abba.js';
 import './text-encoding.js';
