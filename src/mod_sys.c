@@ -63,6 +63,16 @@ static JSValue tjs_runRepl(JSContext *ctx, JSValue this_val, int argc, JSValue *
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_isArrayBuffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    return JS_NewBool(ctx, JS_IsArrayBuffer(argv[0]));
+}
+
+static JSValue tjs_detachArrayBuffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    JS_DetachArrayBuffer(ctx, argv[0]);
+
+    return JS_UNDEFINED;
+}
+
 static JSValue tjs_exepath(JSContext *ctx, JSValue this_val) {
     char buf[1024];
     size_t size = sizeof(buf);
@@ -135,6 +145,8 @@ static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("evalScript", 1, tjs_evalScript),
     TJS_CFUNC_DEF("randomUUID", 0, tjs_randomUUID),
     TJS_CFUNC_DEF("runRepl", 0, tjs_runRepl),
+    TJS_CFUNC_DEF("isArrayBuffer", 1, tjs_isArrayBuffer),
+    TJS_CFUNC_DEF("detachArrayBuffer", 1, tjs_detachArrayBuffer),
     TJS_CGETSET_DEF("exePath", tjs_exepath, NULL),
 };
 /* clang-format on */
