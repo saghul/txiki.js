@@ -390,8 +390,12 @@ void tjs__execute_jobs(JSContext *ctx) {
     for (;;) {
         err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
         if (err <= 0) {
-            if (err < 0)
-                tjs_dump_error(ctx1);
+            if (err < 0) {
+                TJSRuntime *qrt = TJS_GetRuntime(ctx);
+                CHECK_NOT_NULL(qrt);
+                TJS_Stop(qrt);
+            }
+
             break;
         }
     }
