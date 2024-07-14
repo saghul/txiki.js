@@ -48,28 +48,29 @@ class Worker extends EventTarget {
         }
 
         const worker = new _Worker(specifier, source);
+        const messagePipe = worker.messagePipe;
 
-        worker.onmessage = msg => {
+        messagePipe.onmessage = msg => {
             this.dispatchEvent(new MessageEvent('message', msg));
         };
 
-        worker.onmessageerror = msgerror => {
+        messagePipe.onmessageerror = msgerror => {
             this.dispatchEvent(new MessageEvent('messageerror', msgerror));
-        };
-
-        worker.onerror = error => {
-            this.dispatchEvent(new ErrorEvent(error));
         };
 
         this[kWorker] = worker;
     }
 
     postMessage(message) {
-        this[kWorker].postMessage(message);
+        this[kWorker].messagePipe.postMessage(message);
     }
 
     terminate() {
         this[kWorker].terminate();
+    }
+
+    get [Symbol.toStringTag]() {
+        return 'Worker';
     }
 }
 
