@@ -73,10 +73,8 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValue *argv) {
     JSValue ret;
 
     specifier = JS_ToCString(ctx, argv[0]);
-    if (!specifier) {
-        tjs_dump_error(ctx);
+    if (!specifier)
         goto error;
-    }
 
     if (!JS_IsUndefined(argv[1])) {
         size_t len;
@@ -89,7 +87,6 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValue *argv) {
     JS_FreeCString(ctx, specifier);
 
     if (JS_IsException(ret)) {
-        tjs_dump_error(ctx);
         JS_FreeValue(ctx, ret);
         goto error;
     }
