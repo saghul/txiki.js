@@ -32,13 +32,223 @@ extern const uint8_t tjs__worker_bootstrap[];
 extern const uint32_t tjs__worker_bootstrap_size;
 
 enum {
-    WORKER_EVENT_MESSAGE = 0,
-    WORKER_EVENT_MESSAGE_ERROR,
-    WORKER_EVENT_ERROR,
-    WORKER_EVENT_MAX,
+    MSGPIPE_EVENT_MESSAGE = 0,
+    MSGPIPE_EVENT_MESSAGE_ERROR,
+    MSGPIPE_EVENT_MAX,
 };
 
-static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_main);
+static JSClassID tjs_msgpipe_class_id;
+
+typedef struct {
+    JSContext *ctx;
+    union {
+        uv_handle_t handle;
+        uv_stream_t stream;
+        uv_tcp_t tcp;
+    } h;
+    JSValue events[MSGPIPE_EVENT_MAX];
+} TJSMessagePipe;
+
+typedef struct {
+    uv_write_t req;
+    uint8_t *data;
+} TJSMessagePipeWriteReq;
+
+static void uv__close_cb(uv_handle_t *handle) {
+    TJSMessagePipe *p = handle->data;
+    CHECK_NOT_NULL(p);
+    tjs__free(p);
+}
+
+static void tjs_msgpipe_finalizer(JSRuntime *rt, JSValue val) {
+    TJSMessagePipe *p = JS_GetOpaque(val, tjs_msgpipe_class_id);
+    if (p) {
+        for (int i = 0; i < MSGPIPE_EVENT_MAX; i++)
+            JS_FreeValueRT(rt, p->events[i]);
+        uv_close(&p->h.handle, uv__close_cb);
+    }
+}
+
+static void tjs_msgpipe_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
+    TJSMessagePipe *p = JS_GetOpaque(val, tjs_msgpipe_class_id);
+    if (p) {
+        for (int i = 0; i < MSGPIPE_EVENT_MAX; i++)
+            JS_MarkValue(rt, p->events[i], mark_func);
+    }
+}
+
+static JSClassDef tjs_msgpipe_class = {
+    "MessagePipe",
+    .finalizer = tjs_msgpipe_finalizer,
+    .gc_mark = tjs_msgpipe_mark,
+};
+
+static TJSMessagePipe *tjs_msgpipe_get(JSContext *ctx, JSValue obj) {
+    return JS_GetOpaque2(ctx, obj, tjs_msgpipe_class_id);
+}
+
+static JSValue emit_event(JSContext *ctx, int argc, JSValue *argv) {
+    CHECK_EQ(argc, 2);
+
+    JSValue func = argv[0];
+    JSValue arg = argv[1];
+
+    tjs_call_handler(ctx, func, 1, &arg);
+
+    JS_FreeValue(ctx, func);
+    JS_FreeValue(ctx, arg);
+
+    return JS_UNDEFINED;
+}
+
+static void emit_msgpipe_event(TJSMessagePipe *p, int event, JSValue arg) {
+    JSContext *ctx = p->ctx;
+    JSValue event_func = p->events[event];
+    if (!JS_IsFunction(ctx, event_func))
+        return;
+
+    JSValue args[2];
+    args[0] = JS_DupValue(ctx, event_func);
+    args[1] = JS_DupValue(ctx, arg);
+    CHECK_EQ(JS_EnqueueJob(ctx, emit_event, 2, (JSValue *) &args), 0);
+}
+
+static void uv__alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
+    TJSMessagePipe *p = handle->data;
+    CHECK_NOT_NULL(p);
+
+    buf->base = js_malloc(p->ctx, suggested_size);
+    buf->len = suggested_size;
+}
+
+static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
+    TJSMessagePipe *p = handle->data;
+    CHECK_NOT_NULL(p);
+
+    JSContext *ctx = p->ctx;
+
+    if (nread < 0) {
+        uv_read_stop(&p->h.stream);
+        js_free(ctx, buf->base);
+        if (nread != UV_EOF) {
+            JSValue error = tjs_new_error(ctx, nread);
+            emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE_ERROR, error);
+            JS_FreeValue(ctx, error);
+        }
+        return;
+    }
+
+    // TODO: the entire object might not have come in a single packet.
+    int flags = JS_READ_OBJ_REFERENCE;
+    JSValue obj = JS_ReadObject(ctx, (const uint8_t *) buf->base, buf->len, flags);
+    if (JS_IsException(obj))
+        emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE_ERROR, JS_GetException(ctx));
+    else
+        emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE, obj);
+    JS_FreeValue(ctx, obj);
+    js_free(ctx, buf->base);
+}
+
+static JSValue tjs_new_msgpipe(JSContext *ctx, uv_os_sock_t fd) {
+    JSValue obj = JS_NewObjectClass(ctx, tjs_msgpipe_class_id);
+    if (JS_IsException(obj))
+        return obj;
+
+    TJSMessagePipe *p = tjs__mallocz(sizeof(*p));
+    if (!p) {
+        JS_FreeValue(ctx, obj);
+        return JS_ThrowOutOfMemory(ctx);
+    }
+
+    p->ctx = ctx;
+    p->h.handle.data = p;
+    p->events[0] = JS_UNDEFINED;
+    p->events[1] = JS_UNDEFINED;
+
+    CHECK_EQ(uv_tcp_init(tjs_get_loop(ctx), &p->h.tcp), 0);
+    CHECK_EQ(uv_tcp_open(&p->h.tcp, fd), 0);
+    CHECK_EQ(uv_read_start(&p->h.stream, uv__alloc_cb, uv__read_cb), 0);
+
+    JS_SetOpaque(obj, p);
+    return obj;
+}
+
+static void uv__write_cb(uv_write_t *req, int status) {
+    TJSMessagePipeWriteReq *wr = req->data;
+    CHECK_NOT_NULL(wr);
+
+    TJSMessagePipe *p = req->handle->data;
+    CHECK_NOT_NULL(p);
+
+    JSContext *ctx = p->ctx;
+
+    if (status < 0) {
+        JSValue error = tjs_new_error(ctx, status);
+        emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE_ERROR, error);
+        JS_FreeValue(ctx, error);
+    }
+
+    js_free(ctx, wr->data);
+    js_free(ctx, wr);
+}
+
+static JSValue tjs_msgpipe_postmessage(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSMessagePipe *p = tjs_msgpipe_get(ctx, this_val);
+    if (!p)
+        return JS_EXCEPTION;
+
+    TJSMessagePipeWriteReq *wr = js_malloc(ctx, sizeof(*wr));
+    if (!wr)
+        return JS_EXCEPTION;
+
+    size_t len;
+    int flags = JS_WRITE_OBJ_REFERENCE | JS_WRITE_OBJ_STRIP_SOURCE;
+    uint8_t *buf = JS_WriteObject(ctx, &len, argv[0], flags);
+    if (!buf) {
+        js_free(ctx, wr);
+        return JS_EXCEPTION;
+    }
+
+    wr->req.data = wr;
+    wr->data = buf;
+
+    uv_buf_t b = uv_buf_init((char *) buf, len);
+    int r = uv_write(&wr->req, &p->h.stream, &b, 1, uv__write_cb);
+    if (r != 0) {
+        js_free(ctx, buf);
+        js_free(ctx, wr);
+
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return JS_UNDEFINED;
+}
+
+static JSValue tjs_msgpipe_event_get(JSContext *ctx, JSValue this_val, int magic) {
+    TJSMessagePipe *p = tjs_msgpipe_get(ctx, this_val);
+    if (!p)
+        return JS_EXCEPTION;
+    return JS_DupValue(ctx, p->events[magic]);
+}
+
+static JSValue tjs_msgpipe_event_set(JSContext *ctx, JSValue this_val, JSValue value, int magic) {
+    TJSMessagePipe *p = tjs_msgpipe_get(ctx, this_val);
+    if (!p)
+        return JS_EXCEPTION;
+    if (JS_IsFunction(ctx, value) || JS_IsUndefined(value) || JS_IsNull(value)) {
+        JS_FreeValue(ctx, p->events[magic]);
+        p->events[magic] = JS_DupValue(ctx, value);
+    }
+    return JS_UNDEFINED;
+}
+
+static const JSCFunctionListEntry tjs_msgpipe_proto_funcs[] = {
+    TJS_CFUNC_DEF("postMessage", 1, tjs_msgpipe_postmessage),
+    JS_CGETSET_MAGIC_DEF("onmessage", tjs_msgpipe_event_get, tjs_msgpipe_event_set, MSGPIPE_EVENT_MESSAGE),
+    JS_CGETSET_MAGIC_DEF("onmessageerror", tjs_msgpipe_event_get, tjs_msgpipe_event_set, MSGPIPE_EVENT_MESSAGE_ERROR),
+};
+
+static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd);
 
 static JSClassID tjs_worker_class_id;
 
@@ -52,21 +262,10 @@ typedef struct {
 
 typedef struct {
     JSContext *ctx;
-    union {
-        uv_handle_t handle;
-        uv_stream_t stream;
-        uv_tcp_t tcp;
-    } h;
-    JSValue events[WORKER_EVENT_MAX];
     uv_thread_t tid;
+    JSValue message_pipe;
     TJSRuntime *wrt;
-    bool is_main;
 } TJSWorker;
-
-typedef struct {
-    uv_write_t req;
-    uint8_t *data;
-} TJSWorkerWriteReq;
 
 static JSValue worker_eval(JSContext *ctx, int argc, JSValue *argv) {
     const char *specifier;
@@ -112,10 +311,10 @@ static void worker_entry(void *arg) {
 
     /* Bootstrap the worker scope. */
     JSValue global_obj = JS_GetGlobalObject(ctx);
-    JSValue worker_obj = tjs_new_worker(ctx, wd->channel_fd, false);
-    JSValue sym = JS_NewSymbol(ctx, "tjs.internal.worker", TRUE);
+    JSValue message_pipe = tjs_new_msgpipe(ctx, wd->channel_fd);
+    JSValue sym = JS_NewSymbol(ctx, "tjs.internal.worker.messagePipe", TRUE);
     JSAtom atom = JS_ValueToAtom(ctx, sym);
-    JS_DefinePropertyValue(ctx, global_obj, atom, worker_obj, JS_PROP_C_W_E);
+    JS_DefinePropertyValue(ctx, global_obj, atom, message_pipe, JS_PROP_C_W_E);
     JS_FreeAtom(ctx, atom);
     JS_FreeValue(ctx, sym);
     JS_FreeValue(ctx, global_obj);
@@ -142,26 +341,17 @@ static void worker_entry(void *arg) {
     TJS_FreeRuntime(wrt);
 }
 
-static void uv__close_cb(uv_handle_t *handle) {
-    TJSWorker *w = handle->data;
-    CHECK_NOT_NULL(w);
-    tjs__free(w);
-}
-
 static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
     TJSWorker *w = JS_GetOpaque(val, tjs_worker_class_id);
     if (w) {
-        for (int i = 0; i < WORKER_EVENT_MAX; i++)
-            JS_FreeValueRT(rt, w->events[i]);
-        uv_close(&w->h.handle, uv__close_cb);
+        JS_FreeValueRT(rt, w->message_pipe);
     }
 }
 
 static void tjs_worker_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     TJSWorker *w = JS_GetOpaque(val, tjs_worker_class_id);
     if (w) {
-        for (int i = 0; i < WORKER_EVENT_MAX; i++)
-            JS_MarkValue(rt, w->events[i], mark_func);
+        JS_MarkValue(rt, w->message_pipe, mark_func);
     }
 }
 
@@ -175,65 +365,7 @@ static TJSWorker *tjs_worker_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_worker_class_id);
 }
 
-static JSValue emit_event(JSContext *ctx, int argc, JSValue *argv) {
-    CHECK_EQ(argc, 2);
-
-    JSValue func = argv[0];
-    JSValue arg = argv[1];
-
-    tjs_call_handler(ctx, func, 1, &arg);
-
-    JS_FreeValue(ctx, func);
-    JS_FreeValue(ctx, arg);
-
-    return JS_UNDEFINED;
-}
-
-static void maybe_emit_event(TJSWorker *w, int event, JSValue arg) {
-    JSContext *ctx = w->ctx;
-    JSValue event_func = w->events[event];
-    if (!JS_IsFunction(ctx, event_func))
-        return;
-
-    JSValue args[2];
-    args[0] = JS_DupValue(ctx, event_func);
-    args[1] = JS_DupValue(ctx, arg);
-    CHECK_EQ(JS_EnqueueJob(ctx, emit_event, 2, (JSValue *) &args), 0);
-}
-
-static void uv__alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-    TJSWorker *w = handle->data;
-    CHECK_NOT_NULL(w);
-
-    buf->base = js_malloc(w->ctx, suggested_size);
-    buf->len = suggested_size;
-}
-
-static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
-    TJSWorker *w = handle->data;
-    CHECK_NOT_NULL(w);
-
-    JSContext *ctx = w->ctx;
-
-    if (nread < 0) {
-        uv_read_stop(&w->h.stream);
-        js_free(ctx, buf->base);
-        if (nread != UV_EOF) {
-            JSValue error = tjs_new_error(ctx, nread);
-            maybe_emit_event(w, WORKER_EVENT_ERROR, error);
-            JS_FreeValue(ctx, error);
-        }
-        return;
-    }
-
-    // TODO: the entire object might not have come in a single packet. Use netstrings.
-    JSValue obj = JS_ReadObject(ctx, (const uint8_t *) buf->base, buf->len, 0);
-    maybe_emit_event(w, WORKER_EVENT_MESSAGE, obj);
-    JS_FreeValue(ctx, obj);
-    js_free(ctx, buf->base);
-}
-
-static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_main) {
+static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd) {
     JSValue obj = JS_NewObjectClass(ctx, tjs_worker_class_id);
     if (JS_IsException(obj))
         return obj;
@@ -245,16 +377,13 @@ static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd, bool is_m
     }
 
     w->ctx = ctx;
-    w->is_main = is_main;
-    w->h.handle.data = w;
+    w->message_pipe = tjs_new_msgpipe(ctx, channel_fd);
 
-    CHECK_EQ(uv_tcp_init(tjs_get_loop(ctx), &w->h.tcp), 0);
-    CHECK_EQ(uv_tcp_open(&w->h.tcp, channel_fd), 0);
-    CHECK_EQ(uv_read_start(&w->h.stream, uv__alloc_cb, uv__read_cb), 0);
-
-    w->events[0] = JS_UNDEFINED;
-    w->events[1] = JS_UNDEFINED;
-    w->events[2] = JS_UNDEFINED;
+    if (JS_IsException(w->message_pipe)) {
+        JS_FreeValue(ctx, obj);
+        tjs__free(w);
+        return JS_EXCEPTION;
+    }
 
     JS_SetOpaque(obj, w);
     return obj;
@@ -272,7 +401,7 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValue new_target, int ar
         return tjs_throw_errno(ctx, r);
     }
 
-    JSValue obj = tjs_new_worker(ctx, fds[0], true);
+    JSValue obj = tjs_new_worker(ctx, fds[0]);
     if (JS_IsException(obj)) {
         close(fds[0]);
         close(fds[1]);
@@ -312,60 +441,11 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValue new_target, int ar
     return obj;
 }
 
-static void uv__write_cb(uv_write_t *req, int status) {
-    TJSWorkerWriteReq *wr = req->data;
-    CHECK_NOT_NULL(wr);
-
-    TJSWorker *w = req->handle->data;
-    CHECK_NOT_NULL(w);
-
-    JSContext *ctx = w->ctx;
-
-    if (status < 0) {
-        JSValue error = tjs_new_error(ctx, status);
-        maybe_emit_event(w, WORKER_EVENT_MESSAGE_ERROR, error);
-        JS_FreeValue(ctx, error);
-    }
-
-    js_free(ctx, wr->data);
-    js_free(ctx, wr);
-}
-
-static JSValue tjs_worker_postmessage(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSWorker *w = tjs_worker_get(ctx, this_val);
-    if (!w)
-        return JS_EXCEPTION;
-
-    TJSWorkerWriteReq *wr = js_malloc(ctx, sizeof(*wr));
-    if (!wr)
-        return JS_EXCEPTION;
-
-    size_t len;
-    uint8_t *buf = JS_WriteObject(ctx, &len, argv[0], 0);
-    if (!buf) {
-        js_free(ctx, wr);
-        return JS_EXCEPTION;
-    }
-
-    wr->req.data = wr;
-    wr->data = buf;
-
-    uv_buf_t b = uv_buf_init((char *) buf, len);
-    int r = uv_write(&wr->req, &w->h.stream, &b, 1, uv__write_cb);
-    if (r != 0) {
-        js_free(ctx, buf);
-        js_free(ctx, wr);
-        return JS_EXCEPTION;
-    }
-
-    return JS_UNDEFINED;
-}
-
 static JSValue tjs_worker_terminate(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWorker *w = tjs_worker_get(ctx, this_val);
     if (!w)
         return JS_EXCEPTION;
-    if (w->is_main && w->wrt) {
+    if (w->wrt) {
         TJS_Stop(w->wrt);
         CHECK_EQ(uv_thread_join(&w->tid), 0);
         uv_update_time(tjs_get_loop(ctx));
@@ -374,31 +454,16 @@ static JSValue tjs_worker_terminate(JSContext *ctx, JSValue this_val, int argc, 
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_worker_event_get(JSContext *ctx, JSValue this_val, int magic) {
+static JSValue tjs_worker_get_msgpipe(JSContext *ctx, JSValue this_val) {
     TJSWorker *w = tjs_worker_get(ctx, this_val);
     if (!w)
         return JS_EXCEPTION;
-    return JS_DupValue(ctx, w->events[magic]);
-}
-
-static JSValue tjs_worker_event_set(JSContext *ctx, JSValue this_val, JSValue value, int magic) {
-    TJSWorker *w = tjs_worker_get(ctx, this_val);
-    if (!w)
-        return JS_EXCEPTION;
-    if (JS_IsFunction(ctx, value) || JS_IsUndefined(value) || JS_IsNull(value)) {
-        JS_FreeValue(ctx, w->events[magic]);
-        w->events[magic] = JS_DupValue(ctx, value);
-    }
-    return JS_UNDEFINED;
+    return JS_DupValue(ctx, w->message_pipe);
 }
 
 static const JSCFunctionListEntry tjs_worker_proto_funcs[] = {
-    TJS_CFUNC_DEF("postMessage", 1, tjs_worker_postmessage),
     TJS_CFUNC_DEF("terminate", 0, tjs_worker_terminate),
-    JS_CGETSET_MAGIC_DEF("onmessage", tjs_worker_event_get, tjs_worker_event_set, WORKER_EVENT_MESSAGE),
-    JS_CGETSET_MAGIC_DEF("onmessageerror", tjs_worker_event_get, tjs_worker_event_set, WORKER_EVENT_MESSAGE_ERROR),
-    JS_CGETSET_MAGIC_DEF("onerror", tjs_worker_event_get, tjs_worker_event_set, WORKER_EVENT_ERROR),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Worker", JS_PROP_CONFIGURABLE),
+    TJS_CGETSET_DEF("messagePipe", tjs_worker_get_msgpipe, NULL),
 };
 
 void tjs__mod_worker_init(JSContext *ctx, JSValue ns) {
@@ -415,4 +480,11 @@ void tjs__mod_worker_init(JSContext *ctx, JSValue ns) {
     /* Worker object */
     obj = JS_NewCFunction2(ctx, tjs_worker_constructor, "Worker", 2, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx, ns, "Worker", obj, JS_PROP_C_W_E);
+
+    /* MessagePipe class */
+    JS_NewClassID(rt, &tjs_msgpipe_class_id);
+    JS_NewClass(rt, tjs_msgpipe_class_id, &tjs_msgpipe_class);
+    proto = JS_NewObject(ctx);
+    JS_SetPropertyFunctionList(ctx, proto, tjs_msgpipe_proto_funcs, countof(tjs_msgpipe_proto_funcs));
+    JS_SetClassProto(ctx, tjs_msgpipe_class_id, proto);
 }

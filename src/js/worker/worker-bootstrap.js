@@ -1,19 +1,15 @@
 (function () {
-    const worker = globalThis[Symbol.for('tjs.internal.worker')];
+    const messagePipe = globalThis[Symbol.for('tjs.internal.worker.messagePipe')];
 
-    worker.onmessage = msg => {
+    messagePipe.onmessage = msg => {
         self.dispatchEvent(new MessageEvent('message', msg));
     };
 
-    worker.onmessageerror = msgerror => {
+    messagePipe.onmessageerror = msgerror => {
         self.dispatchEvent(new MessageEvent('messageerror', msgerror));
     };
 
-    worker.onerror = error => {
-        self.dispatchEvent(new ErrorEvent(error));
-    };
-
-    self.postMessage = message => worker.postMessage(message);
+    self.postMessage = message => messagePipe.postMessage(message);
 
     const defineEventAttribute = EventTarget.__defineEventAttribute;
 
