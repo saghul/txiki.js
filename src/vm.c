@@ -137,35 +137,44 @@ JSValue tjs__get_args(JSContext *ctx) {
     return args;
 }
 
+static JSValue tjs__dispatch_event(JSContext *ctx, JSValue *event) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+
+    if (qrt->freeing)
+        return JS_UNDEFINED;
+
+    JSValue global_obj = JS_GetGlobalObject(ctx);
+    JSValue ret = JS_Call(ctx, qrt->builtins.dispatch_event_func, global_obj, 1, event);
+    JS_FreeValue(ctx, global_obj);
+
+    return ret;
+}
+
 static void tjs__promise_rejection_tracker(JSContext *ctx,
                                            JSValue promise,
                                            JSValue reason,
                                            BOOL is_handled,
                                            void *opaque) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+
+    if (qrt->freeing)
+        return;
+
     if (!is_handled) {
-        JSValue global_obj = JS_GetGlobalObject(ctx);
-
-        JSValue event_ctor = JS_GetPropertyStr(ctx, global_obj, "PromiseRejectionEvent");
-        CHECK_EQ(JS_IsUndefined(event_ctor), 0);
-
         JSValue event_name = JS_NewString(ctx, "unhandledrejection");
         JSValue args[3];
         args[0] = event_name;
         args[1] = promise;
         args[2] = reason;
-        JSValue event = JS_CallConstructor(ctx, event_ctor, countof(args), args);
+
+        JSValue event = JS_CallConstructor(ctx, qrt->builtins.promise_event_ctor, countof(args), args);
         CHECK_EQ(JS_IsException(event), 0);
+        JSValue ret = tjs__dispatch_event(ctx, &event);
 
-        JSValue dispatch_func = JS_GetPropertyStr(ctx, global_obj, "dispatchEvent");
-        CHECK_EQ(JS_IsUndefined(dispatch_func), 0);
-
-        JSValue ret = JS_Call(ctx, dispatch_func, global_obj, 1, &event);
-
-        JS_FreeValue(ctx, global_obj);
         JS_FreeValue(ctx, event);
-        JS_FreeValue(ctx, event_ctor);
         JS_FreeValue(ctx, event_name);
-        JS_FreeValue(ctx, dispatch_func);
 
         if (JS_IsException(ret)) {
             tjs_dump_error(ctx);
@@ -215,24 +224,28 @@ TJSRuntime *TJS_NewRuntimeWorker(void) {
 }
 
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
+    JSRuntime *rt = NULL;
+    JSContext *ctx = NULL;
     TJSRuntime *qrt = tjs__mallocz(sizeof(*qrt));
 
     memcpy(&qrt->options, options, sizeof(*options));
 
-    qrt->rt = JS_NewRuntime2(&tjs_mf, NULL);
-    CHECK_NOT_NULL(qrt->rt);
+    rt = JS_NewRuntime2(&tjs_mf, NULL);
+    CHECK_NOT_NULL(rt);
+    qrt->rt = rt;
 
-    qrt->ctx = JS_NewContext(qrt->rt);
-    CHECK_NOT_NULL(qrt->ctx);
+    ctx = JS_NewContext(rt);
+    CHECK_NOT_NULL(ctx);
+    qrt->ctx = ctx;
 
-    JS_SetRuntimeOpaque(qrt->rt, qrt);
-    JS_SetContextOpaque(qrt->ctx, qrt);
+    JS_SetRuntimeOpaque(rt, qrt);
+    JS_SetContextOpaque(ctx, qrt);
 
     /* Set memory limit */
-    JS_SetMemoryLimit(qrt->rt, options->mem_limit);
+    JS_SetMemoryLimit(rt, options->mem_limit);
 
     /* Set stack size */
-    JS_SetMaxStackSize(qrt->rt, options->stack_size);
+    JS_SetMaxStackSize(rt, options->stack_size);
 
     qrt->is_worker = is_worker;
 
@@ -255,30 +268,35 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     qrt->stop.data = qrt;
 
     /* loader for ES modules */
-    JS_SetModuleLoaderFunc(qrt->rt, tjs_module_normalizer, tjs_module_loader, qrt);
+    JS_SetModuleLoaderFunc(rt, tjs_module_normalizer, tjs_module_loader, qrt);
 
     /* unhandled promise rejection tracker */
-    JS_SetHostPromiseRejectionTracker(qrt->rt, tjs__promise_rejection_tracker, NULL);
+    JS_SetHostPromiseRejectionTracker(rt, tjs__promise_rejection_tracker, NULL);
 
     /* start bootstrap */
-    JSValue global_obj = JS_GetGlobalObject(qrt->ctx);
-    JSValue core_sym = JS_NewSymbol(qrt->ctx, "tjs.internal.core", TRUE);
-    JSAtom core_atom = JS_ValueToAtom(qrt->ctx, core_sym);
-    JSValue core = JS_NewObjectProto(qrt->ctx, JS_NULL);
+    JSValue global_obj = JS_GetGlobalObject(ctx);
+    JSValue core_sym = JS_NewSymbol(ctx, "tjs.internal.core", true);
+    JSAtom core_atom = JS_ValueToAtom(ctx, core_sym);
+    JSValue core = JS_NewObjectProto(ctx, JS_NULL);
 
-    CHECK_EQ(JS_DefinePropertyValue(qrt->ctx, global_obj, core_atom, core, JS_PROP_C_W_E), TRUE);
-    CHECK_EQ(JS_DefinePropertyValueStr(qrt->ctx, core, "isWorker", JS_NewBool(qrt->ctx, is_worker), JS_PROP_C_W_E),
-             TRUE);
+    CHECK_EQ(JS_DefinePropertyValue(ctx, global_obj, core_atom, core, JS_PROP_C_W_E), true);
+    CHECK_EQ(JS_DefinePropertyValueStr(ctx, core, "isWorker", JS_NewBool(ctx, is_worker), JS_PROP_C_W_E), true);
 
-    tjs__bootstrap_core(qrt->ctx, core);
+    tjs__bootstrap_core(ctx, core);
 
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__polyfills, tjs__polyfills_size, true), 0);
-    CHECK_EQ(tjs__eval_bytecode(qrt->ctx, tjs__core, tjs__core_size, true), 0);
+    CHECK_EQ(tjs__eval_bytecode(ctx, tjs__polyfills, tjs__polyfills_size, true), 0);
+    CHECK_EQ(tjs__eval_bytecode(ctx, tjs__core, tjs__core_size, true), 0);
+
+    /* Load some builtin references for easy access */
+    qrt->builtins.dispatch_event_func = JS_GetPropertyStr(ctx, global_obj, "dispatchEvent");
+    CHECK_EQ(JS_IsUndefined(qrt->builtins.dispatch_event_func), 0);
+    qrt->builtins.promise_event_ctor = JS_GetPropertyStr(qrt->ctx, global_obj, "PromiseRejectionEvent");
+    CHECK_EQ(JS_IsUndefined(qrt->builtins.promise_event_ctor), 0);
 
     /* end bootstrap */
-    JS_FreeAtom(qrt->ctx, core_atom);
-    JS_FreeValue(qrt->ctx, core_sym);
-    JS_FreeValue(qrt->ctx, global_obj);
+    JS_FreeAtom(ctx, core_atom);
+    JS_FreeValue(ctx, core_sym);
+    JS_FreeValue(ctx, global_obj);
 
     /* WASM */
     qrt->wasm_ctx.env = m3_NewEnvironment();
@@ -291,6 +309,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 }
 
 void TJS_FreeRuntime(TJSRuntime *qrt) {
+    qrt->freeing = true;
+
     /* Reset TTY state (if it had changed) before exiting. */
     uv_tty_reset_mode();
 
@@ -307,6 +327,10 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     tjs__destroy_timers(qrt);
 
     /* Destroy the JS engine. */
+    JS_FreeValue(qrt->ctx, qrt->builtins.dispatch_event_func);
+    qrt->builtins.dispatch_event_func = JS_UNDEFINED;
+    JS_FreeValue(qrt->ctx, qrt->builtins.promise_event_ctor);
+    qrt->builtins.promise_event_ctor = JS_UNDEFINED;
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
 
