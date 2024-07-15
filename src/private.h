@@ -49,6 +49,7 @@ struct TJSRuntime {
     } jobs;
     uv_async_t stop;
     bool is_worker;
+    bool freeing;
     struct {
         CURLM *curlm_h;
         uv_timer_t timer;
@@ -60,6 +61,10 @@ struct TJSRuntime {
         TJSTimer *timers;
         int64_t next_timer;
     } timers;
+    struct {
+        JSValue promise_event_ctor;
+        JSValue dispatch_event_func;
+    } builtins;
 };
 
 void tjs__mod_dns_init(JSContext *ctx, JSValue ns);
