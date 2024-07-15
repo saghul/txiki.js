@@ -48,10 +48,12 @@ typedef struct {
         uv_tcp_t tcp;
     } h;
     struct {
-        bool partial;
+        union {
+            uint64_t u64;
+            uint8_t u8[8];
+        } total_size;
         uint8_t *data;
-        size_t total_len;
-        size_t read_len;
+        uint64_t nread;
     } reading;
     JSValue events[MSGPIPE_EVENT_MAX];
 } TJSMessagePipe;
@@ -124,30 +126,17 @@ static void emit_msgpipe_event(TJSMessagePipe *p, int event, JSValue arg) {
     CHECK_EQ(JS_EnqueueJob(ctx, emit_event, 2, (JSValue *) &args), 0);
 }
 
-static void tjs_msgpipe_read_object(TJSMessagePipe *p, const uint8_t *data, size_t len) {
-    CHECK_NOT_NULL(p);
-
-    JSContext *ctx = p->ctx;
-
-    int flags = JS_READ_OBJ_REFERENCE;
-    JSValue obj = JS_ReadObject(ctx, data, len, flags);
-    if (JS_IsException(obj))
-        emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE_ERROR, JS_GetException(ctx));
-    else
-        emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE, obj);
-    JS_FreeValue(ctx, obj);
-}
-
 static void uv__alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     TJSMessagePipe *p = handle->data;
     CHECK_NOT_NULL(p);
 
-    if (p->reading.partial) {
-        buf->base = (char *) p->reading.data + p->reading.read_len;
-        buf->len = p->reading.total_len - p->reading.read_len;
+    if (p->reading.data) {
+        buf->base = (char *) p->reading.data + p->reading.nread;
+        uint64_t remaining = p->reading.total_size.u64 - p->reading.nread;
+        buf->len = remaining > suggested_size ? suggested_size : remaining;
     } else {
-        buf->base = js_malloc(p->ctx, suggested_size);
-        buf->len = suggested_size;
+        buf->base = (char *) p->reading.total_size.u8;
+        buf->len = sizeof(p->reading.total_size.u8);
     }
 }
 
@@ -159,10 +148,9 @@ static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
     if (nread < 0) {
         uv_read_stop(&p->h.stream);
-        if (p->reading.partial)
+        if (p->reading.data)
             js_free(ctx, p->reading.data);
-        else
-            js_free(ctx, buf->base);
+        memset(&p->reading, 0, sizeof(p->reading));
         if (nread != UV_EOF) {
             JSValue error = tjs_new_error(ctx, nread);
             emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE_ERROR, error);
@@ -171,74 +159,41 @@ static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         return;
     }
 
-    if (!p->reading.partial) {
-        union {
-            uint64_t u64;
-            uint8_t u8[8];
-        } u;
-        size_t len_size = sizeof(u.u8);
+    if (!p->reading.data) {
+        size_t len_size = sizeof(p->reading.total_size.u8);
 
         /* This is a bogus read, likely a zero-read. Just return the buffer. */
-        if (nread < len_size) {
-            js_free(ctx, buf->base);
+        if (nread != len_size)
             return;
-        }
 
-        memcpy(u.u8, buf->base, len_size);
-        size_t total_len = u.u64;
-
-        /* Check if the total length exceeds what we got in this single read operation. */
-        if (total_len > nread - len_size) {
-            size_t read_len = nread - len_size;
-
-            p->reading.data = js_malloc(ctx, total_len);
-            if (!p->reading.data) {
-                js_free(ctx, buf->base);
-                return;
-            }
-
-            p->reading.partial = true;
-            p->reading.total_len = total_len;
-            p->reading.read_len = read_len;
-            memcpy(p->reading.data, buf->base + len_size, read_len);
-            js_free(ctx, buf->base);
-
-            return;
-        }
-
-        /* We managed to read the whole packet in a single read operation. */
-        tjs_msgpipe_read_object(p, (const uint8_t *) buf->base + len_size, total_len);
-        size_t remaining = nread - len_size - total_len;
-        if (remaining > 0) {
-            char *data = js_malloc(ctx, remaining);
-            if (!data) {
-                goto fail1;
-            }
-            memcpy(data, buf->base + len_size + total_len, remaining);
-            uv_buf_t b = uv_buf_init(data, remaining);
-            uv__read_cb(handle, remaining, &b);
-        }
-
-    fail1:;
-        js_free(ctx, buf->base);
+        uint64_t total_size = p->reading.total_size.u64;
+        CHECK_GE(total_size, 0);
+        p->reading.data = js_malloc(ctx, total_size);
 
         return;
     }
 
     /* We are continuing a partial read. */
-    size_t remaining = p->reading.total_len - p->reading.read_len;
-    size_t chunk_size = remaining <= nread ? remaining : nread;
-    memcpy(p->reading.data + p->reading.read_len, buf->base, chunk_size);
-    p->reading.read_len += chunk_size;
+    uint64_t total_size = p->reading.total_size.u64;
+    p->reading.nread += nread;
 
-    if (p->reading.read_len < p->reading.total_len) {
+    if (p->reading.nread < total_size) {
         /* We still need to read more. */
 
         return;
     }
 
+    CHECK_EQ(p->reading.nread, total_size);
+
     /* We have a complete buffer now. */
-    tjs_msgpipe_read_object(p, (const uint8_t *) p->reading.data, p->reading.total_len);
+    int flags = JS_READ_OBJ_REFERENCE;
+    JSValue obj = JS_ReadObject(ctx, (const uint8_t *) p->reading.data, total_size, flags);
+    if (JS_IsException(obj))
+        emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE_ERROR, JS_GetException(ctx));
+    else
+        emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE, obj);
+    JS_FreeValue(ctx, obj);
+
     js_free(ctx, p->reading.data);
     memset(&p->reading, 0, sizeof(p->reading));
 }
