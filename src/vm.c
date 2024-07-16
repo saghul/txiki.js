@@ -27,10 +27,13 @@
 #include "tjs.h"
 
 #include <signal.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
 
 #define TJS__DEFAULT_STACK_SIZE 10 * 1024 * 1024  // 10 MB
+
+/* JS malloc functions */
 
 static void *tjs__mf_malloc(JSMallocState *s, size_t size) {
     void *ptr;
@@ -90,6 +93,52 @@ static const JSMallocFunctions tjs_mf = {
     .js_free = tjs__mf_free,
     .js_realloc = tjs__mf_realloc,
     .js_malloc_usable_size = tjs__malloc_usable_size,
+};
+
+/* SharedArrayBuffer functions */
+
+#define TJS__SAB_MAGIC 0xCAFECAFECAFECAFEULL
+typedef struct {
+    uint64_t magic;
+    int ref_count;
+    uint8_t buf[0];
+} TJSSABHeader;
+
+static int atomic_add_int(int *ptr, int v) {
+    return atomic_fetch_add((_Atomic(uint32_t) *) ptr, v) + v;
+}
+
+static void *tjs__sab_alloc(void *opaque, size_t size) {
+    TJSSABHeader *sab = tjs__malloc(sizeof(*sab) + size);
+    if (!sab)
+        return NULL;
+    sab->magic = TJS__SAB_MAGIC;
+    sab->ref_count = 1;
+    return sab->buf;
+}
+
+static void tjs__sab_free(void *opaque, void *ptr) {
+    TJSSABHeader *sab = (TJSSABHeader *) ((uint8_t *) ptr - sizeof(TJSSABHeader));
+    if (sab->magic != TJS__SAB_MAGIC)
+        return;
+    int ref_count = atomic_add_int(&sab->ref_count, -1);
+    assert(ref_count >= 0);
+    if (ref_count == 0)
+        tjs__free(sab);
+}
+
+static void tjs__sab_dup(void *opaque, void *ptr) {
+    TJSSABHeader *sab = (TJSSABHeader *) ((uint8_t *) ptr - sizeof(TJSSABHeader));
+    if (sab->magic != TJS__SAB_MAGIC)
+        return;
+    atomic_add_int(&sab->ref_count, 1);
+}
+
+static const JSSharedArrayBufferFunctions tjs_sf = {
+    .sab_alloc = tjs__sab_alloc,
+    .sab_dup = tjs__sab_dup,
+    .sab_free = tjs__sab_free,
+    .sab_opaque = NULL,
 };
 
 /* core */
@@ -246,6 +295,9 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     /* Set stack size */
     JS_SetMaxStackSize(rt, options->stack_size);
+
+    /* SharedArrayBuffer functions */
+    JS_SetSharedArrayBufferFunctions(rt, &tjs_sf);
 
     qrt->is_worker = is_worker;
 
