@@ -61,8 +61,31 @@ class Worker extends EventTarget {
         this[kWorker] = worker;
     }
 
-    postMessage(message) {
+    postMessage(message, transferOrOptions) {
+        // Not using structuredClone here since we want to send the data directly
+        // without creating a Uint8Array, but the behavior is equivalent.
+
+        let options = {};
+
+        if (Array.isArray(transferOrOptions)) {
+            options = { transfer: transferOrOptions };
+        } else if (typeof transferOrOptions === 'object') {
+            options = transferOrOptions;
+        }
+
+        const transfers = options?.transfer ?? [];
+
+        for (const t of transfers) {
+            if (!core.isArrayBuffer(t)) {
+                throw new DOMException('Transferrable is not an ArrayBuffer', 'DataCloneError');
+            }
+        }
+
         this[kWorker].messagePipe.postMessage(message);
+
+        for (const t of transfers) {
+            core.detachArrayBuffer(t);
+        }
     }
 
     terminate() {
