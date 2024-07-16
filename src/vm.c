@@ -117,7 +117,7 @@ static void *tjs__sab_alloc(void *opaque, size_t size) {
     return sab->buf;
 }
 
-static void tjs__sab_free(void *opaque, void *ptr) {
+void tjs__sab_free(void *opaque, void *ptr) {
     TJSSABHeader *sab = (TJSSABHeader *) ((uint8_t *) ptr - sizeof(TJSSABHeader));
     if (sab->magic != TJS__SAB_MAGIC)
         return;
@@ -127,7 +127,7 @@ static void tjs__sab_free(void *opaque, void *ptr) {
         tjs__free(sab);
 }
 
-static void tjs__sab_dup(void *opaque, void *ptr) {
+void tjs__sab_dup(void *opaque, void *ptr) {
     TJSSABHeader *sab = (TJSSABHeader *) ((uint8_t *) ptr - sizeof(TJSSABHeader));
     if (sab->magic != TJS__SAB_MAGIC)
         return;
@@ -299,7 +299,9 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     /* SharedArrayBuffer functions */
     JS_SetSharedArrayBufferFunctions(rt, &tjs_sf);
 
+    /* Worker support */
     qrt->is_worker = is_worker;
+    JS_SetCanBlock(rt, is_worker);
 
     CHECK_EQ(uv_loop_init(&qrt->loop), 0);
 

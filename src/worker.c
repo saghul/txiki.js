@@ -186,13 +186,19 @@ static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
     CHECK_EQ(p->reading.nread, total_size);
 
     /* We have a complete buffer now. */
-    int flags = JS_READ_OBJ_REFERENCE;
-    JSValue obj = JS_ReadObject(ctx, (const uint8_t *) p->reading.data, total_size, flags);
+    JSSABTab sab_tab;
+    int flags = JS_READ_OBJ_SAB | JS_READ_OBJ_REFERENCE;
+    JSValue obj = JS_ReadObject2(ctx, (const uint8_t *) p->reading.data, total_size, flags, &sab_tab);
     if (JS_IsException(obj))
         emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE_ERROR, JS_GetException(ctx));
     else
         emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE, obj);
     JS_FreeValue(ctx, obj);
+
+    /* Decrement the SAB reference counts. */
+    for (int i = 0; i < sab_tab.len; i++) {
+        tjs__sab_free(NULL, sab_tab.tab[i]);
+    }
 
     js_free(ctx, p->reading.data);
     memset(&p->reading, 0, sizeof(p->reading));
@@ -251,8 +257,9 @@ static JSValue tjs_msgpipe_postmessage(JSContext *ctx, JSValue this_val, int arg
         return JS_EXCEPTION;
 
     size_t len;
-    int flags = JS_WRITE_OBJ_REFERENCE | JS_WRITE_OBJ_STRIP_SOURCE;
-    uint8_t *buf = JS_WriteObject(ctx, &len, argv[0], flags);
+    int flags = JS_WRITE_OBJ_SAB | JS_WRITE_OBJ_REFERENCE | JS_WRITE_OBJ_STRIP_SOURCE;
+    JSSABTab sab_tab;
+    uint8_t *buf = JS_WriteObject2(ctx, &len, argv[0], flags, &sab_tab);
     if (!buf) {
         js_free(ctx, wr);
         return JS_EXCEPTION;
@@ -268,8 +275,14 @@ static JSValue tjs_msgpipe_postmessage(JSContext *ctx, JSValue this_val, int arg
     if (r != 0) {
         js_free(ctx, buf);
         js_free(ctx, wr);
+        js_free(ctx, sab_tab.tab);
 
         return tjs_throw_errno(ctx, r);
+    }
+
+    /* Increment the SAB reference counts. */
+    for (int i = 0; i < sab_tab.len; i++) {
+        tjs__sab_dup(NULL, sab_tab.tab[i]);
     }
 
     return JS_UNDEFINED;
