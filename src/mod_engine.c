@@ -95,7 +95,7 @@ static JSValue tjs_compile(JSContext *ctx, JSValue this_val, int argc, JSValue *
 
 static JSValue tjs_serialize(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     size_t len = 0;
-    int flags = JS_WRITE_OBJ_BYTECODE | JS_WRITE_OBJ_REFERENCE | JS_WRITE_OBJ_STRIP_SOURCE;
+    int flags = JS_WRITE_OBJ_BYTECODE | JS_WRITE_OBJ_REFERENCE | JS_WRITE_OBJ_SAB | JS_WRITE_OBJ_STRIP_SOURCE;
     uint8_t *buf = JS_WriteObject(ctx, &len, argv[0], flags);
     if (!buf)
         return JS_EXCEPTION;
@@ -107,7 +107,7 @@ static JSValue tjs_serialize(JSContext *ctx, JSValue this_val, int argc, JSValue
 
 static JSValue tjs_deserialize(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     size_t len = 0;
-    int flags = JS_READ_OBJ_BYTECODE | JS_READ_OBJ_REFERENCE;
+    int flags = JS_READ_OBJ_BYTECODE | JS_READ_OBJ_REFERENCE | JS_READ_OBJ_SAB;
     const uint8_t *buf = JS_GetUint8Array(ctx, &len, argv[0]);
     if (!buf)
         return JS_EXCEPTION;
