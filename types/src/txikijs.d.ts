@@ -591,7 +591,7 @@ declare global {
             isTerminal: boolean;
             type: StdioType;
             height: number;
-            width: boolean;
+            width: number;
         }
         
         /**
