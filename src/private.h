@@ -110,6 +110,9 @@ int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len, bool 
 
 void tjs__destroy_timers(TJSRuntime *qrt);
 
+void tjs__sab_free(void *opaque, void *ptr);
+void tjs__sab_dup(void *opaque, void *ptr);
+
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options);

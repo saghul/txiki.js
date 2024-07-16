@@ -11,7 +11,7 @@ const w = new Worker(path.join(import.meta.dirname, 'helpers', 'worker-echo.js')
 const timer = setTimeout(() => {
     w.terminate();
     assert.fail('Timeout out waiting for worker');
-}, 10000);
+}, 1000);
 w.onmessage = event => {
     clearTimeout(timer);
     const recvData = event.data;
