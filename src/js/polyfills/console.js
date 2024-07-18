@@ -294,14 +294,21 @@ function createConsole({
 
 const encoder = new TextEncoder();
 
+class CSI {
+    static kHome = '\x1b[1;1H';
+    static kClearScreenDown = '\x1b[0J';
+}
+
+const kConsoleClear = encoder.encode(CSI.kHome + CSI.kClearScreenDown);
+
 Object.defineProperty(window, 'console', {
     enumerable: false,
     configurable: true,
     writable: true,
     value: createConsole({
         clearConsole() {
-            if (tjs.stdout.isTerminal) {
-                tjs.stdout.write(encoder.encode('\x1Bc'));
+            if (tjs.stdout.isTerminal && tjs.env.TERM !== 'dumb') {
+                tjs.stdout.write(kConsoleClear);
             }
         },
         printer(logLevel, args, { indent, isWarn }) {
