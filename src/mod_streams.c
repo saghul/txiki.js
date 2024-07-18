@@ -263,7 +263,9 @@ static void uv__stream_shutdown_cb(uv_shutdown_t *req, int status) {
     js_free(ctx, sr);
 }
 
-static JSValue tjs_stream_shutdown(JSContext *ctx, TJSStream *s, int argc, JSValue *argv) {
+static JSValue tjs_stream_shutdown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    JSClassID class_id;
+    TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
     if (!s)
         return JS_EXCEPTION;
 
@@ -360,7 +362,9 @@ static void uv__stream_connection_cb(uv_stream_t *handle, int status) {
     TJS_ClearPromise(ctx, &s->accept.result);
 }
 
-static JSValue tjs_stream_listen(JSContext *ctx, TJSStream *s, int argc, JSValue *argv) {
+static JSValue tjs_stream_listen(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    JSClassID class_id;
+    TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
     if (!s)
         return JS_EXCEPTION;
     uint32_t backlog = 511;
@@ -375,7 +379,9 @@ static JSValue tjs_stream_listen(JSContext *ctx, TJSStream *s, int argc, JSValue
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_stream_accept(JSContext *ctx, TJSStream *s, int argc, JSValue *argv) {
+static JSValue tjs_stream_accept(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    JSClassID class_id;
+    TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
     if (!s)
         return JS_EXCEPTION;
     if (TJS_IsPromisePending(ctx, &s->accept.result))
@@ -383,7 +389,9 @@ static JSValue tjs_stream_accept(JSContext *ctx, TJSStream *s, int argc, JSValue
     return TJS_InitPromise(ctx, &s->accept.result);
 }
 
-static JSValue tjs_stream_set_blocking(JSContext *ctx, TJSStream *s, int argc, JSValue *argv) {
+static JSValue tjs_stream_set_blocking(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    JSClassID class_id;
+    TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
     if (!s)
         return JS_EXCEPTION;
 
@@ -595,21 +603,6 @@ static JSValue tjs_tcp_nodelay(JSContext *ctx, JSValue this_val, int argc, JSVal
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_tcp_shutdown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSStream *t = tjs_tcp_get(ctx, this_val);
-    return tjs_stream_shutdown(ctx, t, argc, argv);
-}
-
-static JSValue tjs_tcp_listen(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSStream *t = tjs_tcp_get(ctx, this_val);
-    return tjs_stream_listen(ctx, t, argc, argv);
-}
-
-static JSValue tjs_tcp_accept(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSStream *t = tjs_tcp_get(ctx, this_val);
-    return tjs_stream_accept(ctx, t, argc, argv);
-}
-
 
 /* TTY */
 
@@ -664,11 +657,6 @@ static JSValue tjs_tty_constructor(JSContext *ctx, JSValue new_target, int argc,
 
 static TJSStream *tjs_tty_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_tty_class_id);
-}
-
-static JSValue tjs_tty_set_blocking(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSStream *t = tjs_tty_get(ctx, this_val);
-    return tjs_stream_set_blocking(ctx, t, argc, argv);
 }
 
 static JSValue tjs_tty_setMode(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -851,76 +839,45 @@ static JSValue tjs_pipe_open(JSContext *ctx, JSValue this_val, int argc, JSValue
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_pipe_listen(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSStream *t = tjs_pipe_get(ctx, this_val);
-    return tjs_stream_listen(ctx, t, argc, argv);
-}
-
-static JSValue tjs_pipe_accept(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSStream *t = tjs_pipe_get(ctx, this_val);
-    return tjs_stream_accept(ctx, t, argc, argv);
-}
-
-static JSValue tjs_pipe_set_blocking(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSStream *t = tjs_pipe_get(ctx, this_val);
-    return tjs_stream_set_blocking(ctx, t, argc, argv);
-}
-
+/* clang-format off */
 static const JSCFunctionListEntry tjs_stream_proto_funcs[] = {
+    TJS_CFUNC_DEF("listen", 1, tjs_stream_listen),
+    TJS_CFUNC_DEF("accept", 0, tjs_stream_accept),
+    TJS_CFUNC_DEF("shutdown", 0, tjs_stream_shutdown),
+    TJS_CFUNC_DEF("setBlocking", 1, tjs_stream_set_blocking),
     TJS_CFUNC_DEF("close", 0, tjs_stream_close),
     TJS_CFUNC_DEF("read", 1, tjs_stream_read),
     TJS_CFUNC_DEF("write", 1, tjs_stream_write),
     TJS_CFUNC_DEF("fileno", 0, tjs_stream_fileno),
 };
+/* clang-format on */
 
 static const JSCFunctionListEntry tjs_tcp_proto_funcs[] = {
-    /* Stream functions */
-    TJS_CFUNC_DEF("shutdown", 0, tjs_tcp_shutdown),
-    TJS_CFUNC_DEF("listen", 1, tjs_tcp_listen),
-    TJS_CFUNC_DEF("accept", 0, tjs_tcp_accept),
-    /* TCP functions */
     JS_CFUNC_MAGIC_DEF("getsockname", 0, tjs_tcp_getsockpeername, 0),
     JS_CFUNC_MAGIC_DEF("getpeername", 0, tjs_tcp_getsockpeername, 1),
     TJS_CFUNC_DEF("connect", 1, tjs_tcp_connect),
     TJS_CFUNC_DEF("bind", 2, tjs_tcp_bind),
     TJS_CFUNC_DEF("setKeepAlive", 2, tjs_tcp_keepalive),
     TJS_CFUNC_DEF("setNoDelay", 1, tjs_tcp_nodelay),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "TCP", JS_PROP_CONFIGURABLE),
-};
-
-static const JSCFunctionListEntry tjs_tcp_class_funcs[] = {
-    JS_PROP_INT32_DEF("IPV6ONLY", UV_TCP_IPV6ONLY, 0),
 };
 
 static const JSCFunctionListEntry tjs_tty_proto_funcs[] = {
-    /* TTY functions */
-    TJS_CFUNC_DEF("setBlocking", 1, tjs_tty_set_blocking),
     TJS_CFUNC_DEF("setMode", 1, tjs_tty_setMode),
     TJS_CFUNC_DEF("getWinSize", 0, tjs_tty_getWinSize),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "TTY", JS_PROP_CONFIGURABLE),
-};
-
-static const JSCFunctionListEntry tjs_tty_class_funcs[] = {
-    TJS_UVCONST(TTY_MODE_NORMAL),
-    TJS_UVCONST(TTY_MODE_RAW),
 };
 
 static const JSCFunctionListEntry tjs_pipe_proto_funcs[] = {
-    /* Stream functions */
-    TJS_CFUNC_DEF("listen", 1, tjs_pipe_listen),
-    TJS_CFUNC_DEF("accept", 0, tjs_pipe_accept),
-    TJS_CFUNC_DEF("setBlocking", 1, tjs_pipe_set_blocking),
-    /* Pipe functions */
     TJS_CFUNC_DEF("open", 1, tjs_pipe_open),
     JS_CFUNC_MAGIC_DEF("getsockname", 0, tjs_pipe_getsockpeername, 0),
     JS_CFUNC_MAGIC_DEF("getpeername", 0, tjs_pipe_getsockpeername, 1),
     TJS_CFUNC_DEF("connect", 1, tjs_pipe_connect),
     TJS_CFUNC_DEF("bind", 1, tjs_pipe_bind),
-    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Pipe", JS_PROP_CONFIGURABLE),
 };
 
 static const JSCFunctionListEntry tjs_streams_funcs[] = {
     TJS_UVCONST(TCP_IPV6ONLY),
+    TJS_UVCONST(TTY_MODE_NORMAL),
+    TJS_UVCONST(TTY_MODE_RAW),
 };
 
 void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
@@ -940,7 +897,6 @@ void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
 
     /* TCP object */
     obj = JS_NewCFunction2(ctx, tjs_tcp_constructor, "TCP", 1, JS_CFUNC_constructor, 0);
-    JS_SetPropertyFunctionList(ctx, obj, tjs_tcp_class_funcs, countof(tjs_tcp_class_funcs));
     JS_DefinePropertyValueStr(ctx, ns, "TCP", obj, JS_PROP_C_W_E);
 
     /* TTY class */
@@ -952,7 +908,6 @@ void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
 
     /* TTY object */
     obj = JS_NewCFunction2(ctx, tjs_tty_constructor, "TTY", 1, JS_CFUNC_constructor, 0);
-    JS_SetPropertyFunctionList(ctx, obj, tjs_tty_class_funcs, countof(tjs_tty_class_funcs));
     JS_DefinePropertyValueStr(ctx, ns, "TTY", obj, JS_PROP_C_W_E);
 
     /* Pipe class */
