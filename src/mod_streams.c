@@ -666,6 +666,11 @@ static TJSStream *tjs_tty_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_tty_class_id);
 }
 
+static JSValue tjs_tty_set_blocking(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSStream *t = tjs_tty_get(ctx, this_val);
+    return tjs_stream_set_blocking(ctx, t, argc, argv);
+}
+
 static JSValue tjs_tty_setMode(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSStream *s = tjs_tty_get(ctx, this_val);
     if (!s)
@@ -889,6 +894,7 @@ static const JSCFunctionListEntry tjs_tcp_class_funcs[] = {
 
 static const JSCFunctionListEntry tjs_tty_proto_funcs[] = {
     /* TTY functions */
+    TJS_CFUNC_DEF("setBlocking", 1, tjs_tty_set_blocking),
     TJS_CFUNC_DEF("setMode", 1, tjs_tty_setMode),
     TJS_CFUNC_DEF("getWinSize", 0, tjs_tty_getWinSize),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "TTY", JS_PROP_CONFIGURABLE),
