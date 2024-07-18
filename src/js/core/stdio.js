@@ -29,7 +29,7 @@ class InputStream extends BaseIOStream {
             throw new Error('not a terminal');
         }
 
-        const ttyMode = rawMode ? core.TTY.TTY_MODE_RAW : core.TTY.TTY_MODE_NORMAL;
+        const ttyMode = rawMode ? core.TTY_MODE_RAW : core.TTY_MODE_NORMAL;
 
         this[kStdioHandle].setMode(ttyMode);
     }
