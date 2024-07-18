@@ -66,6 +66,12 @@ function createStdioStream(fd) {
         case 'tty': {
             const handle = new core.TTY(fd, isStdin);
 
+            // Do blocking writes for TTYs:
+            // https://github.com/nodejs/node/blob/014dad5953a632f44e668f9527f546c6e1bb8b86/lib/tty.js#L112
+            if (!isStdin && core.platform !== 'windows') {
+                handle.setBlocking(true);
+            }
+
             return new StreamType(handle, type);
         }
 
