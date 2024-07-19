@@ -77,6 +77,8 @@ function _run(g) {
 
     var historyDb;
     var history = [];
+    var history_index;
+
     var clip_board = '';
 
     var pstate = '';
@@ -93,7 +95,6 @@ function _run(g) {
     var cursor_pos = 0;
     var last_cmd = '';
     var last_cursor_pos = 0;
-    var history_index;
     var this_fun, last_fun;
     var quote_flag = false;
 
@@ -171,8 +172,6 @@ function _run(g) {
         const data = historyDb.prepare('SELECT entry from history').all();
 
         history = data.map(row => row.entry);
-
-        // TODO: cap history size.
     }
 
     async function initialize() {
@@ -358,6 +357,15 @@ function _run(g) {
         stdout_write('\x1b[H\x1b[J');
 
         return -2;
+    }
+
+    function clear_history() {
+        try {
+            historyDb.exec('DELETE FROM history');
+        } catch (_) {}
+
+        history = [];
+        history_index = 0;
     }
 
     function beginning_of_line() {
@@ -1144,7 +1152,7 @@ function _run(g) {
         }
 
         for (pos = 1; pos < a.length; pos++) {
-            if (!is_alpha(a[pos])) {
+            if (a[pos] === ' ') {
                 break;
             }
         }
@@ -1152,12 +1160,14 @@ function _run(g) {
         return a.substring(1, pos);
     }
 
-    /* return true if the string after cmd can be evaluted as JS */
-    function handle_directive(cmd, expr) {
+    /* return true if the string after cmd can be evaluated as JS */
+    function handle_directive(cmd) {
         if (cmd === 'h' || cmd === '?' || cmd == 'help') {
             help();
         } else if (cmd === 'clear') {
-            clear_screen();
+            //clear_screen();
+        } else if (cmd === 'clear-history') {
+            clear_history();
         } else if (cmd === 'q') {
             exit(0);
         } else {
@@ -1170,9 +1180,10 @@ function _run(g) {
     }
 
     function help() {
-        stdout_write('\\h      this help\n' +
-                     '\\clear  clear the terminal\n' +
-                     '\\q      exit\n');
+        stdout_write('\\h               this help\n' +
+                     '\\clear           clear the terminal\n' +
+                     '\\clear-history   clears the REPL history\n' +
+                     '\\q               exit\n');
     }
 
     function eval_and_print(expr) {
