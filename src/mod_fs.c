@@ -320,6 +320,7 @@ static void uv__fs_req_cb(uv_fs_t *req) {
         case UV_FS_UNLINK:
         case UV_FS_CHOWN:
         case UV_FS_LCHOWN:
+        case UV_FS_FCHOWN:
         case UV_FS_CHMOD:
         case UV_FS_FCHMOD:
             arg = JS_UNDEFINED;
@@ -518,6 +519,32 @@ static JSValue tjs_file_chmod(JSContext *ctx, JSValue this_val, int argc, JSValu
         return JS_EXCEPTION;
 
     int r = uv_fs_fchmod(tjs_get_loop(ctx), &fr->req, f->fd, mode, uv__fs_req_cb);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return tjs_fsreq_init(ctx, fr, this_val);
+}
+
+static JSValue tjs_file_chown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSFile *f = tjs_file_get(ctx, this_val);
+    if (!f)
+        return JS_EXCEPTION;
+
+    int uid;
+    if (JS_IsUndefined(argv[0]) || JS_ToInt32(ctx, &uid, argv[0]))
+        return JS_ThrowTypeError(ctx, "expected a number for uid parameter");
+
+    int gid;
+    if (JS_IsUndefined(argv[1]) || JS_ToInt32(ctx, &gid, argv[1]))
+        return JS_ThrowTypeError(ctx, "expected a number for gid parameter");
+
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
+        return JS_EXCEPTION;
+
+    int r = uv_fs_fchown(tjs_get_loop(ctx), &fr->req, f->fd, uid, gid, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return tjs_throw_errno(ctx, r);
@@ -1240,6 +1267,7 @@ static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
     TJS_CFUNC_DEF("sync", 0, tjs_file_sync),
     TJS_CFUNC_DEF("datasync", 0, tjs_file_datasync),
     TJS_CFUNC_DEF("chmod", 1, tjs_file_chmod),
+    TJS_CFUNC_DEF("chown", 2, tjs_file_chown),
     TJS_CGETSET_DEF("path", tjs_file_path_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "FileHandle", JS_PROP_C_W_E),
 };
