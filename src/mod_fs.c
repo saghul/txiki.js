@@ -1189,7 +1189,7 @@ static JSValue tjs_fs_readfile(JSContext *ctx, JSValue this_val, int argc, JSVal
     return TJS_InitPromise(ctx, &fr->result);
 }
 
-static JSValue tjs_fs_xchown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv, bool symlinks) {
+static JSValue tjs_fs_xchown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv, int magic) {
     if (!JS_IsString(argv[0]))
         return JS_ThrowTypeError(ctx, "expected a string for path parameter");
 
@@ -1211,7 +1211,7 @@ static JSValue tjs_fs_xchown(JSContext *ctx, JSValue this_val, int argc, JSValue
         return JS_EXCEPTION;
     }
 
-    int r = (symlinks ? uv_fs_chown : uv_fs_lchown)(tjs_get_loop(ctx), &fr->req, path, uid, gid, uv__fs_req_cb);
+    int r = (magic == 1 ? uv_fs_lchown : uv_fs_chown)(tjs_get_loop(ctx), &fr->req, path, uid, gid, uv__fs_req_cb);
     JS_FreeCString(ctx, path);
     if (r != 0) {
         js_free(ctx, fr);
@@ -1219,14 +1219,6 @@ static JSValue tjs_fs_xchown(JSContext *ctx, JSValue this_val, int argc, JSValue
     }
 
     return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
-}
-
-static JSValue tjs_fs_chown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    return tjs_fs_xchown(ctx, this_val, argc, argv, true);
-}
-
-static JSValue tjs_fs_lchown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    return tjs_fs_xchown(ctx, this_val, argc, argv, false);
 }
 
 static JSValue tjs_fs_chmod(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -1318,8 +1310,8 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CFUNC_DEF("copyFile", 2, tjs_fs_copyfile),
     TJS_CFUNC_DEF("readDir", 1, tjs_fs_readdir),
     TJS_CFUNC_DEF("readFile", 1, tjs_fs_readfile),
-    TJS_CFUNC_DEF("chown", 3, tjs_fs_chown),
-    TJS_CFUNC_DEF("lchown", 3, tjs_fs_lchown),
+    TJS_CFUNC_MAGIC_DEF("chown", 3, tjs_fs_xchown, 0),
+    TJS_CFUNC_MAGIC_DEF("lchown", 3, tjs_fs_xchown, 1),
     TJS_CFUNC_DEF("chmod", 2, tjs_fs_chmod),
     /* Internal */
     TJS_CFUNC_DEF("mkdirSync", 2, tjs_fs_mkdir_sync),
