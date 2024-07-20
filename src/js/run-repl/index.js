@@ -75,7 +75,7 @@ function _run(g) {
         'error_msg':  'bright_red',
     };
 
-    var historyDb;
+    var sessionDb;
     var history = [];
     var history_index;
 
@@ -142,18 +142,18 @@ function _run(g) {
         handle_byte(3);
     }
 
-    async function init_history() {
+    async function init_session() {
         const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
-        const historyDbPath = path.join(TJS_HOME, 'history.db');
+        const sessionDbPath = path.join(TJS_HOME, 'session.db');
 
         try {
-            tjs.makeDir(path.dirname(historyDbPath), { recursive: true });
+            tjs.makeDir(path.dirname(sessionDbPath), { recursive: true });
         } catch (e) {
             // Ignore.
         }
 
         try {
-            historyDb = new Database(historyDbPath);
+            sessionDb = new Database(sessionDbPath);
         } catch (e) {
             // Ignore.
     
@@ -161,21 +161,21 @@ function _run(g) {
         }
 
         try {
-            historyDb.prepare('CREATE TABLE IF NOT EXISTS history (entry TEXT NOT NULL)').run();
+            sessionDb.prepare('CREATE TABLE IF NOT EXISTS history (entry TEXT NOT NULL)').run();
         } catch (_) {
-            historyDb.close();
-            historyDb = null;
+            sessionDb.close();
+            sessionDb = null;
 
             return;
         }
 
-        const data = historyDb.prepare('SELECT entry from history').all();
+        const history_entries = sessionDb.prepare('SELECT entry from history').all();
 
-        history = data.map(row => row.entry);
+        history = history_entries.map(row => row.entry);
     }
 
     async function initialize() {
-        await init_history();
+        await init_session();
 
         const buf = new Uint8Array(4096);
 
@@ -361,7 +361,7 @@ function _run(g) {
 
     function clear_history() {
         try {
-            historyDb.exec('DELETE FROM history');
+            sessionDb.exec('DELETE FROM history');
         } catch (_) {}
 
         history = [];
@@ -430,9 +430,9 @@ function _run(g) {
     function history_add(str) {
         if (str) {
             history.push(str);
-            if (historyDb) {
+            if (sessionDb) {
                 try {
-                    historyDb.prepare('INSERT INTO history (entry) VALUES(?)').run(str);
+                    sessionDb.prepare('INSERT INTO history (entry) VALUES(?)').run(str);
                 } catch (_) {}
             }
         }

@@ -246,6 +246,11 @@ npx esbuild my-app/index.js \
     --main-fields=main,module
 ```
 
+## Environment Variables
+The behaviour of `tjs` can be affected by manually setting some environment variables.
+
+- `TJS_HOME` if set will determine the location where `tjs` is going to store persistent configuration and data for the current user. When not specified it defaults to the `.tjs` under the current home directory.
+
 ## Versioning
 
 txiki.js uses [calendar versioning] with the form YY.MM.MICRO.
