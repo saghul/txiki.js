@@ -58,7 +58,7 @@ declare global {
         /**
         * Array with the arguments passed to the binary.
         */
-        const args: string[];
+        const args: readonly string[];
         
         type Signal = 'SIGHUP' | 'SIGINT' | 'SIGQUIT' | 'SIGILL' | 'SIGTRAP'
         | 'SIGABRT' | 'SIGBUS' | 'SIGFPE' | 'SIGKILL' | 'SIGUSR1' | 'SIGSEGV'
@@ -752,35 +752,37 @@ declare global {
         */
         const ppid: number;
         
-        interface UserInfo {
-            userName: string;
-            userId: number;
-            gorupId: number;
-            shell: string | null;
-            homeDir: string | null;
-        }
-        
-        interface CpuTimes {
-            user: number;
-            nice: number;
-            sys: number;
-            idle: number;
-            irq: number;
-        }
-        
-        interface CpuInfo {
-            model: string;
-            speed: number;
-            times: CpuTimes;
-        }
-        
-        interface NetworkInterface {
-            name: string;
-            address: string;
-            mac: string;
-            scopeId?: number;
-            netmask: string;
-            internal: boolean;
+        namespace system{
+            interface UserInfo {
+                userName: string;
+                userId: number;
+                gorupId: number;
+                shell: string | null;
+                homeDir: string | null;
+            }
+            
+            interface CpuTimes {
+                user: number;
+                nice: number;
+                sys: number;
+                idle: number;
+                irq: number;
+            }
+            
+            interface CpuInfo {
+                model: string;
+                speed: number;
+                times: CpuTimes;
+            }
+            
+            interface NetworkInterface {
+                name: string;
+                address: string;
+                mac: string;
+                scopeId?: number;
+                netmask: string;
+                internal: boolean;
+            }
         }
 
         /** @namespace 
@@ -800,7 +802,7 @@ declare global {
             /**
             * Information about the CPUs in the system.
             */
-            readonly cpus: CpuInfo[];
+            readonly cpus: system.CpuInfo[];
 
             /**
             * System load average.
@@ -811,7 +813,7 @@ declare global {
             /**
             * Information about the network interfaces in the system.
             */
-            readonly networkInterfaces: NetworkInterface[];
+            readonly networkInterfaces: system.NetworkInterface[];
 
             /**
              * Operating System kernel version.
@@ -831,7 +833,7 @@ declare global {
             /**
             * Current user information from the password database.
             */
-            readonly userInfo: UserInfo;
+            readonly userInfo: system.UserInfo;
         }
 
         interface ConsolePrinterOptions {
