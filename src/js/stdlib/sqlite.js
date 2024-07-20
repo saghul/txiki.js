@@ -81,8 +81,8 @@ class Database {
         return properties.default.value;
     }
 
-    loadExtension(file, entrypoint=undefined){
-        return sqlite3.load_extension(this[kSqlite3Handle],file,entrypoint)
+    loadExtension(file, entrypoint=undefined) {
+        return sqlite3.load_extension(this[kSqlite3Handle],file,entrypoint);
     }
 }
 
