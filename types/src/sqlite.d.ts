@@ -122,5 +122,13 @@ declare module 'tjs:sqlite'{
          * Closes the database. No further operations can be performed afterwards.
          */
         close(): void;
+
+        /**
+         * Load an extension from file
+         * @param file location of the shared library
+         * @param entrypoint entrypoint, if left empty a guess is made by sqlite
+         */
+        loadExtension(file:string, entrypoint?:string): undefined;
+
     }
 }

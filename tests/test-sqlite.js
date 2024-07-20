@@ -192,6 +192,13 @@ function testTransactionsNested() {
     assert.eq(data1.length, 2);
 }
 
+function testExtensions(){
+    const db = new Database();
+    //TODO: We would need a demo extension to be picked based on the target platform to have this test properly implemented.
+    //db.loadExtension('/archive/shared/projects/runtime-js/txiki-master/tests/text.so')
+}
+
 testTransactions();
 testTransactionsError();
-testTransactionsNested()
+testTransactionsNested();
+testExtensions();

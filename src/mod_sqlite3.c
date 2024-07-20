@@ -153,6 +153,13 @@ static JSValue tjs_sqlite3_open(JSContext *ctx, JSValue this_val, int argc, JSVa
         return tjs_throw_sqlite3_errno(ctx, r);
     }
 
+    // Enable sqlite extensions (but only via C calls)
+    r = sqlite3_db_config(handle, SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION, 1, NULL);
+    if (r != SQLITE_OK) {
+        sqlite3_close(handle);
+        return tjs_throw_sqlite3_errno(ctx, r);
+    }
+
     JSValue obj = tjs_new_sqlite3(ctx, handle);
     if (JS_IsException(obj)) {
         sqlite3_close(handle);
@@ -173,6 +180,34 @@ static JSValue tjs_sqlite3_close(JSContext *ctx, JSValue this_val, int argc, JSV
     }
 
     h->handle = NULL;
+
+    return JS_UNDEFINED;
+}
+
+static JSValue tjs_sqlite3_load_extension(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSSqlite3Handle *h = tjs_sqlite3_get(ctx, argv[0]);
+
+    if (!h)
+        return JS_EXCEPTION;
+
+    const char *zFile = JS_ToCString(ctx, argv[1]);
+    const char *zProc = JS_IsUndefined(argv[2]) ? NULL : JS_ToCString(ctx, argv[2]);
+
+    if (!zFile) {
+        return JS_EXCEPTION;
+    }
+
+    // zProc can be 0, it means "sqlite, do your best to quess it"
+
+    int r = sqlite3_load_extension(h->handle, zFile, zProc, NULL);
+
+    JS_FreeCString(ctx, zFile);
+    if (zProc)
+        JS_FreeCString(ctx, zProc);
+
+    if (r != SQLITE_OK) {
+        return tjs_throw_sqlite3_errno(ctx, r);
+    }
 
     return JS_UNDEFINED;
 }
@@ -518,6 +553,7 @@ static JSValue tjs_sqlite3_stmt_run(JSContext *ctx, JSValue this_val, int argc, 
 
 static const JSCFunctionListEntry tjs_sqlite3_funcs[] = {
     TJS_CFUNC_DEF("open", 2, tjs_sqlite3_open),
+    TJS_CFUNC_DEF("load_extension", 3, tjs_sqlite3_load_extension),
     TJS_CFUNC_DEF("close", 1, tjs_sqlite3_close),
     TJS_CFUNC_DEF("exec", 2, tjs_sqlite3_exec),
     TJS_CFUNC_DEF("prepare", 2, tjs_sqlite3_prepare),
