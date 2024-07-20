@@ -58,7 +58,7 @@ declare global {
         /**
         * Array with the arguments passed to the binary.
         */
-        const args: string[];
+        const args: readonly string[];
         
         type Signal = 'SIGHUP' | 'SIGINT' | 'SIGQUIT' | 'SIGILL' | 'SIGTRAP'
         | 'SIGABRT' | 'SIGBUS' | 'SIGFPE' | 'SIGKILL' | 'SIGUSR1' | 'SIGSEGV'
@@ -103,30 +103,13 @@ declare global {
         * @param sig The name of the signal to send. Defaults to "SIGTERM".
         */
         function kill(pid: number, sig?: Signal): void;
-        
-        /**
-        * Management for the garbage collection.
-        */
-        interface IGarbageCollection {
-            /**
-             * Force garbage collection now.
-             */
-            run: () => void;
-
-            /**
-             * Enables / disables automatic garbage collection.
-             */
-            enabled: boolean;
-
-            /**
-             * Sets / gets the threshold (in bytes) for automatic garbage collection.
-             */
-            threshold: number;
-        }
 
         type CompiledCode = unknown;
 
-        interface IEngine {
+        /** @namespace 
+         * 
+         */
+        const engine : {
             /**
              * Compiles the provided code into bytecode ready to be evaluated or serialized.
              *
@@ -160,25 +143,38 @@ declare global {
             evalBytecode: (code: CompiledCode) => Promise<unknown>;
 
             /**
-             * Garbage collection management.
-             */
-            gc: IGarbageCollection;
+            * Management for the garbage collection.
+            */
+            readonly gc: {
+                /**
+                 * Force garbage collection now.
+                 */
+                run: () => void;
+    
+                /**
+                 * Enables / disables automatic garbage collection.
+                 */
+                enabled: boolean;
+    
+                /**
+                 * Sets / gets the threshold (in bytes) for automatic garbage collection.
+                 */
+                threshold: number;
+            }
 
             /**
             * Versions of all included libraries and txiki.js itself.
             */
-            versions: {
-                quickjs: string;
-                tjs: string;
-                uv: string;
-                curl: string;
-                wasm3: string;
-                sqlite3: string;
-                mimalloc?: string;
+            readonly versions: {
+                readonly quickjs: string;
+                readonly tjs: string;
+                readonly uv: string;
+                readonly curl: string;
+                readonly wasm3: string;
+                readonly sqlite3: string;
+                readonly mimalloc?: string;
             };
         }
-
-        const engine: IEngine;
 
         /**
         * The txiki.js version.
@@ -756,89 +752,89 @@ declare global {
         */
         const ppid: number;
         
-        interface UserInfo {
-            userName: string;
-            userId: number;
-            gorupId: number;
-            shell: string | null;
-            homeDir: string | null;
-        }
-        
-        interface CpuTimes {
-            user: number;
-            nice: number;
-            sys: number;
-            idle: number;
-            irq: number;
-        }
-        
-        interface CpuInfo {
-            model: string;
-            speed: number;
-            times: CpuTimes;
-        }
-        
-        interface NetworkInterface {
-            name: string;
-            address: string;
-            mac: string;
-            scopeId?: number;
-            netmask: string;
-            internal: boolean;
+        namespace system{
+            interface UserInfo {
+                userName: string;
+                userId: number;
+                gorupId: number;
+                shell: string | null;
+                homeDir: string | null;
+            }
+            
+            interface CpuTimes {
+                user: number;
+                nice: number;
+                sys: number;
+                idle: number;
+                irq: number;
+            }
+            
+            interface CpuInfo {
+                model: string;
+                speed: number;
+                times: CpuTimes;
+            }
+            
+            interface NetworkInterface {
+                name: string;
+                address: string;
+                mac: string;
+                scopeId?: number;
+                netmask: string;
+                internal: boolean;
+            }
         }
 
-        interface ISystem {
+        /** @namespace 
+         * System information.
+         */
+        const system: {
             /**
              * Machine architecture.
              */
-            arch: string;
+            readonly arch: string;
 
             /**
             * An estimate of the default amount of parallelism a program should use.
             */
-            availableParallelism: number;
+            readonly availableParallelism: number;
 
             /**
             * Information about the CPUs in the system.
             */
-            cpus: CpuInfo[];
+            readonly cpus: system.CpuInfo[];
 
             /**
             * System load average.
             * See [getloadavg(3)](https://man7.org/linux/man-pages/man3/getloadavg.3.html)
             */
-            loadAvg: [ number, number, number ];
+            readonly loadAvg: [ number, number, number ];
 
             /**
             * Information about the network interfaces in the system.
             */
-            networkInterfaces: NetworkInterface[];
+            readonly networkInterfaces: system.NetworkInterface[];
 
             /**
              * Operating System kernel version.
              */
-            osRelease: string;
+            readonly osRelease: string;
 
             /**
             * Current platform.
             */
-            platform: 'linux' | 'darwin' | 'windows';
+            readonly platform: 'linux' | 'darwin' | 'windows';
 
             /**
             * System uptime.
             */
-            uptime: number;
+            readonly uptime: number;
 
             /**
             * Current user information from the password database.
             */
-            userInfo: UserInfo;
+            readonly userInfo: system.UserInfo;
         }
-
-        /**
-         * System information.
-         */
-        const system: ISystem;
 
         interface ConsolePrinterOptions {
             /** output message to stderr instead of stdout */
