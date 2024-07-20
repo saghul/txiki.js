@@ -117,6 +117,9 @@ add_library(sqlite-test SHARED
     tests/fixtures/sqlite-test-ext.c
 )
 
+target_link_libraries(sqlite-test sqlite3)
+
+
 if(NOT USE_EXTERNAL_FFI AND NOT MINGW AND NOT APPLE)
     set(LIBFFI_SRC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libffi")
     set(TMP_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/ffi_root")
