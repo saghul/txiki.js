@@ -193,9 +193,22 @@ function testTransactionsNested() {
 }
 
 function testExtensions(){
+	let sopath = './build/libsqlite-test.so';
+	switch(tjs.system.platform){
+		case 'linux':
+			sopath = './build/libsqlite-test.so';
+			break;
+		case 'darwin':
+			sopath = './build/libsqlite-test.dylib';
+			break;
+		case 'windows':
+			sopath = './build/libsqlite-test.dll';
+		break;
+	}
+
     const db = new Database();
-    //TODO: We would need a demo extension to be picked based on the target platform to have this test properly implemented.
-    //db.loadExtension('/archive/shared/projects/runtime-js/txiki-master/tests/text.so')
+    db.loadExtension(sopath, 'sqlite_test_ext_init')
+    assert.eq(db.prepare("SELECT testfn();").all()[0]["testfn()"], 43)
 }
 
 testTransactions();
