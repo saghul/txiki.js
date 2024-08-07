@@ -80,6 +80,10 @@ class Database {
         // Return the default version of the transaction function.
         return properties.default.value;
     }
+
+    loadExtension(file, entrypoint=undefined) {
+        return sqlite3.load_extension(this[kSqlite3Handle],file,entrypoint);
+    }
 }
 
 // Return the database's cached transaction controller, or create a new one.

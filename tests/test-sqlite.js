@@ -192,6 +192,26 @@ function testTransactionsNested() {
     assert.eq(data1.length, 2);
 }
 
+function testExtensions(){
+	let sopath = './build/libsqlite-test.so';
+	switch(tjs.system.platform){
+		case 'linux':
+			sopath = './build/libsqlite-test.so';
+			break;
+		case 'darwin':
+			sopath = './build/libsqlite-test.dylib';
+			break;
+		case 'windows':
+			sopath = './build/libsqlite-test.dll';
+		break;
+	}
+
+    const db = new Database();
+    db.loadExtension(sopath, 'sqlite_test_ext_init')
+    assert.eq(db.prepare("SELECT testfn();").all()[0]["testfn()"], 43)
+}
+
 testTransactions();
 testTransactionsError();
-testTransactionsNested()
+testTransactionsNested();
+testExtensions();
