@@ -12,7 +12,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "abab": "^2.0.6",
     "abortcontroller-polyfill": "^1.7.5",
     "compression-streams-polyfill": "^0.1.7",
     "esbuild": "^0.21.5",
