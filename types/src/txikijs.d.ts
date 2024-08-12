@@ -587,6 +587,21 @@ declare global {
          */
         function link(path: string, newPath: string): Promise<void>;
 
+        interface SymlinkOptions {
+            /* TYpe of symbolic link to create. Applies to Windows only. */
+            type?: 'file' | 'directory' | 'junction';
+        }
+
+        /**
+         * Create a symbolic link.
+         * See [symlink(2)](https://man7.org/linux/man-pages/man2/symlink.2.html)
+         *
+         * @param path Source file path.
+         * @param newPath Target file path.
+         * @param options Options for specifying the type (Windows only).
+         */
+        function symlink(path: string, newPath: string, options?: SymlinkOptions): Promise<void>;
+
         /**
         * File watch event handler function.
         */

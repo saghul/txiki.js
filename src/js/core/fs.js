@@ -74,6 +74,19 @@ export async function makeDir(path, options = { mode: 0o777, recursive: false })
     }
 }
 
+export async function symlink(path, newPath, options) {
+    const type = options?.type ?? 'file';
+    let flags = 0;
+
+    if (type === 'directory') {
+        flags = core.FS_SYMLINK_DIR;
+    } else if (type === 'junction') {
+        flags = core.FS_SYMLINK_JUNCTION;
+    }
+
+    return core.symlink(path, newPath, flags);
+}
+
 // This is an adaptation of the 'rimraf' version bundled in Node.
 //
 
