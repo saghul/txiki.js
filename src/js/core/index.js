@@ -35,6 +35,7 @@ const exports = [
     'inspect',
     'kill',
     'lchown',
+    'link',
     'lstat',
     'lutime',
     'makeTempDir',

@@ -579,6 +579,15 @@ declare global {
         function remove(path: string, options?: RemoveOptions): Promise<void>;
 
         /**
+         * Create a hard file link.
+         * See [link(2)](https://man7.org/linux/man-pages/man2/link.2.html)
+         *
+         * @param path Source file path.
+         * @param newPath Target file path.
+         */
+        function link(path: string, newPath: string): Promise<void>;
+
+        /**
         * File watch event handler function.
         */
         type WatchEventHandler = (filename: string, event: 'change' | 'rename') => void;
