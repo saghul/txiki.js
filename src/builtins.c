@@ -41,15 +41,15 @@ typedef struct {
 } tjs_builtin_t;
 
 static tjs_builtin_t builtins[] = {
-    { "tjs:assert", tjs__assert, tjs__assert_size },
-    { "tjs:ffi", tjs__ffi, tjs__ffi_size },
-    { "tjs:getopts", tjs__getopts, tjs__getopts_size },
-    { "tjs:hashing", tjs__hashing, tjs__hashing_size },
-    { "tjs:ipaddr", tjs__ipaddr, tjs__ipaddr_size },
-    { "tjs:path", tjs__path, tjs__path_size },
-    { "tjs:posix-socket", tjs__posix_socket, tjs__posix_socket_size },
-    { "tjs:sqlite", tjs__sqlite, tjs__sqlite_size },
-    { "tjs:uuid", tjs__uuid, tjs__uuid_size },
+    { "tjs:assert", tjs__assert, sizeof(tjs__assert) },
+    { "tjs:ffi", tjs__ffi, sizeof(tjs__ffi) },
+    { "tjs:getopts", tjs__getopts, sizeof(tjs__getopts) },
+    { "tjs:hashing", tjs__hashing, sizeof(tjs__hashing) },
+    { "tjs:ipaddr", tjs__ipaddr, sizeof(tjs__ipaddr) },
+    { "tjs:path", tjs__path, sizeof(tjs__path) },
+    { "tjs:posix-socket", tjs__posix_socket, sizeof(tjs__posix_socket) },
+    { "tjs:sqlite", tjs__sqlite, sizeof(tjs__sqlite) },
+    { "tjs:uuid", tjs__uuid, sizeof(tjs__uuid) },
     { NULL, NULL, 0 },
 };
 
