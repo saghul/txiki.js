@@ -1295,8 +1295,6 @@ static JSValue tjs_fs_xutime(JSContext *ctx, JSValue this_val, int argc, JSValue
     if (!path)
         return JS_EXCEPTION;
 
-    return JS_UNDEFINED;
-
     TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr) {
         JS_FreeCString(ctx, path);
