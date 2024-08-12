@@ -42,6 +42,7 @@ const exports = [
     'ppid',
     'readDir',
     'readFile',
+    'readLink',
     'realPath',
     'rename',
     'spawn',

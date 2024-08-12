@@ -549,6 +549,14 @@ declare global {
         function readDir(path: string): Promise<DirHandle>;
         
         /**
+        * Reads the value of a symbolic link.
+        * See [readlink(2)](https://man7.org/linux/man-pages/man2/readlink.2.html)
+        *
+        * @param path File path.
+        */
+        function readLink(path: string): Promise<string>;
+
+        /**
         * Reads the entire contents of a file.
         *
         * @param path File path.
