@@ -36,6 +36,7 @@ const exports = [
     'kill',
     'lchown',
     'lstat',
+    'lutime',
     'makeTempDir',
     'pid',
     'ppid',
@@ -46,6 +47,7 @@ const exports = [
     'spawn',
     'stat',
     'tmpDir',
+    'utime',
     'version',
     'watch'
 ];

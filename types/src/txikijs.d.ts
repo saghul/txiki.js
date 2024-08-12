@@ -356,6 +356,15 @@ declare global {
             chmod(mode: number): Promise<void>;
 
             /**
+             * Change the access and modification time of the file.
+             * See [futimes(2)](https://man7.org/linux/man-pages/man2/futimes.2.html)
+             *
+             * @param atime The new file access time.
+             * @param mtime The new file modification time.
+             */
+            utime(atime: Date, mtime: Date): Promise<void>;
+
+            /**
             * The file path.
             */
             path: string;
@@ -434,7 +443,28 @@ declare global {
         * @param group The gid to change the file's group to.
         */
         function lchown(path: string, owner: number, group: number): Promise<void>;
-        
+
+        /**
+         * Change the access and modification time of a file.
+         * See [futimes(2)](https://man7.org/linux/man-pages/man2/futimes.2.html)
+         *
+         * @param path Path to the file.
+         * @param atime The new file access time.
+         * @param mtime The new file modification time.
+         */
+        function utime(path: string, atime: Date, mtime: Date): Promise<void>;
+
+        /**
+         * Change the access and modification time of a file. If the path is a link it changes
+        * the ownership of the link itself.
+         * See [futimes(2)](https://man7.org/linux/man-pages/man2/futimes.2.html)
+         *
+         * @param path Path to the file.
+         * @param atime The new file access time.
+         * @param mtime The new file modification time.
+         */
+        function lutime(path: string, atime: Date, mtime: Date): Promise<void>;
+
         /**
         * Opens the file at the given path. Opening flags:
         *
