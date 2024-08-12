@@ -2,7 +2,7 @@
 
 SQLITE_EXTENSION_INIT1
 
-void fn(sqlite3_context* context ,int,sqlite3_value**){
+void fn(sqlite3_context* context ,int argc, sqlite3_value** argv) {
   sqlite3_result_int64(context, 43);
 }
 
