@@ -323,6 +323,9 @@ static void uv__fs_req_cb(uv_fs_t *req) {
         case UV_FS_FCHOWN:
         case UV_FS_CHMOD:
         case UV_FS_FCHMOD:
+        case UV_FS_UTIME:
+        case UV_FS_LUTIME:
+        case UV_FS_FUTIME:
             arg = JS_UNDEFINED;
             break;
 
@@ -545,6 +548,33 @@ static JSValue tjs_file_chown(JSContext *ctx, JSValue this_val, int argc, JSValu
         return JS_EXCEPTION;
 
     int r = uv_fs_fchown(tjs_get_loop(ctx), &fr->req, f->fd, uid, gid, uv__fs_req_cb);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return tjs_fsreq_init(ctx, fr, this_val);
+}
+
+static JSValue tjs_file_utime(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSFile *f = tjs_file_get(ctx, this_val);
+    if (!f)
+        return JS_EXCEPTION;
+
+    double atime;
+    if (JS_ToFloat64(ctx, &atime, argv[0]))
+        return JS_EXCEPTION;
+
+    double mtime;
+    if (JS_ToFloat64(ctx, &mtime, argv[1]))
+        return JS_EXCEPTION;
+
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr)
+        return JS_EXCEPTION;
+
+    /* Date.getTime is in ms, convert to seconds. */
+    int r = uv_fs_futime(tjs_get_loop(ctx), &fr->req, f->fd, atime / 1000, mtime / 1000, uv__fs_req_cb);
     if (r != 0) {
         js_free(ctx, fr);
         return tjs_throw_errno(ctx, r);
@@ -1249,6 +1279,42 @@ static JSValue tjs_fs_chmod(JSContext *ctx, JSValue this_val, int argc, JSValue 
     return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
+static JSValue tjs_fs_xutime(JSContext *ctx, JSValue this_val, int argc, JSValue *argv, int magic) {
+    if (!JS_IsString(argv[0]))
+        return JS_ThrowTypeError(ctx, "expected a string for path parameter");
+
+    double atime;
+    if (JS_ToFloat64(ctx, &atime, argv[1]))
+        return JS_EXCEPTION;
+
+    double mtime;
+    if (JS_ToFloat64(ctx, &mtime, argv[2]))
+        return JS_EXCEPTION;
+
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    return JS_UNDEFINED;
+
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr) {
+        JS_FreeCString(ctx, path);
+        return JS_EXCEPTION;
+    }
+
+    /* Date.getTime is in ms, convert to seconds. */
+    int r = (magic == 1 ? uv_fs_lutime
+                        : uv_fs_utime)(tjs_get_loop(ctx), &fr->req, path, atime / 1000, mtime / 1000, uv__fs_req_cb);
+    JS_FreeCString(ctx, path);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
+}
+
 static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
     TJS_CFUNC_MAGIC_DEF("read", 2, tjs_file_rw, 0),
     TJS_CFUNC_MAGIC_DEF("write", 2, tjs_file_rw, 1),
@@ -1260,6 +1326,7 @@ static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
     TJS_CFUNC_DEF("datasync", 0, tjs_file_datasync),
     TJS_CFUNC_DEF("chmod", 1, tjs_file_chmod),
     TJS_CFUNC_DEF("chown", 2, tjs_file_chown),
+    TJS_CFUNC_DEF("utime", 2, tjs_file_utime),
     TJS_CGETSET_DEF("path", tjs_file_path_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "FileHandle", JS_PROP_C_W_E),
 };
@@ -1313,6 +1380,8 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CFUNC_MAGIC_DEF("chown", 3, tjs_fs_xchown, 0),
     TJS_CFUNC_MAGIC_DEF("lchown", 3, tjs_fs_xchown, 1),
     TJS_CFUNC_DEF("chmod", 2, tjs_fs_chmod),
+    TJS_CFUNC_MAGIC_DEF("utime", 3, tjs_fs_xutime, 0),
+    TJS_CFUNC_MAGIC_DEF("lutime", 3, tjs_fs_xutime, 1),
     /* Internal */
     TJS_CFUNC_DEF("mkdirSync", 2, tjs_fs_mkdir_sync),
     TJS_CFUNC_DEF("statSync", 1, tjs_fs_stat_sync),
