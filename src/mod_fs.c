@@ -255,6 +255,24 @@ static TJSStatResult *tjs_stat_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_stat_class_id);
 }
 
+static JSValue tjs_new_statfs(JSContext *ctx, uv_statfs_t *st) {
+    JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
+    if (JS_IsException(obj))
+        return obj;
+
+#define DEF_FIELD(x) JS_DefinePropertyValueStr(ctx, obj, STRINGIFY(x), JS_NewUint32(ctx, st->f_##x), JS_PROP_C_W_E);
+    DEF_FIELD(type);
+    DEF_FIELD(bsize);
+    DEF_FIELD(blocks);
+    DEF_FIELD(bfree);
+    DEF_FIELD(bavail);
+    DEF_FIELD(files);
+    DEF_FIELD(ffree);
+#undef DEF_FIELD
+
+    return obj;
+}
+
 static JSValue tjs_fsreq_init(JSContext *ctx, TJSFsReq *fr, JSValue obj) {
     fr->ctx = ctx;
     fr->req.data = fr;
@@ -304,6 +322,10 @@ static void uv__fs_req_cb(uv_fs_t *req) {
         case UV_FS_LSTAT:
         case UV_FS_FSTAT:
             arg = tjs_new_stat(ctx, &fr->req.statbuf);
+            break;
+
+        case UV_FS_STATFS:
+            arg = tjs_new_statfs(ctx, fr->req.ptr);
             break;
 
         case UV_FS_READLINK:
@@ -1415,6 +1437,30 @@ static JSValue tjs_fs_symlink(JSContext *ctx, JSValue this_val, int argc, JSValu
     return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
+static JSValue tjs_fs_statfs(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (!JS_IsString(argv[0]))
+        return JS_ThrowTypeError(ctx, "expected a string for path parameter");
+
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
+    if (!fr) {
+        JS_FreeCString(ctx, path);
+        return JS_EXCEPTION;
+    }
+
+    int r = uv_fs_statfs(tjs_get_loop(ctx), &fr->req, path, uv__fs_req_cb);
+    JS_FreeCString(ctx, path);
+    if (r != 0) {
+        js_free(ctx, fr);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
+}
+
 static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
     TJS_CFUNC_MAGIC_DEF("read", 2, tjs_file_rw, 0),
     TJS_CFUNC_MAGIC_DEF("write", 2, tjs_file_rw, 1),
@@ -1487,6 +1533,7 @@ static const JSCFunctionListEntry tjs_fs_funcs[] = {
     TJS_CFUNC_DEF("readLink", 1, tjs_fs_readlink),
     TJS_CFUNC_DEF("link", 2, tjs_fs_link),
     TJS_CFUNC_DEF("symlink", 3, tjs_fs_symlink),
+    TJS_CFUNC_DEF("statFs", 1, tjs_fs_statfs),
     /* Internal */
     TJS_CFUNC_DEF("mkdirSync", 2, tjs_fs_mkdir_sync),
     TJS_CFUNC_DEF("statSync", 1, tjs_fs_stat_sync),
