@@ -48,6 +48,7 @@ const exports = [
     'rename',
     'spawn',
     'stat',
+    'statFs',
     'tmpDir',
     'utime',
     'version',

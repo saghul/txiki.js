@@ -413,7 +413,25 @@ declare global {
         * @param path Path to the file.
         */
         function lstat(path: string): Promise<StatResult>;
-        
+
+        interface StatFsResult {
+            type: number;
+            bsize: number;
+            blocks: number;
+            bfree: number;
+            bavail: number;
+            files: number;
+            ffree: number;
+        }
+
+        /**
+        * Get file-system statistics.
+        * See [statfs(2)](https://man7.org/linux/man-pages/man2/statfs.2.html)
+        *
+        * @param path Path to the mount point.
+        */
+        function statFs(path: string): Promise<StatFsResult>;
+
         /**
         * Change permissions of a file.
         * See [chmod(2)](https://man7.org/linux/man-pages/man2/chmod.2.html)
