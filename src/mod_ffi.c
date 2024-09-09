@@ -844,8 +844,8 @@ static JSValue js_get_cstring(JSContext *ctx, JSValue this_val, int argc, JSValu
 }
 
 
-static JSValue TJS_NewUint8ArrayShared(JSContext *ctx, uint8_t *data, size_t size) {
-    return JS_NewUint8Array(ctx, data, size, NULL, NULL, true);
+static JSValue TJS_NewUint8ArrayExternal(JSContext *ctx, uint8_t *data, size_t size) {
+    return JS_NewUint8Array(ctx, data, size, NULL, NULL, false);
 }
 
 static JSValue js_ptr_to_buffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -855,7 +855,7 @@ static JSValue js_ptr_to_buffer(JSContext *ctx, JSValue this_val, int argc, JSVa
     JS_TO_UINTPTR_T(ctx, &ptr, argv[0]);
     size_t sz;
     JS_TO_SIZE_T(ctx, &sz, argv[1]);
-    return TJS_NewUint8ArrayShared(ctx, ptr, sz);
+    return TJS_NewUint8ArrayExternal(ctx, ptr, sz);
 }
 
 static JSValue js_deref_ptr(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -916,7 +916,7 @@ void js_ffi_closure_invoke(ffi_cif *cif, void *ret, void **args, void *userptr) 
     JSValue *jsargs = js_malloc(ctx, sizeof(JSValue) * cif->nargs);
 
     for (unsigned i = 0; i < cif->nargs; i++) {
-        jsargs[i] = TJS_NewUint8ArrayShared(ctx, args[i], ffi_type_get_sz(cif->arg_types[i]));
+        jsargs[i] = TJS_NewUint8ArrayExternal(ctx, args[i], ffi_type_get_sz(cif->arg_types[i]));
     }
     JSValue jsret = JS_Call(ctx, jscl->func, JS_UNDEFINED, cif->nargs, jsargs);
     for (unsigned i = 0; i < cif->nargs; i++) {
