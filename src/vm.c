@@ -35,60 +35,28 @@
 
 /* JS malloc functions */
 
-static void *tjs__mf_malloc(JSMallocState *s, size_t size) {
-    void *ptr;
-
-    /* Do not allocate zero bytes: behavior is platform dependent */
-    assert(size != 0);
-
-    if (unlikely(s->malloc_size + size > s->malloc_limit - 1))
-        return NULL;
-
-    ptr = tjs__malloc(size);
-    if (!ptr)
-        return NULL;
-
-    s->malloc_count++;
-    s->malloc_size += tjs__malloc_usable_size(ptr);
-    return ptr;
+static void *tjs__mf_calloc(void *opaque, size_t count, size_t size) {
+    (void) opaque;
+    return tjs__calloc(count, size);
 }
 
-static void tjs__mf_free(JSMallocState *s, void *ptr) {
-    if (!ptr)
-        return;
+static void *tjs__mf_malloc(void *opaque, size_t size) {
+    (void) opaque;
+    return tjs__malloc(size);
+}
 
-    s->malloc_count--;
-    s->malloc_size -= tjs__malloc_usable_size(ptr);
+static void tjs__mf_free(void *opaque, void *ptr) {
+    (void) opaque;
     tjs__free(ptr);
 }
 
-static void *tjs__mf_realloc(JSMallocState *s, void *ptr, size_t size) {
-    size_t old_size;
-
-    if (!ptr) {
-        if (size == 0)
-            return NULL;
-        return tjs__mf_malloc(s, size);
-    }
-    old_size = tjs__malloc_usable_size(ptr);
-    if (size == 0) {
-        s->malloc_count--;
-        s->malloc_size -= old_size;
-        tjs__free(ptr);
-        return NULL;
-    }
-    if (s->malloc_size + size - old_size > s->malloc_limit - 1)
-        return NULL;
-
-    ptr = tjs__realloc(ptr, size);
-    if (!ptr)
-        return NULL;
-
-    s->malloc_size += tjs__malloc_usable_size(ptr) - old_size;
-    return ptr;
+static void *tjs__mf_realloc(void *opaque, void *ptr, size_t size) {
+    (void) opaque;
+    return tjs__realloc(ptr, size);
 }
 
 static const JSMallocFunctions tjs_mf = {
+    .js_calloc = tjs__mf_calloc,
     .js_malloc = tjs__mf_malloc,
     .js_free = tjs__mf_free,
     .js_realloc = tjs__mf_realloc,
@@ -507,13 +475,10 @@ int TJS_Run(TJSRuntime *qrt) {
         r = uv_run(&qrt->loop, UV_RUN_DEFAULT);
     } while (r == 0 && JS_IsJobPending(qrt->rt));
 
-    JSValue exc = JS_GetException(qrt->ctx);
-    if (!JS_IsNull(exc)) {
-        tjs_dump_error1(qrt->ctx, exc);
+    if (JS_HasException(qrt->ctx)) {
+        tjs_dump_error(qrt->ctx);
         ret = 1;
     }
-
-    JS_FreeValue(qrt->ctx, exc);
 
     return ret;
 }
