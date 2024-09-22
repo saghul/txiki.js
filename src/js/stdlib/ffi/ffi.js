@@ -164,14 +164,18 @@ export class CFunction {
 
 export function CString(str) {
     let buffer = (str!==undefined)?((new TextEncoder()).encode(str+'\0')):new Uint8Array();
-    
+
     return {
-        get buffer(){return buffer},
-        set buffer(v){buffer=v},
-        toString(){
+        get buffer() {
+            return buffer;
+        },
+        set buffer(v) {
+            buffer=v;
+        },
+        toString() {
             return ffiInt.getCString(ffiInt.getArrayBufPtr(buffer), buffer.length);
         }
-    }
+    };
 }
 
 export const types = {
@@ -204,11 +208,9 @@ export const types = {
 
 
     cstring: new AdvancedType(ffiInt.type_pointer, {
-        toBuffer: (str, ctx)=>{
-            return ffiInt.getArrayBufPtr(str.buffer);
-        },
+        toBuffer: (str, _ctx)=>ffiInt.getArrayBufPtr(str.buffer),
         fromBuffer: buf=>{
-            //TODO: Bad double operation to fix
+            // TODO: Bad double operation to fix
             const ptr = ffiInt.type_pointer.fromBuffer(buf); // char*
             const str = ffiInt.getCString(ptr); // string
 

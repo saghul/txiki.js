@@ -83,7 +83,7 @@ declare module 'tjs:ffi'{
         size: SimpleType<number>,
         ssize: SimpleType<number>,
 
-        cstring: SimpleType<CString>
+        cstring: SimpleType<typeof CString>
 
         buffer: SimpleType<Uint8Array>
         
