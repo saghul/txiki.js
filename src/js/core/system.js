@@ -10,13 +10,6 @@ Object.defineProperty(system, 'arch', {
     value: uname.machine
 });
 
-Object.defineProperty(system, 'availableParallelism', {
-    enumerable: true,
-    configurable: false,
-    get: core.availableParallelism
-});
-
-
 Object.defineProperty(system, 'cpus', {
     enumerable: true,
     configurable: false,
