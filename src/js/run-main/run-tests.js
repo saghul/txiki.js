@@ -118,7 +118,7 @@ export async function runTests(d) {
     }
 
     let failed = 0;
-    const testConcurrency = tjs.env.TJS_TEST_CONCURRENCY ?? tjs.system.availableParallelism;
+    const testConcurrency = tjs.env.TJS_TEST_CONCURRENCY ?? navigator.hardwareConcurrency;
     const running = new Set();
 
     // eslint-disable-next-line no-constant-condition

@@ -875,11 +875,6 @@ declare global {
             readonly arch: string;
 
             /**
-            * An estimate of the default amount of parallelism a program should use.
-            */
-            readonly availableParallelism: number;
-
-            /**
             * Information about the CPUs in the system.
             */
             readonly cpus: system.CpuInfo[];
