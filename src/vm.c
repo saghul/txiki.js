@@ -326,9 +326,6 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 void TJS_FreeRuntime(TJSRuntime *qrt) {
     qrt->freeing = true;
 
-    /* Reset TTY state (if it had changed) before exiting. */
-    uv_tty_reset_mode();
-
     /* Close all core loop handles. */
     uv_close((uv_handle_t *) &qrt->jobs.prepare, NULL);
     uv_close((uv_handle_t *) &qrt->jobs.idle, NULL);
