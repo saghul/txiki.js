@@ -45,6 +45,18 @@ static JSValue tjs_evalFile(JSContext *ctx, JSValue this_val, int argc, JSValue 
     return ret;
 }
 
+static JSValue tjs_loadScript(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    const char *filename;
+    size_t len;
+    JSValue ret;
+    filename = JS_ToCStringLen(ctx, &len, argv[0]);
+    if (!filename)
+        return JS_EXCEPTION;
+    ret = TJS_EvalScript(ctx, filename);
+    JS_FreeCString(ctx, filename);
+    return ret;
+}
+
 static JSValue tjs_evalScript(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     const char *str;
     size_t len;
@@ -143,6 +155,7 @@ static JSValue tjs_randomUUID(JSContext *ctx, JSValue this_val, int argc, JSValu
 static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("evalFile", 1, tjs_evalFile),
     TJS_CFUNC_DEF("evalScript", 1, tjs_evalScript),
+    TJS_CFUNC_DEF("loadScript", 1, tjs_loadScript),
     TJS_CFUNC_DEF("randomUUID", 0, tjs_randomUUID),
     TJS_CFUNC_DEF("runRepl", 0, tjs_runRepl),
     TJS_CFUNC_DEF("isArrayBuffer", 1, tjs_isArrayBuffer),

@@ -546,6 +546,31 @@ JSValue TJS_EvalModuleContent(JSContext *ctx,
     return ret;
 }
 
+JSValue TJS_EvalScript(JSContext *ctx, const char *filename) {
+    DynBuf dbuf;
+    size_t dbuf_size;
+    int r;
+    JSValue ret;
+
+    tjs_dbuf_init(ctx, &dbuf);
+    r = tjs__load_file(ctx, &dbuf, filename);
+    if (r != 0) {
+        dbuf_free(&dbuf);
+        JS_ThrowReferenceError(ctx, "could not load '%s' - %s: %s", filename, uv_err_name(r), uv_strerror(r));
+        return JS_EXCEPTION;
+    }
+
+    dbuf_size = dbuf.size;
+
+    /* Add null termination, required by JS_Eval. */
+    dbuf_putc(&dbuf, '\0');
+
+    ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf_size - 1, filename, JS_EVAL_TYPE_GLOBAL);
+
+    dbuf_free(&dbuf);
+    return ret;
+}
+
 JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     DynBuf dbuf;
     size_t dbuf_size;
