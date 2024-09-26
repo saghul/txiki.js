@@ -116,6 +116,7 @@ void tjs__sab_dup(void *opaque, void *ptr);
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options);
+JSValue TJS_EvalScript(JSContext *ctx, const char *filename);
 JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main);
 JSValue TJS_EvalModuleContent(JSContext *ctx,
                               const char *filename,
