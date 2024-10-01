@@ -76,8 +76,9 @@ static int atomic_add_int(int *ptr, int v) {
 
 static void *tjs__sab_alloc(void *opaque, size_t size) {
     TJSSABHeader *sab = tjs__malloc(sizeof(*sab) + size);
-    if (!sab)
+    if (!sab) {
         return NULL;
+    }
     sab->ref_count = 1;
     return sab->buf;
 }
@@ -86,8 +87,9 @@ void tjs__sab_free(void *opaque, void *ptr) {
     TJSSABHeader *sab = (TJSSABHeader *) ((uint8_t *) ptr - sizeof(TJSSABHeader));
     int ref_count = atomic_add_int(&sab->ref_count, -1);
     assert(ref_count >= 0);
-    if (ref_count == 0)
+    if (ref_count == 0) {
         tjs__free(sab);
+    }
 }
 
 void tjs__sab_dup(void *opaque, void *ptr) {
@@ -151,8 +153,9 @@ static JSValue tjs__dispatch_event(JSContext *ctx, JSValue *event) {
     TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
 
-    if (qrt->freeing)
+    if (qrt->freeing) {
         return JS_UNDEFINED;
+    }
 
     JSValue global_obj = JS_GetGlobalObject(ctx);
     JSValue ret = JS_Call(ctx, qrt->builtins.dispatch_event_func, global_obj, 1, event);
@@ -169,8 +172,9 @@ static void tjs__promise_rejection_tracker(JSContext *ctx,
     TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
 
-    if (qrt->freeing)
+    if (qrt->freeing) {
         return;
+    }
 
     if (!is_handled) {
         JSValue event_name = JS_NewString(ctx, "unhandledrejection");
@@ -356,8 +360,9 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         uv_run(&qrt->loop, UV_RUN_NOWAIT);
     }
 #ifdef DEBUG
-    if (!closed)
+    if (!closed) {
         uv_print_all_handles(&qrt->loop, stderr);
+    }
     CHECK_EQ(closed, 1);
 #else
     (void) closed;
@@ -405,10 +410,11 @@ static void uv__idle_cb(uv_idle_t *handle) {
 }
 
 static void uv__maybe_idle(TJSRuntime *qrt) {
-    if (JS_IsJobPending(qrt->rt))
+    if (JS_IsJobPending(qrt->rt)) {
         CHECK_EQ(uv_idle_start(&qrt->jobs.idle, uv__idle_cb), 0);
-    else
+    } else {
         CHECK_EQ(uv_idle_stop(&qrt->jobs.idle), 0);
+    }
 }
 
 static void uv__prepare_cb(uv_prepare_t *handle) {
@@ -463,8 +469,9 @@ int TJS_Run(TJSRuntime *qrt) {
         ret = tjs__eval_bytecode(qrt->ctx, tjs__run_main, tjs__run_main_size, true);
     }
 
-    if (ret != 0)
+    if (ret != 0) {
         return ret;
+    }
 
     int r;
     do {
@@ -496,8 +503,9 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
 
     r = uv_fs_open(NULL, &req, filename, O_RDONLY, 0, NULL);
     uv_fs_req_cleanup(&req);
-    if (r < 0)
+    if (r < 0) {
         return r;
+    }
 
     fd = r;
     char buf[64 * 1024];
@@ -507,12 +515,14 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
     do {
         r = uv_fs_read(NULL, &req, fd, &b, 1, offset, NULL);
         uv_fs_req_cleanup(&req);
-        if (r <= 0)
+        if (r <= 0) {
             break;
+        }
         offset += r;
         r = dbuf_put(dbuf, (const uint8_t *) b.base, r);
-        if (r != 0)
+        if (r != 0) {
             break;
+        }
     } while (1);
 
     uv_fs_close(NULL, &req, fd, NULL);

@@ -58,10 +58,11 @@ static void uv__getaddrinfo_cb(uv_getaddrinfo_t *req, int status, struct addrinf
     JSValue arg;
     bool is_reject = status != 0;
 
-    if (status != 0)
+    if (status != 0) {
         arg = tjs_new_error(ctx, status);
-    else
+    } else {
         arg = tjs_addrinfo2obj(ctx, res);
+    }
 
     TJS_SettlePromise(ctx, &gr->result, is_reject, 1, &arg);
 
@@ -74,8 +75,9 @@ static JSValue tjs_dns_getaddrinfo(JSContext *ctx, JSValue this_val, int argc, J
 
     if (!JS_IsUndefined(argv[0])) {
         node = JS_ToCString(ctx, argv[0]);
-        if (!node)
+        if (!node) {
             return JS_EXCEPTION;
+        }
     }
 
     JSValue opts = argv[1];

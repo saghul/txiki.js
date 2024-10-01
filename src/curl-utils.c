@@ -33,8 +33,9 @@
         TJS_VERSION_SUFFIX
 
 CURL *tjs__curl_easy_init(CURL *curl_h) {
-    if (curl_h == NULL)
+    if (curl_h == NULL) {
         curl_h = curl_easy_init();
+    }
 
     curl_easy_setopt(curl_h, CURLOPT_USERAGENT, TJS__UA_STRING);
     curl_easy_setopt(curl_h, CURLOPT_FOLLOWLOCATION, 1L);
@@ -57,8 +58,9 @@ CURL *tjs__curl_easy_init(CURL *curl_h) {
 size_t curl__write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
     size_t realsize = size * nmemb;
     DynBuf *dbuf = userdata;
-    if (dbuf_put(dbuf, (const uint8_t *) ptr, realsize))
+    if (dbuf_put(dbuf, (const uint8_t *) ptr, realsize)) {
         return -1;
+    }
     return realsize;
 }
 
@@ -88,8 +90,9 @@ int tjs_curl_load_http(DynBuf *dbuf, const char *url) {
     if (res == CURLE_OK) {
         long code = 0;
         res = curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &code);
-        if (res == CURLE_OK)
+        if (res == CURLE_OK) {
             r = (int) code;
+        }
     }
 
     if (res != CURLE_OK) {
@@ -127,8 +130,9 @@ static void check_multi_info(TJSRuntime *qrt) {
                  * This is an ugly workaround. The WS code uses a _different_ private
                  * struct and we need to tell them apart.
                  */
-                if (curl_private->magic != TJS__CURL_PRIVATE_MAGIC)
+                if (curl_private->magic != TJS__CURL_PRIVATE_MAGIC) {
                     break;
+                }
                 CHECK_NOT_NULL(curl_private->done_cb);
                 curl_private->done_cb(message, curl_private->arg);
 
@@ -161,10 +165,12 @@ static void uv__poll_cb(uv_poll_t *handle, int status, int events) {
     CHECK_NOT_NULL(qrt);
 
     int flags = 0;
-    if (events & UV_READABLE)
+    if (events & UV_READABLE) {
         flags |= CURL_CSELECT_IN;
-    if (events & UV_WRITABLE)
+    }
+    if (events & UV_WRITABLE) {
         flags |= CURL_CSELECT_OUT;
+    }
 
     int running_handles;
     curl_multi_socket_action(qrt->curl_ctx.curlm_h, poll_ctx->sockfd, flags, &running_handles);
@@ -184,8 +190,9 @@ static int curl__handle_socket(CURL *easy, curl_socket_t s, int action, void *us
             if (!socketp) {
                 // Initialize poll handle.
                 poll_ctx = tjs__malloc(sizeof(*poll_ctx));
-                if (!poll_ctx)
+                if (!poll_ctx) {
                     return -1;
+                }
                 CHECK_EQ(uv_poll_init_socket(&qrt->loop, &poll_ctx->poll, s), 0);
                 poll_ctx->qrt = qrt;
                 poll_ctx->sockfd = s;
@@ -197,10 +204,12 @@ static int curl__handle_socket(CURL *easy, curl_socket_t s, int action, void *us
             curl_multi_assign(qrt->curl_ctx.curlm_h, s, (void *) poll_ctx);
 
             int events = 0;
-            if (action != CURL_POLL_IN)
+            if (action != CURL_POLL_IN) {
                 events |= UV_WRITABLE;
-            if (action != CURL_POLL_OUT)
+            }
+            if (action != CURL_POLL_OUT) {
                 events |= UV_READABLE;
+            }
 
             CHECK_EQ(uv_poll_start(&poll_ctx->poll, events, uv__poll_cb), 0);
             break;
@@ -237,8 +246,9 @@ static int curl__start_timeout(CURLM *multi, long timeout_ms, void *userp) {
     if (timeout_ms < 0) {
         CHECK_EQ(uv_timer_stop(&qrt->curl_ctx.timer), 0);
     } else {
-        if (timeout_ms == 0)
+        if (timeout_ms == 0) {
             timeout_ms = 1; /* 0 means directly call socket_action, but we'll do it in a bit */
+        }
         CHECK_EQ(uv_timer_start(&qrt->curl_ctx.timer, uv__timer_cb, timeout_ms, 0), 0);
     }
 

@@ -44,16 +44,18 @@ JSValue tjs_new_error(JSContext *ctx, int err) {
 
 static JSValue tjs_error_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
     int err;
-    if (JS_ToInt32(ctx, &err, argv[0]))
+    if (JS_ToInt32(ctx, &err, argv[0])) {
         return JS_EXCEPTION;
+    }
     return tjs_new_error(ctx, err);
 }
 
 JSValue tjs_throw_errno(JSContext *ctx, int err) {
     JSValue obj;
     obj = tjs_new_error(ctx, err);
-    if (JS_IsException(obj))
+    if (JS_IsException(obj)) {
         obj = JS_NULL;
+    }
     return JS_Throw(ctx, obj);
 }
 

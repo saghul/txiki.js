@@ -51,13 +51,15 @@ static void uv__close_cb(uv_handle_t *handle) {
     TJSProcess *p = handle->data;
     CHECK_NOT_NULL(p);
     p->closed = true;
-    if (p->finalized)
+    if (p->finalized) {
         tjs__free(p);
+    }
 }
 
 static void maybe_close(TJSProcess *p) {
-    if (!uv_is_closing((uv_handle_t *) &p->process))
+    if (!uv_is_closing((uv_handle_t *) &p->process)) {
         uv_close((uv_handle_t *) &p->process, uv__close_cb);
+    }
 }
 
 static void tjs_process_finalizer(JSRuntime *rt, JSValue val) {
@@ -68,10 +70,11 @@ static void tjs_process_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, p->stdio[1]);
         JS_FreeValueRT(rt, p->stdio[2]);
         p->finalized = true;
-        if (p->closed)
+        if (p->closed) {
             tjs__free(p);
-        else
+        } else {
             maybe_close(p);
+        }
     }
 }
 
@@ -97,8 +100,9 @@ static TJSProcess *tjs_process_get(JSContext *ctx, JSValue obj) {
 
 static JSValue tjs_process_kill(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSProcess *p = tjs_process_get(ctx, this_val);
-    if (!p)
+    if (!p) {
         return JS_EXCEPTION;
+    }
 
     int sig_num = SIGTERM;
     if (!JS_IsUndefined(argv[0])) {
@@ -106,21 +110,24 @@ static JSValue tjs_process_kill(JSContext *ctx, JSValue this_val, int argc, JSVa
         sig_num = tjs_getsignum(sig_str);
         JS_FreeCString(ctx, sig_str);
 
-        if (sig_num == -1)
+        if (sig_num == -1) {
             return JS_ThrowRangeError(ctx, "Invalid signal specified");
+        }
     }
 
     int r = uv_process_kill(&p->process, sig_num);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     return JS_UNDEFINED;
 }
 
 static JSValue tjs_process_wait(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSProcess *p = tjs_process_get(ctx, this_val);
-    if (!p)
+    if (!p) {
         return JS_EXCEPTION;
+    }
     CHECK(!p->closed);
 
     if (p->status.exited) {
@@ -139,15 +146,17 @@ static JSValue tjs_process_wait(JSContext *ctx, JSValue this_val, int argc, JSVa
 
 static JSValue tjs_process_pid_get(JSContext *ctx, JSValue this_val) {
     TJSProcess *p = tjs_process_get(ctx, this_val);
-    if (!p)
+    if (!p) {
         return JS_EXCEPTION;
+    }
     return JS_NewInt32(ctx, uv_process_get_pid(&p->process));
 }
 
 static JSValue tjs_process_stdio_get(JSContext *ctx, JSValue this_val, int magic) {
     TJSProcess *p = tjs_process_get(ctx, this_val);
-    if (!p)
+    if (!p) {
         return JS_EXCEPTION;
+    }
     return JS_DupValue(ctx, p->stdio[magic]);
 }
 
@@ -181,8 +190,9 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
     JSValue ret;
 
     JSValue obj = JS_NewObjectClass(ctx, tjs_process_class_id);
-    if (JS_IsException(obj))
+    if (JS_IsException(obj)) {
         return obj;
+    }
 
     TJSProcess *p = tjs__mallocz(sizeof(*p));
     if (!p) {
@@ -219,15 +229,18 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
 
     if (JS_IsString(arg0)) {
         options.args = js_mallocz(ctx, sizeof(*options.args) * 2);
-        if (!options.args)
+        if (!options.args) {
             goto fail;
+        }
         const char *arg0_str = JS_ToCString(ctx, arg0);
-        if (!arg0_str)
+        if (!arg0_str) {
             goto fail;
+        }
         options.args[0] = js_strdup(ctx, arg0_str);
         JS_FreeCString(ctx, arg0_str);
-        if (!options.args[0])
+        if (!options.args[0]) {
             goto fail;
+        }
     } else if (JS_IsArray(ctx, arg0)) {
         JSValue js_length = JS_GetPropertyStr(ctx, arg0, "length");
         uint64_t len;
@@ -237,20 +250,24 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
         }
         JS_FreeValue(ctx, js_length);
         options.args = js_mallocz(ctx, sizeof(*options.args) * (len + 1));
-        if (!options.args)
+        if (!options.args) {
             goto fail;
+        }
         for (int i = 0; i < len; i++) {
             JSValue v = JS_GetPropertyUint32(ctx, arg0, i);
-            if (JS_IsException(v))
+            if (JS_IsException(v)) {
                 goto fail;
+            }
             const char *arg_str = JS_ToCString(ctx, v);
             JS_FreeValue(ctx, v);
-            if (!arg_str)
+            if (!arg_str) {
                 goto fail;
+            }
             options.args[i] = js_strdup(ctx, arg_str);
             JS_FreeCString(ctx, arg_str);
-            if (!options.args[i])
+            if (!options.args[i]) {
                 goto fail;
+            }
         }
     } else {
         JS_ThrowTypeError(ctx, "only string and array are allowed");
@@ -306,8 +323,9 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
 
         /* cwd */
         JSValue js_cwd = JS_GetPropertyStr(ctx, arg1, "cwd");
-        if (JS_IsException(js_cwd))
+        if (JS_IsException(js_cwd)) {
             goto fail;
+        }
         if (!JS_IsUndefined(js_cwd)) {
             const char *cwd_str = JS_ToCString(ctx, js_cwd);
             if (!cwd_str) {
@@ -325,8 +343,9 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
 
         /* uid */
         JSValue js_uid = JS_GetPropertyStr(ctx, arg1, "uid");
-        if (JS_IsException(js_uid))
+        if (JS_IsException(js_uid)) {
             goto fail;
+        }
         uint32_t uid;
         if (!JS_IsUndefined(js_uid)) {
             if (JS_ToUint32(ctx, &uid, js_uid)) {
@@ -340,8 +359,9 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
 
         /* gid */
         JSValue js_gid = JS_GetPropertyStr(ctx, arg1, "gid");
-        if (JS_IsException(js_gid))
+        if (JS_IsException(js_gid)) {
             goto fail;
+        }
         uint32_t gid;
         if (!JS_IsUndefined(js_gid)) {
             if (JS_ToUint32(ctx, &gid, js_gid)) {
@@ -455,17 +475,20 @@ fail:
     ret = JS_EXCEPTION;
 cleanup:
     if (options.args) {
-        for (int i = 0; options.args[i] != NULL; i++)
+        for (int i = 0; options.args[i] != NULL; i++) {
             js_free(ctx, options.args[i]);
+        }
         js_free(ctx, options.args);
     }
     if (options.env) {
-        for (int i = 0; options.env[i] != NULL; i++)
+        for (int i = 0; options.env[i] != NULL; i++) {
             js_free(ctx, options.env[i]);
+        }
         js_free(ctx, options.env);
     }
-    if (options.cwd)
+    if (options.cwd) {
         js_free(ctx, (void *) options.cwd);
+    }
 
     return ret;
 }
@@ -480,15 +503,18 @@ static JSValue tjs_exec(JSContext *ctx, JSValue this_val, int argc, JSValue *arg
 
     if (JS_IsString(arg0)) {
         args = js_mallocz(ctx, sizeof(*args) * 2);
-        if (!args)
+        if (!args) {
             goto fail;
+        }
         const char *arg0_str = JS_ToCString(ctx, arg0);
-        if (!arg0_str)
+        if (!arg0_str) {
             goto fail;
+        }
         args[0] = js_strdup(ctx, arg0_str);
         JS_FreeCString(ctx, arg0_str);
-        if (!args[0])
+        if (!args[0]) {
             goto fail;
+        }
     } else if (JS_IsArray(ctx, arg0)) {
         JSValue js_length = JS_GetPropertyStr(ctx, arg0, "length");
         uint64_t len;
@@ -498,19 +524,23 @@ static JSValue tjs_exec(JSContext *ctx, JSValue this_val, int argc, JSValue *arg
         }
         JS_FreeValue(ctx, js_length);
         args = js_mallocz(ctx, sizeof(*args) * (len + 1));
-        if (!args)
+        if (!args) {
             goto fail;
+        }
         for (int i = 0; i < len; i++) {
             JSValue v = JS_GetPropertyUint32(ctx, arg0, i);
-            if (JS_IsException(v))
+            if (JS_IsException(v)) {
                 goto fail;
+            }
             const char *arg_str = JS_ToCString(ctx, v);
-            if (!arg_str)
+            if (!arg_str) {
                 goto fail;
+            }
             args[i] = js_strdup(ctx, arg_str);
             JS_FreeCString(ctx, arg_str);
-            if (!args[i])
+            if (!args[i]) {
                 goto fail;
+            }
         }
     } else {
         JS_ThrowTypeError(ctx, "only string and array are allowed");
@@ -524,8 +554,9 @@ fail:
     ret = JS_EXCEPTION;
 
     if (args) {
-        for (int i = 0; args[i] != NULL; i++)
+        for (int i = 0; args[i] != NULL; i++) {
             js_free(ctx, args[i]);
+        }
         js_free(ctx, args);
     }
 
@@ -534,8 +565,9 @@ fail:
 
 static JSValue tjs_kill(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     int32_t pid;
-    if (JS_IsUndefined(argv[0]) || JS_ToInt32(ctx, &pid, argv[0]))
+    if (JS_IsUndefined(argv[0]) || JS_ToInt32(ctx, &pid, argv[0])) {
         return JS_ThrowTypeError(ctx, "expected an integer");
+    }
 
     int sig_num = SIGTERM;
     if (!JS_IsUndefined(argv[1])) {
@@ -543,13 +575,15 @@ static JSValue tjs_kill(JSContext *ctx, JSValue this_val, int argc, JSValue *arg
         sig_num = tjs_getsignum(sig_str);
         JS_FreeCString(ctx, sig_str);
 
-        if (sig_num == -1)
+        if (sig_num == -1) {
             return JS_ThrowRangeError(ctx, "Invalid signal specified");
+        }
     }
 
     int r = uv_kill(pid, sig_num);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     return JS_UNDEFINED;
 }

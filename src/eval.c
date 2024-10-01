@@ -28,8 +28,9 @@
 int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len, bool check_promise) {
     JSValue obj = JS_ReadObject(ctx, buf, buf_len, JS_READ_OBJ_BYTECODE);
 
-    if (JS_IsException(obj))
+    if (JS_IsException(obj)) {
         goto error;
+    }
 
     if (JS_VALUE_GET_TAG(obj) == JS_TAG_MODULE) {
         if (JS_ResolveModule(ctx, obj) < 0) {
@@ -41,8 +42,9 @@ int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len, bool 
     }
 
     JSValue val = JS_EvalFunction(ctx, obj);
-    if (JS_IsException(val))
+    if (JS_IsException(val)) {
         goto error;
+    }
 
     if (check_promise) {
         JSPromiseStateEnum promise_state = JS_PromiseState(ctx, val);
