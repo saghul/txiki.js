@@ -100,8 +100,9 @@ void tjs_addr2obj(JSContext *ctx, JSValue obj, const struct sockaddr *sa, bool s
 
             JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, 4), JS_PROP_C_W_E);
             JS_DefinePropertyValueStr(ctx, obj, "ip", JS_NewString(ctx, buf), JS_PROP_C_W_E);
-            if (!skip_port)
+            if (!skip_port) {
                 JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr4->sin_port)), JS_PROP_C_W_E);
+            }
 
             break;
         }
@@ -112,8 +113,9 @@ void tjs_addr2obj(JSContext *ctx, JSValue obj, const struct sockaddr *sa, bool s
 
             JS_DefinePropertyValueStr(ctx, obj, "family", JS_NewInt32(ctx, 6), JS_PROP_C_W_E);
             JS_DefinePropertyValueStr(ctx, obj, "ip", JS_NewString(ctx, buf), JS_PROP_C_W_E);
-            if (!skip_port)
+            if (!skip_port) {
                 JS_DefinePropertyValueStr(ctx, obj, "port", JS_NewInt32(ctx, ntohs(addr6->sin6_port)), JS_PROP_C_W_E);
+            }
             JS_DefinePropertyValueStr(ctx,
                                       obj,
                                       "flowInfo",
@@ -147,8 +149,9 @@ void tjs_dump_error1(JSContext *ctx, JSValue exception_val) {
     tjs_dump_obj(ctx, stderr, exception_val);
     if (is_error) {
         JSValue val = JS_GetPropertyStr(ctx, exception_val, "stack");
-        if (!JS_IsUndefined(val))
+        if (!JS_IsUndefined(val)) {
             tjs_dump_obj(ctx, stderr, val);
+        }
         JS_FreeValue(ctx, val);
     }
     fflush(stderr);
@@ -172,8 +175,9 @@ void tjs_call_handler(JSContext *ctx, JSValue func, int argc, JSValue *argv) {
 void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len) {
     uint32_t i;
     if (tab) {
-        for (i = 0; i < len; i++)
+        for (i = 0; i < len; i++) {
             JS_FreeAtom(ctx, tab[i].atom);
+        }
         js_free(ctx, tab);
     }
 }
@@ -181,8 +185,9 @@ void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len) {
 JSValue TJS_InitPromise(JSContext *ctx, TJSPromise *p) {
     JSValue rfuncs[2];
     p->p = JS_NewPromiseCapability(ctx, rfuncs);
-    if (JS_IsException(p->p))
+    if (JS_IsException(p->p)) {
         return JS_EXCEPTION;
+    }
     p->rfuncs[0] = JS_DupValue(ctx, rfuncs[0]);
     p->rfuncs[1] = JS_DupValue(ctx, rfuncs[1]);
     return JS_DupValue(ctx, p->p);
@@ -218,8 +223,9 @@ void TJS_MarkPromise(JSRuntime *rt, TJSPromise *p, JS_MarkFunc *mark_func) {
 
 void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, int argc, JSValue *argv) {
     JSValue ret = JS_Call(ctx, p->rfuncs[is_reject], JS_UNDEFINED, argc, argv);
-    for (int i = 0; i < argc; i++)
+    for (int i = 0; i < argc; i++) {
         JS_FreeValue(ctx, argv[i]);
+    }
     JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
     JS_FreeValue(ctx, p->rfuncs[0]);
     JS_FreeValue(ctx, p->rfuncs[1]);
@@ -238,13 +244,15 @@ static inline JSValue tjs__settled_promise(JSContext *ctx, bool is_reject, int a
     JSValue promise, resolving_funcs[2], ret;
 
     promise = JS_NewPromiseCapability(ctx, resolving_funcs);
-    if (JS_IsException(promise))
+    if (JS_IsException(promise)) {
         return JS_EXCEPTION;
+    }
 
     ret = JS_Call(ctx, resolving_funcs[is_reject], JS_UNDEFINED, argc, argv);
 
-    for (int i = 0; i < argc; i++)
+    for (int i = 0; i < argc; i++) {
         JS_FreeValue(ctx, argv[i]);
+    }
     JS_FreeValue(ctx, ret);
     JS_FreeValue(ctx, resolving_funcs[0]);
     JS_FreeValue(ctx, resolving_funcs[1]);
@@ -376,8 +384,9 @@ const char *tjs_signal_map[] = {
 size_t tjs_signal_map_count = ARRAY_SIZE(tjs_signal_map);
 
 const char *tjs_getsig(int sig) {
-    if (sig < 0 || sig >= tjs_signal_map_count || !tjs_signal_map[sig])
+    if (sig < 0 || sig >= tjs_signal_map_count || !tjs_signal_map[sig]) {
         return NULL;
+    }
 
     return tjs_signal_map[sig];
 }
@@ -385,8 +394,9 @@ const char *tjs_getsig(int sig) {
 int tjs_getsignum(const char *sig_str) {
     for (int i = 0; i < tjs_signal_map_count; i++) {
         const char *s = tjs_signal_map[i];
-        if (s && strcmp(sig_str, s) == 0)
+        if (s && strcmp(sig_str, s) == 0) {
             return i;
+        }
     }
 
     return -1;

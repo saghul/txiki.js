@@ -96,8 +96,9 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     is_json = has_suffix(module_name, ".json");
 
     /* Support importing JSON files because... why not? */
-    if (is_json)
+    if (is_json) {
         dbuf_put(&dbuf, (const uint8_t *) json_tpl_start, strlen(json_tpl_start));
+    }
 
     r = tjs__load_file(ctx, &dbuf, module_name);
     if (r != 0) {
@@ -106,8 +107,9 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
         return NULL;
     }
 
-    if (is_json)
+    if (is_json) {
         dbuf_put(&dbuf, (const uint8_t *) json_tpl_end, strlen(json_tpl_end));
+    }
 
     /* Add null termination, required by JS_Eval. */
     dbuf_putc(&dbuf, '\0');
@@ -158,8 +160,9 @@ int js_module_set_import_meta(JSContext *ctx, JSValue func_val, JS_BOOL use_real
     fprintf(stdout, "XXX loaded module: %s\n", module_name);
 #endif
     JS_FreeAtom(ctx, module_name_atom);
-    if (!module_name)
+    if (!module_name) {
         return -1;
+    }
 
     /* realpath() cannot be used with builtin modules
         because the corresponding module source code is not
@@ -191,8 +194,9 @@ int js_module_set_import_meta(JSContext *ctx, JSValue func_val, JS_BOOL use_real
     JS_FreeCString(ctx, module_name);
 
     meta_obj = JS_GetImportMeta(ctx, m);
-    if (JS_IsException(meta_obj))
+    if (JS_IsException(meta_obj)) {
         return -1;
+    }
     JS_DefinePropertyValueStr(ctx, meta_obj, "url", JS_NewString(ctx, buf), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, meta_obj, "main", JS_NewBool(ctx, is_main), JS_PROP_C_W_E);
     if (use_realpath) {
@@ -238,14 +242,16 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
     tjs__normalize_pathsep(name);
 
     p = strrchr(base_name, TJS__PATHSEP);
-    if (p)
+    if (p) {
         len = p - base_name;
-    else
+    } else {
         len = 0;
+    }
 
     filename = js_malloc(ctx, len + strlen(name) + 1 + 1);
-    if (!filename)
+    if (!filename) {
         return NULL;
+    }
     memcpy(filename, base_name, len);
     filename[len] = '\0';
 
@@ -257,25 +263,30 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
         } else if (r[0] == '.' && r[1] == '.' && r[2] == TJS__PATHSEP_POSIX) {
             /* remove the last path element of filename, except if "."
                or ".." */
-            if (filename[0] == '\0')
+            if (filename[0] == '\0') {
                 break;
+            }
             p = strrchr(filename, TJS__PATHSEP);
-            if (!p)
+            if (!p) {
                 p = filename;
-            else
+            } else {
                 p++;
-            if (!strcmp(p, ".") || !strcmp(p, ".."))
+            }
+            if (!strcmp(p, ".") || !strcmp(p, "..")) {
                 break;
-            if (p > filename)
+            }
+            if (p > filename) {
                 p--;
+            }
             *p = '\0';
             r += 3;
         } else {
             break;
         }
     }
-    if (filename[0] != '\0')
+    if (filename[0] != '\0') {
         strcat(filename, TJS__PATHSEP_STR);
+    }
     strcat(filename, r);
 
     /* Re-normalize the path. The name part will have posix style paths, so

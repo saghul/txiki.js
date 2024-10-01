@@ -82,8 +82,9 @@ static void uv__timer_cb(uv_timer_t *handle) {
 
     tjs_call_handler(th->ctx, th->func, th->argc, th->argv);
 
-    if (!th->interval)
+    if (!th->interval) {
         destroy_timer(th);
+    }
 }
 
 static JSValue tjs_setTimeout(JSContext *ctx, JSValue this_val, int argc, JSValue *argv, int magic) {
@@ -95,8 +96,9 @@ static JSValue tjs_setTimeout(JSContext *ctx, JSValue this_val, int argc, JSValu
     TJSTimer *th;
 
     func = argv[0];
-    if (!JS_IsFunction(ctx, func))
+    if (!JS_IsFunction(ctx, func)) {
         return JS_ThrowTypeError(ctx, "not a function");
+    }
 
     if (argc <= 1) {
         delay = 0;
@@ -110,12 +112,14 @@ static JSValue tjs_setTimeout(JSContext *ctx, JSValue this_val, int argc, JSValu
     }
 
     th = tjs__malloc(sizeof(*th) + nargs * sizeof(JSValue));
-    if (!th)
+    if (!th) {
         return JS_ThrowOutOfMemory(ctx);
+    }
 
     th->id = qrt->timers.next_timer++;
-    if (qrt->timers.next_timer > MAX_SAFE_INTEGER)
+    if (qrt->timers.next_timer > MAX_SAFE_INTEGER) {
         qrt->timers.next_timer = 1;
+    }
 
     th->ctx = ctx;
     CHECK_EQ(uv_timer_init(tjs_get_loop(ctx), &th->handle), 0);
@@ -123,8 +127,9 @@ static JSValue tjs_setTimeout(JSContext *ctx, JSValue this_val, int argc, JSValu
     th->interval = magic;
     th->func = JS_DupValue(ctx, func);
     th->argc = nargs;
-    for (int i = 0; i < nargs; i++)
+    for (int i = 0; i < nargs; i++) {
         th->argv[i] = JS_DupValue(ctx, argv[i + 2]);
+    }
 
     CHECK_EQ(uv_timer_start(&th->handle, uv__timer_cb, delay, magic ? delay : 0 /* repeat */), 0);
 
@@ -139,8 +144,9 @@ static JSValue tjs_clearTimeout(JSContext *ctx, JSValue this_val, int argc, JSVa
     int64_t timer_id;
     TJSTimer *th = NULL;
 
-    if (JS_ToInt64(ctx, &timer_id, argv[0]))
+    if (JS_ToInt64(ctx, &timer_id, argv[0])) {
         return JS_EXCEPTION;
+    }
 
     HASH_FIND_INT64(qrt->timers.timers, &timer_id, th);
 

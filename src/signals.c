@@ -43,14 +43,16 @@ static void uv__signal_close_cb(uv_handle_t *handle) {
     TJSSignalHandler *sh = handle->data;
     if (sh) {
         sh->closed = 1;
-        if (sh->finalized)
+        if (sh->finalized) {
             tjs__free(sh);
+        }
     }
 }
 
 static void maybe_close(TJSSignalHandler *sh) {
-    if (!uv_is_closing((uv_handle_t *) &sh->handle))
+    if (!uv_is_closing((uv_handle_t *) &sh->handle)) {
         uv_close((uv_handle_t *) &sh->handle, uv__signal_close_cb);
+    }
 }
 
 static void tjs_signal_handler_finalizer(JSRuntime *rt, JSValue val) {
@@ -58,10 +60,11 @@ static void tjs_signal_handler_finalizer(JSRuntime *rt, JSValue val) {
     if (sh) {
         JS_FreeValueRT(rt, sh->func);
         sh->finalized = 1;
-        if (sh->closed)
+        if (sh->closed) {
             tjs__free(sh);
-        else
+        } else {
             maybe_close(sh);
+        }
     }
 }
 
@@ -86,16 +89,19 @@ static void uv__signal_cb(uv_signal_t *handle, int sig_num) {
 
 static JSValue tjs_signal(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     int32_t sig_num;
-    if (JS_ToInt32(ctx, &sig_num, argv[0]))
+    if (JS_ToInt32(ctx, &sig_num, argv[0])) {
         return JS_EXCEPTION;
+    }
 
     JSValue func = argv[1];
-    if (!JS_IsFunction(ctx, func))
+    if (!JS_IsFunction(ctx, func)) {
         return JS_ThrowTypeError(ctx, "not a function");
+    }
 
     JSValue obj = JS_NewObjectClass(ctx, tjs_signal_handler_class_id);
-    if (JS_IsException(obj))
+    if (JS_IsException(obj)) {
         return obj;
+    }
 
     TJSSignalHandler *sh = tjs__mallocz(sizeof(*sh));
     if (!sh) {
@@ -133,16 +139,18 @@ static TJSSignalHandler *tjs_signal_handler_get(JSContext *ctx, JSValue obj) {
 
 static JSValue tjs_signal_handler_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSSignalHandler *sh = tjs_signal_handler_get(ctx, this_val);
-    if (!sh)
+    if (!sh) {
         return JS_EXCEPTION;
+    }
     maybe_close(sh);
     return JS_UNDEFINED;
 }
 
 static JSValue tjs_signal_handler_signal_get(JSContext *ctx, JSValue this_val) {
     TJSSignalHandler *sh = tjs_signal_handler_get(ctx, this_val);
-    if (!sh)
+    if (!sh) {
         return JS_EXCEPTION;
+    }
     return sh->sig_num == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(sh->sig_num));
 }
 
