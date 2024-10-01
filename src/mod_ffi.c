@@ -81,7 +81,7 @@ SOFTWARE.
 #error "'int' neither 32bit nor 64 bit, I don't know how to handle it."
 #endif
 
-#define FFI_ALIGN(v, a) (((((size_t) (v)) - 1) | ((a) -1)) + 1)
+#define FFI_ALIGN(v, a) (((((size_t) (v)) - 1) | ((a) - 1)) + 1)
 
 #pragma region "FFI Helpers"
 // ===================
@@ -498,8 +498,9 @@ static JSValue js_ffi_type_from_buffer(JSContext *ctx, JSValue this_val, int arg
     }
     size_t bufsz;
     uint8_t *buf = JS_GetUint8Array(ctx, &bufsz, argv[0]);
-    if (!buf)
+    if (!buf) {
         return JS_EXCEPTION;
+    }
     size_t typesz = ffi_type_get_sz(type->ffi_type);
     if (bufsz != typesz) {
         JS_ThrowRangeError(ctx, "expected buffer to be of size %lu", typesz);
@@ -683,8 +684,9 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValue this_val, int argc, JSVal
     }
 
     void **aval = NULL;
-    if (ffi_arg_cnt > 0)
+    if (ffi_arg_cnt > 0) {
         aval = js_malloc(ctx, ffi_arg_cnt * sizeof(void *) * 2);
+    }
     for (unsigned i = 0; i < ffi_arg_cnt; i++) {
         void *ptr;
         if (JS_IS_PTR(ctx, func_argv[i])) {
@@ -707,8 +709,9 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValue this_val, int argc, JSVal
     void *rptr = js_malloc(ctx, retsz > sizeof(long) ? retsz : sizeof(long));
 
     ffi_call(&cif->ffi_cif, func, rptr, aval);
-    if (aval != NULL)
+    if (aval != NULL) {
         js_free(ctx, aval);
+    }
     return TJS_NewUint8Array(ctx, rptr, retsz);
 }
 static const JSCFunctionListEntry js_ffi_cif_proto_funcs[] = {
@@ -815,8 +818,9 @@ static JSValue js_array_buffer_get_ptr(JSContext *ctx, JSValue this_val, int arg
     }
     size_t size;
     uint8_t *buf = JS_GetUint8Array(ctx, &size, argv[0]);
-    if (!buf)
+    if (!buf) {
         return JS_EXCEPTION;
+    }
     return JS_NEW_UINTPTR_T(ctx, (uint64_t) buf);
 }
 

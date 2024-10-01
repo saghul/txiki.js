@@ -33,8 +33,9 @@
 
 static JSValue tjs_exit(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     int status;
-    if (JS_ToInt32(ctx, &status, argv[0]))
+    if (JS_ToInt32(ctx, &status, argv[0])) {
         status = -1;
+    }
     /* Reset TTY state (if it had changed) before exiting. */
     uv_tty_reset_mode();
     exit(status);
@@ -47,8 +48,9 @@ static JSValue tjs_uname(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
     uv_utsname_t utsname;
 
     r = uv_os_uname(&utsname);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_DefinePropertyValueStr(ctx, obj, "sysname", JS_NewString(ctx, utsname.sysname), JS_PROP_C_W_E);
@@ -67,8 +69,9 @@ static JSValue tjs_uptime(JSContext *ctx, JSValue this_val, int argc, JSValue *a
 
 static JSValue tjs_guess_handle(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     int fd;
-    if (JS_ToInt32(ctx, &fd, argv[0]))
+    if (JS_ToInt32(ctx, &fd, argv[0])) {
         return JS_EXCEPTION;
+    }
 
     switch (uv_guess_handle(fd)) {
         case UV_TTY:
@@ -91,8 +94,9 @@ static JSValue tjs_environ(JSContext *ctx, JSValue this_val, int argc, JSValue *
     int envcount, r;
 
     r = uv_os_environ(&env, &envcount);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
 
@@ -110,8 +114,9 @@ static JSValue tjs_envKeys(JSContext *ctx, JSValue this_val, int argc, JSValue *
     int envcount, r;
 
     r = uv_os_environ(&env, &envcount);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     JSValue obj = JS_NewArray(ctx);
 
@@ -125,12 +130,14 @@ static JSValue tjs_envKeys(JSContext *ctx, JSValue this_val, int argc, JSValue *
 }
 
 static JSValue tjs_getenv(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    if (!JS_IsString(argv[0]))
+    if (!JS_IsString(argv[0])) {
         return JS_ThrowTypeError(ctx, "expected a string");
+    }
 
     const char *name = JS_ToCString(ctx, argv[0]);
-    if (!name)
+    if (!name) {
         return JS_EXCEPTION;
+    }
 
     char buf[1024];
     size_t size = sizeof(buf);
@@ -159,63 +166,75 @@ static JSValue tjs_getenv(JSContext *ctx, JSValue this_val, int argc, JSValue *a
     JS_FreeCString(ctx, name);
     JSValue ret = JS_NewStringLen(ctx, dbuf, size);
 
-    if (dbuf != buf)
+    if (dbuf != buf) {
         js_free(ctx, dbuf);
+    }
 
     return ret;
 }
 
 static JSValue tjs_setenv(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    if (!JS_IsString(argv[0]))
+    if (!JS_IsString(argv[0])) {
         return JS_ThrowTypeError(ctx, "expected a string");
-    if (JS_IsUndefined(argv[1]))
+    }
+    if (JS_IsUndefined(argv[1])) {
         return JS_ThrowTypeError(ctx, "expected a value");
+    }
 
     const char *name = JS_ToCString(ctx, argv[0]);
-    if (!name)
+    if (!name) {
         return JS_EXCEPTION;
+    }
 
     const char *value = JS_ToCString(ctx, argv[1]);
-    if (!value)
+    if (!value) {
         return JS_EXCEPTION;
+    }
 
     int r = uv_os_setenv(name, value);
     JS_FreeCString(ctx, name);
     JS_FreeCString(ctx, value);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     return JS_UNDEFINED;
 }
 
 static JSValue tjs_unsetenv(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    if (!JS_IsString(argv[0]))
+    if (!JS_IsString(argv[0])) {
         return JS_ThrowTypeError(ctx, "expected a string");
+    }
 
     const char *name = JS_ToCString(ctx, argv[0]);
-    if (!name)
+    if (!name) {
         return JS_EXCEPTION;
+    }
 
     int r = uv_os_unsetenv(name);
     JS_FreeCString(ctx, name);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     return JS_UNDEFINED;
 }
 
 static JSValue tjs_chdir(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    if (!JS_IsString(argv[0]))
+    if (!JS_IsString(argv[0])) {
         return JS_ThrowTypeError(ctx, "expected a string");
+    }
 
     const char *dir = JS_ToCString(ctx, argv[0]);
-    if (!dir)
+    if (!dir) {
         return JS_EXCEPTION;
+    }
 
     int r = uv_chdir(dir);
     JS_FreeCString(ctx, dir);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     return JS_UNDEFINED;
 }
@@ -228,11 +247,13 @@ static JSValue tjs_cwd(JSContext *ctx, JSValue this_val) {
 
     r = uv_cwd(dbuf, &size);
     if (r != 0) {
-        if (r != UV_ENOBUFS)
+        if (r != UV_ENOBUFS) {
             return tjs_throw_errno(ctx, r);
+        }
         dbuf = js_malloc(ctx, size);
-        if (!dbuf)
+        if (!dbuf) {
             return JS_EXCEPTION;
+        }
         r = uv_cwd(dbuf, &size);
         if (r != 0) {
             js_free(ctx, dbuf);
@@ -242,8 +263,9 @@ static JSValue tjs_cwd(JSContext *ctx, JSValue this_val) {
 
     JSValue ret = JS_NewStringLen(ctx, dbuf, size);
 
-    if (dbuf != buf)
+    if (dbuf != buf) {
         js_free(ctx, dbuf);
+    }
 
     return ret;
 }
@@ -256,11 +278,13 @@ static JSValue tjs_homedir(JSContext *ctx, JSValue this_val) {
 
     r = uv_os_homedir(dbuf, &size);
     if (r != 0) {
-        if (r != UV_ENOBUFS)
+        if (r != UV_ENOBUFS) {
             return tjs_throw_errno(ctx, r);
+        }
         dbuf = js_malloc(ctx, size);
-        if (!dbuf)
+        if (!dbuf) {
             return JS_EXCEPTION;
+        }
         r = uv_os_homedir(dbuf, &size);
         if (r != 0) {
             js_free(ctx, dbuf);
@@ -270,8 +294,9 @@ static JSValue tjs_homedir(JSContext *ctx, JSValue this_val) {
 
     JSValue ret = JS_NewStringLen(ctx, dbuf, size);
 
-    if (dbuf != buf)
+    if (dbuf != buf) {
         js_free(ctx, dbuf);
+    }
 
     return ret;
 }
@@ -284,11 +309,13 @@ static JSValue tjs_tmpdir(JSContext *ctx, JSValue this_val) {
 
     r = uv_os_tmpdir(dbuf, &size);
     if (r != 0) {
-        if (r != UV_ENOBUFS)
+        if (r != UV_ENOBUFS) {
             return tjs_throw_errno(ctx, r);
+        }
         dbuf = js_malloc(ctx, size);
-        if (!dbuf)
+        if (!dbuf) {
             return JS_EXCEPTION;
+        }
         r = uv_os_tmpdir(dbuf, &size);
         if (r != 0) {
             js_free(ctx, dbuf);
@@ -298,8 +325,9 @@ static JSValue tjs_tmpdir(JSContext *ctx, JSValue this_val) {
 
     JSValue ret = JS_NewStringLen(ctx, dbuf, size);
 
-    if (dbuf != buf)
+    if (dbuf != buf) {
         js_free(ctx, dbuf);
+    }
 
     return ret;
 }
@@ -307,23 +335,28 @@ static JSValue tjs_tmpdir(JSContext *ctx, JSValue this_val) {
 static JSValue tjs_random(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     size_t size;
     uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
-    if (!buf)
+    if (!buf) {
         return JS_EXCEPTION;
+    }
 
     uint64_t off = 0;
-    if (!JS_IsUndefined(argv[1]) && JS_ToIndex(ctx, &off, argv[1]))
+    if (!JS_IsUndefined(argv[1]) && JS_ToIndex(ctx, &off, argv[1])) {
         return JS_EXCEPTION;
+    }
 
     uint64_t len = size;
-    if (!JS_IsUndefined(argv[2]) && JS_ToIndex(ctx, &len, argv[2]))
+    if (!JS_IsUndefined(argv[2]) && JS_ToIndex(ctx, &len, argv[2])) {
         return JS_EXCEPTION;
+    }
 
-    if (off + len > size)
+    if (off + len > size) {
         return JS_ThrowRangeError(ctx, "array buffer overflow");
+    }
 
     int r = uv_random(NULL, NULL, buf + off, len, 0, NULL);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     return JS_UNDEFINED;
 }
@@ -332,8 +365,9 @@ static JSValue tjs_cpu_info(JSContext *ctx, JSValue this_val, int argc, JSValue 
     uv_cpu_info_t *infos;
     int count;
     int r = uv_cpu_info(&infos, &count);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     JSValue val = JS_NewArray(ctx);
 
@@ -379,8 +413,9 @@ static JSValue tjs_network_interfaces(JSContext *ctx, JSValue this_val, int argc
     uv_interface_address_t *interfaces;
     int count;
     int r = uv_interface_addresses(&interfaces, &count);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     JSValue val = JS_NewArray(ctx);
 
@@ -438,8 +473,9 @@ static JSValue tjs_gethostname(JSContext *ctx, JSValue this_val) {
     size_t size = sizeof(buf);
 
     int r = uv_os_gethostname(buf, &size);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     return JS_NewStringLen(ctx, buf, size);
 }
@@ -456,8 +492,9 @@ static JSValue tjs_userInfo(JSContext *ctx, JSValue this_val) {
     uv_passwd_t p;
 
     int r = uv_os_get_passwd(&p);
-    if (r != 0)
+    if (r != 0) {
         return tjs_throw_errno(ctx, r);
+    }
 
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_DefinePropertyValueStr(ctx, obj, "userName", JS_NewString(ctx, p.username), JS_PROP_C_W_E);

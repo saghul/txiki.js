@@ -44,14 +44,16 @@ static void uv__fsevent_close_cb(uv_handle_t *handle) {
     TJSFsWatch *fw = handle->data;
     if (fw) {
         fw->closed = 1;
-        if (fw->finalized)
+        if (fw->finalized) {
             tjs__free(fw);
+        }
     }
 }
 
 static void maybe_close(TJSFsWatch *fw) {
-    if (!uv_is_closing((uv_handle_t *) &fw->handle))
+    if (!uv_is_closing((uv_handle_t *) &fw->handle)) {
         uv_close((uv_handle_t *) &fw->handle, uv__fsevent_close_cb);
+    }
 }
 
 static void tjs_fswatch_finalizer(JSRuntime *rt, JSValue val) {
@@ -59,10 +61,11 @@ static void tjs_fswatch_finalizer(JSRuntime *rt, JSValue val) {
     if (fw) {
         JS_FreeValueRT(rt, fw->callback);
         fw->finalized = 1;
-        if (fw->closed)
+        if (fw->closed) {
             tjs__free(fw);
-        else
+        } else {
             maybe_close(fw);
+        }
     }
 }
 
@@ -81,16 +84,18 @@ static JSClassDef tjs_fswatch_class = {
 
 static JSValue tjs_fswatch_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSFsWatch *fw = tjs_fswatch_get(this_val);
-    if (!fw)
+    if (!fw) {
         return JS_EXCEPTION;
+    }
     maybe_close(fw);
     return JS_UNDEFINED;
 }
 
 static JSValue tjs_fswatch_path_get(JSContext *ctx, JSValue this_val) {
     TJSFsWatch *fw = tjs_fswatch_get(this_val);
-    if (!fw)
+    if (!fw) {
         return JS_UNDEFINED;
+    }
 
     char buf[1024];
     size_t size = sizeof(buf);
@@ -99,11 +104,13 @@ static JSValue tjs_fswatch_path_get(JSContext *ctx, JSValue this_val) {
 
     r = uv_fs_event_getpath(&fw->handle, dbuf, &size);
     if (r != 0) {
-        if (r != UV_ENOBUFS)
+        if (r != UV_ENOBUFS) {
             return tjs_throw_errno(ctx, r);
+        }
         dbuf = js_malloc(ctx, size);
-        if (!dbuf)
+        if (!dbuf) {
             return JS_EXCEPTION;
+        }
         uv_fs_event_getpath(&fw->handle, dbuf, &size);
         if (r != 0) {
             js_free(ctx, dbuf);
@@ -113,8 +120,9 @@ static JSValue tjs_fswatch_path_get(JSContext *ctx, JSValue this_val) {
 
     JSValue ret = JS_NewStringLen(ctx, dbuf, size);
 
-    if (dbuf != buf)
+    if (dbuf != buf) {
         js_free(ctx, dbuf);
+    }
 
     return ret;
 }
@@ -125,8 +133,9 @@ static void uv__fs_event_cb(uv_fs_event_t *handle, const char *filename, int eve
     JSContext *ctx = fw->ctx;
 
     // TODO: handle error case?
-    if (status != 0)
+    if (status != 0) {
         return;
+    }
 
     // libuv could set both, if we get rename, ignore change.
 
@@ -154,8 +163,9 @@ static void uv__fs_event_cb(uv_fs_event_t *handle, const char *filename, int eve
 
 static JSValue tjs_fs_watch(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
-    if (!path)
+    if (!path) {
         return JS_EXCEPTION;
+    }
 
     if (!JS_IsFunction(ctx, argv[1])) {
         JS_FreeCString(ctx, path);
