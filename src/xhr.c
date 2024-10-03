@@ -89,16 +89,20 @@ static void tjs_xhr_finalizer(JSRuntime *rt, JSValue val) {
     TJSXhr *x = JS_GetOpaque(val, tjs_xhr_class_id);
     if (x) {
         if (x->curl_h) {
-            if (x->async)
+            if (x->async) {
                 curl_multi_remove_handle(x->curlm_h, x->curl_h);
+            }
             curl_easy_cleanup(x->curl_h);
         }
-        if (x->slist)
+        if (x->slist) {
             curl_slist_free_all(x->slist);
-        if (x->status.raw)
+        }
+        if (x->status.raw) {
             js_free_rt(rt, x->status.raw);
-        for (int i = 0; i < XHR_EVENT_MAX; i++)
+        }
+        for (int i = 0; i < XHR_EVENT_MAX; i++) {
             JS_FreeValueRT(rt, x->events[i]);
+        }
         JS_FreeValueRT(rt, x->status.status);
         JS_FreeValueRT(rt, x->status.status_text);
         JS_FreeValueRT(rt, x->result.url);
@@ -114,8 +118,9 @@ static void tjs_xhr_finalizer(JSRuntime *rt, JSValue val) {
 static void tjs_xhr_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     TJSXhr *x = JS_GetOpaque(val, tjs_xhr_class_id);
     if (x) {
-        for (int i = 0; i < XHR_EVENT_MAX; i++)
+        for (int i = 0; i < XHR_EVENT_MAX; i++) {
             JS_MarkValue(rt, x->events[i], mark_func);
+        }
         JS_MarkValue(rt, x->status.status, mark_func);
         JS_MarkValue(rt, x->status.status_text, mark_func);
         JS_MarkValue(rt, x->result.url, mark_func);
@@ -157,8 +162,9 @@ static void curl__done_cb(CURLcode result, void *arg) {
 
     char *done_url = NULL;
     curl_easy_getinfo(easy_handle, CURLINFO_EFFECTIVE_URL, &done_url);
-    if (done_url)
+    if (done_url) {
         x->result.url = JS_NewString(x->ctx, done_url);
+    }
 
     if (x->slist) {
         curl_slist_free_all(x->slist);
@@ -168,16 +174,18 @@ static void curl__done_cb(CURLcode result, void *arg) {
     x->ready_state = XHR_RSTATE_DONE;
     maybe_emit_event(x, XHR_EVENT_READY_STATE_CHANGED, JS_UNDEFINED);
 
-    if (result == CURLE_OPERATION_TIMEDOUT)
+    if (result == CURLE_OPERATION_TIMEDOUT) {
         maybe_emit_event(x, XHR_EVENT_TIMEOUT, JS_UNDEFINED);
+    }
 
     maybe_emit_event(x, XHR_EVENT_LOAD_END, JS_UNDEFINED);
 
     if (result != CURLE_OPERATION_TIMEDOUT) {
-        if (result != CURLE_OK)
+        if (result != CURLE_OK) {
             maybe_emit_event(x, XHR_EVENT_ERROR, JS_UNDEFINED);
-        else
+        } else {
             maybe_emit_event(x, XHR_EVENT_LOAD, JS_UNDEFINED);
+        }
     }
 }
 
@@ -205,8 +213,9 @@ static size_t curl__data_cb(char *ptr, size_t size, size_t nmemb, void *userdata
 
     size_t realsize = size * nmemb;
 
-    if (dbuf_put(&x->result.bbuf, (const uint8_t *) ptr, realsize))
+    if (dbuf_put(&x->result.bbuf, (const uint8_t *) ptr, realsize)) {
         return -1;
+    }
 
     return realsize;
 }
@@ -254,10 +263,12 @@ static size_t curl__header_cb(char *ptr, size_t size, size_t nmemb, void *userda
         const char *p = memchr(ptr, ':', realsize);
         if (p) {
             // Lowercae header names.
-            for (char *tmp = ptr; tmp != p; tmp++)
+            for (char *tmp = ptr; tmp != p; tmp++) {
                 *tmp = tolower(*tmp);
-            if (dbuf_put(hbuf, (const uint8_t *) ptr, realsize))
+            }
+            if (dbuf_put(hbuf, (const uint8_t *) ptr, realsize)) {
                 return -1;
+            }
         }
     }
 
@@ -293,8 +304,9 @@ static int curl__progress_cb(void *clientp,
 
 static JSValue tjs_xhr_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
     JSValue obj = JS_NewObjectClass(ctx, tjs_xhr_class_id);
-    if (JS_IsException(obj))
+    if (JS_IsException(obj)) {
         return obj;
+    }
 
     TJSXhr *x = js_mallocz(ctx, sizeof(*x));
     if (!x) {
@@ -344,15 +356,17 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValue new_target, int argc,
 
 static JSValue tjs_xhr_event_get(JSContext *ctx, JSValue this_val, int magic) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     return JS_DupValue(ctx, x->events[magic]);
 }
 
 static JSValue tjs_xhr_event_set(JSContext *ctx, JSValue this_val, JSValue value, int magic) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     if (JS_IsFunction(ctx, value) || JS_IsUndefined(value) || JS_IsNull(value)) {
         JS_FreeValue(ctx, x->events[magic]);
         x->events[magic] = JS_DupValue(ctx, value);
@@ -362,18 +376,21 @@ static JSValue tjs_xhr_event_set(JSContext *ctx, JSValue this_val, JSValue value
 
 static JSValue tjs_xhr_readystate_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     return JS_NewInt32(ctx, x->ready_state);
 }
 
 static JSValue tjs_xhr_response_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     DynBuf *bbuf = &x->result.bbuf;
-    if (bbuf->size == 0)
+    if (bbuf->size == 0) {
         return JS_NULL;
+    }
     if (JS_IsNull(x->result.response)) {
         switch (x->response_type) {
             case XHR_RTYPE_DEFAULT:
@@ -397,20 +414,24 @@ static JSValue tjs_xhr_response_get(JSContext *ctx, JSValue this_val) {
 
 static JSValue tjs_xhr_responsetext_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     DynBuf *bbuf = &x->result.bbuf;
-    if (bbuf->size == 0)
+    if (bbuf->size == 0) {
         return JS_NULL;
-    if (JS_IsNull(x->result.response_text))
+    }
+    if (JS_IsNull(x->result.response_text)) {
         x->result.response_text = JS_NewStringLen(ctx, (char *) bbuf->buf, bbuf->size);
+    }
     return JS_DupValue(ctx, x->result.response_text);
 }
 
 static JSValue tjs_xhr_responsetype_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     switch (x->response_type) {
         case XHR_RTYPE_DEFAULT:
             return JS_NewString(ctx, "");
@@ -431,22 +452,25 @@ static JSValue tjs_xhr_responsetype_set(JSContext *ctx, JSValue this_val, JSValu
     static const char text[] = "text";
 
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
 
-    if (x->ready_state >= XHR_RSTATE_LOADING)
+    if (x->ready_state >= XHR_RSTATE_LOADING) {
         JS_Throw(ctx, JS_NewString(ctx, "InvalidStateError"));
+    }
 
     const char *v = JS_ToCString(ctx, value);
     if (v) {
-        if (strncmp(array_buffer, v, sizeof(array_buffer) - 1) == 0)
+        if (strncmp(array_buffer, v, sizeof(array_buffer) - 1) == 0) {
             x->response_type = XHR_RTYPE_ARRAY_BUFFER;
-        else if (strncmp(json, v, sizeof(json) - 1) == 0)
+        } else if (strncmp(json, v, sizeof(json) - 1) == 0) {
             x->response_type = XHR_RTYPE_JSON;
-        else if (strncmp(text, v, sizeof(text) - 1) == 0)
+        } else if (strncmp(text, v, sizeof(text) - 1) == 0) {
             x->response_type = XHR_RTYPE_TEXT;
-        else if (strlen(v) == 0)
+        } else if (strlen(v) == 0) {
             x->response_type = XHR_RTYPE_DEFAULT;
+        }
         JS_FreeCString(ctx, v);
     }
 
@@ -455,45 +479,52 @@ static JSValue tjs_xhr_responsetype_set(JSContext *ctx, JSValue this_val, JSValu
 
 static JSValue tjs_xhr_responseurl_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     return JS_DupValue(ctx, x->result.url);
 }
 
 static JSValue tjs_xhr_status_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     return JS_DupValue(ctx, x->status.status);
 }
 
 static JSValue tjs_xhr_statustext_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     return JS_DupValue(ctx, x->status.status_text);
 }
 
 static JSValue tjs_xhr_timeout_get(JSContext *ctx, JSValue this_val) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     return JS_NewInt32(ctx, x->timeout);
 }
 
 static JSValue tjs_xhr_timeout_set(JSContext *ctx, JSValue this_val, JSValue value) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
 
     int32_t timeout;
-    if (JS_ToInt32(ctx, &timeout, value))
+    if (JS_ToInt32(ctx, &timeout, value)) {
         return JS_EXCEPTION;
+    }
 
     x->timeout = timeout;
 
-    if (!x->sent)
+    if (!x->sent) {
         curl_easy_setopt(x->curl_h, CURLOPT_TIMEOUT_MS, timeout);
+    }
 
     return JS_UNDEFINED;
 }
@@ -515,8 +546,9 @@ static JSValue tjs_xhr_withcredentials_set(JSContext *ctx, JSValue this_val, JSV
 
 static JSValue tjs_xhr_abort(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     if (x->curl_h) {
         curl_multi_remove_handle(x->curlm_h, x->curl_h);
         curl_easy_cleanup(x->curl_h);
@@ -535,30 +567,37 @@ static JSValue tjs_xhr_abort(JSContext *ctx, JSValue this_val, int argc, JSValue
 
 static JSValue tjs_xhr_getallresponseheaders(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     DynBuf *hbuf = &x->result.hbuf;
-    if (hbuf->size == 0)
+    if (hbuf->size == 0) {
         return JS_NULL;
-    if (JS_IsNull(x->result.headers))
+    }
+    if (JS_IsNull(x->result.headers)) {
         x->result.headers = JS_NewStringLen(ctx, (char *) hbuf->buf, hbuf->size - 1);  // Skip trailing null byte.
+    }
     return JS_DupValue(ctx, x->result.headers);
 }
 
 static JSValue tjs_xhr_getresponseheader(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     DynBuf *hbuf = &x->result.hbuf;
-    if (hbuf->size == 0)
+    if (hbuf->size == 0) {
         return JS_NULL;
+    }
     const char *header_name = JS_ToCString(ctx, argv[0]);
-    if (!header_name)
+    if (!header_name) {
         return JS_EXCEPTION;
+    }
 
     // Lowercae header name
-    for (char *tmp = (char *) header_name; *tmp; tmp++)
+    for (char *tmp = (char *) header_name; *tmp; tmp++) {
         *tmp = tolower(*tmp);
+    }
 
     DynBuf r;
     tjs_dbuf_init(ctx, &r);
@@ -566,18 +605,21 @@ static JSValue tjs_xhr_getresponseheader(JSContext *ctx, JSValue this_val, int a
     for (;;) {
         // Find the header name
         char *tmp = strstr(ptr, header_name);
-        if (!tmp)
+        if (!tmp) {
             break;
+        }
         // Find the end of the header, the \r
         char *p = strchr(tmp, '\r');
-        if (!p)
+        if (!p) {
             break;
+        }
         // Check if the header has a value
         char *p1 = memchr(tmp, ':', p - tmp);
         if (p1) {
             p1++;  // skip the ":"
-            for (; *p1 == ' '; ++p1)
+            for (; *p1 == ' '; ++p1) {
                 ;
+            }
             // p1 now points to the start of the header value
             // check if it was a header without a value like x-foo:\r\n
             size_t size = p - p1;
@@ -592,10 +634,11 @@ static JSValue tjs_xhr_getresponseheader(JSContext *ctx, JSValue this_val, int a
     JS_FreeCString(ctx, header_name);
 
     JSValue ret;
-    if (r.size == 0)
+    if (r.size == 0) {
         ret = JS_NULL;
-    else
+    } else {
         ret = JS_NewStringLen(ctx, (const char *) r.buf, r.size - 2);  // skip the last ", "
+    }
     dbuf_free(&r);
     return ret;
 }
@@ -604,18 +647,22 @@ static JSValue tjs_xhr_open(JSContext *ctx, JSValue this_val, int argc, JSValue 
     static const char head_method[] = "HEAD";
 
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
 
     // TODO: support username and password.
 
     if (x->ready_state == XHR_RSTATE_DONE) {
-        if (x->slist)
+        if (x->slist) {
             curl_slist_free_all(x->slist);
-        if (x->status.raw)
+        }
+        if (x->status.raw) {
             js_free(ctx, x->status.raw);
-        for (int i = 0; i < XHR_EVENT_MAX; i++)
+        }
+        for (int i = 0; i < XHR_EVENT_MAX; i++) {
             JS_FreeValue(ctx, x->events[i]);
+        }
         JS_FreeValue(ctx, x->status.status);
         JS_FreeValue(ctx, x->status.status_text);
         JS_FreeValue(ctx, x->result.url);
@@ -649,12 +696,14 @@ static JSValue tjs_xhr_open(JSContext *ctx, JSValue this_val, int argc, JSValue 
         JSValue async = argv[2];
         const char *method_str = JS_ToCString(ctx, method);
         const char *url_str = JS_ToCString(ctx, url);
-        if (argc == 3)
+        if (argc == 3) {
             x->async = JS_ToBool(ctx, async);
-        if (strncasecmp(head_method, method_str, sizeof(head_method) - 1) == 0)
+        }
+        if (strncasecmp(head_method, method_str, sizeof(head_method) - 1) == 0) {
             curl_easy_setopt(x->curl_h, CURLOPT_NOBODY, 1L);
-        else
+        } else {
             curl_easy_setopt(x->curl_h, CURLOPT_CUSTOMREQUEST, method_str);
+        }
         curl_easy_setopt(x->curl_h, CURLOPT_URL, url_str);
 
         JS_FreeCString(ctx, method_str);
@@ -673,8 +722,9 @@ static JSValue tjs_xhr_overridemimetype(JSContext *ctx, JSValue this_val, int ar
 
 static JSValue tjs_xhr_send(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
+    }
     if (!x->sent) {
         JSValue arg = argv[0];
         if (JS_IsString(arg)) {
@@ -688,16 +738,18 @@ static JSValue tjs_xhr_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
         } else if (JS_IsUint8Array(arg)) {
             size_t size;
             uint8_t *buf = JS_GetUint8Array(ctx, &size, argv[0]);
-            if (!buf)
+            if (!buf) {
                 return JS_EXCEPTION;
+            }
             curl_easy_setopt(x->curl_h, CURLOPT_POSTFIELDSIZE_LARGE, size);
             curl_easy_setopt(x->curl_h, CURLOPT_COPYPOSTFIELDS, buf);
         }
-        if (x->slist)
+        if (x->slist) {
             curl_easy_setopt(x->curl_h, CURLOPT_HTTPHEADER, x->slist);
-        if (x->async)
+        }
+        if (x->async) {
             curl_multi_add_handle(x->curlm_h, x->curl_h);
-        else {
+        } else {
             CURLcode result = curl_easy_perform(x->curl_h);
             curl__done_cb(result, x);
         }
@@ -708,25 +760,31 @@ static JSValue tjs_xhr_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
 
 static JSValue tjs_xhr_setrequestheader(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSXhr *x = tjs_xhr_get(ctx, this_val);
-    if (!x)
+    if (!x) {
         return JS_EXCEPTION;
-    if (!JS_IsString(argv[0]))
+    }
+    if (!JS_IsString(argv[0])) {
         return JS_UNDEFINED;
+    }
     const char *h_name, *h_value = NULL;
     h_name = JS_ToCString(ctx, argv[0]);
-    if (!JS_IsUndefined(argv[1]))
+    if (!JS_IsUndefined(argv[1])) {
         h_value = JS_ToCString(ctx, argv[1]);
+    }
     char buf[CURL_MAX_HTTP_HEADER];
-    if (h_value)
+    if (h_value) {
         snprintf(buf, sizeof(buf), "%s: %s", h_name, h_value);
-    else
+    } else {
         snprintf(buf, sizeof(buf), "%s;", h_name);
+    }
     JS_FreeCString(ctx, h_name);
-    if (h_value)
+    if (h_value) {
         JS_FreeCString(ctx, h_value);
+    }
     struct curl_slist *list = curl_slist_append(x->slist, buf);
-    if (list)
+    if (list) {
         x->slist = list;
+    }
     return JS_UNDEFINED;
 }
 

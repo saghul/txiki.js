@@ -708,8 +708,9 @@ static uint16_t ip_checksum(void *vdata, size_t length) {
     unsigned int offset = ((uintptr_t) data) & 3;
     if (offset) {
         size_t count = 4 - offset;
-        if (count > length)
+        if (count > length) {
             count = length;
+        }
         uint32_t word = 0;
         memcpy(offset + (char *) &word, data, count);
         acc += ntohl(word);

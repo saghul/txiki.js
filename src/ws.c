@@ -48,8 +48,9 @@ static void tjs_ws_finalizer(JSRuntime *rt, JSValue val) {
             curl_multi_remove_handle(w->curlm_h, w->curl_h);
             cws_free(w->curl_h);
         }
-        for (int i = 0; i < WS_EVENT_MAX; i++)
+        for (int i = 0; i < WS_EVENT_MAX; i++) {
             JS_FreeValueRT(rt, w->events[i]);
+        }
         js_free_rt(rt, w);
     }
 }
@@ -57,8 +58,9 @@ static void tjs_ws_finalizer(JSRuntime *rt, JSValue val) {
 static void tjs_ws_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     TJSWs *w = JS_GetOpaque(val, tjs_ws_class_id);
     if (w) {
-        for (int i = 0; i < WS_EVENT_MAX; i++)
+        for (int i = 0; i < WS_EVENT_MAX; i++) {
             JS_MarkValue(rt, w->events[i], mark_func);
+        }
     }
 }
 
@@ -132,8 +134,9 @@ static void cws__on_close(void *data,
 
 static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
     JSValue obj = JS_NewObjectClass(ctx, tjs_ws_class_id);
-    if (JS_IsException(obj))
+    if (JS_IsException(obj)) {
         return obj;
+    }
 
     TJSWs *w = js_mallocz(ctx, sizeof(*w));
     if (!w) {
@@ -172,15 +175,17 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
 
 static JSValue tjs_ws_event_get(JSContext *ctx, JSValue this_val, int magic) {
     TJSWs *w = tjs_ws_get(ctx, this_val);
-    if (!w)
+    if (!w) {
         return JS_EXCEPTION;
+    }
     return JS_DupValue(ctx, w->events[magic]);
 }
 
 static JSValue tjs_ws_event_set(JSContext *ctx, JSValue this_val, JSValue value, int magic) {
     TJSWs *w = tjs_ws_get(ctx, this_val);
-    if (!w)
+    if (!w) {
         return JS_EXCEPTION;
+    }
     if (JS_IsFunction(ctx, value) || JS_IsUndefined(value) || JS_IsNull(value)) {
         JS_FreeValue(ctx, w->events[magic]);
         w->events[magic] = JS_DupValue(ctx, value);
@@ -190,15 +195,17 @@ static JSValue tjs_ws_event_set(JSContext *ctx, JSValue this_val, JSValue value,
 
 static JSValue tjs_ws_readystate_get(JSContext *ctx, JSValue this_val) {
     TJSWs *w = tjs_ws_get(ctx, this_val);
-    if (!w)
+    if (!w) {
         return JS_EXCEPTION;
+    }
     return JS_NewInt32(ctx, w->ready_state);
 }
 
 static JSValue tjs_ws_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWs *w = tjs_ws_get(ctx, this_val);
-    if (!w)
+    if (!w) {
         return JS_EXCEPTION;
+    }
 
     if (w->ready_state < WS_STATE_CLOSING) {
         int code;
@@ -215,22 +222,26 @@ static JSValue tjs_ws_close(JSContext *ctx, JSValue this_val, int argc, JSValue 
 
 static JSValue tjs_ws_sendBinary(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWs *w = tjs_ws_get(ctx, this_val);
-    if (!w)
+    if (!w) {
         return JS_EXCEPTION;
+    }
 
     if (w->ready_state == WS_STATE_OPEN) {
         size_t size;
         uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
-        if (!buf)
+        if (!buf) {
             return JS_EXCEPTION;
+        }
 
         uint64_t off;
-        if (JS_ToIndex(ctx, &off, argv[1]))
+        if (JS_ToIndex(ctx, &off, argv[1])) {
             return JS_EXCEPTION;
+        }
 
         uint64_t len;
-        if (JS_ToIndex(ctx, &len, argv[2]))
+        if (JS_ToIndex(ctx, &len, argv[2])) {
             return JS_EXCEPTION;
+        }
 
         cws_send_binary(w->curl_h, buf + off, len);
     }
@@ -240,8 +251,9 @@ static JSValue tjs_ws_sendBinary(JSContext *ctx, JSValue this_val, int argc, JSV
 
 static JSValue tjs_ws_sendText(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWs *w = tjs_ws_get(ctx, this_val);
-    if (!w)
+    if (!w) {
         return JS_EXCEPTION;
+    }
 
     if (w->ready_state == WS_STATE_OPEN) {
         const char *text = JS_ToCString(ctx, argv[0]);
