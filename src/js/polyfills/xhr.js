@@ -131,7 +131,9 @@ class XMLHttpRequest extends EventTarget {
     send(body) {
         let payload;
 
-        if (body instanceof ArrayBuffer || ArrayBuffer.isView(body)) {
+        if (!body) {
+            payload = null;
+        } else if (body instanceof ArrayBuffer || ArrayBuffer.isView(body)) {
             let buffer, offset, length;
 
             if (body instanceof ArrayBuffer) {
