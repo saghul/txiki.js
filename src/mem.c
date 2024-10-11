@@ -49,11 +49,7 @@ void *tjs__malloc(size_t size) {
 }
 
 void *tjs__mallocz(size_t size) {
-#ifdef TJS__HAS_MIMALLOC
-    return mi_calloc(1, size);
-#else
-    return calloc(1, size);
-#endif
+    return tjs__calloc(1, size);
 }
 
 void *tjs__calloc(size_t count, size_t size) {
