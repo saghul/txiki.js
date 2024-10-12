@@ -123,6 +123,7 @@ import { Database } from 'tjs:sqlite';
 
     var historyDb;
     var history = [];
+    var history_load_index = 0;
     var history_index;
     var clip_board = "";
     var pstate = "";
@@ -1511,10 +1512,12 @@ import { Database } from 'tjs:sqlite';
     function clear_history() {
         try {
             historyDb.exec('DELETE FROM history');
+            historyDb.exec('VACUUM');
         } catch (_) {}
 
         history = [];
         history_index = 0;
+        history_load_index = 0;
     }
 
     function exit(e) {
@@ -1881,10 +1884,16 @@ import { Database } from 'tjs:sqlite';
 
     function save_history() {
         if (historyDb) {
-            for (const str of history) {
-                try {
-                    historyDb.prepare('INSERT INTO history (entry) VALUES(?)').run(str);
-                } catch (_) {}
+            try {
+              const insert = historyDb.prepare('INSERT INTO history (entry) VALUES(?)');
+              const insertMany = historyDb.transaction(entries => {
+                for (const str of entries) {
+                  insert.run(str);
+                }
+              });
+              insertMany(history.slice(history_load_index));
+            } catch (e) {
+              tjs.stderr.write(encoder.encode(`Failed to save history: ${e}\n`));
             }
         }
     }
@@ -1919,6 +1928,7 @@ import { Database } from 'tjs:sqlite';
         const data = historyDb.prepare('SELECT entry from history').all();
 
         history = data.map(row => row.entry);
+        history_load_index = data.length;
     }
     function load_config() {
         var m, s = std.getenv("COLORFGBG");
