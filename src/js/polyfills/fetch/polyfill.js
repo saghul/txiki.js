@@ -1,10 +1,10 @@
 import { fetch } from './fetch.js';
+import { Headers } from './headers.js';
 import { Request } from './request.js';
 import { Response } from './response.js';
-import { Headers } from './headers.js';
 
 
 globalThis.fetch = fetch;
+globalThis.Headers = Headers;
 globalThis.Request = Request;
 globalThis.Response = Response;
-globalThis.Headers = Headers;
