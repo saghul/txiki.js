@@ -100,7 +100,7 @@ jobs:
       fail-fast: false
       matrix:
         buildType: [Debug, Release]
-        os: [macOS-12, macOS-14]
+        os: [macOS-13, macOS-14]
     env:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
