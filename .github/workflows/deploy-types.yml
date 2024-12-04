@@ -15,6 +15,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
+          registry-url: https://registry.npmjs.org/
       - name: Publish package
         working-directory: ./types
         # ensure that the version of the tag is used for publishing
