@@ -24,7 +24,7 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
 endif()
 
 set(TJS__VERSION_MAJOR 24)
-set(TJS__VERSION_MINOR 6)
+set(TJS__VERSION_MINOR 12)
 set(TJS__VERSION_PATCH 0)
 set(TJS__VERSION_SUFFIX "")
 configure_file(
