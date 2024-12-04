@@ -36,8 +36,8 @@ const fhProxyHandler = {
     }
 };
 
-export async function open(path, mode) {
-    const handle = await core.open(path, mode);
+export async function open(path, flags, mode) {
+    const handle = await core.open(path, flags, mode);
 
     return new Proxy(handle, fhProxyHandler);
 }
