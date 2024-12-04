@@ -192,18 +192,9 @@ if (options.help) {
             newFileName += '.exe';
         }
 
-        try {
-            await tjs.stat(newFileName);
-            console.log('Target file exists already');
-            tjs.exit(1);
-        } catch (_) {
-            // Ignore.
-        }
-
-        const newFile = await tjs.open(newFileName, 'wb');
+        const newFile = await tjs.open(newFileName, 'w', 0o755);
 
         await newFile.write(newExe);
-        await newFile.chmod(0o755);
         await newFile.close();
     } else {
         console.log(help);
