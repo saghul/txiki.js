@@ -10,7 +10,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/saghul/txiki.js.git",
+    "url": "git+https://github.com/saghul/txiki.js.git",
     "directory": "types"
   },
   "bugs": {
@@ -22,5 +22,6 @@
   "files": [
     "src",
     "README.md"
-  ]
+  ],
+  "version": ""
 }
