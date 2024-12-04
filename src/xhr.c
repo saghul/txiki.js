@@ -744,9 +744,7 @@ static JSValue tjs_xhr_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
             curl_easy_setopt(x->curl_h, CURLOPT_POSTFIELDSIZE_LARGE, size);
             curl_easy_setopt(x->curl_h, CURLOPT_COPYPOSTFIELDS, buf);
         }
-        if (x->slist) {
-            curl_easy_setopt(x->curl_h, CURLOPT_HTTPHEADER, x->slist);
-        }
+        curl_easy_setopt(x->curl_h, CURLOPT_HTTPHEADER, x->slist);
         if (x->async) {
             curl_multi_add_handle(x->curlm_h, x->curl_h);
         } else {
