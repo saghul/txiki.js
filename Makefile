@@ -177,7 +177,7 @@ test:
 
 test-advanced:
 	cd tests/advanced && npm install
-	./$(BUILD_DIR)/tjs test tests/advanced/
+	./$(BUILD_DIR)/tjs --stack-size 10485760 test tests/advanced/
 
 .PRECIOUS: src/bundles/js/core/%.js src/bundles/js/stdlib/%.js
 .PHONY: all js debug install clean distclean format test test-advanced core stdlib $(TJS)
