@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define TJS__DEFAULT_STACK_SIZE 10 * 1024 * 1024  // 10 MB
+#define TJS__DEFAULT_STACK_SIZE 1024 * 1024  // 1 MB
 
 /* JS malloc functions */
 
