@@ -16,7 +16,7 @@
   "bugs": {
     "url": "https://github.com/saghul/txiki.js/issues"
   },
-  "homepage": "https://github.com/saghul/txiki.js/blob/master/docs/README.md",
+  "homepage": "https://github.com/saghul/txiki.js/blob/master/types/README.md",
   "author": "Saúl Ibarra Corretgé <s@saghul.net>",
   "license": "MIT",
   "files": [
