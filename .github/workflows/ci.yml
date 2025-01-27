@@ -121,7 +121,7 @@ jobs:
   build-alpine:
     name: Alpine Linux
     runs-on: ubuntu-latest
-    container: alpine:3.19
+    container: alpine:3.21
     strategy:
       fail-fast: false
       matrix:
