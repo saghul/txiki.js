@@ -26,8 +26,6 @@
 #ifndef TJS_H
 #define TJS_H
 
-#include "utils.h"
-
 #include <quickjs.h>
 
 typedef struct TJSRuntime TJSRuntime;
