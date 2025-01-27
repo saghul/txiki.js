@@ -5,7 +5,7 @@
 [submodule "deps/wasm3"]
 	path = deps/wasm3
 	url = https://github.com/saghul/wasm3.git
-	branch = v0.5-tjs
+	branch = v0.5-tjs-2
 [submodule "deps/libffi"]
 	path = deps/libffi
 	url = https://github.com/libffi/libffi
