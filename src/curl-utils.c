@@ -165,11 +165,15 @@ static void uv__poll_cb(uv_poll_t *handle, int status, int events) {
     CHECK_NOT_NULL(qrt);
 
     int flags = 0;
-    if (events & UV_READABLE) {
-        flags |= CURL_CSELECT_IN;
-    }
-    if (events & UV_WRITABLE) {
-        flags |= CURL_CSELECT_OUT;
+    if (status != 0) {
+        flags |= CURL_CSELECT_ERR;
+    } else {
+        if (events & UV_READABLE) {
+            flags |= CURL_CSELECT_IN;
+        }
+        if (events & UV_WRITABLE) {
+            flags |= CURL_CSELECT_OUT;
+        }
     }
 
     int running_handles;
@@ -197,11 +201,10 @@ static int curl__handle_socket(CURL *easy, curl_socket_t s, int action, void *us
                 poll_ctx->qrt = qrt;
                 poll_ctx->sockfd = s;
                 poll_ctx->poll.data = poll_ctx;
+                curl_multi_assign(qrt->curl_ctx.curlm_h, s, (void *) poll_ctx);
             } else {
                 poll_ctx = socketp;
             }
-
-            curl_multi_assign(qrt->curl_ctx.curlm_h, s, (void *) poll_ctx);
 
             int events = 0;
             if (action != CURL_POLL_IN) {
@@ -222,8 +225,8 @@ static int curl__handle_socket(CURL *easy, curl_socket_t s, int action, void *us
                 uv_close((uv_handle_t *) &poll_ctx->poll, uv__poll_close_cb);
             }
             break;
-        default:
-            abort();
+        case CURL_POLL_NONE:
+            break;
     }
 
     return 0;
