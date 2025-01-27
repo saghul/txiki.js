@@ -81,7 +81,7 @@ jobs:
         ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
       run: |
         sudo apt update
-        sudo apt install -y libcurl4-openssl-dev
+        sudo apt install -y libcurl4-openssl-dev libltdl-dev
         if [ "${{ matrix.compiler }}" = "clang" ]; then
           sudo apt install -y clang
           echo "::set-env name=CC::clang"
