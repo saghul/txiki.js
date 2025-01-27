@@ -106,7 +106,6 @@ void tjs_addr2obj(JSContext *ctx, JSValue obj, const struct sockaddr *sa, bool s
 void tjs_call_handler(JSContext *ctx, JSValue func, int argc, JSValue *argv);
 void tjs_dump_error(JSContext *ctx);
 void tjs_dump_error1(JSContext *ctx, JSValue exception_val);
-void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len);
 
 typedef struct {
     JSValue p;
