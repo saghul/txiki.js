@@ -130,7 +130,7 @@ jobs:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
     - name: Prepare
-      run: apk add git build-base cmake curl-dev autoconf automake libtool texinfo linux-headers --update-cache
+      run: apk add git build-base cmake curl-dev autoconf automake libtool texinfo linux-headers libffi-dev --update-cache
     - uses: actions/checkout@v4
       with:
         submodules: true
@@ -138,7 +138,7 @@ jobs:
       with:
         node-version-file: '.nvmrc'
     - name: Build it
-      run: make VERBOSE=1
+      run: make VERBOSE=1 USE_EXTERNAL_FFI=ON
     - name: Test it
       run: make test
   build-windows:
