@@ -24,14 +24,14 @@
 
 #include "tjs.h"
 
-#include <stdlib.h>
-
 
 int main(int argc, char **argv) {
     TJS_Initialize(argc, argv);
 
     TJSRuntime *qrt = TJS_NewRuntime();
-    CHECK_NOT_NULL(qrt);
+    if (!qrt) {
+        return 1;
+    }
 
     int exit_code = TJS_Run(qrt);
 

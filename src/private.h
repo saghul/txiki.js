@@ -27,6 +27,7 @@
 
 #include "../deps/quickjs/cutils.h"
 #include "tjs.h"
+#include "utils.h"
 #include "wasm.h"
 
 #include <curl/curl.h>
