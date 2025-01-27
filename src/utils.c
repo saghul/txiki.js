@@ -172,16 +172,6 @@ void tjs_call_handler(JSContext *ctx, JSValue func, int argc, JSValue *argv) {
     JS_FreeValue(ctx, ret);
 }
 
-void JS_FreePropEnum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len) {
-    uint32_t i;
-    if (tab) {
-        for (i = 0; i < len; i++) {
-            JS_FreeAtom(ctx, tab[i].atom);
-        }
-        js_free(ctx, tab);
-    }
-}
-
 JSValue TJS_InitPromise(JSContext *ctx, TJSPromise *p) {
     JSValue rfuncs[2];
     p->p = JS_NewPromiseCapability(ctx, rfuncs);
