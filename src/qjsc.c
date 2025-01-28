@@ -59,7 +59,7 @@ uint8_t *js_load_file(JSContext *ctx, size_t *pbuf_len, const char *filename) {
 void js_std_dump_error(JSContext *ctx) {
     JSValue exception_val, val;
     const char *exc, *stack;
-    BOOL is_error;
+    bool is_error;
 
     exception_val = JS_GetException(ctx);
     is_error = JS_IsError(ctx, exception_val);
@@ -182,8 +182,7 @@ static void output_object_code(JSContext *ctx,
                                FILE *fo,
                                JSValue obj,
                                const char *c_name,
-                               const char *prefix,
-                               BOOL load_only) {
+                               const char *prefix) {
     uint8_t *out_buf;
     size_t out_buf_len;
     int flags;
@@ -199,7 +198,7 @@ static void output_object_code(JSContext *ctx,
         exit(1);
     }
 
-    namelist_add(&cname_list, c_name, NULL, load_only);
+    namelist_add(&cname_list, c_name, NULL, 0);
 
     fprintf(fo, "const uint32_t %s%s_size = %u;\n\n", prefix, c_name, (unsigned int) out_buf_len);
     fprintf(fo, "const uint8_t %s%s[%u] = {\n", prefix, c_name, (unsigned int) out_buf_len);
@@ -268,7 +267,7 @@ static void compile_file(JSContext *ctx, FILE *fo, const char *filename, int mod
         exit(1);
     }
     js_free(ctx, buf);
-    output_object_code(ctx, fo, obj, c_name, prefix, FALSE);
+    output_object_code(ctx, fo, obj, c_name, prefix);
     JS_FreeValue(ctx, obj);
 }
 
@@ -338,7 +337,7 @@ int main(int argc, char **argv) {
     if (!out_filename)
         out_filename = "out.c";
 
-    pstrcpy(cfilename, sizeof(cfilename), out_filename);
+    js__pstrcpy(cfilename, sizeof(cfilename), out_filename);
 
     fo = fopen(cfilename, "w");
     if (!fo) {

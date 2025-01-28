@@ -38,7 +38,7 @@ int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len, bool 
             goto error;
         }
 
-        js_module_set_import_meta(ctx, obj, FALSE, FALSE);
+        js_module_set_import_meta(ctx, obj, false, false);
     }
 
     JSValue val = JS_EvalFunction(ctx, obj);
