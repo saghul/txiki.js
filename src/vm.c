@@ -350,6 +350,16 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
 
+    /* Destroy CURLM handle. */
+    if (qrt->curl_ctx.curlm_h) {
+        curl_multi_cleanup(qrt->curl_ctx.curlm_h);
+        qrt->curl_ctx.curlm_h = NULL;
+    }
+
+    /* Destroy WASM runtime. */
+    m3_FreeEnvironment(qrt->wasm_ctx.env);
+    qrt->wasm_ctx.env = NULL;
+
     /* Cleanup loop. All handles should be closed. */
     int closed = 0;
     for (int i = 0; i < 5; i++) {
@@ -367,16 +377,6 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
 #else
     (void) closed;
 #endif
-
-    /* Destroy CURLM handle. */
-    if (qrt->curl_ctx.curlm_h) {
-        curl_multi_cleanup(qrt->curl_ctx.curlm_h);
-        qrt->curl_ctx.curlm_h = NULL;
-    }
-
-    /* Destroy WASM runtime. */
-    m3_FreeEnvironment(qrt->wasm_ctx.env);
-    qrt->wasm_ctx.env = NULL;
 
     tjs__free(qrt);
 }
