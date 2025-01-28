@@ -167,7 +167,7 @@ static JSValue tjs__dispatch_event(JSContext *ctx, JSValue *event) {
 static void tjs__promise_rejection_tracker(JSContext *ctx,
                                            JSValue promise,
                                            JSValue reason,
-                                           BOOL is_handled,
+                                           bool is_handled,
                                            void *opaque) {
     TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
@@ -600,7 +600,7 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     /* Add null termination, required by JS_Eval. */
     dbuf_putc(&dbuf, '\0');
 
-    ret = TJS_EvalModuleContent(ctx, filename, is_main, TRUE, (char *) dbuf.buf, dbuf_size - 1);
+    ret = TJS_EvalModuleContent(ctx, filename, is_main, true, (char *) dbuf.buf, dbuf_size - 1);
 
     dbuf_free(&dbuf);
     return ret;

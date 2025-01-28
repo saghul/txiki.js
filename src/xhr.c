@@ -735,7 +735,7 @@ static JSValue tjs_xhr_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
                 curl_easy_setopt(x->curl_h, CURLOPT_COPYPOSTFIELDS, body);
                 JS_FreeCString(ctx, body);
             }
-        } else if (JS_IsUint8Array(arg)) {
+        } else if (JS_GetTypedArrayType(arg) == JS_TYPED_ARRAY_UINT8) {
             size_t size;
             uint8_t *buf = JS_GetUint8Array(ctx, &size, argv[0]);
             if (!buf) {

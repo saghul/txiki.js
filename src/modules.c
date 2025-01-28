@@ -59,7 +59,7 @@ JSModuleDef *tjs__load_http(JSContext *ctx, const char *url) {
     }
 
     /* XXX: could propagate the exception */
-    js_module_set_import_meta(ctx, func_val, FALSE, FALSE);
+    js_module_set_import_meta(ctx, func_val, false, false);
     /* the module is already referenced, so we must free it */
     m = JS_VALUE_GET_PTR(func_val);
     JS_FreeValue(ctx, func_val);
@@ -93,7 +93,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
 
     tjs_dbuf_init(ctx, &dbuf);
 
-    is_json = has_suffix(module_name, ".json");
+    is_json = js__has_suffix(module_name, ".json");
 
     /* Support importing JSON files because... why not? */
     if (is_json) {
@@ -124,7 +124,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     }
 
     /* XXX: could propagate the exception */
-    js_module_set_import_meta(ctx, func_val, TRUE, FALSE);
+    js_module_set_import_meta(ctx, func_val, true, false);
     /* the module is already referenced, so we must free it */
     m = JS_VALUE_GET_PTR(func_val);
     JS_FreeValue(ctx, func_val);
@@ -141,7 +141,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
 #define TJS__PATHSEP_STR "/"
 #endif
 
-int js_module_set_import_meta(JSContext *ctx, JSValue func_val, JS_BOOL use_realpath, JS_BOOL is_main) {
+int js_module_set_import_meta(JSContext *ctx, JSValue func_val, bool use_realpath, bool is_main) {
     JSModuleDef *m;
     char buf[PATH_MAX + 16] = { 0 };
     int r;
@@ -176,8 +176,8 @@ int js_module_set_import_meta(JSContext *ctx, JSValue func_val, JS_BOOL use_real
             JS_FreeCString(ctx, module_name);
             return -1;
         }
-        pstrcpy(buf, sizeof(buf), "file://");
-        pstrcat(buf, sizeof(buf), req.ptr);
+        js__pstrcpy(buf, sizeof(buf), "file://");
+        js__pstrcat(buf, sizeof(buf), req.ptr);
         uv_fs_req_cleanup(&req);
 
         // When using realpath we have the opportunity to extract the dirname
@@ -188,7 +188,7 @@ int js_module_set_import_meta(JSContext *ctx, JSValue func_val, JS_BOOL use_real
         strncpy(module_dirname, start, p - start);
         strcpy(module_basename, p + 1);
     } else {
-        pstrcat(buf, sizeof(buf), module_name);
+        js__pstrcat(buf, sizeof(buf), module_name);
     }
 
     JS_FreeCString(ctx, module_name);
