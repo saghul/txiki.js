@@ -28,6 +28,8 @@
 #ifndef _CURL_WEBSOCKET_H_
 #define _CURL_WEBSOCKET_H_ 1
 
+#ifdef TJS_HAVE_WEBSOCKET
+
 #include <curl/curl.h>
 #include <string.h>
 #include <stdbool.h>
@@ -212,4 +214,6 @@ void cws_add_header(CURL *easy, const char field[],  const char value[]);
 }
 #endif
 
-#endif
+#endif /* TJS_HAVE_WEBSOCKET */
+
+#endif /* _CURL_WEBSOCKET_H_ */

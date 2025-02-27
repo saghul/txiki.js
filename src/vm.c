@@ -86,7 +86,12 @@ static void *tjs__sab_alloc(void *opaque, size_t size) {
 void tjs__sab_free(void *opaque, void *ptr) {
     TJSSABHeader *sab = (TJSSABHeader *) ((uint8_t *) ptr - sizeof(TJSSABHeader));
     int ref_count = atomic_add_int(&sab->ref_count, -1);
-    assert(ref_count >= 0);
+
+    if (ref_count < 0) {
+        fprintf(stderr, "Error: SharedArrayBuffer reference count became negative\n");
+        abort();
+    }
+
     if (ref_count == 0) {
         tjs__free(sab);
     }
@@ -127,14 +132,20 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_os_init(ctx, ns);
     tjs__mod_process_init(ctx, ns);
     tjs__mod_signals_init(ctx, ns);
+#ifdef TJS_HAVE_SQLITE
     tjs__mod_sqlite3_init(ctx, ns);
+#endif
     tjs__mod_streams_init(ctx, ns);
     tjs__mod_sys_init(ctx, ns);
     tjs__mod_timers_init(ctx, ns);
     tjs__mod_udp_init(ctx, ns);
+#ifdef TJS_HAVE_WASM
     tjs__mod_wasm_init(ctx, ns);
+#endif
     tjs__mod_worker_init(ctx, ns);
+#ifdef TJS_HAVE_WEBSOCKET
     tjs__mod_ws_init(ctx, ns);
+#endif
     tjs__mod_xhr_init(ctx, ns);
 #ifndef _WIN32
     tjs__mod_posix_socket_init(ctx, ns);
@@ -318,7 +329,9 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JS_FreeValue(ctx, global_obj);
 
     /* WASM */
+#ifdef TJS_HAVE_WASM
     qrt->wasm_ctx.env = m3_NewEnvironment();
+#endif
 
     /* Timers */
     qrt->timers.timers = NULL;
@@ -356,9 +369,11 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         qrt->curl_ctx.curlm_h = NULL;
     }
 
+#ifdef TJS_HAVE_WASM
     /* Destroy WASM runtime. */
     m3_FreeEnvironment(qrt->wasm_ctx.env);
     qrt->wasm_ctx.env = NULL;
+#endif
 
     /* Cleanup loop. All handles should be closed. */
     int closed = 0;

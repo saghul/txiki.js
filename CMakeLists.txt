@@ -44,18 +44,40 @@ macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
     message(STATUS "  ${OPTION_NAME}: ${${OPTION_NAME}}")
 endmacro()
 
+
+# build flags
 cpr_option(BUILD_WITH_MIMALLOC "If ON (default), build with mimalloc" ON)
 cpr_option(USE_EXTERNAL_FFI "Specify to use external ffi dependency" OFF)
+cpr_option(BUILD_WITH_STORAGE "If ON (default), build with Storage support" ON)
+cpr_option(BUILD_WITH_WASM "If ON (default), build with WebAssembly support" ON)
+cpr_option(BUILD_WITH_WEBSOCKET "If ON (default), build with WebSocket support" ON)
+
+# Add a compilation definition, whether the option is on or off
+if(BUILD_WITH_STORAGE)
+    add_definitions(-DTJS_HAVE_SQLITE)
+endif()
+
+if(BUILD_WITH_WASM)
+    add_definitions(-DTJS_HAVE_WASM)
+endif()
+
+if(BUILD_WITH_WEBSOCKET)
+    add_definitions(-DTJS_HAVE_WEBSOCKET)
+endif()
 
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
 option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 
-add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
+if(BUILD_WITH_STORAGE)
+    add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
+endif()
 
-set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
-add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
+if(BUILD_WITH_WASM)
+    set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
+    add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
+endif()
 
 if(BUILD_WITH_MIMALLOC)
     option(MI_OVERRIDE "" OFF)
@@ -71,7 +93,6 @@ find_package(CURL REQUIRED)
 add_library(tjs STATIC
     src/builtins.c
     src/curl-utils.c
-    src/curl-websocket.c
     src/error.c
     src/eval.c
     src/mem.c
@@ -82,9 +103,7 @@ add_library(tjs STATIC
     src/utils.c
     src/version.c
     src/vm.c
-    src/wasm.c
     src/worker.c
-    src/ws.c
     src/xhr.c
     src/mod_dns.c
     src/mod_engine.c
@@ -93,7 +112,21 @@ add_library(tjs STATIC
     src/mod_fswatch.c
     src/mod_os.c
     src/mod_process.c
-    src/mod_sqlite3.c
+)
+
+if(BUILD_WITH_WASM)
+    target_sources(tjs PRIVATE src/wasm.c)
+endif()
+
+if(BUILD_WITH_STORAGE)
+    target_sources(tjs PRIVATE src/mod_sqlite3.c)
+endif()
+
+if(BUILD_WITH_WEBSOCKET)
+    target_sources(tjs PRIVATE src/curl-websocket.c src/ws.c)
+endif()
+
+target_sources(tjs PRIVATE
     src/mod_streams.c
     src/mod_sys.c
     src/mod_udp.c
@@ -113,12 +146,12 @@ add_library(ffi-test SHARED
     tests/fixtures/ffi-test-lib.c
 )
 
-add_library(sqlite-test SHARED
-    tests/fixtures/sqlite-test-ext.c
-)
-
-target_link_libraries(sqlite-test sqlite3)
-
+if(BUILD_WITH_STORAGE)
+    add_library(sqlite-test SHARED
+        tests/fixtures/sqlite-test-ext.c
+    )
+    target_link_libraries(sqlite-test sqlite3)
+endif()
 
 if(NOT USE_EXTERNAL_FFI AND NOT MINGW AND NOT APPLE)
     set(LIBFFI_SRC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libffi")
@@ -160,7 +193,16 @@ string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 target_include_directories(tjs PUBLIC src)
-target_link_libraries(tjs qjs uv_a m3 sqlite3 CURL::libcurl)
+
+target_link_libraries(tjs qjs uv_a CURL::libcurl)
+
+if(BUILD_WITH_WASM)
+    target_link_libraries(tjs m3)
+endif()
+
+if(BUILD_WITH_STORAGE)
+    target_link_libraries(tjs sqlite3)
+endif()
 
 if (BUILD_WITH_MIMALLOC)
     target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)
