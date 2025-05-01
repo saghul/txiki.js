@@ -78,6 +78,7 @@ add_library(tjs STATIC
     src/modules.c
     src/sha1.c
     src/signals.c
+    src/text-coding.c
     src/timers.c
     src/utils.c
     src/version.c
