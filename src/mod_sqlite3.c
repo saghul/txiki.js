@@ -454,7 +454,7 @@ static JSValue tjs__sqlite3_bind_param(JSContext *ctx, sqlite3_stmt *stmt, int i
 static JSValue tjs__sqlite3_bind_params(JSContext *ctx, sqlite3_stmt *stmt, JSValue params) {
     sqlite3_clear_bindings(stmt);
 
-    if (JS_IsArray(ctx, params)) {
+    if (JS_IsArray(params)) {
         JSValue js_length = JS_GetPropertyStr(ctx, params, "length");
         uint64_t len;
         if (JS_ToIndex(ctx, &len, js_length)) {
