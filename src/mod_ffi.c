@@ -275,7 +275,7 @@ static JSValue js_ffi_type_get_sz(JSContext *ctx, JSValue this_val) {
 
 int ffi_type_to_buffer(JSContext *ctx, JSValue val, ffi_type *type, uint8_t *buf) {
     if (type->type == FFI_TYPE_STRUCT) {
-        if (!JS_IsArray(ctx, val)) {
+        if (!JS_IsArray(val)) {
             JS_ThrowTypeError(ctx, "expected argument 1 to be array");
             return -1;
         }
