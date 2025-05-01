@@ -1,3 +1,4 @@
+
 /*
  * txiki.js
  *
@@ -228,7 +229,7 @@ static JSValue tjs_utf8_decoder_decode(JSContext *ctx, JSValueConst this_val, in
         return JS_ThrowTypeError(ctx, "invalid arguments");
     }
 
-    uint32_t opts;
+    uint32_t opts = 0;
     if (!JS_IsUndefined(argv[1]) && JS_ToUint32(ctx, &opts, argv[1])) {
         return JS_ThrowTypeError(ctx, "invalid arguments");
     }
@@ -278,7 +279,7 @@ static JSValue tjs_utf8_decoder_decode(JSContext *ctx, JSValueConst this_val, in
         }
     } while (true);
 
-end_ok:
+end_ok:;
     JSValue str = JS_NewStringLen(ctx, (const char *) s.buf, s.size);
     dbuf_free(&s);
     return str;
