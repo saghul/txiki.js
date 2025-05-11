@@ -2,7 +2,7 @@ class WebSocketConnection {
   readable;
   writable;
   writer;
-  buffer = new Uint8Array(0);
+  buffer = new ArrayBuffer(0, { maxByteLength: 1024**2 });
   closed = !1;
   opcodes = { TEXT: 1, BINARY: 2, PING: 9, PONG: 10, CLOSE: 8 };
   constructor(readable, writable) {
@@ -12,29 +12,33 @@ class WebSocketConnection {
     } else if (writable instanceof WritableStream) {
       this.writable = writable;
       this.writer = this.writable.getWriter();
-    } else {
-      this.writer = writable;
     }
   }
   async processWebSocketStream() {
     try {
       for await (const frame of this.readable) {
-        const uint8 = new Uint8Array(this.buffer.length + frame.length);
-        uint8.set(this.buffer, 0);
-        uint8.set(frame, this.buffer.length);
-        this.buffer = uint8;
-        this.processFrame();
+        const { byteLength } = this.buffer;
+        console.log(byteLength + frame.length);
+        this.buffer.resize(byteLength + frame.length);
+        const view = new DataView(this.buffer);
+        for (let i = 0, j = byteLength; i < frame.length; i++, j++) {
+          view.setUint8(j, frame.at(i));
+        }
+        await this.processFrame();
       }
       console.log("WebSocket connection closed.");
     } catch (e) {
       console.log(e);
-      this.writer.close().catch(console.log);
+      // this.writer.close().catch(console.log);
     }
   }
-  writeFrame(opcode, payload) {
-    this.writer.write(this.encodeMessage(opcode, payload));
+  async writeFrame(opcode, payload) {
+    await this.writer.ready;
+    return this.writer.write(this.encodeMessage(opcode, payload))
+      .catch(console.log);
   }
-  send(obj) {
+  async send(obj) {
+    console.log({ obj });
     let opcode, payload;
     if (obj instanceof Uint8Array) {
       opcode = this.opcodes.BINARY;
@@ -45,9 +49,9 @@ class WebSocketConnection {
     } else {
       throw new Error("Cannot send object. Must be string or Uint8Array");
     }
-    this.writeFrame(opcode, payload);
+    await this.writeFrame(opcode, payload);
   }
-  close(code, reason) {
+  async close(code, reason) {
     const opcode = this.opcodes.CLOSE;
     let buffer;
     if (code) {
@@ -58,14 +62,19 @@ class WebSocketConnection {
     } else {
       buffer = new Uint8Array(0);
     }
-    console.log({ opcode });
-    this.writeFrame(opcode, buffer);
-    this.writer.close();
+    console.log({ opcode, reason, buffer });
+    await this.writeFrame(opcode, buffer);
+    await this.writer.close().catch((e) => {
+      console.log(e);
+      this.buffer.resize(0);
+    });
+    await this.writer.closed;
+    this.buffer.resize(0);
     this.closed = !0;
   }
-  processFrame() {
+  async processFrame() {
     let length, maskBytes;
-    const buf = this.buffer, view = new DataView(buf.buffer);
+    const buf = new Uint8Array(this.buffer), view = new DataView(buf.buffer);
     if (buf.length < 2) {
       return !1;
     }
@@ -98,32 +107,36 @@ class WebSocketConnection {
     idx += 4;
     let payload = buf.subarray(idx, idx + length);
     payload = this.unmask(maskBytes, payload);
-    // Do stuff with payload from client/peer
-    // console.log(`Got payload from client/peer`);
-    // Here input is echoed to output
-    this.handleFrame(opcode, payload);
-    this.buffer = buf.subarray(idx + length);
-    if (this.buffer.length === 0) {
-      // console.log(`this.buffer.length: ${this.buffer.length}.`);
+    await this.handleFrame(opcode, payload);
+
+    if (idx + length === 0) {
+      console.log(`this.buffer.length: ${this.buffer.byteLength}.`);
       return !1;
+    }
+    // It should be possible to use subarray() here 
+    // https://github.com/quickjs-ng/quickjs/issues/1052
+    const data = buf.slice(idx + length);
+    this.buffer.resize(data.length);
+    for (let i = 0; i < this.buffer.byteLength; i++) {
+      view.setUint8(i, data.at(i));
     }
     return !0;
   }
-  handleFrame(opcode, buffer) {
-    // console.log({ opcode, length: buffer.length });
+  async handleFrame(opcode, buffer) {
+    console.log({ opcode, length: buffer.length });
     const view = new DataView(buffer.buffer);
     let payload;
     switch (opcode) {
       case this.opcodes.TEXT:
         payload = buffer;
-        this.writeFrame(opcode, payload);
+        await this.writeFrame(opcode, payload);
         break;
       case this.opcodes.BINARY:
         payload = buffer;
-        this.writeFrame(opcode, payload);
+        await this.writeFrame(opcode, payload);
         break;
       case this.opcodes.PING:
-        this.writeFrame(this.opcodes.PONG, buffer);
+        await this.writeFrame(this.opcodes.PONG, buffer);
         break;
       case this.opcodes.PONG:
         break;
@@ -142,7 +155,7 @@ class WebSocketConnection {
   }
   unmask(maskBytes2, data) {
     let payload = new Uint8Array(data.length);
-    for (var i = 0; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       payload[i] = maskBytes2[i % 4] ^ data[i];
     }
     return payload;
