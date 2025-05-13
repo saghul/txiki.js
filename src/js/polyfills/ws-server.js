@@ -2,7 +2,7 @@ class WebSocketConnection {
   readable;
   writable;
   writer;
-  buffer = new ArrayBuffer(0, { maxByteLength: 1024**2 });
+  buffer = new ArrayBuffer(0, { maxByteLength: 1024 ** 2 });
   closed = !1;
   opcodes = { TEXT: 1, BINARY: 2, PING: 9, PONG: 10, CLOSE: 8 };
   constructor(readable, writable) {
@@ -29,6 +29,7 @@ class WebSocketConnection {
       console.log("WebSocket connection closed.");
     } catch (e) {
       console.log(e);
+      console.trace();
       // this.writer.close().catch(console.log);
     }
   }
@@ -113,13 +114,10 @@ class WebSocketConnection {
       console.log(`this.buffer.length: ${this.buffer.byteLength}.`);
       return !1;
     }
-    // It should be possible to use subarray() here 
-    // https://github.com/quickjs-ng/quickjs/issues/1052
-    const data = buf.slice(idx + length);
-    this.buffer.resize(data.length);
-    for (let i = 0; i < this.buffer.byteLength; i++) {
-      view.setUint8(i, data.at(i));
+    for (let i = 0, j = idx + length; j < this.buffer.byteLength; i++, j++) {
+      view.setUint8(i, view.getUint8(j));
     }
+    this.buffer.resize(this.buffer.byteLength - (idx + length));
     return !0;
   }
   async handleFrame(opcode, buffer) {
