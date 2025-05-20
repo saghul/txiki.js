@@ -98,7 +98,7 @@ class Event {
      * @type {EventTarget}
      */
     get target() {
-        return null;
+        return this.currentTarget;
     }
 
     /**
