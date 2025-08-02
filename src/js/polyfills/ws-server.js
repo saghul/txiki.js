@@ -122,7 +122,7 @@ class WebSocketConnection {
     await this.writer.ready;
     if (opcode === this.opcodes.TEXT) {
       return await this.writer.write(this.encodeMessage(opcode, buffer))
-        .catch(console.lconsole.logog);
+        .catch(console.log);
     }
     if (opcode === this.opcodes.BINARY) {
       return await this.writer.write(this.encodeMessage(opcode, buffer))
