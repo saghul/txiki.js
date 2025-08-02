@@ -240,10 +240,10 @@ class WebSocketConnection {
       // txiki.js does not support Web Cryptography API crypto.subtle
       // Use txiki.js specific tjs:hashing or
       // https://raw.githubusercontent.com/kawanet/sha1-uint8array/main/lib/sha1-uint8array.ts
-      const { createHash } = await import("./sha1-uint8array.min.js");
+      const { createHash } = await import("tjs:hashing");
       const hash = createHash("sha1").update(
         `${secKeyWebSocket}${WebSocketConnection.KEY_SUFFIX}`,
-      ).digest();
+      ).bytes();
       key = btoa(
         String.fromCodePoint(...hash),
       );
