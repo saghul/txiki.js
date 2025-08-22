@@ -131,7 +131,7 @@ submodules with `git submodule update --init` before proceeding to the build.
 
 ### GNU/Linux
 
-Install dependencies (`libcurl`, `build-essential`, `cmake`, `makeinfo`, `autoreconf`, `libtool`, `libltdl-dev`):
+Install dependencies (`libcurl`, `build-essential`, `cmake`, `autoreconf`, `libtool`, `libltdl-dev`):
 
 ```bash
 # On Debian / Ubuntu
