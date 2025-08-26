@@ -3,6 +3,7 @@ import { readableStreamForHandle, writableStreamForHandle } from './stream-utils
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
+const kOnConnection = Symbol('kOnConnection');
 
 export async function connect(transport, host, port, options = {}) {
     const addr = await resolveAddress(transport, host, port);
@@ -67,18 +68,28 @@ export async function listen(transport, host, port, options = {}) {
             }
 
             handle.bind(addr, flags);
-            handle.listen(options.backlog);
 
-            return new Listener(handle);
+            const l=new Listener(handle);
+
+            handle.listen(handle=>{
+                l[kOnConnection](handle);
+            },options.backlog);
+
+            return l;
         }
 
         case 'pipe': {
             const handle = new core.Pipe();
 
             handle.bind(addr);
-            handle.listen(options.backlog);
 
-            return new Listener(handle);
+            const l=new Listener(handle);
+
+            handle.listen(handle=>{
+                l[kOnConnection](handle);
+            },options.backlog);
+
+            return l;
         }
 
         case 'udp': {
@@ -204,6 +215,16 @@ class Listener {
         this[kHandle] = handle;
     }
 
+    #handleQueue=[];
+    #acceptQueue=[];
+    [kOnConnection](handle) {
+        if (this.#acceptQueue.length>0) {
+            this.#acceptQueue.shift().resolve(handle);
+        } else {
+            this.#handleQueue.push(handle);
+        }
+    }
+
     get localAddress() {
         if (!this[kLocalAddress]) {
             this[kLocalAddress] = this[kHandle].getsockname();
@@ -213,10 +234,23 @@ class Listener {
     }
 
     async accept() {
-        const handle = await this[kHandle].accept();
+        let handle;
+
+        if (this.#handleQueue.length>0) {
+            handle=this.#handleQueue.shift();
+        } else {
+            handle=await new Promise((resolve,reject)=>{
+                this.#acceptQueue.push({ resolve,reject });
+            });
+        }
+
 
         if (typeof handle === 'undefined') {
             return;
+        }
+
+        if (handle instanceof Error) {
+            throw handle;
         }
 
         return new Connection(handle);
@@ -224,6 +258,12 @@ class Listener {
 
     close() {
         this[kHandle].close();
+
+        for (let v1 of this.#acceptQueue) {
+            v1.reject(new Error('closed'));
+        }
+
+        this.#handleQueue=[];
     }
 
     // Async iterator.
