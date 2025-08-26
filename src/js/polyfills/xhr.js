@@ -4,6 +4,10 @@ const core = globalThis[Symbol.for('tjs.internal.core')];
 const XHR = core.XMLHttpRequest;
 const kXHR = Symbol('kXHR');
 
+export const kXhrGetAndClearResponseBuffer = Symbol('kXhrGetAndClearResponseBuffer');
+export const kXhrOnTjsStreamSendData= Symbol('kXhrOnTjsStreamSendData');
+export const kXhrStreamSend=Symbol('kXhrStreamSend');
+
 class XMLHttpRequest extends EventTarget {
     static UNSENT = XHR.UNSENT;
     static OPENED = XHR.OPENED;
@@ -15,6 +19,8 @@ class XMLHttpRequest extends EventTarget {
     HEADERS_RECEIVED = XHR.HEADERS_RECEIVED;
     LOADING = XHR.LOADING;
     DONE = XHR.DONE;
+
+    [kXhrOnTjsStreamSendData]=null;
 
     constructor() {
         super();
@@ -51,6 +57,12 @@ class XMLHttpRequest extends EventTarget {
 
         xhr.ontimeout = () => {
             this.dispatchEvent(new Event('timeout'));
+        };
+
+        xhr.ontjsstreamsenddata = () => {
+            if (this[kXhrOnTjsStreamSendData]!==null) {
+                this[kXhrOnTjsStreamSendData]();
+            }
         };
 
         this[kXHR] = xhr;
@@ -174,6 +186,14 @@ class XMLHttpRequest extends EventTarget {
 
     setRequestHeader(name, value) {
         return this[kXHR].setRequestHeader(name, value);
+    }
+
+    [kXhrGetAndClearResponseBuffer]() {
+        return this[kXHR].__tjsGetAndClearResponseBuffer();
+    }
+
+    [kXhrStreamSend](buffer) {
+        return this[kXHR].__tjsStreamSend(buffer);
     }
 }
 
