@@ -172,6 +172,8 @@ static void curl__done_cb(CURLcode result, void *arg) {
         x->slist = NULL;
     }
 
+    curl_easy_setopt(x->curl_h, CURLOPT_COOKIELIST, "FLUSH");
+
     x->ready_state = XHR_RSTATE_DONE;
     maybe_emit_event(x, XHR_EVENT_READY_STATE_CHANGED, JS_UNDEFINED);
 
@@ -766,6 +768,7 @@ static JSValue tjs_xhr_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
             curl_easy_setopt(x->curl_h, CURLOPT_POSTFIELDSIZE_LARGE, size);
             curl_easy_setopt(x->curl_h, CURLOPT_COPYPOSTFIELDS, buf);
         }
+        curl_easy_setopt(x->curl_h, CURLOPT_COOKIELIST, "RELOAD");
         curl_easy_setopt(x->curl_h, CURLOPT_HTTPHEADER, x->slist);
         if (x->async) {
             curl_multi_add_handle(x->curlm_h, x->curl_h);
