@@ -6,7 +6,7 @@ const cookieValue = Math.random().toString();
 const xhr = new XMLHttpRequest();
 
 xhr.withCredentials = true;
-xhr.open('GET', url + "/set?key=" + cookieValue, false);
+xhr.open('GET', url + '/set?key=' + cookieValue, false);
 xhr.send();
 assert.eq(xhr.readyState, xhr.DONE, 'readyState is DONE');
 assert.eq(xhr.responseURL, url, 'url is the same');

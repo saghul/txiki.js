@@ -1,3 +1,4 @@
+/* global tjs */
 import { defineEventAttribute } from './event-target.js';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
@@ -103,9 +104,9 @@ class XMLHttpRequest extends EventTarget {
     set withCredentials(value) {
         if (value) {
             const path = globalThis[Symbol.for('tjs.internal.modules.path')];
+            const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
 
-            const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, ".tjs");
-            this[kXHR].cookieJar = path.join(TJS_HOME, "cookies");
+            this[kXHR].cookieJar = path.join(TJS_HOME, 'cookies');
         } else {
             this[kXHR].cookieJar = undefined;
         }
