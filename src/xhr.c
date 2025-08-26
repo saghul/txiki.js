@@ -553,7 +553,7 @@ static JSValue tjs_xhr_cookiejar_set(JSContext *ctx, JSValue this_val, JSValue v
     }
 
     x->cookie_jar = value;
-    
+
     const char *v;
     if (JS_IsString(value) && (v = JS_ToCString(ctx, value))) {
         curl_easy_setopt(x->curl_h, CURLOPT_COOKIEFILE, v);
