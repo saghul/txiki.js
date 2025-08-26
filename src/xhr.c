@@ -554,16 +554,14 @@ static JSValue tjs_xhr_cookiejar_set(JSContext *ctx, JSValue this_val, JSValue v
 
     x->cookie_jar = value;
     
-    if (!x->sent) {
-        const char *v;
-        if (JS_IsString(value) && (v = JS_ToCString(ctx, value))) {
-            curl_easy_setopt(x->curl_h, CURLOPT_COOKIEFILE, v);
-            curl_easy_setopt(x->curl_h, CURLOPT_COOKIEJAR, v);
-            JS_FreeCString(ctx, v);
-        } else {
-            curl_easy_setopt(x->curl_h, CURLOPT_COOKIEFILE, NULL);
-            curl_easy_setopt(x->curl_h, CURLOPT_COOKIEJAR, NULL);
-        }
+    const char *v;
+    if (JS_IsString(value) && (v = JS_ToCString(ctx, value))) {
+        curl_easy_setopt(x->curl_h, CURLOPT_COOKIEFILE, v);
+        curl_easy_setopt(x->curl_h, CURLOPT_COOKIEJAR, v);
+        JS_FreeCString(ctx, v);
+    } else {
+        curl_easy_setopt(x->curl_h, CURLOPT_COOKIEFILE, NULL);
+        curl_easy_setopt(x->curl_h, CURLOPT_COOKIEJAR, NULL);
     }
     return JS_UNDEFINED;
 }
