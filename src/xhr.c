@@ -68,6 +68,7 @@ typedef struct {
     unsigned long timeout;
     short response_type;
     unsigned short ready_state;
+    JSValue cookie_jar;
     struct {
         char *raw;
         JSValue status;
@@ -328,6 +329,7 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValue new_target, int argc,
     x->slist = NULL;
     x->sent = false;
     x->async = true;
+    x->cookie_jar = JS_UNDEFINED;
 
     for (int i = 0; i < XHR_EVENT_MAX; i++) {
         x->events[i] = JS_UNDEFINED;
@@ -534,13 +536,33 @@ static JSValue tjs_xhr_upload_get(JSContext *ctx, JSValue this_val) {
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_xhr_withcredentials_get(JSContext *ctx, JSValue this_val) {
-    // TODO.
-    return JS_UNDEFINED;
+static JSValue tjs_xhr_cookiejar_get(JSContext *ctx, JSValue this_val) {
+    TJSXhr *x = tjs_xhr_get(ctx, this_val);
+    if (!x) {
+        return JS_EXCEPTION;
+    }
+    return x->cookie_jar;
 }
 
-static JSValue tjs_xhr_withcredentials_set(JSContext *ctx, JSValue this_val, JSValue value) {
-    // TODO.
+static JSValue tjs_xhr_cookiejar_set(JSContext *ctx, JSValue this_val, JSValue value) {
+    TJSXhr *x = tjs_xhr_get(ctx, this_val);
+    if (!x) {
+        return JS_EXCEPTION;
+    }
+
+    x->cookie_jar = value;
+    
+    if (!x->sent) {
+        const char *v;
+        if (JS_IsString(value) && (v = JS_ToCString(ctx, value))) {
+            curl_easy_setopt(x->curl_h, CURLOPT_COOKIEFILE, v);
+            curl_easy_setopt(x->curl_h, CURLOPT_COOKIEJAR, v);
+            JS_FreeCString(ctx, v);
+        } else {
+            curl_easy_setopt(x->curl_h, CURLOPT_COOKIEFILE, NULL);
+            curl_easy_setopt(x->curl_h, CURLOPT_COOKIEJAR, NULL);
+        }
+    }
     return JS_UNDEFINED;
 }
 
@@ -812,7 +834,7 @@ static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
     JS_CGETSET_DEF("statusText", tjs_xhr_statustext_get, NULL),
     JS_CGETSET_DEF("timeout", tjs_xhr_timeout_get, tjs_xhr_timeout_set),
     JS_CGETSET_DEF("upload", tjs_xhr_upload_get, NULL),
-    JS_CGETSET_DEF("withCredentials", tjs_xhr_withcredentials_get, tjs_xhr_withcredentials_set),
+    JS_CGETSET_DEF("cookieJar", tjs_xhr_cookiejar_get, tjs_xhr_cookiejar_set),
     TJS_CFUNC_DEF("abort", 0, tjs_xhr_abort),
     TJS_CFUNC_DEF("getAllResponseHeaders", 0, tjs_xhr_getallresponseheaders),
     TJS_CFUNC_DEF("getResponseHeader", 1, tjs_xhr_getresponseheader),
