@@ -106,14 +106,15 @@ class XMLHttpRequest extends EventTarget {
             const path = globalThis[Symbol.for('tjs.internal.modules.path')];
             const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
 
-            this[kXHR].cookieJar = path.join(TJS_HOME, 'cookies');
+            tjs.makeDir(TJS_HOME, { recursive: true });
+            this[kXHR].setCookieJar(path.join(TJS_HOME, 'cookies'));
         } else {
-            this[kXHR].cookieJar = undefined;
+            this[kXHR].setCookieJar(null);
         }
     }
 
     get withCredentials() {
-        return !!this[kXHR].cookieJar;
+        return this[kXHR].withCredentials;
     }
 
     abort() {
