@@ -1,4 +1,11 @@
 import assert from 'tjs:assert';
+import path from "tjs:path";
+
+// Cookies jar must be pre-created, otherwise this test will failed in Github Action
+const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
+const cookieJarPath = path.join(TJS_HOME, 'cookies');
+(await tjs.makeDir(TJS_HOME, { recursive: true }));
+(await tjs.open(cookieJarPath, 'w')).close();
 
 const url = 'https://postman-echo.com/cookies';
 const cookieValue = Math.random().toString();
@@ -25,3 +32,6 @@ xhr.send();
 
 result = JSON.parse(xhr.responseText);
 assert.eq(result.cookies.key, cookieValue, 'cookies is same');
+
+const cookies = new TextDecoder().decode(await tjs.readFile(cookieJarPath));
+assert.ok(cookies.includes(cookieValue), 'cookies has wrote to disk');
