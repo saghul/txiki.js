@@ -1,8 +1,11 @@
+/* global tjs */
 import { defineEventAttribute } from './event-target.js';
+import { mkdirSync } from './utils/mkdirSync';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
 const XHR = core.XMLHttpRequest;
 const kXHR = Symbol('kXHR');
+let hasHomeDirCreated = false;
 
 class XMLHttpRequest extends EventTarget {
     static UNSENT = XHR.UNSENT;
@@ -100,12 +103,24 @@ class XMLHttpRequest extends EventTarget {
         return this[kXHR].upload;
     }
 
-    set withCcredentials(value) {
-        this[kXHR].withCcredentials = value;
+    set withCredentials(value) {
+        if (value) {
+            const path = globalThis[Symbol.for('tjs.internal.modules.path')];
+            const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
+
+            if (!hasHomeDirCreated) {
+                mkdirSync(TJS_HOME, { recursive: true });
+                hasHomeDirCreated = true;
+            }
+
+            this[kXHR].setCookieJar(path.join(TJS_HOME, 'cookies'));
+        } else {
+            this[kXHR].setCookieJar(null);
+        }
     }
 
-    get withCcredentials() {
-        return this[kXHR].withCcredentials;
+    get withCredentials() {
+        return this[kXHR].withCredentials;
     }
 
     abort() {

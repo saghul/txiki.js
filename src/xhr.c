@@ -65,6 +65,7 @@ typedef struct {
     struct curl_slist *slist;
     bool sent;
     bool async;
+    bool withCredentials;
     unsigned long timeout;
     short response_type;
     unsigned short ready_state;
@@ -170,6 +171,8 @@ static void curl__done_cb(CURLcode result, void *arg) {
         curl_slist_free_all(x->slist);
         x->slist = NULL;
     }
+
+    curl_easy_setopt(x->curl_h, CURLOPT_COOKIELIST, "FLUSH");
 
     x->ready_state = XHR_RSTATE_DONE;
     maybe_emit_event(x, XHR_EVENT_READY_STATE_CHANGED, JS_UNDEFINED);
@@ -328,6 +331,7 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValue new_target, int argc,
     x->slist = NULL;
     x->sent = false;
     x->async = true;
+    x->withCredentials = false;
 
     for (int i = 0; i < XHR_EVENT_MAX; i++) {
         x->events[i] = JS_UNDEFINED;
@@ -535,12 +539,30 @@ static JSValue tjs_xhr_upload_get(JSContext *ctx, JSValue this_val) {
 }
 
 static JSValue tjs_xhr_withcredentials_get(JSContext *ctx, JSValue this_val) {
-    // TODO.
-    return JS_UNDEFINED;
+    TJSXhr *x = tjs_xhr_get(ctx, this_val);
+    if (!x) {
+        return JS_EXCEPTION;
+    }
+    return JS_NewBool(ctx, x->withCredentials);
 }
 
-static JSValue tjs_xhr_withcredentials_set(JSContext *ctx, JSValue this_val, JSValue value) {
-    // TODO.
+static JSValue tjs_xhr_set_cookiejar(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSXhr *x = tjs_xhr_get(ctx, this_val);
+    if (!x) {
+        return JS_EXCEPTION;
+    }
+
+    const char *v;
+    if (JS_IsString(argv[0]) && (v = JS_ToCString(ctx, argv[0]))) {
+        curl_easy_setopt(x->curl_h, CURLOPT_COOKIEFILE, v);
+        curl_easy_setopt(x->curl_h, CURLOPT_COOKIEJAR, v);
+        JS_FreeCString(ctx, v);
+        x->withCredentials = true;
+    } else {
+        curl_easy_setopt(x->curl_h, CURLOPT_COOKIEFILE, NULL);
+        curl_easy_setopt(x->curl_h, CURLOPT_COOKIEJAR, NULL);
+        x->withCredentials = false;
+    }
     return JS_UNDEFINED;
 }
 
@@ -744,6 +766,7 @@ static JSValue tjs_xhr_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
             curl_easy_setopt(x->curl_h, CURLOPT_POSTFIELDSIZE_LARGE, size);
             curl_easy_setopt(x->curl_h, CURLOPT_COPYPOSTFIELDS, buf);
         }
+        curl_easy_setopt(x->curl_h, CURLOPT_COOKIELIST, "RELOAD");
         curl_easy_setopt(x->curl_h, CURLOPT_HTTPHEADER, x->slist);
         if (x->async) {
             curl_multi_add_handle(x->curlm_h, x->curl_h);
@@ -812,7 +835,7 @@ static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
     JS_CGETSET_DEF("statusText", tjs_xhr_statustext_get, NULL),
     JS_CGETSET_DEF("timeout", tjs_xhr_timeout_get, tjs_xhr_timeout_set),
     JS_CGETSET_DEF("upload", tjs_xhr_upload_get, NULL),
-    JS_CGETSET_DEF("withCredentials", tjs_xhr_withcredentials_get, tjs_xhr_withcredentials_set),
+    JS_CGETSET_DEF("withCredentials", tjs_xhr_withcredentials_get, NULL),
     TJS_CFUNC_DEF("abort", 0, tjs_xhr_abort),
     TJS_CFUNC_DEF("getAllResponseHeaders", 0, tjs_xhr_getallresponseheaders),
     TJS_CFUNC_DEF("getResponseHeader", 1, tjs_xhr_getresponseheader),
@@ -820,6 +843,7 @@ static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
     TJS_CFUNC_DEF("overrideMimeType", 1, tjs_xhr_overridemimetype),
     TJS_CFUNC_DEF("send", 1, tjs_xhr_send),
     TJS_CFUNC_DEF("setRequestHeader", 2, tjs_xhr_setrequestheader),
+    TJS_CFUNC_DEF("setCookieJar", 1, tjs_xhr_set_cookiejar),
 };
 
 void tjs__mod_xhr_init(JSContext *ctx, JSValue ns) {
