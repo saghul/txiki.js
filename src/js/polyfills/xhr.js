@@ -5,6 +5,7 @@ import { mkdirSync } from './utils/mkdirSync';
 const core = globalThis[Symbol.for('tjs.internal.core')];
 const XHR = core.XMLHttpRequest;
 const kXHR = Symbol('kXHR');
+let hasHomeDirCreated = false;
 
 class XMLHttpRequest extends EventTarget {
     static UNSENT = XHR.UNSENT;
@@ -107,7 +108,11 @@ class XMLHttpRequest extends EventTarget {
             const path = globalThis[Symbol.for('tjs.internal.modules.path')];
             const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
 
-            mkdirSync(TJS_HOME, { recursive: true });
+            if (!hasHomeDirCreated) {
+                mkdirSync(TJS_HOME, { recursive: true });
+                hasHomeDirCreated = true;
+            }
+
             this[kXHR].setCookieJar(path.join(TJS_HOME, 'cookies'));
         } else {
             this[kXHR].setCookieJar(null);
