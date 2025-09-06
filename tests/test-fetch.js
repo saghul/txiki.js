@@ -34,7 +34,7 @@ async function fetchWithPostAndBody() {
 };
 
 async function fetchWithBlobBody() {
-    const r = await fetch('https://picsum.photos/id/237/200/300');
+    const r = await fetch('https://picsum.photos/id/237/200/300.jpg');
     assert.eq(r.status, 200, 'status is 200');
     const blob = await r.blob();
     assert.eq(blob.type, 'image/jpeg', 'response is jpeg image')
