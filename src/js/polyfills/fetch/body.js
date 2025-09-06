@@ -116,14 +116,20 @@ export const BodyMixin = {
             return rejected;
         }
 
+        const contentType = this.headers.get('content-type') ?? '';
+
         if (this._bodyBlob) {
             return Promise.resolve(this._bodyBlob);
         } else if (this._bodyArrayBuffer) {
-            return Promise.resolve(new Blob([ this._bodyArrayBuffer ]));
+            return Promise.resolve(new Blob([ this._bodyArrayBuffer ], {
+                type: contentType,
+            }));
         } else if (this._bodyFormData) {
             throw new Error('could not read FormData body as blob');
         } else {
-            return Promise.resolve(new Blob([ this._bodyText ]));
+            return Promise.resolve(new Blob([ this._bodyText ], {
+                type: contentType,
+            }));
         }
     },
 
