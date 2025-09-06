@@ -15,12 +15,12 @@ function consumed(body) {
 }
 
 function fileReaderReady(reader) {
-    return new Promise(function (resolve, reject) {
-        reader.onload = function () {
+    return new Promise(function(resolve, reject) {
+        reader.onload = function() {
             resolve(reader.result);
         };
 
-        reader.onerror = function () {
+        reader.onerror = function() {
             reject(reader.error);
         };
     });
@@ -187,7 +187,7 @@ function decode(body) {
     body
         .trim()
         .split('&')
-        .forEach(function (bytes) {
+        .forEach(function(bytes) {
             if (bytes) {
                 const split = bytes.split('=');
                 const name = split.shift().replace(/\+/g, ' ');
