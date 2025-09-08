@@ -43,14 +43,14 @@ jobs:
           path: txiki-windows-x86_64
 
   build-macos:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
       - name: build macos-latest
         run: |
-          brew install cmake autoconf automake libtool texinfo
+          brew install autoconf automake libtool
           make BUILD_MACOS_MULTIARCH=1
 
           mkdir txiki-macos
