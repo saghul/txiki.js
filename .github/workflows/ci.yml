@@ -100,12 +100,12 @@ jobs:
       fail-fast: false
       matrix:
         buildType: [Debug, Release]
-        os: [macOS-13, macOS-14]
+        os: [macOS-14, macOS-latest]
     env:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
     - name: Install automake
-      run: brew install automake autoconf libtool texinfo
+      run: brew install automake autoconf libtool
     - uses: actions/checkout@v4
       with:
         submodules: true
