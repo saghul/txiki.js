@@ -349,6 +349,11 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValue new_target, int argc,
     curl_easy_setopt(x->curl_h, CURLOPT_WRITEDATA, x);
     curl_easy_setopt(x->curl_h, CURLOPT_HEADERFUNCTION, curl__header_cb);
     curl_easy_setopt(x->curl_h, CURLOPT_HEADERDATA, x);
+#if LIBCURL_VERSION_NUM >= 0x071506 /* renamed from ENCODING to ACCEPT_ENCODING in 7.21.6 */
+    curl_easy_setopt(x->curl_h, CURLOPT_ACCEPT_ENCODING, "");
+#else
+    curl_easy_setopt(x->curl_h, CURLOPT_ENCODING, "");
+#endif
 
     JS_SetOpaque(obj, x);
     return obj;
