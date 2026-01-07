@@ -15,6 +15,7 @@ export class Request {
 
             this.url = input.url;
             this.credentials = input.credentials;
+            this.redirect = input.redirect;
 
             if (!options.headers) {
                 this.headers = new Headers(input.headers);
@@ -33,6 +34,7 @@ export class Request {
         }
 
         this.credentials = options.credentials || this.credentials || 'same-origin';
+        this.redirect = options.redirect || this.redirect || 'follow';
 
         if (options.headers || !this.headers) {
             this.headers = new Headers(options.headers);

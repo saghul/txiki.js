@@ -56,6 +56,12 @@ enum {
     XHR_RTYPE_JSON,
 };
 
+enum {
+    XHR_REDIRECT_FOLLOW = 0,
+    XHR_REDIRECT_ERROR,
+    XHR_REDIRECT_MANUAL,
+};
+
 typedef struct {
     JSContext *ctx;
     JSValue events[XHR_EVENT_MAX];
@@ -69,6 +75,7 @@ typedef struct {
     unsigned long timeout;
     short response_type;
     unsigned short ready_state;
+    unsigned short redirect_mode;
     struct {
         char *raw;
         JSValue status;
@@ -251,10 +258,11 @@ static size_t curl__header_cb(char *ptr, size_t size, size_t nmemb, void *userda
             x->status.raw = js_strdup(x->ctx, p + 1);
         }
     } else if (strncmp(emptly_line, ptr, sizeof(emptly_line) - 1) == 0) {
-        // If the code is not a redirect, this is the final response.
+        // If we will not be redirected, this is the final response.
         long code = -1;
         curl_easy_getinfo(x->curl_h, CURLINFO_RESPONSE_CODE, &code);
-        if (code > -1 && code / 100 != 3) {
+        bool will_redirect = code / 100 == 3 && x->redirect_mode != XHR_REDIRECT_MANUAL;
+        if (code > -1 && !will_redirect) {
             CHECK_NOT_NULL(x->status.raw);
             x->status.status_text = JS_NewString(x->ctx, x->status.raw);
             x->status.status = JS_NewInt32(x->ctx, code);
@@ -325,6 +333,7 @@ static JSValue tjs_xhr_constructor(JSContext *ctx, JSValue new_target, int argc,
     tjs_dbuf_init(ctx, &x->result.hbuf);
     tjs_dbuf_init(ctx, &x->result.bbuf);
     x->ready_state = XHR_RSTATE_UNSENT;
+    x->redirect_mode = XHR_REDIRECT_FOLLOW;
     x->status.raw = NULL;
     x->status.status = JS_UNDEFINED;
     x->status.status_text = JS_UNDEFINED;
@@ -568,6 +577,56 @@ static JSValue tjs_xhr_set_cookiejar(JSContext *ctx, JSValue this_val, int argc,
         curl_easy_setopt(x->curl_h, CURLOPT_COOKIEJAR, NULL);
         x->withCredentials = false;
     }
+    return JS_UNDEFINED;
+}
+
+static JSValue tjs_xhr_redirectmode_get(JSContext *ctx, JSValue this_val) {
+    TJSXhr *x = tjs_xhr_get(ctx, this_val);
+    if (!x) {
+        return JS_EXCEPTION;
+    }
+    switch (x->redirect_mode) {
+        case XHR_REDIRECT_FOLLOW:
+            return JS_NewString(ctx, "follow");
+        case XHR_REDIRECT_ERROR:
+            return JS_NewString(ctx, "error");
+        case XHR_REDIRECT_MANUAL:
+            return JS_NewString(ctx, "manual");
+        default:
+            abort();
+    }
+}
+
+static JSValue tjs_xhr_redirectmode_set(JSContext *ctx, JSValue this_val, JSValue value) {
+    static const char follow[] = "follow";
+    static const char error[] = "error";
+    static const char manual[] = "manual";
+
+    static const long default_maxredirs = 30L;
+
+    TJSXhr *x = tjs_xhr_get(ctx, this_val);
+    if (!x) {
+        return JS_EXCEPTION;
+    }
+
+    const char *v = JS_ToCString(ctx, value);
+    if (v) {
+        if (strncmp(follow, v, sizeof(follow) - 1) == 0) {
+            curl_easy_setopt(x->curl_h, CURLOPT_FOLLOWLOCATION, 1L);
+            curl_easy_setopt(x->curl_h, CURLOPT_MAXREDIRS, default_maxredirs);
+            x->redirect_mode = XHR_REDIRECT_FOLLOW;
+        } else if (strncmp(error, v, sizeof(error) - 1) == 0) {
+            curl_easy_setopt(x->curl_h, CURLOPT_FOLLOWLOCATION, 1L);
+            curl_easy_setopt(x->curl_h, CURLOPT_MAXREDIRS, 0L);
+            x->redirect_mode = XHR_REDIRECT_ERROR;
+        } else if (strncmp(manual, v, sizeof(manual) - 1) == 0) {
+            curl_easy_setopt(x->curl_h, CURLOPT_FOLLOWLOCATION, 0L);
+            curl_easy_setopt(x->curl_h, CURLOPT_MAXREDIRS, default_maxredirs);
+            x->redirect_mode = XHR_REDIRECT_MANUAL;
+        }
+        JS_FreeCString(ctx, v);
+    }
+
     return JS_UNDEFINED;
 }
 
@@ -841,6 +900,7 @@ static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
     JS_CGETSET_DEF("timeout", tjs_xhr_timeout_get, tjs_xhr_timeout_set),
     JS_CGETSET_DEF("upload", tjs_xhr_upload_get, NULL),
     JS_CGETSET_DEF("withCredentials", tjs_xhr_withcredentials_get, NULL),
+    JS_CGETSET_DEF("redirectMode", tjs_xhr_redirectmode_get, tjs_xhr_redirectmode_set),
     TJS_CFUNC_DEF("abort", 0, tjs_xhr_abort),
     TJS_CFUNC_DEF("getAllResponseHeaders", 0, tjs_xhr_getallresponseheaders),
     TJS_CFUNC_DEF("getResponseHeader", 1, tjs_xhr_getresponseheader),

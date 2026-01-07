@@ -56,6 +56,8 @@ export function fetch(input, init) {
             xhr.withCredentials = false;
         }
 
+        xhr.redirectMode = request.redirect;
+
         // TODO: better use Blob, if / when we support that.
         xhr.responseType = 'arraybuffer';
 
