@@ -40,8 +40,37 @@ async function fetchWithBlobBody() {
     assert.eq(blob.type, 'image/jpeg', 'response is jpeg image')
 }
 
+async function fetchWithRedirect() {
+    const url = 'https://wikipedia.com/';
+    const redirectUrl = 'https://www.wikipedia.org/';
+
+    const r1 = await fetch(url, {
+        method: 'GET',
+        redirect: 'follow',
+    });
+    assert.eq(r1.status, 200, 'status is 200');
+    assert.eq(r1.url, redirectUrl, 'url has changed')
+
+    const r2 = await fetch(url, {
+        method: 'GET',
+        redirect: 'manual',
+    });
+    assert.eq(r2.status, 301, 'status is 301');
+    assert.eq(r2.url, url, 'url is the same')
+    assert.eq(r2.headers.get('location'), redirectUrl, 'location header is correct');
+
+    let hasError = false;
+    await fetch(url, {
+        method: 'GET',
+        redirect: 'error',
+    }).catch((err) => {
+        hasError = true;
+    });
+    assert.ok(hasError, 'redirect causes error');
+}
 
 await basicFetch();
 await abortFetch();
 await fetchWithPostAndBody();
 await fetchWithBlobBody();
+await fetchWithRedirect();
