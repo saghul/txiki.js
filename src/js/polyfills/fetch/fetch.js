@@ -1,6 +1,8 @@
 import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
 
+// Keep strong references to active XHR objects to prevent premature GC
+const activeXHRs = new Set();
 
 export function fetch(input, init) {
     return new Promise(function(resolve, reject) {
@@ -11,6 +13,8 @@ export function fetch(input, init) {
         }
 
         const xhr = new XMLHttpRequest();
+
+        activeXHRs.add(xhr);
 
         function abortXhr() {
             xhr.abort();
@@ -26,24 +30,28 @@ export function fetch(input, init) {
             const body = xhr.response;
 
             setTimeout(function() {
+                activeXHRs.delete(xhr);
                 resolve(new Response(body, options));
             }, 0);
         };
 
         xhr.onerror = function() {
             setTimeout(function() {
+                activeXHRs.delete(xhr);
                 reject(new TypeError('Network request failed'));
             }, 0);
         };
 
         xhr.ontimeout = function() {
             setTimeout(function() {
+                activeXHRs.delete(xhr);
                 reject(new TypeError('Network request timed out'));
             }, 0);
         };
 
         xhr.onabort = function() {
             setTimeout(function() {
+                activeXHRs.delete(xhr);
                 reject(new DOMException('Aborted', 'AbortError'));
             }, 0);
         };
