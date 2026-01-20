@@ -98,7 +98,7 @@ declare module "tjs:ffi" {
   };
 
   export function bufferToString(buf: Uint8Array): string;
-  export function stringTobuffer(s: string): Uint8Array;
+  export function stringToBuffer(s: string): Uint8Array<ArrayBuffer>;
 
   export class Pointer<T, N extends number> {
     constructor(addr: PointerAddr, level: N, type: SimpleType<T>);
