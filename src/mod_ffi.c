@@ -857,7 +857,7 @@ static JSValue js_to_cstring(JSContext *ctx, JSValue this_val, int argc, JSValue
     size_t len = 0;
     const char *ptr = JS_ToCStringLen(ctx, &len, argv[0]);
 
-    return JS_NewUint8Array(ctx, ptr, len, NULL, NULL, false);
+    return TJS_NewUint8Array(ctx, ptr, len);
 }
 
 static JSValue TJS_NewUint8ArrayExternal(JSContext *ctx, uint8_t *data, size_t size) {
