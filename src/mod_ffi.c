@@ -853,7 +853,7 @@ static JSValue js_to_cstring(JSContext *ctx, JSValue this_val, int argc, JSValue
     } else {
         TJS_CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
     }
-    
+
     size_t len = 0;
     const char *ptr = JS_ToCStringLen(ctx, &len, argv[0]);
 
