@@ -266,6 +266,10 @@ export function bufferToString(buf) {
     return ffiInt.getCString(ffiInt.getArrayBufPtr(buf), buf.length);
 }
 
+export function stringToBuffer(s) {
+    return ffiInt.toCString(s);
+}
+
 export class Pointer {
     constructor(addr, level, type) {
         this._type = type;

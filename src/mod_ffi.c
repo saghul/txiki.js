@@ -847,6 +847,18 @@ static JSValue js_get_cstring(JSContext *ctx, JSValue this_val, int argc, JSValu
     return JS_NewStringLen(ctx, ptr, len);
 }
 
+static JSValue js_to_cstring(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc != 1) {
+        JS_ThrowTypeError(ctx, "expected exactly 1 string argument");
+    } else {
+        TJS_CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
+    }
+
+    size_t len = 0;
+    const char *ptr = JS_ToCStringLen(ctx, &len, argv[0]);
+
+    return TJS_NewUint8Array(ctx, ptr, len);
+}
 
 static JSValue TJS_NewUint8ArrayExternal(JSContext *ctx, uint8_t *data, size_t size) {
     return JS_NewUint8Array(ctx, data, size, NULL, NULL, false);
@@ -1020,6 +1032,7 @@ static const JSCFunctionListEntry funcs[] = {
     // other helpers
     TJS_CFUNC_DEF("getArrayBufPtr", 1, js_array_buffer_get_ptr),
     TJS_CFUNC_DEF("getCString", 1, js_get_cstring),
+    TJS_CFUNC_DEF("toCString", 1, js_to_cstring),
     TJS_CFUNC_DEF("derefPtr", 2, js_deref_ptr),
     TJS_CFUNC_DEF("ptrToBuffer", 2, js_ptr_to_buffer),
 
