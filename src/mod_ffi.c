@@ -856,8 +856,9 @@ static JSValue js_to_cstring(JSContext *ctx, JSValue this_val, int argc, JSValue
 
     size_t len = 0;
     const void *buf = JS_ToCStringLen(ctx, &len, argv[0]);
-    if (!buf)
+    if (!buf) {
         return JS_EXCEPTION;
+    }
 
     JSValue result = JS_NewUint8ArrayCopy(ctx, buf, len);
 
