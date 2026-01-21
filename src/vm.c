@@ -130,6 +130,7 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_sqlite3_init(ctx, ns);
     tjs__mod_streams_init(ctx, ns);
     tjs__mod_sys_init(ctx, ns);
+    tjs__mod_text_coding_init(ctx, ns);
     tjs__mod_timers_init(ctx, ns);
     tjs__mod_udp_init(ctx, ns);
     tjs__mod_wasm_init(ctx, ns);
