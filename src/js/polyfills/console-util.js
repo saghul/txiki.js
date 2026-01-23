@@ -41,67 +41,64 @@ function extend(origin, add) {
 
 var formatRegExp = /%[sdjif%]/g;
 
-export function format(f) {
-    if (!isString(f)) {
-        var objects = [];
+export function format(...args) {
+    const result = [];
+    let i = 0;
+    const len = args.length;
 
-        for (let i = 0; i < arguments.length; i++) {
-            objects.push(inspect(arguments[i]));
-        }
+    if (isString(args[0])) {
+        i = 1;
 
-        return objects.join(' ');
-    }
-
-    let i = 1;
-    var args = arguments;
-    var len = args.length;
-    var str = String(f).replace(formatRegExp, function(x) {
-        if (x === '%%') {
-            return '%';
-        }
-
-        if (i >= len) {
-            return x;
-        }
-
-        switch (x) {
-            case '%s': return String(args[i++]);
-
-            case '%d':
-            // eslint-disable-next-line padding-line-between-statements, no-fallthrough
-            case '%i':{
-                const arg = args[i++];
-
-                return typeof arg === 'symbol' ? NaN : parseInt(arg, 10);
+        const replacedFormat = String(args[0]).replace(formatRegExp, function(x) {
+            if (x === '%%') {
+                return '%';
             }
 
-            case '%f':{
-                const arg = args[i++];
-
-                return typeof arg === 'symbol' ? NaN : parseFloat(arg);
+            if (i >= len) {
+                return x;
             }
 
-            case '%j':
-                try {
-                    return JSON.stringify(args[i++]);
-                } catch (_) {
-                    return '[Circular]';
+            switch (x) {
+                case '%s': return String(args[i++]);
+
+                case '%d':
+                // eslint-disable-next-line padding-line-between-statements, no-fallthrough
+                case '%i':{
+                    const arg = args[i++];
+
+                    return typeof arg === 'symbol' ? NaN : parseInt(arg, 10);
                 }
 
-            default:
-                return x;
-        }
-    });
+                case '%f':{
+                    const arg = args[i++];
 
-    for (var x = args[i]; i < len; x = args[++i]) {
+                    return typeof arg === 'symbol' ? NaN : parseFloat(arg);
+                }
+
+                case '%j':
+                    try {
+                        return JSON.stringify(args[i++]);
+                    } catch (_) {
+                        return '[Circular]';
+                    }
+
+                default:
+                    return x;
+            }
+        });
+
+        result.push(replacedFormat);
+    }
+
+    for (let x = args[i]; i < len; x = args[++i]) {
         if (x === null || ![ 'object', 'symbol' ].includes(typeof x)) {
-            str += ' ' + x;
+            result.push(x);
         } else {
-            str += ' ' + inspect(x);
+            result.push(inspect(x));
         }
     }
 
-    return str;
+    return result.join(' ');
 }
 
 

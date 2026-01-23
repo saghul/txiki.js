@@ -10,6 +10,14 @@ const tests = [
 	{ code: 'console.log(1,2,3);', resultStdout: '1 2 3\n' },
 	{ code: 'console.log(1,2,[1,2,3]);', resultStdout: '1 2 [ 1, 2, 3 ]\n' },
 
+	// Test console.log('format %s', 'string)
+	{ code: 'console.log("format test %s, %i, %j", "string", 42, { answer: 42 });', resultStdout: `format test string, 42, {"answer":42}\n` },	// happy case
+	{ code: 'console.log("col1\tcol2", 42);', resultStdout: `col1\tcol2 42\n` },	// still happy case
+
+	// borken cases in browserify/node-util implementation of util.format
+	{ code: 'console.log(123, "col1\tcol2", {});', resultStdout: `123 col1\tcol2 {}\n` }, // 123 instead of 42 to better visualize the tab
+	{ code: 'console.log({}, "col1\tcol2", 123);', resultStdout: `{} col1\tcol2 123\n` },
+
 	// Test console.error()
 	{ code: 'console.error("Oops, an error occurred!");', resultStderr: 'Oops, an error occurred!\n' },
 	{ code: 'console.error(new Error("Something went wrong!"));', resultStderr: /^Error: Something went wrong!\n(.+(\)|\:\d+)\n)+/  },
