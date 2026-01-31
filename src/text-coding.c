@@ -252,7 +252,7 @@ static JSValue tjs_utf8_decoder_decode(JSContext *ctx, JSValueConst this_val, in
 
     DynBuf s;
     dbuf_init2(&s, ctx, (DynBufReallocFunc *) js_realloc);
-    if (dbuf_realloc(&s, bufsz) < 0) {
+    if (dbuf_claim(&s, bufsz) < 0) {
         return JS_ThrowOutOfMemory(ctx);
     }
     uint8_t *ptr = buf - 1;
@@ -371,7 +371,7 @@ static JSValue tjs_utf8_encoder_encode(JSContext *ctx, JSValueConst this_val, in
         return JS_EXCEPTION;
     }
     dbuf_init(dbuf);
-    dbuf_realloc(dbuf, len * 1.5);
+    dbuf_claim(dbuf, len * 1.5);
     JSValue ret = JS_NULL;
 
     const uint8_t *ptr = buf;

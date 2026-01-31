@@ -30,7 +30,7 @@ SOFTWARE.
 #define TJS_CONST_STRING_DEF(x) JS_PROP_STRING_DEF(#x, x, JS_PROP_ENUMERABLE)
 
 #define JS_PTR_TYPE       t_bigint
-#define JS_IS_PTR(ctx, x) JS_IsBigInt(ctx, x)
+#define JS_IS_PTR(ctx, x) JS_IsBigInt(x)
 
 #if UINTPTR_MAX == UINT32_MAX
 #define JS_TO_UINTPTR_T(ctx, pres, val)                                                                                \

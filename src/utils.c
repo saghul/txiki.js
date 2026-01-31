@@ -145,7 +145,7 @@ void tjs_dump_error(JSContext *ctx) {
 }
 
 void tjs_dump_error1(JSContext *ctx, JSValue exception_val) {
-    int is_error = JS_IsError(ctx, exception_val);
+    int is_error = JS_IsError(exception_val);
     tjs_dump_obj(ctx, stderr, exception_val);
     if (is_error) {
         JSValue val = JS_GetPropertyStr(ctx, exception_val, "stack");

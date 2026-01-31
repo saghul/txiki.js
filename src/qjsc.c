@@ -62,7 +62,7 @@ void js_std_dump_error(JSContext *ctx) {
     bool is_error;
 
     exception_val = JS_GetException(ctx);
-    is_error = JS_IsError(ctx, exception_val);
+    is_error = JS_IsError(exception_val);
     if (!is_error)
         printf("Throw: ");
     exc = JS_ToCString(ctx, exception_val);
