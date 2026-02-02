@@ -6,7 +6,6 @@ const kWasmModuleRef = Symbol('kWasmModuleRef');
 const kWasmExports = Symbol('kWasmExports');
 const kWasmInstance = Symbol('kWasmInstance');
 const kWasmInstances = Symbol('kWasmInstances');
-const kWasiLinked = Symbol('kWasiLinked');
 const kWasiStarted = Symbol('kWasiStarted');
 const kWasiOptions = Symbol('kWasiOptions');
 
@@ -72,18 +71,6 @@ function buildInstance(mod) {
     }
 }
 
-function linkWasi(instance) {
-    try {
-        instance.linkWasi();
-    } catch (e) {
-        if (e.wasmError) {
-            throw getWasmError(e);
-        } else {
-            throw e;
-        }
-    }
-}
-
 function parseModule(buf) {
     try {
         return wasm.parseModule(buf);
@@ -113,13 +100,9 @@ class Module {
 }
 
 class Instance {
+    // eslint-disable-next-line no-unused-vars
     constructor(module, importObject = {}) {
         const instance = buildInstance(module[kWasmModule]);
-
-        if (importObject.wasi_unstable) {
-            linkWasi(instance);
-            this[kWasiLinked] = true;
-        }
 
         const _exports = Module.exports(module);
         const exports = Object.create(null);
@@ -157,10 +140,6 @@ class WASI {
     start(instance) {
         if (this[kWasiStarted]) {
             throw new Error('WASI instance has already started');
-        }
-
-        if (!instance[kWasiLinked]) {
-            throw new Error('WASM instance doesn\'t have WASI linked');
         }
 
         if (!instance.exports._start) {

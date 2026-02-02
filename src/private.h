@@ -28,13 +28,13 @@
 #include "../deps/quickjs/cutils.h"
 #include "tjs.h"
 #include "utils.h"
-#include "wasm.h"
 
 #include <curl/curl.h>
 #include <quickjs.h>
 #include <sqlite3.h>
 #include <stdbool.h>
 #include <uv.h>
+#include <wasm_export.h>
 
 typedef struct TJSTimer TJSTimer;
 
@@ -56,7 +56,7 @@ struct TJSRuntime {
         uv_timer_t timer;
     } curl_ctx;
     struct {
-        IM3Environment env;
+        bool initialized;
     } wasm_ctx;
     struct {
         TJSTimer *timers;

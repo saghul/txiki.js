@@ -26,6 +26,7 @@
 #include "private.h"
 #include "tjs.h"
 
+#include <assert.h>
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -319,7 +320,14 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JS_FreeValue(ctx, global_obj);
 
     /* WASM */
-    qrt->wasm_ctx.env = m3_NewEnvironment();
+    RuntimeInitArgs wasm_init_args;
+    memset(&wasm_init_args, 0, sizeof(wasm_init_args));
+    wasm_init_args.mem_alloc_type = Alloc_With_Allocator;
+    wasm_init_args.mem_alloc_option.allocator.malloc_func = tjs__malloc;
+    wasm_init_args.mem_alloc_option.allocator.realloc_func = tjs__realloc;
+    wasm_init_args.mem_alloc_option.allocator.free_func = tjs__free;
+    CHECK_EQ(wasm_runtime_full_init(&wasm_init_args), true);
+    qrt->wasm_ctx.initialized = true;
 
     /* Timers */
     qrt->timers.timers = NULL;
@@ -358,8 +366,10 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     }
 
     /* Destroy WASM runtime. */
-    m3_FreeEnvironment(qrt->wasm_ctx.env);
-    qrt->wasm_ctx.env = NULL;
+    if (qrt->wasm_ctx.initialized) {
+        wasm_runtime_destroy();
+        qrt->wasm_ctx.initialized = false;
+    }
 
     /* Cleanup loop. All handles should be closed. */
     int closed = 0;

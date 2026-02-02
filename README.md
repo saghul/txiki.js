@@ -125,7 +125,7 @@ The following modules compose the standard library:
 
 [CMake] is necessary.
 
-*NOTE:* The txiki.js build depends on a number of git submodules ([libffi], [libuv] and [wasm3]).
+*NOTE:* The txiki.js build depends on a number of git submodules ([libffi], [libuv] and [WAMR]).
 If you didn't already clone this repository recursively, make sure you initialize these
 submodules with `git submodule update --init` before proceeding to the build.
 
@@ -264,7 +264,7 @@ Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul
 [libffi]: https://github.com/libffi/libffi
 [full API documentation]: https://bettercallsaghul.com/txiki.js/api/
 [CMake]: https://cmake.org/
-[wasm3]: https://github.com/wasm3/wasm3
+[WAMR]: https://github.com/bytecodealliance/wasm-micro-runtime
 [alert, confirm, prompt]: https://developer.mozilla.org/en-US/docs/Web/API/Window/alert
 [fetch]: https://fetch.spec.whatwg.org/
 [EventTarget]: https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
