@@ -147,33 +147,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sys:
-          - mingw64
-          - clang64
-          - ucrt64
-    defaults:
-      run:
-        shell: msys2 {0}
+        buildType: [Debug, Release]
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: true
-    - name: Setup MSYS2
-      uses: msys2/setup-msys2@v2
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
       with:
-        msystem: ${{matrix.sys}}
-        update: true
-        install: >-
-          git
-          make
-        pacboy: >-
-          curl-winssl:p
-          autotools:p
-          toolchain:p
-          cmake:p
-          ninja:p
-          libffi:p
-    - name: Build it
-      run: make VERBOSE=1
-    - name: Test it
-      run: make test
+        vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
+    - name: Install dependencies
+      run: vcpkg install curl[ssl] libffi
+    - name: Configure
+      run: |
+        cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake -DUSE_EXTERNAL_FFI=ON
+    - name: Build
+      run: cmake --build build --config ${{ matrix.buildType }}
+    - name: Test
+      run: |
+        $env:PATH = "${{ github.workspace }}\build\${{ matrix.buildType }};${{ github.workspace }}\vcpkg\installed\x64-windows\bin;$env:PATH"
+        .\build\${{ matrix.buildType }}\tjs.exe test tests/

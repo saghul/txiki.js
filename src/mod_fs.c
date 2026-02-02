@@ -800,7 +800,11 @@ static JSValue tjs_stat_isblockdevice(JSContext *ctx, JSValue this_val) {
         return JS_EXCEPTION;
     }
 
+#ifdef S_IFBLK
     return JS_NewBool(ctx, (sr->st_mode & S_IFMT) == S_IFBLK);
+#else
+    return JS_FALSE;
+#endif
 }
 
 static JSValue tjs_stat_ischaracterdevice(JSContext *ctx, JSValue this_val) {

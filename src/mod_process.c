@@ -27,7 +27,6 @@
 #include "utils.h"
 
 #include <string.h>
-#include <unistd.h>
 
 
 static JSClassID tjs_process_class_id;
@@ -493,6 +492,7 @@ cleanup:
     return ret;
 }
 
+#ifndef _WIN32
 static JSValue tjs_exec(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JSValue ret;
 
@@ -562,6 +562,7 @@ fail:
 
     return ret;
 }
+#endif
 
 static JSValue tjs_kill(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     int32_t pid;
@@ -601,7 +602,9 @@ static const JSCFunctionListEntry tjs_process_proto_funcs[] = {
 static const JSCFunctionListEntry tjs_process_funcs[] = {
     TJS_CFUNC_DEF("spawn", 2, tjs_spawn),
     TJS_CFUNC_DEF("kill", 2, tjs_kill),
+#ifndef _WIN32
     TJS_CFUNC_DEF("exec", 1, tjs_exec),
+#endif
 };
 
 void tjs__mod_process_init(JSContext *ctx, JSValue ns) {

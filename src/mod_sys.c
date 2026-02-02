@@ -26,7 +26,6 @@
 #include "version.h"
 
 #include <string.h>
-#include <unistd.h>
 #include <uv.h>
 
 extern const uint8_t tjs__run_repl[];

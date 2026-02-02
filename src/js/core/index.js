@@ -56,7 +56,11 @@ const exports = [
 ];
 
 for (const key of exports) {
-    Object.defineProperty(tjs, key, Object.getOwnPropertyDescriptor(core, key));
+    const descriptor = Object.getOwnPropertyDescriptor(core, key);
+
+    if (descriptor) {
+        Object.defineProperty(tjs, key, descriptor);
+    }
 }
 
 // These values should be immutable.

@@ -18,9 +18,13 @@ set(CMAKE_C_STANDARD 11)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-list(APPEND tjs_cflags -Wall -g)
-if (CMAKE_BUILD_TYPE MATCHES "Debug")
-    list(APPEND tjs_cflags -ggdb -O0 -fno-omit-frame-pointer)
+if(MSVC)
+    list(APPEND tjs_cflags /experimental:c11atomics)
+else()
+    list(APPEND tjs_cflags -Wall -g)
+    if (CMAKE_BUILD_TYPE MATCHES "Debug")
+        list(APPEND tjs_cflags -ggdb -O0 -fno-omit-frame-pointer)
+    endif()
 endif()
 
 set(TJS__VERSION_MAJOR 24)
@@ -99,6 +103,8 @@ add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
 target_include_directories(vmlib PUBLIC ${WAMR_ROOT_DIR}/core/iwasm/include)
 if(MINGW)
     target_link_libraries(vmlib PUBLIC ws2_32)
+elseif(MSVC)
+    target_link_libraries(vmlib PUBLIC ntdll)
 endif()
 
 if(BUILD_WITH_MIMALLOC)
@@ -164,6 +170,22 @@ add_library(sqlite-test SHARED
 
 target_link_libraries(sqlite-test sqlite3)
 
+# Set consistent output for test libraries across all platforms (including MSVC multi-config)
+set_target_properties(ffi-test sqlite-test PROPERTIES
+    PREFIX "lib"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    # For multi-config generators (Visual Studio, Xcode)
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
+)
+
 
 if(NOT USE_EXTERNAL_FFI AND NOT MINGW AND NOT APPLE)
     set(LIBFFI_SRC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libffi")
@@ -199,11 +221,17 @@ endif()
 set_target_properties(tjs PROPERTIES
     C_STANDARD 11
     C_STANDARD_REQUIRED ON
+    OUTPUT_NAME tjs_core
 )
 
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
+
+if(WIN32)
+    target_compile_definitions(tjs PRIVATE WIN32_LEAN_AND_MEAN)
+endif()
+
 target_include_directories(tjs PUBLIC src)
 target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
 target_link_libraries(tjs qjs uv_a vmlib sqlite3 CURL::libcurl)

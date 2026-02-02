@@ -27,10 +27,8 @@
 #include "curl-websocket.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <ctype.h>
 #include <inttypes.h>
@@ -216,7 +214,7 @@ _cws_write(struct cws_data *priv, const void *buffer, size_t len)
  * and pointer arithmetic to avoid counters.
  */
 static bool
-_cws_write_masked(struct cws_data *priv, const uint8_t mask[static 4], const void *buffer, size_t len)
+_cws_write_masked(struct cws_data *priv, const uint8_t mask[4], const void *buffer, size_t len)
 {
     const uint8_t *itr_begin = buffer;
     const uint8_t *itr = itr_begin;
@@ -864,7 +862,7 @@ _cws_send_data(char *buffer, size_t count, size_t nitems, void *data)
 }
 
 static const char*
-_cws_fill_websocket_key(struct cws_data *priv, char key_header[static 44])
+_cws_fill_websocket_key(struct cws_data *priv, char key_header[44])
 {
     uint8_t key[16];
     /* 24 bytes of base24 encoded key

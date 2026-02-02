@@ -33,7 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+
 
 /* BEGIN: copied over from quickjs-libc to avoid dependency. */
 
