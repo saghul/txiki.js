@@ -22,18 +22,20 @@
  * THE SOFTWARE.
  */
 
-#include "wasm.h"
-
 #include "private.h"
 #include "tjs.h"
 #include "utils.h"
 
-#define TJS__WASM_MAX_ARGS 32
+#include <string.h>
+#include <wasm_export.h>
+
+#define TJS__WASM_MAX_ARGS       32
+#define TJS__WASM_ERROR_BUF_SIZE 256
 
 static JSClassID tjs_wasm_module_class_id;
 
 typedef struct {
-    IM3Module module;
+    wasm_module_t module;
     struct {
         uint8_t *bytes;
         size_t size;
@@ -44,7 +46,7 @@ static void tjs_wasm_module_finalizer(JSRuntime *rt, JSValue val) {
     TJSWasmModule *m = JS_GetOpaque(val, tjs_wasm_module_class_id);
     if (m) {
         if (m->module) {
-            m3_FreeModule(m->module);
+            wasm_runtime_unload(m->module);
         }
         js_free_rt(rt, m->data.bytes);
         js_free_rt(rt, m);
@@ -59,22 +61,19 @@ static JSClassDef tjs_wasm_module_class = {
 static JSClassID tjs_wasm_instance_class_id;
 
 typedef struct {
-    IM3Runtime runtime;
-    IM3Module module;
-    bool loaded;
+    wasm_module_inst_t module_inst;
+    wasm_exec_env_t exec_env;
+    uint32_t stack_size;
 } TJSWasmInstance;
 
 static void tjs_wasm_instance_finalizer(JSRuntime *rt, JSValue val) {
     TJSWasmInstance *i = JS_GetOpaque(val, tjs_wasm_instance_class_id);
     if (i) {
-        if (i->module) {
-            // Free the module, only if it wasn't previously loaded.
-            if (!i->loaded) {
-                m3_FreeModule(i->module);
-            }
+        if (i->exec_env) {
+            wasm_runtime_destroy_exec_env(i->exec_env);
         }
-        if (i->runtime) {
-            m3_FreeRuntime(i->runtime);
+        if (i->module_inst) {
+            wasm_runtime_deinstantiate(i->module_inst);
         }
         js_free_rt(rt, i);
     }
@@ -131,10 +130,10 @@ static TJSWasmInstance *tjs_wasm_instance_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_wasm_instance_class_id);
 }
 
-JSValue tjs_throw_wasm_error(JSContext *ctx, const char *name, M3Result r) {
-    CHECK_NOT_NULL(r);
+JSValue tjs_throw_wasm_error(JSContext *ctx, const char *name, const char *msg) {
+    CHECK_NOT_NULL(msg);
     JSValue obj = JS_NewError(ctx);
-    JS_DefinePropertyValueStr(ctx, obj, "message", JS_NewString(ctx, r), JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
+    JS_DefinePropertyValueStr(ctx, obj, "message", JS_NewString(ctx, msg), JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
     JS_DefinePropertyValueStr(ctx, obj, "wasmError", JS_NewString(ctx, name), JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
     if (JS_IsException(obj)) {
         obj = JS_NULL;
@@ -142,30 +141,71 @@ JSValue tjs_throw_wasm_error(JSContext *ctx, const char *name, M3Result r) {
     return JS_Throw(ctx, obj);
 }
 
-static JSValue tjs__wasm_result(JSContext *ctx, M3ValueType type, const void *stack) {
-    switch (type) {
-        case c_m3Type_i32: {
-            int32_t val = *(int32_t *) stack;
-            return JS_NewInt32(ctx, val);
-        }
-        case c_m3Type_i64: {
-            int64_t val = *(int64_t *) stack;
-            if (val == (int32_t) val) {
-                return JS_NewInt32(ctx, (int32_t) val);
+static JSValue tjs__wasm_val_to_js(JSContext *ctx, const wasm_val_t *val) {
+    switch (val->kind) {
+        case WASM_I32:
+            return JS_NewInt32(ctx, val->of.i32);
+        case WASM_I64:
+            if (val->of.i64 == (int32_t) val->of.i64) {
+                return JS_NewInt32(ctx, (int32_t) val->of.i64);
             } else {
-                return JS_NewBigInt64(ctx, val);
+                return JS_NewBigInt64(ctx, val->of.i64);
             }
-        }
-        case c_m3Type_f32: {
-            float val = *(float *) stack;
-            return JS_NewFloat64(ctx, (double) val);
-        }
-        case c_m3Type_f64: {
-            double val = *(double *) stack;
-            return JS_NewFloat64(ctx, val);
-        }
+        case WASM_F32:
+            return JS_NewFloat64(ctx, (double) val->of.f32);
+        case WASM_F64:
+            return JS_NewFloat64(ctx, val->of.f64);
         default:
             return JS_UNDEFINED;
+    }
+}
+
+static bool tjs__js_to_wasm_val(JSContext *ctx, JSValue jsval, wasm_valkind_t type, wasm_val_t *val) {
+    val->kind = type;
+    switch (type) {
+        case WASM_I32: {
+            int32_t i32;
+            if (JS_ToInt32(ctx, &i32, jsval)) {
+                return false;
+            }
+            val->of.i32 = i32;
+            return true;
+        }
+        case WASM_I64: {
+            int64_t i64;
+            // Try BigInt first
+            if (!JS_ToBigInt64(ctx, &i64, jsval)) {
+                val->of.i64 = i64;
+                return true;
+            }
+            // Clear the exception from BigInt attempt
+            JS_FreeValue(ctx, JS_GetException(ctx));
+            // Try as regular integer
+            int32_t i32;
+            if (JS_ToInt32(ctx, &i32, jsval)) {
+                return false;
+            }
+            val->of.i64 = i32;
+            return true;
+        }
+        case WASM_F32: {
+            double f64;
+            if (JS_ToFloat64(ctx, &f64, jsval)) {
+                return false;
+            }
+            val->of.f32 = (float) f64;
+            return true;
+        }
+        case WASM_F64: {
+            double f64;
+            if (JS_ToFloat64(ctx, &f64, jsval)) {
+                return false;
+            }
+            val->of.f64 = f64;
+            return true;
+        }
+        default:
+            return false;
     }
 }
 
@@ -180,81 +220,65 @@ static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValue this_val, int argc,
         return JS_EXCEPTION;
     }
 
-    TJSRuntime *qrt = TJS_GetRuntime(ctx);
-    CHECK_NOT_NULL(qrt);
-
-    IM3Function func;
-    M3Result r = m3_FindFunction(&func, i->runtime, fname);
-    if (r) {
+    // Lookup function
+    wasm_function_inst_t func = wasm_runtime_lookup_function(i->module_inst, fname);
+    if (!func) {
         JS_FreeCString(ctx, fname);
-        return tjs_throw_wasm_error(ctx, "RuntimeError", r);
+        return tjs_throw_wasm_error(ctx, "RuntimeError", "function not found");
     }
-
     JS_FreeCString(ctx, fname);
 
+    // Get function signature
+    uint32_t param_count = wasm_func_get_param_count(func, i->module_inst);
+    uint32_t result_count = wasm_func_get_result_count(func, i->module_inst);
+
+    if (param_count > TJS__WASM_MAX_ARGS || result_count > TJS__WASM_MAX_ARGS) {
+        return tjs_throw_wasm_error(ctx, "RuntimeError", "too many parameters or results");
+    }
+
+    // Get parameter types
+    wasm_valkind_t param_types[TJS__WASM_MAX_ARGS];
+    if (param_count > 0) {
+        wasm_func_get_param_types(func, i->module_inst, param_types);
+    }
+
+    // Convert JS arguments to wasm values
+    wasm_val_t params[TJS__WASM_MAX_ARGS];
     int nargs = argc - 1;
-    if (nargs == 0) {
-        r = m3_Call(func, 0, NULL);
-    } else {
-        const char *m3_argv[nargs + 1];
-        for (int i = 0; i < nargs; i++) {
-            m3_argv[i] = JS_ToCString(ctx, argv[i + 1]);
-        }
-        m3_argv[nargs] = NULL;
-        r = m3_CallArgv(func, nargs, m3_argv);
-        for (int i = 0; i < nargs; i++) {
-            JS_FreeCString(ctx, m3_argv[i]);
+    for (uint32_t j = 0; j < param_count; j++) {
+        if ((int) j < nargs) {
+            if (!tjs__js_to_wasm_val(ctx, argv[j + 1], param_types[j], &params[j])) {
+                return JS_EXCEPTION;
+            }
+        } else {
+            // Default to 0 for missing arguments
+            params[j].kind = param_types[j];
+            params[j].of.i64 = 0;
         }
     }
 
-    if (r) {
-        return tjs_throw_wasm_error(ctx, "RuntimeError", r);
+    // Prepare results
+    wasm_val_t results[TJS__WASM_MAX_ARGS];
+
+    // Call the function
+    if (!wasm_runtime_call_wasm_a(i->exec_env, func, result_count, results, param_count, params)) {
+        const char *exception = wasm_runtime_get_exception(i->module_inst);
+        wasm_runtime_clear_exception(i->module_inst);
+        return tjs_throw_wasm_error(ctx, "RuntimeError", exception ? exception : "call failed");
     }
 
-    // https://webassembly.org/docs/js/ See "ToJSValue"
-    // NOTE: here we support returning BigInt, because we can.
-
-    int ret_count = m3_GetRetCount(func);
-
-    if (ret_count > TJS__WASM_MAX_ARGS) {
-        return tjs_throw_wasm_error(ctx, "RuntimeError", "Too many return values");
-    }
-
-    uint64_t valbuff[TJS__WASM_MAX_ARGS];
-    const void *valptrs[TJS__WASM_MAX_ARGS];
-    memset(valbuff, 0, sizeof(valbuff));
-    for (int i = 0; i < ret_count; i++) {
-        valptrs[i] = &valbuff[i];
-    }
-
-    r = m3_GetResults(func, ret_count, valptrs);
-    if (r) {
-        return tjs_throw_wasm_error(ctx, "RuntimeError", r);
-    }
-
-    if (ret_count == 1) {
-        return tjs__wasm_result(ctx, m3_GetRetType(func, 0), valptrs[0]);
+    // Return results
+    if (result_count == 0) {
+        return JS_UNDEFINED;
+    } else if (result_count == 1) {
+        return tjs__wasm_val_to_js(ctx, &results[0]);
     } else {
         JSValue rets = JS_NewArray(ctx);
-        for (int i = 0; i < ret_count; i++) {
-            JS_SetPropertyUint32(ctx, rets, i, tjs__wasm_result(ctx, m3_GetRetType(func, i), valptrs[i]));
+        for (uint32_t j = 0; j < result_count; j++) {
+            JS_SetPropertyUint32(ctx, rets, j, tjs__wasm_val_to_js(ctx, &results[j]));
         }
         return rets;
     }
-}
-
-static JSValue tjs_wasm_linkwasi(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSWasmInstance *i = tjs_wasm_instance_get(ctx, this_val);
-    if (!i) {
-        return JS_EXCEPTION;
-    }
-
-    M3Result r = m3_LinkWASI(i->module);
-    if (r) {
-        return tjs_throw_wasm_error(ctx, "LinkError", r);
-    }
-
-    return JS_UNDEFINED;
 }
 
 static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -270,26 +294,29 @@ static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc
 
     TJSWasmInstance *i = tjs_wasm_instance_get(ctx, obj);
 
-    TJSRuntime *qrt = TJS_GetRuntime(ctx);
-    CHECK_NOT_NULL(qrt);
+    char error_buf[TJS__WASM_ERROR_BUF_SIZE];
 
-    M3Result r = m3_ParseModule(qrt->wasm_ctx.env, &i->module, m->data.bytes, m->data.size);
-    CHECK_NULL(r);  // Should never fail because we already parsed it. TODO: clone it?
+    // Set default stack and heap sizes
+    uint32_t stack_size = 64 * 1024;  // 64KB stack
+    uint32_t heap_size = 512 * 1024;  // 512KB heap
 
-    /* Create a runtime per module to avoid symbol clash. */
-    i->runtime = m3_NewRuntime(qrt->wasm_ctx.env, /* TODO: adjust */ 512 * 1024, NULL);
-    if (!i->runtime) {
+    // Instantiate the module
+    i->module_inst = wasm_runtime_instantiate(m->module, stack_size, heap_size, error_buf, sizeof(error_buf));
+    if (!i->module_inst) {
+        JS_FreeValue(ctx, obj);
+        return tjs_throw_wasm_error(ctx, "LinkError", error_buf);
+    }
+
+    // Create execution environment
+    i->exec_env = wasm_runtime_create_exec_env(i->module_inst, stack_size);
+    if (!i->exec_env) {
+        wasm_runtime_deinstantiate(i->module_inst);
+        i->module_inst = NULL;
         JS_FreeValue(ctx, obj);
         return JS_ThrowOutOfMemory(ctx);
     }
 
-    r = m3_LoadModule(i->runtime, i->module);
-    if (r) {
-        JS_FreeValue(ctx, obj);
-        return tjs_throw_wasm_error(ctx, "LinkError", r);
-    }
-
-    i->loaded = true;
+    i->stack_size = stack_size;
 
     return obj;
 }
@@ -305,27 +332,31 @@ static JSValue tjs_wasm_moduleexports(JSContext *ctx, JSValue this_val, int argc
         return exports;
     }
 
-    for (size_t i = 0, j = 0; i < m->module->numFunctions; ++i) {
-        IM3Function f = &m->module->functions[i];
-        const char *name = m3_GetFunctionName(f);
-        if (name) {
+    int32_t export_count = wasm_runtime_get_export_count(m->module);
+    if (export_count < 0) {
+        return exports;  // Return empty array on error
+    }
+
+    uint32_t j = 0;
+    for (int32_t idx = 0; idx < export_count; idx++) {
+        wasm_export_t export_type;
+        wasm_runtime_get_export_type(m->module, idx, &export_type);
+
+        if (export_type.kind == WASM_IMPORT_EXPORT_KIND_FUNC) {
             JSValue item = JS_NewObjectProto(ctx, JS_NULL);
-            JS_DefinePropertyValueStr(ctx, item, "name", JS_NewString(ctx, name), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, item, "name", JS_NewString(ctx, export_type.name), JS_PROP_C_W_E);
             JS_DefinePropertyValueStr(ctx, item, "kind", JS_NewString(ctx, "function"), JS_PROP_C_W_E);
             JS_DefinePropertyValueUint32(ctx, exports, j, item, JS_PROP_C_W_E);
             j++;
         }
     }
 
-    // TODO: other export types.
+    // TODO: other export types (memory, table, global)
 
     return exports;
 }
 
 static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSRuntime *qrt = TJS_GetRuntime(ctx);
-    CHECK_NOT_NULL(qrt);
-
     size_t size;
     uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
 
@@ -353,7 +384,13 @@ static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValue this_val, int argc, 
     }
 
     JSValue obj = tjs_new_wasm_module(ctx);
+    if (JS_IsException(obj)) {
+        return obj;
+    }
+
     TJSWasmModule *m = tjs_wasm_module_get(ctx, obj);
+
+    // WAMR requires the buffer to be writable and kept alive until unload
     m->data.bytes = js_malloc(ctx, size);
     if (!m->data.bytes) {
         JS_FreeValue(ctx, obj);
@@ -362,10 +399,11 @@ static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValue this_val, int argc, 
     memcpy(m->data.bytes, buf, size);
     m->data.size = size;
 
-    M3Result r = m3_ParseModule(qrt->wasm_ctx.env, &m->module, m->data.bytes, m->data.size);
-    if (r) {
+    char error_buf[TJS__WASM_ERROR_BUF_SIZE];
+    m->module = wasm_runtime_load(m->data.bytes, (uint32_t) size, error_buf, sizeof(error_buf));
+    if (!m->module) {
         JS_FreeValue(ctx, obj);
-        return tjs_throw_wasm_error(ctx, "CompileError", r);
+        return tjs_throw_wasm_error(ctx, "CompileError", error_buf);
     }
 
     return obj;
@@ -379,7 +417,6 @@ static const JSCFunctionListEntry tjs_wasm_funcs[] = {
 
 static const JSCFunctionListEntry tjs_wasm_instance_funcs[] = {
     TJS_CFUNC_DEF("callFunction", 1, tjs_wasm_callfunction),
-    TJS_CFUNC_DEF("linkWasi", 0, tjs_wasm_linkwasi),
 };
 
 void tjs__mod_wasm_init(JSContext *ctx, JSValue ns) {

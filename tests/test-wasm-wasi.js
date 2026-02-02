@@ -51,9 +51,12 @@ async function testBadWasm() {
     const nread = await proc.stderr.read(buf);
     assert.ok(nread > 0, 'stderr was read');
     const dataStr = new TextDecoder().decode(buf.subarray(0, nread));
-    assert.ok(dataStr.match(/CompileError: underrun while parsing Wasm binary/));
+    assert.ok(dataStr.match(/CompileError:.*WASM module load failed/));
 }
 
-testWasi();
-testEmptyWasm();
-testBadWasm();
+// TODO: WASI is not supported on WAMR when building with MinGW.
+if (tjs.system.platform !== 'windows') {
+    testWasi();
+    testEmptyWasm();
+    testBadWasm();
+}

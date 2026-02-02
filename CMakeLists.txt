@@ -54,8 +54,52 @@ add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 
 add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
 
-set(BUILD_WASI "simple" CACHE STRING "WASI implementation")
-add_subdirectory(deps/wasm3 EXCLUDE_FROM_ALL)
+# WAMR Configuration (interpreter only for maximum portability)
+set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/wamr)
+
+# Detect platform for WAMR
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(WAMR_BUILD_PLATFORM "darwin")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows" OR MINGW)
+    set(WAMR_BUILD_PLATFORM "windows")
+else()
+    set(WAMR_BUILD_PLATFORM "linux")
+endif()
+
+# Configure WAMR build options
+set(WAMR_BUILD_INTERP 1)
+set(WAMR_BUILD_FAST_INTERP 1)
+set(WAMR_BUILD_AOT 0)
+set(WAMR_BUILD_JIT 0)
+set(WAMR_BUILD_LIBC_BUILTIN 1)
+if(MINGW)
+    # MinGW lacks Windows 8+ APIs (CreateFile2) needed by WAMR's WASI implementation
+    set(WAMR_BUILD_LIBC_WASI 0)
+else()
+    set(WAMR_BUILD_LIBC_WASI 1)
+endif()
+set(WAMR_BUILD_MULTI_MODULE 1)
+set(WAMR_BUILD_SIMD 0)
+set(WAMR_BUILD_REF_TYPES 1)
+set(WAMR_BUILD_BULK_MEMORY 1)
+set(WAMR_BUILD_LIB_PTHREAD 0)
+set(WAMR_BUILD_MINI_LOADER 0)
+set(WAMR_DISABLE_HW_BOUND_CHECK 1)
+set(WAMR_DISABLE_STACK_HW_BOUND_CHECK 1)
+if(MINGW)
+    # MinGW doesn't support MASM assembly, use generic C implementation
+    set(WAMR_BUILD_INVOKE_NATIVE_GENERAL 1)
+endif()
+
+# Include WAMR build scripts
+include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+
+# Create WAMR library
+add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
+target_include_directories(vmlib PUBLIC ${WAMR_ROOT_DIR}/core/iwasm/include)
+if(MINGW)
+    target_link_libraries(vmlib PUBLIC ws2_32)
+endif()
 
 if(BUILD_WITH_MIMALLOC)
     option(MI_OVERRIDE "" OFF)
@@ -161,7 +205,8 @@ string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
 target_include_directories(tjs PUBLIC src)
-target_link_libraries(tjs qjs uv_a m3 sqlite3 CURL::libcurl)
+target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
+target_link_libraries(tjs qjs uv_a vmlib sqlite3 CURL::libcurl)
 
 if (BUILD_WITH_MIMALLOC)
     target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)
