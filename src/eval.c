@@ -48,7 +48,7 @@ int tjs__eval_bytecode(JSContext *ctx, const uint8_t *buf, size_t buf_len, bool 
 
     if (check_promise) {
         JSPromiseStateEnum promise_state = JS_PromiseState(ctx, val);
-        if (promise_state != -1) {
+        if (promise_state != JS_PROMISE_NOT_A_PROMISE) {
             // It's a promise!
             if (promise_state == JS_PROMISE_REJECTED) {
                 JSValue res = JS_PromiseResult(ctx, val);
