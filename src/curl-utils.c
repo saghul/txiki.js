@@ -102,9 +102,6 @@ int tjs_curl_load_http(DynBuf *dbuf, const char *url) {
     /* cleanup curl stuff */
     curl_easy_cleanup(curl_handle);
 
-    /* curl won't null terminate the memory, do it ourselves */
-    dbuf_putc(dbuf, '\0');
-
     return r;
 }
 
