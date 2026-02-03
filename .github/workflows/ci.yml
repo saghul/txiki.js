@@ -169,4 +169,5 @@ jobs:
     - name: Test
       run: |
         $env:PATH = "${{ github.workspace }}\build\${{ matrix.buildType }};${{ github.workspace }}\vcpkg\installed\x64-windows\bin;$env:PATH"
+        if ("${{ matrix.buildType }}" -eq "Debug") { $env:TJS_TEST_TIMEOUT = "60000" }
         .\build\${{ matrix.buildType }}\tjs.exe test tests/
