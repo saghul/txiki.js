@@ -18,9 +18,13 @@ set(CMAKE_C_STANDARD 11)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-list(APPEND tjs_cflags -Wall -g)
-if (CMAKE_BUILD_TYPE MATCHES "Debug")
-    list(APPEND tjs_cflags -ggdb -O0 -fno-omit-frame-pointer)
+if(MSVC)
+    list(APPEND tjs_cflags /experimental:c11atomics)
+else()
+    list(APPEND tjs_cflags -Wall -g)
+    if (CMAKE_BUILD_TYPE MATCHES "Debug")
+        list(APPEND tjs_cflags -ggdb -O0 -fno-omit-frame-pointer)
+    endif()
 endif()
 
 set(TJS__VERSION_MAJOR 24)
@@ -60,7 +64,7 @@ set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/wamr)
 # Detect platform for WAMR
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     set(WAMR_BUILD_PLATFORM "darwin")
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows" OR MINGW)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(WAMR_BUILD_PLATFORM "windows")
 else()
     set(WAMR_BUILD_PLATFORM "linux")
@@ -72,12 +76,7 @@ set(WAMR_BUILD_FAST_INTERP 1)
 set(WAMR_BUILD_AOT 0)
 set(WAMR_BUILD_JIT 0)
 set(WAMR_BUILD_LIBC_BUILTIN 1)
-if(MINGW)
-    # MinGW lacks Windows 8+ APIs (CreateFile2) needed by WAMR's WASI implementation
-    set(WAMR_BUILD_LIBC_WASI 0)
-else()
-    set(WAMR_BUILD_LIBC_WASI 1)
-endif()
+set(WAMR_BUILD_LIBC_WASI 1)
 set(WAMR_BUILD_MULTI_MODULE 1)
 set(WAMR_BUILD_SIMD 0)
 set(WAMR_BUILD_REF_TYPES 1)
@@ -86,10 +85,6 @@ set(WAMR_BUILD_LIB_PTHREAD 0)
 set(WAMR_BUILD_MINI_LOADER 0)
 set(WAMR_DISABLE_HW_BOUND_CHECK 1)
 set(WAMR_DISABLE_STACK_HW_BOUND_CHECK 1)
-if(MINGW)
-    # MinGW doesn't support MASM assembly, use generic C implementation
-    set(WAMR_BUILD_INVOKE_NATIVE_GENERAL 1)
-endif()
 
 # Include WAMR build scripts
 include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
@@ -97,8 +92,8 @@ include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 # Create WAMR library
 add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
 target_include_directories(vmlib PUBLIC ${WAMR_ROOT_DIR}/core/iwasm/include)
-if(MINGW)
-    target_link_libraries(vmlib PUBLIC ws2_32)
+if(MSVC)
+    target_link_libraries(vmlib PUBLIC ntdll)
 endif()
 
 if(BUILD_WITH_MIMALLOC)
@@ -164,15 +159,27 @@ add_library(sqlite-test SHARED
 
 target_link_libraries(sqlite-test sqlite3)
 
+# Set consistent output for test libraries across all platforms (including MSVC multi-config)
+set_target_properties(ffi-test sqlite-test PROPERTIES
+    PREFIX "lib"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    # For multi-config generators (Visual Studio, Xcode)
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
+)
 
-if(NOT USE_EXTERNAL_FFI AND NOT MINGW AND NOT APPLE)
+
+if(NOT USE_EXTERNAL_FFI AND NOT APPLE AND NOT WIN32)
     set(LIBFFI_SRC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libffi")
     set(TMP_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/ffi_root")
-    if(MINGW)
-        set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.dll.a)
-    else()
-        set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.a)
-    endif()
+    set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.a)
     ExternalProject_Add(
         libffi
         BUILD_IN_SOURCE 1
@@ -199,11 +206,17 @@ endif()
 set_target_properties(tjs PROPERTIES
     C_STANDARD 11
     C_STANDARD_REQUIRED ON
+    OUTPUT_NAME tjs_core
 )
 
 string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
 target_compile_options(tjs PRIVATE ${tjs_cflags})
 target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
+
+if(WIN32)
+    target_compile_definitions(tjs PRIVATE WIN32_LEAN_AND_MEAN)
+endif()
+
 target_include_directories(tjs PUBLIC src)
 target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
 target_link_libraries(tjs qjs uv_a vmlib sqlite3 CURL::libcurl)

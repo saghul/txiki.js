@@ -3,7 +3,7 @@
 const pathModule = globalThis[Symbol.for('tjs.internal.modules.path')];
 
 const verbose = Boolean(tjs.env.VERBOSE_TESTS);
-const TIMEOUT = 10 * 1000;
+const TIMEOUT = Number(tjs.env.TJS_TEST_TIMEOUT) || 10 * 1000;
 
 const colors = {
     none:    '\x1b[0m',

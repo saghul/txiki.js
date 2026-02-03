@@ -33,8 +33,26 @@
 #include <quickjs.h>
 #include <sqlite3.h>
 #include <stdbool.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include <uv.h>
 #include <wasm_export.h>
+
+#ifndef STDIN_FILENO
+#define STDIN_FILENO 0
+#endif
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO 1
+#endif
+#ifndef STDERR_FILENO
+#define STDERR_FILENO 2
+#endif
+
+#ifdef _MSC_VER
+#define strncasecmp _strnicmp
+#define strcasecmp  _stricmp
+#endif
 
 typedef struct TJSTimer TJSTimer;
 

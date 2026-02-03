@@ -27,7 +27,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include <uv.h>
 
 #ifdef TJS__HAS_MIMALLOC

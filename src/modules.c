@@ -207,13 +207,13 @@ end:
 
 int js_module_set_import_meta(JSContext *ctx, JSValue func_val, bool use_realpath, bool is_main) {
     JSModuleDef *m;
-    char buf[PATH_MAX + 16] = { 0 };
+    char buf[JS__PATH_MAX + 16] = { 0 };
     int r;
     JSValue meta_obj;
     JSAtom module_name_atom;
     const char *module_name;
-    char module_dirname[PATH_MAX] = { 0 };
-    char module_basename[PATH_MAX] = { 0 };
+    char module_dirname[JS__PATH_MAX] = { 0 };
+    char module_basename[JS__PATH_MAX] = { 0 };
 
     CHECK_EQ(JS_VALUE_GET_TAG(func_val), JS_TAG_MODULE);
     m = JS_VALUE_GET_PTR(func_val);

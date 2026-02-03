@@ -54,9 +54,8 @@ async function testBadWasm() {
     assert.ok(dataStr.match(/CompileError:.*WASM module load failed/));
 }
 
-// TODO: WASI is not supported on WAMR when building with MinGW.
-if (tjs.system.platform !== 'windows') {
-    testWasi();
-    testEmptyWasm();
-    testBadWasm();
-}
+
+testWasi();
+testEmptyWasm();
+testBadWasm();
+

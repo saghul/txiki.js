@@ -27,7 +27,6 @@
 
 #include <curl/curl.h>
 #include <string.h>
-#include <unistd.h>
 
 
 static JSValue tjs_exit(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
