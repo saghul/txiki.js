@@ -64,7 +64,7 @@ set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/wamr)
 # Detect platform for WAMR
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     set(WAMR_BUILD_PLATFORM "darwin")
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows" OR MINGW)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(WAMR_BUILD_PLATFORM "windows")
 else()
     set(WAMR_BUILD_PLATFORM "linux")
@@ -76,12 +76,7 @@ set(WAMR_BUILD_FAST_INTERP 1)
 set(WAMR_BUILD_AOT 0)
 set(WAMR_BUILD_JIT 0)
 set(WAMR_BUILD_LIBC_BUILTIN 1)
-if(MINGW)
-    # MinGW lacks Windows 8+ APIs (CreateFile2) needed by WAMR's WASI implementation
-    set(WAMR_BUILD_LIBC_WASI 0)
-else()
-    set(WAMR_BUILD_LIBC_WASI 1)
-endif()
+set(WAMR_BUILD_LIBC_WASI 1)
 set(WAMR_BUILD_MULTI_MODULE 1)
 set(WAMR_BUILD_SIMD 0)
 set(WAMR_BUILD_REF_TYPES 1)
@@ -90,10 +85,6 @@ set(WAMR_BUILD_LIB_PTHREAD 0)
 set(WAMR_BUILD_MINI_LOADER 0)
 set(WAMR_DISABLE_HW_BOUND_CHECK 1)
 set(WAMR_DISABLE_STACK_HW_BOUND_CHECK 1)
-if(MINGW)
-    # MinGW doesn't support MASM assembly, use generic C implementation
-    set(WAMR_BUILD_INVOKE_NATIVE_GENERAL 1)
-endif()
 
 # Include WAMR build scripts
 include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
@@ -101,9 +92,7 @@ include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 # Create WAMR library
 add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
 target_include_directories(vmlib PUBLIC ${WAMR_ROOT_DIR}/core/iwasm/include)
-if(MINGW)
-    target_link_libraries(vmlib PUBLIC ws2_32)
-elseif(MSVC)
+if(MSVC)
     target_link_libraries(vmlib PUBLIC ntdll)
 endif()
 
@@ -187,14 +176,10 @@ set_target_properties(ffi-test sqlite-test PROPERTIES
 )
 
 
-if(NOT USE_EXTERNAL_FFI AND NOT MINGW AND NOT APPLE)
+if(NOT USE_EXTERNAL_FFI AND NOT APPLE AND NOT WIN32)
     set(LIBFFI_SRC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libffi")
     set(TMP_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/ffi_root")
-    if(MINGW)
-        set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.dll.a)
-    else()
-        set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.a)
-    endif()
+    set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.a)
     ExternalProject_Add(
         libffi
         BUILD_IN_SOURCE 1

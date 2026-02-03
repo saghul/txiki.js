@@ -157,43 +157,45 @@ make
 ./build/tjs
 ```
 
-### Windows (beta)
+### Windows
 
-<details>
-Windows support it's currently considered beta. Tests do pass, but building it is not as easy as it should be.
-
-Building has only been tested in 64bit Windows.
+Building requires Visual Studio 2022 (or the Build Tools) and [vcpkg](https://vcpkg.io/).
 
 #### Prerequisites
 
-First make sure you have [MSYS2](https://www.msys2.org) installed. The `mingw64` and `clang64` environments are currently tested.
+1. Install [Visual Studio 2022](https://visualstudio.microsoft.com/) with the "Desktop development with C++" workload,
+   or install the [Build Tools for Visual Studio 2022](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022).
 
-Then install the required dependencies:
+2. Install and bootstrap [vcpkg](https://vcpkg.io/en/getting-started.html):
 
-```bash
-pacman -S git make pactoys
-pacboy -S curl-winssl:p toolchain:p cmake:p ninja:p
+```powershell
+git clone https://github.com/microsoft/vcpkg.git
+cd vcpkg
+.\bootstrap-vcpkg.bat
+```
+
+3. Install the required dependencies:
+
+```powershell
+.\vcpkg install curl[ssl] libffi
 ```
 
 #### Build
 
-These commands must be run in a MinGW64 or clang64 shell.
+Run these commands from a "Developer PowerShell for VS 2022" or "x64 Native Tools Command Prompt":
 
-```bash
-make
+```powershell
+cmake -B build -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake -DUSE_EXTERNAL_FFI=ON
+cmake --build build --config Release
 ```
 
-This will build the executable just like on Unix. Note that at this point there are a number of dynamically linked libraries, so if you want to use the executable on a different system you'll need to copy those too. Check the list with `ldd build/tjs.exe`.
+The executable will be at `build\Release\tjs.exe`.
 
 #### Running the tests
 
-Make sure these commands are run from Windows Terminal (mintty, what MSYS2 provides is not supported).
-
-```bash
-make test
+```powershell
+.\build\Release\tjs.exe test tests/
 ```
-
-</details>
 
 ### Customizing the build
 
