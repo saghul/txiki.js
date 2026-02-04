@@ -8,5 +8,6 @@
 /// <reference path="./posix-socket.d.ts" />
 /// <reference path="./sqlite.d.ts" />
 /// <reference path="./uuid.d.ts" />
+/// <reference path="./wasi.d.ts" />
 
 export {};

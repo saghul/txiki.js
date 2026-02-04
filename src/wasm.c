@@ -40,6 +40,14 @@ typedef struct {
         uint8_t *bytes;
         size_t size;
     } data;
+    struct {
+        char **argv;
+        uint32_t argc;
+        char **env;
+        uint32_t env_count;
+        char **map_dir_list;
+        uint32_t map_dir_count;
+    } wasi;
 } TJSWasmModule;
 
 static void tjs_wasm_module_finalizer(JSRuntime *rt, JSValue val) {
@@ -49,6 +57,25 @@ static void tjs_wasm_module_finalizer(JSRuntime *rt, JSValue val) {
             wasm_runtime_unload(m->module);
         }
         js_free_rt(rt, m->data.bytes);
+        /* Free WASI allocations */
+        if (m->wasi.argv) {
+            for (uint32_t i = 0; i < m->wasi.argc; i++) {
+                js_free_rt(rt, m->wasi.argv[i]);
+            }
+            js_free_rt(rt, m->wasi.argv);
+        }
+        if (m->wasi.env) {
+            for (uint32_t i = 0; i < m->wasi.env_count; i++) {
+                js_free_rt(rt, m->wasi.env[i]);
+            }
+            js_free_rt(rt, m->wasi.env);
+        }
+        if (m->wasi.map_dir_list) {
+            for (uint32_t i = 0; i < m->wasi.map_dir_count; i++) {
+                js_free_rt(rt, m->wasi.map_dir_list[i]);
+            }
+            js_free_rt(rt, m->wasi.map_dir_list);
+        }
         js_free_rt(rt, m);
     }
 }
@@ -63,7 +90,6 @@ static JSClassID tjs_wasm_instance_class_id;
 typedef struct {
     wasm_module_inst_t module_inst;
     wasm_exec_env_t exec_env;
-    uint32_t stack_size;
 } TJSWasmInstance;
 
 static void tjs_wasm_instance_finalizer(JSRuntime *rt, JSValue val) {
@@ -209,6 +235,191 @@ static bool tjs__js_to_wasm_val(JSContext *ctx, JSValue jsval, wasm_valkind_t ty
     }
 }
 
+static JSValue tjs_wasm_setwasioptions(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSWasmModule *m = tjs_wasm_module_get(ctx, argv[0]);
+    if (!m) {
+        return JS_EXCEPTION;
+    }
+
+    JSValue js_args = argv[1];
+    JSValue js_env = argv[2];
+    JSValue js_preopens = argv[3];
+
+    char **wasi_argv = NULL;
+    uint32_t wasi_argc = 0;
+    char **wasi_env = NULL;
+    uint32_t wasi_env_count = 0;
+    char **wasi_map_dir_list = NULL;
+    uint32_t wasi_map_dir_count = 0;
+
+    /* Parse args array */
+    if (JS_IsArray(js_args)) {
+        JSValue js_length = JS_GetPropertyStr(ctx, js_args, "length");
+        uint64_t len;
+        if (JS_ToIndex(ctx, &len, js_length)) {
+            JS_FreeValue(ctx, js_length);
+            goto fail;
+        }
+        JS_FreeValue(ctx, js_length);
+
+        wasi_argv = js_mallocz(ctx, sizeof(*wasi_argv) * (len + 1));
+        if (!wasi_argv) {
+            goto fail;
+        }
+        wasi_argc = (uint32_t) len;
+
+        for (uint32_t i = 0; i < len; i++) {
+            JSValue v = JS_GetPropertyUint32(ctx, js_args, i);
+            if (JS_IsException(v)) {
+                goto fail;
+            }
+            const char *arg_str = JS_ToCString(ctx, v);
+            JS_FreeValue(ctx, v);
+            if (!arg_str) {
+                goto fail;
+            }
+            wasi_argv[i] = js_strdup(ctx, arg_str);
+            JS_FreeCString(ctx, arg_str);
+            if (!wasi_argv[i]) {
+                goto fail;
+            }
+        }
+    }
+
+    /* Parse env object */
+    if (JS_IsObject(js_env) && !JS_IsNull(js_env)) {
+        JSPropertyEnum *ptab;
+        uint32_t plen;
+        if (JS_GetOwnPropertyNames(ctx, &ptab, &plen, js_env, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY)) {
+            goto fail;
+        }
+
+        wasi_env = js_mallocz(ctx, sizeof(*wasi_env) * (plen + 1));
+        if (!wasi_env) {
+            JS_FreePropertyEnum(ctx, ptab, plen);
+            goto fail;
+        }
+        wasi_env_count = plen;
+
+        for (uint32_t i = 0; i < plen; i++) {
+            JSValue prop = JS_GetProperty(ctx, js_env, ptab[i].atom);
+            if (JS_IsException(prop)) {
+                JS_FreePropertyEnum(ctx, ptab, plen);
+                goto fail;
+            }
+            const char *key = JS_AtomToCString(ctx, ptab[i].atom);
+            const char *value = JS_ToCString(ctx, prop);
+            JS_FreeValue(ctx, prop);
+            if (!key || !value) {
+                JS_FreeCString(ctx, key);
+                JS_FreeCString(ctx, value);
+                JS_FreePropertyEnum(ctx, ptab, plen);
+                goto fail;
+            }
+            size_t entry_len = strlen(key) + strlen(value) + 2; /* KEY=VALUE\0 */
+            wasi_env[i] = js_malloc(ctx, entry_len);
+            if (!wasi_env[i]) {
+                JS_FreeCString(ctx, key);
+                JS_FreeCString(ctx, value);
+                JS_FreePropertyEnum(ctx, ptab, plen);
+                goto fail;
+            }
+            snprintf(wasi_env[i], entry_len, "%s=%s", key, value);
+            JS_FreeCString(ctx, key);
+            JS_FreeCString(ctx, value);
+        }
+        JS_FreePropertyEnum(ctx, ptab, plen);
+    }
+
+    /* Parse preopens object - format: { "/guest": "/host" } -> "guest::host" */
+    if (JS_IsObject(js_preopens) && !JS_IsNull(js_preopens)) {
+        JSPropertyEnum *ptab;
+        uint32_t plen;
+        if (JS_GetOwnPropertyNames(ctx, &ptab, &plen, js_preopens, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY)) {
+            goto fail;
+        }
+
+        wasi_map_dir_list = js_mallocz(ctx, sizeof(*wasi_map_dir_list) * (plen + 1));
+        if (!wasi_map_dir_list) {
+            JS_FreePropertyEnum(ctx, ptab, plen);
+            goto fail;
+        }
+        wasi_map_dir_count = plen;
+
+        for (uint32_t i = 0; i < plen; i++) {
+            JSValue prop = JS_GetProperty(ctx, js_preopens, ptab[i].atom);
+            if (JS_IsException(prop)) {
+                JS_FreePropertyEnum(ctx, ptab, plen);
+                goto fail;
+            }
+            const char *guest_path = JS_AtomToCString(ctx, ptab[i].atom);
+            const char *host_path = JS_ToCString(ctx, prop);
+            JS_FreeValue(ctx, prop);
+            if (!guest_path || !host_path) {
+                JS_FreeCString(ctx, guest_path);
+                JS_FreeCString(ctx, host_path);
+                JS_FreePropertyEnum(ctx, ptab, plen);
+                goto fail;
+            }
+            /* Format: guest_path::host_path */
+            size_t entry_len = strlen(guest_path) + strlen(host_path) + 3; /* guest::host\0 */
+            wasi_map_dir_list[i] = js_malloc(ctx, entry_len);
+            if (!wasi_map_dir_list[i]) {
+                JS_FreeCString(ctx, guest_path);
+                JS_FreeCString(ctx, host_path);
+                JS_FreePropertyEnum(ctx, ptab, plen);
+                goto fail;
+            }
+            snprintf(wasi_map_dir_list[i], entry_len, "%s::%s", guest_path, host_path);
+            JS_FreeCString(ctx, guest_path);
+            JS_FreeCString(ctx, host_path);
+        }
+        JS_FreePropertyEnum(ctx, ptab, plen);
+    }
+
+    /* Call WAMR to set WASI args - must happen before instantiate */
+    wasm_runtime_set_wasi_args(m->module,
+                               NULL,
+                               0, /* dir_list - not used, we use map_dir_list */
+                               (const char **) wasi_map_dir_list,
+                               wasi_map_dir_count,
+                               (const char **) wasi_env,
+                               wasi_env_count,
+                               wasi_argv,
+                               (int) wasi_argc);
+
+    /* Store allocations in module struct for cleanup */
+    m->wasi.argv = wasi_argv;
+    m->wasi.argc = wasi_argc;
+    m->wasi.env = wasi_env;
+    m->wasi.env_count = wasi_env_count;
+    m->wasi.map_dir_list = wasi_map_dir_list;
+    m->wasi.map_dir_count = wasi_map_dir_count;
+
+    return JS_UNDEFINED;
+
+fail:
+    if (wasi_argv) {
+        for (uint32_t i = 0; i < wasi_argc; i++) {
+            js_free(ctx, wasi_argv[i]);
+        }
+        js_free(ctx, wasi_argv);
+    }
+    if (wasi_env) {
+        for (uint32_t i = 0; i < wasi_env_count; i++) {
+            js_free(ctx, wasi_env[i]);
+        }
+        js_free(ctx, wasi_env);
+    }
+    if (wasi_map_dir_list) {
+        for (uint32_t i = 0; i < wasi_map_dir_count; i++) {
+            js_free(ctx, wasi_map_dir_list[i]);
+        }
+        js_free(ctx, wasi_map_dir_list);
+    }
+    return JS_EXCEPTION;
+}
+
 static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWasmInstance *i = tjs_wasm_instance_get(ctx, this_val);
     if (!i) {
@@ -316,8 +527,6 @@ static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc
         return JS_ThrowOutOfMemory(ctx);
     }
 
-    i->stack_size = stack_size;
-
     return obj;
 }
 
@@ -413,6 +622,7 @@ static const JSCFunctionListEntry tjs_wasm_funcs[] = {
     TJS_CFUNC_DEF("buildInstance", 1, tjs_wasm_buildinstance),
     TJS_CFUNC_DEF("moduleExports", 1, tjs_wasm_moduleexports),
     TJS_CFUNC_DEF("parseModule", 1, tjs_wasm_parsemodule),
+    TJS_CFUNC_DEF("setWasiOptions", 4, tjs_wasm_setwasioptions),
 };
 
 static const JSCFunctionListEntry tjs_wasm_instance_funcs[] = {
