@@ -31,6 +31,7 @@
 #include "bundles/c/stdlib/posix-socket.c"
 #include "bundles/c/stdlib/sqlite.c"
 #include "bundles/c/stdlib/uuid.c"
+#include "bundles/c/stdlib/wasi.c"
 #include "private.h"
 
 
@@ -50,6 +51,7 @@ static tjs_builtin_t builtins[] = {
     { "tjs:posix-socket", tjs__posix_socket, sizeof(tjs__posix_socket) },
     { "tjs:sqlite", tjs__sqlite, sizeof(tjs__sqlite) },
     { "tjs:uuid", tjs__uuid, sizeof(tjs__uuid) },
+    { "tjs:wasi", tjs__wasi, sizeof(tjs__wasi) },
     { NULL, NULL, 0 },
 };
 

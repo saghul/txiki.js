@@ -113,6 +113,7 @@ The following modules compose the standard library:
 - [`tjs:path`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_path.html)
 - [`tjs:sqlite`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_sqlite.html)
 - [`tjs:uuid`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_uuid.html)
+- [`tjs:wasi`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_wasi.html)
 
 ## Supported platforms
 

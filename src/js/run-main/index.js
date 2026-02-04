@@ -2,6 +2,7 @@
 
 import getopts from 'tjs:getopts';
 import path from 'tjs:path';
+import { WASI } from 'tjs:wasi';
 
 import { evalStdin } from './eval-stdin.js';
 import { runTests } from './run-tests.js';
@@ -151,9 +152,15 @@ if (options.help) {
         if (ext === '.wasm') {
             const bytes = await tjs.readFile(filename);
             const module = new WebAssembly.Module(bytes);
-            const wasi = new WebAssembly.WASI({ args: subargv.slice(1) });
-            const importObject = { wasi_unstable: wasi.wasiImport };
-            const instance = new WebAssembly.Instance(module, importObject);
+            const wasi = new WASI({
+                version: 'wasi_snapshot_preview1',
+                args: subargv,
+                preopens: {
+                    '.': tjs.cwd,
+                    '/': '/'
+                }
+            });
+            const instance = new WebAssembly.Instance(module, wasi.getImportObject());
 
             wasi.start(instance);
         } else {

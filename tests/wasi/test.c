@@ -1,8 +1,11 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <dirent.h>
+#include <unistd.h>
 
 #define WASM_EXPORT __attribute__((used)) __attribute__((visibility ("default")))
 
@@ -106,7 +109,7 @@ void test_perf_fib(uint32_t n) {
   printf("%d [%.3f ms]\n", result, fms);
 }
 
-void test_cat(char* fn) {
+int test_cat(char* fn) {
   int file = open(fn, O_RDONLY);
   if (file >= 0) {
     char c = 0;
@@ -115,8 +118,37 @@ void test_cat(char* fn) {
     }
     close(file);
     puts("");
+    return 0;
   } else {
-    printf("Cannot open %s\n", fn);
+    fprintf(stderr, "Cannot open %s\n", fn);
+    return 1;
+  }
+}
+
+extern char **environ;
+
+void test_env(void) {
+  printf("Env:\n");
+  if (environ) {
+    for (int i = 0; environ[i] != NULL; i++) {
+      printf("  %s\n", environ[i]);
+    }
+  }
+}
+
+int test_ls(char* dir) {
+  DIR *d = opendir(dir);
+  if (d) {
+    printf("Contents of %s:\n", dir);
+    struct dirent *entry;
+    while ((entry = readdir(d)) != NULL) {
+      printf("  %s\n", entry->d_name);
+    }
+    closedir(d);
+    return 0;
+  } else {
+    fprintf(stderr, "Cannot open directory %s\n", dir);
+    return 1;
   }
 }
 
@@ -134,8 +166,20 @@ int main(int argc, char **argv)
   test_random();
   test_perf_fib(20);
 
-  if (0 == strcmp(argv[1], "cat")) {
-    test_cat(argv[2]);
+  if (argc > 1 && argv[1] != NULL) {
+    if (0 == strcmp(argv[1], "cat") && argc > 2 && argv[2] != NULL) {
+      int ret = test_cat(argv[2]);
+      if (ret != 0) {
+        return ret;
+      }
+    } else if (0 == strcmp(argv[1], "env")) {
+      test_env();
+    } else if (0 == strcmp(argv[1], "ls") && argc > 2 && argv[2] != NULL) {
+      int ret = test_ls(argv[2]);
+      if (ret != 0) {
+        return ret;
+      }
+    }
   }
 
   puts("=== done ===");

@@ -5,9 +5,6 @@ const kWasmModule = Symbol('kWasmModule');
 const kWasmModuleRef = Symbol('kWasmModuleRef');
 const kWasmExports = Symbol('kWasmExports');
 const kWasmInstance = Symbol('kWasmInstance');
-const kWasmInstances = Symbol('kWasmInstances');
-const kWasiStarted = Symbol('kWasiStarted');
-const kWasiOptions = Symbol('kWasiOptions');
 
 
 class CompileError extends Error {
@@ -100,8 +97,15 @@ class Module {
 }
 
 class Instance {
-    // eslint-disable-next-line no-unused-vars
     constructor(module, importObject = {}) {
+        // Detect WASI in importObject via duck typing and configure it before instantiation
+        for (const ns of Object.values(importObject)) {
+            if (ns && typeof ns === 'object' && typeof ns._configure === 'function') {
+                ns._configure(module[kWasmModule]);
+                break;
+            }
+        }
+
         const instance = buildInstance(module[kWasmModule]);
 
         const _exports = Module.exports(module);
@@ -116,38 +120,10 @@ class Instance {
         this[kWasmInstance] = instance;
         this[kWasmExports] = Object.freeze(exports);
         this[kWasmModuleRef] = module;
-        globalThis.WebAssembly[kWasmInstances].push(this);
     }
 
     get exports() {
         return this[kWasmExports];
-    }
-}
-
-class WASI {
-    wasiImport = 'w4s1';  // Doesn't matter right now.
-
-    constructor(options = { args: [], env: {}, preopens: {} }) {
-        this[kWasiStarted] = false;
-
-        if (options === null || typeof options !== 'object') {
-            throw new TypeError('options must be an object');
-        }
-
-        this[kWasiOptions] = JSON.parse(JSON.stringify(options));
-    }
-
-    start(instance) {
-        if (this[kWasiStarted]) {
-            throw new Error('WASI instance has already started');
-        }
-
-        if (!instance.exports._start) {
-            throw new TypeError('WASI entrypoint not found');
-        }
-
-        this[kWasiStarted] = true;
-        instance.exports._start(...(this[kWasiOptions].args ?? []));
     }
 }
 
@@ -157,11 +133,6 @@ class WebAssembly {
     CompileError = CompileError;
     LinkError = LinkError;
     RuntimeError = RuntimeError;
-    WASI = WASI;
-
-    constructor() {
-        this[kWasmInstances] = [];
-    }
 
     async compile(src) {
         return new Module(src);
