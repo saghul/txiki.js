@@ -49,28 +49,48 @@ jobs:
           name: txiki-windows-x86_64
           path: txiki-windows-x86_64
 
-  build-macos:
-    runs-on: macos-latest
+  build-macos-arm64:
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
-      - name: build macos-latest
+      - name: build macos arm64
         run: |
           brew install autoconf automake libtool
-          make BUILD_MACOS_MULTIARCH=1
+          make
 
-          mkdir txiki-macos
-          cp build/tjs txiki-macos/tjs
+          mkdir txiki-macos-arm64
+          cp build/tjs txiki-macos-arm64/tjs
 
-      - name: Upload macos Artifact
+      - name: Upload macos arm64 Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: txiki-macos
-          path: txiki-macos
+          name: txiki-macos-arm64
+          path: txiki-macos-arm64
+
+  build-macos-x86_64:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: build macos x86_64
+        run: |
+          brew install autoconf automake libtool
+          make
+
+          mkdir txiki-macos-x86_64
+          cp build/tjs txiki-macos-x86_64/tjs
+
+      - name: Upload macos x86_64 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: txiki-macos-x86_64
+          path: txiki-macos-x86_64
 
   release:
-    needs: [build-windows-x86_64, build-macos]
+    needs: [build-windows-x86_64, build-macos-arm64, build-macos-x86_64]
     name: release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
