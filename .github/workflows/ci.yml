@@ -7,7 +7,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
     - uses: actions/setup-node@v4
@@ -29,7 +29,7 @@ jobs:
     name: Codegen
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
       - uses: actions/setup-node@v4
@@ -49,7 +49,7 @@ jobs:
     name: Docs
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
     - uses: actions/setup-node@v4
@@ -70,7 +70,7 @@ jobs:
     env:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
     - uses: actions/setup-node@v4
@@ -106,7 +106,7 @@ jobs:
     steps:
     - name: Install automake
       run: brew install automake autoconf libtool
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
     - uses: actions/setup-node@v4
@@ -131,7 +131,7 @@ jobs:
     steps:
     - name: Prepare
       run: apk add git build-base cmake curl-dev autoconf automake libtool texinfo linux-headers libffi-dev --update-cache
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
     - uses: actions/setup-node@v4
@@ -152,7 +152,7 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-windows
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
     - name: Setup vcpkg
