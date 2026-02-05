@@ -38,6 +38,7 @@ enum {
     XHR_EVENT_PROGRESS,
     XHR_EVENT_READY_STATE_CHANGED,
     XHR_EVENT_TIMEOUT,
+    XHR_EVENT_SEND_STREAM_DATA,
     XHR_EVENT_MAX,
 };
 
@@ -72,6 +73,7 @@ typedef struct {
     bool sent;
     bool async;
     bool withCredentials;
+    bool stream_sending;
     unsigned long timeout;
     short response_type;
     unsigned short ready_state;
@@ -89,6 +91,7 @@ typedef struct {
         DynBuf hbuf;
         DynBuf bbuf;
     } result;
+    DynBuf send_bbuf;
 } TJSXhr;
 
 static JSClassID tjs_xhr_class_id;
@@ -119,6 +122,7 @@ static void tjs_xhr_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, x->result.response_text);
         dbuf_free(&x->result.hbuf);
         dbuf_free(&x->result.bbuf);
+        dbuf_free(&x->send_bbuf);
         js_free_rt(rt, x);
     }
 }
@@ -164,15 +168,6 @@ static void maybe_emit_event(TJSXhr *x, int event, JSValue arg) {
 static void curl__done_cb(CURLcode result, void *arg) {
     TJSXhr *x = arg;
     CHECK_NOT_NULL(x);
-
-    CURL *easy_handle = x->curl_h;
-    CHECK_EQ(x->curl_h, easy_handle);
-
-    char *done_url = NULL;
-    curl_easy_getinfo(easy_handle, CURLINFO_EFFECTIVE_URL, &done_url);
-    if (done_url) {
-        x->result.url = JS_NewString(x->ctx, done_url);
-    }
 
     if (x->slist) {
         curl_slist_free_all(x->slist);
@@ -266,6 +261,13 @@ static size_t curl__header_cb(char *ptr, size_t size, size_t nmemb, void *userda
             CHECK_NOT_NULL(x->status.raw);
             x->status.status_text = JS_NewString(x->ctx, x->status.raw);
             x->status.status = JS_NewInt32(x->ctx, code);
+            // Set the effective URL now so it's available at HEADERS_RECEIVED
+            char *effective_url = NULL;
+            curl_easy_getinfo(x->curl_h, CURLINFO_EFFECTIVE_URL, &effective_url);
+            if (effective_url) {
+                JS_FreeValue(x->ctx, x->result.url);
+                x->result.url = JS_NewString(x->ctx, effective_url);
+            }
             x->ready_state = XHR_RSTATE_HEADERS_RECEIVED;
             maybe_emit_event(x, XHR_EVENT_READY_STATE_CHANGED, JS_UNDEFINED);
             dbuf_putc(hbuf, '\0');
@@ -311,6 +313,39 @@ static int curl__progress_cb(void *clientp,
     }
 
     return 0;
+}
+
+static size_t curl__sendbody_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
+    TJSXhr *x = userdata;
+    CHECK_NOT_NULL(x);
+
+    size_t maxsize = size * nmemb;
+    DynBuf *sbuf = &x->send_bbuf;
+
+    if (sbuf->size == 0) {
+        if (!x->stream_sending) {
+            // End of stream
+            return 0;
+        }
+        // Request more data from JavaScript
+        maybe_emit_event(x, XHR_EVENT_SEND_STREAM_DATA, JS_UNDEFINED);
+        if (sbuf->size == 0) {
+            // Still no data, pause the transfer
+            return CURL_READFUNC_PAUSE;
+        }
+    }
+
+    // Copy data from send buffer to CURL
+    size_t tocopy = sbuf->size < maxsize ? sbuf->size : maxsize;
+    memcpy(ptr, sbuf->buf, tocopy);
+
+    // Remove copied data from buffer
+    if (tocopy < sbuf->size) {
+        memmove(sbuf->buf, sbuf->buf + tocopy, sbuf->size - tocopy);
+    }
+    sbuf->size -= tocopy;
+
+    return tocopy;
 }
 
 static JSValue tjs_xhr_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
@@ -873,6 +908,86 @@ static JSValue tjs_xhr_setrequestheader(JSContext *ctx, JSValue this_val, int ar
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_xhr_getandclearresponsebuffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSXhr *x = tjs_xhr_get(ctx, this_val);
+    if (!x) {
+        return JS_EXCEPTION;
+    }
+
+    DynBuf *bbuf = &x->result.bbuf;
+    if (bbuf->size == 0) {
+        return JS_NULL;
+    }
+
+    // Create an ArrayBuffer copy of the current data
+    JSValue result = JS_NewArrayBufferCopy(ctx, bbuf->buf, bbuf->size);
+
+    // Clear the buffer
+    dbuf_free(bbuf);
+    tjs_dbuf_init(ctx, bbuf);
+
+    // Also clear cached response values since the buffer changed
+    JS_FreeValue(ctx, x->result.response);
+    x->result.response = JS_NULL;
+    JS_FreeValue(ctx, x->result.response_text);
+    x->result.response_text = JS_NULL;
+
+    return result;
+}
+
+static JSValue tjs_xhr_sendstream(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSXhr *x = tjs_xhr_get(ctx, this_val);
+    if (!x) {
+        return JS_EXCEPTION;
+    }
+
+    if (!x->stream_sending) {
+        // First call - initialize streaming upload
+        x->stream_sending = true;
+        tjs_dbuf_init(ctx, &x->send_bbuf);
+
+        // Configure CURL for streaming upload
+        curl_easy_setopt(x->curl_h, CURLOPT_UPLOAD, 1L);
+        curl_easy_setopt(x->curl_h, CURLOPT_READFUNCTION, curl__sendbody_cb);
+        curl_easy_setopt(x->curl_h, CURLOPT_READDATA, x);
+
+        curl_easy_setopt(x->curl_h, CURLOPT_COOKIELIST, "RELOAD");
+        curl_easy_setopt(x->curl_h, CURLOPT_HTTPHEADER, x->slist);
+
+        if (x->async) {
+            curl_multi_add_handle(x->curlm_h, x->curl_h);
+        }
+        x->sent = true;
+
+        return JS_UNDEFINED;
+    }
+
+    // Subsequent calls - add data or signal end
+    JSValue arg = argv[0];
+    if (JS_IsNull(arg) || JS_IsUndefined(arg)) {
+        // End of stream
+        x->stream_sending = false;
+        // Unpause the transfer if it was paused
+        curl_easy_pause(x->curl_h, CURLPAUSE_CONT);
+    } else if (JS_GetTypedArrayType(arg) == JS_TYPED_ARRAY_UINT8) {
+        // Add chunk to send buffer
+        size_t size;
+        uint8_t *buf = JS_GetUint8Array(ctx, &size, arg);
+        if (!buf) {
+            return JS_EXCEPTION;
+        }
+        if (dbuf_put(&x->send_bbuf, buf, size)) {
+            return JS_ThrowOutOfMemory(ctx);
+        }
+        // Unpause the transfer if it was paused
+        curl_easy_pause(x->curl_h, CURLPAUSE_CONT);
+    } else {
+        return JS_ThrowTypeError(ctx, "Expected Uint8Array or null");
+    }
+
+    return JS_UNDEFINED;
+}
+
 static const JSCFunctionListEntry tjs_xhr_class_funcs[] = {
     JS_PROP_INT32_DEF("UNSENT", XHR_RSTATE_UNSENT, JS_PROP_ENUMERABLE),
     JS_PROP_INT32_DEF("OPENED", XHR_RSTATE_OPENED, JS_PROP_ENUMERABLE),
@@ -890,6 +1005,7 @@ static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
     JS_CGETSET_MAGIC_DEF("onprogress", tjs_xhr_event_get, tjs_xhr_event_set, XHR_EVENT_PROGRESS),
     JS_CGETSET_MAGIC_DEF("onreadystatechange", tjs_xhr_event_get, tjs_xhr_event_set, XHR_EVENT_READY_STATE_CHANGED),
     JS_CGETSET_MAGIC_DEF("ontimeout", tjs_xhr_event_get, tjs_xhr_event_set, XHR_EVENT_TIMEOUT),
+    JS_CGETSET_MAGIC_DEF("onsendstreamdata", tjs_xhr_event_get, tjs_xhr_event_set, XHR_EVENT_SEND_STREAM_DATA),
     JS_CGETSET_DEF("readyState", tjs_xhr_readystate_get, NULL),
     JS_CGETSET_DEF("response", tjs_xhr_response_get, NULL),
     JS_CGETSET_DEF("responseText", tjs_xhr_responsetext_get, NULL),
@@ -909,6 +1025,8 @@ static const JSCFunctionListEntry tjs_xhr_proto_funcs[] = {
     TJS_CFUNC_DEF("send", 1, tjs_xhr_send),
     TJS_CFUNC_DEF("setRequestHeader", 2, tjs_xhr_setrequestheader),
     TJS_CFUNC_DEF("setCookieJar", 1, tjs_xhr_set_cookiejar),
+    TJS_CFUNC_DEF("getAndClearResponseBuffer", 0, tjs_xhr_getandclearresponsebuffer),
+    TJS_CFUNC_DEF("sendStream", 1, tjs_xhr_sendstream),
 };
 
 void tjs__mod_xhr_init(JSContext *ctx, JSValue ns) {

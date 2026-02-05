@@ -1,5 +1,6 @@
 import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
+import { Response } from './response.js';
 
 // Access the internal XHR implementation directly, bypassing the public wrapper.
 // This allows us to use internal-only features.
@@ -21,44 +22,124 @@ export function fetch(input, init) {
 
         activeXHRs.add(xhr);
 
+        let responseResolved = false;
+        let streamController = null;
+
         function abortXhr() {
             xhr.abort();
         }
 
-        xhr.onload = function() {
-            const options = {
-                statusText: xhr.statusText,
-                headers: parseHeaders(xhr.getAllResponseHeaders() || ''),
-                status: xhr.status,
-                url: xhr.responseURL
-            };
-            const body = xhr.response;
+        function createAbortError() {
+            return new DOMException('Aborted', 'AbortError');
+        }
 
-            setTimeout(function() {
-                activeXHRs.delete(xhr);
-                resolve(new Response(body, options));
-            }, 0);
+        function createNetworkError(message) {
+            return new TypeError(message || 'Network request failed');
+        }
+
+        // Create ReadableStream for response body
+        const responseBody = new ReadableStream({
+            start(controller) {
+                streamController = controller;
+            },
+            cancel() {
+                xhr.abort();
+            }
+        });
+
+        // Enqueue chunks on progress
+        xhr.onprogress = function() {
+            const chunk = xhr.getAndClearResponseBuffer();
+
+            if (chunk && chunk.byteLength > 0 && streamController) {
+                streamController.enqueue(new Uint8Array(chunk));
+            }
+        };
+
+        // Final chunk + close on load
+        xhr.onload = function() {
+            const chunk = xhr.getAndClearResponseBuffer();
+
+            if (chunk && chunk.byteLength > 0 && streamController) {
+                streamController.enqueue(new Uint8Array(chunk));
+            }
+
+            if (streamController) {
+                streamController.close();
+                streamController = null;
+            }
+
+            activeXHRs.delete(xhr);
         };
 
         xhr.onerror = function() {
-            setTimeout(function() {
-                activeXHRs.delete(xhr);
-                reject(new TypeError('Network request failed'));
-            }, 0);
+            activeXHRs.delete(xhr);
+
+            if (!responseResolved) {
+                setTimeout(function() {
+                    reject(createNetworkError());
+                }, 0);
+            } else if (streamController) {
+                streamController.error(createNetworkError());
+                streamController = null;
+            }
         };
 
         xhr.ontimeout = function() {
-            setTimeout(function() {
-                activeXHRs.delete(xhr);
-                reject(new TypeError('Network request timed out'));
-            }, 0);
+            activeXHRs.delete(xhr);
+
+            if (!responseResolved) {
+                setTimeout(function() {
+                    reject(createNetworkError('Network request timed out'));
+                }, 0);
+            } else if (streamController) {
+                streamController.error(createNetworkError('Network request timed out'));
+                streamController = null;
+            }
         };
 
         xhr.onabort = function() {
-            setTimeout(function() {
-                activeXHRs.delete(xhr);
-                reject(new DOMException('Aborted', 'AbortError'));
-            }, 0);
+            activeXHRs.delete(xhr);
+
+            if (!responseResolved) {
+                setTimeout(function() {
+                    reject(createAbortError());
+                }, 0);
+            } else if (streamController) {
+                streamController.error(createAbortError());
+                streamController = null;
+            }
+        };
+
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === InternalXHR.HEADERS_RECEIVED && !responseResolved) {
+                // Skip informational responses (1xx status codes like 100 Continue)
+                // These can occur on Windows before the actual response
+                if (xhr.status >= 100 && xhr.status < 200) {
+                    return;
+                }
+
+                responseResolved = true;
+
+                const options = {
+                    statusText: xhr.statusText,
+                    headers: parseHeaders(xhr.getAllResponseHeaders() || ''),
+                    status: xhr.status,
+                    url: xhr.responseURL
+                };
+
+                // Defer resolve to avoid potential issues
+                setTimeout(function() {
+                    resolve(new Response(responseBody, options));
+                }, 0);
+            }
+
+            // DONE (success or failure)
+            if (xhr.readyState === InternalXHR.DONE) {
+                if (request.signal) {
+                    request.signal.removeEventListener('abort', abortXhr);
+                }
+            }
         };
 
         xhr.open(request.method, request.url, true);
@@ -70,9 +151,6 @@ export function fetch(input, init) {
         }
 
         xhr.redirectMode = request.redirect;
-
-        // TODO: better use Blob, if / when we support that.
-        xhr.responseType = 'arraybuffer';
 
         if (init && typeof init.headers === 'object' && !(init.headers instanceof Headers)) {
             const names = [];
@@ -94,17 +172,41 @@ export function fetch(input, init) {
 
         if (request.signal) {
             request.signal.addEventListener('abort', abortXhr);
-
-            xhr.onreadystatechange = function() {
-                // DONE (success or failure)
-                if (xhr.readyState === xhr.DONE) {
-                    request.signal.removeEventListener('abort', abortXhr);
-                }
-            };
         }
 
-        // TODO: why not use the .body property?
-        xhr.send(typeof request._bodyInit === 'undefined' ? null : request._bodyInit);
+        // Handle request body based on size
+        if (request._bodySize === -1) {
+            // Streaming body (ReadableStream)
+            const reader = request.body.getReader();
+
+            xhr.onsendstreamdata = function() {
+                reader.read().then(function({ value, done }) {
+                    if (done) {
+                        xhr.sendStream(null);
+                    } else {
+                        // Ensure we have a Uint8Array
+                        const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+
+                        xhr.sendStream(chunk);
+                    }
+                }).catch(function() {
+                    xhr.abort();
+                });
+            };
+
+            xhr.sendStream();  // Start streaming (triggers first onsendstreamdata)
+        } else if (request._bodySize > 0) {
+            // Known-size body - read it all and send
+            request.arrayBuffer().then(function(buf) {
+                xhr.send(new Uint8Array(buf));
+            }).catch(function(err) {
+                activeXHRs.delete(xhr);
+                reject(err);
+            });
+        } else {
+            // No body
+            xhr.send(null);
+        }
     });
 }
 

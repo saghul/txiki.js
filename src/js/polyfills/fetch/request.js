@@ -25,8 +25,8 @@ export class Request {
             this.mode = input.mode;
             this.signal = input.signal;
 
-            if (!body && input._bodyInit !== null) {
-                body = input._bodyInit;
+            if (!body && input.body !== null) {
+                body = input.body;
                 input.bodyUsed = true;
             }
         } else {
@@ -47,6 +47,13 @@ export class Request {
 
         if ((this.method === 'GET' || this.method === 'HEAD') && body) {
             throw new TypeError('Body not allowed for GET or HEAD requests');
+        }
+
+        // Require duplex: 'half' for ReadableStream bodies (spec compliant)
+        if (body instanceof ReadableStream) {
+            if (options.duplex !== 'half') {
+                throw new TypeError('ReadableStream body requires duplex: "half" option');
+            }
         }
 
         this._initBody(body);
@@ -70,7 +77,7 @@ export class Request {
     }
 
     clone() {
-        return new Request(this, { body: this._bodyInit });
+        return new Request(this, { body: this.body, duplex: this._bodySize === -1 ? 'half' : undefined });
     }
 }
 

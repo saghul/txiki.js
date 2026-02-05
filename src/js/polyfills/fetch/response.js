@@ -12,7 +12,7 @@ export class Response {
         this.status = options.status === undefined ? 200 : options.status;
 
         if (this.status < 200 || this.status > 599) {
-            throw new RangeError('The status provided (0) is outside the range [200, 599].');
+            throw new RangeError(`The status provided (${this.status}) is outside the range [200, 599].`);
         }
 
         this.ok = this.status >= 200 && this.status < 300;
@@ -42,7 +42,7 @@ export class Response {
     }
 
     clone() {
-        return new Response(this._bodyInit, {
+        return new Response(this.body, {
             status: this.status,
             statusText: this.statusText,
             headers: new Headers(this.headers),
