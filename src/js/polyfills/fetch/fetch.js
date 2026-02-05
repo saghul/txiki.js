@@ -1,6 +1,11 @@
 import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
 
+// Access the internal XHR implementation directly, bypassing the public wrapper.
+// This allows us to use internal-only features.
+const core = globalThis[Symbol.for('tjs.internal.core')];
+const InternalXHR = core.XMLHttpRequest;
+
 // Keep strong references to active XHR objects to prevent premature GC
 const activeXHRs = new Set();
 
@@ -12,7 +17,7 @@ export function fetch(input, init) {
             return reject(new DOMException('Aborted', 'AbortError'));
         }
 
-        const xhr = new XMLHttpRequest();
+        const xhr = new InternalXHR();
 
         activeXHRs.add(xhr);
 
