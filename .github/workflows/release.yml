@@ -44,7 +44,7 @@ jobs:
           cp vcpkg/installed/x64-windows/bin/*.dll txiki-windows-x86_64/
 
       - name: Upload windows x86_64 Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: txiki-windows-x86_64
           path: txiki-windows-x86_64
@@ -64,7 +64,7 @@ jobs:
           cp build/tjs txiki-macos-arm64/tjs
 
       - name: Upload macos arm64 Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: txiki-macos-arm64
           path: txiki-macos-arm64
@@ -84,7 +84,7 @@ jobs:
           cp build/tjs txiki-macos-x86_64/tjs
 
       - name: Upload macos x86_64 Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: txiki-macos-x86_64
           path: txiki-macos-x86_64
