@@ -21,6 +21,5 @@ jobs:
         # ensure that the version of the tag is used for publishing
         run: |
           npm version ${GITHUB_REF_NAME#v}
-          npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          npm publish --provenance --access public
+
