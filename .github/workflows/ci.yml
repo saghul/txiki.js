@@ -10,7 +10,7 @@ jobs:
     - uses: actions/checkout@v6
       with:
         submodules: true
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version-file: '.nvmrc'
     - name: Install dependencies
@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: true
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
       - name: Install dependencies
@@ -52,7 +52,7 @@ jobs:
     - uses: actions/checkout@v6
       with:
         submodules: true
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version-file: '.nvmrc'
     - name: Install dependencies
@@ -73,7 +73,7 @@ jobs:
     - uses: actions/checkout@v6
       with:
         submodules: true
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version-file: '.nvmrc'
     - name: Dependencies
@@ -109,7 +109,7 @@ jobs:
     - uses: actions/checkout@v6
       with:
         submodules: true
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version-file: '.nvmrc'
     - name: Build it
@@ -134,7 +134,7 @@ jobs:
     - uses: actions/checkout@v6
       with:
         submodules: true
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version-file: '.nvmrc'
     - name: Build it
