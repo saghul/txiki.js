@@ -123,14 +123,6 @@ class XMLHttpRequest extends EventTarget {
         return this[kXHR].withCredentials;
     }
 
-    set redirectMode(value) {
-        this[kXHR].redirectMode = value;
-    }
-
-    get redirectMode() {
-        return this[kXHR].redirectMode;
-    }
-
     abort() {
         return this[kXHR].abort();
     }
