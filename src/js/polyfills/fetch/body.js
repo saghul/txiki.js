@@ -14,49 +14,6 @@ function consumed(body) {
     body.bodyUsed = true;
 }
 
-function fileReaderReady(reader) {
-    return new Promise(function(resolve, reject) {
-        reader.onload = function() {
-            resolve(reader.result);
-        };
-
-        reader.onerror = function() {
-            reject(reader.error);
-        };
-    });
-}
-
-function readBlobAsArrayBuffer(blob) {
-    var reader = new FileReader();
-    var promise = fileReaderReady(reader);
-
-    reader.readAsArrayBuffer(blob);
-
-    return promise;
-}
-
-function readBlobAsText(blob) {
-    var reader = new FileReader();
-    var promise = fileReaderReady(reader);
-    var match = /charset=([A-Za-z0-9_-]+)/.exec(blob.type);
-    var encoding = match ? match[1] : 'utf-8';
-
-    reader.readAsText(blob, encoding);
-
-    return promise;
-}
-
-function readArrayBufferAsText(buf) {
-    var view = new Uint8Array(buf);
-    var chars = new Array(view.length);
-
-    for (var i = 0; i < view.length; i++) {
-        chars[i] = String.fromCharCode(view[i]);
-    }
-
-    return chars.join('');
-}
-
 function bufferClone(buf) {
     if (buf.slice) {
         return buf.slice(0);
@@ -73,6 +30,40 @@ function isPrototypeOf(a, b) {
     return Object.prototype.isPrototypeOf.call(a, b);
 }
 
+async function readAllChunks(stream) {
+    const reader = stream.getReader();
+    const chunks = [];
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+            break;
+        }
+
+        chunks.push(value);
+    }
+
+    // Calculate total length
+    let totalLength = 0;
+
+    for (const chunk of chunks) {
+        totalLength += chunk.byteLength;
+    }
+
+    // Combine all chunks into a single Uint8Array
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+        result.set(chunk, offset);
+        offset += chunk.byteLength;
+    }
+
+    return result.buffer;
+}
+
 export const BodyMixin = {
     bodyUsed: false,
 
@@ -81,32 +72,101 @@ export const BodyMixin = {
 
         if (!body) {
             this._noBody = true;
-            this._bodyText = '';
+            this._bodySize = 0;
+            this._bodyStream = null;
+        } else if (body instanceof ReadableStream) {
+            this._bodySize = -1;  // Unknown size (streaming)
+            this._bodyStream = body;
         } else if (typeof body === 'string') {
-            this._bodyText = body;
+            const encoded = new TextEncoder().encode(body);
+
+            this._bodySize = encoded.byteLength;
+            this._bodyStream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(encoded);
+                    controller.close();
+                }
+            });
         } else if (isPrototypeOf(Blob.prototype, body)) {
-            this._bodyBlob = body;
+            this._bodySize = body.size;
+            this._bodyStream = body.stream();
         } else if (isPrototypeOf(FormData.prototype, body)) {
-            this._bodyFormData = body;
+            // FormData handling - convert to URL encoded string
+            const pairs = [];
+
+            for (const [ key, value ] of body.entries()) {
+                pairs.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
+            }
+
+            const encoded = new TextEncoder().encode(pairs.join('&'));
+
+            this._bodySize = encoded.byteLength;
+            this._bodyStream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(encoded);
+                    controller.close();
+                }
+            });
+
+            if (!this.headers.get('content-type')) {
+                this.headers.set('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
+            }
         } else if (isPrototypeOf(URLSearchParams.prototype, body)) {
-            this._bodyText = body.toString();
+            const encoded = new TextEncoder().encode(body.toString());
+
+            this._bodySize = encoded.byteLength;
+            this._bodyStream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(encoded);
+                    controller.close();
+                }
+            });
         } else if (isDataView(body)) {
-            this._bodyArrayBuffer = bufferClone(body.buffer);
+            const buffer = bufferClone(body.buffer);
+
+            this._bodySize = buffer.byteLength;
+            this._bodyStream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new Uint8Array(buffer));
+                    controller.close();
+                }
+            });
         } else if (isPrototypeOf(ArrayBuffer.prototype, body) || ArrayBuffer.isView(body)) {
-            this._bodyArrayBuffer = bufferClone(body);
+            const buffer = bufferClone(body);
+
+            this._bodySize = buffer.byteLength;
+            this._bodyStream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new Uint8Array(buffer));
+                    controller.close();
+                }
+            });
         } else {
-            this._bodyText = body = Object.prototype.toString.call(body);
+            // Fallback: convert to string
+            const str = Object.prototype.toString.call(body);
+            const encoded = new TextEncoder().encode(str);
+
+            this._bodySize = encoded.byteLength;
+            this._bodyStream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(encoded);
+                    controller.close();
+                }
+            });
         }
 
+        // Set content-type header if not already set
         if (!this.headers.get('content-type')) {
             if (typeof body === 'string') {
                 this.headers.set('content-type', 'text/plain;charset=UTF-8');
-            } else if (this._bodyBlob && this._bodyBlob.type) {
-                this.headers.set('content-type', this._bodyBlob.type);
+            } else if (this._bodyInit && isPrototypeOf(Blob.prototype, body) && body.type) {
+                this.headers.set('content-type', body.type);
             } else if (isPrototypeOf(URLSearchParams.prototype, body)) {
                 this.headers.set('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
             }
         }
+
+        this.body = this._bodyStream;
     },
 
     blob() {
@@ -118,40 +178,27 @@ export const BodyMixin = {
 
         const contentType = this.headers.get('content-type') ?? '';
 
-        if (this._bodyBlob) {
-            return Promise.resolve(this._bodyBlob);
-        } else if (this._bodyArrayBuffer) {
-            return Promise.resolve(new Blob([ this._bodyArrayBuffer ], {
-                type: contentType,
-            }));
-        } else if (this._bodyFormData) {
-            throw new Error('could not read FormData body as blob');
-        } else {
-            return Promise.resolve(new Blob([ this._bodyText ], {
-                type: contentType,
-            }));
+        if (!this._bodyStream) {
+            return Promise.resolve(new Blob([], { type: contentType }));
         }
+
+        return readAllChunks(this._bodyStream).then(buffer =>
+            new Blob([ buffer ], { type: contentType })
+        );
     },
 
     arrayBuffer() {
-        if (this._bodyArrayBuffer) {
-            var isConsumed = consumed(this);
+        const rejected = consumed(this);
 
-            if (isConsumed) {
-                return isConsumed;
-            } else if (ArrayBuffer.isView(this._bodyArrayBuffer)) {
-                return Promise.resolve(
-                    this._bodyArrayBuffer.buffer.slice(
-                        this._bodyArrayBuffer.byteOffset,
-                        this._bodyArrayBuffer.byteOffset + this._bodyArrayBuffer.byteLength
-                    )
-                );
-            } else {
-                return Promise.resolve(this._bodyArrayBuffer);
-            }
-        } else {
-            return this.blob().then(readBlobAsArrayBuffer);
+        if (rejected) {
+            return rejected;
         }
+
+        if (!this._bodyStream) {
+            return Promise.resolve(new ArrayBuffer(0));
+        }
+
+        return readAllChunks(this._bodyStream);
     },
 
     text() {
@@ -161,15 +208,13 @@ export const BodyMixin = {
             return rejected;
         }
 
-        if (this._bodyBlob) {
-            return readBlobAsText(this._bodyBlob);
-        } else if (this._bodyArrayBuffer) {
-            return Promise.resolve(readArrayBufferAsText(this._bodyArrayBuffer));
-        } else if (this._bodyFormData) {
-            throw new Error('could not read FormData body as text');
-        } else {
-            return Promise.resolve(this._bodyText);
+        if (!this._bodyStream) {
+            return Promise.resolve('');
         }
+
+        return readAllChunks(this._bodyStream).then(buffer =>
+            new TextDecoder().decode(buffer)
+        );
     },
 
     formData() {
