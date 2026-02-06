@@ -42,7 +42,7 @@ export class Request {
 
         this.method = normalizeMethod(options.method || this.method || 'GET');
         this.mode = options.mode || this.mode || null;
-        this.signal = options.signal || this.signal || new AbortController().signal;
+        this.signal = options.signal || this.signal || null;
         this.referrer = null;
 
         if ((this.method === 'GET' || this.method === 'HEAD') && body) {
