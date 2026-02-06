@@ -4,14 +4,14 @@ import initCParser from '../src/js/stdlib/ffi/ffiutils.js';
 
 (function(){
 	let sopath = './build/libffi-test.so';
-	switch(tjs.system.platform){
-		case 'linux':
+	switch(navigator.userAgentData.platform){
+		case 'Linux':
 			sopath = './build/libffi-test.so';
 			break;
-		case 'darwin':
+		case 'macOS':
 			sopath = './build/libffi-test.dylib';
 			break;
-		case 'windows':
+		case 'Windows':
 			sopath = './build/libffi-test.dll';
 		break;
 	}

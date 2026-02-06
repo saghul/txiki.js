@@ -4,7 +4,7 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 let pipeName;
-if (tjs.system.platform === 'windows') {
+if (navigator.userAgentData.platform === 'Windows') {
     pipeName = '\\\\?\\pipe\\testPipe';
 } else {
     pipeName = 'testPipe';
