@@ -194,14 +194,14 @@ function testTransactionsNested() {
 
 function testExtensions(){
 	let sopath = './build/libsqlite-test.so';
-	switch(tjs.system.platform){
-		case 'linux':
+	switch(navigator.userAgentData.platform){
+		case 'Linux':
 			sopath = './build/libsqlite-test.so';
 			break;
-		case 'darwin':
+		case 'macOS':
 			sopath = './build/libsqlite-test.dylib';
 			break;
-		case 'windows':
+		case 'Windows':
 			sopath = './build/libsqlite-test.dll';
 		break;
 	}

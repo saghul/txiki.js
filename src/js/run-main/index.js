@@ -195,7 +195,7 @@ if (options.help) {
 
         let newFileName = outfile ?? `${infilePath.name}`;
 
-        if (tjs.system.platform === 'windows' && !newFileName.endsWith('.exe')) {
+        if (navigator.userAgentData.platform === 'Windows' && !newFileName.endsWith('.exe')) {
             newFileName += '.exe';
         }
 

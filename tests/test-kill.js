@@ -10,7 +10,7 @@ const proc = tjs.spawn(args, { stdout: 'ignore', stderr: 'ignore' });
 tjs.kill(proc.pid, 'SIGKILL');
 const status = await proc.wait();
 
-if (tjs.system.platform === 'windows') {
+if (navigator.userAgentData.platform === 'Windows') {
     /* uv_kill() behavior on Windows causes the process to exit 1 and
      * does not propagate the terminating signal information to the process
      * handle.

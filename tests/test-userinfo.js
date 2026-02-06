@@ -3,7 +3,7 @@ import assert from 'tjs:assert';
 
 const { userId, groupId, shell, userName, homeDir } = tjs.system.userInfo;
 
-if (tjs.system.platform === 'windows') {
+if (navigator.userAgentData.platform === 'Windows') {
     assert.eq(userId, -1);
     assert.eq(groupId, -1);
     assert.eq(shell, null);

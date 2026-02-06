@@ -1,6 +1,6 @@
 import assert from 'tjs:assert';
 
-if (tjs.system.platform === 'windows') {
+if (navigator.userAgentData.platform === 'Windows') {
     // exec() is not available on Windows
     tjs.exit(0);
 }
