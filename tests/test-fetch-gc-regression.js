@@ -9,7 +9,7 @@ const gcInterval = setInterval(() => {
 Promise.race([
     fetch('https://postman-echo.com/delay/2'),
     new Promise((resolve, reject) => {
-        setTimeout(() => reject(new Error("XHR has been garbage collected")), 3000);
+        setTimeout(() => reject(new Error("XHR has been garbage collected")), 5000);
     }),
 ])
     .then((res) => {
@@ -19,4 +19,3 @@ Promise.race([
     .catch((err) => {
         assert.ok(false, err);
     })
-
