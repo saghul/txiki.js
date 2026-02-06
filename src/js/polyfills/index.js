@@ -31,3 +31,4 @@ import './ws.js';
 
 import 'web-streams-polyfill/polyfill';
 import 'compression-streams-polyfill';
+import './ws-stream.js';
