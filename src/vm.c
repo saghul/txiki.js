@@ -134,6 +134,7 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_text_coding_init(ctx, ns);
     tjs__mod_timers_init(ctx, ns);
     tjs__mod_udp_init(ctx, ns);
+    tjs__mod_url_init(ctx, ns);
     tjs__mod_wasm_init(ctx, ns);
     tjs__mod_worker_init(ctx, ns);
     tjs__mod_ws_init(ctx, ns);

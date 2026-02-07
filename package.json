@@ -27,8 +27,7 @@
     "patch-package": "^8.0.1",
     "urlpattern-polyfill": "^10.0.0",
     "uuid": "10.0.0",
-    "web-streams-polyfill": "^4.0.0",
-    "whatwg-url": "^14.0.0"
+    "web-streams-polyfill": "^4.0.0"
   },
   "devDependencies": {
     "typedoc": "0.26.3"
