@@ -1,8 +1,28 @@
 import { isIP, lookup } from './lookup.js';
-import { readableStreamForHandle, writableStreamForHandle } from './stream-utils.js';
+import {
+    readFromHandle, initWriteQueue, writeWithQueue, readableStreamForHandle, writableStreamForHandle
+} from './stream-utils.js';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
+
+function connectStream(handle, addr) {
+    const { promise, resolve, reject } = Promise.withResolvers();
+
+    handle.onconnect = error => {
+        handle.onconnect = null;
+
+        if (error) {
+            reject(error);
+        } else {
+            resolve();
+        }
+    };
+
+    handle.connect(addr);
+
+    return promise;
+}
 
 export async function connect(transport, host, port, options = {}) {
     const addr = await resolveAddress(transport, host, port);
@@ -21,7 +41,7 @@ export async function connect(transport, host, port, options = {}) {
                 handle.bind(options.bindAddr, flags);
             }
 
-            await handle.connect(addr);
+            await connectStream(handle, addr);
 
             return new Connection(handle);
         }
@@ -29,7 +49,7 @@ export async function connect(transport, host, port, options = {}) {
         case 'pipe': {
             const handle = new core.Pipe();
 
-            await handle.connect(addr);
+            await connectStream(handle, addr);
 
             return new Connection(handle);
         }
@@ -47,7 +67,7 @@ export async function connect(transport, host, port, options = {}) {
                 handle.bind(options.bindAddr, flags);
             }
 
-            await handle.connect(addr);
+            handle.connect(addr);
 
             return new DatagramEndpoint(handle);
         }
@@ -136,10 +156,15 @@ const kLocalAddress = Symbol('kLocalAddress');
 const kRemoteAddress = Symbol('kRemoteAddress');
 const kReadable = Symbol('kReadable');
 const kWritable = Symbol('kWritable');
+const kAcceptQueue = Symbol('kAcceptQueue');
+const kPendingAccepts = Symbol('kPendingAccepts');
+const kWriteQueue = Symbol('kWriteQueue');
+const kSendQueue = Symbol('kSendQueue');
 
 class Connection {
     constructor(handle) {
         this[kHandle] = handle;
+        this[kWriteQueue] = initWriteQueue(handle);
     }
 
     get localAddress() {
@@ -168,18 +193,18 @@ class Connection {
 
     get writable() {
         if (!this[kWritable]) {
-            this[kWritable] = writableStreamForHandle(this[kHandle]);
+            this[kWritable] = writableStreamForHandle(this[kHandle], buf => this.write(buf));
         }
 
         return this[kWritable];
     }
 
     read(buf) {
-        return this[kHandle].read(buf);
+        return readFromHandle(this[kHandle], buf);
     }
 
     write(buf) {
-        return this[kHandle].write(buf);
+        return writeWithQueue(this[kHandle], this[kWriteQueue], buf);
     }
 
     setKeepAlive(enable, delay) {
@@ -202,6 +227,35 @@ class Connection {
 class Listener {
     constructor(handle) {
         this[kHandle] = handle;
+        this[kAcceptQueue] = [];
+        this[kPendingAccepts] = [];
+
+        handle.onconnection = (error, clientHandle) => {
+            if (typeof error === 'undefined' && typeof clientHandle === 'undefined') {
+                // Handle closed
+                const pending = this[kPendingAccepts];
+
+                this[kPendingAccepts] = [];
+
+                for (const { resolve } of pending) {
+                    resolve(undefined);
+                }
+
+                return;
+            }
+
+            if (this[kPendingAccepts].length > 0) {
+                const { resolve, reject } = this[kPendingAccepts].shift();
+
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(new Connection(clientHandle));
+                }
+            } else {
+                this[kAcceptQueue].push({ error, handle: clientHandle });
+            }
+        };
     }
 
     get localAddress() {
@@ -213,13 +267,25 @@ class Listener {
     }
 
     async accept() {
-        const handle = await this[kHandle].accept();
+        if (this[kAcceptQueue].length > 0) {
+            const { error, handle } = this[kAcceptQueue].shift();
 
-        if (typeof handle === 'undefined') {
-            return;
+            if (error) {
+                throw error;
+            }
+
+            if (typeof handle === 'undefined') {
+                return;
+            }
+
+            return new Connection(handle);
         }
 
-        return new Connection(handle);
+        const { promise, resolve, reject } = Promise.withResolvers();
+
+        this[kPendingAccepts].push({ resolve, reject });
+
+        return await promise;
     }
 
     close() {
@@ -246,14 +312,54 @@ class Listener {
 class DatagramEndpoint {
     constructor(handle) {
         this[kHandle] = handle;
+        this[kSendQueue] = [];
+
+        handle.onsend = error => {
+            const entry = this[kSendQueue].shift();
+
+            if (entry) {
+                if (error) {
+                    entry.reject(error);
+                } else {
+                    entry.resolve();
+                }
+            }
+        };
     }
 
     recv(buf) {
-        return this[kHandle].recv(buf);
+        const handle = this[kHandle];
+        const { promise, resolve, reject } = Promise.withResolvers();
+
+        handle.onrecv = (nread, addr, partial) => {
+            handle.onrecv = null;
+
+            if (typeof nread === 'undefined') {
+                resolve({ nread: null, addr: undefined, partial: false });
+            } else if (typeof nread === 'number') {
+                resolve({ nread, addr, partial });
+            } else {
+                reject(nread);
+            }
+        };
+
+        handle.startRecv(buf);
+
+        return promise;
     }
 
     send(buf, taddr) {
-        return this[kHandle].send(buf, taddr);
+        const result = this[kHandle].send(buf, taddr);
+
+        if (typeof result === 'number') {
+            return Promise.resolve(result);
+        }
+
+        const { promise, resolve, reject } = Promise.withResolvers();
+
+        this[kSendQueue].push({ resolve, reject });
+
+        return promise;
     }
 
     get localAddress() {

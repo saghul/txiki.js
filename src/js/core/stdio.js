@@ -1,3 +1,5 @@
+import { readFromHandle, initWriteQueue, writeWithQueue } from './stream-utils.js';
+
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
 const kStdioHandle = Symbol('kStdioHandle');
@@ -20,7 +22,7 @@ class BaseIOStream {
 }
 
 class InputStream extends BaseIOStream {
-    async read(buf) {
+    read(buf) {
         return this[kStdioHandle].read(buf);
     }
 
@@ -36,7 +38,7 @@ class InputStream extends BaseIOStream {
 }
 
 class OutputStream extends BaseIOStream {
-    async write(buf) {
+    write(buf) {
         return this[kStdioHandle].write(buf);
     }
 
@@ -64,32 +66,69 @@ function createStdioStream(fd) {
 
     switch (type) {
         case 'tty': {
-            const handle = new core.TTY(fd, isStdin);
+            const rawHandle = new core.TTY(fd, isStdin);
 
             // Do blocking writes for TTYs:
             // https://github.com/nodejs/node/blob/014dad5953a632f44e668f9527f546c6e1bb8b86/lib/tty.js#L112
             if (!isStdin && core.platform !== 'windows') {
-                handle.setBlocking(true);
+                rawHandle.setBlocking(true);
             }
+
+            const writeQueue = initWriteQueue(rawHandle);
+
+            const handle = {
+                read(buf) {
+                    return readFromHandle(rawHandle, buf);
+                },
+                write(buf) {
+                    return writeWithQueue(rawHandle, writeQueue, buf);
+                },
+                setMode(mode) {
+                    rawHandle.setMode(mode);
+                },
+                getWinSize() {
+                    return rawHandle.getWinSize();
+                }
+            };
 
             return new StreamType(handle, type);
         }
 
         case 'pipe': {
-            const handle = new core.Pipe();
+            const rawHandle = new core.Pipe();
 
-            handle.open(fd);
+            rawHandle.open(fd);
 
             // Do blocking writes on Windows.
             if (!isStdin && core.platform === 'windows') {
-                handle.setBlocking(true);
+                rawHandle.setBlocking(true);
             }
+
+            const writeQueue = initWriteQueue(rawHandle);
+
+            const handle = {
+                read(buf) {
+                    return readFromHandle(rawHandle, buf);
+                },
+                write(buf) {
+                    return writeWithQueue(rawHandle, writeQueue, buf);
+                }
+            };
 
             return new StreamType(handle, type);
         }
 
         case 'file': {
-            const handle = core.newStdioFile(pathByFd(fd), fd);
+            const rawHandle = new core.File(fd, pathByFd(fd));
+
+            const handle = {
+                read(buf) {
+                    return rawHandle.read(buf);
+                },
+                write(buf) {
+                    return rawHandle.write(buf);
+                }
+            };
 
             return new StreamType(handle, type);
         }
