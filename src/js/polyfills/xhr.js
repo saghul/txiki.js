@@ -3,104 +3,186 @@ import { defineEventAttribute } from './event-target.js';
 import { mkdirSync } from './utils/mkdirSync';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
-const XHR = core.XMLHttpRequest;
-const kXHR = Symbol('kXHR');
+const HttpClient = core.HttpClient;
+const kClient = Symbol('kClient');
 let hasHomeDirCreated = false;
 
 class XMLHttpRequest extends EventTarget {
-    static UNSENT = XHR.UNSENT;
-    static OPENED = XHR.OPENED;
-    static HEADERS_RECEIVED = XHR.HEADERS_RECEIVED;
-    static LOADING = XHR.LOADING;
-    static DONE = XHR.DONE;
-    UNSENT = XHR.UNSENT;
-    OPENED = XHR.OPENED;
-    HEADERS_RECEIVED = XHR.HEADERS_RECEIVED;
-    LOADING = XHR.LOADING;
-    DONE = XHR.DONE;
+    static UNSENT = 0;
+    static OPENED = 1;
+    static HEADERS_RECEIVED = 2;
+    static LOADING = 3;
+    static DONE = 4;
+    UNSENT = 0;
+    OPENED = 1;
+    HEADERS_RECEIVED = 2;
+    LOADING = 3;
+    DONE = 4;
+
+    #readyState = XMLHttpRequest.UNSENT;
+    #status = 0;
+    #statusText = '';
+    #responseURL = '';
+    #responseHeaders = '';
+    #responseBody = new Uint8Array(0);
+    #responseType = '';
+    #timeout = 0;
+    #withCredentials = false;
+    #cookieJarPath = null;
 
     constructor() {
         super();
+        this[kClient] = null;
+    }
 
-        const xhr = new XHR();
+    #createClient() {
+        const client = new HttpClient();
 
-        xhr.onabort = () => {
-            this.dispatchEvent(new Event('abort'));
+        client.onresponse = (status, statusText, url, headers) => {
+            this.#status = status;
+            this.#statusText = statusText;
+            this.#responseURL = url;
+            this.#responseHeaders = headers;
+            this.#setReadyState(XMLHttpRequest.HEADERS_RECEIVED);
         };
 
-        xhr.onerror = () => {
-            this.dispatchEvent(new Event('error'));
+        client.ondata = (chunk, contentLength) => {
+            if (this.#readyState === XMLHttpRequest.HEADERS_RECEIVED) {
+                this.#setReadyState(XMLHttpRequest.LOADING);
+            }
+
+            // Accumulate body data
+            const oldBody = this.#responseBody;
+            const newChunk = new Uint8Array(chunk);
+            const newBody = new Uint8Array(oldBody.length + newChunk.length);
+
+            newBody.set(oldBody);
+            newBody.set(newChunk, oldBody.length);
+            this.#responseBody = newBody;
+
+            const lengthComputable = contentLength > 0;
+
+            this.dispatchEvent(new ProgressEvent('progress', {
+                lengthComputable: lengthComputable,
+                loaded: this.#responseBody.length,
+                total: lengthComputable ? contentLength : 0
+            }));
         };
 
-        xhr.onload = () => {
-            this.dispatchEvent(new Event('load'));
-        };
+        client.oncomplete = error => {
+            if (error && error === 'Request aborted') {
+                this.#readyState = XMLHttpRequest.UNSENT;
+                this.#status = 0;
+                this.#statusText = '';
+                this.dispatchEvent(new Event('abort'));
+            } else {
+                this.#setReadyState(XMLHttpRequest.DONE);
 
-        xhr.onloadend = () => {
+                if (error) {
+                    if (error === 'Request timed out') {
+                        this.dispatchEvent(new Event('timeout'));
+                    } else {
+                        this.dispatchEvent(new Event('error'));
+                    }
+                } else {
+                    this.dispatchEvent(new Event('load'));
+                }
+            }
+
             this.dispatchEvent(new Event('loadend'));
         };
 
-        xhr.onloadstart = () => {
-            this.dispatchEvent(new Event('loadstart'));
-        };
+        if (this.#timeout > 0) {
+            client.timeout = this.#timeout;
+        }
 
-        xhr.onprogress = p => {
-            this.dispatchEvent(new ProgressEvent('progress', p));
-        };
+        if (this.#cookieJarPath) {
+            client.setCookieJar(this.#cookieJarPath);
+        }
 
-        xhr.onreadystatechange = () => {
+        this[kClient] = client;
+    }
+
+    #setReadyState(state) {
+        if (this.#readyState !== state) {
+            this.#readyState = state;
             this.dispatchEvent(new Event('readystatechange'));
-        };
-
-        xhr.ontimeout = () => {
-            this.dispatchEvent(new Event('timeout'));
-        };
-
-        this[kXHR] = xhr;
+        }
     }
 
     get readyState() {
-        return this[kXHR].readyState;
+        return this.#readyState;
     }
 
     get response() {
-        return this[kXHR].response;
+        if (this.#responseBody.length === 0) {
+            return null;
+        }
+
+        switch (this.#responseType) {
+            case '':
+            case 'text':
+                return new TextDecoder().decode(this.#responseBody);
+            case 'arraybuffer':
+                return this.#responseBody.buffer.slice(
+                    this.#responseBody.byteOffset,
+                    this.#responseBody.byteOffset + this.#responseBody.byteLength
+                );
+
+            case 'json': {
+                const text = new TextDecoder().decode(this.#responseBody);
+
+                return JSON.parse(text);
+            }
+
+            default:
+                return null;
+        }
     }
 
     get responseText() {
-        return this[kXHR].responseText;
+        if (this.#responseBody.length === 0) {
+            return null;
+        }
+
+        return new TextDecoder().decode(this.#responseBody);
     }
 
     set responseType(value) {
-        this[kXHR].responseType = value;
+        this.#responseType = value;
     }
 
     get responseType() {
-        return this[kXHR].responseType;
+        return this.#responseType;
     }
 
     get responseURL() {
-        return this[kXHR].responseURL;
+        return this.#responseURL;
     }
 
     get status() {
-        return this[kXHR].status;
+        return this.#status;
     }
 
     get statusText() {
-        return this[kXHR].statusText;
+        return this.#statusText;
     }
 
     set timeout(value) {
-        this[kXHR].timeout = value;
+        this.#timeout = value;
+
+        if (this[kClient]) {
+            this[kClient].timeout = value;
+        }
     }
 
     get timeout() {
-        return this[kXHR].timeout;
+        return this.#timeout;
     }
 
     get upload() {
-        return this[kXHR].upload;
+        // TODO: not implemented.
+        return undefined;
     }
 
     set withCredentials(value) {
@@ -113,34 +195,80 @@ class XMLHttpRequest extends EventTarget {
                 hasHomeDirCreated = true;
             }
 
-            this[kXHR].setCookieJar(path.join(TJS_HOME, 'cookies'));
+            this.#cookieJarPath = path.join(TJS_HOME, 'cookies');
         } else {
-            this[kXHR].setCookieJar(null);
+            this.#cookieJarPath = null;
         }
+
+        this.#withCredentials = value;
     }
 
     get withCredentials() {
-        return this[kXHR].withCredentials;
+        return this.#withCredentials;
     }
 
     abort() {
-        return this[kXHR].abort();
+        if (this[kClient]) {
+            this[kClient].abort();
+            this[kClient] = null;
+        }
     }
 
     getAllResponseHeaders() {
-        return this[kXHR].getAllResponseHeaders();
+        if (this.#responseHeaders.length === 0) {
+            return null;
+        }
+
+        return this.#responseHeaders;
     }
 
     getResponseHeader(name) {
-        return this[kXHR].getResponseHeader(name);
+        if (this.#responseHeaders.length === 0) {
+            return null;
+        }
+
+        const lowerName = name.toLowerCase();
+        const lines = this.#responseHeaders.split('\r\n');
+        const values = [];
+
+        for (const line of lines) {
+            const colonIdx = line.indexOf(':');
+
+            if (colonIdx === -1) {
+                continue;
+            }
+
+            const key = line.substring(0, colonIdx).trim();
+
+            if (key === lowerName) {
+                const val = line.substring(colonIdx + 1).trim();
+
+                if (val.length > 0) {
+                    values.push(val);
+                }
+            }
+        }
+
+        return values.length > 0 ? values.join(', ') : null;
     }
 
-    open(...args) {
-        return this[kXHR].open(...args);
+    open(method, url, async = true) {
+        // Reset state for reuse
+        this.#readyState = XMLHttpRequest.UNSENT;
+        this.#status = 0;
+        this.#statusText = '';
+        this.#responseURL = '';
+        this.#responseHeaders = '';
+        this.#responseBody = new Uint8Array(0);
+
+        // Create a fresh HttpClient for each request
+        this.#createClient();
+        this[kClient].open(method, url, async);
+        this.#setReadyState(XMLHttpRequest.OPENED);
     }
 
-    overrideMimeType(mimeType) {
-        return this[kXHR].overrideMimeType(mimeType);
+    overrideMimeType(_mimeType) {
+        throw new TypeError('unsupported');
     }
 
     send(body) {
@@ -180,15 +308,22 @@ class XMLHttpRequest extends EventTarget {
             throw new Error('Unsupported payload type');
         } else if (payload instanceof Blob) {
             payload.arrayBuffer().then(buffer => {
-                this[kXHR].send(new Uint8Array(buffer));
+                this[kClient].sendData(new Uint8Array(buffer));
+                this[kClient].sendData(null);
             });
         } else {
-            this[kXHR].send(payload);
+            this.dispatchEvent(new Event('loadstart'));
+
+            if (payload) {
+                this[kClient].sendData(payload);
+            }
+
+            this[kClient].sendData(null);
         }
     }
 
     setRequestHeader(name, value) {
-        return this[kXHR].setRequestHeader(name, value);
+        return this[kClient].setRequestHeader(name, value);
     }
 }
 

@@ -1,14 +1,17 @@
+/* global tjs */
+import { mkdirSync } from '../utils/mkdirSync';
+
 import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
 import { Response } from './response.js';
 
-// Access the internal XHR implementation directly, bypassing the public wrapper.
-// This allows us to use internal-only features.
+// Access the internal HttpClient implementation directly.
 const core = globalThis[Symbol.for('tjs.internal.core')];
-const InternalXHR = core.XMLHttpRequest;
+const HttpClient = core.HttpClient;
+let hasHomeDirCreated = false;
 
-// Keep strong references to active XHR objects to prevent premature GC
-const activeXHRs = new Set();
+// Keep strong references to active clients to prevent premature GC
+const activeClients = new Set();
 
 export function fetch(input, init) {
     return new Promise(function(resolve, reject) {
@@ -18,23 +21,15 @@ export function fetch(input, init) {
             return reject(new DOMException('Aborted', 'AbortError'));
         }
 
-        const xhr = new InternalXHR();
+        const client = new HttpClient();
 
-        activeXHRs.add(xhr);
+        activeClients.add(client);
 
         let responseResolved = false;
         let streamController = null;
 
-        function abortXhr() {
-            xhr.abort();
-        }
-
-        function createAbortError() {
-            return new DOMException('Aborted', 'AbortError');
-        }
-
-        function createNetworkError(message) {
-            return new TypeError(message || 'Network request failed');
+        function abortClient() {
+            client.abort();
         }
 
         // Create ReadableStream for response body
@@ -43,169 +38,155 @@ export function fetch(input, init) {
                 streamController = controller;
             },
             cancel() {
-                xhr.abort();
+                client.abort();
             }
         });
 
-        // Enqueue chunks on progress
-        xhr.onprogress = function() {
-            const chunk = xhr.getAndClearResponseBuffer();
+        // Called once when response headers arrive
+        client.onresponse = function(status, statusText, url, rawHeaders) {
+            // Skip informational responses (1xx status codes like 100 Continue)
+            if (status >= 100 && status < 200) {
+                return;
+            }
 
+            responseResolved = true;
+
+            const options = {
+                status: status,
+                statusText: statusText,
+                headers: parseHeaders(rawHeaders || ''),
+                url: url
+            };
+
+            // Defer resolve to avoid potential issues
+            setTimeout(function() {
+                resolve(new Response(responseBody, options));
+            }, 0);
+        };
+
+        // Called for each body chunk
+        client.ondata = function(chunk) {
             if (chunk && chunk.byteLength > 0 && streamController) {
                 streamController.enqueue(new Uint8Array(chunk));
             }
         };
 
-        // Final chunk + close on load
-        xhr.onload = function() {
-            const chunk = xhr.getAndClearResponseBuffer();
+        // Called when request completes (success or error)
+        client.oncomplete = function(error) {
+            activeClients.delete(client);
 
-            if (chunk && chunk.byteLength > 0 && streamController) {
-                streamController.enqueue(new Uint8Array(chunk));
+            if (request.signal) {
+                request.signal.removeEventListener('abort', abortClient);
             }
 
-            if (streamController) {
-                streamController.close();
-                streamController = null;
-            }
+            if (error) {
+                const isAbort = error === 'Request aborted';
+                const isTimeout = error === 'Request timed out';
 
-            activeXHRs.delete(xhr);
-        };
+                if (!responseResolved) {
+                    setTimeout(function() {
+                        if (isAbort) {
+                            reject(new DOMException('Aborted', 'AbortError'));
+                        } else {
+                            reject(new TypeError(isTimeout ? 'Network request timed out' : 'Network request failed'));
+                        }
+                    }, 0);
+                } else if (streamController) {
+                    if (isAbort) {
+                        streamController.error(new DOMException('Aborted', 'AbortError'));
+                    } else {
+                        streamController.error(
+                            new TypeError(isTimeout ? 'Network request timed out' : 'Network request failed'));
+                    }
 
-        xhr.onerror = function() {
-            activeXHRs.delete(xhr);
-
-            if (!responseResolved) {
-                setTimeout(function() {
-                    reject(createNetworkError());
-                }, 0);
-            } else if (streamController) {
-                streamController.error(createNetworkError());
-                streamController = null;
-            }
-        };
-
-        xhr.ontimeout = function() {
-            activeXHRs.delete(xhr);
-
-            if (!responseResolved) {
-                setTimeout(function() {
-                    reject(createNetworkError('Network request timed out'));
-                }, 0);
-            } else if (streamController) {
-                streamController.error(createNetworkError('Network request timed out'));
-                streamController = null;
-            }
-        };
-
-        xhr.onabort = function() {
-            activeXHRs.delete(xhr);
-
-            if (!responseResolved) {
-                setTimeout(function() {
-                    reject(createAbortError());
-                }, 0);
-            } else if (streamController) {
-                streamController.error(createAbortError());
-                streamController = null;
-            }
-        };
-
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === InternalXHR.HEADERS_RECEIVED && !responseResolved) {
-                // Skip informational responses (1xx status codes like 100 Continue)
-                // These can occur on Windows before the actual response
-                if (xhr.status >= 100 && xhr.status < 200) {
-                    return;
+                    streamController = null;
                 }
-
-                responseResolved = true;
-
-                const options = {
-                    statusText: xhr.statusText,
-                    headers: parseHeaders(xhr.getAllResponseHeaders() || ''),
-                    status: xhr.status,
-                    url: xhr.responseURL
-                };
-
-                // Defer resolve to avoid potential issues
-                setTimeout(function() {
-                    resolve(new Response(responseBody, options));
-                }, 0);
-            }
-
-            // DONE (success or failure)
-            if (xhr.readyState === InternalXHR.DONE) {
-                if (request.signal) {
-                    request.signal.removeEventListener('abort', abortXhr);
+            } else {
+                if (streamController) {
+                    streamController.close();
+                    streamController = null;
                 }
             }
         };
 
-        xhr.open(request.method, request.url, true);
+        client.open(request.method, request.url, true);
 
         if (request.credentials === 'include') {
-            xhr.withCredentials = true;
-        } else if (request.credentials === 'omit') {
-            xhr.withCredentials = false;
+            const path = globalThis[Symbol.for('tjs.internal.modules.path')];
+            const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
+
+            if (!hasHomeDirCreated) {
+                mkdirSync(TJS_HOME, { recursive: true });
+                hasHomeDirCreated = true;
+            }
+
+            client.setCookieJar(path.join(TJS_HOME, 'cookies'));
         }
 
-        xhr.redirectMode = request.redirect;
+        client.redirectMode = request.redirect;
 
         if (init && typeof init.headers === 'object' && !(init.headers instanceof Headers)) {
             const names = [];
 
             Object.getOwnPropertyNames(init.headers).forEach(function(name) {
                 names.push(normalizeName(name));
-                xhr.setRequestHeader(name, normalizeValue(init.headers[name]));
+                client.setRequestHeader(name, normalizeValue(init.headers[name]));
             });
             request.headers.forEach(function(value, name) {
                 if (names.indexOf(name) === -1) {
-                    xhr.setRequestHeader(name, value);
+                    client.setRequestHeader(name, value);
                 }
             });
         } else {
             request.headers.forEach(function(value, name) {
-                xhr.setRequestHeader(name, value);
+                client.setRequestHeader(name, value);
             });
         }
 
         if (request.signal) {
-            request.signal.addEventListener('abort', abortXhr);
+            request.signal.addEventListener('abort', abortClient);
         }
 
         // Handle request body based on size
         if (request._bodySize === -1) {
             // Streaming body (ReadableStream)
+            client.streaming = true;
+
             const reader = request.body.getReader();
 
-            xhr.onsendstreamdata = function() {
+            const readChunk = () => {
                 reader.read().then(function({ value, done }) {
                     if (done) {
-                        xhr.sendStream(null);
+                        client.sendData(null);
                     } else {
-                        // Ensure we have a Uint8Array
-                        const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+                        if (!(value instanceof Uint8Array)) {
+                            client.abort();
+                            reject(new TypeError('ReadableStream body chunks must be Uint8Array'));
 
-                        xhr.sendStream(chunk);
+                            return;
+                        }
+
+                        client.sendData(value);
                     }
                 }).catch(function() {
-                    xhr.abort();
+                    client.abort();
                 });
             };
 
-            xhr.sendStream();  // Start streaming (triggers first onsendstreamdata)
+            client.ondrain = readChunk;
+            readChunk();
         } else if (request._bodySize > 0) {
             // Known-size body - read it all and send
             request.arrayBuffer().then(function(buf) {
-                xhr.send(new Uint8Array(buf));
+                client.sendData(new Uint8Array(buf));
+                client.sendData(null);
             }).catch(function(err) {
-                activeXHRs.delete(xhr);
+                activeClients.delete(client);
                 reject(err);
             });
         } else {
             // No body
-            xhr.send(null);
+            client.sendData(null);
         }
     });
 }
