@@ -6,6 +6,7 @@ import env from './env.js';
 import { open, makeDir, makeTempFile, remove, symlink } from './fs.js';
 import { lookup } from './lookup.js';
 import pathModule from './path.js';
+import { spawn } from './process.js';
 import { addSignalListener, removeSignalListener } from './signal.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
@@ -46,7 +47,6 @@ const exports = [
     'readLink',
     'realPath',
     'rename',
-    'spawn',
     'stat',
     'statFs',
     'tmpDir',
@@ -150,6 +150,14 @@ if (!core.isWorker) {
         value: removeSignalListener
     });
 }
+
+// Process.
+Object.defineProperty(tjs, 'spawn', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: spawn
+});
 
 // Sockets.
 Object.defineProperty(tjs, 'connect', {

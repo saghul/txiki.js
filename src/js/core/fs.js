@@ -1,7 +1,8 @@
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
 import pathModule from './path.js';
-import { readableStreamForHandle, writableStreamForHandle } from './stream-utils.js';
+
+const CHUNK_SIZE = 16640;
 
 const kReadable = Symbol('kReadable');
 const kWritable = Symbol('kWritable');
@@ -11,7 +12,26 @@ const fhProxyHandler = {
         switch (prop) {
             case 'readable': {
                 if (!target[kReadable]) {
-                    target[kReadable] = readableStreamForHandle(target);
+                    target[kReadable] = new ReadableStream({
+                        autoAllocateChunkSize: CHUNK_SIZE,
+                        type: 'bytes',
+                        async pull(controller) {
+                            const buf = controller.byobRequest.view;
+
+                            try {
+                                const nread = await target.read(buf);
+
+                                if (nread === null) {
+                                    controller.close();
+                                    controller.byobRequest.respond(0);
+                                } else {
+                                    controller.byobRequest.respond(nread);
+                                }
+                            } catch (e) {
+                                controller.error(e);
+                            }
+                        }
+                    });
                 }
 
                 return target[kReadable];
@@ -19,7 +39,11 @@ const fhProxyHandler = {
 
             case 'writable': {
                 if (!target[kWritable]) {
-                    target[kWritable] = writableStreamForHandle(target);
+                    target[kWritable] = new WritableStream({
+                        async write(chunk) {
+                            await target.write(chunk);
+                        }
+                    });
                 }
 
                 return target[kWritable];

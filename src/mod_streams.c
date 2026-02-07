@@ -35,10 +35,20 @@ static JSValue tjs_new_tcp(JSContext *ctx, int af);
 
 /* Stream */
 
+enum {
+    STREAM_CB_READ = 0,
+    STREAM_CB_WRITE,
+    STREAM_CB_CONNECT,
+    STREAM_CB_CONNECTION,
+    STREAM_CB_SHUTDOWN,
+    STREAM_CB_MAX,
+};
+
 typedef struct {
     JSContext *ctx;
     int closed;
     int finalized;
+    int reading;
     union {
         uv_handle_t handle;
         uv_stream_t stream;
@@ -46,33 +56,17 @@ typedef struct {
         uv_tty_t tty;
         uv_pipe_t pipe;
     } h;
+    JSValue callbacks[STREAM_CB_MAX];
     struct {
-        struct {
-            JSValue tarray;
-            uint8_t *data;
-            size_t len;
-        } b;
-        TJSPromise result;
+        JSValue tarray;
+        uint8_t *data;
+        size_t len;
     } read;
-    struct {
-        TJSPromise result;
-    } accept;
 } TJSStream;
-
-typedef struct {
-    uv_connect_t req;
-    TJSPromise result;
-} TJSConnectReq;
-
-typedef struct {
-    uv_shutdown_t req;
-    TJSPromise result;
-} TJSShutdownReq;
 
 typedef struct {
     uv_write_t req;
     JSValue tarray;
-    TJSPromise result;
 } TJSWriteReq;
 
 static TJSStream *tjs_tcp_get(JSContext *ctx, JSValue obj);
@@ -93,6 +87,45 @@ static void maybe_close(TJSStream *s) {
     }
 }
 
+static void maybe_invoke_callback(TJSStream *s, int callback, int argc, JSValue *argv) {
+    JSContext *ctx = s->ctx;
+    JSValue func = s->callbacks[callback];
+    if (!JS_IsFunction(ctx, func)) {
+        for (int i = 0; i < argc; i++) {
+            JS_FreeValue(ctx, argv[i]);
+        }
+        return;
+    }
+
+    tjs_call_handler(ctx, func, argc, argv);
+
+    for (int i = 0; i < argc; i++) {
+        JS_FreeValue(ctx, argv[i]);
+    }
+}
+
+static JSValue tjs_stream_callback_get(JSContext *ctx, JSValue this_val, int magic) {
+    JSClassID class_id;
+    TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
+    if (!s) {
+        return JS_EXCEPTION;
+    }
+    return JS_DupValue(ctx, s->callbacks[magic]);
+}
+
+static JSValue tjs_stream_callback_set(JSContext *ctx, JSValue this_val, JSValue value, int magic) {
+    JSClassID class_id;
+    TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
+    if (!s) {
+        return JS_EXCEPTION;
+    }
+    if (JS_IsFunction(ctx, value) || JS_IsUndefined(value) || JS_IsNull(value)) {
+        JS_FreeValue(ctx, s->callbacks[magic]);
+        s->callbacks[magic] = JS_DupValue(ctx, value);
+    }
+    return JS_UNDEFINED;
+}
+
 static JSValue tjs_stream_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JSClassID class_id;
     TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
@@ -100,14 +133,20 @@ static JSValue tjs_stream_close(JSContext *ctx, JSValue this_val, int argc, JSVa
         return JS_EXCEPTION;
     }
 
-    JSValue arg = JS_UNDEFINED;
-    if (TJS_IsPromisePending(ctx, &s->read.result)) {
-        TJS_SettlePromise(ctx, &s->read.result, 0, 1, &arg);
-        TJS_ClearPromise(ctx, &s->read.result);
+    if (s->reading) {
+        uv_read_stop(&s->h.stream);
+        s->reading = 0;
+        JSValue arg = JS_UNDEFINED;
+        maybe_invoke_callback(s, STREAM_CB_READ, 1, &arg);
+        JS_FreeValue(ctx, s->read.tarray);
+        s->read.tarray = JS_UNDEFINED;
+        s->read.data = NULL;
+        s->read.len = 0;
     }
-    if (TJS_IsPromisePending(ctx, &s->accept.result)) {
-        TJS_SettlePromise(ctx, &s->accept.result, 0, 1, &arg);
-        TJS_ClearPromise(ctx, &s->accept.result);
+
+    {
+        JSValue args[2] = { JS_UNDEFINED, JS_UNDEFINED };
+        maybe_invoke_callback(s, STREAM_CB_CONNECTION, 2, args);
     }
 
     maybe_close(s);
@@ -117,46 +156,46 @@ static JSValue tjs_stream_close(JSContext *ctx, JSValue this_val, int argc, JSVa
 static void uv__stream_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     TJSStream *s = handle->data;
     CHECK_NOT_NULL(s);
-    buf->base = (char *) s->read.b.data;
-    buf->len = s->read.b.len;
+    buf->base = (char *) s->read.data;
+    buf->len = s->read.len;
 }
 
 static void uv__stream_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
     TJSStream *s = handle->data;
     CHECK_NOT_NULL(s);
 
-    uv_read_stop(handle);
+    if (nread == 0) {
+        return; /* EAGAIN, ignore */
+    }
 
     JSContext *ctx = s->ctx;
     JSValue arg;
-    int is_reject = 0;
     if (nread < 0) {
         if (nread == UV_EOF) {
             arg = JS_NULL;
         } else {
             arg = tjs_new_error(ctx, nread);
-            is_reject = 1;
         }
+        uv_read_stop(handle);
+        s->reading = 0;
+        JS_FreeValue(ctx, s->read.tarray);
+        s->read.tarray = JS_UNDEFINED;
+        s->read.data = NULL;
+        s->read.len = 0;
     } else {
         arg = JS_NewInt32(ctx, nread);
     }
 
-    TJS_SettlePromise(ctx, &s->read.result, is_reject, 1, &arg);
-    TJS_ClearPromise(ctx, &s->read.result);
-
-    JS_FreeValue(ctx, s->read.b.tarray);
-    s->read.b.tarray = JS_UNDEFINED;
-    s->read.b.data = NULL;
-    s->read.b.len = 0;
+    maybe_invoke_callback(s, STREAM_CB_READ, 1, &arg);
 }
 
-static JSValue tjs_stream_read(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+static JSValue tjs_stream_start_read(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JSClassID class_id;
     TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
     if (!s) {
         return JS_EXCEPTION;
     }
-    if (TJS_IsPromisePending(ctx, &s->read.result)) {
+    if (s->reading) {
         return tjs_throw_errno(ctx, UV_EBUSY);
     }
 
@@ -165,21 +204,43 @@ static JSValue tjs_stream_read(JSContext *ctx, JSValue this_val, int argc, JSVal
     if (!buf) {
         return JS_EXCEPTION;
     }
-    s->read.b.tarray = JS_DupValue(ctx, argv[0]);
-    s->read.b.data = buf;
-    s->read.b.len = size;
+    s->read.tarray = JS_DupValue(ctx, argv[0]);
+    s->read.data = buf;
+    s->read.len = size;
 
     int r = uv_read_start(&s->h.stream, uv__stream_alloc_cb, uv__stream_read_cb);
     if (r != 0) {
-        JS_FreeValue(ctx, s->read.b.tarray);
-        s->read.b.tarray = JS_UNDEFINED;
-        s->read.b.data = NULL;
-        s->read.b.len = 0;
+        JS_FreeValue(ctx, s->read.tarray);
+        s->read.tarray = JS_UNDEFINED;
+        s->read.data = NULL;
+        s->read.len = 0;
 
         return tjs_throw_errno(ctx, r);
     }
 
-    return TJS_InitPromise(ctx, &s->read.result);
+    s->reading = 1;
+    return JS_UNDEFINED;
+}
+
+static JSValue tjs_stream_stop_read(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    JSClassID class_id;
+    TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
+    if (!s) {
+        return JS_EXCEPTION;
+    }
+    if (!s->reading) {
+        return JS_UNDEFINED;
+    }
+
+    uv_read_stop(&s->h.stream);
+    s->reading = 0;
+
+    JS_FreeValue(ctx, s->read.tarray);
+    s->read.tarray = JS_UNDEFINED;
+    s->read.data = NULL;
+    s->read.len = 0;
+
+    return JS_UNDEFINED;
 }
 
 static void uv__stream_write_cb(uv_write_t *req, int status) {
@@ -189,16 +250,14 @@ static void uv__stream_write_cb(uv_write_t *req, int status) {
     JSContext *ctx = s->ctx;
     TJSWriteReq *wr = req->data;
 
-    int is_reject = 0;
     JSValue arg;
     if (status < 0) {
         arg = tjs_new_error(ctx, status);
-        is_reject = 1;
     } else {
         arg = JS_UNDEFINED;
     }
 
-    TJS_SettlePromise(ctx, &wr->result, is_reject, 1, &arg);
+    maybe_invoke_callback(s, STREAM_CB_WRITE, 1, &arg);
     JS_FreeValue(ctx, wr->tarray);
     js_free(ctx, wr);
 }
@@ -223,8 +282,7 @@ static JSValue tjs_stream_write(JSContext *ctx, JSValue this_val, int argc, JSVa
     r = uv_try_write(&s->h.stream, &b, 1);
 
     if (r == size) {
-        JSValue val = JS_NewInt64(ctx, size);
-        return TJS_NewResolvedPromise(ctx, 1, &val);
+        return JS_NewInt64(ctx, size);
     }
 
     /* Do an async write, copy the data. */
@@ -249,7 +307,7 @@ static JSValue tjs_stream_write(JSContext *ctx, JSValue this_val, int argc, JSVa
         return tjs_throw_errno(ctx, r);
     }
 
-    return TJS_InitPromise(ctx, &wr->result);
+    return JS_UNDEFINED;
 }
 
 static void uv__stream_shutdown_cb(uv_shutdown_t *req, int status) {
@@ -257,19 +315,16 @@ static void uv__stream_shutdown_cb(uv_shutdown_t *req, int status) {
     CHECK_NOT_NULL(s);
 
     JSContext *ctx = s->ctx;
-    TJSShutdownReq *sr = req->data;
     JSValue arg;
-    int is_reject = 0;
     if (status == 0) {
         arg = JS_UNDEFINED;
     } else {
         arg = tjs_new_error(ctx, status);
-        is_reject = 1;
     }
 
-    TJS_SettlePromise(ctx, &sr->result, is_reject, 1, &arg);
+    maybe_invoke_callback(s, STREAM_CB_SHUTDOWN, 1, &arg);
 
-    js_free(ctx, sr);
+    js_free(ctx, req);
 }
 
 static JSValue tjs_stream_shutdown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -279,18 +334,18 @@ static JSValue tjs_stream_shutdown(JSContext *ctx, JSValue this_val, int argc, J
         return JS_EXCEPTION;
     }
 
-    TJSShutdownReq *sr = js_malloc(ctx, sizeof(*sr));
-    if (!sr) {
+    uv_shutdown_t *req = js_malloc(ctx, sizeof(*req));
+    if (!req) {
         return JS_EXCEPTION;
     }
-    sr->req.data = sr;
 
-    int r = uv_shutdown(&sr->req, &s->h.stream, uv__stream_shutdown_cb);
+    int r = uv_shutdown(req, &s->h.stream, uv__stream_shutdown_cb);
     if (r != 0) {
+        js_free(ctx, req);
         return tjs_throw_errno(ctx, r);
     }
 
-    return TJS_InitPromise(ctx, &sr->result);
+    return JS_UNDEFINED;
 }
 
 static JSValue tjs_stream_fileno(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -319,42 +374,38 @@ static void uv__stream_connect_cb(uv_connect_t *req, int status) {
     CHECK_NOT_NULL(s);
 
     JSContext *ctx = s->ctx;
-    TJSConnectReq *cr = req->data;
     JSValue arg;
-    int is_reject = 0;
     if (status == 0) {
         arg = JS_UNDEFINED;
     } else {
         arg = tjs_new_error(ctx, status);
-        is_reject = 1;
     }
 
-    TJS_SettlePromise(ctx, &cr->result, is_reject, 1, &arg);
+    maybe_invoke_callback(s, STREAM_CB_CONNECT, 1, &arg);
 
-    js_free(ctx, cr);
+    js_free(ctx, req);
 }
 
 static void uv__stream_connection_cb(uv_stream_t *handle, int status) {
     TJSStream *s = handle->data;
     CHECK_NOT_NULL(s);
 
-    if (!TJS_IsPromisePending(s->ctx, &s->accept.result)) {
-        // TODO - handle this.
+    if (!JS_IsFunction(s->ctx, s->callbacks[STREAM_CB_CONNECTION])) {
         return;
     }
+
     JSContext *ctx = s->ctx;
-    JSValue arg;
-    int is_reject = 0;
+    JSValue args[2];
     if (status == 0) {
         TJSStream *t2;
         switch (handle->type) {
             case UV_TCP:
-                arg = tjs_new_tcp(ctx, AF_UNSPEC);
-                t2 = tjs_tcp_get(ctx, arg);
+                args[1] = tjs_new_tcp(ctx, AF_UNSPEC);
+                t2 = tjs_tcp_get(ctx, args[1]);
                 break;
             case UV_NAMED_PIPE:
-                arg = tjs_new_pipe(ctx);
-                t2 = tjs_pipe_get(ctx, arg);
+                args[1] = tjs_new_pipe(ctx);
+                t2 = tjs_pipe_get(ctx, args[1]);
                 break;
             default:
                 abort();
@@ -362,17 +413,18 @@ static void uv__stream_connection_cb(uv_stream_t *handle, int status) {
 
         int r = uv_accept(handle, &t2->h.stream);
         if (r != 0) {
-            JS_FreeValue(ctx, arg);
-            arg = tjs_new_error(ctx, r);
-            is_reject = 1;
+            JS_FreeValue(ctx, args[1]);
+            args[0] = tjs_new_error(ctx, r);
+            args[1] = JS_UNDEFINED;
+        } else {
+            args[0] = JS_UNDEFINED;
         }
     } else {
-        arg = tjs_new_error(ctx, status);
-        is_reject = 1;
+        args[0] = tjs_new_error(ctx, status);
+        args[1] = JS_UNDEFINED;
     }
 
-    TJS_SettlePromise(ctx, &s->accept.result, is_reject, 1, &arg);
-    TJS_ClearPromise(ctx, &s->accept.result);
+    maybe_invoke_callback(s, STREAM_CB_CONNECTION, 2, args);
 }
 
 static JSValue tjs_stream_listen(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -392,18 +444,6 @@ static JSValue tjs_stream_listen(JSContext *ctx, JSValue this_val, int argc, JSV
         return tjs_throw_errno(ctx, r);
     }
     return JS_UNDEFINED;
-}
-
-static JSValue tjs_stream_accept(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    JSClassID class_id;
-    TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
-    if (!s) {
-        return JS_EXCEPTION;
-    }
-    if (TJS_IsPromisePending(ctx, &s->accept.result)) {
-        return tjs_throw_errno(ctx, UV_EBUSY);
-    }
-    return TJS_InitPromise(ctx, &s->accept.result);
 }
 
 static JSValue tjs_stream_set_blocking(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -428,12 +468,14 @@ static JSValue tjs_stream_set_blocking(JSContext *ctx, JSValue this_val, int arg
 static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
     s->ctx = ctx;
     s->h.handle.data = s;
-    s->read.b.tarray = JS_UNDEFINED;
-    s->read.b.data = NULL;
-    s->read.b.len = 0;
+    s->reading = 0;
+    s->read.tarray = JS_UNDEFINED;
+    s->read.data = NULL;
+    s->read.len = 0;
 
-    TJS_ClearPromise(ctx, &s->read.result);
-    TJS_ClearPromise(ctx, &s->accept.result);
+    for (int i = 0; i < STREAM_CB_MAX; i++) {
+        s->callbacks[i] = JS_UNDEFINED;
+    }
 
     JS_SetOpaque(obj, s);
     return obj;
@@ -441,9 +483,10 @@ static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
 
 static void tjs_stream_finalizer(JSRuntime *rt, TJSStream *s) {
     if (s) {
-        TJS_FreePromiseRT(rt, &s->accept.result);
-        TJS_FreePromiseRT(rt, &s->read.result);
-        JS_FreeValueRT(rt, s->read.b.tarray);
+        for (int i = 0; i < STREAM_CB_MAX; i++) {
+            JS_FreeValueRT(rt, s->callbacks[i]);
+        }
+        JS_FreeValueRT(rt, s->read.tarray);
         s->finalized = 1;
         if (s->closed) {
             js_free_rt(rt, s);
@@ -455,9 +498,10 @@ static void tjs_stream_finalizer(JSRuntime *rt, TJSStream *s) {
 
 static void tjs_stream_mark(JSRuntime *rt, TJSStream *s, JS_MarkFunc *mark_func) {
     if (s) {
-        JS_MarkValue(rt, s->read.b.tarray, mark_func);
-        TJS_MarkPromise(rt, &s->read.result, mark_func);
-        TJS_MarkPromise(rt, &s->accept.result, mark_func);
+        for (int i = 0; i < STREAM_CB_MAX; i++) {
+            JS_MarkValue(rt, s->callbacks[i], mark_func);
+        }
+        JS_MarkValue(rt, s->read.tarray, mark_func);
     }
 }
 
@@ -556,19 +600,18 @@ static JSValue tjs_tcp_connect(JSContext *ctx, JSValue this_val, int argc, JSVal
         return JS_EXCEPTION;
     }
 
-    TJSConnectReq *cr = js_malloc(ctx, sizeof(*cr));
-    if (!cr) {
+    uv_connect_t *req = js_malloc(ctx, sizeof(*req));
+    if (!req) {
         return JS_EXCEPTION;
     }
-    cr->req.data = cr;
 
-    r = uv_tcp_connect(&cr->req, &t->h.tcp, (struct sockaddr *) &ss, uv__stream_connect_cb);
+    r = uv_tcp_connect(req, &t->h.tcp, (struct sockaddr *) &ss, uv__stream_connect_cb);
     if (r != 0) {
-        js_free(ctx, cr);
+        js_free(ctx, req);
         return tjs_throw_errno(ctx, r);
     }
 
-    return TJS_InitPromise(ctx, &cr->result);
+    return JS_UNDEFINED;
 }
 
 static JSValue tjs_tcp_bind(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -792,7 +835,7 @@ static TJSStream *tjs_pipe_get(JSContext *ctx, JSValue obj) {
 }
 
 uv_stream_t *tjs_pipe_get_stream(JSContext *ctx, JSValue obj) {
-    TJSStream *s = tjs_pipe_get(ctx, obj);
+    TJSStream *s = JS_GetOpaque(obj, tjs_pipe_class_id);
     if (s) {
         return &s->h.stream;
     }
@@ -837,21 +880,20 @@ static JSValue tjs_pipe_connect(JSContext *ctx, JSValue this_val, int argc, JSVa
         return JS_EXCEPTION;
     }
 
-    TJSConnectReq *cr = js_malloc(ctx, sizeof(*cr));
-    if (!cr) {
+    uv_connect_t *req = js_malloc(ctx, sizeof(*req));
+    if (!req) {
         JS_FreeCString(ctx, name);
         return JS_EXCEPTION;
     }
-    cr->req.data = cr;
 
-    int r = uv_pipe_connect2(&cr->req, &t->h.pipe, name, len, 0, uv__stream_connect_cb);
+    int r = uv_pipe_connect2(req, &t->h.pipe, name, len, 0, uv__stream_connect_cb);
     JS_FreeCString(ctx, name);
     if (r != 0) {
-        js_free(ctx, cr);
+        js_free(ctx, req);
         return tjs_throw_errno(ctx, r);
     }
 
-    return TJS_InitPromise(ctx, &cr->result);
+    return JS_UNDEFINED;
 }
 
 static JSValue tjs_pipe_bind(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -900,12 +942,17 @@ static JSValue tjs_pipe_open(JSContext *ctx, JSValue this_val, int argc, JSValue
 
 /* clang-format off */
 static const JSCFunctionListEntry tjs_stream_proto_funcs[] = {
+    JS_CGETSET_MAGIC_DEF("onread", tjs_stream_callback_get, tjs_stream_callback_set, STREAM_CB_READ),
+    JS_CGETSET_MAGIC_DEF("onwrite", tjs_stream_callback_get, tjs_stream_callback_set, STREAM_CB_WRITE),
+    JS_CGETSET_MAGIC_DEF("onconnect", tjs_stream_callback_get, tjs_stream_callback_set, STREAM_CB_CONNECT),
+    JS_CGETSET_MAGIC_DEF("onconnection", tjs_stream_callback_get, tjs_stream_callback_set, STREAM_CB_CONNECTION),
+    JS_CGETSET_MAGIC_DEF("onshutdown", tjs_stream_callback_get, tjs_stream_callback_set, STREAM_CB_SHUTDOWN),
     TJS_CFUNC_DEF("listen", 1, tjs_stream_listen),
-    TJS_CFUNC_DEF("accept", 0, tjs_stream_accept),
+    TJS_CFUNC_DEF("startRead", 1, tjs_stream_start_read),
+    TJS_CFUNC_DEF("stopRead", 0, tjs_stream_stop_read),
     TJS_CFUNC_DEF("shutdown", 0, tjs_stream_shutdown),
     TJS_CFUNC_DEF("setBlocking", 1, tjs_stream_set_blocking),
     TJS_CFUNC_DEF("close", 0, tjs_stream_close),
-    TJS_CFUNC_DEF("read", 1, tjs_stream_read),
     TJS_CFUNC_DEF("write", 1, tjs_stream_write),
     TJS_CFUNC_DEF("fileno", 0, tjs_stream_fileno),
 };
