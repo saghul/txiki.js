@@ -135,7 +135,7 @@ add_library(tjs STATIC
     src/wasm.c
     src/worker.c
     src/ws.c
-    src/xhr.c
+    src/httpclient.c
     src/mod_dns.c
     src/mod_engine.c
     src/mod_ffi.c
