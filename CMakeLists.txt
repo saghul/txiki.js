@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(tjs LANGUAGES C)
+project(tjs LANGUAGES C CXX)
 
 include(ExternalProject)
 include(GNUInstallDirs)
@@ -107,6 +107,16 @@ endif()
 
 find_package(CURL REQUIRED)
 
+add_library(ada STATIC
+    deps/ada/ada.cpp
+)
+target_include_directories(ada PUBLIC deps/ada)
+target_compile_options(ada PRIVATE -fno-exceptions -fno-rtti)
+set_target_properties(ada PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+)
+
 add_library(tjs STATIC
     src/builtins.c
     src/curl-utils.c
@@ -137,6 +147,7 @@ add_library(tjs STATIC
     src/mod_streams.c
     src/mod_sys.c
     src/mod_udp.c
+    src/mod_url.c
     src/bundles/c/core/core.c
     src/bundles/c/core/polyfills.c
     src/bundles/c/core/run-main.c
@@ -219,7 +230,7 @@ endif()
 
 target_include_directories(tjs PUBLIC src)
 target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
-target_link_libraries(tjs qjs uv_a vmlib sqlite3 CURL::libcurl)
+target_link_libraries(tjs qjs uv_a vmlib sqlite3 CURL::libcurl ada)
 
 if (BUILD_WITH_MIMALLOC)
     target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)
