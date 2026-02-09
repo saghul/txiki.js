@@ -1,7 +1,3 @@
-import {
-    initWriteQueue, writeWithQueue, readableStreamForHandle, writableStreamForHandle
-} from './stream-utils.js';
-
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
 const CHUNK_SIZE = 16640;
@@ -17,106 +13,189 @@ function silentClose(handle) {
     }
 }
 
-function readableStreamForFileHandle(handle) {
-    return new ReadableStream({
-        autoAllocateChunkSize: CHUNK_SIZE,
-        type: 'bytes',
-        async pull(controller) {
-            const buf = controller.byobRequest.view;
+class StdioReadableStream extends ReadableStream {
+    constructor(handle, type) {
+        if (type === 'file') {
+            super({
+                autoAllocateChunkSize: CHUNK_SIZE,
+                type: 'bytes',
+                async pull(controller) {
+                    const buf = controller.byobRequest.view;
 
-            try {
-                const nread = await handle.read(buf);
+                    try {
+                        const nread = await handle.read(buf);
 
-                if (nread === null) {
+                        if (nread === null) {
+                            silentClose(handle);
+                            controller.close();
+                            controller.byobRequest.respond(0);
+                        } else {
+                            controller.byobRequest.respond(nread);
+                        }
+                    } catch (e) {
+                        controller.error(e);
+                        silentClose(handle);
+                    }
+                },
+                cancel() {
                     silentClose(handle);
-                    controller.close();
-                    controller.byobRequest.respond(0);
-                } else {
-                    controller.byobRequest.respond(nread);
                 }
-            } catch (e) {
-                controller.error(e);
-                silentClose(handle);
-            }
-        },
-        cancel() {
-            silentClose(handle);
+            });
+        } else {
+            let reading = false;
+
+            super({
+                start(controller) {
+                    handle.onread = chunk => {
+                        if (chunk instanceof Uint8Array) {
+                            controller.enqueue(chunk);
+
+                            if (controller.desiredSize <= 0) {
+                                handle.stopRead();
+                                reading = false;
+                            }
+                        } else if (chunk === null) {
+                            reading = false;
+                            controller.close();
+                            silentClose(handle);
+                        } else if (chunk instanceof Error) {
+                            reading = false;
+                            controller.error(chunk);
+                            silentClose(handle);
+                        } else {
+                            // undefined - handle closed
+                            reading = false;
+                            controller.close();
+                        }
+                    };
+                },
+                pull() {
+                    if (!reading) {
+                        reading = true;
+                        handle.startRead();
+                    }
+                },
+                cancel() {
+                    if (reading) {
+                        handle.stopRead();
+                        reading = false;
+                    }
+
+                    handle.onread = null;
+                    silentClose(handle);
+                }
+            });
         }
-    });
+
+        this[kHandle] = handle;
+        this[kType] = type;
+    }
+
+    get isTerminal() {
+        return this[kType] === 'tty';
+    }
+
+    get type() {
+        return this[kType];
+    }
+
+    setRawMode(rawMode) {
+        if (!this.isTerminal) {
+            throw new Error('not a terminal');
+        }
+
+        const ttyMode = rawMode ? core.TTY_MODE_RAW : core.TTY_MODE_NORMAL;
+
+        this[kHandle].setMode(ttyMode);
+    }
 }
 
-function createReadableStdio(handle, type, isFile) {
-    const stream = isFile ? readableStreamForFileHandle(handle) : readableStreamForHandle(handle);
+class StdioWritableStream extends WritableStream {
+    constructor(handle, type) {
+        if (type === 'file') {
+            super({
+                async write(chunk, controller) {
+                    try {
+                        await handle.write(chunk);
+                    } catch (e) {
+                        controller.error(e);
+                        silentClose(handle);
+                    }
+                },
+                close() {
+                    silentClose(handle);
+                },
+                abort() {
+                    silentClose(handle);
+                }
+            });
+        } else {
+            const queue = [];
 
-    stream[kHandle] = handle;
-    stream[kType] = type;
+            handle.onwrite = error => {
+                const entry = queue.shift();
 
-    Object.defineProperty(stream, 'isTerminal', {
-        get() {
-            return this[kType] === 'tty';
+                if (entry) {
+                    if (error) {
+                        entry.reject(error);
+                    } else {
+                        entry.resolve();
+                    }
+                }
+            };
+
+            super({
+                async write(chunk, controller) {
+                    try {
+                        const result = handle.write(chunk);
+
+                        if (typeof result !== 'number') {
+                            const { promise, resolve, reject } = Promise.withResolvers();
+
+                            queue.push({ resolve, reject });
+                            await promise;
+                        }
+                    } catch (e) {
+                        controller.error(e);
+                        silentClose(handle);
+                    }
+                },
+                close() {
+                    silentClose(handle);
+                },
+                abort() {
+                    silentClose(handle);
+                }
+            });
         }
-    });
 
-    Object.defineProperty(stream, 'type', {
-        get() {
-            return this[kType];
+        this[kHandle] = handle;
+        this[kType] = type;
+    }
+
+    get isTerminal() {
+        return this[kType] === 'tty';
+    }
+
+    get type() {
+        return this[kType];
+    }
+
+    get width() {
+        if (!this.isTerminal) {
+            throw new Error('not a terminal');
         }
-    });
 
-    Object.defineProperty(stream, 'setRawMode', {
-        value(rawMode) {
-            if (!this.isTerminal) {
-                throw new Error('not a terminal');
-            }
+        return this[kHandle].getWinSize().width;
+    }
 
-            const ttyMode = rawMode ? core.TTY_MODE_RAW : core.TTY_MODE_NORMAL;
-
-            this[kHandle].setMode(ttyMode);
+    get height() {
+        if (!this.isTerminal) {
+            throw new Error('not a terminal');
         }
-    });
 
-    return stream;
-}
-
-function createWritableStdio(rawHandle, writeFn, type) {
-    const stream = writableStreamForHandle(rawHandle, writeFn);
-
-    stream[kHandle] = rawHandle;
-    stream[kType] = type;
-
-    Object.defineProperty(stream, 'isTerminal', {
-        get() {
-            return this[kType] === 'tty';
-        }
-    });
-
-    Object.defineProperty(stream, 'type', {
-        get() {
-            return this[kType];
-        }
-    });
-
-    Object.defineProperty(stream, 'width', {
-        get() {
-            if (!this.isTerminal) {
-                throw new Error('not a terminal');
-            }
-
-            return this[kHandle].getWinSize().width;
-        }
-    });
-
-    Object.defineProperty(stream, 'height', {
-        get() {
-            if (!this.isTerminal) {
-                throw new Error('not a terminal');
-            }
-
-            return this[kHandle].getWinSize().height;
-        }
-    });
-
-    return stream;
+        return this[kHandle].getWinSize().height;
+    }
 }
 
 function createStdioStream(fd) {
@@ -134,12 +213,10 @@ function createStdioStream(fd) {
             }
 
             if (isStdin) {
-                return createReadableStdio(rawHandle, type, false);
+                return new StdioReadableStream(rawHandle, type);
             }
 
-            const writeQueue = initWriteQueue(rawHandle);
-
-            return createWritableStdio(rawHandle, buf => writeWithQueue(rawHandle, writeQueue, buf), type);
+            return new StdioWritableStream(rawHandle, type);
         }
 
         case 'pipe': {
@@ -153,22 +230,20 @@ function createStdioStream(fd) {
             }
 
             if (isStdin) {
-                return createReadableStdio(rawHandle, type, false);
+                return new StdioReadableStream(rawHandle, type);
             }
 
-            const writeQueue = initWriteQueue(rawHandle);
-
-            return createWritableStdio(rawHandle, buf => writeWithQueue(rawHandle, writeQueue, buf), type);
+            return new StdioWritableStream(rawHandle, type);
         }
 
         case 'file': {
             const rawHandle = new core.File(fd, pathByFd(fd));
 
             if (isStdin) {
-                return createReadableStdio(rawHandle, type, true);
+                return new StdioReadableStream(rawHandle, type);
             }
 
-            return createWritableStdio(rawHandle, buf => rawHandle.write(buf), type);
+            return new StdioWritableStream(rawHandle, type);
         }
 
         default:
