@@ -61,7 +61,6 @@ class Test {
             timeout: Boolean(this._timeout)
         };
     }
-
 }
 
 function printResult(result) {
