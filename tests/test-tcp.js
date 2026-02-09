@@ -11,34 +11,26 @@ async function doEchoServer(server) {
         return;
     }
 
-    const buf = new Uint8Array(4096);
-    while (true) {
-        const nread = await conn.read(buf);
-        if (nread === null) {
-            break;
-        }
-        conn.write(buf.slice(0, nread));
-    }
+    await conn.readable.pipeTo(conn.writable);
 }
 
 const server = await tjs.listen('tcp', '0.0.0.0');
 
 doEchoServer(server);
 
-const readBuf = new Uint8Array(4096);
-
 const serverAddr = server.localAddress;
 const client = await tjs.connect('tcp', serverAddr.ip, serverAddr.port);
 client.setKeepAlive(true, 30);
 client.setNoDelay(true);
-client.write(encoder.encode('PING'));
-let dataStr, nread;
-nread = await client.read(readBuf);
-dataStr = decoder.decode(readBuf.subarray(0, nread));
+const reader = client.readable.getReader();
+const writer = client.writable.getWriter();
+await writer.write(encoder.encode('PING'));
+let { value, done } = await reader.read();
+let dataStr = decoder.decode(value);
 assert.eq(dataStr, "PING", "sending works");
 assert.throws(() => { client.write("PING"); }, TypeError, "sending anything else gives TypeError");
 assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
-client.close();
+await reader.cancel();
 server.close();
 
 const server1 = await tjs.listen('tcp', '127.0.0.1');

@@ -7,39 +7,43 @@ const LF = '\n'.charCodeAt();
 const CR = '\r'.charCodeAt();
 
 async function readStdinLine() {
-    const reader = tjs.stdin.getReader({ mode: 'byob' });
+    const reader = tjs.stdin.getReader();
     const buf = [];
 
     try {
         // eslint-disable-next-line no-constant-condition
         while (true) {
-            const { value, done } = await reader.read(new Uint8Array(1));
+            const { value, done } = await reader.read();
 
             if (done || !value || value.length === 0) {
                 break;
             }
 
-            const c = value[0];
+            let lineEnd = false;
 
-            if (c === CR) {
-                const { value: value2, done: done2 } = await reader.read(new Uint8Array(1));
+            for (let i = 0; i < value.length; i++) {
+                const c = value[i];
 
-                if (!done2 && value2 && value2.length > 0 && value2[0] === LF) {
+                if (c === CR) {
+                    if (i + 1 < value.length && value[i + 1] === LF) {
+                        i++;
+                    }
+
+                    lineEnd = true;
                     break;
                 }
 
-                buf.push(CR);
-
-                if (done2 || !value2 || value2.length === 0) {
+                if (c === LF) {
+                    lineEnd = true;
                     break;
                 }
+
+                buf.push(c);
             }
 
-            if (c === LF) {
+            if (lineEnd) {
                 break;
             }
-
-            buf.push(c);
         }
     } finally {
         reader.releaseLock();

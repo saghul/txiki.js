@@ -21,13 +21,5 @@ const conn = await tjs.connect('tcp', options.connect, options.port);
 
 console.log(`Connected to ${addr(conn.remoteAddress)}`);
 
-const buf = new Uint8Array(65536);
-while (true) {
-    const nread = await conn.read(buf);
-    if (nread === null) {
-        console.log('connection closed!');
-        break;
-    }
-    //console.log(`Received: ${new TextDecoder().decode(data)}`);
-    await conn.write(buf.subarray(0, nread));
-}
+await conn.readable.pipeTo(conn.writable);
+console.log('connection closed!');

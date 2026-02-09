@@ -1,6 +1,6 @@
 import { isIP, lookup } from './lookup.js';
 import {
-    readFromHandle, initWriteQueue, writeWithQueue, readableStreamForHandle, writableStreamForHandle
+    initWriteQueue, writeWithQueue, readableStreamForHandle, writableStreamForHandle
 } from './stream-utils.js';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
@@ -193,14 +193,13 @@ class Connection {
 
     get writable() {
         if (!this[kWritable]) {
-            this[kWritable] = writableStreamForHandle(this[kHandle], buf => this.write(buf));
+            const handle = this[kHandle];
+            const queue = this[kWriteQueue];
+
+            this[kWritable] = writableStreamForHandle(handle, buf => writeWithQueue(handle, queue, buf));
         }
 
         return this[kWritable];
-    }
-
-    read(buf) {
-        return readFromHandle(this[kHandle], buf);
     }
 
     write(buf) {
@@ -327,25 +326,62 @@ class DatagramEndpoint {
         };
     }
 
-    recv(buf) {
-        const handle = this[kHandle];
-        const { promise, resolve, reject } = Promise.withResolvers();
+    get readable() {
+        if (!this[kReadable]) {
+            const handle = this[kHandle];
+            let receiving = false;
 
-        handle.onrecv = (nread, addr, partial) => {
-            handle.onrecv = null;
+            this[kReadable] = new ReadableStream({
+                start(controller) {
+                    handle.onrecv = msg => {
+                        if (msg instanceof Error) {
+                            controller.error(msg);
+                        } else if (typeof msg === 'undefined') {
+                            controller.close();
+                        } else {
+                            controller.enqueue(msg);
 
-            if (typeof nread === 'undefined') {
-                resolve({ nread: null, addr: undefined, partial: false });
-            } else if (typeof nread === 'number') {
-                resolve({ nread, addr, partial });
-            } else {
-                reject(nread);
-            }
-        };
+                            if (receiving) {
+                                handle.stopRecv();
+                                receiving = false;
+                            }
+                        }
+                    };
+                },
+                pull() {
+                    receiving = true;
+                    handle.startRecv();
+                },
+                cancel() {
+                    if (receiving) {
+                        handle.stopRecv();
+                        receiving = false;
+                    }
 
-        handle.startRecv(buf);
+                    handle.onrecv = null;
+                }
+            });
+        }
 
-        return promise;
+        return this[kReadable];
+    }
+
+    get writable() {
+        if (!this[kWritable]) {
+            const endpoint = this;
+
+            this[kWritable] = new WritableStream({
+                async write({ data, addr }, controller) {
+                    try {
+                        await endpoint.send(data, addr);
+                    } catch (e) {
+                        controller.error(e);
+                    }
+                }
+            });
+        }
+
+        return this[kWritable];
     }
 
     send(buf, taddr) {

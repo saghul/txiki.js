@@ -14,14 +14,7 @@ if (navigator.userAgentData.platform === 'Linux') {
             return;
         }
 
-        const buf = new Uint8Array(4096);
-        while (true) {
-            const nread = await conn.read(buf);
-            if (nread === null) {
-                break;
-            }
-            conn.write(buf.slice(0, nread));
-        }
+        await conn.readable.pipeTo(conn.writable);
     }
 
     const server = await tjs.listen('pipe', pipeName);
@@ -30,10 +23,11 @@ if (navigator.userAgentData.platform === 'Linux') {
 
     const client = await tjs.connect('pipe', server.localAddress);
 
-    client.write(encoder.encode('PING'));
-    const buf = new Uint8Array(4096);
-    const nread = await client.read(buf);
-    assert.eq(decoder.decode(buf.subarray(0, nread)), "PING", "sending works");
-    client.close();
+    const reader = client.readable.getReader();
+    const writer = client.writable.getWriter();
+    await writer.write(encoder.encode('PING'));
+    const { value } = await reader.read();
+    assert.eq(decoder.decode(value), "PING", "sending works");
+    await reader.cancel();
     server.close();
 }

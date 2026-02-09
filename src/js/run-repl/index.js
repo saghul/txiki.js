@@ -153,7 +153,7 @@ import { Database } from 'tjs:sqlite';
     var encoder = new TextEncoder();
     var stdoutWriter = tjs.stdout.getWriter();
     var stderrWriter = tjs.stderr.getWriter();
-    var stdinReader = tjs.stdin.getReader({ mode: 'byob' });
+    var stdinReader = tjs.stdin.getReader();
     var { evalScript, loadScript } = globalThis[Symbol.for('tjs.internal.core')];
     var std = {
         evalScript: expr => { return evalScript(expr) },
@@ -197,8 +197,7 @@ import { Database } from 'tjs:sqlite';
     
     async function term_read_handler() {
         while (term_read) {
-            var readBuf = new Uint8Array(64);
-            const { value, done } = await stdinReader.read(readBuf);
+            const { value, done } = await stdinReader.read();
 
             if (done) {
                 break;

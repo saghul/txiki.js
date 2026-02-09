@@ -98,8 +98,7 @@ const options = getopts(tjs.args.slice(1), {
     stopEarly: true,
     unknown: option => {
         if (![ 'memory-limit', 'stack-size' ].includes(option)) {
-            console.log(`${exeName}: unrecognized option: ${option}`);
-            tjs.exit(1);
+            throw `unrecognized option: ${option}`;
         }
 
         return option;
@@ -134,8 +133,7 @@ if (options.help) {
         const [ expr ] = subargv;
 
         if (!expr) {
-            console.log(helpEval);
-            tjs.exit(1);
+            throw helpEval;
         }
 
         core.evalScript(expr);
@@ -143,8 +141,7 @@ if (options.help) {
         const [ filename ] = subargv;
 
         if (!filename) {
-            console.log(helpRun);
-            tjs.exit(1);
+            throw helpRun;
         }
 
         const ext = path.extname(filename).toLowerCase();
@@ -174,8 +171,7 @@ if (options.help) {
         const [ infile, outfile ] = subargv;
 
         if (!infile) {
-            console.log(help);
-            tjs.exit(1);
+            throw help;
         }
 
         const infilePath = path.parse(infile);
@@ -204,8 +200,7 @@ if (options.help) {
         await newFile.write(newExe);
         await newFile.close();
     } else {
-        console.log(help);
-        tjs.exit(1);
+        throw help;
     }
 }
 
