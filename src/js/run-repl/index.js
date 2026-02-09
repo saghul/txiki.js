@@ -146,12 +146,14 @@ import { Database } from 'tjs:sqlite';
     var utf8_val = 0;
 
     var term_read = true;
-    var term_read_buf;
     var term_width;
     /* current X position of the cursor in the terminal */
     var term_cursor_x = 0; 
 
     var encoder = new TextEncoder();
+    var stdoutWriter = tjs.stdout.getWriter();
+    var stderrWriter = tjs.stderr.getWriter();
+    var stdinReader = tjs.stdin.getReader({ mode: 'byob' });
     var { evalScript, loadScript } = globalThis[Symbol.for('tjs.internal.core')];
     var std = {
         evalScript: expr => { return evalScript(expr) },
@@ -159,7 +161,7 @@ import { Database } from 'tjs:sqlite';
         exit: code => { tjs.exit(code) },
         gc: () => { tjs.engine.gc.run() },
         getenv: s => { return tjs.env[s] },
-        puts: s => { tjs.stdout.write(encoder.encode(String(s))) },
+        puts: s => { stdoutWriter.write(encoder.encode(String(s))) },
     };
     var os = {
         now: () => { return performance.now() }
@@ -185,7 +187,6 @@ import { Database } from 'tjs:sqlite';
         tjs.addSignalListener('SIGINT', sigint_handler);
 
         /* install a handler to read stdin */
-        term_read_buf = new Uint8Array(64);
         term_read_handler();
     }
 
@@ -196,10 +197,15 @@ import { Database } from 'tjs:sqlite';
     
     async function term_read_handler() {
         while (term_read) {
-            const nread = await tjs.stdin.read(term_read_buf);
+            var readBuf = new Uint8Array(64);
+            const { value, done } = await stdinReader.read(readBuf);
 
-            for (var i = 0; i < nread; i++) {
-                handle_byte(term_read_buf[i]);
+            if (done) {
+                break;
+            }
+
+            for (var i = 0; i < value.byteLength; i++) {
+                handle_byte(value[i]);
             }
         }
     }
@@ -1889,7 +1895,7 @@ import { Database } from 'tjs:sqlite';
               });
               insertMany(history.slice(history_load_index));
             } catch (e) {
-              tjs.stderr.write(encoder.encode(`Failed to save history: ${e}\n`));
+              stderrWriter.write(encoder.encode(`Failed to save history: ${e}\n`));
             }
         }
     }

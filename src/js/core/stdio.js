@@ -1,67 +1,126 @@
-import { readFromHandle, initWriteQueue, writeWithQueue } from './stream-utils.js';
+import {
+    initWriteQueue, writeWithQueue, readableStreamForHandle, writableStreamForHandle
+} from './stream-utils.js';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
-const kStdioHandle = Symbol('kStdioHandle');
-const kStdioHandleType = Symbol('kStdioHandleType');
+const CHUNK_SIZE = 16640;
 
+const kHandle = Symbol('kHandle');
+const kType = Symbol('kType');
 
-class BaseIOStream {
-    constructor(handle, type) {
-        this[kStdioHandle] = handle;
-        this[kStdioHandleType] = type;
-    }
-
-    get isTerminal() {
-        return this.type ===  'tty';
-    }
-
-    get type() {
-        return this[kStdioHandleType];
+function silentClose(handle) {
+    try {
+        handle.close();
+    } catch {
+        // Ignored.
     }
 }
 
-class InputStream extends BaseIOStream {
-    read(buf) {
-        return this[kStdioHandle].read(buf);
-    }
+function readableStreamForFileHandle(handle) {
+    return new ReadableStream({
+        autoAllocateChunkSize: CHUNK_SIZE,
+        type: 'bytes',
+        async pull(controller) {
+            const buf = controller.byobRequest.view;
 
-    setRawMode(rawMode) {
-        if (!this.isTerminal) {
-            throw new Error('not a terminal');
+            try {
+                const nread = await handle.read(buf);
+
+                if (nread === null) {
+                    silentClose(handle);
+                    controller.close();
+                    controller.byobRequest.respond(0);
+                } else {
+                    controller.byobRequest.respond(nread);
+                }
+            } catch (e) {
+                controller.error(e);
+                silentClose(handle);
+            }
+        },
+        cancel() {
+            silentClose(handle);
         }
-
-        const ttyMode = rawMode ? core.TTY_MODE_RAW : core.TTY_MODE_NORMAL;
-
-        this[kStdioHandle].setMode(ttyMode);
-    }
+    });
 }
 
-class OutputStream extends BaseIOStream {
-    write(buf) {
-        return this[kStdioHandle].write(buf);
-    }
+function createReadableStdio(handle, type, isFile) {
+    const stream = isFile ? readableStreamForFileHandle(handle) : readableStreamForHandle(handle);
 
-    get height() {
-        if (!this.isTerminal) {
-            throw new Error('not a terminal');
+    stream[kHandle] = handle;
+    stream[kType] = type;
+
+    Object.defineProperty(stream, 'isTerminal', {
+        get() {
+            return this[kType] === 'tty';
         }
+    });
 
-        return this[kStdioHandle].getWinSize().height;
-    }
-
-    get width() {
-        if (!this.isTerminal) {
-            throw new Error('not a terminal');
+    Object.defineProperty(stream, 'type', {
+        get() {
+            return this[kType];
         }
+    });
 
-        return this[kStdioHandle].getWinSize().width;
-    }
+    Object.defineProperty(stream, 'setRawMode', {
+        value(rawMode) {
+            if (!this.isTerminal) {
+                throw new Error('not a terminal');
+            }
+
+            const ttyMode = rawMode ? core.TTY_MODE_RAW : core.TTY_MODE_NORMAL;
+
+            this[kHandle].setMode(ttyMode);
+        }
+    });
+
+    return stream;
+}
+
+function createWritableStdio(rawHandle, writeFn, type) {
+    const stream = writableStreamForHandle(rawHandle, writeFn);
+
+    stream[kHandle] = rawHandle;
+    stream[kType] = type;
+
+    Object.defineProperty(stream, 'isTerminal', {
+        get() {
+            return this[kType] === 'tty';
+        }
+    });
+
+    Object.defineProperty(stream, 'type', {
+        get() {
+            return this[kType];
+        }
+    });
+
+    Object.defineProperty(stream, 'width', {
+        get() {
+            if (!this.isTerminal) {
+                throw new Error('not a terminal');
+            }
+
+            return this[kHandle].getWinSize().width;
+        }
+    });
+
+    Object.defineProperty(stream, 'height', {
+        get() {
+            if (!this.isTerminal) {
+                throw new Error('not a terminal');
+            }
+
+            return this[kHandle].getWinSize().height;
+        }
+    });
+
+    return stream;
 }
 
 function createStdioStream(fd) {
     const isStdin = fd === core.STDIN_FILENO;
-    const StreamType = isStdin ? InputStream : OutputStream;
     const type = core.guessHandle(fd);
 
     switch (type) {
@@ -74,24 +133,13 @@ function createStdioStream(fd) {
                 rawHandle.setBlocking(true);
             }
 
+            if (isStdin) {
+                return createReadableStdio(rawHandle, type, false);
+            }
+
             const writeQueue = initWriteQueue(rawHandle);
 
-            const handle = {
-                read(buf) {
-                    return readFromHandle(rawHandle, buf);
-                },
-                write(buf) {
-                    return writeWithQueue(rawHandle, writeQueue, buf);
-                },
-                setMode(mode) {
-                    rawHandle.setMode(mode);
-                },
-                getWinSize() {
-                    return rawHandle.getWinSize();
-                }
-            };
-
-            return new StreamType(handle, type);
+            return createWritableStdio(rawHandle, buf => writeWithQueue(rawHandle, writeQueue, buf), type);
         }
 
         case 'pipe': {
@@ -104,33 +152,23 @@ function createStdioStream(fd) {
                 rawHandle.setBlocking(true);
             }
 
+            if (isStdin) {
+                return createReadableStdio(rawHandle, type, false);
+            }
+
             const writeQueue = initWriteQueue(rawHandle);
 
-            const handle = {
-                read(buf) {
-                    return readFromHandle(rawHandle, buf);
-                },
-                write(buf) {
-                    return writeWithQueue(rawHandle, writeQueue, buf);
-                }
-            };
-
-            return new StreamType(handle, type);
+            return createWritableStdio(rawHandle, buf => writeWithQueue(rawHandle, writeQueue, buf), type);
         }
 
         case 'file': {
             const rawHandle = new core.File(fd, pathByFd(fd));
 
-            const handle = {
-                read(buf) {
-                    return rawHandle.read(buf);
-                },
-                write(buf) {
-                    return rawHandle.write(buf);
-                }
-            };
+            if (isStdin) {
+                return createReadableStdio(rawHandle, type, true);
+            }
 
-            return new StreamType(handle, type);
+            return createWritableStdio(rawHandle, buf => rawHandle.write(buf), type);
         }
 
         default:

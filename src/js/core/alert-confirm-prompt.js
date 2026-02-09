@@ -7,36 +7,42 @@ const LF = '\n'.charCodeAt();
 const CR = '\r'.charCodeAt();
 
 async function readStdinLine() {
-    const c = new Uint8Array(1);
+    const reader = tjs.stdin.getReader({ mode: 'byob' });
     const buf = [];
 
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-        const n = await tjs.stdin.read(c);
+    try {
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            const { value, done } = await reader.read(new Uint8Array(1));
 
-        if (n === 0) {
-            break;
-        }
-
-        if (c[0] === CR) {
-            const n = await tjs.stdin.read(c);
-
-            if (c[0] === LF) {
+            if (done || !value || value.length === 0) {
                 break;
             }
 
-            buf.push(CR);
+            const c = value[0];
 
-            if (n === 0) {
+            if (c === CR) {
+                const { value: value2, done: done2 } = await reader.read(new Uint8Array(1));
+
+                if (!done2 && value2 && value2.length > 0 && value2[0] === LF) {
+                    break;
+                }
+
+                buf.push(CR);
+
+                if (done2 || !value2 || value2.length === 0) {
+                    break;
+                }
+            }
+
+            if (c === LF) {
                 break;
             }
-        }
 
-        if (c[0] === LF) {
-            break;
+            buf.push(c);
         }
-
-        buf.push(c[0]);
+    } finally {
+        reader.releaseLock();
     }
 
     return decoder.decode(new Uint8Array(buf));
@@ -47,7 +53,14 @@ export async function alert(msg) {
         return;
     }
 
-    await tjs.stdout.write(encoder.encode(msg + ' [Enter] '));
+    const writer = tjs.stdout.getWriter();
+
+    try {
+        await writer.write(encoder.encode(msg + ' [Enter] '));
+    } finally {
+        writer.releaseLock();
+    }
+
     await readStdinLine();
 }
 
@@ -56,7 +69,13 @@ export async function confirm(msg = 'Confirm') {
         return false;
     }
 
-    await tjs.stdout.write(encoder.encode(msg + ' [y/N] '));
+    const writer = tjs.stdout.getWriter();
+
+    try {
+        await writer.write(encoder.encode(msg + ' [y/N] '));
+    } finally {
+        writer.releaseLock();
+    }
 
     const answer = await readStdinLine();
 
@@ -68,7 +87,13 @@ export async function prompt(msg = 'Prompt', def = null) {
         return null;
     }
 
-    await tjs.stdout.write(encoder.encode(msg + ' '));
+    const writer = tjs.stdout.getWriter();
+
+    try {
+        await writer.write(encoder.encode(msg + ' '));
+    } finally {
+        writer.releaseLock();
+    }
 
     return await readStdinLine() || def;
 }

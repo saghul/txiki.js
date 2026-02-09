@@ -3,18 +3,18 @@
 export async function evalStdin() {
     const gEval = globalThis.eval;
     const decoder = new TextDecoder();
-    const readBuf = new Uint8Array(4096);
     const buf = [];
+    const reader = tjs.stdin.getReader();
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
-        const n = await tjs.stdin.read(readBuf);
+        const { value, done } = await reader.read();
 
-        if (n === null) {
+        if (done) {
             break;
         }
 
-        buf.push(...readBuf.subarray(0, n));
+        buf.push(...value);
     }
 
     gEval(decoder.decode(new Uint8Array(buf)));
