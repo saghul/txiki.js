@@ -1,39 +1,20 @@
-import { readFromHandle, initWriteQueue, writeWithQueue } from './stream-utils.js';
+import {
+    initWriteQueue, writeWithQueue, readableStreamForHandle, writableStreamForHandle
+} from './stream-utils.js';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
-const kHandle = Symbol('kHandle');
-const kWriteQueue = Symbol('kWriteQueue');
 const kProcess = Symbol('kProcess');
 const kStdin = Symbol('kStdin');
 const kStdout = Symbol('kStdout');
 const kStderr = Symbol('kStderr');
 
-class SubprocessPipe {
-    constructor(handle) {
-        this[kHandle] = handle;
-        this[kWriteQueue] = initWriteQueue(handle);
-    }
-
-    read(buf) {
-        return readFromHandle(this[kHandle], buf);
-    }
-
-    write(buf) {
-        return writeWithQueue(this[kHandle], this[kWriteQueue], buf);
-    }
-
-    fileno() {
-        return this[kHandle].fileno();
-    }
-}
-
 class Subprocess {
     constructor(proc, stdin, stdout, stderr) {
         this[kProcess] = proc;
-        this[kStdin] = stdin;
-        this[kStdout] = stdout;
-        this[kStderr] = stderr;
+        this[kStdin] = stdin ?? null;
+        this[kStdout] = stdout ?? null;
+        this[kStderr] = stderr ?? null;
     }
 
     get pid() {
@@ -61,32 +42,38 @@ class Subprocess {
     }
 }
 
+function createWritableForPipe(handle) {
+    const writeQueue = initWriteQueue(handle);
+
+    return writableStreamForHandle(handle, buf => writeWithQueue(handle, writeQueue, buf));
+}
+
 export function spawn(args, options) {
     const opts = { ...options };
-    let stdinPipe, stdoutPipe, stderrPipe;
+    let stdin, stdout, stderr;
 
     if (opts.stdin === 'pipe') {
         const handle = new core.Pipe();
 
         opts.stdin = handle;
-        stdinPipe = new SubprocessPipe(handle);
+        stdin = createWritableForPipe(handle);
     }
 
     if (opts.stdout === 'pipe') {
         const handle = new core.Pipe();
 
         opts.stdout = handle;
-        stdoutPipe = new SubprocessPipe(handle);
+        stdout = readableStreamForHandle(handle);
     }
 
     if (opts.stderr === 'pipe') {
         const handle = new core.Pipe();
 
         opts.stderr = handle;
-        stderrPipe = new SubprocessPipe(handle);
+        stderr = readableStreamForHandle(handle);
     }
 
     const proc = core.spawn(args, opts);
 
-    return new Subprocess(proc, stdinPipe, stdoutPipe, stderrPipe);
+    return new Subprocess(proc, stdin, stdout, stderr);
 }

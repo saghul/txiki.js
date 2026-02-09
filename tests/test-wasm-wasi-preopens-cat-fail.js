@@ -16,11 +16,10 @@ const status = await proc.wait();
 assert.eq(status.exit_status, 1, 'WASI cat of nonexistent file exits with 1');
 
 // Read stderr for error message
-const buf = new Uint8Array(4096);
-const nread = await proc.stderr.read(buf);
+const { value } = await proc.stderr.getReader().read();
 
-assert.ok(nread > 0, 'stderr was read for failed cat');
+assert.ok(value.length > 0, 'stderr was read for failed cat');
 
-const errStr = new TextDecoder().decode(buf.subarray(0, nread));
+const errStr = new TextDecoder().decode(value);
 
 assert.ok(errStr.match(/Cannot open/), 'error message mentions cannot open');

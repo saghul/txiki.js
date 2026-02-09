@@ -20,8 +20,7 @@ const status = await proc.wait();
 assert.ok(status.exit_status !== 0, 'WASI ls of nonexistent dir should fail');
 
 // Read stderr for error message
-const buf = new Uint8Array(4096);
-const nread = await proc.stderr.read(buf);
-const stderrStr = nread > 0 ? new TextDecoder().decode(buf.subarray(0, nread)) : '';
+const { value } = await proc.stderr.getReader().read();
+const stderrStr = value ? new TextDecoder().decode(value) : '';
 
 assert.ok(stderrStr.match(/Cannot open|RuntimeError/), 'error message indicates failure');
