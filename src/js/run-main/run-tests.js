@@ -36,8 +36,8 @@ class Test {
         const args = [ tjs.exePath, 'run', this._fileName ];
 
         this._proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'pipe' });
-        this._stdout = this._slurpStdio(this._proc.stdout);
-        this._stderr = this._slurpStdio(this._proc.stderr);
+        this._stdout = this._proc.stdout.text();
+        this._stderr = this._proc.stderr.text();
         this._timer = setTimeout(() => {
             this._proc.kill('SIGKILL');
             this._timeout = true;
@@ -62,24 +62,6 @@ class Test {
         };
     }
 
-    async _slurpStdio(s) {
-        const decoder = new TextDecoder();
-        const reader = s.getReader();
-        const chunks = [];
-
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-            const { done, value } = await reader.read();
-
-            if (done) {
-                break;
-            }
-
-            chunks.push(value);
-        }
-
-        return chunks.map(chunk => decoder.decode(chunk)).join('');
-    }
 }
 
 function printResult(result) {

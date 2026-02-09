@@ -690,13 +690,19 @@ declare global {
             term_signal: Signal|null;
         }
         
+        interface ProcessReadableStream extends ReadableStream<Uint8Array> {
+            arrayBuffer(): Promise<ArrayBuffer>;
+            bytes(): Promise<Uint8Array>;
+            text(): Promise<string>;
+        }
+
         interface Process {
             kill(signal?: Signal): void;
             wait(): Promise<ProcessStatus>;
             pid: number;
             stdin: WritableStream<Uint8Array> | null;
-            stdout: ReadableStream<Uint8Array> | null;
-            stderr: ReadableStream<Uint8Array> | null;
+            stdout: ProcessReadableStream | null;
+            stderr: ProcessReadableStream | null;
         }
         
         type ProcessStdio = 'inherit' | 'pipe' | 'ignore';

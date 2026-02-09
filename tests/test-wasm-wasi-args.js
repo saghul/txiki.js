@@ -1,6 +1,5 @@
 import assert from 'tjs:assert';
 import path from 'tjs:path';
-import { slurpStdio } from './helpers.js';
 
 const args = [
     tjs.exePath,
@@ -11,7 +10,7 @@ const args = [
 ];
 const proc = tjs.spawn(args, { stdout: 'pipe' });
 const status = await proc.wait();
-const dataStr = await slurpStdio(proc.stdout);
+const dataStr = await proc.stdout.text();
 assert.eq(status.exit_status, 0, 'WASI ran successfully with args');
 assert.ok(dataStr.length > 0, 'stdout was read');
 // Args output should include: test.wasm; arg1; arg2;
