@@ -738,7 +738,6 @@ declare global {
         }
         
         interface Connection {
-            read(buf: Uint8Array): Promise<number|null>;
             write(buf: Uint8Array): Promise<number>;
             setKeepAlive(enable: boolean, delay: number): void;
             setNoDelay(enable?: boolean): void;
@@ -749,19 +748,20 @@ declare global {
             readable: ReadableStream<Uint8Array>;
             writable: WritableStream<Uint8Array>;
         }
-        
-        interface DatagramData {
-            nread: number;
-            partial: boolean;
+
+        interface DatagramMessage {
+            data: Uint8Array;
             addr: Address;
+            partial: boolean;
         }
-        
+
         interface DatagramEndpoint {
-            recv(buf: Uint8Array): Promise<number>;
-            send(buf: Uint8Array, addr?: Address): Promise<DatagramData>;
+            send(buf: Uint8Array, addr?: Address): Promise<number>;
             close(): void;
             localAddress: Address;
             remoteAddress: Address;
+            readable: ReadableStream<DatagramMessage>;
+            writable: WritableStream<{ data: Uint8Array, addr?: Address }>;
         }
         
         type Transport = 'tcp' | 'udp' | 'pipe';

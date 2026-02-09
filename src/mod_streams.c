@@ -58,9 +58,7 @@ typedef struct {
     } h;
     JSValue callbacks[STREAM_CB_MAX];
     struct {
-        JSValue tarray;
-        uint8_t *data;
-        size_t len;
+        uint8_t *buf;
     } read;
 } TJSStream;
 
@@ -138,10 +136,8 @@ static JSValue tjs_stream_close(JSContext *ctx, JSValue this_val, int argc, JSVa
         s->reading = 0;
         JSValue arg = JS_UNDEFINED;
         maybe_invoke_callback(s, STREAM_CB_READ, 1, &arg);
-        JS_FreeValue(ctx, s->read.tarray);
-        s->read.tarray = JS_UNDEFINED;
-        s->read.data = NULL;
-        s->read.len = 0;
+        js_free(ctx, s->read.buf);
+        s->read.buf = NULL;
     }
 
     {
@@ -156,21 +152,32 @@ static JSValue tjs_stream_close(JSContext *ctx, JSValue this_val, int argc, JSVa
 static void uv__stream_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     TJSStream *s = handle->data;
     CHECK_NOT_NULL(s);
-    buf->base = (char *) s->read.data;
-    buf->len = s->read.len;
+    s->read.buf = js_malloc(s->ctx, suggested_size);
+    if (s->read.buf) {
+        buf->base = (char *) s->read.buf;
+        buf->len = suggested_size;
+    } else {
+        buf->base = NULL;
+        buf->len = 0;
+    }
 }
 
 static void uv__stream_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
     TJSStream *s = handle->data;
     CHECK_NOT_NULL(s);
 
+    JSContext *ctx = s->ctx;
+
     if (nread == 0) {
+        js_free(ctx, s->read.buf);
+        s->read.buf = NULL;
         return; /* EAGAIN, ignore */
     }
 
-    JSContext *ctx = s->ctx;
     JSValue arg;
     if (nread < 0) {
+        js_free(ctx, s->read.buf);
+        s->read.buf = NULL;
         if (nread == UV_EOF) {
             arg = JS_NULL;
         } else {
@@ -178,12 +185,9 @@ static void uv__stream_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_
         }
         uv_read_stop(handle);
         s->reading = 0;
-        JS_FreeValue(ctx, s->read.tarray);
-        s->read.tarray = JS_UNDEFINED;
-        s->read.data = NULL;
-        s->read.len = 0;
     } else {
-        arg = JS_NewInt32(ctx, nread);
+        arg = TJS_NewUint8Array(ctx, s->read.buf, nread);
+        s->read.buf = NULL;
     }
 
     maybe_invoke_callback(s, STREAM_CB_READ, 1, &arg);
@@ -199,22 +203,8 @@ static JSValue tjs_stream_start_read(JSContext *ctx, JSValue this_val, int argc,
         return tjs_throw_errno(ctx, UV_EBUSY);
     }
 
-    size_t size;
-    uint8_t *buf = JS_GetUint8Array(ctx, &size, argv[0]);
-    if (!buf) {
-        return JS_EXCEPTION;
-    }
-    s->read.tarray = JS_DupValue(ctx, argv[0]);
-    s->read.data = buf;
-    s->read.len = size;
-
     int r = uv_read_start(&s->h.stream, uv__stream_alloc_cb, uv__stream_read_cb);
     if (r != 0) {
-        JS_FreeValue(ctx, s->read.tarray);
-        s->read.tarray = JS_UNDEFINED;
-        s->read.data = NULL;
-        s->read.len = 0;
-
         return tjs_throw_errno(ctx, r);
     }
 
@@ -235,10 +225,8 @@ static JSValue tjs_stream_stop_read(JSContext *ctx, JSValue this_val, int argc, 
     uv_read_stop(&s->h.stream);
     s->reading = 0;
 
-    JS_FreeValue(ctx, s->read.tarray);
-    s->read.tarray = JS_UNDEFINED;
-    s->read.data = NULL;
-    s->read.len = 0;
+    js_free(ctx, s->read.buf);
+    s->read.buf = NULL;
 
     return JS_UNDEFINED;
 }
@@ -469,9 +457,7 @@ static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
     s->ctx = ctx;
     s->h.handle.data = s;
     s->reading = 0;
-    s->read.tarray = JS_UNDEFINED;
-    s->read.data = NULL;
-    s->read.len = 0;
+    s->read.buf = NULL;
 
     for (int i = 0; i < STREAM_CB_MAX; i++) {
         s->callbacks[i] = JS_UNDEFINED;
@@ -486,7 +472,8 @@ static void tjs_stream_finalizer(JSRuntime *rt, TJSStream *s) {
         for (int i = 0; i < STREAM_CB_MAX; i++) {
             JS_FreeValueRT(rt, s->callbacks[i]);
         }
-        JS_FreeValueRT(rt, s->read.tarray);
+        js_free_rt(rt, s->read.buf);
+        s->read.buf = NULL;
         s->finalized = 1;
         if (s->closed) {
             js_free_rt(rt, s);
@@ -501,7 +488,6 @@ static void tjs_stream_mark(JSRuntime *rt, TJSStream *s, JS_MarkFunc *mark_func)
         for (int i = 0; i < STREAM_CB_MAX; i++) {
             JS_MarkValue(rt, s->callbacks[i], mark_func);
         }
-        JS_MarkValue(rt, s->read.tarray, mark_func);
     }
 }
 
@@ -948,7 +934,7 @@ static const JSCFunctionListEntry tjs_stream_proto_funcs[] = {
     JS_CGETSET_MAGIC_DEF("onconnection", tjs_stream_callback_get, tjs_stream_callback_set, STREAM_CB_CONNECTION),
     JS_CGETSET_MAGIC_DEF("onshutdown", tjs_stream_callback_get, tjs_stream_callback_set, STREAM_CB_SHUTDOWN),
     TJS_CFUNC_DEF("listen", 1, tjs_stream_listen),
-    TJS_CFUNC_DEF("startRead", 1, tjs_stream_start_read),
+    TJS_CFUNC_DEF("startRead", 0, tjs_stream_start_read),
     TJS_CFUNC_DEF("stopRead", 0, tjs_stream_stop_read),
     TJS_CFUNC_DEF("shutdown", 0, tjs_stream_shutdown),
     TJS_CFUNC_DEF("setBlocking", 1, tjs_stream_set_blocking),

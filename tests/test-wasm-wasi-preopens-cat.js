@@ -1,5 +1,6 @@
 import assert from 'tjs:assert';
 import path from 'tjs:path';
+import { slurpStdio } from './helpers.js';
 
 // Test that preopens work by having WASM read a file
 const testFile = path.join(import.meta.dirname, 'wasi', 'testfile.txt');
@@ -21,13 +22,9 @@ try {
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'pipe' });
     const status = await proc.wait();
+    const dataStr = await slurpStdio(proc.stdout);
 
-    // Read stdout
-    const { value } = await proc.stdout.getReader().read();
-
-    assert.ok(value.length > 0, 'stdout was read for cat');
-
-    const dataStr = new TextDecoder().decode(value);
+    assert.ok(dataStr.length > 0, 'stdout was read for cat');
 
     // "Hello from preopen test!\n" in hex is:
     // 48 65 6c 6c 6f 20 66 72 6f 6d 20 70 72 65 6f 70 65 6e 20 74 65 73 74 21 0a

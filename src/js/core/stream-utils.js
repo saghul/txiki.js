@@ -6,31 +6,6 @@ function silentClose(handle) {
     }
 }
 
-const CHUNK_SIZE = 16640;  // Borrowed from Deno.
-
-export function readFromHandle(handle, buf) {
-    const { promise, resolve, reject } = Promise.withResolvers();
-
-    handle.onread = nread => {
-        handle.onread = null;
-
-        if (typeof nread === 'number') {
-            handle.stopRead();
-            resolve(nread);
-        } else if (nread === null) {
-            resolve(null);
-        } else if (typeof nread === 'undefined') {
-            resolve(null);
-        } else {
-            reject(nread);
-        }
-    };
-
-    handle.startRead(buf);
-
-    return promise;
-}
-
 export function initWriteQueue(handle) {
     const queue = [];
 
@@ -64,28 +39,46 @@ export function writeWithQueue(handle, queue, buf) {
 }
 
 export function readableStreamForHandle(handle) {
+    let reading = false;
+
     return new ReadableStream({
-        autoAllocateChunkSize: CHUNK_SIZE,
-        type: 'bytes',
-        async pull(controller) {
-            const buf = controller.byobRequest.view;
+        start(controller) {
+            handle.onread = chunk => {
+                if (chunk instanceof Uint8Array) {
+                    controller.enqueue(chunk);
 
-            try {
-                const nread = await readFromHandle(handle, buf);
-
-                if (nread === null) {
-                    silentClose(handle);
+                    if (controller.desiredSize <= 0) {
+                        handle.stopRead();
+                        reading = false;
+                    }
+                } else if (chunk === null) {
+                    reading = false;
                     controller.close();
-                    controller.byobRequest.respond(0);
+                    silentClose(handle);
+                } else if (chunk instanceof Error) {
+                    reading = false;
+                    controller.error(chunk);
+                    silentClose(handle);
                 } else {
-                    controller.byobRequest.respond(nread);
+                    // undefined - handle closed
+                    reading = false;
+                    controller.close();
                 }
-            } catch (e) {
-                controller.error(e);
-                silentClose(handle);
+            };
+        },
+        pull() {
+            if (!reading) {
+                reading = true;
+                handle.startRead();
             }
         },
         cancel() {
+            if (reading) {
+                handle.stopRead();
+                reading = false;
+            }
+
+            handle.onread = null;
             silentClose(handle);
         }
     });

@@ -1,4 +1,5 @@
 import assert from 'tjs:assert';
+import { slurpStdio } from './helpers.js';
 
 
 async function testCliVersion() {
@@ -8,8 +9,7 @@ async function testCliVersion() {
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'ignore' });
     await proc.wait();
-    const { value } = await proc.stdout.getReader().read();
-    const stdoutStr = new TextDecoder().decode(value);
+    const stdoutStr = await slurpStdio(proc.stdout);
     assert.eq(stdoutStr.trim(), `v${tjs.version}`, 'returns the right version');
 }
 
@@ -20,8 +20,7 @@ async function testCliHelp() {
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'ignore' });
     await proc.wait();
-    const { value } = await proc.stdout.getReader().read();
-    const stdoutStr = new TextDecoder().decode(value);
+    const stdoutStr = await slurpStdio(proc.stdout);
     assert.ok(stdoutStr.startsWith('Usage: '), 'returns the help');
 }
 
@@ -30,11 +29,10 @@ async function testCliBadOption() {
         tjs.exePath,
         '--foo'
     ];
-    const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'ignore' });
+    const proc = tjs.spawn(args, { stdout: 'ignore', stderr: 'pipe' });
     await proc.wait();
-    const { value } = await proc.stdout.getReader().read();
-    const stdoutStr = new TextDecoder().decode(value);
-    assert.ok(stdoutStr.includes('unrecognized option: foo'), 'recognizes a bad option');
+    const stderrStr = await slurpStdio(proc.stderr);
+    assert.ok(stderrStr.includes('unrecognized option: foo'), 'recognizes a bad option');
 }
 
 await testCliVersion();

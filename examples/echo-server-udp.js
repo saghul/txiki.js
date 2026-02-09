@@ -6,16 +6,17 @@ import { addr } from './utils.js';
 
 const u = await tjs.listen('udp', tjs.args[2] || '127.0.0.1', tjs.args[3] || 1234);
 
-console.log(`Listening on ${addr(u.localAddress)}`); 
+console.log(`Listening on ${addr(u.localAddress)}`);
 
 const decoder = new TextDecoder();
-const dataBuf = new Uint8Array(1024);
-let rinfo;
+const reader = u.readable.getReader();
 while (true) {
-    rinfo = await u.recv(dataBuf);
-    const data = dataBuf.subarray(0, rinfo.nread);
-    await u.send(data, rinfo.addr);
-    if (decoder.decode(data) === 'quit\n') {
+    const { value: msg, done } = await reader.read();
+    if (done) {
+        break;
+    }
+    await u.send(msg.data, msg.addr);
+    if (decoder.decode(msg.data) === 'quit\n') {
         break;
     }
 }

@@ -180,24 +180,43 @@ Object.defineProperty(tjs, 'lookup', {
 });
 
 // Stdio.
-Object.defineProperty(tjs, 'stdin', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: createStdin()
-});
-Object.defineProperty(tjs, 'stdout', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: createStdout()
-});
-Object.defineProperty(tjs, 'stderr', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: createStderr()
-});
+{
+    let _stdin, _stdout, _stderr;
+
+    Object.defineProperty(tjs, 'stdin', {
+        enumerable: true,
+        configurable: false,
+        get() {
+            if (!_stdin) {
+                _stdin = createStdin();
+            }
+
+            return _stdin;
+        }
+    });
+    Object.defineProperty(tjs, 'stdout', {
+        enumerable: true,
+        configurable: false,
+        get() {
+            if (!_stdout) {
+                _stdout = createStdout();
+            }
+
+            return _stdout;
+        }
+    });
+    Object.defineProperty(tjs, 'stderr', {
+        enumerable: true,
+        configurable: false,
+        get() {
+            if (!_stderr) {
+                _stderr = createStderr();
+            }
+
+            return _stderr;
+        }
+    });
+}
 
 // System.
 Object.defineProperty(tjs, 'system', {

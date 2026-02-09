@@ -54,10 +54,11 @@ async function testTcpSock(){
 
 	let clientRecv = 0;
 	tjs.connect('tcp', '127.0.0.1', 55678).then(async con=>{
-		const buf = new Uint8Array(20);
-		clientRecv = await con.read(buf);
+		const reader = con.readable.getReader();
+		const { value } = await reader.read();
+		clientRecv = value.length;
 		assert.eq(clientRecv, sendbuf.length);
-		con.close();
+		reader.cancel();
 	});
 
 	await new Promise(res=>setTimeout(res, 500))
