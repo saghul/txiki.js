@@ -159,10 +159,10 @@ import { Database } from 'tjs:sqlite';
         exit: code => { tjs.exit(code) },
         gc: () => { tjs.engine.gc.run() },
         getenv: s => { return tjs.env[s] },
-        puts: s => { tjs.stdout.write(encoder.encode(s)) },
+        puts: s => { tjs.stdout.write(encoder.encode(String(s))) },
     };
     var os = {
-        now: () => { performance.now() }
+        now: () => { return performance.now() }
     };
 
     function termInit() {
