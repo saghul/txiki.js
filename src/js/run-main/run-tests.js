@@ -64,18 +64,18 @@ class Test {
 
     async _slurpStdio(s) {
         const decoder = new TextDecoder();
+        const reader = s.getReader();
         const chunks = [];
-        const buf = new Uint8Array(4096);
 
         // eslint-disable-next-line no-constant-condition
         while (true) {
-            const nread = await s.read(buf);
+            const { done, value } = await reader.read();
 
-            if (nread === null) {
+            if (done) {
                 break;
             }
 
-            chunks.push(buf.slice(0, nread));
+            chunks.push(value);
         }
 
         return chunks.map(chunk => decoder.decode(chunk)).join('');

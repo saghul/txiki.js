@@ -23,12 +23,11 @@ try {
     const status = await proc.wait();
 
     // Read stdout
-    const buf = new Uint8Array(8192);
-    const nread = await proc.stdout.read(buf);
+    const { value } = await proc.stdout.getReader().read();
 
-    assert.ok(nread > 0, 'stdout was read for cat');
+    assert.ok(value.length > 0, 'stdout was read for cat');
 
-    const dataStr = new TextDecoder().decode(buf.subarray(0, nread));
+    const dataStr = new TextDecoder().decode(value);
 
     // "Hello from preopen test!\n" in hex is:
     // 48 65 6c 6c 6f 20 66 72 6f 6d 20 70 72 65 6f 70 65 6e 20 74 65 73 74 21 0a

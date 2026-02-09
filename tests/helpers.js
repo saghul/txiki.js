@@ -3,18 +3,18 @@ import assert from 'tjs:assert';
 const td = new TextDecoder();
 
 async function slurpStdio(s) {
+    const reader = s.getReader();
     const chunks = [];
-    const buf = new Uint8Array(4096);
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
-        const nread = await s.read(buf);
+        const { done, value } = await reader.read();
 
-        if (nread === null) {
+        if (done) {
             break;
         }
 
-        chunks.push(buf.slice(0, nread));
+        chunks.push(value);
     }
 
     return chunks.map(chunk => td.decode(chunk)).join('');

@@ -14,12 +14,11 @@ const status = await proc.wait();
 
 assert.eq(status.exit_status, 0, 'WASI env command ran successfully');
 
-const buf = new Uint8Array(4096);
-const nread = await proc.stdout.read(buf);
+const { value } = await proc.stdout.getReader().read();
 
-assert.ok(nread > 0, 'stdout was read for env');
+assert.ok(value.length > 0, 'stdout was read for env');
 
-const dataStr = new TextDecoder().decode(buf.subarray(0, nread));
+const dataStr = new TextDecoder().decode(value);
 
 assert.ok(dataStr.match(/Env:/), 'env output contains Env: header');
 assert.ok(dataStr.match(/=== done ===/), 'WASI completed successfully');

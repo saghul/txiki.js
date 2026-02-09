@@ -694,9 +694,9 @@ declare global {
             kill(signal?: Signal): void;
             wait(): Promise<ProcessStatus>;
             pid: number;
-            stdin?: Writer;
-            stdout?: Reader;
-            stderr?: Reader;
+            stdin: WritableStream<Uint8Array> | null;
+            stdout: ReadableStream<Uint8Array> | null;
+            stderr: ReadableStream<Uint8Array> | null;
         }
         
         type ProcessStdio = 'inherit' | 'pipe' | 'ignore';
