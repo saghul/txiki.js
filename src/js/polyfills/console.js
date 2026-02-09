@@ -301,6 +301,25 @@ class CSI {
 
 const kConsoleClear = encoder.encode(CSI.kHome + CSI.kClearScreenDown);
 
+let stdoutWriter;
+let stderrWriter;
+
+function getStdoutWriter() {
+    if (!stdoutWriter) {
+        stdoutWriter = tjs.stdout.getWriter();
+    }
+
+    return stdoutWriter;
+}
+
+function getStderrWriter() {
+    if (!stderrWriter) {
+        stderrWriter = tjs.stderr.getWriter();
+    }
+
+    return stderrWriter;
+}
+
 Object.defineProperty(window, 'console', {
     enumerable: false,
     configurable: true,
@@ -308,7 +327,7 @@ Object.defineProperty(window, 'console', {
     value: createConsole({
         clearConsole() {
             if (tjs.stdout.isTerminal && tjs.env.TERM !== 'dumb') {
-                tjs.stdout.write(kConsoleClear);
+                getStdoutWriter().write(kConsoleClear);
             }
         },
         printer(logLevel, args, { indent, isWarn }) {
@@ -323,9 +342,9 @@ Object.defineProperty(window, 'console', {
             const str = encoder.encode((' ').repeat(indent*2) + msg + '\n');
 
             if ([ 'error', 'trace', 'warn' ].includes(logLevel) || isWarn) {
-                tjs.stderr.write(str);
+                getStderrWriter().write(str);
             } else {
-                tjs.stdout.write(str);
+                getStdoutWriter().write(str);
             }
         },
     })

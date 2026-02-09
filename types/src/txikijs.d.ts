@@ -656,30 +656,30 @@ declare global {
         const tmpDir: string;
         
         type StdioType = 'tty' | 'pipe' | 'file';
-        
-        interface StdioInputStream extends Reader {
+
+        interface StdioInputStream extends ReadableStream<Uint8Array> {
             isTerminal: boolean;
             type: StdioType;
             setRawMode(enable: boolean): void;
         }
-        
-        interface StdioOutputStream extends Writer {
+
+        interface StdioOutputStream extends WritableStream<Uint8Array> {
             isTerminal: boolean;
             type: StdioType;
             height: number;
             width: number;
         }
-        
+
         /**
         * Object providing access to standard input.
         */
         const stdin: StdioInputStream;
-        
+
         /**
         * Object providing access to standard output.
         */
         const stdout: StdioOutputStream;
-        
+
         /**
         * Object providing access to standard error.
         */
