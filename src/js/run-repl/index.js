@@ -175,7 +175,7 @@ import { Database } from 'tjs:sqlite';
         term_width = 80;
         if (tjs.stdin.isTerminal) {
             /* get the terminal size */
-            term_width = tjs.stdout.width;
+            term_width = tjs.stdout.width || 80;
 
             /* set the TTY to raw mode */
             tjs.stdin.setRawMode(true);
