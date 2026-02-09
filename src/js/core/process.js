@@ -42,6 +42,60 @@ class Subprocess {
     }
 }
 
+async function readAllChunks(stream) {
+    const reader = stream.getReader();
+    const chunks = [];
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+            break;
+        }
+
+        chunks.push(value);
+    }
+
+    let totalLength = 0;
+
+    for (const chunk of chunks) {
+        totalLength += chunk.byteLength;
+    }
+
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+        result.set(chunk, offset);
+        offset += chunk.byteLength;
+    }
+
+    return result;
+}
+
+function addStreamHelpers(stream) {
+    Object.defineProperty(stream, 'arrayBuffer', {
+        value() {
+            return readAllChunks(this).then(bytes => bytes.buffer);
+        }
+    });
+
+    Object.defineProperty(stream, 'bytes', {
+        value() {
+            return readAllChunks(this);
+        }
+    });
+
+    Object.defineProperty(stream, 'text', {
+        value() {
+            return readAllChunks(this).then(bytes => new TextDecoder().decode(bytes));
+        }
+    });
+
+    return stream;
+}
+
 function createWritableForPipe(handle) {
     const writeQueue = initWriteQueue(handle);
 
@@ -63,14 +117,14 @@ export function spawn(args, options) {
         const handle = new core.Pipe();
 
         opts.stdout = handle;
-        stdout = readableStreamForHandle(handle);
+        stdout = addStreamHelpers(readableStreamForHandle(handle));
     }
 
     if (opts.stderr === 'pipe') {
         const handle = new core.Pipe();
 
         opts.stderr = handle;
-        stderr = readableStreamForHandle(handle);
+        stderr = addStreamHelpers(readableStreamForHandle(handle));
     }
 
     const proc = core.spawn(args, opts);
