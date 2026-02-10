@@ -32,8 +32,6 @@ await writer.write(encoder.encode('PING'));
 let { value, done } = await reader.read();
 let dataStr = decoder.decode(value);
 assert.eq(dataStr, "PING", "sending works");
-assert.throws(() => { client.write('PING'); }, TypeError, "sending anything else gives TypeError");
-assert.throws(() => { client.write(1234); }, TypeError, "sending anything else gives TypeError");
 await reader.cancel();
 server.close();
 

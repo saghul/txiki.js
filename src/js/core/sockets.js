@@ -1,9 +1,110 @@
 import { isIP, lookup } from './lookup.js';
-import {
-    initWriteQueue, writeWithQueue, readableStreamForHandle, writableStreamForHandle
-} from './stream-utils.js';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
+
+
+function silentClose(handle) {
+    try {
+        handle.close();
+    } catch {
+        // Ignored.
+    }
+}
+
+function initWriteQueue(handle) {
+    const queue = [];
+
+    handle.onwrite = error => {
+        const entry = queue.shift();
+
+        if (entry) {
+            if (error) {
+                entry.reject(error);
+            } else {
+                entry.resolve();
+            }
+        }
+    };
+
+    return queue;
+}
+
+function writeWithQueue(handle, queue, buf) {
+    const result = handle.write(buf);
+
+    if (typeof result === 'number') {
+        return Promise.resolve(result);
+    }
+
+    const { promise, resolve, reject } = Promise.withResolvers();
+
+    queue.push({ resolve, reject });
+
+    return promise;
+}
+
+function readableStreamForHandle(handle) {
+    let reading = false;
+
+    return new ReadableStream({
+        start(controller) {
+            handle.onread = (data, error) => {
+                if (error) {
+                    handle.stopRead();
+                    reading = false;
+                    handle.onread = null;
+                    controller.error(error);
+                } else if (data === null) {
+                    handle.stopRead();
+                    reading = false;
+                    handle.onread = null;
+                    controller.close();
+                    silentClose(handle);
+                } else {
+                    controller.enqueue(data);
+
+                    if (controller.desiredSize <= 0) {
+                        handle.stopRead();
+                        reading = false;
+                    }
+                }
+            };
+        },
+        pull() {
+            if (!reading) {
+                reading = true;
+                handle.startRead();
+            }
+        },
+        cancel() {
+            if (reading) {
+                handle.stopRead();
+                reading = false;
+            }
+
+            handle.onread = null;
+            silentClose(handle);
+        }
+    });
+}
+
+function writableStreamForHandle(handle, writeFn) {
+    return new WritableStream({
+        async write(chunk, controller) {
+            try {
+                await writeFn(chunk);
+            } catch (e) {
+                controller.error(e);
+            }
+        },
+        close() {
+            silentClose(handle);
+        },
+        abort() {
+            silentClose(handle);
+        }
+    });
+}
 
 
 function connectStream(handle, addr) {
@@ -202,10 +303,6 @@ class Connection {
         return this[kWritable];
     }
 
-    write(buf) {
-        return writeWithQueue(this[kHandle], this[kWriteQueue], buf);
-    }
-
     setKeepAlive(enable, delay) {
         this[kHandle].setKeepAlive(enable, delay);
     }
@@ -371,12 +468,20 @@ class DatagramEndpoint {
 
     get writable() {
         if (!this[kWritable]) {
-            const endpoint = this;
+            const handle = this[kHandle];
+            const queue = this[kSendQueue];
 
             this[kWritable] = new WritableStream({
                 async write({ data, addr }, controller) {
                     try {
-                        await endpoint.send(data, addr);
+                        const result = handle.send(data, addr);
+
+                        if (typeof result !== 'number') {
+                            const { promise, resolve, reject } = Promise.withResolvers();
+
+                            queue.push({ resolve, reject });
+                            await promise;
+                        }
                     } catch (e) {
                         controller.error(e);
                     }
@@ -385,20 +490,6 @@ class DatagramEndpoint {
         }
 
         return this[kWritable];
-    }
-
-    send(buf, taddr) {
-        const result = this[kHandle].send(buf, taddr);
-
-        if (typeof result === 'number') {
-            return Promise.resolve(result);
-        }
-
-        const { promise, resolve, reject } = Promise.withResolvers();
-
-        this[kSendQueue].push({ resolve, reject });
-
-        return promise;
     }
 
     get localAddress() {
