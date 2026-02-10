@@ -126,17 +126,17 @@ The following modules compose the standard library:
 
 [CMake] is necessary.
 
-*NOTE:* The txiki.js build depends on a number of git submodules ([libffi], [libuv] and [WAMR]).
+*NOTE:* The txiki.js build depends on a number of git submodules.
 If you didn't already clone this repository recursively, make sure you initialize these
 submodules with `git submodule update --init` before proceeding to the build.
 
 ### GNU/Linux
 
-Install dependencies (`libcurl`, `build-essential`, `cmake`, `autoreconf`, `libtool`, `libltdl-dev`):
+Install dependencies (`libcurl`, `build-essential`, `cmake`, `autoreconf`, `libtool`, `libltdl-dev`, `libffi-dev`):
 
 ```bash
 # On Debian / Ubuntu
-sudo apt install libcurl4-openssl-dev build-essential cmake autoconf texinfo libtool libltdl-dev
+sudo apt install libcurl4-openssl-dev build-essential cmake autoconf texinfo libtool libltdl-dev libffi-dev
 ```
 
 ### macOS
@@ -264,10 +264,8 @@ Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul
 [QuickJS-ng]: https://github.com/quickjs-ng/quickjs
 [libuv]: https://libuv.org/
 [curl]: https://github.com/curl/curl
-[libffi]: https://github.com/libffi/libffi
 [full API documentation]: https://bettercallsaghul.com/txiki.js/api/
 [CMake]: https://cmake.org/
-[WAMR]: https://github.com/bytecodealliance/wasm-micro-runtime
 [alert, confirm, prompt]: https://developer.mozilla.org/en-US/docs/Web/API/Window/alert
 [fetch]: https://fetch.spec.whatwg.org/
 [EventTarget]: https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
