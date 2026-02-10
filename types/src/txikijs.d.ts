@@ -10,30 +10,6 @@ declare global {
     */
     namespace tjs {
         /**
-        * Implemented by entities from which data can be read.
-        */
-        interface Reader {
-            /**
-            * Reads data into the given buffer. Resolves to the number of read bytes or null for EOF.
-            *
-            * @param buf Buffer to read data into.
-            */
-            read(buf: Uint8Array): Promise<number|null>;
-        }
-        
-        /**
-        * Implemented by entities to which data can be written.
-        */
-        interface Writer {
-            /**
-            * Writes the given data buffer. Resolves to the number of written bytes.
-            *
-            * @param buf Buffer of data to write.
-            */
-            write(buf: Uint8Array): Promise<number>;
-        }
-        
-        /**
         * Alerts the user about something.
         *
         * @param msg The message that will be displayed.
@@ -744,7 +720,6 @@ declare global {
         }
         
         interface Connection {
-            write(buf: Uint8Array): Promise<number>;
             setKeepAlive(enable: boolean, delay: number): void;
             setNoDelay(enable?: boolean): void;
             shutdown(): void;
@@ -762,7 +737,6 @@ declare global {
         }
 
         interface DatagramEndpoint {
-            send(buf: Uint8Array, addr?: Address): Promise<number>;
             close(): void;
             localAddress: Address;
             remoteAddress: Address;
