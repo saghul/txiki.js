@@ -7,7 +7,6 @@ async function testCliVersion() {
         '-v'
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'ignore' });
-    await proc.wait();
     const stdoutStr = await proc.stdout.text();
     assert.eq(stdoutStr.trim(), `v${tjs.version}`, 'returns the right version');
 }
@@ -18,7 +17,6 @@ async function testCliHelp() {
         '-h'
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'ignore' });
-    await proc.wait();
     const stdoutStr = await proc.stdout.text();
     assert.ok(stdoutStr.startsWith('Usage: '), 'returns the help');
 }
@@ -29,7 +27,6 @@ async function testCliBadOption() {
         '--foo'
     ];
     const proc = tjs.spawn(args, { stdout: 'ignore', stderr: 'pipe' });
-    await proc.wait();
     const stderrStr = await proc.stderr.text();
     assert.ok(stderrStr.includes('unrecognized option: foo'), 'recognizes a bad option');
 }

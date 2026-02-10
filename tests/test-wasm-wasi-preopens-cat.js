@@ -20,8 +20,7 @@ try {
         testFile
     ];
     const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'pipe' });
-    const status = await proc.wait();
-    const dataStr = await proc.stdout.text();
+    const [ status, dataStr ] = await Promise.all([ proc.wait(), proc.stdout.text() ]);
 
     assert.ok(dataStr.length > 0, 'stdout was read for cat');
 
