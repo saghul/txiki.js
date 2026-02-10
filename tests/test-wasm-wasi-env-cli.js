@@ -10,8 +10,7 @@ const args = [
     'env'
 ];
 const proc = tjs.spawn(args, { stdout: 'pipe' });
-const status = await proc.wait();
-const dataStr = await proc.stdout.text();
+const [ status, dataStr ] = await Promise.all([ proc.wait(), proc.stdout.text() ]);
 
 assert.eq(status.exit_status, 0, 'WASI env command ran successfully');
 assert.ok(dataStr.length > 0, 'stdout was read for env');

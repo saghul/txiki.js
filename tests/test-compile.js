@@ -19,9 +19,7 @@ const st = await tjs.stat(newExe);
 assert.ok(st.isFile, 'is a regular file');
 
 const proc2 = tjs.spawn(path.join(tjs.cwd, newExe), { stdout: 'pipe' });
-const { value } = await proc2.stdout.getReader().read();
-const stdoutStr = new TextDecoder().decode(value);
-const status2 = await proc2.wait();
+const [ status2, stdoutStr ] = await Promise.all([ proc2.wait(), proc2.stdout.text() ]);
 assert.ok(stdoutStr.match(/hello!/) !== null, 'runs');
 assert.ok(status2.exit_status === 0 && status.term_signal === null, 'succeeded');
 
