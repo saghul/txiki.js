@@ -190,6 +190,9 @@ static JSValue tjs_stream_start_read(JSContext *ctx, JSValue this_val, int argc,
     if (!s) {
         return JS_EXCEPTION;
     }
+    if (uv_is_closing(&s->h.handle)) {
+        return JS_ThrowInternalError(ctx, "stream is closed");
+    }
     int r = uv_read_start(&s->h.stream, uv__stream_alloc_cb, uv__stream_read_cb);
     if (r != 0) {
         return tjs_throw_errno(ctx, r);
@@ -203,6 +206,9 @@ static JSValue tjs_stream_stop_read(JSContext *ctx, JSValue this_val, int argc, 
     TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
     if (!s) {
         return JS_EXCEPTION;
+    }
+    if (uv_is_closing(&s->h.handle)) {
+        return JS_UNDEFINED;
     }
     uv_read_stop(&s->h.stream);
 
@@ -236,6 +242,9 @@ static JSValue tjs_stream_write(JSContext *ctx, JSValue this_val, int argc, JSVa
     TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
     if (!s) {
         return JS_EXCEPTION;
+    }
+    if (uv_is_closing(&s->h.handle)) {
+        return JS_ThrowInternalError(ctx, "stream is closed");
     }
 
     size_t size;
@@ -301,6 +310,9 @@ static JSValue tjs_stream_shutdown(JSContext *ctx, JSValue this_val, int argc, J
     TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
     if (!s) {
         return JS_EXCEPTION;
+    }
+    if (uv_is_closing(&s->h.handle)) {
+        return JS_ThrowInternalError(ctx, "stream is closed");
     }
 
     uv_shutdown_t *req = js_malloc(ctx, sizeof(*req));

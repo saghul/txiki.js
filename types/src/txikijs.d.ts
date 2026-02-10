@@ -711,96 +711,47 @@ declare global {
         */
         function exec(args: string | string[]): void;
         
-        interface Address {
-            family: number;
-            ip: string;
-            port: number;
-            scopeId?: number;
-            flowInfo?: number;
-        }
-        
-        interface Connection {
-            setKeepAlive(enable: boolean, delay: number): void;
-            setNoDelay(enable?: boolean): void;
-            shutdown(): void;
-            close(): void;
-            localAddress: Address;
-            remoteAddress: Address;
-            readable: ReadableStream<Uint8Array>;
-            writable: WritableStream<Uint8Array>;
-        }
-
-        interface DatagramMessage {
-            data: Uint8Array;
-            addr: Address;
-            partial: boolean;
-        }
-
-        interface DatagramEndpoint {
-            close(): void;
-            localAddress: Address;
-            remoteAddress: Address;
-            readable: ReadableStream<DatagramMessage>;
-            writable: WritableStream<{ data: Uint8Array, addr?: Address }>;
-        }
-        
         type Transport = 'tcp' | 'udp' | 'pipe';
-        
+
         interface ConnectOptions {
-            /**
-            * Local address to bind to.
-            */
-            bindAddr: Address;
-            
-            /**
-            * Disables dual stack mode.
-            */
+            noDelay?: boolean;
+            keepAliveDelay?: number;
+            dnsQueryType?: 'ipv4' | 'ipv6';
+            bindAddr?: { ip: string; port: number };
             ipv6Only?: boolean;
         }
-        
+
         /**
         * Creates a connection to the target host + port over the selected transport.
+        * Returns the appropriate Direct Sockets object.
         *
         * @param transport Type of transport for the connection.
         * @param host Hostname for the connection. Basic lookup using {@link lookup} will be performed.
         * @param port Destination port (where applicable).
         * @param options Extra connection options.
         */
-        function connect(transport: Transport, host: string, port?: string | number, options?: ConnectOptions): Promise<Connection | DatagramEndpoint>;
-        
-        interface Listener extends AsyncIterable<Connection> {
-            accept(): Promise<Connection>;
-            close(): void;
-            localAddress: Address;
-        }
-        
+        function connect(transport: 'tcp', host: string, port: number, options?: ConnectOptions): Promise<TCPSocket>;
+        function connect(transport: 'pipe', host: string): Promise<PipeSocket>;
+        function connect(transport: 'udp', host: string, port: number, options?: ConnectOptions): Promise<UDPSocket>;
+
         interface ListenOptions {
             backlog?: number;
-            
-            /**
-            * Disables dual stack mode.
-            */
             ipv6Only?: boolean;
-            
-            /**
-            * Used on UDP only.
-            * Enable address reusing (when binding). What that means is that
-            * multiple threads or processes can bind to the same address without error
-            * (provided they all set the flag) but only the last one to bind will receive
-            * any traffic, in effect "stealing" the port from the previous listener.
-            */
             reuseAddr?: boolean;
         }
-        
+
         /**
         * Listens for incoming connections on the selected transport.
+        * Returns the appropriate Direct Sockets object.
         *
         * @param transport Transport type.
         * @param host Hostname for listening on.
         * @param port Listening port (where applicable).
         * @param options Extra listen options.
         */
-        function listen(transport: Transport, host: string, port?: string | number, options?: ListenOptions): Promise<Listener | DatagramEndpoint>;
+        function listen(transport: 'tcp', host: string, port?: number, options?: ListenOptions): Promise<TCPServerSocket>;
+        function listen(transport: 'pipe', host: string, options?: ListenOptions): Promise<PipeServerSocket>;
+        function listen(transport: 'udp', host?: string, port?: number, options?: ListenOptions): Promise<UDPSocket>;
         
         /**
         * Current process ID.
@@ -933,6 +884,112 @@ declare global {
          * @returns resulting string
          */
         function format(...values: unknown[]): string;
+    }
+
+    // Direct Sockets API
+    // See https://wicg.github.io/direct-sockets/
+
+    interface TCPSocketOpenInfo {
+        readable: ReadableStream<Uint8Array>;
+        writable: WritableStream<Uint8Array>;
+        localAddress: string;
+        localPort: number;
+        remoteAddress: string;
+        remotePort: number;
+    }
+
+    interface TCPSocketOptions {
+        noDelay?: boolean;
+        keepAliveDelay?: number;
+        dnsQueryType?: 'ipv4' | 'ipv6';
+    }
+
+    class TCPSocket {
+        constructor(remoteAddress: string, remotePort: number, options?: TCPSocketOptions);
+        readonly opened: Promise<TCPSocketOpenInfo>;
+        readonly closed: Promise<void>;
+        close(): void;
+    }
+
+    interface TCPServerSocketOpenInfo {
+        readable: ReadableStream<TCPSocket>;
+        localAddress: string;
+        localPort: number;
+    }
+
+    interface TCPServerSocketOptions {
+        localPort?: number;
+        backlog?: number;
+        ipv6Only?: boolean;
+    }
+
+    class TCPServerSocket {
+        constructor(localAddress: string, options?: TCPServerSocketOptions);
+        readonly opened: Promise<TCPServerSocketOpenInfo>;
+        readonly closed: Promise<void>;
+        close(): void;
+    }
+
+    interface UDPMessage {
+        data: Uint8Array;
+        remoteAddress?: string;
+        remotePort?: number;
+    }
+
+    interface UDPSocketOpenInfo {
+        readable: ReadableStream<UDPMessage>;
+        writable: WritableStream<UDPMessage>;
+        localAddress: string;
+        localPort: number;
+        remoteAddress?: string;
+        remotePort?: number;
+    }
+
+    interface UDPSocketOptions {
+        remoteAddress?: string;
+        remotePort?: number;
+        localAddress?: string;
+        localPort?: number;
+        dnsQueryType?: 'ipv4' | 'ipv6';
+        reuseAddr?: boolean;
+        ipv6Only?: boolean;
+    }
+
+    class UDPSocket {
+        constructor(options: UDPSocketOptions);
+        readonly opened: Promise<UDPSocketOpenInfo>;
+        readonly closed: Promise<void>;
+        close(): void;
+    }
+
+    interface PipeSocketOpenInfo {
+        readable: ReadableStream<Uint8Array>;
+        writable: WritableStream<Uint8Array>;
+        localAddress: string;
+        remoteAddress: string;
+    }
+
+    class PipeSocket {
+        constructor(path: string);
+        readonly opened: Promise<PipeSocketOpenInfo>;
+        readonly closed: Promise<void>;
+        close(): void;
+    }
+
+    interface PipeServerSocketOpenInfo {
+        readable: ReadableStream<PipeSocket>;
+        localAddress: string;
+    }
+
+    interface PipeServerSocketOptions {
+        backlog?: number;
+    }
+
+    class PipeServerSocket {
+        constructor(path: string, options?: PipeServerSocketOptions);
+        readonly opened: Promise<PipeServerSocketOpenInfo>;
+        readonly closed: Promise<void>;
+        close(): void;
     }
 }
 

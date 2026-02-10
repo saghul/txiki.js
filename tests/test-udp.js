@@ -4,9 +4,9 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 
-async function doEchoServer(server) {
-    const reader = server.readable.getReader();
-    const writer = server.writable.getWriter();
+async function doEchoServer(readable, writable) {
+    const reader = readable.getReader();
+    const writer = writable.getWriter();
 
     while (true) {
         const { value: msg, done } = await reader.read();
@@ -15,25 +15,25 @@ async function doEchoServer(server) {
             break;
         }
 
-        assert.ok(typeof msg.partial === 'boolean');
-        assert.is(msg.partial, false);
-        await writer.write({ data: msg.data, addr: msg.addr });
+        await writer.write({ data: msg.data, remoteAddress: msg.remoteAddress, remotePort: msg.remotePort });
     }
 }
 
-const server = await tjs.listen('udp', '127.0.0.1');
+const server = new UDPSocket({ localAddress: '127.0.0.1' });
+const serverInfo = await server.opened;
 
-doEchoServer(server);
+doEchoServer(serverInfo.readable, serverInfo.writable);
 
-const serverAddr = server.localAddress;
-const client = await tjs.listen('udp');
-const clientWriter = client.writable.getWriter();
-await clientWriter.write({ data: encoder.encode('PING'), addr: serverAddr });
-const clientReader = client.readable.getReader();
+const client = new UDPSocket({ localAddress: '127.0.0.1' });
+const clientInfo = await client.opened;
+const clientWriter = clientInfo.writable.getWriter();
+await clientWriter.write({ data: encoder.encode('PING'), remoteAddress: serverInfo.localAddress, remotePort: serverInfo.localPort });
+const clientReader = clientInfo.readable.getReader();
 let { value: msg } = await clientReader.read();
 let dataStr = decoder.decode(msg.data);
 assert.eq(dataStr, 'PING', 'sending works');
-assert.eq(serverAddr, msg.addr, "source address matches");
+assert.eq(serverInfo.localAddress, msg.remoteAddress, 'source address matches');
+assert.eq(serverInfo.localPort, msg.remotePort, 'source port matches');
 clientReader.cancel();
 clientWriter.close();
 client.close();

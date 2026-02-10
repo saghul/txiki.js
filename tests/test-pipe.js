@@ -10,34 +10,44 @@ if (navigator.userAgentData.platform === 'Windows') {
     pipeName = 'testPipe';
 }
 
-async function doEchoServer(server) {
-    const conn = await server.accept();
+async function doEchoServer(serverReadable) {
+    const reader = serverReadable.getReader();
+    const { value: conn } = await reader.read();
 
     if (!conn) {
         return;
     }
 
-    await conn.readable.pipeTo(conn.writable);
+    const { readable, writable } = await conn.opened;
+
+    await readable.pipeTo(writable);
 }
 
-const server = await tjs.listen('pipe', pipeName);
+const server = new PipeServerSocket(pipeName);
+const { readable: serverReadable, localAddress } = await server.opened;
 
-doEchoServer(server);
+doEchoServer(serverReadable);
 
-const client = await tjs.connect('pipe', server.localAddress);
+const client = new PipeSocket(localAddress);
+const { readable, writable } = await client.opened;
 
-const reader = client.readable.getReader();
-const writer = client.writable.getWriter();
+const writer = writable.getWriter();
+const reader = readable.getReader();
 await writer.write(encoder.encode('PING'));
 let { value, done } = await reader.read();
 let dataStr = decoder.decode(value);
 assert.eq(dataStr, "PING", "sending works");
-await reader.cancel();
+
+await writer.close();
+const eof = await reader.read();
+assert.eq(eof.done, true);
+
+client.close();
 server.close();
 
 let error;
 try {
-    await tjs.listen('pipe');
+    new PipeServerSocket();
 } catch (e) {
     error = e;
 }
@@ -47,7 +57,7 @@ assert.eq(error.name, 'TypeError');
 error = undefined;
 
 try {
-    await tjs.connect('pipe');
+    new PipeSocket();
 } catch (e) {
     error = e;
 }

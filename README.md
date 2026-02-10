@@ -61,6 +61,7 @@ Support for the [ES2023] specification (almost complete).
 - [alert, confirm, prompt] (1)
 - [Console]
 - [Crypto] (2)
+- [Direct Sockets]
 - [Encoding API]
 - [EventTarget]
 - [fetch]
@@ -271,6 +272,7 @@ Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul
 [EventTarget]: https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
 [Console]: https://developer.mozilla.org/en-US/docs/Web/API/Console
 [Crypto]: https://developer.mozilla.org/en-US/docs/Web/API/Crypto
+[Direct Sockets]: https://wicg.github.io/direct-sockets/
 [Encoding API]: https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API
 [JSON modules]: https://github.com/tc39/proposal-json-modules
 [Performance]: https://developer.mozilla.org/en-US/docs/Web/API/Performance

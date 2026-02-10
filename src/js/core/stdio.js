@@ -127,31 +127,17 @@ class StdioWritableStream extends WritableStream {
                 }
             });
         } else {
-            const queue = [];
-
-            handle.onwrite = error => {
-                const entry = queue.shift();
-
-                if (entry) {
-                    if (error) {
-                        entry.reject(error);
-                    } else {
-                        entry.resolve();
-                    }
-                }
-            };
-
             super({
-                async write(chunk, controller) {
-                    try {
-                        const result = handle.write(chunk);
-
-                        if (typeof result !== 'number') {
-                            const { promise, resolve, reject } = Promise.withResolvers();
-
-                            queue.push({ resolve, reject });
-                            await promise;
+                start(controller) {
+                    handle.onwrite = error => {
+                        if (error) {
+                            controller.error(error);
                         }
+                    };
+                },
+                write(chunk, controller) {
+                    try {
+                        handle.write(chunk);
                     } catch (e) {
                         controller.error(e);
                     }

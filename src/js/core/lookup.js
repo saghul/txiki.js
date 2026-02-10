@@ -59,3 +59,26 @@ export function isIP(s) {
 
     return 0;
 }
+
+export async function resolveAddress(host, port, dnsQueryType) {
+    if (isIP(host)) {
+        return { ip: host, port };
+    }
+
+    let family = 0;
+
+    switch (dnsQueryType) {
+        case 'ipv4':
+            family = 4;
+            break;
+        case 'ipv6':
+            family = 6;
+            break;
+        default:
+            break;
+    }
+
+    const result = await lookup(host, { family });
+
+    return { ...result, port };
+}
