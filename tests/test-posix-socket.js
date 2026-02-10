@@ -54,7 +54,8 @@ async function testTcpSock(){
 
 	let clientRecv = 0;
 	tjs.connect('tcp', '127.0.0.1', 55678).then(async con=>{
-		const reader = con.readable.getReader();
+		const { readable } = await con.opened;
+		const reader = readable.getReader();
 		const { value } = await reader.read();
 		clientRecv = value.length;
 		assert.eq(clientRecv, sendbuf.length);

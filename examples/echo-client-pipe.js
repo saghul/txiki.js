@@ -2,9 +2,10 @@
 //
 
 
-const p = await tjs.connect('pipe', tjs.args[2] || '/tmp/fooPipe');
+const client = new PipeSocket(tjs.args[2] || '/tmp/fooPipe');
+const { readable, writable, remoteAddress } = await client.opened;
 
-console.log(`Connected to ${p.remoteAddress}`);
+console.log(`Connected to ${remoteAddress}`);
 
-await p.readable.pipeTo(p.writable);
+await readable.pipeTo(writable);
 console.log('connection closed!');

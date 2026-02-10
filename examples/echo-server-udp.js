@@ -1,26 +1,33 @@
 // Sample UDP echo server.
 //
 
-import { addr } from './utils.js';
 
+const server = new UDPSocket({
+    localAddress: tjs.args[2] || '127.0.0.1',
+    localPort: Number(tjs.args[3]) || 1234,
+});
+const { readable, writable, localAddress, localPort } = await server.opened;
 
-const u = await tjs.listen('udp', tjs.args[2] || '127.0.0.1', tjs.args[3] || 1234);
-
-console.log(`Listening on ${addr(u.localAddress)}`);
+console.log(`Listening on ${localAddress}:${localPort}`);
 
 const decoder = new TextDecoder();
-const reader = u.readable.getReader();
+const reader = readable.getReader();
+const writer = writable.getWriter();
+
 while (true) {
     const { value: msg, done } = await reader.read();
+
     if (done) {
         break;
     }
-    await u.send(msg.data, msg.addr);
+
+    await writer.write({ data: msg.data, remoteAddress: msg.remoteAddress, remotePort: msg.remotePort });
+
     if (decoder.decode(msg.data) === 'quit\n') {
         break;
     }
 }
 
-u.close();
+server.close();
 
 console.log('END');

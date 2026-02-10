@@ -8,6 +8,7 @@ import { lookup } from './lookup.js';
 import pathModule from './path.js';
 import { spawn } from './process.js';
 import { addSignalListener, removeSignalListener } from './signal.js';
+import './direct-sockets/index.js';
 import { connect, listen } from './sockets.js';
 import { createStdin, createStdout, createStderr } from './stdio.js';
 import system from './system.js';
