@@ -48,7 +48,6 @@ typedef struct {
     JSContext *ctx;
     int closed;
     int finalized;
-    int reading;
     union {
         uv_handle_t handle;
         uv_stream_t stream;
@@ -131,15 +130,6 @@ static JSValue tjs_stream_close(JSContext *ctx, JSValue this_val, int argc, JSVa
         return JS_EXCEPTION;
     }
 
-    if (s->reading) {
-        uv_read_stop(&s->h.stream);
-        s->reading = 0;
-        JSValue arg = JS_UNDEFINED;
-        maybe_invoke_callback(s, STREAM_CB_READ, 1, &arg);
-        js_free(ctx, s->read.buf);
-        s->read.buf = NULL;
-    }
-
     {
         JSValue args[2] = { JS_UNDEFINED, JS_UNDEFINED };
         maybe_invoke_callback(s, STREAM_CB_CONNECTION, 2, args);
@@ -174,23 +164,24 @@ static void uv__stream_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_
         return; /* EAGAIN, ignore */
     }
 
-    JSValue arg;
+    JSValue args[2];
     if (nread < 0) {
         js_free(ctx, s->read.buf);
         s->read.buf = NULL;
         if (nread == UV_EOF) {
-            arg = JS_NULL;
+            args[0] = JS_NULL;
+            args[1] = JS_UNDEFINED;
         } else {
-            arg = tjs_new_error(ctx, nread);
+            args[0] = JS_UNDEFINED;
+            args[1] = tjs_new_error(ctx, nread);
         }
-        uv_read_stop(handle);
-        s->reading = 0;
     } else {
-        arg = TJS_NewUint8Array(ctx, s->read.buf, nread);
+        args[0] = TJS_NewUint8Array(ctx, s->read.buf, nread);
+        args[1] = JS_UNDEFINED;
         s->read.buf = NULL;
     }
 
-    maybe_invoke_callback(s, STREAM_CB_READ, 1, &arg);
+    maybe_invoke_callback(s, STREAM_CB_READ, 2, args);
 }
 
 static JSValue tjs_stream_start_read(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -199,16 +190,11 @@ static JSValue tjs_stream_start_read(JSContext *ctx, JSValue this_val, int argc,
     if (!s) {
         return JS_EXCEPTION;
     }
-    if (s->reading) {
-        return tjs_throw_errno(ctx, UV_EBUSY);
-    }
-
     int r = uv_read_start(&s->h.stream, uv__stream_alloc_cb, uv__stream_read_cb);
     if (r != 0) {
         return tjs_throw_errno(ctx, r);
     }
 
-    s->reading = 1;
     return JS_UNDEFINED;
 }
 
@@ -218,12 +204,7 @@ static JSValue tjs_stream_stop_read(JSContext *ctx, JSValue this_val, int argc, 
     if (!s) {
         return JS_EXCEPTION;
     }
-    if (!s->reading) {
-        return JS_UNDEFINED;
-    }
-
     uv_read_stop(&s->h.stream);
-    s->reading = 0;
 
     js_free(ctx, s->read.buf);
     s->read.buf = NULL;
@@ -456,7 +437,6 @@ static JSValue tjs_stream_set_blocking(JSContext *ctx, JSValue this_val, int arg
 static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
     s->ctx = ctx;
     s->h.handle.data = s;
-    s->reading = 0;
     s->read.buf = NULL;
 
     for (int i = 0; i < STREAM_CB_MAX; i++) {
