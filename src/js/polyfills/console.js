@@ -292,6 +292,7 @@ function createConsole({
 }
 
 
+const core = globalThis[Symbol.for('tjs.internal.core')];
 const encoder = new TextEncoder();
 
 class CSI {
@@ -299,26 +300,7 @@ class CSI {
     static kClearScreenDown = '\x1b[0J';
 }
 
-const kConsoleClear = encoder.encode(CSI.kHome + CSI.kClearScreenDown);
-
-let stdoutWriter;
-let stderrWriter;
-
-function getStdoutWriter() {
-    if (!stdoutWriter) {
-        stdoutWriter = tjs.stdout.getWriter();
-    }
-
-    return stdoutWriter;
-}
-
-function getStderrWriter() {
-    if (!stderrWriter) {
-        stderrWriter = tjs.stderr.getWriter();
-    }
-
-    return stderrWriter;
-}
+const kConsoleClear = CSI.kHome + CSI.kClearScreenDown;
 
 Object.defineProperty(window, 'console', {
     enumerable: false,
@@ -327,7 +309,7 @@ Object.defineProperty(window, 'console', {
     value: createConsole({
         clearConsole() {
             if (tjs.stdout.isTerminal && tjs.env.TERM !== 'dumb') {
-                getStdoutWriter().write(kConsoleClear);
+                core.stdoutPrint(kConsoleClear);
             }
         },
         printer(logLevel, args, { indent, isWarn }) {
@@ -339,12 +321,12 @@ Object.defineProperty(window, 'console', {
                 }
             }).join(' ');
 
-            const str = encoder.encode((' ').repeat(indent*2) + msg + '\n');
+            const str = (' ').repeat(indent*2) + msg + '\n';
 
             if ([ 'error', 'trace', 'warn' ].includes(logLevel) || isWarn) {
-                getStderrWriter().write(str);
+                core.stderrPrint(str);
             } else {
-                getStdoutWriter().write(str);
+                core.stdoutPrint(str);
             }
         },
     })
