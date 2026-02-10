@@ -25,6 +25,7 @@
 #include "private.h"
 #include "version.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <uv.h>
 
@@ -69,6 +70,20 @@ static JSValue tjs_evalScript(JSContext *ctx, JSValue this_val, int argc, JSValu
     ret = JS_Eval(ctx, str, len, "<evalScript>", JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_ASYNC);
     JS_FreeCString(ctx, str);
     return ret;
+}
+
+static JSValue tjs_print(JSContext *ctx, JSValue this_val, int argc, JSValue *argv, int magic) {
+    const char *str;
+    size_t len;
+    str = JS_ToCStringLen(ctx, &len, argv[0]);
+    if (!str) {
+        return JS_EXCEPTION;
+    }
+    FILE *f = magic == 0 ? stdout : stderr;
+    fwrite(str, 1, len, f);
+    fflush(f);
+    JS_FreeCString(ctx, str);
+    return JS_UNDEFINED;
 }
 
 static JSValue tjs_runRepl(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -166,6 +181,8 @@ static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("runRepl", 0, tjs_runRepl),
     TJS_CFUNC_DEF("isArrayBuffer", 1, tjs_isArrayBuffer),
     TJS_CFUNC_DEF("detachArrayBuffer", 1, tjs_detachArrayBuffer),
+    TJS_CFUNC_MAGIC_DEF("stdoutPrint", 1, tjs_print, 0),
+    TJS_CFUNC_MAGIC_DEF("stderrPrint", 1, tjs_print, 1),
     TJS_CGETSET_DEF("exePath", tjs_exepath, NULL),
 };
 /* clang-format on */

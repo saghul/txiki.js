@@ -32,6 +32,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 #define TJS__DEFAULT_STACK_SIZE 1024 * 1024  // 1 MB
 
 /* JS malloc functions */
@@ -403,6 +408,11 @@ void TJS_Initialize(int argc, char **argv) {
 
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
+
+#ifdef _WIN32
+    _setmode(_fileno(stdout), _O_BINARY);
+    _setmode(_fileno(stderr), _O_BINARY);
+#endif
 
 #ifdef SIGPIPE
     signal(SIGPIPE, SIG_IGN);
