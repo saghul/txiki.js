@@ -33,7 +33,7 @@ jobs:
         run: vcpkg install curl[ssl] libffi
       - name: Configure
         run: |
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake -DUSE_EXTERNAL_FFI=ON
+          cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
       - name: Build
         run: cmake --build build --config Release
       - name: Package

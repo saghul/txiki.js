@@ -49,7 +49,6 @@ macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
 endmacro()
 
 cpr_option(BUILD_WITH_MIMALLOC "If ON (default), build with mimalloc" ON)
-cpr_option(USE_EXTERNAL_FFI "Specify to use external ffi dependency" OFF)
 
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
 
@@ -186,33 +185,9 @@ set_target_properties(ffi-test sqlite-test PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
 )
 
-
-if(NOT USE_EXTERNAL_FFI AND NOT APPLE AND NOT WIN32)
-    set(LIBFFI_SRC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libffi")
-    set(TMP_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/ffi_root")
-    set(LIBFFI_STATIC_PATH ${TMP_INSTALL_DIR}/usr/local/lib/libffi.a)
-    ExternalProject_Add(
-        libffi
-        BUILD_IN_SOURCE 1
-        SOURCE_DIR "${LIBFFI_SRC}"
-        CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure --enable-static=yes --disable-shared --disable-docs --disable-multi-os-directory
-        BUILD_COMMAND make
-        INSTALL_DIR ${TMP_INSTALL_DIR}
-        INSTALL_COMMAND make DESTDIR=${TMP_INSTALL_DIR} install
-        EXCLUDE_FROM_ALL TRUE
-        BUILD_BYPRODUCTS ${LIBFFI_STATIC_PATH}
-    )
-    add_dependencies(tjs libffi)
-    add_library(libffi_a STATIC IMPORTED)
-    set_target_properties(libffi_a PROPERTIES IMPORTED_LOCATION ${LIBFFI_STATIC_PATH})
-    target_include_directories(tjs PRIVATE ${TMP_INSTALL_DIR}/usr/local/include)
-    target_link_libraries(tjs libffi_a)
-else()
-    find_library(FFI_LIB NAMES libffi ffi REQUIRED)
-    find_path(FFI_INCLUDE_DIR NAMES ffi.h PATH_SUFFIXES ffi REQUIRED)
-    target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
-    target_link_libraries(tjs ${FFI_LIB})
-endif()
+find_library(FFI_LIB NAMES libffi ffi REQUIRED)
+find_path(FFI_INCLUDE_DIR NAMES ffi.h PATH_SUFFIXES ffi REQUIRED)
+target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
 
 set_target_properties(tjs PROPERTIES
     C_STANDARD 11
@@ -230,7 +205,7 @@ endif()
 
 target_include_directories(tjs PUBLIC src)
 target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
-target_link_libraries(tjs qjs uv_a vmlib sqlite3 CURL::libcurl ada)
+target_link_libraries(tjs qjs uv_a vmlib sqlite3 CURL::libcurl ada ${FFI_LIB})
 
 if (BUILD_WITH_MIMALLOC)
     target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)

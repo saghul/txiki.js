@@ -81,7 +81,7 @@ jobs:
         ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
       run: |
         sudo apt update
-        sudo apt install -y libcurl4-openssl-dev libltdl-dev
+        sudo apt install -y libcurl4-openssl-dev libltdl-dev libffi-dev
         if [ "${{ matrix.compiler }}" = "clang" ]; then
           sudo apt install -y clang
           echo "::set-env name=CC::clang"
@@ -138,7 +138,7 @@ jobs:
       with:
         node-version-file: '.nvmrc'
     - name: Build it
-      run: make VERBOSE=1 USE_EXTERNAL_FFI=ON
+      run: make VERBOSE=1
     - name: Test it
       run: make test
   build-windows:
@@ -163,7 +163,7 @@ jobs:
       run: vcpkg install curl[ssl] libffi
     - name: Configure
       run: |
-        cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake -DUSE_EXTERNAL_FFI=ON
+        cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
     - name: Build
       run: cmake --build build --config ${{ matrix.buildType }}
     - name: Test

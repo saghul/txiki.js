@@ -186,7 +186,7 @@ cd vcpkg
 Run these commands from a "Developer PowerShell for VS 2022" or "x64 Native Tools Command Prompt":
 
 ```powershell
-cmake -B build -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake -DUSE_EXTERNAL_FFI=ON
+cmake -B build -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
 cmake --build build --config Release
 ```
 

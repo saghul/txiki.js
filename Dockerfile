@@ -2,7 +2,7 @@ FROM alpine:latest AS builder
 RUN apk add build-base cmake curl-dev libffi-dev --update-cache
 WORKDIR /txiki.js
 COPY . .
-RUN make distclean && USE_EXTERNAL_FFI=ON make
+RUN make distclean && make
 
 FROM alpine:latest
 RUN apk add libstdc++ libcurl libffi tini --no-cache
