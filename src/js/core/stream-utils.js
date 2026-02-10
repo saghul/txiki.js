@@ -43,26 +43,25 @@ export function readableStreamForHandle(handle) {
 
     return new ReadableStream({
         start(controller) {
-            handle.onread = chunk => {
-                if (chunk instanceof Uint8Array) {
-                    controller.enqueue(chunk);
+            handle.onread = (data, error) => {
+                if (error) {
+                    handle.stopRead();
+                    reading = false;
+                    handle.onread = null;
+                    controller.error(error);
+                } else if (data === null) {
+                    handle.stopRead();
+                    reading = false;
+                    handle.onread = null;
+                    controller.close();
+                    silentClose(handle);
+                } else {
+                    controller.enqueue(data);
 
                     if (controller.desiredSize <= 0) {
                         handle.stopRead();
                         reading = false;
                     }
-                } else if (chunk === null) {
-                    reading = false;
-                    controller.close();
-                    silentClose(handle);
-                } else if (chunk instanceof Error) {
-                    reading = false;
-                    controller.error(chunk);
-                    silentClose(handle);
-                } else {
-                    // undefined - handle closed
-                    reading = false;
-                    controller.close();
                 }
             };
         },
@@ -91,7 +90,6 @@ export function writableStreamForHandle(handle, writeFn) {
                 await writeFn(chunk);
             } catch (e) {
                 controller.error(e);
-                silentClose(handle);
             }
         },
         close() {

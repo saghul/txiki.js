@@ -333,11 +333,12 @@ class DatagramEndpoint {
 
             this[kReadable] = new ReadableStream({
                 start(controller) {
-                    handle.onrecv = msg => {
-                        if (msg instanceof Error) {
-                            controller.error(msg);
-                        } else if (typeof msg === 'undefined') {
-                            controller.close();
+                    handle.onrecv = (msg, error) => {
+                        if (error) {
+                            handle.stopRecv();
+                            receiving = false;
+                            handle.onrecv = null;
+                            controller.error(error);
                         } else {
                             controller.enqueue(msg);
 
@@ -349,8 +350,10 @@ class DatagramEndpoint {
                     };
                 },
                 pull() {
-                    receiving = true;
-                    handle.startRecv();
+                    if (!receiving) {
+                        receiving = true;
+                        handle.startRecv();
+                    }
                 },
                 cancel() {
                     if (receiving) {
