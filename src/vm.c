@@ -335,6 +335,9 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(wasm_runtime_full_init(&wasm_init_args), true);
     qrt->wasm_ctx.initialized = true;
 
+    /* lws */
+    tjs__lws_init(qrt);
+
     /* Timers */
     qrt->timers.timers = NULL;
     qrt->timers.next_timer = 1;
@@ -369,6 +372,12 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     if (qrt->curl_ctx.curlm_h) {
         curl_multi_cleanup(qrt->curl_ctx.curlm_h);
         qrt->curl_ctx.curlm_h = NULL;
+    }
+
+    /* Destroy lws context. */
+    if (qrt->lws.ctx) {
+        lws_context_destroy(qrt->lws.ctx);
+        qrt->lws.ctx = NULL;
     }
 
     /* Destroy WASM runtime. */

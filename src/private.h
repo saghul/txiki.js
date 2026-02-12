@@ -30,6 +30,7 @@
 #include "utils.h"
 
 #include <curl/curl.h>
+#include <libwebsockets.h>
 #include <quickjs.h>
 #include <sqlite3.h>
 #include <stdbool.h>
@@ -76,6 +77,9 @@ struct TJSRuntime {
     struct {
         bool initialized;
     } wasm_ctx;
+    struct {
+        struct lws_context *ctx;
+    } lws;
     struct {
         TJSTimer *timers;
         int64_t next_timer;
@@ -133,6 +137,9 @@ void tjs__destroy_timers(TJSRuntime *qrt);
 
 void tjs__sab_free(void *opaque, void *ptr);
 void tjs__sab_dup(void *opaque, void *ptr);
+
+struct lws_context *tjs__lws_get_context(JSContext *ctx);
+void tjs__lws_init(TJSRuntime *qrt);
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);

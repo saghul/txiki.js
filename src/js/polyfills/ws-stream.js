@@ -67,7 +67,7 @@ function closeWebSocket(ws, code, reason) {
                 ws.close();
             }
         } catch (_) {
-            // Ignore.
+            // Ignored.
         }
     }
 }
@@ -193,12 +193,14 @@ class WebSocketStream {
             }
         });
 
-        ws.addEventListener('error', () => {
+        ws.addEventListener('error', event => {
             hadError = true;
+
+            const msg = event.message ? `WebSocket error: ${event.message}` : 'WebSocket error';
 
             if (!openedSettled) {
                 openedSettled = true;
-                opened.reject(new WebSocketError('WebSocket error'));
+                opened.reject(new WebSocketError(msg));
             }
 
             removeAbortListener();

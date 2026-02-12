@@ -6,16 +6,17 @@ const kWS = Symbol('kWS');
 const kWsBinaryType = Symbol('kWsBinaryType');
 const kWsProtocol = Symbol('kWsProtocol');
 const kWsUrl = Symbol('kWsUrl');
+const kReadyState = Symbol('kReadyState');
 
 class WebSocket extends EventTarget {
-    static CONNECTING = WS.CONNECTING;
-    static OPEN = WS.OPEN;
-    static CLOSING = WS.CLOSING;
-    static CLOSED = WS.CLOSED;
-    CONNECTING = WS.CONNECTING;
-    OPEN = WS.OPEN;
-    CLOSING = WS.CLOSING;
-    CLOSED = WS.CLOSED;
+    static CONNECTING = 0;
+    static OPEN = 1;
+    static CLOSING = 2;
+    static CLOSED = 3;
+    CONNECTING = 0;
+    OPEN = 1;
+    CLOSING = 2;
+    CLOSED = 3;
 
     [kWsBinaryType] = 'blob';
     [kWsProtocol] = '';
@@ -41,32 +42,35 @@ class WebSocket extends EventTarget {
 
         const ws = new WS(urlStr, protocolStr);
 
-        ws.onclose = ev => {
-            const { code, reason, wasClean } = ev;
+        ws.onopen = protocol => {
+            this[kWsProtocol] = protocol || (protocols.length ? protocols[0] : '');
+            this[kReadyState] = WebSocket.OPEN;
+            this.dispatchEvent(new Event('open'));
+        };
+
+        ws.onmessage = data => {
+            let msg = data;
+
+            if (typeof data !== 'string' && this[kWsBinaryType] === 'blob') {
+                msg = new Blob([ data ]);
+            }
+
+            this.dispatchEvent(new MessageEvent('message', msg));
+        };
+
+        ws.onerror = reason => {
+            this.dispatchEvent(new ErrorEvent('error', { message: reason || '' }));
+        };
+
+        ws.onclose = (code, reason) => {
+            this[kReadyState] = WebSocket.CLOSED;
+            const wasClean = code === 1000;
 
             this.dispatchEvent(new CloseEvent('close', { code, reason, wasClean }));
         };
 
-        ws.onerror = () => {
-            this.dispatchEvent(new Event('error'));
-        };
-
-        ws.onmessage = msg => {
-            let data = msg;
-
-            if (typeof msg !== 'string' && this[kWsBinaryType] === 'blob') {
-                data = new Blob([ msg ]);
-            }
-
-            this.dispatchEvent(new MessageEvent('message', data));
-        };
-
-        ws.onopen = p => {
-            this[kWsProtocol] = p;
-            this.dispatchEvent(new Event('open'));
-        };
-
         this[kWS] = ws;
+        this[kReadyState] = WebSocket.CONNECTING;
     }
 
     get binaryType() {
@@ -82,14 +86,11 @@ class WebSocket extends EventTarget {
     }
 
     get bufferedAmount() {
-        // TODO. Not sure we can actually implement this since cws doesn't tell us
-        // when the data was sent.
-        return 0;
+        return this[kWS].bufferedAmount;
     }
 
     get extensions() {
-        // TODO.
-        return '';
+        return this[kWS].extensions;
     }
 
     get protocol() {
@@ -97,7 +98,7 @@ class WebSocket extends EventTarget {
     }
 
     get readyState() {
-        return this[kWS].readyState;
+        return this[kReadyState];
     }
 
     get url() {
@@ -105,6 +106,14 @@ class WebSocket extends EventTarget {
     }
 
     send(data) {
+        if (this[kReadyState] === WebSocket.CONNECTING) {
+            throw new DOMException('WebSocket is not open', 'InvalidStateError');
+        }
+
+        if (this[kReadyState] !== WebSocket.OPEN) {
+            return;
+        }
+
         if (typeof data === 'string') {
             this[kWS].sendText(data);
         } else if (data instanceof Blob) {
@@ -116,12 +125,13 @@ class WebSocket extends EventTarget {
         } else if (ArrayBuffer.isView(data)) {
             this[kWS].sendBinary(data.buffer, data.byteOffset, data.byteLength);
         }
-
-        // Looks like WebSocket implementations are very forgiving, so don't
-        // throw an error here.
     }
 
     close(code = 1000, reason = '') {
+        if (this[kReadyState] === WebSocket.CLOSING || this[kReadyState] === WebSocket.CLOSED) {
+            return;
+        }
+
         if (code !== 1000 && !(code >= 3000 && code <= 4999)) {
             throw new RangeError('Invalid code value');
         }
@@ -130,6 +140,7 @@ class WebSocket extends EventTarget {
             throw new SyntaxError('Invalid reason value');
         }
 
+        this[kReadyState] = WebSocket.CLOSING;
         this[kWS].close(code, reason);
     }
 }
