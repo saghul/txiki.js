@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: true
+          submodules: recursive
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@v8
         with:
@@ -54,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: true
+          submodules: recursive
       - name: build macos arm64
         run: |
           brew install autoconf automake libtool
@@ -74,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: true
+          submodules: recursive
       - name: build macos x86_64
         run: |
           brew install autoconf automake libtool

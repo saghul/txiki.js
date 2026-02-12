@@ -322,7 +322,6 @@ static JSValue tjs_httpclient_constructor(JSContext *ctx, JSValue new_target, in
         h->callbacks[i] = JS_UNDEFINED;
     }
 
-    h->curl_private.magic = TJS__CURL_PRIVATE_MAGIC;
     h->curl_private.arg = h;
     h->curl_private.done_cb = curlm__done_cb;
 

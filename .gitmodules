@@ -11,3 +11,10 @@
 [submodule "deps/wamr"]
 	path = deps/wamr
 	url = https://github.com/bytecodealliance/wasm-micro-runtime.git
+[submodule "deps/mbedtls"]
+	path = deps/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls
+[submodule "deps/libwebsockets"]
+	path = deps/libwebsockets
+	url = https://github.com/warmcat/libwebsockets
+	ignore = dirty

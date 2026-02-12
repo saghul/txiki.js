@@ -177,4 +177,5 @@ test-advanced:
 	./$(BUILD_DIR)/tjs --stack-size 10485760 test tests/advanced/
 
 .PRECIOUS: src/bundles/js/core/%.js src/bundles/js/stdlib/%.js
-.PHONY: all js debug install clean distclean format lint test test-advanced core stdlib
+.PHONY: all js debug install clean distclean format lint test test-advanced core stdlib $(TJS) $(TJSC)
+

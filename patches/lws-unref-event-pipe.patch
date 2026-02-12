@@ -1,0 +1,37 @@
+diff --git a/lib/event-libs/libuv/libuv.c b/lib/event-libs/libuv/libuv.c
+index 23894df1..cd6e018e 100644
+--- a/lib/event-libs/libuv/libuv.c
++++ b/lib/event-libs/libuv/libuv.c
+@@ -528,6 +528,14 @@ elops_accept_uv(struct lws *wsi)
+ 
+ 	((uv_handle_t *)w_read->pwatcher)->data = (void *)wsi;
+ 
++	/*
++	 * When using a foreign event loop, unref the event_pipe poll handle
++	 * so it doesn't prevent the loop from exiting when all real
++	 * WebSocket connections are closed.
++	 */
++	if (pt->event_loop_foreign && wsi->event_pipe)
++		uv_unref((uv_handle_t *)w_read->pwatcher);
++
+ 	ptpriv->extant_handles++;
+ 
+ 	lwsl_wsi_debug(wsi, "thr %d: sa left %d: dyn left: %d",
+@@ -748,6 +756,8 @@ elops_init_pt_uv(struct lws_context *context, void *_loop, int tsi)
+ 		uv_idle_init(loop, &ptpriv->idle);
+ 		LWS_UV_REFCOUNT_STATIC_HANDLE_NEW(&ptpriv->idle, pt);
+ 		uv_idle_start(&ptpriv->idle, lws_uv_idle);
++		if (pt->event_loop_foreign)
++			uv_unref((uv_handle_t *)&ptpriv->idle);
+ 
+ 		ns = LWS_ARRAY_SIZE(sigs);
+ 		if (lws_check_opt(context->options,
+@@ -782,6 +792,8 @@ elops_init_pt_uv(struct lws_context *context, void *_loop, int tsi)
+ 
+ 	uv_timer_init(ptpriv->io_loop, &ptpriv->sultimer);
+ 	LWS_UV_REFCOUNT_STATIC_HANDLE_NEW(&ptpriv->sultimer, pt);
++	if (pt->event_loop_foreign)
++		uv_unref((uv_handle_t *)&ptpriv->sultimer);
+ 
+ 	return status;
+ }

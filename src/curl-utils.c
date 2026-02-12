@@ -123,13 +123,6 @@ static void check_multi_info(TJSRuntime *qrt) {
                 tjs_curl_private_t *curl_private = NULL;
                 curl_easy_getinfo(easy_handle, CURLINFO_PRIVATE, &curl_private);
                 CHECK_NOT_NULL(curl_private);
-                /**
-                 * This is an ugly workaround. The WS code uses a _different_ private
-                 * struct and we need to tell them apart.
-                 */
-                if (curl_private->magic != TJS__CURL_PRIVATE_MAGIC) {
-                    break;
-                }
                 CHECK_NOT_NULL(curl_private->done_cb);
                 curl_private->done_cb(message, curl_private->arg);
 
