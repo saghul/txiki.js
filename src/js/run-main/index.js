@@ -13,6 +13,8 @@ const core = globalThis[Symbol.for('tjs.internal.core')];
 /**
  * Before we do anything else, create our "home" directory,
  * so other parts of the code which need it can find it.
+ * Also set the cookie jar path, since it's needed when
+ * initializing lws.
  */
 const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
 
@@ -21,6 +23,8 @@ try {
 } catch (_) {
     // Ignore.
 }
+
+core.setCookieJarPath(path.join(TJS_HOME, 'cookies.txt'));
 
 /**
  * Trailer for standalone binaries. When some code gets bundled with the tjs

@@ -133,11 +133,11 @@ submodules with `git submodule update --init` before proceeding to the build.
 
 ### GNU/Linux
 
-Install dependencies (`libcurl`, `build-essential`, `cmake`, `libffi-dev`):
+Install dependencies (`build-essential`, `cmake`, `libffi-dev`):
 
 ```bash
 # On Debian / Ubuntu
-sudo apt install libcurl4-openssl-dev build-essential cmake libffi-dev
+sudo apt install build-essential cmake libffi-dev
 ```
 
 ### macOS
@@ -179,7 +179,7 @@ cd vcpkg
 3. Install the required dependencies:
 
 ```powershell
-.\vcpkg install curl[ssl] libffi
+.\vcpkg install libffi
 ```
 
 #### Build
@@ -264,7 +264,6 @@ Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul
 
 [QuickJS-ng]: https://github.com/quickjs-ng/quickjs
 [libuv]: https://libuv.org/
-[curl]: https://github.com/curl/curl
 [full API documentation]: https://bettercallsaghul.com/txiki.js/api/
 [CMake]: https://cmake.org/
 [alert, confirm, prompt]: https://developer.mozilla.org/en-US/docs/Web/API/Window/alert

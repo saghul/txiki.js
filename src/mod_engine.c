@@ -164,7 +164,7 @@ void tjs__mod_engine_init(JSContext *ctx, JSValue ns) {
     JS_DefinePropertyValueStr(ctx, versions, "quickjs", JS_NewString(ctx, JS_GetVersion()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "tjs", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "uv", JS_NewString(ctx, uv_version_string()), JS_PROP_C_W_E);
-    JS_DefinePropertyValueStr(ctx, versions, "curl", JS_NewString(ctx, curl_version()), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, versions, "lws", JS_NewString(ctx, lws_get_library_version()), JS_PROP_C_W_E);
     uint32_t wamr_major, wamr_minor, wamr_patch;
     wasm_runtime_get_version(&wamr_major, &wamr_minor, &wamr_patch);
     char wamr_version[32];

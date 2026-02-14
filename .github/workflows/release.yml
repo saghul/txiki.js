@@ -30,7 +30,7 @@ jobs:
         with:
           vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
       - name: Install dependencies
-        run: vcpkg install curl[ssl] libffi
+        run: vcpkg install libffi
       - name: Configure
         run: |
           cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake

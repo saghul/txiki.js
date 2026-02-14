@@ -1,11 +1,11 @@
 FROM alpine:latest AS builder
-RUN apk add build-base cmake curl-dev libffi-dev --update-cache
+RUN apk add build-base cmake libffi-dev git --update-cache
 WORKDIR /txiki.js
 COPY . .
 RUN make distclean && make
 
 FROM alpine:latest
-RUN apk add libstdc++ libcurl libffi tini --no-cache
+RUN apk add libstdc++ libffi tini --no-cache
 COPY --from=builder /txiki.js/build/tjs /bin/tjs
 COPY --from=builder /txiki.js/examples /examples
 COPY ./docker/entry.sh /usr/local/bin/docker-entrypoint.sh

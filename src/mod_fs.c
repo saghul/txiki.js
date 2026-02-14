@@ -1183,6 +1183,13 @@ static JSValue tjs_fs_mkdir(JSContext *ctx, JSValue this_val, int argc, JSValue 
     return tjs_fsreq_init(ctx, fr, JS_UNDEFINED);
 }
 
+static int tjs__mkdir_sync(const char *path, int mode) {
+    uv_fs_t req;
+    int r = uv_fs_mkdir(NULL, &req, path, mode, NULL);
+    uv_fs_req_cleanup(&req);
+    return r;
+}
+
 static JSValue tjs_fs_mkdir_sync(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     const char *path = JS_ToCString(ctx, argv[0]);
     if (!path) {
@@ -1197,10 +1204,8 @@ static JSValue tjs_fs_mkdir_sync(JSContext *ctx, JSValue this_val, int argc, JSV
         }
     }
 
-    uv_fs_t req;
-    int r = uv_fs_mkdir(NULL, &req, path, mode, NULL);
+    int r = tjs__mkdir_sync(path, mode);
     JS_FreeCString(ctx, path);
-    uv_fs_req_cleanup(&req);
     if (r != 0) {
         return tjs_throw_errno(ctx, r);
     }

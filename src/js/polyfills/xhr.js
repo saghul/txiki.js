@@ -1,9 +1,44 @@
-/* global tjs */
 import { defineEventAttribute } from './event-target.js';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
 const HttpClient = core.HttpClient;
 const kClient = Symbol('kClient');
+
+
+function statusTextForCode(code) {
+    switch (code) {
+        case 100: return 'Continue';
+        case 101: return 'Switching Protocols';
+        case 200: return 'OK';
+        case 201: return 'Created';
+        case 202: return 'Accepted';
+        case 204: return 'No Content';
+        case 206: return 'Partial Content';
+        case 301: return 'Moved Permanently';
+        case 302: return 'Found';
+        case 303: return 'See Other';
+        case 304: return 'Not Modified';
+        case 307: return 'Temporary Redirect';
+        case 308: return 'Permanent Redirect';
+        case 400: return 'Bad Request';
+        case 401: return 'Unauthorized';
+        case 403: return 'Forbidden';
+        case 404: return 'Not Found';
+        case 405: return 'Method Not Allowed';
+        case 408: return 'Request Timeout';
+        case 409: return 'Conflict';
+        case 410: return 'Gone';
+        case 413: return 'Payload Too Large';
+        case 415: return 'Unsupported Media Type';
+        case 429: return 'Too Many Requests';
+        case 500: return 'Internal Server Error';
+        case 502: return 'Bad Gateway';
+        case 503: return 'Service Unavailable';
+        case 504: return 'Gateway Timeout';
+        default: return '';
+    }
+}
+
 
 class XMLHttpRequest extends EventTarget {
     static UNSENT = 0;
@@ -23,10 +58,12 @@ class XMLHttpRequest extends EventTarget {
     #responseURL = '';
     #responseHeaders = '';
     #responseBody = new Uint8Array(0);
+    #contentLength = -1;
     #responseType = '';
     #timeout = 0;
     #withCredentials = false;
-    #cookieJarPath = null;
+    #method = '';
+    #url = '';
 
     constructor() {
         super();
@@ -36,15 +73,30 @@ class XMLHttpRequest extends EventTarget {
     #createClient() {
         const client = new HttpClient();
 
-        client.onresponse = (status, statusText, url, headers) => {
+        client.onstatus = status => {
             this.#status = status;
-            this.#statusText = statusText;
+            this.#statusText = statusTextForCode(status);
+        };
+
+        client.onurl = url => {
             this.#responseURL = url;
-            this.#responseHeaders = headers;
+        };
+
+        client.onheader = (name, value) => {
+            const lname = name.toLowerCase();
+
+            this.#responseHeaders += lname + ': ' + value + '\r\n';
+
+            if (lname === 'content-length') {
+                this.#contentLength = parseInt(value, 10);
+            }
+        };
+
+        client.onheadersend = () => {
             this.#setReadyState(XMLHttpRequest.HEADERS_RECEIVED);
         };
 
-        client.ondata = (chunk, contentLength) => {
+        client.ondata = chunk => {
             if (this.#readyState === XMLHttpRequest.HEADERS_RECEIVED) {
                 this.#setReadyState(XMLHttpRequest.LOADING);
             }
@@ -58,17 +110,17 @@ class XMLHttpRequest extends EventTarget {
             newBody.set(newChunk, oldBody.length);
             this.#responseBody = newBody;
 
-            const lengthComputable = contentLength > 0;
+            const lengthComputable = this.#contentLength > 0;
 
             this.dispatchEvent(new ProgressEvent('progress', {
-                lengthComputable: lengthComputable,
+                lengthComputable,
                 loaded: this.#responseBody.length,
-                total: lengthComputable ? contentLength : 0
+                total: lengthComputable ? this.#contentLength : 0
             }));
         };
 
         client.oncomplete = error => {
-            if (error && error === 'Request aborted') {
+            if (error && error === 'ABORTED') {
                 this.#readyState = XMLHttpRequest.UNSENT;
                 this.#status = 0;
                 this.#statusText = '';
@@ -77,7 +129,7 @@ class XMLHttpRequest extends EventTarget {
                 this.#setReadyState(XMLHttpRequest.DONE);
 
                 if (error) {
-                    if (error === 'Request timed out') {
+                    if (error === 'TIMED_OUT') {
                         this.dispatchEvent(new Event('timeout'));
                     } else {
                         this.dispatchEvent(new Event('error'));
@@ -94,8 +146,8 @@ class XMLHttpRequest extends EventTarget {
             client.timeout = this.#timeout;
         }
 
-        if (this.#cookieJarPath) {
-            client.setCookieJar(this.#cookieJarPath);
+        if (this.#withCredentials) {
+            client.setEnableCookies(true);
         }
 
         this[kClient] = client;
@@ -184,16 +236,7 @@ class XMLHttpRequest extends EventTarget {
     }
 
     set withCredentials(value) {
-        if (value) {
-            const path = globalThis[Symbol.for('tjs.internal.modules.path')];
-            const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
-
-            this.#cookieJarPath = path.join(TJS_HOME, 'cookies');
-        } else {
-            this.#cookieJarPath = null;
-        }
-
-        this.#withCredentials = value;
+        this.#withCredentials = !!value;
     }
 
     get withCredentials() {
@@ -246,6 +289,10 @@ class XMLHttpRequest extends EventTarget {
     }
 
     open(method, url, async = true) {
+        if (async === false) {
+            throw new TypeError('Synchronous XHR is not supported');
+        }
+
         // Reset state for reuse
         this.#readyState = XMLHttpRequest.UNSENT;
         this.#status = 0;
@@ -253,10 +300,12 @@ class XMLHttpRequest extends EventTarget {
         this.#responseURL = '';
         this.#responseHeaders = '';
         this.#responseBody = new Uint8Array(0);
+        this.#contentLength = -1;
+        this.#method = method;
+        this.#url = url;
 
         // Create a fresh HttpClient for each request
         this.#createClient();
-        this[kClient].open(method, url, async);
         this.#setReadyState(XMLHttpRequest.OPENED);
     }
 
@@ -301,17 +350,11 @@ class XMLHttpRequest extends EventTarget {
             throw new Error('Unsupported payload type');
         } else if (payload instanceof Blob) {
             payload.arrayBuffer().then(buffer => {
-                this[kClient].sendData(new Uint8Array(buffer));
-                this[kClient].sendData(null);
+                this[kClient].open(this.#method, this.#url, new Uint8Array(buffer));
             });
         } else {
             this.dispatchEvent(new Event('loadstart'));
-
-            if (payload) {
-                this[kClient].sendData(payload);
-            }
-
-            this[kClient].sendData(null);
+            this[kClient].open(this.#method, this.#url, payload);
         }
     }
 
