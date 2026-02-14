@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 
-#include "curl-utils.h"
 #include "private.h"
 #include "tjs.h"
 #include "utils.h"
@@ -137,11 +136,13 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     tjs_dbuf_init(ctx, &dbuf);
 
     if (strncmp(http, module_name, strlen(http)) == 0 || strncmp(https, module_name, strlen(https)) == 0) {
-        r = tjs_curl_load_http(&dbuf, module_name);
+        TJSRuntime *qrt = TJS_GetRuntime(ctx);
+        r = tjs__lws_load_http(qrt, &dbuf, module_name);
         if (r != 200) {
-            if (r < 0) {
-                /* curl error */
-                JS_ThrowReferenceError(ctx, "could not load '%s': %s", module_name, curl_easy_strerror(-r));
+            if (r == -2) {
+                JS_ThrowReferenceError(ctx, "could not load '%s': request timed out", module_name);
+            } else if (r < 0) {
+                JS_ThrowReferenceError(ctx, "could not load '%s': network error", module_name);
             } else {
                 /* http error */
                 JS_ThrowReferenceError(ctx, "could not load '%s': %d", module_name, r);

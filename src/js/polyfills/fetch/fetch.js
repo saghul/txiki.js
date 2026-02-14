@@ -1,4 +1,3 @@
-/* global tjs */
 import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
 import { Response } from './response.js';
@@ -24,6 +23,8 @@ export function fetch(input, init) {
 
         let responseResolved = false;
         let streamController = null;
+        let responseStatus, responseUrl;
+        const responseHeaders = new Headers();
 
         function abortClient() {
             client.abort();
@@ -39,25 +40,35 @@ export function fetch(input, init) {
             }
         });
 
-        // Called once when response headers arrive
-        client.onresponse = function(status, statusText, url, rawHeaders) {
-            // Skip informational responses (1xx status codes like 100 Continue)
-            if (status >= 100 && status < 200) {
+        client.onstatus = function(status) {
+            responseStatus = status;
+        };
+
+        client.onurl = function(url) {
+            responseUrl = url;
+        };
+
+        client.onheader = function(name, value) {
+            try {
+                responseHeaders.append(name, value);
+            } catch (e) { /* ignore invalid headers */ }
+        };
+
+        client.onheadersend = function() {
+            // Skip informational responses (1xx)
+            if (responseStatus >= 100 && responseStatus < 200) {
                 return;
             }
 
             responseResolved = true;
 
-            const options = {
-                status: status,
-                statusText: statusText,
-                headers: parseHeaders(rawHeaders || ''),
-                url: url
-            };
-
-            // Defer resolve to avoid potential issues
             setTimeout(function() {
-                resolve(new Response(responseBody, options));
+                resolve(new Response(responseBody, {
+                    status: responseStatus,
+                    statusText: '',
+                    headers: responseHeaders,
+                    url: responseUrl
+                }));
             }, 0);
         };
 
@@ -69,7 +80,7 @@ export function fetch(input, init) {
         };
 
         // Called when request completes (success or error)
-        client.oncomplete = function(error) {
+        client.oncomplete = function(error, reason) {
             activeClients.delete(client);
 
             if (request.signal) {
@@ -77,23 +88,42 @@ export function fetch(input, init) {
             }
 
             if (error) {
-                const isAbort = error === 'Request aborted';
-                const isTimeout = error === 'Request timed out';
+                const isAbort = error === 'ABORTED';
+                const isTimeout = error === 'TIMED_OUT';
+
+                let msg;
+
+                if (reason) {
+                    msg = `Network request failed: ${reason}`;
+                } else if (isTimeout) {
+                    msg = 'Network request timed out';
+                } else {
+                    msg = 'Network request failed';
+                }
 
                 if (!responseResolved) {
+                    if (streamController) {
+                        try {
+                            streamController.error(isAbort
+                                ? new DOMException('Aborted', 'AbortError')
+                                : new TypeError(msg));
+                        } catch (e) { /* already errored/closed */ }
+
+                        streamController = null;
+                    }
+
                     setTimeout(function() {
                         if (isAbort) {
                             reject(new DOMException('Aborted', 'AbortError'));
                         } else {
-                            reject(new TypeError(isTimeout ? 'Network request timed out' : 'Network request failed'));
+                            reject(new TypeError(msg));
                         }
                     }, 0);
                 } else if (streamController) {
                     if (isAbort) {
                         streamController.error(new DOMException('Aborted', 'AbortError'));
                     } else {
-                        streamController.error(
-                            new TypeError(isTimeout ? 'Network request timed out' : 'Network request failed'));
+                        streamController.error(new TypeError(msg));
                     }
 
                     streamController = null;
@@ -106,13 +136,9 @@ export function fetch(input, init) {
             }
         };
 
-        client.open(request.method, request.url, true);
-
+        // Configure client before opening the connection.
         if (request.credentials === 'include') {
-            const path = globalThis[Symbol.for('tjs.internal.modules.path')];
-            const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
-
-            client.setCookieJar(path.join(TJS_HOME, 'cookies'));
+            client.setEnableCookies(true);
         }
 
         client.redirectMode = request.redirect;
@@ -139,14 +165,14 @@ export function fetch(input, init) {
             request.signal.addEventListener('abort', abortClient);
         }
 
-        // Handle request body based on size
+        // Open the connection. Body handling depends on request type.
         if (request._bodySize === -1) {
             // Streaming body (ReadableStream)
             client.streaming = true;
 
             const reader = request.body.getReader();
 
-            const readChunk = () => {
+            client.ondrain = function() {
                 reader.read().then(function({ value, done }) {
                     if (done) {
                         client.sendData(null);
@@ -165,46 +191,18 @@ export function fetch(input, init) {
                 });
             };
 
-            client.ondrain = readChunk;
-            readChunk();
+            client.open(request.method, request.url);
         } else if (request._bodySize > 0) {
-            // Known-size body - read it all and send
+            // Known-size body - read it all and pass to open
             request.arrayBuffer().then(function(buf) {
-                client.sendData(new Uint8Array(buf));
-                client.sendData(null);
+                client.open(request.method, request.url, new Uint8Array(buf));
             }).catch(function(err) {
                 activeClients.delete(client);
                 reject(err);
             });
         } else {
             // No body
-            client.sendData(null);
+            client.open(request.method, request.url);
         }
     });
-}
-
-
-function parseHeaders(rawHeaders) {
-    const headers = new Headers();
-
-    // Replace instances of \r\n and \n followed by at least one space or horizontal tab with a space
-    // https://tools.ietf.org/html/rfc7230#section-3.2
-    const preProcessedHeaders = rawHeaders.replace(/\r?\n[\t ]+/g, ' ');
-
-    preProcessedHeaders.split(/\r?\n/).forEach(line => {
-        const parts = line.split(':');
-        const key = parts.shift().trim();
-
-        if (key) {
-            const value = parts.join(':').trim();
-
-            try {
-                headers.append(key, value);
-            } catch (error) {
-                console.warn('Response ' + error.message);
-            }
-        }
-    });
-
-    return headers;
 }

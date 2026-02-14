@@ -11,9 +11,8 @@ xhr.onloadend = () => {
 };
 xhr.send();
 
-const xhrSync = new XMLHttpRequest();
-xhrSync.open('GET', url, false);
-xhrSync.send();
-assert.eq(xhrSync.readyState, xhrSync.DONE, 'readyState is DONE');
-assert.eq(xhrSync.responseURL, url, 'url is the same');
-assert.eq(xhrSync.status, 200, 'status is 200');
+// Synchronous XHR should throw
+assert.throws(() => {
+    const xhrSync = new XMLHttpRequest();
+    xhrSync.open('GET', url, false);
+}, TypeError, 'sync XHR throws TypeError');

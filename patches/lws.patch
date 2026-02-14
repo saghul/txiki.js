@@ -1,0 +1,62 @@
+diff --git a/lib/event-libs/libuv/libuv.c b/lib/event-libs/libuv/libuv.c
+index 23894df1..97ad407b 100644
+--- a/lib/event-libs/libuv/libuv.c
++++ b/lib/event-libs/libuv/libuv.c
+@@ -528,6 +528,17 @@ elops_accept_uv(struct lws *wsi)
+ 
+ 	((uv_handle_t *)w_read->pwatcher)->data = (void *)wsi;
+ 
++	/*
++	 * When using a foreign event loop, unref internal handles (event
++	 * pipe, system vhost wsis like async-dns and stdin) so they don't
++	 * prevent the loop from exiting when all real connections are
++	 * closed.  Use vhost_list (first vhost == system vhost) instead
++	 * of vhost_system, which may still be NULL during init.
++	 */
++	if (pt->event_loop_foreign && (wsi->event_pipe ||
++	    wsi->a.vhost == pt->context->vhost_list))
++		uv_unref((uv_handle_t *)w_read->pwatcher);
++
+ 	ptpriv->extant_handles++;
+ 
+ 	lwsl_wsi_debug(wsi, "thr %d: sa left %d: dyn left: %d",
+@@ -748,6 +759,8 @@ elops_init_pt_uv(struct lws_context *context, void *_loop, int tsi)
+ 		uv_idle_init(loop, &ptpriv->idle);
+ 		LWS_UV_REFCOUNT_STATIC_HANDLE_NEW(&ptpriv->idle, pt);
+ 		uv_idle_start(&ptpriv->idle, lws_uv_idle);
++		if (pt->event_loop_foreign)
++			uv_unref((uv_handle_t *)&ptpriv->idle);
+ 
+ 		ns = LWS_ARRAY_SIZE(sigs);
+ 		if (lws_check_opt(context->options,
+@@ -782,6 +795,8 @@ elops_init_pt_uv(struct lws_context *context, void *_loop, int tsi)
+ 
+ 	uv_timer_init(ptpriv->io_loop, &ptpriv->sultimer);
+ 	LWS_UV_REFCOUNT_STATIC_HANDLE_NEW(&ptpriv->sultimer, pt);
++	if (pt->event_loop_foreign)
++		uv_unref((uv_handle_t *)&ptpriv->sultimer);
+ 
+ 	return status;
+ }
+diff --git a/lib/misc/cache-ttl/file.c b/lib/misc/cache-ttl/file.c
+index 7c8d3536..ef29abc2 100644
+--- a/lib/misc/cache-ttl/file.c
++++ b/lib/misc/cache-ttl/file.c
+@@ -685,6 +685,17 @@ nsc_regen(lws_cache_nscookiejar_t *cache, const char *wc_delete,
+ 	close(ctx.fdt);
+ 	ctx.fdt = -1;
+ 
++#if defined(WIN32)
++	/*
++	 * On Windows, unlink / rename fail while fd holds the original
++	 * file open for reading.  Close it first so the replace can
++	 * succeed.  nsc_backing_close_unlock() checks fd >= 0, so
++	 * setting it to -1 makes the later close a safe no-op.
++	 */
++	close(fd);
++	fd = -1;
++#endif
++
+ 	if (unlink(cache->cache.info.u.nscookiejar.filepath) == -1)
+ 		lwsl_info("%s: unlink %s failed\n", __func__,
+ 			  cache->cache.info.u.nscookiejar.filepath);

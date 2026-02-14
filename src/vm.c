@@ -123,6 +123,23 @@ static int tjs__argc = 0;
 static char **tjs__argv = NULL;
 
 
+static JSValue tjs__set_cookie_jar_path(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+
+    CHECK_EQ(qrt->lws.cookie_jar_path, NULL);
+
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path) {
+        return JS_EXCEPTION;
+    }
+
+    qrt->lws.cookie_jar_path = js_strdup(ctx, path);
+    JS_FreeCString(ctx, path);
+
+    return JS_UNDEFINED;
+}
+
 static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
     tjs__mod_engine_init(ctx, ns);
@@ -147,6 +164,13 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
 #ifndef _WIN32
     tjs__mod_posix_socket_init(ctx, ns);
 #endif
+
+    /* Internal helpers. */
+    JS_DefinePropertyValueStr(ctx,
+                              ns,
+                              "setCookieJarPath",
+                              JS_NewCFunction(ctx, tjs__set_cookie_jar_path, "setCookieJarPath", 1),
+                              JS_PROP_C_W_E);
 }
 
 JSValue tjs__get_args(JSContext *ctx) {
@@ -339,9 +363,6 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(wasm_runtime_full_init(&wasm_init_args), true);
     qrt->wasm_ctx.initialized = true;
 
-    /* lws */
-    tjs__lws_init(qrt);
-
     /* Timers */
     qrt->timers.timers = NULL;
     qrt->timers.next_timer = 1;
@@ -357,12 +378,22 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     uv_close((uv_handle_t *) &qrt->jobs.idle, NULL);
     uv_close((uv_handle_t *) &qrt->jobs.check, NULL);
     uv_close((uv_handle_t *) &qrt->stop, NULL);
-    if (qrt->curl_ctx.curlm_h) {
-        uv_close((uv_handle_t *) &qrt->curl_ctx.timer, NULL);
-    }
 
     /* Destroy all timers */
     tjs__destroy_timers(qrt);
+
+    /* Destroy lws context. Must happen before freeing the JS engine
+     * so that any remaining WSI_DESTROY callbacks can release GC refs. */
+    if (qrt->lws.ctx) {
+        lws_context_destroy(qrt->lws.ctx);
+        qrt->lws.ctx = NULL;
+        uv_close((uv_handle_t *) &qrt->lws.keepalive, NULL);
+    }
+    js_free(qrt->ctx, qrt->lws.cookie_jar_path);
+    qrt->lws.cookie_jar_path = NULL;
+
+    /* Drain any pending lws close callbacks. */
+    uv_run(&qrt->loop, UV_RUN_NOWAIT);
 
     /* Destroy the JS engine. */
     JS_FreeValue(qrt->ctx, qrt->builtins.dispatch_event_func);
@@ -371,18 +402,6 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     qrt->builtins.promise_event_ctor = JS_UNDEFINED;
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
-
-    /* Destroy CURLM handle. */
-    if (qrt->curl_ctx.curlm_h) {
-        curl_multi_cleanup(qrt->curl_ctx.curlm_h);
-        qrt->curl_ctx.curlm_h = NULL;
-    }
-
-    /* Destroy lws context. */
-    if (qrt->lws.ctx) {
-        lws_context_destroy(qrt->lws.ctx);
-        qrt->lws.ctx = NULL;
-    }
 
     /* Destroy WASM runtime. */
     if (qrt->wasm_ctx.initialized) {
@@ -412,8 +431,6 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
 }
 
 void TJS_Initialize(int argc, char **argv) {
-    curl_global_init(CURL_GLOBAL_ALL);
-
     CHECK_EQ(0, uv_replace_allocator(tjs__malloc, tjs__realloc, tjs__calloc, tjs__free));
 
     tjs__argc = argc;

@@ -38,8 +38,6 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-          sudo apt update
-          sudo apt install -y libcurl4-openssl-dev
       - name: Build it
         run: |
           make js
@@ -81,7 +79,7 @@ jobs:
         ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
       run: |
         sudo apt update
-        sudo apt install -y libcurl4-openssl-dev libffi-dev
+        sudo apt install -y libffi-dev
         if [ "${{ matrix.compiler }}" = "clang" ]; then
           sudo apt install -y clang
           echo "::set-env name=CC::clang"
@@ -128,7 +126,7 @@ jobs:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
     - name: Prepare
-      run: apk add git build-base cmake curl-dev linux-headers libffi-dev --update-cache
+      run: apk add git build-base cmake linux-headers libffi-dev --update-cache
     - uses: actions/checkout@v6
       with:
         submodules: recursive
@@ -158,7 +156,7 @@ jobs:
       with:
         vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
     - name: Install dependencies
-      run: vcpkg install curl[ssl] libffi
+      run: vcpkg install libffi
     - name: Configure
       run: |
         cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake

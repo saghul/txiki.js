@@ -94,8 +94,10 @@ static TJSWs *tjs_ws_get(JSContext *ctx, JSValue obj) {
 
 static void maybe_call_callback(TJSWs *w, int event, int argc, JSValue *argv) {
     JSContext *ctx = w->ctx;
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+
     JSValue cb = w->callbacks[event];
-    if (!JS_IsFunction(ctx, cb)) {
+    if (qrt->freeing || !JS_IsFunction(ctx, cb)) {
         for (int i = 0; i < argc; i++) {
             JS_FreeValue(ctx, argv[i]);
         }
@@ -225,6 +227,14 @@ static int tjs_lws_callback(struct lws *wsi, enum lws_callback_reasons reason, v
                 JS_NewString(ctx, w->close_reason),
             };
             maybe_call_callback(w, WS_CALLBACK_CLOSE, 2, args);
+
+            tjs__lws_conn_unref(ctx);
+
+            /* Release the prevent-GC ref now that the connection is closed. */
+            JSValue cls_val = w->this_val;
+            w->this_val = JS_UNDEFINED;
+            lws_set_wsi_user(wsi, NULL);
+            JS_FreeValue(ctx, cls_val);
             break;
         }
 
@@ -243,13 +253,23 @@ static int tjs_lws_callback(struct lws *wsi, enum lws_callback_reasons reason, v
                 JS_NewString(ctx, ""),
             };
             maybe_call_callback(w, WS_CALLBACK_CLOSE, 2, args);
+
+            tjs__lws_conn_unref(ctx);
+
+            /* Release the prevent-GC ref. */
+            JSValue err_val = w->this_val;
+            w->this_val = JS_UNDEFINED;
+            lws_set_wsi_user(wsi, NULL);
+            JS_FreeValue(ctx, err_val);
             break;
         }
 
         case LWS_CALLBACK_WSI_DESTROY: {
-            /* Release the prevent-GC ref. This is the last callback for this wsi. */
-            JS_FreeValue(w->ctx, w->this_val);
-            w->this_val = JS_UNDEFINED;
+            /* Release the prevent-GC ref if not already released. */
+            if (!JS_IsUndefined(w->this_val)) {
+                JS_FreeValue(w->ctx, w->this_val);
+                w->this_val = JS_UNDEFINED;
+            }
             break;
         }
 
@@ -366,6 +386,8 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     /* Prevent GC while connected. */
     w->this_val = JS_DupValue(ctx, obj);
 
+    tjs__lws_conn_ref(ctx);
+
     struct lws *wsi = lws_client_connect_via_info(&cci);
 
     JS_FreeCString(ctx, protocols);
@@ -373,6 +395,7 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     js_free(ctx, full_path);
 
     if (!wsi) {
+        tjs__lws_conn_unref(ctx);
         /* Connection failed immediately. */
         w->wsi = NULL;
         JS_FreeValue(ctx, w->this_val);

@@ -64,6 +64,8 @@ set(MBEDTLS_AS_SUBPROJECT ON)
 set(MBEDTLS_USER_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/mbedtls_config.h" CACHE FILEPATH "" FORCE)
 add_subdirectory(deps/mbedtls EXCLUDE_FROM_ALL)
 
+add_subdirectory(deps/miniz EXCLUDE_FROM_ALL)
+
 if (NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     set(LWS_WITH_NO_LOGS ON CACHE BOOL "" FORCE)
 endif()
@@ -83,8 +85,7 @@ set(LWS_WITH_WOL OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_LIBUV ON CACHE BOOL "" FORCE)
 set(LWS_WITH_MBEDTLS ON CACHE BOOL "" FORCE)
 set(LWS_WITH_SSL ON CACHE BOOL "" FORCE)
-set(LWS_WITHOUT_SERVER ON CACHE BOOL "" FORCE)
-set(LWS_WITHOUT_EXTENSIONS OFF CACHE BOOL "" FORCE)
+set(LWS_WITHOUT_EXTENSIONS ON CACHE BOOL "" FORCE)
 set(LWS_WITHOUT_TESTAPPS ON CACHE BOOL "" FORCE)
 set(LWS_WITH_SHARED OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_STATIC ON CACHE BOOL "" FORCE)
@@ -92,6 +93,14 @@ set(LWS_WITH_MINIMAL_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_TLS_SESSIONS OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_EXPORT_LWSTARGETS OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_NETLINK OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_SYS_ASYNC_DNS ON CACHE BOOL "" FORCE)
+set(LWS_WITH_CACHE_NSCOOKIEJAR ON CACHE BOOL "" FORCE)
+set(LWS_WITH_MINIZ ON CACHE BOOL "" FORCE)
+# Pre-set ZLIB variables so lws skips find_package(Miniz)
+set(ZLIB_FOUND TRUE)
+set(ZLIB_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/miniz" CACHE STRING "" FORCE)
+set(ZLIB_LIBRARIES miniz CACHE STRING "" FORCE)
+set(LWS_HAVE_ZLIB_H 1 CACHE BOOL "" FORCE)
 # Tell lws about mbedtls capabilities (CHECK_FUNCTION_EXISTS fails for static libs)
 set(LWS_HAVE_mbedtls_md_setup 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_mbedtls_rsa_complete 1 CACHE BOOL "" FORCE)
@@ -104,29 +113,31 @@ set(LWS_HAVE_mbedtls_ssl_set_hs_own_cert 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_mbedtls_ssl_set_hs_authmode 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_mbedtls_x509_crt_parse_file 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_mbedtls_internal_aes_encrypt 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_MBEDTLS_NET_SOCKETS 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_MBEDTLS_SSL_NEW_SESSION_TICKET 1 CACHE BOOL "" FORCE)
 set(LWS_MBEDTLS_LIBRARIES mbedtls mbedx509 mbedcrypto CACHE STRING "" FORCE)
 set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" CACHE STRING "" FORCE)
 set(LWS_LIBUV_LIBRARIES uv_a CACHE STRING "" FORCE)
 set(LWS_LIBUV_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/libuv/include" CACHE STRING "" FORCE)
-# Apply lws patch to unref internal handles on foreign loops.
+# Apply lws patches.
 execute_process(
-    COMMAND git apply --reverse --check ${CMAKE_CURRENT_SOURCE_DIR}/patches/lws-unref-event-pipe.patch
+    COMMAND git apply --reverse --check ${CMAKE_CURRENT_SOURCE_DIR}/patches/lws.patch
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets
     RESULT_VARIABLE _lws_patch_applied
     OUTPUT_QUIET ERROR_QUIET
 )
 if(_lws_patch_applied EQUAL 0)
-    message(STATUS "Already applied lws-unref-event-pipe.patch")
+    message(STATUS "Already applied lws.patch")
 else()
     execute_process(
-        COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/lws-unref-event-pipe.patch
+        COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/lws.patch
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets
         RESULT_VARIABLE _lws_patch_result
     )
     if(_lws_patch_result EQUAL 0)
-        message(STATUS "Applied lws-unref-event-pipe.patch")
+        message(STATUS "Applied lws.patch")
     else()
-        message(FATAL_ERROR "Failed to apply lws-unref-event-pipe.patch")
+        message(FATAL_ERROR "Failed to apply lws.patch")
     endif()
 endif()
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
@@ -183,8 +194,6 @@ if(BUILD_WITH_MIMALLOC)
     add_subdirectory(deps/mimalloc EXCLUDE_FROM_ALL)
 endif()
 
-find_package(CURL REQUIRED)
-
 add_library(ada STATIC
     deps/ada/ada.cpp
 )
@@ -197,7 +206,6 @@ set_target_properties(ada PROPERTIES
 
 add_library(tjs STATIC
     src/builtins.c
-    src/curl-utils.c
     src/error.c
     src/lws-utils.c
     src/eval.c
@@ -283,7 +291,7 @@ endif()
 
 target_include_directories(tjs PUBLIC src)
 target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
-target_link_libraries(tjs qjs uv_a vmlib sqlite3 CURL::libcurl ada ${FFI_LIB} websockets mbedtls mbedx509 mbedcrypto)
+target_link_libraries(tjs qjs uv_a vmlib sqlite3 ada ${FFI_LIB} websockets mbedtls mbedx509 mbedcrypto)
 target_include_directories(tjs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets/include ${CMAKE_CURRENT_BINARY_DIR}/deps/libwebsockets)
 
 if (BUILD_WITH_MIMALLOC)

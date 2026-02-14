@@ -29,7 +29,6 @@
 #include "tjs.h"
 #include "utils.h"
 
-#include <curl/curl.h>
 #include <libwebsockets.h>
 #include <quickjs.h>
 #include <sqlite3.h>
@@ -71,14 +70,13 @@ struct TJSRuntime {
     bool is_worker;
     bool freeing;
     struct {
-        CURLM *curlm_h;
-        uv_timer_t timer;
-    } curl_ctx;
-    struct {
         bool initialized;
     } wasm_ctx;
     struct {
         struct lws_context *ctx;
+        char *cookie_jar_path;
+        uv_async_t keepalive;
+        int active_conns;
     } lws;
     struct {
         TJSTimer *timers;
@@ -140,6 +138,9 @@ void tjs__sab_dup(void *opaque, void *ptr);
 
 struct lws_context *tjs__lws_get_context(JSContext *ctx);
 void tjs__lws_init(TJSRuntime *qrt);
+void tjs__lws_conn_ref(JSContext *ctx);
+void tjs__lws_conn_unref(JSContext *ctx);
+int tjs__lws_load_http(TJSRuntime *qrt, DynBuf *dbuf, const char *url);
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);
