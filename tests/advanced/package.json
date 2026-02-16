@@ -2,13 +2,15 @@
   "dependencies": {
     "cheerio": "^0.22.0",
     "global-jsdom": "^5.1.0",
+    "hono": "^4",
     "jsdom": "^15.2.1"
   },
   "devDependencies": {
-    "browserify": "^16.5.0"
+    "browserify": "^16.5.0",
+    "esbuild": "^0.24.0"
   },
   "scripts": {
-    "build": "node browserify.config.js",
+    "build": "node browserify.config.js && node esbuild.config.js",
     "postinstall": "npm run build"
   }
 }
