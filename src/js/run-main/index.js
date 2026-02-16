@@ -65,6 +65,9 @@ Subcommands:
   eval
         Evaluate a JavaScript expression
 
+  serve
+        Serve an HTTP application
+
   test
         Run tests in the given directory
 
@@ -74,6 +77,29 @@ Subcommands:
 const helpEval = `Usage: ${exeName} eval EXPRESSION`;
 
 const helpRun = `Usage: ${exeName} run FILE`;
+
+const helpServe = `Usage: ${exeName} serve [options] FILE
+
+The file must default export an object with a fetch method:
+
+  export default {
+      fetch(request, { server }) {
+          if (request.headers.get('upgrade') === 'websocket') {
+              server.upgrade(request);
+              return;
+          }
+          return new Response('hello');
+      },
+      websocket: {
+          open(ws) {},
+          message(ws, msg) {},
+          close(ws) {},
+      },
+  };
+
+Options:
+  -p, --port PORT
+        Port to listen on (default: 8000)`;
 
 // First, let's check if this is a standalone binary.
 await (async () => {
@@ -180,6 +206,30 @@ if (options.help) {
         } else {
             await core.evalFile(filename);
         }
+    } else if (command === 'serve') {
+        const serveOpts = getopts(subargv, {
+            alias: { port: 'p' },
+            string: [ 'p' ],
+        });
+
+        const [ filename ] = serveOpts._;
+
+        if (!filename) {
+            throw helpServe;
+        }
+
+        const port = serveOpts.port ? parseNumberOption(serveOpts.port, 'port') : 8000;
+
+        const mod = await import(path.resolve(filename));
+        const handler = mod.default?.fetch;
+
+        if (typeof handler !== 'function') {
+            throw 'Module must default export an object with a fetch method';
+        }
+
+        const server = tjs.serve({ fetch: handler, port, websocket: mod.default.websocket });
+
+        console.log(`Listening on http://localhost:${server.port}/`);
     } else if (command === 'test') {
         const [ dir ] = subargv;
 

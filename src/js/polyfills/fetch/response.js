@@ -33,6 +33,20 @@ export class Response {
         return response;
     }
 
+    static json(data, init = {}) {
+        const body = JSON.stringify(data);
+        const headers = new Headers(init.headers);
+
+        if (!headers.has('content-type')) {
+            headers.set('content-type', 'application/json');
+        }
+
+        return new Response(body, {
+            ...init,
+            headers,
+        });
+    }
+
     static redirect(url, status) {
         if (redirectStatuses.indexOf(status) === -1) {
             throw new RangeError('Invalid status code');

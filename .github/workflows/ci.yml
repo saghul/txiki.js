@@ -12,6 +12,7 @@ jobs:
         submodules: recursive
     - uses: actions/setup-node@v6
       with:
+        check-latest: true
         node-version-file: '.nvmrc'
     - name: Install dependencies
       run: |
@@ -34,6 +35,7 @@ jobs:
           submodules: recursive
       - uses: actions/setup-node@v6
         with:
+          check-latest: true
           node-version-file: '.nvmrc'
       - name: Install dependencies
         run: |

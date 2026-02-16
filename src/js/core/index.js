@@ -4,6 +4,7 @@ import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import engine from './engine.js';
 import env from './env.js';
 import { open, makeDir, makeTempFile, remove, symlink } from './fs.js';
+import { serve } from './httpserver.js';
 import { lookup } from './lookup.js';
 import pathModule from './path.js';
 import { spawn } from './process.js';
@@ -178,6 +179,14 @@ Object.defineProperty(tjs, 'lookup', {
     configurable: false,
     writable: false,
     value: lookup
+});
+
+// HTTP server.
+Object.defineProperty(tjs, 'serve', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: serve
 });
 
 // Stdio.
