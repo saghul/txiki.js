@@ -256,6 +256,10 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_NOT_NULL(rt);
     qrt->rt = rt;
 
+#ifdef DEBUG
+    JS_SetDumpFlags(rt, JS_DUMP_LEAKS);
+#endif
+
     ctx = JS_NewContext(rt);
     CHECK_NOT_NULL(ctx);
     qrt->ctx = ctx;

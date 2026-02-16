@@ -350,11 +350,6 @@ static int tjs_utf8_encoder_handler(uint32_t cp, bool eoq, uint8_t buf[4]) {
     return sz;
 }
 
-static void tjs_array_dbuf_free(JSRuntime *rt, void *dbuf, void *ptr) {
-    dbuf_free(dbuf);
-    js_free_rt(rt, dbuf);
-}
-
 static JSValue tjs_utf8_encoder_encode(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     if (argc != 1) {
         return JS_ThrowRangeError(ctx, "invalid arguments");
@@ -365,13 +360,14 @@ static JSValue tjs_utf8_encoder_encode(JSContext *ctx, JSValueConst this_val, in
     }
 
     size_t len;
-    const uint8_t *buf = (const uint8_t *) JS_ToCStringLen2(ctx, &len, argv[0], false);
-    DynBuf *dbuf = js_malloc(ctx, sizeof(DynBuf));
-    if (!dbuf) {
+    const char *str = JS_ToCStringLen2(ctx, &len, argv[0], false);
+    if (!str) {
         return JS_EXCEPTION;
     }
-    dbuf_init(dbuf);
-    dbuf_claim(dbuf, len * 1.5);
+    const uint8_t *buf = (const uint8_t *) str;
+    DynBuf dbuf;
+    tjs_dbuf_init(ctx, &dbuf);
+    dbuf_claim(&dbuf, len * 1.5);
     JSValue ret = JS_NULL;
 
     const uint8_t *ptr = buf;
@@ -384,11 +380,12 @@ static JSValue tjs_utf8_encoder_encode(JSContext *ctx, JSValueConst this_val, in
         if ((cp >= 0xD800 && cp <= 0xDBFF) || (cp >= 0xDC00 && cp <= 0xDFFF)) {  // surrogate
             cp = 0xfffd;
         }
-        uint8_t buf[4];
-        int res = tjs_utf8_encoder_handler(cp, eoq, buf);
+        uint8_t buf2[4];
+        int res = tjs_utf8_encoder_handler(cp, eoq, buf2);
         if (TJS__LIKELY(res > 0)) {
-            if (dbuf_put(dbuf, buf, res)) {
+            if (dbuf_put(&dbuf, buf2, res)) {
                 ret = JS_ThrowOutOfMemory(ctx);
+                dbuf_free(&dbuf);
                 break;
             }
         } else if (TJS__UNLIKELY(res < 0)) {
@@ -397,18 +394,12 @@ static JSValue tjs_utf8_encoder_encode(JSContext *ctx, JSValueConst this_val, in
             } else {
                 ret = JS_ThrowTypeError(ctx, "decoder error");
             }
+            dbuf_free(&dbuf);
             break;
         } else if (TJS__UNLIKELY(res == 0)) {
-            if (dbuf->buf == 0) {
-                ret = TJS_NewUint8Array(ctx, js_malloc(ctx, 1), 0);  // buffer needs a non null pointer, so allocate 1b
-                size_t sz = 0;
-                printf("bla: %p\n", JS_GetUint8Array(ctx, &sz, ret));
-                dbuf_free(dbuf);
-            } else {
-                ret = JS_NewUint8Array(ctx, dbuf->buf, dbuf->size, tjs_array_dbuf_free, dbuf, false);
-                if (JS_IsException(ret)) {
-                    dbuf_free(dbuf);
-                }
+            ret = TJS_NewUint8Array(ctx, dbuf.buf, dbuf.size);
+            if (JS_IsException(ret)) {
+                dbuf_free(&dbuf);
             }
             break;
         }
@@ -416,6 +407,7 @@ static JSValue tjs_utf8_encoder_encode(JSContext *ctx, JSValueConst this_val, in
             break;
         }
     }
+    JS_FreeCString(ctx, str);
     return ret;
 }
 
