@@ -1,6 +1,4 @@
 /* global tjs */
-import { mkdirSync } from '../utils/mkdirSync';
-
 import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
 import { Response } from './response.js';
@@ -8,7 +6,6 @@ import { Response } from './response.js';
 // Access the internal HttpClient implementation directly.
 const core = globalThis[Symbol.for('tjs.internal.core')];
 const HttpClient = core.HttpClient;
-let hasHomeDirCreated = false;
 
 // Keep strong references to active clients to prevent premature GC
 const activeClients = new Set();
@@ -114,11 +111,6 @@ export function fetch(input, init) {
         if (request.credentials === 'include') {
             const path = globalThis[Symbol.for('tjs.internal.modules.path')];
             const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
-
-            if (!hasHomeDirCreated) {
-                mkdirSync(TJS_HOME, { recursive: true });
-                hasHomeDirCreated = true;
-            }
 
             client.setCookieJar(path.join(TJS_HOME, 'cookies'));
         }
