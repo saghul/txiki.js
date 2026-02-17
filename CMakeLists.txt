@@ -50,12 +50,177 @@ endmacro()
 
 cpr_option(BUILD_WITH_MIMALLOC "If ON (default), build with mimalloc" ON)
 
+###
+### Core library / executables
+###
+
+add_library(tjs STATIC
+    src/builtins.c
+    src/error.c
+    src/lws-utils.c
+    src/eval.c
+    src/mem.c
+    src/modules.c
+    src/signals.c
+    src/text-coding.c
+    src/timers.c
+    src/utils.c
+    src/version.c
+    src/vm.c
+    src/wasm.c
+    src/worker.c
+    src/ws.c
+    src/httpclient.c
+    src/mod_dns.c
+    src/mod_engine.c
+    src/mod_ffi.c
+    src/mod_fs.c
+    src/mod_fswatch.c
+    src/mod_os.c
+    src/mod_process.c
+    src/mod_sqlite3.c
+    src/mod_streams.c
+    src/mod_sys.c
+    src/mod_udp.c
+    src/url.c
+    src/bundles/c/core/core.c
+    src/bundles/c/core/polyfills.c
+    src/bundles/c/core/run-main.c
+    src/bundles/c/core/run-repl.c
+    src/bundles/c/core/worker-bootstrap.c
+    deps/quickjs/cutils.c
+)
+
+if(UNIX)
+    target_sources(tjs PUBLIC src/mod_posix-socket.c)
+endif()
+
+set_target_properties(tjs PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON
+    OUTPUT_NAME tjs_core
+)
+
+string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
+target_compile_options(tjs PRIVATE ${tjs_cflags})
+target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
+
+if(WIN32)
+    target_compile_definitions(tjs PRIVATE WIN32_LEAN_AND_MEAN)
+endif()
+
+target_include_directories(tjs PUBLIC src)
+
+add_executable(tjs-cli
+    src/cli.c
+)
+target_link_libraries(tjs-cli tjs)
+set_target_properties(tjs-cli
+    PROPERTIES OUTPUT_NAME tjs
+)
+
+add_executable(tjsc EXCLUDE_FROM_ALL
+    src/qjsc.c
+)
+
+###
+### Dependencies
+###
+
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
+target_link_libraries(tjs qjs)
+target_link_libraries(tjsc qjs)
+
+if(BUILD_WITH_MIMALLOC)
+    option(MI_OVERRIDE "" OFF)
+    option(MI_BUILD_SHARED "" OFF)
+    option(MI_BUILD_STATIC "" ON)
+    option(MI_BUILD_OBJECT "" OFF)
+    option(MI_BUILD_TESTS "" OFF)
+    add_subdirectory(deps/mimalloc EXCLUDE_FROM_ALL)
+    target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)
+    target_link_libraries(tjs mimalloc-static)
+endif()
 
 option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
+target_link_libraries(tjs uv_a)
 
 add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
+target_link_libraries(tjs sqlite3)
+add_library(sqlite-test SHARED
+    tests/fixtures/sqlite-test-ext.c
+)
+target_link_libraries(sqlite-test sqlite3)
+
+find_library(FFI_LIB NAMES libffi ffi REQUIRED)
+find_path(FFI_INCLUDE_DIR NAMES ffi.h PATH_SUFFIXES ffi REQUIRED)
+target_link_libraries(tjs ${FFI_LIB})
+target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
+add_library(ffi-test SHARED
+    tests/fixtures/ffi-test-lib.c
+)
+
+# Set consistent output for test libraries across all platforms (including MSVC multi-config)
+set_target_properties(ffi-test sqlite-test PROPERTIES
+    PREFIX "lib"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    # For multi-config generators (Visual Studio, Xcode)
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
+)
+
+add_subdirectory(deps/ada EXCLUDE_FROM_ALL)
+target_link_libraries(tjs ada)
+
+# WAMR Configuration (interpreter only for maximum portability)
+set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/wamr)
+
+# Detect platform for WAMR
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(WAMR_BUILD_PLATFORM "darwin")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(WAMR_BUILD_PLATFORM "windows")
+else()
+    set(WAMR_BUILD_PLATFORM "linux")
+endif()
+
+# Configure WAMR build options
+set(WAMR_BUILD_INTERP 1)
+set(WAMR_BUILD_FAST_INTERP 1)
+set(WAMR_BUILD_AOT 0)
+set(WAMR_BUILD_JIT 0)
+set(WAMR_BUILD_LIBC_BUILTIN 1)
+set(WAMR_BUILD_LIBC_WASI 1)
+set(WAMR_BUILD_MULTI_MODULE 1)
+set(WAMR_BUILD_SIMD 1)
+set(WAMR_BUILD_REF_TYPES 1)
+set(WAMR_BUILD_BULK_MEMORY 1)
+set(WAMR_BUILD_LIB_PTHREAD 0)
+set(WAMR_BUILD_MINI_LOADER 0)
+set(WAMR_DISABLE_HW_BOUND_CHECK 1)
+set(WAMR_DISABLE_STACK_HW_BOUND_CHECK 1)
+
+# Include WAMR build scripts
+include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+
+add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
+target_include_directories(vmlib PUBLIC ${WAMR_ROOT_DIR}/core/iwasm/include)
+if(WIN32)
+    target_link_libraries(vmlib PUBLIC ntdll)
+endif()
+target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
+target_link_libraries(tjs vmlib)
+
+add_subdirectory(deps/miniz EXCLUDE_FROM_ALL)
+target_link_libraries(tjs miniz)
 
 option(ENABLE_TESTING "" OFF)
 option(ENABLE_PROGRAMS "" OFF)
@@ -63,8 +228,7 @@ option(MBEDTLS_FATAL_WARNINGS "" OFF)
 set(MBEDTLS_AS_SUBPROJECT ON)
 set(MBEDTLS_USER_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/mbedtls_config.h" CACHE FILEPATH "" FORCE)
 add_subdirectory(deps/mbedtls EXCLUDE_FROM_ALL)
-
-add_subdirectory(deps/miniz EXCLUDE_FROM_ALL)
+target_link_libraries(tjs mbedtls mbedx509 mbedcrypto)
 
 if (NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     set(LWS_WITH_NO_LOGS ON CACHE BOOL "" FORCE)
@@ -143,171 +307,10 @@ endif()
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
 # Work around mbedtls ssl.h using #if instead of #ifdef on
 # MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT (undefined when DTLS is disabled).
-if(NOT WIN32)
+if(MSVC)
+    target_compile_options(websockets PRIVATE /wd4005)
+else()
     target_compile_options(websockets PRIVATE -Wno-undef)
 endif()
-
-# WAMR Configuration (interpreter only for maximum portability)
-set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/wamr)
-
-# Detect platform for WAMR
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set(WAMR_BUILD_PLATFORM "darwin")
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    set(WAMR_BUILD_PLATFORM "windows")
-else()
-    set(WAMR_BUILD_PLATFORM "linux")
-endif()
-
-# Configure WAMR build options
-set(WAMR_BUILD_INTERP 1)
-set(WAMR_BUILD_FAST_INTERP 1)
-set(WAMR_BUILD_AOT 0)
-set(WAMR_BUILD_JIT 0)
-set(WAMR_BUILD_LIBC_BUILTIN 1)
-set(WAMR_BUILD_LIBC_WASI 1)
-set(WAMR_BUILD_MULTI_MODULE 1)
-set(WAMR_BUILD_SIMD 1)
-set(WAMR_BUILD_REF_TYPES 1)
-set(WAMR_BUILD_BULK_MEMORY 1)
-set(WAMR_BUILD_LIB_PTHREAD 0)
-set(WAMR_BUILD_MINI_LOADER 0)
-set(WAMR_DISABLE_HW_BOUND_CHECK 1)
-set(WAMR_DISABLE_STACK_HW_BOUND_CHECK 1)
-
-# Include WAMR build scripts
-include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
-
-# Create WAMR library
-add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
-target_include_directories(vmlib PUBLIC ${WAMR_ROOT_DIR}/core/iwasm/include)
-if(MSVC)
-    target_link_libraries(vmlib PUBLIC ntdll)
-endif()
-
-if(BUILD_WITH_MIMALLOC)
-    option(MI_OVERRIDE "" OFF)
-    option(MI_BUILD_SHARED "" OFF)
-    option(MI_BUILD_STATIC "" ON)
-    option(MI_BUILD_OBJECT "" OFF)
-    option(MI_BUILD_TESTS "" OFF)
-    add_subdirectory(deps/mimalloc EXCLUDE_FROM_ALL)
-endif()
-
-add_library(ada STATIC
-    deps/ada/ada.cpp
-)
-target_include_directories(ada PUBLIC deps/ada)
-target_compile_options(ada PRIVATE -fno-exceptions -fno-rtti)
-set_target_properties(ada PROPERTIES
-    CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED ON
-)
-
-add_library(tjs STATIC
-    src/builtins.c
-    src/error.c
-    src/lws-utils.c
-    src/eval.c
-    src/mem.c
-    src/modules.c
-    src/signals.c
-    src/text-coding.c
-    src/timers.c
-    src/utils.c
-    src/version.c
-    src/vm.c
-    src/wasm.c
-    src/worker.c
-    src/ws.c
-    src/httpclient.c
-    src/mod_dns.c
-    src/mod_engine.c
-    src/mod_ffi.c
-    src/mod_fs.c
-    src/mod_fswatch.c
-    src/mod_os.c
-    src/mod_process.c
-    src/mod_sqlite3.c
-    src/mod_streams.c
-    src/mod_sys.c
-    src/mod_udp.c
-    src/url.c
-    src/bundles/c/core/core.c
-    src/bundles/c/core/polyfills.c
-    src/bundles/c/core/run-main.c
-    src/bundles/c/core/run-repl.c
-    src/bundles/c/core/worker-bootstrap.c
-    deps/quickjs/cutils.c
-)
-
-if(UNIX)
-    target_sources(tjs PUBLIC src/mod_posix-socket.c)
-endif()
-
-add_library(ffi-test SHARED
-    tests/fixtures/ffi-test-lib.c
-)
-
-add_library(sqlite-test SHARED
-    tests/fixtures/sqlite-test-ext.c
-)
-
-target_link_libraries(sqlite-test sqlite3)
-
-# Set consistent output for test libraries across all platforms (including MSVC multi-config)
-set_target_properties(ffi-test sqlite-test PROPERTIES
-    PREFIX "lib"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-    # For multi-config generators (Visual Studio, Xcode)
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
-)
-
-find_library(FFI_LIB NAMES libffi ffi REQUIRED)
-find_path(FFI_INCLUDE_DIR NAMES ffi.h PATH_SUFFIXES ffi REQUIRED)
-target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
-
-set_target_properties(tjs PROPERTIES
-    C_STANDARD 11
-    C_STANDARD_REQUIRED ON
-    OUTPUT_NAME tjs_core
-)
-
-string(TOLOWER ${CMAKE_SYSTEM_NAME} TJS_PLATFORM)
-target_compile_options(tjs PRIVATE ${tjs_cflags})
-target_compile_definitions(tjs PRIVATE TJS__PLATFORM="${TJS_PLATFORM}")
-
-if(WIN32)
-    target_compile_definitions(tjs PRIVATE WIN32_LEAN_AND_MEAN)
-endif()
-
-target_include_directories(tjs PUBLIC src)
-target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
-target_link_libraries(tjs qjs uv_a vmlib sqlite3 ada ${FFI_LIB} websockets mbedtls mbedx509 mbedcrypto)
-target_include_directories(tjs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets/include ${CMAKE_CURRENT_BINARY_DIR}/deps/libwebsockets)
-
-if (BUILD_WITH_MIMALLOC)
-    target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)
-    target_link_libraries(tjs mimalloc-static)
-endif()
-
-add_executable(tjs-cli
-    src/cli.c
-)
-target_link_libraries(tjs-cli tjs)
-set_target_properties(tjs-cli
-    PROPERTIES OUTPUT_NAME tjs
-)
-
-add_executable(tjsc EXCLUDE_FROM_ALL
-    src/qjsc.c
-)
-target_link_libraries(tjsc qjs)
+target_link_libraries(tjs websockets)
+target_include_directories(tjs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets/include)
