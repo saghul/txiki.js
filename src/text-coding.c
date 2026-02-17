@@ -251,7 +251,7 @@ static JSValue tjs_utf8_decoder_decode(JSContext *ctx, JSValueConst this_val, in
     }
 
     DynBuf s;
-    dbuf_init2(&s, ctx, (DynBufReallocFunc *) js_realloc);
+    tjs_dbuf_init(ctx, &s);
     if (dbuf_claim(&s, bufsz) < 0) {
         return JS_ThrowOutOfMemory(ctx);
     }

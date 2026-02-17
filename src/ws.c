@@ -285,7 +285,7 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
         w->callbacks[i] = JS_UNDEFINED;
     }
     w->this_val = JS_UNDEFINED;
-    dbuf_init(&w->recv_buf);
+    tjs_dbuf_init(ctx, &w->recv_buf);
     init_list_head(&w->pending_writes);
 
     const char *url = JS_ToCString(ctx, argv[0]);
