@@ -133,19 +133,19 @@ submodules with `git submodule update --init` before proceeding to the build.
 
 ### GNU/Linux
 
-Install dependencies (`libcurl`, `build-essential`, `cmake`, `autoreconf`, `libtool`, `libltdl-dev`, `libffi-dev`):
+Install dependencies (`libcurl`, `build-essential`, `cmake`, `libffi-dev`):
 
 ```bash
 # On Debian / Ubuntu
-sudo apt install libcurl4-openssl-dev build-essential cmake autoconf texinfo libtool libltdl-dev libffi-dev
+sudo apt install libcurl4-openssl-dev build-essential cmake libffi-dev
 ```
 
 ### macOS
 
-Install dependencies (`cmake`, `autoconf`):
+Install dependencies (`cmake`):
 
 ```bash
-brew install cmake autoconf automake libtool texinfo
+brew install cmake
 ```
 
 ### Unix systems

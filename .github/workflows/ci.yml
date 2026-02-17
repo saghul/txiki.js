@@ -81,7 +81,7 @@ jobs:
         ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
       run: |
         sudo apt update
-        sudo apt install -y libcurl4-openssl-dev libltdl-dev libffi-dev
+        sudo apt install -y libcurl4-openssl-dev libffi-dev
         if [ "${{ matrix.compiler }}" = "clang" ]; then
           sudo apt install -y clang
           echo "::set-env name=CC::clang"
@@ -104,8 +104,6 @@ jobs:
     env:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
-    - name: Install automake
-      run: brew install automake autoconf libtool
     - uses: actions/checkout@v6
       with:
         submodules: recursive
@@ -130,7 +128,7 @@ jobs:
       BUILDTYPE: ${{ matrix.buildType }}
     steps:
     - name: Prepare
-      run: apk add git build-base cmake curl-dev autoconf automake libtool texinfo linux-headers libffi-dev --update-cache
+      run: apk add git build-base cmake curl-dev linux-headers libffi-dev --update-cache
     - uses: actions/checkout@v6
       with:
         submodules: recursive
