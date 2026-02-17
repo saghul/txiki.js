@@ -57,7 +57,6 @@ jobs:
           submodules: recursive
       - name: build macos arm64
         run: |
-          brew install autoconf automake libtool
           make
 
           mkdir txiki-macos-arm64
@@ -77,7 +76,6 @@ jobs:
           submodules: recursive
       - name: build macos x86_64
         run: |
-          brew install autoconf automake libtool
           make
 
           mkdir txiki-macos-x86_64
