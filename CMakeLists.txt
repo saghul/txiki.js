@@ -153,10 +153,16 @@ add_library(sqlite-test SHARED
 )
 target_link_libraries(sqlite-test sqlite3)
 
-find_library(FFI_LIB NAMES libffi ffi REQUIRED)
-find_path(FFI_INCLUDE_DIR NAMES ffi.h PATH_SUFFIXES ffi REQUIRED)
-target_link_libraries(tjs ${FFI_LIB})
-target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
+if (WIN32)
+    find_package(unofficial-libffi CONFIG REQUIRED)
+    target_link_libraries(tjs PRIVATE unofficial::libffi::libffi)
+else()
+    find_library(FFI_LIB NAMES libffi ffi REQUIRED)
+    find_path(FFI_INCLUDE_DIR NAMES ffi.h PATH_SUFFIXES ffi REQUIRED)
+    target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
+    target_link_libraries(tjs ${FFI_LIB})
+endif()
+
 add_library(ffi-test SHARED
     tests/fixtures/ffi-test-lib.c
 )
