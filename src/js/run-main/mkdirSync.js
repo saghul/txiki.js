@@ -1,12 +1,11 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
-
 export function mkdirSync(path, options = { mode: 0o777, recursive: false }) {
-    const pathModule = globalThis[Symbol.for('tjs.internal.modules.path')];
+    const core = globalThis[Symbol.for('tjs.internal.core')];
 
     if (!options.recursive) {
         return core.mkdirSync(path, options.mode);
     }
 
+    const pathModule = globalThis[Symbol.for('tjs.internal.modules.path')];
     const parent = pathModule.dirname(path);
 
     if (parent === path) {

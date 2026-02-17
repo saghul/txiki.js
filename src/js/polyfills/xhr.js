@@ -1,11 +1,9 @@
 /* global tjs */
 import { defineEventAttribute } from './event-target.js';
-import { mkdirSync } from './utils/mkdirSync';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
 const HttpClient = core.HttpClient;
 const kClient = Symbol('kClient');
-let hasHomeDirCreated = false;
 
 class XMLHttpRequest extends EventTarget {
     static UNSENT = 0;
@@ -189,11 +187,6 @@ class XMLHttpRequest extends EventTarget {
         if (value) {
             const path = globalThis[Symbol.for('tjs.internal.modules.path')];
             const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
-
-            if (!hasHomeDirCreated) {
-                mkdirSync(TJS_HOME, { recursive: true });
-                hasHomeDirCreated = true;
-            }
 
             this.#cookieJarPath = path.join(TJS_HOME, 'cookies');
         } else {

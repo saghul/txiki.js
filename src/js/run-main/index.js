@@ -5,7 +5,22 @@ import path from 'tjs:path';
 import { WASI } from 'tjs:wasi';
 
 import { evalStdin } from './eval-stdin.js';
+import { mkdirSync } from './mkdirSync.js';
 import { runTests } from './run-tests.js';
+
+const core = globalThis[Symbol.for('tjs.internal.core')];
+
+/**
+ * Before we do anything else, create our "home" directory,
+ * so other parts of the code which need it can find it.
+ */
+const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
+
+try {
+    mkdirSync(TJS_HOME, { recursive: true });
+} catch (_) {
+    // Ignore.
+}
 
 /**
  * Trailer for standalone binaries. When some code gets bundled with the tjs
@@ -22,8 +37,6 @@ const Trailer = {
     DataSize: 4,
     Size: 12
 };
-
-const core = globalThis[Symbol.for('tjs.internal.core')];
 
 const exeName = path.basename(tjs.args[0]);
 const help = `Usage: ${exeName} [options] [subcommand]
