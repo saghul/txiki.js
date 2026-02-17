@@ -128,7 +128,7 @@ add_executable(tjsc EXCLUDE_FROM_ALL
 ###
 
 add_subdirectory(deps/quickjs EXCLUDE_FROM_ALL)
-target_link_libraries(tjs qjs)
+target_link_libraries(tjs PUBLIC qjs)
 target_link_libraries(tjsc qjs)
 
 if(BUILD_WITH_MIMALLOC)
@@ -139,24 +139,30 @@ if(BUILD_WITH_MIMALLOC)
     option(MI_BUILD_TESTS "" OFF)
     add_subdirectory(deps/mimalloc EXCLUDE_FROM_ALL)
     target_compile_definitions(tjs PRIVATE TJS__HAS_MIMALLOC)
-    target_link_libraries(tjs mimalloc-static)
+    target_link_libraries(tjs PUBLIC mimalloc-static)
 endif()
 
 option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
-target_link_libraries(tjs uv_a)
+target_link_libraries(tjs PUBLIC uv_a)
 
 add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
-target_link_libraries(tjs sqlite3)
+target_link_libraries(tjs PUBLIC sqlite3)
 add_library(sqlite-test SHARED
     tests/fixtures/sqlite-test-ext.c
 )
 target_link_libraries(sqlite-test sqlite3)
 
-find_library(FFI_LIB NAMES libffi ffi REQUIRED)
-find_path(FFI_INCLUDE_DIR NAMES ffi.h PATH_SUFFIXES ffi REQUIRED)
-target_link_libraries(tjs ${FFI_LIB})
-target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
+if (WIN32)
+    find_package(unofficial-libffi CONFIG REQUIRED)
+    target_link_libraries(tjs PUBLIC unofficial::libffi::libffi)
+else()
+    find_library(FFI_LIB NAMES libffi ffi REQUIRED)
+    find_path(FFI_INCLUDE_DIR NAMES ffi.h PATH_SUFFIXES ffi REQUIRED)
+    target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
+    target_link_libraries(tjs PUBLIC ${FFI_LIB})
+endif()
+
 add_library(ffi-test SHARED
     tests/fixtures/ffi-test-lib.c
 )
@@ -178,7 +184,7 @@ set_target_properties(ffi-test sqlite-test PROPERTIES
 )
 
 add_subdirectory(deps/ada EXCLUDE_FROM_ALL)
-target_link_libraries(tjs ada)
+target_link_libraries(tjs PUBLIC ada)
 
 # WAMR Configuration (interpreter only for maximum portability)
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/wamr)
@@ -217,10 +223,10 @@ if(WIN32)
     target_link_libraries(vmlib PUBLIC ntdll)
 endif()
 target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
-target_link_libraries(tjs vmlib)
+target_link_libraries(tjs PUBLIC vmlib)
 
 add_subdirectory(deps/miniz EXCLUDE_FROM_ALL)
-target_link_libraries(tjs miniz)
+target_link_libraries(tjs PUBLIC miniz)
 
 option(ENABLE_TESTING "" OFF)
 option(ENABLE_PROGRAMS "" OFF)
@@ -228,7 +234,7 @@ option(MBEDTLS_FATAL_WARNINGS "" OFF)
 set(MBEDTLS_AS_SUBPROJECT ON)
 set(MBEDTLS_USER_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/mbedtls_config.h" CACHE FILEPATH "" FORCE)
 add_subdirectory(deps/mbedtls EXCLUDE_FROM_ALL)
-target_link_libraries(tjs mbedtls mbedx509 mbedcrypto)
+target_link_libraries(tjs PUBLIC mbedtls mbedx509 mbedcrypto)
 
 if (NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     set(LWS_WITH_NO_LOGS ON CACHE BOOL "" FORCE)
@@ -312,5 +318,5 @@ if(MSVC)
 else()
     target_compile_options(websockets PRIVATE -Wno-undef)
 endif()
-target_link_libraries(tjs websockets)
+target_link_libraries(tjs PUBLIC websockets)
 target_include_directories(tjs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets/include)

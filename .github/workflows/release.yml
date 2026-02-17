@@ -30,18 +30,16 @@ jobs:
         with:
           vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
       - name: Install dependencies
-        run: vcpkg install libffi
+        run: vcpkg install libffi:x64-windows-static
       - name: Configure
         run: |
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+          cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static
       - name: Build
         run: cmake --build build --config Release
       - name: Package
         run: |
           mkdir txiki-windows-x86_64
           cp build/Release/tjs.exe txiki-windows-x86_64/tjs.exe
-          # Copy required DLLs from vcpkg
-          cp vcpkg/installed/x64-windows/bin/*.dll txiki-windows-x86_64/
 
       - name: Upload windows x86_64 Artifact
         uses: actions/upload-artifact@v6
