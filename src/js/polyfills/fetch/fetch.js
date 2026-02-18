@@ -1,10 +1,8 @@
+import { HttpClient } from '../http-client.js';
+
 import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
 import { Response } from './response.js';
-
-// Access the internal HttpClient implementation directly.
-const core = globalThis[Symbol.for('tjs.internal.core')];
-const HttpClient = core.HttpClient;
 
 // Keep strong references to active clients to prevent premature GC
 const activeClients = new Set();

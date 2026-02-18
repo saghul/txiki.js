@@ -1,7 +1,5 @@
 import { defineEventAttribute } from './event-target.js';
-
-const core = globalThis[Symbol.for('tjs.internal.core')];
-const HttpClient = core.HttpClient;
+import { HttpClient } from './http-client.js';
 const kClient = Symbol('kClient');
 
 
@@ -146,9 +144,7 @@ class XMLHttpRequest extends EventTarget {
             client.timeout = this.#timeout;
         }
 
-        if (this.#withCredentials) {
-            client.setEnableCookies(true);
-        }
+        client.setEnableCookies(this.withCredentials);
 
         this[kClient] = client;
     }

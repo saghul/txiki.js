@@ -264,15 +264,6 @@ static int tjs_lws_callback(struct lws *wsi, enum lws_callback_reasons reason, v
             break;
         }
 
-        case LWS_CALLBACK_WSI_DESTROY: {
-            /* Release the prevent-GC ref if not already released. */
-            if (!JS_IsUndefined(w->this_val)) {
-                JS_FreeValue(w->ctx, w->this_val);
-                w->this_val = JS_UNDEFINED;
-            }
-            break;
-        }
-
         default:
             break;
     }
@@ -283,7 +274,7 @@ static int tjs_lws_callback(struct lws *wsi, enum lws_callback_reasons reason, v
 const struct lws_protocols tjs_ws_protocol = {
     .name = TJS_LWS_PROTOCOL_NAME,
     .callback = tjs_lws_callback,
-    .per_session_data_size = 0, /* We manage user data ourselves. */
+    .per_session_data_size = 0,
     .rx_buffer_size = 0,
 };
 
@@ -381,13 +372,6 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     cci.userdata = w;
     cci.pwsi = &w->wsi;
 
-    JS_SetOpaque(obj, w);
-
-    /* Prevent GC while connected. */
-    w->this_val = JS_DupValue(ctx, obj);
-
-    tjs__lws_conn_ref(ctx);
-
     struct lws *wsi = lws_client_connect_via_info(&cci);
 
     JS_FreeCString(ctx, protocols);
@@ -395,14 +379,18 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     js_free(ctx, full_path);
 
     if (!wsi) {
-        tjs__lws_conn_unref(ctx);
         /* Connection failed immediately. */
-        w->wsi = NULL;
-        JS_FreeValue(ctx, w->this_val);
-        w->this_val = JS_UNDEFINED;
+        js_free(ctx, w);
         JS_FreeValue(ctx, obj);
         return JS_ThrowInternalError(ctx, "WebSocket connection failed");
     }
+
+    JS_SetOpaque(obj, w);
+
+    /* Prevent GC while connected. */
+    w->this_val = JS_DupValue(ctx, obj);
+
+    tjs__lws_conn_ref(ctx);
 
     /* Kick the lws service loop. With a persistent context, the internal
      * idle/sultimer handles may have stopped. On Windows, lws uses SUL

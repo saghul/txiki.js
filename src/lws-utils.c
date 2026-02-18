@@ -38,19 +38,11 @@ extern const struct lws_protocols tjs_http_protocol;
 #define TJS_LWS_HTTP_LOAD_PROTOCOL_NAME "tjs-http-load"
 
 typedef struct {
-    struct lws_context *lws_ctx;
     DynBuf *dbuf;
     int status;
     bool done;
-    lws_sorted_usec_list_t sul;
+    char redirect_url[2048];
 } TJSHttpLoadCtx;
-
-static void tjs__lws_load_timeout_cb(lws_sorted_usec_list_t *sul) {
-    TJSHttpLoadCtx *ctx = lws_container_of(sul, TJSHttpLoadCtx, sul);
-    ctx->status = -2;
-    ctx->done = true;
-    lws_cancel_service(ctx->lws_ctx);
-}
 
 static int tjs_lws_http_load_callback(struct lws *wsi,
                                       enum lws_callback_reasons reason,
@@ -101,6 +93,19 @@ static int tjs_lws_http_load_callback(struct lws *wsi,
             ctx->done = true;
             break;
 
+        case LWS_CALLBACK_TIMER:
+            ctx->status = -2;
+            ctx->done = true;
+            return -1;
+
+        case LWS_CALLBACK_CLIENT_HTTP_REDIRECT:
+            /* Capture the redirect target so we can retry on cross-host
+             * failures.  Return 0 to let lws try the built-in redirect. */
+            if (in) {
+                lws_strncpy(ctx->redirect_url, (const char *) in, sizeof(ctx->redirect_url));
+            }
+            return 0;
+
         case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER: {
             unsigned char **p = (unsigned char **) in, *end = (*p) + len;
 
@@ -136,8 +141,8 @@ static void tjs__lws_keepalive_cb(uv_async_t *handle) {
 
 void tjs__lws_init(TJSRuntime *qrt) {
     const struct lws_protocols protocols[] = {
-        tjs_ws_protocol,
         tjs_http_protocol,
+        tjs_ws_protocol,
         LWS_PROTOCOL_LIST_TERM,
     };
 
@@ -146,8 +151,7 @@ void tjs__lws_init(TJSRuntime *qrt) {
 
     info.port = CONTEXT_PORT_NO_LISTEN;
     info.protocols = protocols;
-    info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_LIBUV |
-                   LWS_SERVER_OPTION_H2_JUST_FIX_WINDOW_UPDATE_OVERFLOW;
+    info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_LIBUV;
 
     /* Use the existing libuv event loop. */
     void *foreign_loops[1] = { &qrt->loop };
@@ -200,15 +204,12 @@ struct lws_context *tjs__lws_get_context(JSContext *ctx) {
     return qrt->lws.ctx;
 }
 
-int tjs__lws_load_http(TJSRuntime *qrt, DynBuf *dbuf, const char *url) {
+static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, const char *url) {
     JSContext *ctx = qrt->ctx;
 
-    TJSHttpLoadCtx load_ctx = {
-        .lws_ctx = NULL,
-        .dbuf = dbuf,
-        .status = -1,
-        .done = false,
-    };
+    load_ctx->status = -1;
+    load_ctx->done = false;
+    load_ctx->redirect_url[0] = '\0';
 
     /* Parse URL. lws_parse_uri modifies the string in-place. */
     char *url_copy = js_strdup(ctx, url);
@@ -229,24 +230,19 @@ int tjs__lws_load_http(TJSRuntime *qrt, DynBuf *dbuf, const char *url) {
     char full_path[JS__PATH_MAX];
     snprintf(full_path, sizeof(full_path), "/%s", path);
 
-    /* Resolve DNS ourselves using synchronous uv_getaddrinfo.  The lws
-     * async DNS resolver is unreliable in a temporary poll-based context
-     * because the poll backend ignores the timeout_ms parameter and
-     * waits until the next SUL timer, causing the DNS write to miss
-     * its 1-second deadline intermittently. */
+    /* Resolve DNS synchronously.  The lws async DNS resolver is
+     * unreliable in a temporary poll-based context. */
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 
     uv_getaddrinfo_t dns_req;
-    int dns_err = uv_getaddrinfo(&qrt->loop, &dns_req, NULL, ads, NULL, &hints);
-    if (dns_err) {
+    if (uv_getaddrinfo(&qrt->loop, &dns_req, NULL, ads, NULL, &hints)) {
         js_free(ctx, url_copy);
         return -1;
     }
 
-    /* Convert resolved address to a numeric string for lws. */
     char ip_str[INET6_ADDRSTRLEN];
     if (dns_req.addrinfo->ai_family == AF_INET6) {
         struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *) dns_req.addrinfo->ai_addr;
@@ -257,10 +253,6 @@ int tjs__lws_load_http(TJSRuntime *qrt, DynBuf *dbuf, const char *url) {
     }
     uv_freeaddrinfo(dns_req.addrinfo);
 
-    /* Use lws's built-in poll-based service loop (no libuv) so that
-     * the temporary context doesn't inherit the foreign-loop unref
-     * logic from our lws patch, which causes assertion failures
-     * during context destruction with async DNS wsis. */
     const struct lws_protocols protocols[] = {
         tjs_http_load_protocol,
         LWS_PROTOCOL_LIST_TERM,
@@ -271,7 +263,7 @@ int tjs__lws_load_http(TJSRuntime *qrt, DynBuf *dbuf, const char *url) {
 
     info.port = CONTEXT_PORT_NO_LISTEN;
     info.protocols = protocols;
-    info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_H2_JUST_FIX_WINDOW_UPDATE_OVERFLOW;
+    info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
     info.client_ssl_ca_mem = tjs_cacert_pem;
     info.client_ssl_ca_mem_len = TJS_CACERT_PEM_LEN;
 
@@ -283,8 +275,6 @@ int tjs__lws_load_http(TJSRuntime *qrt, DynBuf *dbuf, const char *url) {
         return -1;
     }
 
-    load_ctx.lws_ctx = lws_ctx;
-
     struct lws_client_connect_info cci;
     memset(&cci, 0, sizeof(cci));
 
@@ -294,11 +284,10 @@ int tjs__lws_load_http(TJSRuntime *qrt, DynBuf *dbuf, const char *url) {
     cci.path = full_path;
     cci.host = ads;
     cci.origin = ads;
-    cci.ssl_connection =
-        (use_ssl ? LCCSCF_USE_SSL : 0) | LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM;
+    cci.ssl_connection = (use_ssl ? LCCSCF_USE_SSL : 0);
     cci.method = "GET";
     cci.local_protocol_name = TJS_LWS_HTTP_LOAD_PROTOCOL_NAME;
-    cci.userdata = &load_ctx;
+    cci.userdata = load_ctx;
 
     struct lws *wsi = lws_client_connect_via_info(&cci);
 
@@ -308,20 +297,49 @@ int tjs__lws_load_http(TJSRuntime *qrt, DynBuf *dbuf, const char *url) {
         return -1;
     }
 
-    /* Schedule a timeout at the context level (not per-wsi)
-     * so it survives any wsi handoffs during H2 upgrade. */
-    lws_sul_schedule(lws_ctx, 0, &load_ctx.sul, tjs__lws_load_timeout_cb, 10 * LWS_USEC_PER_SEC);
+    uint64_t deadline = uv_hrtime() + (uint64_t) 10 * 1000000000;
 
-    while (!load_ctx.done) {
-        lws_service(lws_ctx, 0);
+    while (!load_ctx->done) {
+        lws_service(lws_ctx, 250);
+        if (uv_hrtime() >= deadline) {
+            load_ctx->status = -2;
+            load_ctx->done = true;
+        }
     }
 
-    lws_sul_cancel(&load_ctx.sul);
     lws_context_destroy(lws_ctx);
 
     /* Free after the context is destroyed. lws may reference strings
      * from url_copy during the connection handshake. */
     js_free(ctx, url_copy);
 
-    return load_ctx.status;
+    return load_ctx->status;
+}
+
+#define TJS__MAX_REDIRECTS 20
+
+int tjs__lws_load_http(TJSRuntime *qrt, DynBuf *dbuf, const char *url) {
+    TJSHttpLoadCtx load_ctx = {
+        .dbuf = dbuf,
+    };
+
+    const char *current_url = url;
+    char retry_url[2048];
+
+    for (int i = 0; i <= TJS__MAX_REDIRECTS; i++) {
+        int status = tjs__lws_load_http_once(qrt, &load_ctx, current_url);
+
+        /* Success or no redirect captured — we're done. */
+        if (status == 200 || load_ctx.redirect_url[0] == '\0') {
+            return status;
+        }
+
+        /* lws's built-in redirect failed (cross-host). Retry with
+         * the captured redirect URL and a fresh lws context. */
+        lws_strncpy(retry_url, load_ctx.redirect_url, sizeof(retry_url));
+        current_url = retry_url;
+        dbuf->size = 0;
+    }
+
+    return -1;
 }
