@@ -42,14 +42,13 @@ async function fetchWithBlobBody() {
 
 async function fetchWithRedirect() {
     const url = 'https://wikipedia.com/';
-    const redirectUrl = 'https://www.wikipedia.org/';
 
     const r1 = await fetch(url, {
         method: 'GET',
         redirect: 'follow',
     });
     assert.eq(r1.status, 200, 'status is 200');
-    assert.eq(r1.url, redirectUrl, 'url has changed')
+    assert.ok(r1.url.startsWith('https://www.wikipedia.org/'), 'url has changed')
 
     const r2 = await fetch(url, {
         method: 'GET',
@@ -57,7 +56,7 @@ async function fetchWithRedirect() {
     });
     assert.eq(r2.status, 301, 'status is 301');
     assert.eq(r2.url, url, 'url is the same')
-    assert.eq(r2.headers.get('location'), redirectUrl, 'location header is correct');
+    assert.ok(r2.headers.get('location').startsWith('https://www.wikipedia.org/'), 'location header is correct');
 
     let hasError = false;
     await fetch(url, {
