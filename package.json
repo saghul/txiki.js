@@ -4,10 +4,10 @@
   "description": "Utilities for txiki.js",
   "private": true,
   "scripts": {
-    "postinstall": "patch-package",
-    "api-docs": "typedoc --tsconfig types/tsconfig.doc.json",
-    "api-docs-watch": "typedoc --tsconfig types/tsconfig.doc.json --watch --preserveWatchOutput --logLevel Verbose",
-    "deploy-api-docs": "gh-pages -d types/api -e api -u \"github-actions-bot <support+actions@github.com>\"",
+    "postinstall": "patch-package && npm install --prefix website",
+    "docs": "npm run build --prefix website",
+    "docs:watch": "npm run start --prefix website",
+    "docs:deploy": "npm run docs && gh-pages -d website/build",
     "lint": "eslint --max-warnings 0 ."
   },
   "license": "MIT",

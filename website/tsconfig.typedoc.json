@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "lib": ["ES2022", "dom"],
+    "noImplicitAny": true,
+    "skipLibCheck": true
+  },
+  "include": ["../types/src/**/*.d.ts"],
+  "exclude": ["node_modules"]
+}
