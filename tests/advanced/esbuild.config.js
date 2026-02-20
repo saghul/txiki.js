@@ -13,7 +13,7 @@ for (const mod of modules) {
         outfile: path.join(__dirname, mod.out),
         format: 'esm',
         platform: 'neutral',
-        target: 'es2023',
+        target: 'esnext',
         minify: false,
     });
 }
