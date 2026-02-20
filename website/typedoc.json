@@ -1,0 +1,17 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["../types/src/"],
+  "entryPointStrategy": "expand",
+  "tsconfig": "./tsconfig.typedoc.json",
+  "plugin": ["typedoc-plugin-markdown", "typedoc-docusaurus-theme"],
+  "out": "docs/api",
+  "disableSources": true,
+  "exclude": ["../types/src/index.d.ts"],
+  "readme": "none",
+  "name": "txiki.js",
+  "flattenOutputFiles": true,
+  "hidePageHeader": true,
+  "hideBreadcrumbs": true,
+  "entryFileName": "index.md",
+  "categorizeByGroup": true
+}

@@ -1,154 +1,17 @@
-
 <p align="center">
-    <img width="480" src="https://raw.githubusercontent.com/saghul/txiki.js/master/logo.png" />
+    <img width="240" src="https://raw.githubusercontent.com/saghul/txiki.js/master/logo-heartonly.png" />
 </p>
 
 # txiki.js — The tiny JavaScript runtime
 
-## Overview
+> **txikia** (Basque): small, tiny.
 
-> **txikia** (basque): small, tiny.
-
-*txiki.js* is a small and powerful JavaScript runtime.  It targets state-of-the-art ECMAScript
-and aims to be [WinterCG] compliant.
+*txiki.js* is a small and powerful JavaScript runtime. It targets state-of-the-art ECMAScript
+and aims to be [WinterTC] compliant.
 
 It's built on the shoulders of giants: it uses [QuickJS-ng] as its JavaScript engine and [libuv] as the platform layer.
 
-See it in action here:
-
-<p align="center">
-    <a href="https://video.fosdem.org/2022/D.javascript/building_a_tiny_javascript_runtime_with_quickjs.mp4" title="Building a tiny JavaScript runtime with QuickJS">
-        <img width="460" src="https://raw.githubusercontent.com/saghul/txiki.js/master/video.png" alt="Building a tiny JavaScript runtime with QuickJS"/>
-    </a>
-</p>
-
-## Getting started
-
-First head over to [building](#building) and build the runtime.
-
-```bash
-$ ./build/tjs eval "console.log('hello world')"
-hello world
-$
-```
-
-If you want to run a script you can use `tjs run`:
-
-```bash
-$ ./build/tjs run examples/hello_world.js
-hello world
-$
-```
-
-Explore all the options:
-
-```bash
-$ ./build/tjs --help
-```
-
-For TS support see [@txikijs/types](https://www.npmjs.com/package/@txikijs/types).
-
-## Features
-
-Support for the [ES2023] specification (almost complete).
-
-### WinterCG
-
-*txiki.js* aims to be [WinterCG] compliant, you can track the progress [here](https://github.com/saghul/txiki.js/issues/418).
-
-### Web Platform APIs
-
-- [alert, confirm, prompt] (1)
-- [Console]
-- [Crypto] (2)
-- [Direct Sockets]
-- [Encoding API]
-- [EventTarget]
-- [fetch]
-- [JSON modules]
-- [Performance]
-- [setTimeout, setInterval]
-- [Storage API]
-- [Streams API]
-- [URL]
-- [URLPattern]
-- [URLSearchParams]
-- [WebAssembly] (3)
-- [WebSocket]
-- [Web Workers API]
-
-(1): All of them are async.
-
-(2): No subtle support.
-
-(3): No tables, globals or memory support.
-
-### Runtime features
-
-- [Standalone executables](#tjs-compile---creating-standalone-executables)
-- TCP and UDP sockets
-- Unix sockets / named pipes
-- Signal handling
-- File operations
-- Child processes
-- WASI
-- ...
-
-See the [full API documentation].
-
-Other extras:
-
-- Import directly from HTTP(S) URLs
-- Import JSON files
-- Builtin test runner
-
-### Standard library
-
-The following modules compose the standard library:
-
-- [`tjs:assert`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_assert.html)
-- [`tjs:ffi`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_ffi.html)
-- [`tjs:getopts`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_getopts.html)
-- [`tjs:hashing`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_hashing.html)
-- [`tjs:ipaddr`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_ipaddr.html)
-- [`tjs:path`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_path.html)
-- [`tjs:sqlite`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_sqlite.html)
-- [`tjs:uuid`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_uuid.html)
-- [`tjs:wasi`](https://bettercallsaghul.com/txiki.js/api/modules/tjs_wasi.html)
-
-## Supported platforms
-
-* GNU/Linux
-* macOS
-* Windows (beta)
-* Other Unixes (please test!)
-
-## Building
-
-[CMake] is necessary.
-
-*NOTE:* The txiki.js build depends on a number of git submodules.
-If you didn't already clone this repository recursively, make sure you initialize these
-submodules with `git submodule update --init` before proceeding to the build.
-
-### GNU/Linux
-
-Install dependencies (`build-essential`, `cmake`, `libffi-dev`):
-
-```bash
-# On Debian / Ubuntu
-sudo apt install build-essential cmake libffi-dev
-```
-
-### macOS
-
-Install dependencies (`cmake`):
-
-```bash
-brew install cmake
-```
-
-### Unix systems
+## Quick start
 
 ```bash
 # Get the code
@@ -159,102 +22,28 @@ make
 ./build/tjs
 ```
 
-### Windows
+See [Building](https://bettercallsaghul.com/txiki.js/docs/building) for detailed instructions including Windows support.
 
-Building requires Visual Studio 2022 (or the Build Tools) and [vcpkg](https://vcpkg.io/).
+## Features
 
-#### Prerequisites
+- Web Platform APIs: `fetch`, `WebSocket`, `Console`, `setTimeout`, `Crypto`, Web Workers, and more
+- TCP, UDP, and Unix sockets
+- HTTP server with WebSocket support
+- File I/O, child processes, signal handling
+- Standard library: `tjs:sqlite`, `tjs:ffi`, `tjs:path`, `tjs:hashing`, and more
+- Standalone executables via `tjs compile`
 
-1. Install [Visual Studio 2022](https://visualstudio.microsoft.com/) with the "Desktop development with C++" workload,
-   or install the [Build Tools for Visual Studio 2022](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022).
+## Documentation
 
-2. Install and bootstrap [vcpkg](https://vcpkg.io/en/getting-started.html):
+Full documentation is available at **[bettercallsaghul.com/txiki.js](https://bettercallsaghul.com/txiki.js/)**.
 
-```powershell
-git clone https://github.com/microsoft/vcpkg.git
-cd vcpkg
-.\bootstrap-vcpkg.bat
-```
+## Supported platforms
 
-3. Install the required dependencies:
+* GNU/Linux
+* macOS
+* Windows
+* Other Unixes (please test!)
 
-```powershell
-.\vcpkg install libffi
-```
-
-#### Build
-
-Run these commands from a "Developer PowerShell for VS 2022" or "x64 Native Tools Command Prompt":
-
-```powershell
-cmake -B build -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
-cmake --build build --config Release
-```
-
-The executable will be at `build\Release\tjs.exe`.
-
-#### Running the tests
-
-```powershell
-.\build\Release\tjs.exe test tests/
-```
-
-### Customizing the build
-
-If you are making a custom build and are modifying any of the JS files that are
-part of the runtime, you'll need to regenerate the C code for them, so your changes
-become part of the build.
-
-```bash
-# First install the JS dependencies
-npm install
-# Now bundle the code and compile it into C source files
-make js
-```
-
-## `tjs compile` - creating standalone executables
-
-Creating standalone executables is possible with `tjs compile`. The resulting executable
-will bundle the given code and the txiki.js runtime. No compiler is needed.
-
-**NOTE:** The resulting executable will have the same runtime dependencies as the `tjs`
-executable.
-
-Assuming a `bundle.js` file with some JS code, the following command will create
-a standalone executable with it:
-
-```bash
-tjs compile bundle.js
-```
-
-The new executable will be called `bundle` on Unix platforms and `bundle.exe` on Windows.
-The output name can be customized by passing a second option:
-
-```bash
-tjs compile bundle.js myexe
-```
-
-The `tjs compile` command doesn't do any code bundling. If you need to bundle your
-app into a single JS file for use with `tjs compile`, [esbuild] can be a good option.
-Here is how to bundle an app into a single `bundle.js` file:
-
-```bash
-npx esbuild my-app/index.js \
-    --bundle \
-    --outfile=bundle.js \
-    --external:tjs:* \
-    --minify \
-    --target=es2023 \
-    --platform=neutral \
-    --format=esm \
-    --main-fields=main,module
-```
-
-## Versioning
-
-txiki.js uses [calendar versioning] with the form YY.MM.MICRO.
-
-<br />
 <br />
 
 <footer>
@@ -264,27 +53,4 @@ Built with ❤️ by saghul and these awesome <a href="https://github.com/saghul
 
 [QuickJS-ng]: https://github.com/quickjs-ng/quickjs
 [libuv]: https://libuv.org/
-[full API documentation]: https://bettercallsaghul.com/txiki.js/api/
-[CMake]: https://cmake.org/
-[alert, confirm, prompt]: https://developer.mozilla.org/en-US/docs/Web/API/Window/alert
-[fetch]: https://fetch.spec.whatwg.org/
-[EventTarget]: https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
-[Console]: https://developer.mozilla.org/en-US/docs/Web/API/Console
-[Crypto]: https://developer.mozilla.org/en-US/docs/Web/API/Crypto
-[Direct Sockets]: https://wicg.github.io/direct-sockets/
-[Encoding API]: https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API
-[JSON modules]: https://github.com/tc39/proposal-json-modules
-[Performance]: https://developer.mozilla.org/en-US/docs/Web/API/Performance
-[setTimeout, setInterval]: https://developer.mozilla.org/en-US/docs/Web/API/setTimeout
-[Storage API]: https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API
-[Streams API]: https://developer.mozilla.org/en-US/docs/Web/API/Streams_API
-[URL]: https://developer.mozilla.org/en-US/docs/Web/API/URL
-[URLPattern]: https://developer.mozilla.org/en-US/docs/Web/API/URLPattern
-[URLSearchParams]: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
-[Web Workers API]: https://developer.mozilla.org/en-US/docs/Web/API/Worker
-[WebAssembly]: https://developer.mozilla.org/en-US/docs/WebAssembly
-[WebSocket]: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-[ES2023]: https://tc39.es/ecma262/
-[calendar versioning]: https://calver.org/
-[WinterCG]: https://wintercg.org/
-[esbuild]: https://esbuild.github.io/
+[WinterTC]: https://wintertc.org/

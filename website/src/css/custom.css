@@ -1,0 +1,128 @@
+/*
+ * Monochromatic purple theme for txiki.js docs.
+ */
+
+:root {
+  /* Purple primary palette */
+  --ifm-color-primary: #7c3aed;
+  --ifm-color-primary-dark: #6d28d9;
+  --ifm-color-primary-darker: #5b21b6;
+  --ifm-color-primary-darkest: #4c1d95;
+  --ifm-color-primary-light: #8b5cf6;
+  --ifm-color-primary-lighter: #a78bfa;
+  --ifm-color-primary-lightest: #c4b5fd;
+
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(124, 58, 237, 0.08);
+
+  /* Monochromatic adjustments */
+  --ifm-background-color: #ffffff;
+  --ifm-background-surface-color: #fafafa;
+  --ifm-font-color-base: #1a1a1a;
+  --ifm-font-color-secondary: #525252;
+  --ifm-heading-color: #0a0a0a;
+  --ifm-link-color: var(--ifm-color-primary);
+  --ifm-navbar-background-color: #ffffff;
+  --ifm-navbar-shadow: 0 1px 0 0 #e5e5e5;
+  --ifm-toc-border-color: #e5e5e5;
+  --ifm-hr-border-color: #e5e5e5;
+  --ifm-code-background: #f5f3ff;
+  --ifm-code-border-radius: 4px;
+  --ifm-global-radius: 6px;
+
+  /* Sidebar */
+  --doc-sidebar-width: 280px;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #a78bfa;
+  --ifm-color-primary-dark: #8b5cf6;
+  --ifm-color-primary-darker: #7c3aed;
+  --ifm-color-primary-darkest: #6d28d9;
+  --ifm-color-primary-light: #c4b5fd;
+  --ifm-color-primary-lighter: #ddd6fe;
+  --ifm-color-primary-lightest: #ede9fe;
+
+  --docusaurus-highlighted-code-line-bg: rgba(167, 139, 250, 0.15);
+
+  --ifm-background-color: #0a0a0a;
+  --ifm-background-surface-color: #141414;
+  --ifm-font-color-base: #e5e5e5;
+  --ifm-font-color-secondary: #a3a3a3;
+  --ifm-heading-color: #fafafa;
+  --ifm-navbar-background-color: #0a0a0a;
+  --ifm-navbar-shadow: 0 1px 0 0 #262626;
+  --ifm-toc-border-color: #262626;
+  --ifm-hr-border-color: #262626;
+  --ifm-code-background: #1e1033;
+}
+
+/* Clean navbar */
+.navbar {
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+  box-shadow: none;
+}
+
+.navbar__title {
+  font-weight: 700;
+}
+
+/* Sidebar styling */
+.menu__link {
+  font-size: 0.9rem;
+  border-radius: var(--ifm-global-radius);
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+  background-color: #f5f3ff;
+  color: var(--ifm-color-primary-dark);
+}
+
+[data-theme='dark'] .menu__link--active:not(.menu__link--sublist) {
+  background-color: #1e1033;
+  color: var(--ifm-color-primary-light);
+}
+
+/* No footer */
+.footer {
+  display: none;
+}
+
+/* Code blocks */
+.prism-code {
+  border: 1px solid var(--ifm-toc-border-color);
+}
+
+/* Table of Contents */
+.table-of-contents__link--active {
+  color: var(--ifm-color-primary);
+  font-weight: 600;
+}
+
+/* Markdown content */
+article h1, article h2, article h3, article h4 {
+  font-weight: 700;
+}
+
+/* Admonitions */
+.alert--info {
+  --ifm-alert-background-color: #f5f3ff;
+  --ifm-alert-border-color: var(--ifm-color-primary-lighter);
+}
+
+[data-theme='dark'] .alert--info {
+  --ifm-alert-background-color: #1e1033;
+}
+
+/* GitHub navbar icon */
+.header-github-link::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  display: flex;
+  background: url('/img/github-dark.svg') no-repeat center;
+}
+
+[data-theme='dark'] .header-github-link::before {
+  background: url('/img/github-light.svg') no-repeat center;
+}

@@ -1,0 +1,23 @@
+name: CI (Docs)
+
+on:
+  pull_request:
+    paths:
+      - 'website/**'
+      - 'types/**'
+
+jobs:
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+    - uses: actions/setup-node@v6
+      with:
+        node-version-file: '.nvmrc'
+    - name: Install dependencies
+      run: npm install
+    - name: Build the docs
+      run: npm run docs
