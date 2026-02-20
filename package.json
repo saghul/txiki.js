@@ -7,7 +7,7 @@
     "postinstall": "patch-package && npm install --prefix website",
     "docs": "npm run build --prefix website",
     "docs:watch": "npm run start --prefix website",
-    "docs:deploy": "npm run docs && gh-pages -d website/build",
+    "docs:deploy": "npm run docs && gh-pages -d website/build -u \"github-actions-bot <support+actions@github.com>\"",
     "lint": "eslint --max-warnings 0 ."
   },
   "license": "MIT",
