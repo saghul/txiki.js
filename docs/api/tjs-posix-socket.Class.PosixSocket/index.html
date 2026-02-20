@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en" dir="ltr" class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-api/tjs-posix-socket.Class.PosixSocket" data-has-hydrated="false">
+<head>
+<meta charset="UTF-8">
+<meta name="generator" content="Docusaurus v3.9.2">
+<title data-rh="true">Class: PosixSocket | txiki.js</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://bettercallsaghul.com/txiki.js/img/logo-heartonly.png"><meta data-rh="true" name="twitter:image" content="https://bettercallsaghul.com/txiki.js/img/logo-heartonly.png"><meta data-rh="true" property="og:url" content="https://bettercallsaghul.com/txiki.js/docs/api/tjs-posix-socket.Class.PosixSocket"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Class: PosixSocket | txiki.js"><meta data-rh="true" name="description" content="Constructors"><meta data-rh="true" property="og:description" content="Constructors"><link data-rh="true" rel="icon" href="/txiki.js/img/favicon.png"><link data-rh="true" rel="canonical" href="https://bettercallsaghul.com/txiki.js/docs/api/tjs-posix-socket.Class.PosixSocket"><link data-rh="true" rel="alternate" href="https://bettercallsaghul.com/txiki.js/docs/api/tjs-posix-socket.Class.PosixSocket" hreflang="en"><link data-rh="true" rel="alternate" href="https://bettercallsaghul.com/txiki.js/docs/api/tjs-posix-socket.Class.PosixSocket" hreflang="x-default"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"tjs:posix-socket","item":"https://bettercallsaghul.com/txiki.js/docs/api/tjs-posix-socket"},{"@type":"ListItem","position":2,"name":"Class: PosixSocket","item":"https://bettercallsaghul.com/txiki.js/docs/api/tjs-posix-socket.Class.PosixSocket"}]}</script><link rel="stylesheet" href="/txiki.js/assets/css/styles.8532ffdc.css">
+<script src="/txiki.js/assets/js/runtime~main.e888a389.js" defer="defer"></script>
+<script src="/txiki.js/assets/js/main.2769dbc8.js" defer="defer"></script>
+</head>
+<body class="navigation-with-keyboard">
+<svg style="display: none;"><defs>
+<symbol id="theme-svg-external-link" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{const c=new URLSearchParams(window.location.search).entries();for(var[t,e]of c)if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id="__docusaurus"><link rel="preload" as="image" href="/txiki.js/img/logo-heartonly-32.png"><div role="region" aria-label="Skip to main content"><a class="skipToContent_fXgn" href="#__docusaurus_skipToContent_fallback">Skip to main content</a></div><nav aria-label="Main" class="theme-layout-navbar navbar navbar--fixed-top"><div class="navbar__inner"><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded="false" class="navbar__toggle clean-btn" type="button"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2" d="M4 7h22M4 15h22M4 23h22"></path></svg></button><a class="navbar__brand" href="/txiki.js/"><div class="navbar__logo"><img src="/txiki.js/img/logo-heartonly-32.png" alt="txiki.js" class="themedComponent_mlkZ themedComponent--light_NVdE"><img src="/txiki.js/img/logo-heartonly-32.png" alt="txiki.js" class="themedComponent_mlkZ themedComponent--dark_xIcU"></div><b class="navbar__title text--truncate">txiki.js</b></a><a class="navbar__item navbar__link" href="/txiki.js/docs/getting-started">Docs</a><a aria-current="page" class="navbar__item navbar__link navbar__link--active" href="/txiki.js/docs/api-reference">API</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><a href="https://github.com/saghul/txiki.js" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link header-github-link" aria-label="GitHub repository"></a><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type="button" disabled="" title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill="currentColor" d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"></path></svg><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill="currentColor" d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"></path></svg><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill="currentColor" d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"></path></svg></button></div><div class="navbarSearchContainer_Bca1"></div></div></div><div role="presentation" class="navbar-sidebar__backdrop"></div></nav><div id="__docusaurus_skipToContent_fallback" class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class="docsWrapper_hBAB"><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type="button"></button><div class="docRoot_UBD9"><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class="sidebarViewport_aRkj"><div class="sidebar_njMd"><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class="menu__link" href="/txiki.js/docs/api-reference"><span title="API Reference" class="linkLabel_WmDU">API Reference</span></a></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role="button" aria-expanded="false" href="/txiki.js/docs/api/global.tjs.Function.open"><span title="Filesystem" class="categoryLinkLabel_W154">Filesystem</span></a></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role="button" aria-expanded="false" href="/txiki.js/docs/api/global.tjs.Function.connect"><span title="Networking" class="categoryLinkLabel_W154">Networking</span></a></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role="button" aria-expanded="false" href="/txiki.js/docs/api/global.tjs.Function.serve"><span title="HTTP Server" class="categoryLinkLabel_W154">HTTP Server</span></a></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role="button" aria-expanded="false" href="/txiki.js/docs/api/global.tjs.Function.spawn"><span title="Process" class="categoryLinkLabel_W154">Process</span></a></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role="button" aria-expanded="false" href="/txiki.js/docs/api/global.tjs.Variable.args"><span title="System" class="categoryLinkLabel_W154">System</span></a></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role="button" aria-expanded="false" href="/txiki.js/docs/api/global.tjs.Namespace.engine"><span title="Engine" class="categoryLinkLabel_W154">Engine</span></a></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role="button" aria-expanded="false" href="/txiki.js/docs/api/global.tjs.Function.alert"><span title="Utilities" class="categoryLinkLabel_W154">Utilities</span></a></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role="button" aria-expanded="true" href="/txiki.js/docs/api/tjs-assert"><span title="Standard Library" class="categoryLinkLabel_W154">Standard Library</span></a></div><ul class="menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist" tabindex="0" href="/txiki.js/docs/api/tjs-assert"><span title="tjs:assert" class="categoryLinkLabel_W154">tjs:assert</span></a><button aria-label="Expand sidebar category &#x27;tjs:assert&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist" tabindex="0" href="/txiki.js/docs/api/tjs-ffi"><span title="tjs:ffi" class="categoryLinkLabel_W154">tjs:ffi</span></a><button aria-label="Expand sidebar category &#x27;tjs:ffi&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist" tabindex="0" href="/txiki.js/docs/api/tjs-getopts"><span title="tjs:getopts" class="categoryLinkLabel_W154">tjs:getopts</span></a><button aria-label="Expand sidebar category &#x27;tjs:getopts&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist" tabindex="0" href="/txiki.js/docs/api/tjs-hashing"><span title="tjs:hashing" class="categoryLinkLabel_W154">tjs:hashing</span></a><button aria-label="Expand sidebar category &#x27;tjs:hashing&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist" tabindex="0" href="/txiki.js/docs/api/tjs-ipaddr"><span title="tjs:ipaddr" class="categoryLinkLabel_W154">tjs:ipaddr</span></a><button aria-label="Expand sidebar category &#x27;tjs:ipaddr&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist" tabindex="0" href="/txiki.js/docs/api/tjs-path"><span title="tjs:path" class="categoryLinkLabel_W154">tjs:path</span></a><button aria-label="Expand sidebar category &#x27;tjs:path&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--active" tabindex="0" href="/txiki.js/docs/api/tjs-posix-socket"><span title="tjs:posix-socket" class="categoryLinkLabel_W154">tjs:posix-socket</span></a><button aria-label="Collapse sidebar category &#x27;tjs:posix-socket&#x27;" aria-expanded="true" type="button" class="clean-btn menu__caret"></button></div><ul class="menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link menu__link--active" aria-current="page" tabindex="0" href="/txiki.js/docs/api/tjs-posix-socket.Class.PosixSocket"><span title="Class: PosixSocket" class="linkLabel_WmDU">Class: PosixSocket</span></a></li></ul></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist" tabindex="0" href="/txiki.js/docs/api/tjs-sqlite"><span title="tjs:sqlite" class="categoryLinkLabel_W154">tjs:sqlite</span></a><button aria-label="Expand sidebar category &#x27;tjs:sqlite&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist" tabindex="0" href="/txiki.js/docs/api/tjs-uuid"><span title="tjs:uuid" class="categoryLinkLabel_W154">tjs:uuid</span></a><button aria-label="Expand sidebar category &#x27;tjs:uuid&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="categoryLink_byQd menu__link menu__link--sublist" tabindex="0" href="/txiki.js/docs/api/tjs-wasi"><span title="tjs:wasi" class="categoryLinkLabel_W154">tjs:wasi</span></a><button aria-label="Expand sidebar category &#x27;tjs:wasi&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li></ul></li></ul></nav></div></div></aside><main class="docMainContainer_TBSr"><div class="container padding-top--md padding-bottom--lg"><div class="row"><div class="col docItemCol_VOVn"><div class="docItemContainer_Djhp"><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Breadcrumbs"><ul class="breadcrumbs"><li class="breadcrumbs__item"><a aria-label="Home page" class="breadcrumbs__link" href="/txiki.js/"><svg viewBox="0 0 24 24" class="breadcrumbHomeIcon_YNFT"><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill="currentColor"></path></svg></a></li><li class="breadcrumbs__item"><span class="breadcrumbs__link">Standard Library</span></li><li class="breadcrumbs__item"><a class="breadcrumbs__link" href="/txiki.js/docs/api/tjs-posix-socket"><span>tjs:posix-socket</span></a></li><li class="breadcrumbs__item breadcrumbs__item--active"><span class="breadcrumbs__link">Class: PosixSocket</span></li></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type="button" class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Class: PosixSocket</h1></header>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="constructors">Constructors<a href="#constructors" class="hash-link" aria-label="Direct link to Constructors" title="Direct link to Constructors" translate="no">​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="constructor">Constructor<a href="#constructor" class="hash-link" aria-label="Direct link to Constructor" title="Direct link to Constructor" translate="no">​</a></h3>
+<blockquote>
+<p><strong>new PosixSocket</strong>(<code>domain</code>, <code>type</code>, <code>protocol</code>): <code>PosixSocket</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters">Parameters<a href="#parameters" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="domain">domain<a href="#domain" class="hash-link" aria-label="Direct link to domain" title="Direct link to domain" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="type">type<a href="#type" class="hash-link" aria-label="Direct link to type" title="Direct link to type" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="protocol">protocol<a href="#protocol" class="hash-link" aria-label="Direct link to protocol" title="Direct link to protocol" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns">Returns<a href="#returns" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>PosixSocket</code></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="properties">Properties<a href="#properties" class="hash-link" aria-label="Direct link to Properties" title="Direct link to Properties" translate="no">​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fileno">fileno<a href="#fileno" class="hash-link" aria-label="Direct link to fileno" title="Direct link to fileno" translate="no">​</a></h3>
+<blockquote>
+<p><code>readonly</code> <strong>fileno</strong>: <code>number</code></p>
+</blockquote>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="info">info<a href="#info" class="hash-link" aria-label="Direct link to info" title="Direct link to info" translate="no">​</a></h3>
+<blockquote>
+<p><code>readonly</code> <strong>info</strong>: <code>object</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="socket">socket?<a href="#socket" class="hash-link" aria-label="Direct link to socket?" title="Direct link to socket?" translate="no">​</a></h4>
+<blockquote>
+<p><code>optional</code> <strong>socket</strong>: <code>object</code></p>
+</blockquote>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="socketdomain">socket.domain<a href="#socketdomain" class="hash-link" aria-label="Direct link to socket.domain" title="Direct link to socket.domain" translate="no">​</a></h5>
+<blockquote>
+<p><strong>domain</strong>: <code>number</code></p>
+</blockquote>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="socketprotocol">socket.protocol<a href="#socketprotocol" class="hash-link" aria-label="Direct link to socket.protocol" title="Direct link to socket.protocol" translate="no">​</a></h5>
+<blockquote>
+<p><strong>protocol</strong>: <code>number</code></p>
+</blockquote>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="sockettype">socket.type<a href="#sockettype" class="hash-link" aria-label="Direct link to socket.type" title="Direct link to socket.type" translate="no">​</a></h5>
+<blockquote>
+<p><strong>type</strong>: <code>number</code></p>
+</blockquote>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="polling">polling<a href="#polling" class="hash-link" aria-label="Direct link to polling" title="Direct link to polling" translate="no">​</a></h3>
+<blockquote>
+<p><code>readonly</code> <strong>polling</strong>: <code>boolean</code></p>
+</blockquote>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="defines">defines<a href="#defines" class="hash-link" aria-label="Direct link to defines" title="Direct link to defines" translate="no">​</a></h3>
+<blockquote>
+<p><code>readonly</code> <code>static</code> <strong>defines</strong>: <code>object</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="af_inet">AF_INET<a href="#af_inet" class="hash-link" aria-label="Direct link to AF_INET" title="Direct link to AF_INET" translate="no">​</a></h4>
+<blockquote>
+<p><strong>AF_INET</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="af_inet6">AF_INET6<a href="#af_inet6" class="hash-link" aria-label="Direct link to AF_INET6" title="Direct link to AF_INET6" translate="no">​</a></h4>
+<blockquote>
+<p><strong>AF_INET6</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="af_netlink">AF_NETLINK<a href="#af_netlink" class="hash-link" aria-label="Direct link to AF_NETLINK" title="Direct link to AF_NETLINK" translate="no">​</a></h4>
+<blockquote>
+<p><strong>AF_NETLINK</strong>: <code>number</code></p>
+</blockquote>
+<p>only on platforms supporting AF_NETLINK</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="af_packet">AF_PACKET<a href="#af_packet" class="hash-link" aria-label="Direct link to AF_PACKET" title="Direct link to AF_PACKET" translate="no">​</a></h4>
+<blockquote>
+<p><strong>AF_PACKET</strong>: <code>number</code></p>
+</blockquote>
+<p>only on platforms supporting AF_PACKET</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="af_unix">AF_UNIX<a href="#af_unix" class="hash-link" aria-label="Direct link to AF_UNIX" title="Direct link to AF_UNIX" translate="no">​</a></h4>
+<blockquote>
+<p><strong>AF_UNIX</strong>: <code>number</code></p>
+</blockquote>
+<p>only on platforms supporting AF_UNIX</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="ipproto_icmp">IPPROTO_ICMP<a href="#ipproto_icmp" class="hash-link" aria-label="Direct link to IPPROTO_ICMP" title="Direct link to IPPROTO_ICMP" translate="no">​</a></h4>
+<blockquote>
+<p><strong>IPPROTO_ICMP</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="ipproto_ip">IPPROTO_IP<a href="#ipproto_ip" class="hash-link" aria-label="Direct link to IPPROTO_IP" title="Direct link to IPPROTO_IP" translate="no">​</a></h4>
+<blockquote>
+<p><strong>IPPROTO_IP</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="ipproto_ipv6">IPPROTO_IPV6<a href="#ipproto_ipv6" class="hash-link" aria-label="Direct link to IPPROTO_IPV6" title="Direct link to IPPROTO_IPV6" translate="no">​</a></h4>
+<blockquote>
+<p><strong>IPPROTO_IPV6</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="ipproto_tcp">IPPROTO_TCP<a href="#ipproto_tcp" class="hash-link" aria-label="Direct link to IPPROTO_TCP" title="Direct link to IPPROTO_TCP" translate="no">​</a></h4>
+<blockquote>
+<p><strong>IPPROTO_TCP</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="ipproto_udp">IPPROTO_UDP<a href="#ipproto_udp" class="hash-link" aria-label="Direct link to IPPROTO_UDP" title="Direct link to IPPROTO_UDP" translate="no">​</a></h4>
+<blockquote>
+<p><strong>IPPROTO_UDP</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_broadcast">SO_BROADCAST<a href="#so_broadcast" class="hash-link" aria-label="Direct link to SO_BROADCAST" title="Direct link to SO_BROADCAST" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_BROADCAST</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_bsdcompat">SO_BSDCOMPAT<a href="#so_bsdcompat" class="hash-link" aria-label="Direct link to SO_BSDCOMPAT" title="Direct link to SO_BSDCOMPAT" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_BSDCOMPAT</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_debug">SO_DEBUG<a href="#so_debug" class="hash-link" aria-label="Direct link to SO_DEBUG" title="Direct link to SO_DEBUG" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_DEBUG</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_dontroute">SO_DONTROUTE<a href="#so_dontroute" class="hash-link" aria-label="Direct link to SO_DONTROUTE" title="Direct link to SO_DONTROUTE" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_DONTROUTE</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_error">SO_ERROR<a href="#so_error" class="hash-link" aria-label="Direct link to SO_ERROR" title="Direct link to SO_ERROR" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_ERROR</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_keepalive">SO_KEEPALIVE<a href="#so_keepalive" class="hash-link" aria-label="Direct link to SO_KEEPALIVE" title="Direct link to SO_KEEPALIVE" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_KEEPALIVE</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_linger">SO_LINGER<a href="#so_linger" class="hash-link" aria-label="Direct link to SO_LINGER" title="Direct link to SO_LINGER" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_LINGER</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_no_check">SO_NO_CHECK<a href="#so_no_check" class="hash-link" aria-label="Direct link to SO_NO_CHECK" title="Direct link to SO_NO_CHECK" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_NO_CHECK</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_oobinline">SO_OOBINLINE<a href="#so_oobinline" class="hash-link" aria-label="Direct link to SO_OOBINLINE" title="Direct link to SO_OOBINLINE" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_OOBINLINE</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_priority">SO_PRIORITY<a href="#so_priority" class="hash-link" aria-label="Direct link to SO_PRIORITY" title="Direct link to SO_PRIORITY" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_PRIORITY</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_rcvbuf">SO_RCVBUF<a href="#so_rcvbuf" class="hash-link" aria-label="Direct link to SO_RCVBUF" title="Direct link to SO_RCVBUF" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_RCVBUF</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_rcvbufforce">SO_RCVBUFFORCE<a href="#so_rcvbufforce" class="hash-link" aria-label="Direct link to SO_RCVBUFFORCE" title="Direct link to SO_RCVBUFFORCE" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_RCVBUFFORCE</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_rcvtimeo">SO_RCVTIMEO<a href="#so_rcvtimeo" class="hash-link" aria-label="Direct link to SO_RCVTIMEO" title="Direct link to SO_RCVTIMEO" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_RCVTIMEO</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_reuseaddr">SO_REUSEADDR<a href="#so_reuseaddr" class="hash-link" aria-label="Direct link to SO_REUSEADDR" title="Direct link to SO_REUSEADDR" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_REUSEADDR</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_reuseport">SO_REUSEPORT<a href="#so_reuseport" class="hash-link" aria-label="Direct link to SO_REUSEPORT" title="Direct link to SO_REUSEPORT" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_REUSEPORT</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_sndbuf">SO_SNDBUF<a href="#so_sndbuf" class="hash-link" aria-label="Direct link to SO_SNDBUF" title="Direct link to SO_SNDBUF" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_SNDBUF</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_sndbufforce">SO_SNDBUFFORCE<a href="#so_sndbufforce" class="hash-link" aria-label="Direct link to SO_SNDBUFFORCE" title="Direct link to SO_SNDBUFFORCE" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_SNDBUFFORCE</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_sndtimeo">SO_SNDTIMEO<a href="#so_sndtimeo" class="hash-link" aria-label="Direct link to SO_SNDTIMEO" title="Direct link to SO_SNDTIMEO" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_SNDTIMEO</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="so_type">SO_TYPE<a href="#so_type" class="hash-link" aria-label="Direct link to SO_TYPE" title="Direct link to SO_TYPE" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SO_TYPE</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="sock_dgram">SOCK_DGRAM<a href="#sock_dgram" class="hash-link" aria-label="Direct link to SOCK_DGRAM" title="Direct link to SOCK_DGRAM" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SOCK_DGRAM</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="sock_raw">SOCK_RAW<a href="#sock_raw" class="hash-link" aria-label="Direct link to SOCK_RAW" title="Direct link to SOCK_RAW" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SOCK_RAW</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="sock_rdm">SOCK_RDM<a href="#sock_rdm" class="hash-link" aria-label="Direct link to SOCK_RDM" title="Direct link to SOCK_RDM" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SOCK_RDM</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="sock_seqpacket">SOCK_SEQPACKET<a href="#sock_seqpacket" class="hash-link" aria-label="Direct link to SOCK_SEQPACKET" title="Direct link to SOCK_SEQPACKET" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SOCK_SEQPACKET</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="sock_stream">SOCK_STREAM<a href="#sock_stream" class="hash-link" aria-label="Direct link to SOCK_STREAM" title="Direct link to SOCK_STREAM" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SOCK_STREAM</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="sol_netlink">SOL_NETLINK<a href="#sol_netlink" class="hash-link" aria-label="Direct link to SOL_NETLINK" title="Direct link to SOL_NETLINK" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SOL_NETLINK</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="sol_packet">SOL_PACKET<a href="#sol_packet" class="hash-link" aria-label="Direct link to SOL_PACKET" title="Direct link to SOL_PACKET" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SOL_PACKET</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="sol_socket">SOL_SOCKET<a href="#sol_socket" class="hash-link" aria-label="Direct link to SOL_SOCKET" title="Direct link to SOL_SOCKET" translate="no">​</a></h4>
+<blockquote>
+<p><strong>SOL_SOCKET</strong>: <code>number</code></p>
+</blockquote>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pollevents">pollEvents<a href="#pollevents" class="hash-link" aria-label="Direct link to pollEvents" title="Direct link to pollEvents" translate="no">​</a></h3>
+<blockquote>
+<p><code>readonly</code> <code>static</code> <strong>pollEvents</strong>: <code>object</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="disconnect">DISCONNECT<a href="#disconnect" class="hash-link" aria-label="Direct link to DISCONNECT" title="Direct link to DISCONNECT" translate="no">​</a></h4>
+<blockquote>
+<p><strong>DISCONNECT</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="prioritized">PRIORITIZED<a href="#prioritized" class="hash-link" aria-label="Direct link to PRIORITIZED" title="Direct link to PRIORITIZED" translate="no">​</a></h4>
+<blockquote>
+<p><strong>PRIORITIZED</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="readable">READABLE<a href="#readable" class="hash-link" aria-label="Direct link to READABLE" title="Direct link to READABLE" translate="no">​</a></h4>
+<blockquote>
+<p><strong>READABLE</strong>: <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="writable">WRITABLE<a href="#writable" class="hash-link" aria-label="Direct link to WRITABLE" title="Direct link to WRITABLE" translate="no">​</a></h4>
+<blockquote>
+<p><strong>WRITABLE</strong>: <code>number</code></p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="methods">Methods<a href="#methods" class="hash-link" aria-label="Direct link to Methods" title="Direct link to Methods" translate="no">​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="accept">accept()<a href="#accept" class="hash-link" aria-label="Direct link to accept()" title="Direct link to accept()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>accept</strong>(): <code>PosixSocket</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-1">Returns<a href="#returns-1" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>PosixSocket</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bind">bind()<a href="#bind" class="hash-link" aria-label="Direct link to bind()" title="Direct link to bind()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>bind</strong>(<code>addr</code>): <code>void</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-1">Parameters<a href="#parameters-1" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="addr">addr<a href="#addr" class="hash-link" aria-label="Direct link to addr" title="Direct link to addr" translate="no">​</a></h5>
+<p><code>Uint8Array</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-2">Returns<a href="#returns-2" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>void</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="close">close()<a href="#close" class="hash-link" aria-label="Direct link to close()" title="Direct link to close()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>close</strong>(): <code>void</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-3">Returns<a href="#returns-3" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>void</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="connect">connect()<a href="#connect" class="hash-link" aria-label="Direct link to connect()" title="Direct link to connect()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>connect</strong>(<code>addr</code>): <code>void</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-2">Parameters<a href="#parameters-2" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="addr-1">addr<a href="#addr-1" class="hash-link" aria-label="Direct link to addr" title="Direct link to addr" translate="no">​</a></h5>
+<p><code>Uint8Array</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-4">Returns<a href="#returns-4" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>void</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="getopt">getopt()<a href="#getopt" class="hash-link" aria-label="Direct link to getopt()" title="Direct link to getopt()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>getopt</strong>(<code>level</code>, <code>name</code>, <code>size?</code>): <code>Uint8Array</code></p>
+</blockquote>
+<p>By default 128byte are reserved for the option, provide size argument for larger buffer or to save memory.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-3">Parameters<a href="#parameters-3" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="level">level<a href="#level" class="hash-link" aria-label="Direct link to level" title="Direct link to level" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="name">name<a href="#name" class="hash-link" aria-label="Direct link to name" title="Direct link to name" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="size">size?<a href="#size" class="hash-link" aria-label="Direct link to size?" title="Direct link to size?" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-5">Returns<a href="#returns-5" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>Uint8Array</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="listen">listen()<a href="#listen" class="hash-link" aria-label="Direct link to listen()" title="Direct link to listen()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>listen</strong>(<code>backlog</code>): <code>void</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-4">Parameters<a href="#parameters-4" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="backlog">backlog<a href="#backlog" class="hash-link" aria-label="Direct link to backlog" title="Direct link to backlog" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-6">Returns<a href="#returns-6" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>void</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="poll">poll()<a href="#poll" class="hash-link" aria-label="Direct link to poll()" title="Direct link to poll()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>poll</strong>(<code>cbs</code>): <code>void</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-5">Parameters<a href="#parameters-5" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="cbs">cbs<a href="#cbs" class="hash-link" aria-label="Direct link to cbs" title="Direct link to cbs" translate="no">​</a></h5>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="all">all?<a href="#all" class="hash-link" aria-label="Direct link to all?" title="Direct link to all?" translate="no">​</a></h6>
+<p>(<code>events</code>) =&gt; <code>void</code></p>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="disconnect-1">disconnect?<a href="#disconnect-1" class="hash-link" aria-label="Direct link to disconnect?" title="Direct link to disconnect?" translate="no">​</a></h6>
+<p>(<code>events</code>) =&gt; <code>void</code></p>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="error">error?<a href="#error" class="hash-link" aria-label="Direct link to error?" title="Direct link to error?" translate="no">​</a></h6>
+<p>(<code>errcode</code>) =&gt; <code>void</code></p>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="prioritized-1">prioritized?<a href="#prioritized-1" class="hash-link" aria-label="Direct link to prioritized?" title="Direct link to prioritized?" translate="no">​</a></h6>
+<p>(<code>events</code>) =&gt; <code>void</code></p>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="read">read?<a href="#read" class="hash-link" aria-label="Direct link to read?" title="Direct link to read?" translate="no">​</a></h6>
+<p>(<code>events</code>) =&gt; <code>void</code></p>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="write">write?<a href="#write" class="hash-link" aria-label="Direct link to write?" title="Direct link to write?" translate="no">​</a></h6>
+<p>(<code>events</code>) =&gt; <code>void</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-7">Returns<a href="#returns-7" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>void</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="read-1">read()<a href="#read-1" class="hash-link" aria-label="Direct link to read()" title="Direct link to read()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>read</strong>(<code>size</code>): <code>Uint8Array</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-6">Parameters<a href="#parameters-6" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="size-1">size<a href="#size-1" class="hash-link" aria-label="Direct link to size" title="Direct link to size" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-8">Returns<a href="#returns-8" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>Uint8Array</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recv">recv()<a href="#recv" class="hash-link" aria-label="Direct link to recv()" title="Direct link to recv()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>recv</strong>(<code>size</code>): <code>Uint8Array</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-7">Parameters<a href="#parameters-7" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="size-2">size<a href="#size-2" class="hash-link" aria-label="Direct link to size" title="Direct link to size" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-9">Returns<a href="#returns-9" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>Uint8Array</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recvmsg">recvmsg()<a href="#recvmsg" class="hash-link" aria-label="Direct link to recvmsg()" title="Direct link to recvmsg()" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="call-signature">Call Signature<a href="#call-signature" class="hash-link" aria-label="Direct link to Call Signature" title="Direct link to Call Signature" translate="no">​</a></h4>
+<blockquote>
+<p><strong>recvmsg</strong>(<code>size</code>): <code>object</code></p>
+</blockquote>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-8">Parameters<a href="#parameters-8" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h5>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="size-3">size<a href="#size-3" class="hash-link" aria-label="Direct link to size" title="Direct link to size" translate="no">​</a></h6>
+<p><code>number</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-10">Returns<a href="#returns-10" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h5>
+<p><code>object</code></p>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="addr-2">addr<a href="#addr-2" class="hash-link" aria-label="Direct link to addr" title="Direct link to addr" translate="no">​</a></h6>
+<blockquote>
+<p><strong>addr</strong>: <code>Uint8Array</code></p>
+</blockquote>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="data">data<a href="#data" class="hash-link" aria-label="Direct link to data" title="Direct link to data" translate="no">​</a></h6>
+<blockquote>
+<p><strong>data</strong>: <code>Uint8Array</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="call-signature-1">Call Signature<a href="#call-signature-1" class="hash-link" aria-label="Direct link to Call Signature" title="Direct link to Call Signature" translate="no">​</a></h4>
+<blockquote>
+<p><strong>recvmsg</strong>(<code>size</code>, <code>controllen</code>): <code>object</code></p>
+</blockquote>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-9">Parameters<a href="#parameters-9" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h5>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="size-4">size<a href="#size-4" class="hash-link" aria-label="Direct link to size" title="Direct link to size" translate="no">​</a></h6>
+<p><code>number</code></p>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="controllen">controllen<a href="#controllen" class="hash-link" aria-label="Direct link to controllen" title="Direct link to controllen" translate="no">​</a></h6>
+<p><code>number</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-11">Returns<a href="#returns-11" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h5>
+<p><code>object</code></p>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="addr-3">addr<a href="#addr-3" class="hash-link" aria-label="Direct link to addr" title="Direct link to addr" translate="no">​</a></h6>
+<blockquote>
+<p><strong>addr</strong>: <code>Uint8Array</code></p>
+</blockquote>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="control">control<a href="#control" class="hash-link" aria-label="Direct link to control" title="Direct link to control" translate="no">​</a></h6>
+<blockquote>
+<p><strong>control</strong>: <code>Uint8Array</code></p>
+</blockquote>
+<h6 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-1">data<a href="#data-1" class="hash-link" aria-label="Direct link to data" title="Direct link to data" translate="no">​</a></h6>
+<blockquote>
+<p><strong>data</strong>: <code>Uint8Array</code></p>
+</blockquote>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sendmsg">sendmsg()<a href="#sendmsg" class="hash-link" aria-label="Direct link to sendmsg()" title="Direct link to sendmsg()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>sendmsg</strong>(<code>addr</code>, <code>control</code>, <code>flags</code>, ...<code>data</code>): <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-10">Parameters<a href="#parameters-10" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="addr-4">addr<a href="#addr-4" class="hash-link" aria-label="Direct link to addr" title="Direct link to addr" translate="no">​</a></h5>
+<p><code>Uint8Array</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="control-1">control<a href="#control-1" class="hash-link" aria-label="Direct link to control" title="Direct link to control" translate="no">​</a></h5>
+<p><code>Uint8Array</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="flags">flags<a href="#flags" class="hash-link" aria-label="Direct link to flags" title="Direct link to flags" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-2">data<a href="#data-2" class="hash-link" aria-label="Direct link to data" title="Direct link to data" translate="no">​</a></h5>
+<p>...<code>Uint8Array</code>[]</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-12">Returns<a href="#returns-12" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>number</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="setopt">setopt()<a href="#setopt" class="hash-link" aria-label="Direct link to setopt()" title="Direct link to setopt()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>setopt</strong>(<code>level</code>, <code>name</code>, <code>value</code>): <code>void</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-11">Parameters<a href="#parameters-11" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="level-1">level<a href="#level-1" class="hash-link" aria-label="Direct link to level" title="Direct link to level" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="name-1">name<a href="#name-1" class="hash-link" aria-label="Direct link to name" title="Direct link to name" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="value">value<a href="#value" class="hash-link" aria-label="Direct link to value" title="Direct link to value" translate="no">​</a></h5>
+<p><code>Uint8Array</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-13">Returns<a href="#returns-13" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>void</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stoppoll">stopPoll()<a href="#stoppoll" class="hash-link" aria-label="Direct link to stopPoll()" title="Direct link to stopPoll()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>stopPoll</strong>(): <code>void</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-14">Returns<a href="#returns-14" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>void</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="write-1">write()<a href="#write-1" class="hash-link" aria-label="Direct link to write()" title="Direct link to write()" translate="no">​</a></h3>
+<blockquote>
+<p><strong>write</strong>(<code>data</code>): <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-12">Parameters<a href="#parameters-12" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-3">data<a href="#data-3" class="hash-link" aria-label="Direct link to data" title="Direct link to data" translate="no">​</a></h5>
+<p><code>Uint8Array</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-15">Returns<a href="#returns-15" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>number</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="checksum">checksum()<a href="#checksum" class="hash-link" aria-label="Direct link to checksum()" title="Direct link to checksum()" translate="no">​</a></h3>
+<blockquote>
+<p><code>static</code> <strong>checksum</strong>(<code>buf</code>): <code>number</code></p>
+</blockquote>
+<p>Caculates internet checksum: the 16-bit ones&#x27; complement of the ones&#x27; complement sum of all 16-bit words in the buffer.
+Used in ipv4, udp, tcp, icmp...</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-13">Parameters<a href="#parameters-13" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="buf">buf<a href="#buf" class="hash-link" aria-label="Direct link to buf" title="Direct link to buf" translate="no">​</a></h5>
+<p><code>Uint8Array</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-16">Returns<a href="#returns-16" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>number</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="createfromfd">createFromFD()<a href="#createfromfd" class="hash-link" aria-label="Direct link to createFromFD()" title="Direct link to createFromFD()" translate="no">​</a></h3>
+<blockquote>
+<p><code>static</code> <strong>createFromFD</strong>(<code>fd</code>): <code>PosixSocket</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-14">Parameters<a href="#parameters-14" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="fd">fd<a href="#fd" class="hash-link" aria-label="Direct link to fd" title="Direct link to fd" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-17">Returns<a href="#returns-17" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>PosixSocket</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="createsockaddrin">createSockaddrIn()<a href="#createsockaddrin" class="hash-link" aria-label="Direct link to createSockaddrIn()" title="Direct link to createSockaddrIn()" translate="no">​</a></h3>
+<blockquote>
+<p><code>static</code> <strong>createSockaddrIn</strong>(<code>ip</code>, <code>port</code>): <code>Uint8Array</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-15">Parameters<a href="#parameters-15" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="ip">ip<a href="#ip" class="hash-link" aria-label="Direct link to ip" title="Direct link to ip" translate="no">​</a></h5>
+<p><code>string</code></p>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="port">port<a href="#port" class="hash-link" aria-label="Direct link to port" title="Direct link to port" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-18">Returns<a href="#returns-18" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>Uint8Array</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="indextoname">indextoname()<a href="#indextoname" class="hash-link" aria-label="Direct link to indextoname()" title="Direct link to indextoname()" translate="no">​</a></h3>
+<blockquote>
+<p><code>static</code> <strong>indextoname</strong>(<code>index</code>): <code>string</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-16">Parameters<a href="#parameters-16" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="index">index<a href="#index" class="hash-link" aria-label="Direct link to index" title="Direct link to index" translate="no">​</a></h5>
+<p><code>number</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-19">Returns<a href="#returns-19" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>string</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ip4tobuf">ip4ToBuf()<a href="#ip4tobuf" class="hash-link" aria-label="Direct link to ip4ToBuf()" title="Direct link to ip4ToBuf()" translate="no">​</a></h3>
+<blockquote>
+<p><code>static</code> <strong>ip4ToBuf</strong>(<code>ipstr</code>): <code>Uint8Array</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-17">Parameters<a href="#parameters-17" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="ipstr">ipstr<a href="#ipstr" class="hash-link" aria-label="Direct link to ipstr" title="Direct link to ipstr" translate="no">​</a></h5>
+<p><code>string</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-20">Returns<a href="#returns-20" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>Uint8Array</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="nametoindex">nametoindex()<a href="#nametoindex" class="hash-link" aria-label="Direct link to nametoindex()" title="Direct link to nametoindex()" translate="no">​</a></h3>
+<blockquote>
+<p><code>static</code> <strong>nametoindex</strong>(<code>name</code>): <code>number</code></p>
+</blockquote>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-18">Parameters<a href="#parameters-18" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h4>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="name-2">name<a href="#name-2" class="hash-link" aria-label="Direct link to name" title="Direct link to name" translate="no">​</a></h5>
+<p><code>string</code></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-21">Returns<a href="#returns-21" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h4>
+<p><code>number</code></p></div><footer class="theme-doc-footer docusaurus-mt-lg"><div class="row margin-top--sm theme-doc-footer-edit-meta-row"><div class="col noPrint_WFHX"><a href="https://github.com/saghul/txiki.js/tree/master/website/docs/api/tjs-posix-socket.Class.PosixSocket.md" target="_blank" rel="noopener noreferrer" class="theme-edit-this-page"><svg fill="currentColor" height="20" width="20" viewBox="0 0 40 40" class="iconEdit_Z9Sw" aria-hidden="true"><g><path d="m34.5 11.7l-3 3.1-6.3-6.3 3.1-3q0.5-0.5 1.2-0.5t1.1 0.5l3.9 3.9q0.5 0.4 0.5 1.1t-0.5 1.2z m-29.5 17.1l18.4-18.5 6.3 6.3-18.4 18.4h-6.3v-6.2z"></path></g></svg>Edit this page</a></div><div class="col lastUpdated_JAkA"></div></div></footer></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href="/txiki.js/docs/api/tjs-posix-socket"><div class="pagination-nav__sublabel">Previous</div><div class="pagination-nav__label">tjs:posix-socket</div></a><a class="pagination-nav__link pagination-nav__link--next" href="/txiki.js/docs/api/tjs-sqlite"><div class="pagination-nav__sublabel">Next</div><div class="pagination-nav__label">tjs:sqlite</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#constructors" class="table-of-contents__link toc-highlight">Constructors</a><ul><li><a href="#constructor" class="table-of-contents__link toc-highlight">Constructor</a></li></ul></li><li><a href="#properties" class="table-of-contents__link toc-highlight">Properties</a><ul><li><a href="#fileno" class="table-of-contents__link toc-highlight">fileno</a></li><li><a href="#info" class="table-of-contents__link toc-highlight">info</a></li><li><a href="#polling" class="table-of-contents__link toc-highlight">polling</a></li><li><a href="#defines" class="table-of-contents__link toc-highlight">defines</a></li><li><a href="#pollevents" class="table-of-contents__link toc-highlight">pollEvents</a></li></ul></li><li><a href="#methods" class="table-of-contents__link toc-highlight">Methods</a><ul><li><a href="#accept" class="table-of-contents__link toc-highlight">accept()</a></li><li><a href="#bind" class="table-of-contents__link toc-highlight">bind()</a></li><li><a href="#close" class="table-of-contents__link toc-highlight">close()</a></li><li><a href="#connect" class="table-of-contents__link toc-highlight">connect()</a></li><li><a href="#getopt" class="table-of-contents__link toc-highlight">getopt()</a></li><li><a href="#listen" class="table-of-contents__link toc-highlight">listen()</a></li><li><a href="#poll" class="table-of-contents__link toc-highlight">poll()</a></li><li><a href="#read-1" class="table-of-contents__link toc-highlight">read()</a></li><li><a href="#recv" class="table-of-contents__link toc-highlight">recv()</a></li><li><a href="#recvmsg" class="table-of-contents__link toc-highlight">recvmsg()</a></li><li><a href="#sendmsg" class="table-of-contents__link toc-highlight">sendmsg()</a></li><li><a href="#setopt" class="table-of-contents__link toc-highlight">setopt()</a></li><li><a href="#stoppoll" class="table-of-contents__link toc-highlight">stopPoll()</a></li><li><a href="#write-1" class="table-of-contents__link toc-highlight">write()</a></li><li><a href="#checksum" class="table-of-contents__link toc-highlight">checksum()</a></li><li><a href="#createfromfd" class="table-of-contents__link toc-highlight">createFromFD()</a></li><li><a href="#createsockaddrin" class="table-of-contents__link toc-highlight">createSockaddrIn()</a></li><li><a href="#indextoname" class="table-of-contents__link toc-highlight">indextoname()</a></li><li><a href="#ip4tobuf" class="table-of-contents__link toc-highlight">ip4ToBuf()</a></li><li><a href="#nametoindex" class="table-of-contents__link toc-highlight">nametoindex()</a></li></ul></li></ul></div></div></div></div></main></div></div></div></div>
+</body>
+</html>
