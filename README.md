@@ -1,5 +1,5 @@
 <p align="center">
-    <img width="240" src="https://raw.githubusercontent.com/saghul/txiki.js/master/logo-heartonly.png" />
+    <img width="240" src="https://raw.githubusercontent.com/saghul/txiki.js/master/website/static/img/logo-heartonly.png" />
 </p>
 
 # txiki.js — The tiny JavaScript runtime
