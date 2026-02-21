@@ -23,6 +23,7 @@
  */
 
 #include "cacert.h"
+#include "mem.h"
 #include "private.h"
 #include "version.h"
 
@@ -139,6 +140,18 @@ static void tjs__lws_keepalive_cb(uv_async_t *handle) {
     (void) handle;
 }
 
+static void *tjs__lws_realloc(void *ptr, size_t size, const char *reason) {
+    (void) reason;
+    if (size == 0) {
+        tjs__free(ptr);
+        return NULL;
+    }
+    if (ptr == NULL) {
+        return tjs__malloc(size);
+    }
+    return tjs__realloc(ptr, size);
+}
+
 void tjs__lws_init(TJSRuntime *qrt) {
     const struct lws_protocols protocols[] = {
         tjs_http_protocol,
@@ -166,6 +179,7 @@ void tjs__lws_init(TJSRuntime *qrt) {
     info.http_nsc_filepath = qrt->lws.cookie_jar_path;
 
     lws_set_log_level(0, NULL);
+    lws_set_allocator(tjs__lws_realloc);
 
     qrt->lws.ctx = lws_create_context(&info);
 
