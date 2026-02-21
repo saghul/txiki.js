@@ -6,7 +6,7 @@ export async function evalStdin() {
     const buf = [];
     const reader = tjs.stdin.getReader();
 
-    // eslint-disable-next-line no-constant-condition
+
     while (true) {
         const { value, done } = await reader.read();
 

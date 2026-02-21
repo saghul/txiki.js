@@ -26,7 +26,7 @@ class TextEncoderStream {
     constructor() {
         this[codec] = new TextEncoder();
         this[transform] =
-          new TransformStream(new TextEncodeTransformer(this[codec]));
+            new TransformStream(new TextEncodeTransformer(this[codec]));
     }
 }
 

@@ -11,7 +11,6 @@ async function readStdinLine() {
     const buf = [];
 
     try {
-        // eslint-disable-next-line no-constant-condition
         while (true) {
             const { value, done } = await reader.read();
 
