@@ -2,7 +2,7 @@
 //
 
 const keystr =
-  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 /**
  * Implementation of atob() according to the HTML and Infra specs, except that

@@ -96,7 +96,7 @@ function initDb() {
 
     try {
         db = sqlite3.open(localStorageDb, flags);
-    } catch (e) {
+    } catch (_e) {
         // Ignore.
 
         return;
