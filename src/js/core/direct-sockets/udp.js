@@ -9,6 +9,44 @@ import {
 } from './utils.js';
 
 
+class MulticastController {
+    #handle;
+    #groups = [];
+
+    constructor(handle) {
+        this.#handle = handle;
+    }
+
+    async joinGroup(ipAddress) {
+        try {
+            this.#handle.setMembership(ipAddress, undefined, core.JOIN_GROUP);
+        } catch (e) {
+            throw new DOMException(e.message, 'NetworkError');
+        }
+
+        this.#groups.push(ipAddress);
+    }
+
+    async leaveGroup(ipAddress) {
+        try {
+            this.#handle.setMembership(ipAddress, undefined, core.LEAVE_GROUP);
+        } catch (e) {
+            throw new DOMException(e.message, 'NetworkError');
+        }
+
+        const idx = this.#groups.indexOf(ipAddress);
+
+        if (idx !== -1) {
+            this.#groups.splice(idx, 1);
+        }
+    }
+
+    get joinedGroups() {
+        return Object.freeze([ ...this.#groups ]);
+    }
+}
+
+
 export class UDPSocket {
     constructor(options = {}) {
         const hasRemote = options.remoteAddress !== undefined && options.remotePort !== undefined;
@@ -139,7 +177,7 @@ export class UDPSocket {
                 );
                 let flags = 0;
 
-                if (options.reuseAddr) {
+                if (options.reuseAddr || options.multicastAllowAddressSharing) {
                     flags |= core.UDP_REUSEADDR;
                 }
 
@@ -167,6 +205,15 @@ export class UDPSocket {
                 openedInfo.remotePort = peerAddr.port;
             }
 
+            // Set multicast options after bind/connect so the socket fd exists.
+            if (options.multicastLoopback !== undefined) {
+                handle.setMulticastLoop(options.multicastLoopback);
+            }
+
+            if (options.multicastTimeToLive !== undefined) {
+                handle.setMulticastTTL(options.multicastTimeToLive);
+            }
+
             openedInfo.readable = this._createReadableStream(isConnected);
             openedInfo.writable = this._createWritableStream(isConnected);
 
@@ -174,6 +221,8 @@ export class UDPSocket {
 
             openedInfo.localAddress = localAddr.ip;
             openedInfo.localPort = localAddr.port;
+
+            openedInfo.multicastController = new MulticastController(handle);
 
             return openedInfo;
         } catch (error) {

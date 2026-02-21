@@ -438,6 +438,100 @@ static JSValue tjs_udp_bind(JSContext *ctx, JSValue this_val, int argc, JSValue 
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_udp_set_membership(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSUdp *u = tjs_udp_get(ctx, this_val);
+    if (!u) {
+        return JS_EXCEPTION;
+    }
+
+    const char *multicast_addr = JS_ToCString(ctx, argv[0]);
+    if (!multicast_addr) {
+        return JS_EXCEPTION;
+    }
+
+    const char *interface_addr = NULL;
+    if (!JS_IsUndefined(argv[1]) && !JS_IsNull(argv[1])) {
+        interface_addr = JS_ToCString(ctx, argv[1]);
+        if (!interface_addr) {
+            JS_FreeCString(ctx, multicast_addr);
+            return JS_EXCEPTION;
+        }
+    }
+
+    int membership;
+    if (JS_ToInt32(ctx, &membership, argv[2])) {
+        JS_FreeCString(ctx, multicast_addr);
+        JS_FreeCString(ctx, interface_addr);
+        return JS_EXCEPTION;
+    }
+
+    int r = uv_udp_set_membership(&u->udp, multicast_addr, interface_addr, membership);
+
+    JS_FreeCString(ctx, multicast_addr);
+    JS_FreeCString(ctx, interface_addr);
+
+    if (r != 0) {
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return JS_UNDEFINED;
+}
+
+static JSValue tjs_udp_set_multicast_loop(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSUdp *u = tjs_udp_get(ctx, this_val);
+    if (!u) {
+        return JS_EXCEPTION;
+    }
+
+    int on = JS_ToBool(ctx, argv[0]);
+    int r = uv_udp_set_multicast_loop(&u->udp, on);
+    if (r != 0) {
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return JS_UNDEFINED;
+}
+
+static JSValue tjs_udp_set_multicast_ttl(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSUdp *u = tjs_udp_get(ctx, this_val);
+    if (!u) {
+        return JS_EXCEPTION;
+    }
+
+    int ttl;
+    if (JS_ToInt32(ctx, &ttl, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    int r = uv_udp_set_multicast_ttl(&u->udp, ttl);
+    if (r != 0) {
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return JS_UNDEFINED;
+}
+
+static JSValue tjs_udp_set_multicast_interface(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSUdp *u = tjs_udp_get(ctx, this_val);
+    if (!u) {
+        return JS_EXCEPTION;
+    }
+
+    const char *interface_addr = JS_ToCString(ctx, argv[0]);
+    if (!interface_addr) {
+        return JS_EXCEPTION;
+    }
+
+    int r = uv_udp_set_multicast_interface(&u->udp, interface_addr);
+    JS_FreeCString(ctx, interface_addr);
+
+    if (r != 0) {
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return JS_UNDEFINED;
+}
+
 static const JSCFunctionListEntry tjs_udp_proto_funcs[] = {
     JS_CGETSET_MAGIC_DEF("onrecv", tjs_udp_callback_get, tjs_udp_callback_set, UDP_CB_RECV),
     JS_CGETSET_MAGIC_DEF("onsend", tjs_udp_callback_get, tjs_udp_callback_set, UDP_CB_SEND),
@@ -450,12 +544,18 @@ static const JSCFunctionListEntry tjs_udp_proto_funcs[] = {
     JS_CFUNC_MAGIC_DEF("getpeername", 0, tjs_udp_getsockpeername, 1),
     TJS_CFUNC_DEF("connect", 1, tjs_udp_connect),
     TJS_CFUNC_DEF("bind", 2, tjs_udp_bind),
+    TJS_CFUNC_DEF("setMembership", 3, tjs_udp_set_membership),
+    TJS_CFUNC_DEF("setMulticastLoop", 1, tjs_udp_set_multicast_loop),
+    TJS_CFUNC_DEF("setMulticastTTL", 1, tjs_udp_set_multicast_ttl),
+    TJS_CFUNC_DEF("setMulticastInterface", 1, tjs_udp_set_multicast_interface),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "UDP", JS_PROP_CONFIGURABLE),
 };
 
 static const JSCFunctionListEntry tjs_udp_funcs[] = {
     TJS_UVCONST(UDP_IPV6ONLY),
     TJS_UVCONST(UDP_REUSEADDR),
+    TJS_UVCONST(JOIN_GROUP),
+    TJS_UVCONST(LEAVE_GROUP),
 };
 
 void tjs__mod_udp_init(JSContext *ctx, JSValue ns) {

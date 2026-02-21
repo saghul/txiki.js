@@ -1259,6 +1259,25 @@ declare global {
         localPort: number;
         remoteAddress?: string;
         remotePort?: number;
+        multicastController: MulticastController;
+    }
+
+    /**
+    * @category Networking
+    */
+    interface MulticastController {
+        /**
+         * Joins a multicast group.
+         */
+        joinGroup(ipAddress: string): Promise<void>;
+        /**
+         * Leaves a multicast group.
+         */
+        leaveGroup(ipAddress: string): Promise<void>;
+        /**
+         * A frozen array of currently joined multicast group addresses.
+         */
+        readonly joinedGroups: readonly string[];
     }
 
     /**
@@ -1272,6 +1291,18 @@ declare global {
         dnsQueryType?: 'ipv4' | 'ipv6';
         reuseAddr?: boolean;
         ipv6Only?: boolean;
+        /**
+         * TTL for multicast packets. Each router hop decrements this value. Default is 1.
+         */
+        multicastTimeToLive?: number;
+        /**
+         * Whether packets sent to the multicast group are looped back to the sender. Default is true.
+         */
+        multicastLoopback?: boolean;
+        /**
+         * Permits address reuse, essential for multiple applications listening on the same multicast address/port. Default is false.
+         */
+        multicastAllowAddressSharing?: boolean;
     }
 
     /**
