@@ -3,7 +3,7 @@
 /* formdata-polyfill. MIT License. Jimmy Wärting <https://jimmy.warting.se/opensource> */
 
 /* global FormData self Blob File */
-/* eslint-disable no-inner-declarations */
+ 
 
 if (typeof Blob !== 'undefined' && (typeof FormData === 'undefined' || !FormData.prototype.keys)) {
 

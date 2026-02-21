@@ -49,7 +49,7 @@ export function fetch(input, init) {
         client.onheader = function(name, value) {
             try {
                 responseHeaders.append(name, value);
-            } catch (e) { /* ignore invalid headers */ }
+            } catch (_e) { /* ignore invalid headers */ }
         };
 
         client.onheadersend = function() {
@@ -105,7 +105,7 @@ export function fetch(input, init) {
                             streamController.error(isAbort
                                 ? new DOMException('Aborted', 'AbortError')
                                 : new TypeError(msg));
-                        } catch (e) { /* already errored/closed */ }
+                        } catch (_e) { /* already errored/closed */ }
 
                         streamController = null;
                     }

@@ -102,7 +102,7 @@ export async function runTests(d) {
     const testConcurrency = tjs.env.TJS_TEST_CONCURRENCY ?? navigator.hardwareConcurrency;
     const running = new Set();
 
-    // eslint-disable-next-line no-constant-condition
+
     while (true) {
         if (tests.length === 0 && running.size === 0) {
             break;

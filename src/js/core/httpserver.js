@@ -119,7 +119,7 @@ class Server {
 
                 const reader = response.body.getReader();
 
-                // eslint-disable-next-line no-constant-condition
+
                 while (true) {
                     const { done, value } = await reader.read();
 
@@ -142,7 +142,7 @@ class Server {
 
                 this.#handle.sendResponse(requestId, status, responseHeaders, body);
             }
-        } catch (error) {
+        } catch (_error) {
             if (headersSent) {
                 // Headers already sent, close the stream.
                 try {

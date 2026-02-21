@@ -62,7 +62,8 @@ export function format(...args) {
                 case '%s': return String(args[i++]);
 
                 case '%d':
-                // eslint-disable-next-line padding-line-between-statements, no-fallthrough
+
+                // eslint-disable-next-line no-fallthrough
                 case '%i':{
                     const arg = args[i++];
 
