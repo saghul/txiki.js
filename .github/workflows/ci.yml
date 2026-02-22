@@ -79,6 +79,8 @@ jobs:
         fi
     - name: Build it
       run: make VERBOSE=1
+    - name: Download esbuild
+      run: ./build/tjs bundle tests/helpers/bundle-input.js /tmp/warm.js && rm -f /tmp/warm.js
     - name: Test it
       run: make test
     - name: Test it (advanced)
@@ -102,6 +104,8 @@ jobs:
         node-version-file: '.nvmrc'
     - name: Build it
       run: make VERBOSE=1
+    - name: Download esbuild
+      run: ./build/tjs bundle tests/helpers/bundle-input.js /tmp/warm.js && rm -f /tmp/warm.js
     - name: Test it
       run: make test
     - name: Test it (advanced)
@@ -127,6 +131,8 @@ jobs:
         node-version-file: '.nvmrc'
     - name: Build it
       run: make VERBOSE=1
+    - name: Download esbuild
+      run: ./build/tjs bundle tests/helpers/bundle-input.js /tmp/warm.js && rm -f /tmp/warm.js
     - name: Test it
       run: make test
   build-windows:
@@ -154,6 +160,11 @@ jobs:
         cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static
     - name: Build
       run: cmake --build build --config ${{ matrix.buildType }}
+    - name: Download esbuild
+      run: |
+        $env:PATH = "${{ github.workspace }}\build\${{ matrix.buildType }};${{ github.workspace }}\vcpkg\installed\x64-windows\bin;$env:PATH"
+        .\build\${{ matrix.buildType }}\tjs.exe bundle tests\helpers\bundle-input.js $env:TEMP\warm.js
+        Remove-Item $env:TEMP\warm.js -ErrorAction SilentlyContinue
     - name: Test
       run: |
         $env:PATH = "${{ github.workspace }}\build\${{ matrix.buildType }};${{ github.workspace }}\vcpkg\installed\x64-windows\bin;$env:PATH"

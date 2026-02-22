@@ -13,6 +13,7 @@
   "license": "MIT",
   "dependencies": {
     "@eslint/js": "^9.39.3",
+    "@jsr/std__tar": "^0.1.10",
     "@stylistic/eslint-plugin": "^5.9.0",
     "compression-streams-polyfill": "^0.1.7",
     "esbuild": "^0.27.0",

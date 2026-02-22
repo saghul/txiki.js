@@ -4,6 +4,7 @@ import getopts from 'tjs:getopts';
 import path from 'tjs:path';
 import { WASI } from 'tjs:wasi';
 
+import { bundle } from './bundle.js';
 import { evalStdin } from './eval-stdin.js';
 import { mkdirSync } from './mkdirSync.js';
 import { runTests } from './run-tests.js';
@@ -71,8 +72,19 @@ Subcommands:
   test
         Run tests in the given directory
 
+  bundle [options] infile [outfile]
+        Bundle a JavaScript/TypeScript file using esbuild
+
   compile infile [outfile]
         Compile the given file into a standalone executable`;
+
+const helpBundle = `Usage: ${exeName} bundle [options] infile [outfile]
+
+Bundle a JavaScript/TypeScript file using esbuild. If outfile is not
+specified it defaults to <infile-stem>.bundle.js.
+
+Options:
+  -m, --minify    Minify the output`;
 
 const helpEval = `Usage: ${exeName} eval EXPRESSION`;
 
@@ -230,6 +242,12 @@ if (options.help) {
         const server = tjs.serve({ fetch: handler, port, websocket: mod.default.websocket });
 
         console.log(`Listening on http://localhost:${server.port}/`);
+    } else if (command === 'bundle') {
+        const ok = await bundle(TJS_HOME, subargv);
+
+        if (!ok) {
+            throw helpBundle;
+        }
     } else if (command === 'test') {
         const [ dir ] = subargv;
 
