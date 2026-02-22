@@ -27,6 +27,11 @@ tjs compile bundle.js myexe
 
 ## Bundling your code
 
-The `tjs compile` command doesn't do any code bundling — it expects a single JavaScript file as input. If your application spans multiple files or uses TypeScript, you'll need to bundle it first.
+The `tjs compile` command doesn't do any code bundling — it expects a single JavaScript file as input. If your application spans multiple files or uses TypeScript, bundle it first with `tjs bundle`:
 
-See the [Code Bundling](code-bundling.md) guide for instructions on using esbuild to bundle (and optionally minify) your app into a single file ready for `tjs compile`.
+```bash
+tjs bundle --minify my-app/index.ts bundle.js
+tjs compile bundle.js
+```
+
+See the [Code Bundling](code-bundling.md) guide for more details.
