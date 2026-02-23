@@ -11,8 +11,8 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://bettercallsaghul.com',
-  baseUrl: '/txiki.js/',
+  url: 'https://txikijs.org',
+  baseUrl: '/',
 
   organizationName: 'saghul',
   projectName: 'txiki.js',

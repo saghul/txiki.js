@@ -22,7 +22,7 @@ make
 ./build/tjs
 ```
 
-See [Building](https://bettercallsaghul.com/txiki.js/docs/building) for detailed instructions including Windows support.
+See [Building](https://txikijs.org/docs/building) for detailed instructions including Windows support.
 
 ## Features
 
@@ -35,7 +35,7 @@ See [Building](https://bettercallsaghul.com/txiki.js/docs/building) for detailed
 
 ## Documentation
 
-Full documentation is available at **[bettercallsaghul.com/txiki.js](https://bettercallsaghul.com/txiki.js/)**.
+Full documentation is available at **[txikijs.org](https://txikijs.org)**.
 
 ## Supported platforms
 
