@@ -73,6 +73,11 @@ const config: Config = {
         },
       ],
     },
+    algolia: {
+      appId: 'MK980B6DQ4',
+      apiKey: 'fc3c320f8ce2f39489a9aec68e3960df',
+      indexName: 'Txiki Crawler',
+    },
     footer: undefined,
     prism: {
       theme: prismThemes.github,
