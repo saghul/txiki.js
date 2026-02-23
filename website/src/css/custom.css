@@ -114,6 +114,51 @@ article h1, article h2, article h3, article h4 {
   --ifm-alert-background-color: #1e1033;
 }
 
+/* Algolia DocSearch — monochromatic with subtle purple accents */
+:root {
+  --docsearch-primary-color: #7c3aed;
+  --docsearch-text-color: #1a1a1a;
+  --docsearch-muted-color: #525252;
+  --docsearch-container-background: rgba(0, 0, 0, 0.4);
+  --docsearch-modal-background: #ffffff;
+  --docsearch-modal-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --docsearch-searchbox-background: #f5f5f5;
+  --docsearch-searchbox-focus-background: #f5f5f5;
+  --docsearch-searchbox-shadow: inset 0 0 0 1px #d4d4d4;
+  --docsearch-hit-background: #ffffff;
+  --docsearch-hit-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --docsearch-hit-color: #1a1a1a;
+  --docsearch-hit-active-color: #ffffff;
+  --docsearch-highlight-color: #7c3aed;
+  --docsearch-footer-background: #fafafa;
+  --docsearch-footer-shadow: 0 -1px 0 0 #e5e5e5;
+  --docsearch-key-gradient: linear-gradient(-225deg, #f5f5f5, #e5e5e5);
+  --docsearch-key-shadow: inset 0 -2px 0 0 #d4d4d4, inset 0 0 1px 1px #ffffff, 0 1px 2px 1px rgba(0, 0, 0, 0.06);
+  --docsearch-key-pressed-shadow: inset 0 -2px 0 0 #d4d4d4, inset 0 0 1px 1px #ffffff, 0 1px 1px 0 rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='dark'] {
+  --docsearch-primary-color: #a78bfa;
+  --docsearch-text-color: #e5e5e5;
+  --docsearch-muted-color: #a3a3a3;
+  --docsearch-container-background: rgba(0, 0, 0, 0.6);
+  --docsearch-modal-background: #141414;
+  --docsearch-modal-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --docsearch-searchbox-background: #0a0a0a;
+  --docsearch-searchbox-focus-background: #0a0a0a;
+  --docsearch-searchbox-shadow: inset 0 0 0 1px #262626;
+  --docsearch-hit-background: #1a1a1a;
+  --docsearch-hit-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --docsearch-hit-color: #e5e5e5;
+  --docsearch-hit-active-color: #ffffff;
+  --docsearch-highlight-color: #a78bfa;
+  --docsearch-footer-background: #0a0a0a;
+  --docsearch-footer-shadow: 0 -1px 0 0 #262626;
+  --docsearch-key-gradient: linear-gradient(-225deg, #1a1a1a, #262626);
+  --docsearch-key-shadow: inset 0 -2px 0 0 #333333, inset 0 0 1px 1px #1a1a1a, 0 1px 2px 1px rgba(0, 0, 0, 0.3);
+  --docsearch-key-pressed-shadow: inset 0 -2px 0 0 #333333, inset 0 0 1px 1px #1a1a1a, 0 1px 1px 0 rgba(0, 0, 0, 0.3);
+}
+
 /* GitHub navbar icon */
 .header-github-link::before {
   content: '';
