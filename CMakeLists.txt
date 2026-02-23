@@ -119,6 +119,11 @@ target_link_libraries(tjs-cli tjs)
 set_target_properties(tjs-cli
     PROPERTIES OUTPUT_NAME tjs
 )
+# On Windows with MSVC the stack size if by default 1MB, same as our engine.
+# Bump it up to 8MB.
+if(WIN32)
+    target_link_options(tjs-cli PRIVATE "/STACK:8388608")
+endif()
 
 add_executable(tjsc EXCLUDE_FROM_ALL
     src/qjsc.c
