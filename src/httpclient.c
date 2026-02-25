@@ -60,6 +60,8 @@ typedef struct {
     unsigned long timeout;
     int ssl_flags;
     JSValue url;
+    /* Response decompression. */
+    TJSDecompressor *decompressor;
 } TJSHttpClient;
 
 static JSClassID tjs_httpclient_class_id;
@@ -76,6 +78,9 @@ static void tjs_httpclient_finalizer(JSRuntime *rt, JSValue val) {
         }
         if (h->url_str) {
             js_free_rt(rt, h->url_str);
+        }
+        if (h->decompressor) {
+            tjs__decompressor_destroy(h->decompressor, rt);
         }
         dbuf_free(&h->req_headers);
         dbuf_free(&h->send_buf);
@@ -180,6 +185,64 @@ static void fire_response_headers(TJSHttpClient *h, struct lws *wsi) {
     lws_hdr_custom_name_foreach(wsi, custom_header_foreach_cb, &hctx);
 }
 
+/* Check whether the user already set a given request header (case-insensitive). */
+static bool has_request_header(const DynBuf *headers, const char *name) {
+    if (headers->size == 0) {
+        return false;
+    }
+    size_t name_len = strlen(name);
+    const char *p = (const char *) headers->buf;
+    const char *end = p + headers->size;
+    while (p < end) {
+        if (strncasecmp(p, name, name_len) == 0 && p[name_len] == ':') {
+            return true;
+        }
+        const char *eol = strstr(p, "\r\n");
+        if (!eol) {
+            break;
+        }
+        p = eol + 2;
+    }
+    return false;
+}
+
+/* Detect Content-Encoding from response headers. Returns format string or NULL. */
+static const char *detect_content_encoding(struct lws *wsi) {
+    char val[64];
+
+    for (int n = 0; n < WSI_TOKEN_COUNT; n++) {
+        const unsigned char *tok_name = lws_token_to_string(n);
+        if (!tok_name) {
+            continue;
+        }
+        const char *tn = (const char *) tok_name;
+        if (strncasecmp(tn, "content-encoding:", 17) != 0) {
+            continue;
+        }
+        if (lws_hdr_total_length(wsi, n) <= 0) {
+            break;
+        }
+        if (lws_hdr_copy(wsi, val, sizeof(val), n) < 0) {
+            break;
+        }
+
+        /* Trim leading whitespace. */
+        const char *v = val;
+        while (*v == ' ') {
+            v++;
+        }
+
+        if (!strcasecmp(v, "gzip") || !strcasecmp(v, "x-gzip")) {
+            return "gzip";
+        } else if (!strcasecmp(v, "deflate")) {
+            return "deflate";
+        }
+        break;
+    }
+
+    return NULL;
+}
+
 static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
     TJSHttpClient *h = (TJSHttpClient *) user;
 
@@ -199,6 +262,19 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                                             p,
                                             end)) {
                 return -1;
+            }
+
+            /* Add Accept-Encoding unless the user already set it. */
+            if (!has_request_header(&h->req_headers, "Accept-Encoding")) {
+                static const char ae_val[] = "gzip, deflate";
+                if (lws_add_http_header_by_name(wsi,
+                                                (const unsigned char *) "accept-encoding:",
+                                                (const unsigned char *) ae_val,
+                                                (int) strlen(ae_val),
+                                                p,
+                                                end)) {
+                    return -1;
+                }
             }
 
             /* Add custom headers stored in req_headers DynBuf.
@@ -275,6 +351,12 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
         case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP: {
             int status = (int) lws_http_client_http_response(wsi);
 
+            /* Detect Content-Encoding before firing headers. */
+            const char *encoding = detect_content_encoding(wsi);
+            if (encoding) {
+                h->decompressor = tjs__decompressor_create(h->ctx, encoding);
+            }
+
             JSValue status_arg = JS_NewInt32(h->ctx, status);
             maybe_invoke_callback(h, HC_CALLBACK_STATUS, 1, &status_arg);
 
@@ -299,8 +381,25 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
         }
 
         case LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ: {
-            JSValue arg = JS_NewArrayBufferCopy(h->ctx, (const uint8_t *) in, len);
-            maybe_invoke_callback(h, HC_CALLBACK_DATA, 1, &arg);
+            if (h->decompressor) {
+                DynBuf out;
+                tjs_dbuf_init(h->ctx, &out);
+                if (tjs__decompressor_decompress(h->decompressor, (const uint8_t *) in, len, &out) < 0) {
+                    dbuf_free(&out);
+                    /* Decompression failed — deliver raw data. */
+                    JSValue arg = JS_NewArrayBufferCopy(h->ctx, (const uint8_t *) in, len);
+                    maybe_invoke_callback(h, HC_CALLBACK_DATA, 1, &arg);
+                } else if (out.size > 0) {
+                    JSValue arg = JS_NewArrayBufferCopy(h->ctx, out.buf, out.size);
+                    dbuf_free(&out);
+                    maybe_invoke_callback(h, HC_CALLBACK_DATA, 1, &arg);
+                } else {
+                    dbuf_free(&out);
+                }
+            } else {
+                JSValue arg = JS_NewArrayBufferCopy(h->ctx, (const uint8_t *) in, len);
+                maybe_invoke_callback(h, HC_CALLBACK_DATA, 1, &arg);
+            }
             break;
         }
 

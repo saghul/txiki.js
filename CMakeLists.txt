@@ -80,6 +80,7 @@ add_library(tjs STATIC
     src/mod_os.c
     src/mod_process.c
     src/mod_sqlite3.c
+    src/mod_miniz.c
     src/mod_streams.c
     src/mod_sys.c
     src/mod_udp.c
