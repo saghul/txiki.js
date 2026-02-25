@@ -4,7 +4,7 @@
   "description": "Utilities for txiki.js",
   "private": true,
   "scripts": {
-    "postinstall": "patch-package && npm install --prefix website",
+    "postinstall": "npm install --prefix website",
     "docs": "npm run build --prefix website",
     "docs:watch": "npm run start --prefix website",
     "docs:deploy": "npm run docs && gh-pages -d website/build -u \"github-actions-bot <support+actions@github.com>\"",
@@ -15,7 +15,6 @@
     "@eslint/js": "^9.39.3",
     "@jsr/std__tar": "^0.1.10",
     "@stylistic/eslint-plugin": "^5.9.0",
-    "compression-streams-polyfill": "^0.1.7",
     "esbuild": "^0.27.0",
     "eslint": "^9.39.3",
     "eslint-plugin-import-x": "^4.16.1",
@@ -28,7 +27,6 @@
     "js-sha256": "^0.11.1",
     "js-sha3": "^0.9.3",
     "js-sha512": "^0.9.0",
-    "patch-package": "^8.0.1",
     "urlpattern-polyfill": "^10.1.0",
     "uuid": "13.0.0",
     "web-streams-polyfill": "^4.2.0"

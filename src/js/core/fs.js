@@ -42,6 +42,12 @@ const fhProxyHandler = {
                     target[kWritable] = new WritableStream({
                         async write(chunk) {
                             await target.write(chunk);
+                        },
+                        async close() {
+                            await target.close();
+                        },
+                        async abort() {
+                            await target.close();
                         }
                     });
                 }

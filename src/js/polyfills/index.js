@@ -29,5 +29,5 @@ import './worker.js';
 import './ws.js';
 
 import 'web-streams-polyfill/polyfill';
-import 'compression-streams-polyfill';
+import './compression-streams.js';
 import './ws-stream.js';
