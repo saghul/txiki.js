@@ -23,10 +23,13 @@
  */
 
 #include "bundles/c/stdlib/assert.c"
+#include "bundles/c/stdlib/express-lite.c"
 #include "bundles/c/stdlib/ffi.c"
 #include "bundles/c/stdlib/getopts.c"
 #include "bundles/c/stdlib/hashing.c"
 #include "bundles/c/stdlib/ipaddr.c"
+#include "bundles/c/stdlib/node-http.c"
+#include "bundles/c/stdlib/orm.c"
 #include "bundles/c/stdlib/path.c"
 #include "bundles/c/stdlib/posix-socket.c"
 #include "bundles/c/stdlib/sqlite.c"
@@ -43,10 +46,13 @@ typedef struct {
 
 static tjs_builtin_t builtins[] = {
     { "tjs:assert", tjs__assert, sizeof(tjs__assert) },
+    { "tjs:express-lite", tjs__express_lite, sizeof(tjs__express_lite) },
     { "tjs:ffi", tjs__ffi, sizeof(tjs__ffi) },
     { "tjs:getopts", tjs__getopts, sizeof(tjs__getopts) },
     { "tjs:hashing", tjs__hashing, sizeof(tjs__hashing) },
     { "tjs:ipaddr", tjs__ipaddr, sizeof(tjs__ipaddr) },
+    { "tjs:node-http", tjs__node_http, sizeof(tjs__node_http) },
+    { "tjs:orm", tjs__orm, sizeof(tjs__orm) },
     { "tjs:path", tjs__path, sizeof(tjs__path) },
     { "tjs:posix-socket", tjs__posix_socket, sizeof(tjs__posix_socket) },
     { "tjs:sqlite", tjs__sqlite, sizeof(tjs__sqlite) },

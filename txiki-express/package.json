@@ -1,0 +1,1 @@
+{"name": "@txiki/express", "version": "1.0.0", "description": "Express-lite framework for txiki.js", "type": "module", "main": "index.js", "exports": {".": "./index.js"}, "keywords": ["express", "web", "framework", "txiki"], "license": "MIT", "engines": {"txiki": ">=0.0.1"}}

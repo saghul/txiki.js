@@ -1,0 +1,1 @@
+{"name": "@txiki/orm", "version": "1.0.0", "description": "Simple ORM for SQLite in txiki.js", "type": "module", "main": "index.js", "exports": {".": "./index.js"}, "keywords": ["orm", "sqlite", "database", "txiki"], "license": "MIT", "engines": {"txiki": ">=0.0.1"}}
