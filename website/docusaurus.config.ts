@@ -66,6 +66,11 @@ const config: Config = {
           label: 'API',
         },
         {
+          href: 'https://github.com/saghul/txiki.js/releases',
+          position: 'left',
+          label: 'Releases',
+        },
+        {
           href: 'https://github.com/saghul/txiki.js',
           position: 'right',
           className: 'header-github-link',
