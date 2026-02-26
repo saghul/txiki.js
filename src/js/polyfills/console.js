@@ -1,7 +1,7 @@
 /* global tjs */
 /** console implementation according to https://console.spec.whatwg.org/ and otherwise inspired by nodejs behavior */
 
-import { format as utilFormat, inspect as utilInspect } from './console-util.js';
+import { format as utilFormat, inspect as utilInspect } from '../stdlib/utils.js';
 
 function createConsole({
     logger, clearConsole, printer,
@@ -333,5 +333,3 @@ Object.defineProperty(window, 'console', {
 });
 
 globalThis[Symbol.for('tjs.internal.core')].createConsole = createConsole;
-globalThis[Symbol.for('tjs.internal.core')].inspect = utilInspect;
-globalThis[Symbol.for('tjs.internal.core')].format = utilFormat;

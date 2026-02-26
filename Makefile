@@ -37,7 +37,7 @@ $(TJS): $(BUILD_DIR)/CMakeCache.txt
 $(TJSC): $(BUILD_DIR)/CMakeCache.txt
 	cmake --build $(BUILD_DIR) --target tjsc -j $(JOBS)
 
-src/bundles/js/core/polyfills.js: src/js/polyfills/*.js
+src/bundles/js/core/polyfills.js: src/js/polyfills/*.js src/js/stdlib/utils.js
 	$(ESBUILD) src/js/polyfills/index.js \
 		--bundle \
 		--metafile=$@.json \
@@ -90,7 +90,7 @@ src/bundles/c/core/run-main.c: $(TJSC) src/bundles/js/core/run-main.js
 		src/bundles/js/core/run-main.js
 
 src/bundles/js/core/run-repl.js: src/js/run-repl/*.js
-	$(ESBUILD) src/js/run-repl/index.js \
+	$(ESBUILD) src/js/run-repl/repl.js \
 		--bundle \
 		--metafile=$@.json \
 		--outfile=$@ \
@@ -128,7 +128,7 @@ src/bundles/c/stdlib/%.c: $(TJSC) src/bundles/js/stdlib/%.js
 		-p tjs__ \
 		src/bundles/js/stdlib/$(basename $(notdir $@)).js
 
-src/bundles/js/stdlib/%.js: src/js/stdlib/*.js src/js/stdlib/ffi/*.js
+src/bundles/js/stdlib/%.js: src/js/stdlib/*.js src/js/stdlib/ffi/*.js src/js/stdlib/readline/*.js src/js/stdlib/utils.js
 	$(ESBUILD) src/js/stdlib/$(notdir $@) \
 		--bundle \
 		--outfile=$@ \

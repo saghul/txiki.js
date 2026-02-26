@@ -222,8 +222,6 @@ const sidebars: SidebarsConfig = {
         'api/global.tjs.Function.alert',
         'api/global.tjs.Function.confirm',
         'api/global.tjs.Function.prompt',
-        'api/global.tjs.Function.inspect',
-        'api/global.tjs.Function.format',
         'api/global.tjs.Function.createConsole',
         'api/global.tjs.Class.Error',
         'api/global.tjs.Interface.ConsolePrinterOptions',
@@ -343,6 +341,22 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
+          label: 'tjs:readline',
+          collapsed: true,
+          link: { type: 'doc', id: 'api/tjs-readline' },
+          items: [
+            'api/tjs-readline.Function.createInterface',
+            'api/tjs-readline.Class.ReadlineInterface',
+            'api/tjs-readline.Interface.InterfaceOptions',
+            'api/tjs-readline.Interface.CompleterResult',
+            'api/tjs-readline.Interface.ColorToken',
+            'api/tjs-readline.Variable.c',
+            'api/tjs-readline.Interface.StyleFunction',
+            'api/tjs-readline.Function.isColorSupported',
+          ],
+        },
+        {
+          type: 'category',
           label: 'tjs:sqlite',
           collapsed: true,
           link: { type: 'doc', id: 'api/tjs-sqlite' },
@@ -351,6 +365,16 @@ const sidebars: SidebarsConfig = {
             'api/tjs-sqlite.Interface.IDatabaseOptions',
             'api/tjs-sqlite.Interface.IStatement',
             'api/tjs-sqlite.Interface.ITransaction',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'tjs:utils',
+          collapsed: true,
+          link: { type: 'doc', id: 'api/tjs-utils' },
+          items: [
+            'api/tjs-utils.Function.format',
+            'api/tjs-utils.Function.inspect',
           ],
         },
         {
