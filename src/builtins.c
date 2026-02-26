@@ -29,7 +29,9 @@
 #include "bundles/c/stdlib/ipaddr.c"
 #include "bundles/c/stdlib/path.c"
 #include "bundles/c/stdlib/posix-socket.c"
+#include "bundles/c/stdlib/readline.c"
 #include "bundles/c/stdlib/sqlite.c"
+#include "bundles/c/stdlib/utils.c"
 #include "bundles/c/stdlib/uuid.c"
 #include "bundles/c/stdlib/wasi.c"
 #include "private.h"
@@ -49,7 +51,9 @@ static tjs_builtin_t builtins[] = {
     { "tjs:ipaddr", tjs__ipaddr, sizeof(tjs__ipaddr) },
     { "tjs:path", tjs__path, sizeof(tjs__path) },
     { "tjs:posix-socket", tjs__posix_socket, sizeof(tjs__posix_socket) },
+    { "tjs:readline", tjs__readline, sizeof(tjs__readline) },
     { "tjs:sqlite", tjs__sqlite, sizeof(tjs__sqlite) },
+    { "tjs:utils", tjs__utils, sizeof(tjs__utils) },
     { "tjs:uuid", tjs__uuid, sizeof(tjs__uuid) },
     { "tjs:wasi", tjs__wasi, sizeof(tjs__wasi) },
     { NULL, NULL, 0 },

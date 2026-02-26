@@ -6,7 +6,9 @@
 /// <reference path="./ipaddr.d.ts" />
 /// <reference path="./path.d.ts" />
 /// <reference path="./posix-socket.d.ts" />
+/// <reference path="./readline.d.ts" />
 /// <reference path="./sqlite.d.ts" />
+/// <reference path="./utils.d.ts" />
 /// <reference path="./uuid.d.ts" />
 /// <reference path="./wasi.d.ts" />
 

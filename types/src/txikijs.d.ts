@@ -1028,31 +1028,6 @@ declare global {
             inspect?: (args: unknown[]) => string,
         }): typeof console;
 
-        /**
-         * format any js value to be well readable
-         *
-         * @category Utilities
-         * @returns resulting string
-         */
-        function inspect(value: unknown, options?: { depth?: number, colors?: boolean, showHidden?: boolean }): string;
-
-        /**
-         * print format string and insert given values, see https://console.spec.whatwg.org/#formatter
-         * leftover values are appended to the end
-         *
-         * @category Utilities
-         * @returns resulting string
-         */
-        function format(format: string, ...args: unknown[]): string;
-
-        /**
-         * format given values to a well readable string
-         *
-         * @category Utilities
-         * @returns resulting string
-         */
-        function format(...values: unknown[]): string;
-
         // HTTP Server API
 
         /**

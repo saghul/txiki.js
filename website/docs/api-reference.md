@@ -12,7 +12,7 @@ The `tjs` global object provides the following groups of APIs:
 - **Process** — Spawn child processes, handle signals, and manage the current process.
 - **System** — Environment variables, OS information, and runtime metadata.
 - **Engine** — Low-level access to the JavaScript engine: bytecode compilation, serialization, and garbage collection.
-- **Utilities** — Console helpers, error formatting, and interactive prompts.
+- **Utilities** — Console helpers and interactive prompts.
 
 ## Standard Library
 
@@ -28,6 +28,7 @@ Additional functionality is available as ES modules that can be imported using t
 | [`tjs:path`](api/tjs-path.md) | File path utilities (POSIX and Windows) |
 | [`tjs:posix-socket`](api/tjs-posix-socket.md) | Low-level POSIX socket API |
 | [`tjs:sqlite`](api/tjs-sqlite.md) | SQLite3 database |
+| [`tjs:utils`](api/tjs-utils.md) | Utility functions for formatting and inspecting values |
 | [`tjs:uuid`](api/tjs-uuid.md) | UUID generation and validation |
 | [`tjs:wasi`](api/tjs-wasi.md) | WebAssembly System Interface |
 
