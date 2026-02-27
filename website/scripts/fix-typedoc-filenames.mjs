@@ -40,23 +40,35 @@ async function main() {
     let content = await readFile(filePath, 'utf-8');
     let changed = false;
 
-    for (const [oldName, newName] of renameMap) {
-      const oldRef = oldName.replace('.md', '');
-      const newRef = newName.replace('.md', '');
+    // Split content into code blocks and non-code blocks so we only
+    // perform replacements outside of fenced code blocks.
+    const parts = content.split(/(```[\s\S]*?```)/g);
 
-      // Replace markdown link targets: (oldName) -> (newName)
-      if (content.includes(oldName)) {
-        content = content.replaceAll(oldName, newName);
-        changed = true;
+    for (let i = 0; i < parts.length; i++) {
+      // Odd indices are fenced code blocks — skip them.
+      if (i % 2 === 1) continue;
+
+      let part = parts[i];
+      for (const [oldName, newName] of renameMap) {
+        const oldRef = oldName.replace('.md', '');
+        const newRef = newName.replace('.md', '');
+
+        // Replace markdown link targets: (oldName) -> (newName)
+        if (part.includes(oldName)) {
+          part = part.replaceAll(oldName, newName);
+          changed = true;
+        }
+        // Replace doc IDs without extension
+        if (part.includes(oldRef)) {
+          part = part.replaceAll(oldRef, newRef);
+          changed = true;
+        }
       }
-      // Replace doc IDs without extension
-      if (content.includes(oldRef)) {
-        content = content.replaceAll(oldRef, newRef);
-        changed = true;
-      }
+      parts[i] = part;
     }
 
     if (changed) {
+      content = parts.join('');
       // Restore colon syntax in headings: "# tjs-assert" -> "# tjs:assert"
       content = content.replaceAll(/^(#{1,6} )tjs-/gm, '$1tjs:');
       await writeFile(filePath, content);

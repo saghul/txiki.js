@@ -1,6 +1,17 @@
 /**
  * Hash computation module.
  *
+ * Compute cryptographic hashes using a variety of algorithms including
+ * MD5, SHA-1, SHA-2, and SHA-3 families.
+ *
+ * ```js
+ * import { createHash } from 'tjs:hashing';
+ *
+ * const hash = createHash('sha256');
+ * hash.update('hello world');
+ * console.log(hash.digest()); // hex string
+ * ```
+ *
  * @module tjs:hashing
  */
 

@@ -1,6 +1,17 @@
 /**
  * Utility functions for formatting and inspecting values.
  *
+ * Provides `inspect` for pretty-printing JavaScript values and `format` for
+ * printf-style string formatting, following the
+ * [Console Standard](https://console.spec.whatwg.org/#formatter).
+ *
+ * ```js
+ * import { inspect, format } from 'tjs:utils';
+ *
+ * console.log(inspect({ a: 1, b: [2, 3] }, { colors: true }));
+ * console.log(format('Hello %s, you are %d', 'Alice', 30));
+ * ```
+ *
  * @module tjs:utils
  */
 

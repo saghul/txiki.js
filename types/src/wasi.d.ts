@@ -1,6 +1,20 @@
 /**
  * WASI (WebAssembly System Interface) implementation.
  *
+ * Run WebAssembly modules that use the WASI interface for system access
+ * such as filesystem operations, environment variables, and command-line arguments.
+ *
+ * ```js
+ * import { WASI } from 'tjs:wasi';
+ *
+ * const wasi = new WASI({ version: 'wasi_snapshot_preview1' });
+ * const { instance } = await WebAssembly.instantiate(
+ *     await tjs.readFile('module.wasm'),
+ *     wasi.getImportObject(),
+ * );
+ * wasi.start(instance);
+ * ```
+ *
  * @module tjs:wasi
  */
 

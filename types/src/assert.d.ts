@@ -1,8 +1,19 @@
 /**
-* Assertions module.
-*
-* @module tjs:assert
-*/
+ * Assertions module.
+ *
+ * Provides a collection of assertion functions for testing and validation.
+ * Assertions throw on failure, making them suitable for use in test suites.
+ *
+ * ```js
+ * import assert from 'tjs:assert';
+ *
+ * assert.eq(1 + 1, 2, 'math works');
+ * assert.ok(true, 'is truthy');
+ * assert.throws(() => { throw new Error('boom'); }, /boom/);
+ * ```
+ *
+ * @module tjs:assert
+ */
 declare module 'tjs:assert'{
     export interface IAssertionResult<T> {
         pass: boolean;
