@@ -10,31 +10,6 @@ declare global {
     */
     namespace tjs {
         /**
-        * Alerts the user about something.
-        *
-        * @category Utilities
-        * @param msg The message that will be displayed.
-        */
-        function alert(msg:string): Promise<void>;
-
-        /**
-        * Asks the user for confirmation.
-        *
-        * @category Utilities
-        * @param msg The message which will be printed as the question. Defaults to "Confirm".
-        */
-        function confirm(msg:string): Promise<boolean>;
-
-        /**
-        * Prompt the user for input.
-        *
-        * @category Utilities
-        * @param msg Message to ask the user.
-        * @param def Default value in case nothing was entered.
-        */
-        function prompt(msg:string, def?:string): Promise<string|null>;
-
-        /**
         * Array with the arguments passed to the binary.
         *
         * @category System

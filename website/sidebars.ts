@@ -219,9 +219,6 @@ const sidebars: SidebarsConfig = {
       label: 'Utilities',
       collapsed: true,
       items: [
-        'api/global.tjs.Function.alert',
-        'api/global.tjs.Function.confirm',
-        'api/global.tjs.Function.prompt',
         'api/global.tjs.Function.createConsole',
         'api/global.tjs.Class.Error',
         'api/global.tjs.Interface.ConsolePrinterOptions',

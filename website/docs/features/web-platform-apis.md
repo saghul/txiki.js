@@ -11,7 +11,6 @@ txiki.js implements a number of Web Platform APIs to provide a familiar environm
 
 | API | Notes |
 |-----|-------|
-| [alert, confirm, prompt](https://developer.mozilla.org/en-US/docs/Web/API/Window/alert) | All of them are async |
 | [Console](https://developer.mozilla.org/en-US/docs/Web/API/Console) | |
 | [Crypto](https://developer.mozilla.org/en-US/docs/Web/API/Crypto) | No subtle support |
 | [Direct Sockets](https://wicg.github.io/direct-sockets/) | |
