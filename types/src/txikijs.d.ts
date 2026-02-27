@@ -1,6 +1,18 @@
 /**
  * The main txiki.js APIs are exposed as a single `tjs` global object.
  *
+ * ```js
+ * // Read a file
+ * const data = await tjs.readFile('hello.txt');
+ * console.log(new TextDecoder().decode(data));
+ *
+ * // Start an HTTP server
+ * const server = tjs.serve({
+ *     fetch: () => new Response('Hello!'),
+ *     port: 3000,
+ * });
+ * ```
+ *
  * @module global
  */
 

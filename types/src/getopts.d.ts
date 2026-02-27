@@ -1,6 +1,22 @@
 /**
  * Command line options parsing module.
  *
+ * Parse command line arguments into a structured object. Supports aliases,
+ * typed options (string/boolean), default values, and stop-early behavior.
+ *
+ * ```js
+ * import getopts from 'tjs:getopts';
+ *
+ * const opts = getopts(tjs.args.slice(1), {
+ *     alias: { h: 'help', v: 'version' },
+ *     boolean: ['help', 'version'],
+ * });
+ *
+ * if (opts.help) {
+ *     console.log('Usage: myapp [options]');
+ * }
+ * ```
+ *
  * @module tjs:getopts
  */
 

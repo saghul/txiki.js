@@ -1,10 +1,23 @@
 /**
-* SQLite3 module.
-* This module borrows a lot of inspiration from [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) and
-* the [Bun sqlite module](https://bun.sh/docs/api/sqlite).
-*
-* @module tjs:sqlite
-*/
+ * SQLite3 module.
+ *
+ * This module borrows a lot of inspiration from [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) and
+ * the [Bun sqlite module](https://bun.sh/docs/api/sqlite).
+ *
+ * ```js
+ * import { Database } from 'tjs:sqlite';
+ *
+ * const db = new Database(':memory:');
+ * db.exec('CREATE TABLE greetings (message TEXT)');
+ * const ins = db.prepare('INSERT INTO greetings (message) VALUES (?)');
+ * ins.run('Hello world!');
+ * const rows = db.prepare('SELECT * FROM greetings').all();
+ * console.log(rows); // [{ message: 'Hello world!' }]
+ * db.close();
+ * ```
+ *
+ * @module tjs:sqlite
+ */
 declare module 'tjs:sqlite'{
     export interface IStatement {
         /**

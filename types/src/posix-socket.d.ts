@@ -4,6 +4,16 @@
  *
  * NOTE: Not available on Windows.
  *
+ * ```js
+ * import { PosixSocket } from 'tjs:posix-socket';
+ *
+ * const { AF_INET, SOCK_STREAM, IPPROTO_TCP } = PosixSocket.defines;
+ * const sock = new PosixSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+ * const addr = PosixSocket.createSockaddrIn('127.0.0.1', 8080);
+ * sock.bind(addr);
+ * sock.listen(128);
+ * ```
+ *
  * @module tjs:posix-socket
  */
 declare module 'tjs:posix-socket' {

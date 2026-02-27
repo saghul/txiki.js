@@ -1,6 +1,19 @@
 /**
  * IP address utilities module.
  *
+ * Parse, validate, and manipulate IPv4 and IPv6 addresses. Supports CIDR
+ * notation, range detection, subnet matching, and address conversion.
+ * Based on the [ipaddr.js](https://github.com/whitequark/ipaddr.js) library.
+ *
+ * ```js
+ * import { parse, isValid } from 'tjs:ipaddr';
+ *
+ * const addr = parse('192.168.1.1');
+ * console.log(addr.kind());  // 'ipv4'
+ * console.log(addr.range()); // 'private'
+ * console.log(isValid('::1')); // true
+ * ```
+ *
  * @module tjs:ipaddr
  */
 

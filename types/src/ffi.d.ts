@@ -1,6 +1,18 @@
 /**
  * Foreign Function Interface module.
  *
+ * Call native C library functions directly from JavaScript. Supports loading
+ * shared libraries, defining function signatures, and working with C types
+ * including structs, pointers, and callbacks.
+ *
+ * ```js
+ * import { Lib, CFunction, types } from 'tjs:ffi';
+ *
+ * const lib = new Lib(Lib.LIBC_NAME);
+ * const getpid = new CFunction(lib.symbol('getpid'), types.sint, []);
+ * console.log(`PID: ${getpid.call()}`);
+ * ```
+ *
  * @module tjs:ffi
  */
 declare module 'tjs:ffi'{

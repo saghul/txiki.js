@@ -1,6 +1,16 @@
 /**
  * Utilities for working with paths.
+ *
  * This module is an adaptation of the [NodeJS path module](https://nodejs.org/docs/latest-v18.x/api/path.html).
+ *
+ * ```js
+ * import path from 'tjs:path';
+ *
+ * const full = path.join('/home', 'user', 'docs', 'file.txt');
+ * console.log(path.dirname(full));  // '/home/user/docs'
+ * console.log(path.basename(full)); // 'file.txt'
+ * console.log(path.extname(full));  // '.txt'
+ * ```
  *
  * @module tjs:path
  */

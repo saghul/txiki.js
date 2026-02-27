@@ -4,6 +4,15 @@
  * Provides a readline interface for interactive CLI programs with support for
  * line editing, history, tab completion, syntax colorization, and ANSI colors.
  *
+ * ```js
+ * import { createInterface, c } from 'tjs:readline';
+ *
+ * const rl = createInterface({ input: tjs.stdin, output: tjs.stdout });
+ * const name = await rl.question(c.bold.green('What is your name? '));
+ * rl.write(`Hello, ${name}!\n`);
+ * rl.close();
+ * ```
+ *
  * @module tjs:readline
  */
 
