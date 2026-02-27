@@ -1,6 +1,5 @@
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
-import { alert, confirm, prompt } from './alert-confirm-prompt.js';
 import engine from './engine.js';
 import env from './env.js';
 import { open, makeDir, makeTempFile, remove, symlink } from './fs.js';
@@ -65,27 +64,6 @@ for (const key of exports) {
 
 // These values should be immutable.
 tjs.args = Object.freeze(core.args);
-
-// Alert, confirm, prompt.
-// These differ slightly from browsers, they are async.
-Object.defineProperty(tjs, 'alert', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: alert
-});
-Object.defineProperty(tjs, 'confirm', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: confirm
-});
-Object.defineProperty(tjs, 'prompt', {
-    enumerable: true,
-    configurable: false,
-    writable: false,
-    value: prompt
-});
 
 // Engine.
 Object.defineProperty(tjs, 'engine', {
