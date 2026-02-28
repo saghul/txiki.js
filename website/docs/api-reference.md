@@ -27,6 +27,7 @@ Additional functionality is available as ES modules that can be imported using t
 | [`tjs:ipaddr`](api/tjs-ipaddr.md) | IP address parsing and manipulation |
 | [`tjs:path`](api/tjs-path.md) | File path utilities (POSIX and Windows) |
 | [`tjs:posix-socket`](api/tjs-posix-socket.md) | Low-level POSIX socket API |
+| [`tjs:readline`](api/tjs-readline.md) | Interactive line editing and ANSI colors |
 | [`tjs:sqlite`](api/tjs-sqlite.md) | SQLite3 database |
 | [`tjs:utils`](api/tjs-utils.md) | Utility functions for formatting and inspecting values |
 | [`tjs:uuid`](api/tjs-uuid.md) | UUID generation and validation |
