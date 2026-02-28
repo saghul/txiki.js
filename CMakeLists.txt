@@ -317,6 +317,31 @@ else()
         message(FATAL_ERROR "Failed to apply lws.patch")
     endif()
 endif()
+
+# Add uvhttp dependency using FetchContent for simpler management
+include(FetchContent)
+FetchContent_Declare(
+    uvhttp
+    GIT_REPOSITORY https://github.com/adam-ikari/uvhttp.git
+    GIT_TAG main
+    GIT_SHALLOW TRUE
+    GIT_SUBMODULES ""
+    GIT_SUBMODULES_RECURSE ""
+)
+
+# Only make uvhttp available if we need it
+if(NOT uvhttp_POPULATED)
+    FetchContent_MakeAvailable(uvhttp)
+endif()
+
+# Add uvhttp subdirectory if it was populated
+if(TARGET uvhttp)
+    message(STATUS "Using uvhttp from FetchContent")
+else()
+    message(STATUS "uvhttp not available, skipping")
+endif()
+
+# Add libwebsockets (for backward compatibility, will be removed)
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
 # Work around mbedtls ssl.h using #if instead of #ifdef on
 # MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT (undefined when DTLS is disabled).
@@ -325,5 +350,9 @@ if(MSVC)
 else()
     target_compile_options(websockets PRIVATE -Wno-undef)
 endif()
-target_link_libraries(tjs PUBLIC websockets)
-target_include_directories(tjs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets/include)
+
+# Link uvhttp if available
+if(TARGET uvhttp)
+    target_link_libraries(tjs PUBLIC uvhttp)
+endif()
+target_include_directories(tjs PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/uvhttp/include)
