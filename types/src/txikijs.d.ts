@@ -945,11 +945,6 @@ declare global {
         */
         const system: {
             /**
-             * Machine architecture.
-             */
-            readonly arch: string;
-
-            /**
             * Information about the CPUs in the system.
             */
             readonly cpus: system.CpuInfo[];
@@ -964,16 +959,6 @@ declare global {
             * Information about the network interfaces in the system.
             */
             readonly networkInterfaces: system.NetworkInterface[];
-
-            /**
-             * Operating System kernel version.
-             */
-            readonly osRelease: string;
-
-            /**
-            * Current platform.
-            */
-            readonly platform: 'linux' | 'darwin' | 'windows';
 
             /**
             * System uptime.
