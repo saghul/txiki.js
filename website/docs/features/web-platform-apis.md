@@ -18,6 +18,7 @@ txiki.js implements a number of Web Platform APIs to provide a familiar environm
 | [EventTarget](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget) | |
 | [fetch](https://fetch.spec.whatwg.org/) | |
 | [JSON modules](https://github.com/tc39/proposal-json-modules) | |
+| [Navigator.userAgentData](https://wicg.github.io/ua-client-hints/#interface) | |
 | [Performance](https://developer.mozilla.org/en-US/docs/Web/API/Performance) | |
 | [setTimeout, setInterval](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout) | |
 | [Storage API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API) | |
