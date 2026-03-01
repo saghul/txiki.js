@@ -90,7 +90,6 @@ add_library(tjs STATIC
     src/bundles/c/core/run-main.c
     src/bundles/c/core/run-repl.c
     src/bundles/c/core/worker-bootstrap.c
-    deps/quickjs/cutils.c
 )
 
 if(UNIX)
