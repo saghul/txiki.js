@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -70,7 +71,7 @@ FFI_TEST_EXPORT struct test return_struct_test(int a){
 
 FFI_TEST_EXPORT char* sprint_struct_test(struct test* t){
 	static char str[255];
-	snprintf(str, 255, "a: %d, b: %u, c: %llu", t->a, t->b, t->c);
+	snprintf(str, 255, "a: %d, b: %u, c: %" PRIu64, t->a, t->b, t->c);
 	return str;
 }
 
