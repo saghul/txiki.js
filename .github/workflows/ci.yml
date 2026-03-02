@@ -113,7 +113,7 @@ jobs:
   build-alpine:
     name: Alpine Linux
     runs-on: ubuntu-latest
-    container: alpine:3.21
+    container: alpine:edge
     strategy:
       fail-fast: false
       matrix:
