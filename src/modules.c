@@ -294,12 +294,8 @@ static inline void tjs__normalize_pathsep(const char *name) {
 }
 
 char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque) {
-#if 0
-    printf("normalize: %s %s\n", base_name, name);
-#endif
-
-    char *filename, *ncp;
-    const char *r, *cp;
+    char *filename, *p;
+    const char *r;
     int len;
 
     if (name[0] != '.') {
@@ -312,9 +308,9 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
      */
     tjs__normalize_pathsep(name);
 
-    cp = strrchr(base_name, TJS__PATHSEP);
-    if (cp) {
-        len = cp - base_name;
+    r = strrchr(base_name, TJS__PATHSEP);
+    if (r) {
+        len = r - base_name;
     } else {
         len = 0;
     }
@@ -338,19 +334,19 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
             if (filename[0] == '\0') {
                 break;
             }
-            ncp = strrchr(filename, TJS__PATHSEP);
-            if (!ncp) {
-                ncp = filename;
+            p = strrchr(filename, TJS__PATHSEP);
+            if (!p) {
+                p = filename;
             } else {
-                ncp++;
+                p++;
             }
-            if (!strcmp(ncp, ".") || !strcmp(ncp, "..")) {
+            if (!strcmp(p, ".") || !strcmp(p, "..")) {
                 break;
             }
-            if (ncp > filename) {
-                ncp--;
+            if (p > filename) {
+                p--;
             }
-            *ncp = '\0';
+            *p = '\0';
             r += 3;
         } else {
             break;
