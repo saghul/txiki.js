@@ -9,8 +9,8 @@ set_target_properties(sqlite3 PROPERTIES
     C_STANDARD 99
     C_STANDARD_REQUIRED ON
 )
-if(NOT MSVC)
-    target_compile_options(sqlite3 PRIVATE -Wno-stringop-overread)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU")
+    target_compile_options(sqlite3 PRIVATE -Wno-stringop-overread -Wno-discarded-qualifiers)
 endif()
 target_compile_definitions(sqlite3 PRIVATE
     HAVE_INT16_T=1
