@@ -249,7 +249,7 @@ int js_module_set_import_meta(JSContext *ctx, JSValue func_val, bool use_realpat
         // and basename and add them to the meta. Since the path is now absolute
         // all we need to do is split on the last path separator.
         const char *start = buf + 7; /* skip file:// */
-        char *p = strrchr(start, TJS__PATHSEP);
+        const char *p = strrchr(start, TJS__PATHSEP);
         strncpy(module_dirname, start, p - start);
         strcpy(module_basename, p + 1);
     } else {
@@ -292,8 +292,8 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
     printf("normalize: %s %s\n", base_name, name);
 #endif
 
-    char *filename, *p;
-    const char *r;
+    char *filename, *ncp;
+    const char *r, *cp;
     int len;
 
     if (name[0] != '.') {
@@ -306,9 +306,9 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
      */
     tjs__normalize_pathsep(name);
 
-    p = strrchr(base_name, TJS__PATHSEP);
-    if (p) {
-        len = p - base_name;
+    cp = strrchr(base_name, TJS__PATHSEP);
+    if (cp) {
+        len = cp - base_name;
     } else {
         len = 0;
     }
@@ -331,19 +331,19 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
             if (filename[0] == '\0') {
                 break;
             }
-            p = strrchr(filename, TJS__PATHSEP);
-            if (!p) {
-                p = filename;
+            ncp = strrchr(filename, TJS__PATHSEP);
+            if (!ncp) {
+                ncp = filename;
             } else {
-                p++;
+                ncp++;
             }
-            if (!strcmp(p, ".") || !strcmp(p, "..")) {
+            if (!strcmp(ncp, ".") || !strcmp(ncp, "..")) {
                 break;
             }
-            if (p > filename) {
-                p--;
+            if (ncp > filename) {
+                ncp--;
             }
-            *p = '\0';
+            *ncp = '\0';
             r += 3;
         } else {
             break;
