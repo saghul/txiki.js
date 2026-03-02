@@ -164,13 +164,13 @@ static inline uint8_t tjs_utf8_decoder_handler(TJS_utf8_decoder *d, uint8_t **da
 
 static int tjs_utf8_encoder_handler(uint32_t cp, bool eoq, uint8_t buf[4]);
 
-static int string_buffer_putc(DynBuf *s, uint32_t cp) {
+static int string_buffer_putc(TBuf *s, uint32_t cp) {
     uint8_t buf[4];
     int res = tjs_utf8_encoder_handler(cp, false, buf);
     if (res < 0) {
         return -1;
     }
-    dbuf_put(s, buf, res);
+    tbuf_put(s, buf, res);
     return 0;
 }
 
@@ -179,7 +179,7 @@ static inline int tjs_utf8_decoder_process_item(JSContext *ctx,
                                                 uint8_t **ptr,
                                                 uint8_t *end,
                                                 uint32_t opts,
-                                                DynBuf *s) {
+                                                TBuf *s) {
     bool is_eoq = *ptr >= end;
     uint32_t res = tjs_utf8_decoder_handler(d, ptr, is_eoq);
     switch (res) {
@@ -250,9 +250,9 @@ static JSValue tjs_utf8_decoder_decode(JSContext *ctx, JSValueConst this_val, in
         d->flags &= ~TJS_UTF8_DECODER_FLAG_DO_NOT_FLUSH;
     }
 
-    DynBuf s;
-    tjs_dbuf_init(ctx, &s);
-    if (dbuf_claim(&s, bufsz) < 0) {
+    TBuf s;
+    tbuf_init(ctx, &s);
+    if (tbuf_claim(&s, bufsz) < 0) {
         return JS_ThrowOutOfMemory(ctx);
     }
     uint8_t *ptr = buf - 1;
@@ -281,14 +281,14 @@ static JSValue tjs_utf8_decoder_decode(JSContext *ctx, JSValueConst this_val, in
 
 end_ok:;
     JSValue str = JS_NewStringLen(ctx, (const char *) s.buf, s.size);
-    dbuf_free(&s);
+    tbuf_free(&s);
     return str;
 
 end_error:
     if (JS_IsNull(err)) {
         err = JS_ThrowInternalError(ctx, "unknown error");
     }
-    dbuf_free(&s);
+    tbuf_free(&s);
     return err;
 }
 
@@ -320,6 +320,102 @@ static void init_tjs_utf8_decoder_class(JSContext *ctx, JSValue obj) {
 #pragma endregion "UTF8 Decoder"
 
 #pragma region "UTF8 Encoder"
+
+static uint32_t tjs__utf8_decode(const uint8_t *p, const uint8_t **pp) {
+    uint32_t c;
+    uint8_t lower, upper;
+
+    c = *p++;
+    if (c < 0x80) {
+        *pp = p;
+        return c;
+    }
+    switch (c) {
+        case 0xC2:
+        case 0xC3:
+        case 0xC4:
+        case 0xC5:
+        case 0xC6:
+        case 0xC7:
+        case 0xC8:
+        case 0xC9:
+        case 0xCA:
+        case 0xCB:
+        case 0xCC:
+        case 0xCD:
+        case 0xCE:
+        case 0xCF:
+        case 0xD0:
+        case 0xD1:
+        case 0xD2:
+        case 0xD3:
+        case 0xD4:
+        case 0xD5:
+        case 0xD6:
+        case 0xD7:
+        case 0xD8:
+        case 0xD9:
+        case 0xDA:
+        case 0xDB:
+        case 0xDC:
+        case 0xDD:
+        case 0xDE:
+        case 0xDF:
+            if (*p >= 0x80 && *p <= 0xBF) {
+                *pp = p + 1;
+                return ((c - 0xC0) << 6) + (*p - 0x80);
+            }
+            break;
+        case 0xE0:
+            lower = 0xA0;
+            goto need2;
+        case 0xE1:
+        case 0xE2:
+        case 0xE3:
+        case 0xE4:
+        case 0xE5:
+        case 0xE6:
+        case 0xE7:
+        case 0xE8:
+        case 0xE9:
+        case 0xEA:
+        case 0xEB:
+        case 0xEC:
+        case 0xED:
+        case 0xEE:
+        case 0xEF:
+            lower = 0x80;
+        need2:
+            if (*p >= lower && *p <= 0xBF && p[1] >= 0x80 && p[1] <= 0xBF) {
+                *pp = p + 2;
+                return ((c - 0xE0) << 12) + ((*p - 0x80) << 6) + (p[1] - 0x80);
+            }
+            break;
+        case 0xF0:
+            lower = 0x90;
+            upper = 0xBF;
+            goto need3;
+        case 0xF4:
+            lower = 0x80;
+            upper = 0x8F;
+            goto need3;
+        case 0xF1:
+        case 0xF2:
+        case 0xF3:
+            lower = 0x80;
+            upper = 0xBF;
+        need3:
+            if (*p >= lower && *p <= upper && p[1] >= 0x80 && p[1] <= 0xBF && p[2] >= 0x80 && p[2] <= 0xBF) {
+                *pp = p + 3;
+                return ((c - 0xF0) << 18) + ((*p - 0x80) << 12) + ((p[1] - 0x80) << 6) + (p[2] - 0x80);
+            }
+            break;
+        default:
+            break;
+    }
+    *pp = p;
+    return 0xFFFD;
+}
 
 static int tjs_utf8_encoder_handler(uint32_t cp, bool eoq, uint8_t buf[4]) {
     if (eoq) {
@@ -365,9 +461,9 @@ static JSValue tjs_utf8_encoder_encode(JSContext *ctx, JSValueConst this_val, in
         return JS_EXCEPTION;
     }
     const uint8_t *buf = (const uint8_t *) str;
-    DynBuf dbuf;
-    tjs_dbuf_init(ctx, &dbuf);
-    dbuf_claim(&dbuf, len * 1.5);
+    TBuf dbuf;
+    tbuf_init(ctx, &dbuf);
+    tbuf_claim(&dbuf, len * 1.5);
     JSValue ret = JS_NULL;
 
     const uint8_t *ptr = buf;
@@ -375,7 +471,7 @@ static JSValue tjs_utf8_encoder_encode(JSContext *ctx, JSValueConst this_val, in
         bool eoq = ptr == (buf + len);
         uint32_t cp = 0;
         if (!eoq) {
-            cp = utf8_decode(ptr, &ptr);
+            cp = tjs__utf8_decode(ptr, &ptr);
         }
         if ((cp >= 0xD800 && cp <= 0xDBFF) || (cp >= 0xDC00 && cp <= 0xDFFF)) {  // surrogate
             cp = 0xfffd;
@@ -383,9 +479,9 @@ static JSValue tjs_utf8_encoder_encode(JSContext *ctx, JSValueConst this_val, in
         uint8_t buf2[4];
         int res = tjs_utf8_encoder_handler(cp, eoq, buf2);
         if (TJS__LIKELY(res > 0)) {
-            if (dbuf_put(&dbuf, buf2, res)) {
+            if (tbuf_put(&dbuf, buf2, res)) {
                 ret = JS_ThrowOutOfMemory(ctx);
-                dbuf_free(&dbuf);
+                tbuf_free(&dbuf);
                 break;
             }
         } else if (TJS__UNLIKELY(res < 0)) {
@@ -394,12 +490,12 @@ static JSValue tjs_utf8_encoder_encode(JSContext *ctx, JSValueConst this_val, in
             } else {
                 ret = JS_ThrowTypeError(ctx, "decoder error");
             }
-            dbuf_free(&dbuf);
+            tbuf_free(&dbuf);
             break;
         } else if (TJS__UNLIKELY(res == 0)) {
             ret = TJS_NewUint8Array(ctx, dbuf.buf, dbuf.size);
             if (JS_IsException(ret)) {
-                dbuf_free(&dbuf);
+                tbuf_free(&dbuf);
             }
             break;
         }

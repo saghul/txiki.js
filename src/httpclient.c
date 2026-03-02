@@ -51,8 +51,8 @@ typedef struct {
     struct lws *wsi;
     char *method;
     char *url_str;
-    DynBuf req_headers;
-    DynBuf send_buf;
+    TBuf req_headers;
+    TBuf send_buf;
     bool sent;
     bool streaming;
     bool body_done;
@@ -82,8 +82,8 @@ static void tjs_httpclient_finalizer(JSRuntime *rt, JSValue val) {
         if (h->decompressor) {
             tjs__decompressor_destroy(h->decompressor, rt);
         }
-        dbuf_free(&h->req_headers);
-        dbuf_free(&h->send_buf);
+        tbuf_free(&h->req_headers);
+        tbuf_free(&h->send_buf);
         js_free_rt(rt, h);
     }
 }
@@ -186,7 +186,7 @@ static void fire_response_headers(TJSHttpClient *h, struct lws *wsi) {
 }
 
 /* Check whether the user already set a given request header (case-insensitive). */
-static bool has_request_header(const DynBuf *headers, const char *name) {
+static bool has_request_header(const TBuf *headers, const char *name) {
     if (headers->size == 0) {
         return false;
     }
@@ -277,7 +277,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                 }
             }
 
-            /* Add custom headers stored in req_headers DynBuf.
+            /* Add custom headers stored in req_headers TBuf.
              * Format: "Name: Value\r\nName2: Value2\r\n" */
             if (h->req_headers.size > 0) {
                 char *headers = (char *) h->req_headers.buf;
@@ -382,19 +382,19 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
 
         case LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ: {
             if (h->decompressor) {
-                DynBuf out;
-                tjs_dbuf_init(h->ctx, &out);
+                TBuf out;
+                tbuf_init(h->ctx, &out);
                 if (tjs__decompressor_decompress(h->decompressor, (const uint8_t *) in, len, &out) < 0) {
-                    dbuf_free(&out);
+                    tbuf_free(&out);
                     /* Decompression failed — deliver raw data. */
                     JSValue arg = JS_NewArrayBufferCopy(h->ctx, (const uint8_t *) in, len);
                     maybe_invoke_callback(h, HC_CALLBACK_DATA, 1, &arg);
                 } else if (out.size > 0) {
                     JSValue arg = JS_NewArrayBufferCopy(h->ctx, out.buf, out.size);
-                    dbuf_free(&out);
+                    tbuf_free(&out);
                     maybe_invoke_callback(h, HC_CALLBACK_DATA, 1, &arg);
                 } else {
-                    dbuf_free(&out);
+                    tbuf_free(&out);
                 }
             } else {
                 JSValue arg = JS_NewArrayBufferCopy(h->ctx, (const uint8_t *) in, len);
@@ -552,8 +552,8 @@ static JSValue tjs_httpclient_constructor(JSContext *ctx, JSValue new_target, in
     h->ctx = ctx;
     h->url = JS_NULL;
     h->this_val = JS_UNDEFINED;
-    tjs_dbuf_init(ctx, &h->req_headers);
-    tjs_dbuf_init(ctx, &h->send_buf);
+    tbuf_init(ctx, &h->req_headers);
+    tbuf_init(ctx, &h->send_buf);
     h->method = NULL;
     h->url_str = NULL;
     h->sent = false;
@@ -644,7 +644,7 @@ static int tjs_httpclient_buffer_data(TJSHttpClient *h, JSValue arg) {
         if (!buf) {
             return -1;
         }
-        int r = dbuf_put(&h->send_buf, (const uint8_t *) buf, size);
+        int r = tbuf_put(&h->send_buf, (const uint8_t *) buf, size);
         JS_FreeCString(ctx, buf);
         if (r) {
             JS_ThrowOutOfMemory(ctx);
@@ -655,7 +655,7 @@ static int tjs_httpclient_buffer_data(TJSHttpClient *h, JSValue arg) {
         if (!buf) {
             return -1;
         }
-        if (dbuf_put(&h->send_buf, buf, size)) {
+        if (tbuf_put(&h->send_buf, buf, size)) {
             JS_ThrowOutOfMemory(ctx);
             return -1;
         }
@@ -685,7 +685,7 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
 
     bool use_ssl = !strcmp(prot_str, "https");
 
-    char full_path[JS__PATH_MAX];
+    char full_path[TJS_PATH_MAX];
     snprintf(full_path, sizeof(full_path), "/%s", path_str);
 
     struct lws_context *lws_ctx = tjs__lws_get_context(ctx);
@@ -794,9 +794,9 @@ static JSValue tjs_httpclient_setrequestheader(JSContext *ctx, JSValue this_val,
     }
 
     if (h_value) {
-        dbuf_printf(&h->req_headers, "%s: %s\r\n", h_name, h_value);
+        tbuf_printf(&h->req_headers, "%s: %s\r\n", h_name, h_value);
     } else {
-        dbuf_printf(&h->req_headers, "%s: \r\n", h_name);
+        tbuf_printf(&h->req_headers, "%s: \r\n", h_name);
     }
 
     JS_FreeCString(ctx, h_name);

@@ -53,7 +53,7 @@ typedef struct TJSHttpRequest {
 
     /* Request data accumulated during callbacks. */
     JSValue headers_arr; /* flat JS array: [name, value, name, value, ...] */
-    DynBuf body_buf;
+    TBuf body_buf;
     int method;
     char url[2048];
     char remote_addr[64];
@@ -88,7 +88,7 @@ typedef struct TJSWsConnection {
     JSValue data;     /* ws.data (user-provided per-connection state) */
     struct lws *wsi;
     UT_hash_handle hh; /* for pending_upgrades hash table (keyed by wsi) */
-    DynBuf recv_buf;
+    TBuf recv_buf;
     bool recv_is_binary;
     struct list_head pending_writes;
     uint16_t close_code;
@@ -135,7 +135,7 @@ static void tjs_http_req_free(JSRuntime *rt, TJSHttpRequest *req) {
         return;
     }
     JS_FreeValueRT(rt, req->headers_arr);
-    dbuf_free(&req->body_buf);
+    tbuf_free(&req->body_buf);
     js_free_rt(rt, req->response_data);
 
     /* Free any pending streaming writes. */
@@ -163,7 +163,7 @@ static void tjs_wsconn_finalizer(JSRuntime *rt, JSValue val) {
             js_free_rt(rt, pw);
         }
 
-        dbuf_free(&ws->recv_buf);
+        tbuf_free(&ws->recv_buf);
         js_free_rt(rt, ws);
     }
 }
@@ -416,7 +416,7 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 ws->recv_is_binary = is_binary;
             }
 
-            dbuf_put(&ws->recv_buf, in, len);
+            tbuf_put(&ws->recv_buf, in, len);
 
             if (is_final && lws_remaining_packet_payload(wsi) == 0) {
                 JSValue args[2];
@@ -609,7 +609,7 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             init_list_head(&req->pending_writes);
             req->wsi = wsi;
             req->id = s->next_req_id++;
-            tjs_dbuf_init(s->ctx, &req->body_buf);
+            tbuf_init(s->ctx, &req->body_buf);
 
             /* Detect method and URI. */
             char *uri_ptr = NULL;
@@ -654,7 +654,7 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             }
 
             /* Accumulate body chunks. */
-            dbuf_put(&req->body_buf, in, len);
+            tbuf_put(&req->body_buf, in, len);
             return 0;
         }
 
@@ -819,14 +819,14 @@ static JSValue tjs_httpserver_accept_upgrade(JSContext *ctx, JSValue this_val, i
     ws->this_val = JS_UNDEFINED;
     ws->wsi = uctx->wsi;
     ws->data = JS_DupValue(ctx, argv[1]);
-    tjs_dbuf_init(ctx, &ws->recv_buf);
+    tbuf_init(ctx, &ws->recv_buf);
     init_list_head(&ws->pending_writes);
 
     /* Create JS object. */
     JSValue ws_obj = JS_NewObjectClass(ctx, tjs_wsconn_class_id);
     if (JS_IsException(ws_obj)) {
         JS_FreeValue(ctx, ws->data);
-        dbuf_free(&ws->recv_buf);
+        tbuf_free(&ws->recv_buf);
         js_free(ctx, ws);
         return JS_EXCEPTION;
     }

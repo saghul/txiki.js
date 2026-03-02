@@ -550,7 +550,7 @@ uv_loop_t *TJS_GetLoop(TJSRuntime *qrt) {
     return &qrt->loop;
 }
 
-int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
+int tjs__load_file(JSContext *ctx, TBuf *dbuf, const char *filename) {
     uv_fs_t req;
     uv_file fd;
     int r;
@@ -573,7 +573,7 @@ int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename) {
             break;
         }
         offset += r;
-        r = dbuf_put(dbuf, (const uint8_t *) b.base, r);
+        r = tbuf_put(dbuf, (const uint8_t *) b.base, r);
         if (r != 0) {
             break;
         }
@@ -611,15 +611,15 @@ JSValue TJS_EvalModuleContent(JSContext *ctx,
 }
 
 JSValue TJS_EvalScript(JSContext *ctx, const char *filename) {
-    DynBuf dbuf;
+    TBuf dbuf;
     size_t dbuf_size;
     int r;
     JSValue ret;
 
-    tjs_dbuf_init(ctx, &dbuf);
+    tbuf_init(ctx, &dbuf);
     r = tjs__load_file(ctx, &dbuf, filename);
     if (r != 0) {
-        dbuf_free(&dbuf);
+        tbuf_free(&dbuf);
         JS_ThrowReferenceError(ctx, "could not load '%s' - %s: %s", filename, uv_err_name(r), uv_strerror(r));
         return JS_EXCEPTION;
     }
@@ -627,24 +627,24 @@ JSValue TJS_EvalScript(JSContext *ctx, const char *filename) {
     dbuf_size = dbuf.size;
 
     /* Add null termination, required by JS_Eval. */
-    dbuf_putc(&dbuf, '\0');
+    tbuf_putc(&dbuf, '\0');
 
     ret = JS_Eval(ctx, (char *) dbuf.buf, dbuf_size - 1, filename, JS_EVAL_TYPE_GLOBAL);
 
-    dbuf_free(&dbuf);
+    tbuf_free(&dbuf);
     return ret;
 }
 
 JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
-    DynBuf dbuf;
+    TBuf dbuf;
     size_t dbuf_size;
     int r;
     JSValue ret;
 
-    tjs_dbuf_init(ctx, &dbuf);
+    tbuf_init(ctx, &dbuf);
     r = tjs__load_file(ctx, &dbuf, filename);
     if (r != 0) {
-        dbuf_free(&dbuf);
+        tbuf_free(&dbuf);
         JS_ThrowReferenceError(ctx, "could not load '%s' - %s: %s", filename, uv_err_name(r), uv_strerror(r));
         return JS_EXCEPTION;
     }
@@ -652,10 +652,10 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     dbuf_size = dbuf.size;
 
     /* Add null termination, required by JS_Eval. */
-    dbuf_putc(&dbuf, '\0');
+    tbuf_putc(&dbuf, '\0');
 
     ret = TJS_EvalModuleContent(ctx, filename, is_main, true, (char *) dbuf.buf, dbuf_size - 1);
 
-    dbuf_free(&dbuf);
+    tbuf_free(&dbuf);
     return ret;
 }

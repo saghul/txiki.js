@@ -1,7 +1,9 @@
 /*
  * txiki.js
  *
- * Copyright (c) 2024-present Saúl Ibarra Corretgé <s@saghul.net>
+ * Copyright (c) 2017 Fabrice Bellard
+ * Copyright (c) 2018 Charlie Gordon
+ * Copyright (c) 2026-present Saúl Ibarra Corretgé <s@saghul.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,54 +24,38 @@
  * THE SOFTWARE.
  */
 
-#include "mem.h"
+#ifndef TJS_TBUF_H
+#define TJS_TBUF_H
 
+#include "utils.h"
+
+#include <quickjs.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 
-#ifdef TJS__HAS_MIMALLOC
-#include <mimalloc.h>
-#endif
+typedef struct TBuf {
+    JSRuntime *rt;
+    uint8_t *buf;
+    size_t size;
+    size_t allocated_size;
+    bool error;
+} TBuf;
 
-size_t tjs__malloc_usable_size(const void *ptr) {
-#if defined(TJS__HAS_MIMALLOC)
-    return mi_malloc_usable_size(ptr);
-#else
-    return js__malloc_usable_size(ptr);
-#endif
+void tbuf_init(JSContext *ctx, TBuf *s);
+int tbuf_claim(TBuf *s, size_t len);
+int tbuf_put(TBuf *s, const void *data, size_t len);
+int tbuf_putc(TBuf *s, uint8_t c);
+int tbuf_putstr(TBuf *s, const char *str);
+int TJS_PRINTF_FORMAT_ATTR(2, 3) tbuf_printf(TBuf *s, TJS_PRINTF_FORMAT const char *fmt, ...);
+void tbuf_free(TBuf *s);
+
+static inline bool tbuf_error(TBuf *s) {
+    return s->error;
 }
 
-void *tjs__malloc(size_t size) {
-#ifdef TJS__HAS_MIMALLOC
-    return mi_malloc(size);
-#else
-    return malloc(size);
-#endif
+static inline void tbuf_set_error(TBuf *s) {
+    s->error = true;
 }
 
-void *tjs__mallocz(size_t size) {
-    return tjs__calloc(1, size);
-}
-
-void *tjs__calloc(size_t count, size_t size) {
-#ifdef TJS__HAS_MIMALLOC
-    return mi_calloc(count, size);
-#else
-    return calloc(count, size);
 #endif
-}
-
-void tjs__free(void *ptr) {
-#ifdef TJS__HAS_MIMALLOC
-    mi_free(ptr);
-#else
-    free(ptr);
-#endif
-}
-
-void *tjs__realloc(void *ptr, size_t size) {
-#ifdef TJS__HAS_MIMALLOC
-    return mi_realloc(ptr, size);
-#else
-    return realloc(ptr, size);
-#endif
-}

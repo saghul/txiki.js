@@ -25,15 +25,50 @@
 #ifndef TJS_UTILS_H
 #define TJS_UTILS_H
 
-#include "../deps/quickjs/cutils.h"
-
+#include <limits.h>
 #include <quickjs.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include <uv.h>
 
+/* Borrowed from Folly */
+#ifndef TJS_PRINTF_FORMAT
+#ifdef _MSC_VER
+#include <sal.h>
+#define TJS_PRINTF_FORMAT _Printf_format_string_
+#define TJS_PRINTF_FORMAT_ATTR(format_param, dots_param)
+#else
+#define TJS_PRINTF_FORMAT
+#if !defined(__clang__) && defined(__GNUC__)
+#define TJS_PRINTF_FORMAT_ATTR(format_param, dots_param) __attribute__((format(gnu_printf, format_param, dots_param)))
+#else
+#define TJS_PRINTF_FORMAT_ATTR(format_param, dots_param) __attribute__((format(printf, format_param, dots_param)))
+#endif
+#endif
+#endif
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+
+#ifndef countof
+#define countof(x) (sizeof(x) / sizeof((x)[0]))
+#endif
+
+#ifndef container_of
+#define container_of(ptr, type, member) ((type *) ((uint8_t *) (ptr) - offsetof(type, member)))
+#endif
+
+#if defined(PATH_MAX)
+#define TJS_PATH_MAX PATH_MAX
+#elif defined(_WIN32)
+#define TJS_PATH_MAX 32767
+#else
+#define TJS_PATH_MAX 8192
+#endif
+
+void tjs__pstrcpy(char *buf, int buf_size, const char *str);
+char *tjs__pstrcat(char *buf, int buf_size, const char *s);
 
 struct AssertionInfo {
     const char *file_line;  // filename:line
@@ -139,5 +174,3 @@ int tjs_getsignum(const char *sig_str);
     }
 
 #endif
-
-void tjs_dbuf_init(JSContext *ctx, DynBuf *s);

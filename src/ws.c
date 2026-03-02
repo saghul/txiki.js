@@ -43,7 +43,7 @@ typedef struct {
     JSValue callbacks[WS_CALLBACK_MAX];
     JSValue this_val;
     struct lws *wsi;
-    DynBuf recv_buf;
+    TBuf recv_buf;
     bool recv_is_binary;
     struct list_head pending_writes;
     char protocol[256];
@@ -68,7 +68,7 @@ static void tjs_ws_finalizer(JSRuntime *rt, JSValue val) {
             js_free_rt(rt, pw->data);
             js_free_rt(rt, pw);
         }
-        dbuf_free(&w->recv_buf);
+        tbuf_free(&w->recv_buf);
         js_free_rt(rt, w);
     }
 }
@@ -149,7 +149,7 @@ static int tjs_lws_callback(struct lws *wsi, enum lws_callback_reasons reason, v
                 w->recv_is_binary = is_binary;
             }
 
-            dbuf_put(&w->recv_buf, in, len);
+            tbuf_put(&w->recv_buf, in, len);
 
             if (is_final && lws_remaining_packet_payload(wsi) == 0) {
                 /* Complete message received. */
@@ -296,7 +296,7 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
         w->callbacks[i] = JS_UNDEFINED;
     }
     w->this_val = JS_UNDEFINED;
-    tjs_dbuf_init(ctx, &w->recv_buf);
+    tbuf_init(ctx, &w->recv_buf);
     init_list_head(&w->pending_writes);
 
     const char *url = JS_ToCString(ctx, argv[0]);
