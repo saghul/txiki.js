@@ -124,7 +124,7 @@ typedef struct {
 
 typedef struct {
     uv_work_t req;
-    DynBuf dbuf;
+    TBuf dbuf;
     JSContext *ctx;
     int r;
     char *filename;
@@ -1283,15 +1283,15 @@ static void tjs__readfile_after_work_cb(uv_work_t *req, int status) {
     if (status != 0) {
         arg = tjs_new_error(ctx, status);
         is_reject = true;
-        dbuf_free(&fr->dbuf);
+        tbuf_free(&fr->dbuf);
     } else if (fr->r < 0) {
         arg = tjs_new_error(ctx, fr->r);
         is_reject = true;
-        dbuf_free(&fr->dbuf);
+        tbuf_free(&fr->dbuf);
     } else {
         arg = TJS_NewUint8Array(ctx, fr->dbuf.buf, fr->dbuf.size);
         if (JS_IsException(arg)) {
-            dbuf_free(&fr->dbuf);
+            tbuf_free(&fr->dbuf);
         }
     }
 
@@ -1314,7 +1314,7 @@ static JSValue tjs_fs_readfile(JSContext *ctx, JSValue this_val, int argc, JSVal
     }
 
     fr->ctx = ctx;
-    tjs_dbuf_init(ctx, &fr->dbuf);
+    tbuf_init(ctx, &fr->dbuf);
     fr->r = -1;
     fr->filename = js_strdup(ctx, path);
     fr->req.data = fr;

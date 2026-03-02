@@ -39,7 +39,7 @@ extern const struct lws_protocols tjs_http_protocol;
 #define TJS_LWS_HTTP_LOAD_PROTOCOL_NAME "tjs-http-load"
 
 typedef struct {
-    DynBuf *dbuf;
+    TBuf *dbuf;
     int status;
     bool done;
     char redirect_url[2048];
@@ -73,7 +73,7 @@ static int tjs_lws_http_load_callback(struct lws *wsi,
         }
 
         case LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ:
-            if (dbuf_put(ctx->dbuf, (const uint8_t *) in, len)) {
+            if (tbuf_put(ctx->dbuf, (const uint8_t *) in, len)) {
                 return -1;
             }
             break;
@@ -241,7 +241,7 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
     bool use_ssl = !strcmp(prot_str, "https");
 
     /* lws_parse_uri strips the leading '/' from path, restore it. */
-    char full_path[JS__PATH_MAX];
+    char full_path[TJS_PATH_MAX];
     snprintf(full_path, sizeof(full_path), "/%s", path);
 
     /* Resolve DNS synchronously.  The lws async DNS resolver is
@@ -332,7 +332,7 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
 
 #define TJS__MAX_REDIRECTS 20
 
-int tjs__lws_load_http(TJSRuntime *qrt, DynBuf *dbuf, const char *url) {
+int tjs__lws_load_http(TJSRuntime *qrt, TBuf *dbuf, const char *url) {
     TJSHttpLoadCtx load_ctx = {
         .dbuf = dbuf,
     };

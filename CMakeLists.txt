@@ -61,6 +61,7 @@ add_library(tjs STATIC
     src/eval.c
     src/mem.c
     src/modules.c
+    src/tbuf.c
     src/signals.c
     src/text-coding.c
     src/timers.c

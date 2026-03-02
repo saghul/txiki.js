@@ -244,12 +244,12 @@ static JSValue tjs_compressor_process(JSContext *ctx, JSValue this_val, int argc
         c->total_in += in_size;
     }
 
-    DynBuf out;
-    tjs_dbuf_init(ctx, &out);
+    TBuf out;
+    tbuf_init(ctx, &out);
 
     /* Write gzip header on first call. */
     if (c->format == FORMAT_GZIP && !c->header_written) {
-        dbuf_put(&out, gzip_header, sizeof(gzip_header));
+        tbuf_put(&out, gzip_header, sizeof(gzip_header));
         c->header_written = true;
     }
 
@@ -263,12 +263,12 @@ static JSValue tjs_compressor_process(JSContext *ctx, JSValue this_val, int argc
         c->stream.avail_out = sizeof(tmp);
         int ret = mz_deflate(&c->stream, flush);
         if (ret != MZ_OK && ret != MZ_STREAM_END && ret != MZ_BUF_ERROR) {
-            dbuf_free(&out);
+            tbuf_free(&out);
             return JS_ThrowInternalError(ctx, "compression error: %d", ret);
         }
         size_t produced = sizeof(tmp) - c->stream.avail_out;
         if (produced > 0) {
-            dbuf_put(&out, tmp, produced);
+            tbuf_put(&out, tmp, produced);
         }
         if (ret == MZ_STREAM_END) {
             break;
@@ -289,17 +289,17 @@ static JSValue tjs_compressor_process(JSContext *ctx, JSValue this_val, int argc
         trailer[5] = (uint8_t) ((isize >> 8) & 0xff);
         trailer[6] = (uint8_t) ((isize >> 16) & 0xff);
         trailer[7] = (uint8_t) ((isize >> 24) & 0xff);
-        dbuf_put(&out, trailer, sizeof(trailer));
+        tbuf_put(&out, trailer, sizeof(trailer));
     }
 
     if (out.size == 0) {
-        dbuf_free(&out);
+        tbuf_free(&out);
         return JS_NewUint8ArrayCopy(ctx, NULL, 0);
     }
 
     JSValue result = TJS_NewUint8Array(ctx, out.buf, out.size);
     if (JS_IsException(result)) {
-        dbuf_free(&out);
+        tbuf_free(&out);
     }
     return result;
 }
@@ -323,8 +323,8 @@ struct TJSDecompressor {
     int format;
     bool initialized;
     int gzip_state;
-    DynBuf header_buf;
-    DynBuf trailer_buf;
+    TBuf header_buf;
+    TBuf trailer_buf;
     mz_ulong crc32;
     mz_ulong total_out;
 };
@@ -371,7 +371,7 @@ static JSValue tjs_decompressor_constructor(JSContext *ctx, JSValue new_target, 
     return obj;
 }
 
-static int tjs_decompressor_inflate(TJSDecompressor *d, const uint8_t *in_data, size_t in_size, DynBuf *out) {
+static int tjs_decompressor_inflate(TJSDecompressor *d, const uint8_t *in_data, size_t in_size, TBuf *out) {
     d->stream.next_in = in_data;
     d->stream.avail_in = (mz_uint32) in_size;
 
@@ -390,13 +390,13 @@ static int tjs_decompressor_inflate(TJSDecompressor *d, const uint8_t *in_data, 
                 d->crc32 = mz_crc32(d->crc32, tmp, produced);
                 d->total_out += produced;
             }
-            dbuf_put(out, tmp, produced);
+            tbuf_put(out, tmp, produced);
         }
         if (ret == MZ_STREAM_END) {
             if (d->format == FORMAT_GZIP) {
                 /* Collect any remaining input as trailer data. */
                 if (d->stream.avail_in > 0) {
-                    dbuf_put(&d->trailer_buf, d->stream.next_in, d->stream.avail_in);
+                    tbuf_put(&d->trailer_buf, d->stream.next_in, d->stream.avail_in);
                     d->stream.avail_in = 0;
                 }
                 d->gzip_state = GZIP_STATE_TRAILER;
@@ -432,8 +432,8 @@ TJSDecompressor *tjs__decompressor_create(JSContext *ctx, const char *format) {
 
     if (fmt == FORMAT_GZIP) {
         d->gzip_state = GZIP_STATE_HEADER;
-        tjs_dbuf_init(ctx, &d->header_buf);
-        tjs_dbuf_init(ctx, &d->trailer_buf);
+        tbuf_init(ctx, &d->header_buf);
+        tbuf_init(ctx, &d->trailer_buf);
     } else {
         int window_bits;
         switch (fmt) {
@@ -457,14 +457,14 @@ TJSDecompressor *tjs__decompressor_create(JSContext *ctx, const char *format) {
     return d;
 }
 
-int tjs__decompressor_decompress(TJSDecompressor *d, const uint8_t *in, size_t in_len, DynBuf *out) {
+int tjs__decompressor_decompress(TJSDecompressor *d, const uint8_t *in, size_t in_len, TBuf *out) {
     if (d->format == FORMAT_GZIP) {
         const uint8_t *p = in;
         size_t remaining = in_len;
 
         /* Parse gzip header. */
         if (d->gzip_state == GZIP_STATE_HEADER) {
-            dbuf_put(&d->header_buf, p, remaining);
+            tbuf_put(&d->header_buf, p, remaining);
             p += remaining;
             remaining = 0;
 
@@ -531,8 +531,8 @@ void tjs__decompressor_destroy(TJSDecompressor *d, JSRuntime *rt) {
     if (d->initialized) {
         mz_inflateEnd(&d->stream);
     }
-    dbuf_free(&d->header_buf);
-    dbuf_free(&d->trailer_buf);
+    tbuf_free(&d->header_buf);
+    tbuf_free(&d->trailer_buf);
     js_free_rt(rt, d);
 }
 
@@ -552,22 +552,22 @@ static JSValue tjs_decompressor_process(JSContext *ctx, JSValue this_val, int ar
         }
     }
 
-    DynBuf out;
-    tjs_dbuf_init(ctx, &out);
+    TBuf out;
+    tbuf_init(ctx, &out);
 
     if (tjs__decompressor_decompress(d, in_data, in_size, &out) < 0) {
-        dbuf_free(&out);
+        tbuf_free(&out);
         return JS_ThrowInternalError(ctx, "decompression error");
     }
 
     if (out.size == 0) {
-        dbuf_free(&out);
+        tbuf_free(&out);
         return JS_NewUint8ArrayCopy(ctx, NULL, 0);
     }
 
     JSValue result = TJS_NewUint8Array(ctx, out.buf, out.size);
     if (JS_IsException(result)) {
-        dbuf_free(&out);
+        tbuf_free(&out);
     }
     return result;
 }

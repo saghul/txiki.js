@@ -29,6 +29,12 @@
 #include <string.h>
 
 
+static int has_suffix(const char *str, const char *suffix) {
+    size_t len = strlen(str);
+    size_t slen = strlen(suffix);
+    return (len >= slen && !memcmp(str + len - slen, suffix, slen));
+}
+
 static int json_module_init(JSContext *ctx, JSModuleDef *m) {
     JSValue val;
     val = JS_GetModulePrivateValue(ctx, m);
@@ -121,7 +127,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     JSModuleDef *m = NULL;
     int r;
     bool is_json, use_realpath;
-    DynBuf dbuf;
+    TBuf dbuf;
 
     if (strncmp(tjs_prefix, module_name, strlen(tjs_prefix)) == 0) {
         return tjs__load_builtin(ctx, module_name);
@@ -131,9 +137,9 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     if (r < 0) {
         return NULL;
     }
-    is_json = js__has_suffix(module_name, ".json") || r > 0;
+    is_json = has_suffix(module_name, ".json") || r > 0;
 
-    tjs_dbuf_init(ctx, &dbuf);
+    tbuf_init(ctx, &dbuf);
 
     if (strncmp(http, module_name, strlen(http)) == 0 || strncmp(https, module_name, strlen(https)) == 0) {
         TJSRuntime *qrt = TJS_GetRuntime(ctx);
@@ -160,7 +166,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     }
 
     /* Add null termination, required by JS_Eval / JS_ParseJSON. */
-    dbuf_putc(&dbuf, '\0');
+    tbuf_putc(&dbuf, '\0');
 
     /* Now load the module for real. */
     if (is_json) {
@@ -192,7 +198,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     }
 
 end:
-    dbuf_free(&dbuf);
+    tbuf_free(&dbuf);
 
     return m;
 }
@@ -208,13 +214,13 @@ end:
 
 int js_module_set_import_meta(JSContext *ctx, JSValue func_val, bool use_realpath, bool is_main) {
     JSModuleDef *m;
-    char buf[JS__PATH_MAX + 16] = { 0 };
+    char buf[TJS_PATH_MAX + 16] = { 0 };
     int r;
     JSValue meta_obj;
     JSAtom module_name_atom;
     const char *module_name;
-    char module_dirname[JS__PATH_MAX] = { 0 };
-    char module_basename[JS__PATH_MAX] = { 0 };
+    char module_dirname[TJS_PATH_MAX] = { 0 };
+    char module_basename[TJS_PATH_MAX] = { 0 };
 
     CHECK_EQ(JS_VALUE_GET_TAG(func_val), JS_TAG_MODULE);
     m = JS_VALUE_GET_PTR(func_val);
@@ -241,8 +247,8 @@ int js_module_set_import_meta(JSContext *ctx, JSValue func_val, bool use_realpat
             JS_FreeCString(ctx, module_name);
             return -1;
         }
-        js__pstrcpy(buf, sizeof(buf), "file://");
-        js__pstrcat(buf, sizeof(buf), req.ptr);
+        tjs__pstrcpy(buf, sizeof(buf), "file://");
+        tjs__pstrcat(buf, sizeof(buf), req.ptr);
         uv_fs_req_cleanup(&req);
 
         // When using realpath we have the opportunity to extract the dirname
@@ -253,7 +259,7 @@ int js_module_set_import_meta(JSContext *ctx, JSValue func_val, bool use_realpat
         strncpy(module_dirname, start, p - start);
         strcpy(module_basename, p + 1);
     } else {
-        js__pstrcat(buf, sizeof(buf), module_name);
+        tjs__pstrcat(buf, sizeof(buf), module_name);
     }
 
     JS_FreeCString(ctx, module_name);
@@ -313,7 +319,8 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
         len = 0;
     }
 
-    filename = js_malloc(ctx, len + strlen(name) + 1 + 1);
+    int filename_size = len + strlen(name) + 1 + 1;
+    filename = js_malloc(ctx, filename_size);
     if (!filename) {
         return NULL;
     }
@@ -350,9 +357,9 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
         }
     }
     if (filename[0] != '\0') {
-        strcat(filename, TJS__PATHSEP_STR);
+        tjs__pstrcat(filename, filename_size, TJS__PATHSEP_STR);
     }
-    strcat(filename, r);
+    tjs__pstrcat(filename, filename_size, r);
 
     /* Re-normalize the path. The name part will have posix style paths, so
      * normalize it to the platform native separator.

@@ -25,9 +25,8 @@
 #ifndef TJS_PRIVATE_H
 #define TJS_PRIVATE_H
 
-#include "../deps/quickjs/cutils.h"
+#include "tbuf.h"
 #include "tjs.h"
-#include "utils.h"
 
 #include <libwebsockets.h>
 #include <quickjs.h>
@@ -98,7 +97,7 @@ void tjs__mod_httpclient_init(JSContext *ctx, JSValue ns);
 void tjs__mod_miniz_init(JSContext *ctx, JSValue ns);
 typedef struct TJSDecompressor TJSDecompressor;
 TJSDecompressor *tjs__decompressor_create(JSContext *ctx, const char *format);
-int tjs__decompressor_decompress(TJSDecompressor *d, const uint8_t *in, size_t in_len, DynBuf *out);
+int tjs__decompressor_decompress(TJSDecompressor *d, const uint8_t *in, size_t in_len, TBuf *out);
 void tjs__decompressor_destroy(TJSDecompressor *d, JSRuntime *rt);
 void tjs__mod_os_init(JSContext *ctx, JSValue ns);
 void tjs__mod_process_init(JSContext *ctx, JSValue ns);
@@ -126,7 +125,7 @@ uv_stream_t *tjs_pipe_get_stream(JSContext *ctx, JSValue obj);
 
 void tjs__execute_jobs(JSContext *ctx);
 JSModuleDef *tjs__load_builtin(JSContext *ctx, const char *name);
-int tjs__load_file(JSContext *ctx, DynBuf *dbuf, const char *filename);
+int tjs__load_file(JSContext *ctx, TBuf *dbuf, const char *filename);
 int tjs_module_attr_checker(JSContext *ctx, void *opaque, JSValueConst attributes);
 JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *opaque, JSValueConst attributes);
 char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque);
@@ -146,7 +145,7 @@ struct lws_context *tjs__lws_get_context(JSContext *ctx);
 void tjs__lws_init(TJSRuntime *qrt);
 void tjs__lws_conn_ref(JSContext *ctx);
 void tjs__lws_conn_unref(JSContext *ctx);
-int tjs__lws_load_http(TJSRuntime *qrt, DynBuf *dbuf, const char *url);
+int tjs__lws_load_http(TJSRuntime *qrt, TBuf *dbuf, const char *url);
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);
