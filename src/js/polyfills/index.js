@@ -21,7 +21,7 @@ import './xhr.js';
 import './fetch/polyfill.js';
 
 import './console.js';
-import './crypto.js';
+import './crypto/crypto.js';
 import './performance.js';
 import './storage.js';
 import './wasm.js';
