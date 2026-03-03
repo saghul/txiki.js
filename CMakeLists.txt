@@ -84,6 +84,7 @@ add_library(tjs STATIC
     src/mod_sqlite3.c
     src/mod_miniz.c
     src/mod_streams.c
+    src/webcrypto.c
     src/mod_sys.c
     src/mod_udp.c
     src/url.c
