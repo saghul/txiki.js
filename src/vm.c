@@ -225,21 +225,37 @@ static void tjs__promise_rejection_tracker(JSContext *ctx,
         JS_FreeValue(ctx, event);
         JS_FreeValue(ctx, event_name);
 
+        bool should_abort = false;
+
         if (JS_IsException(ret)) {
             tjs_dump_error(ctx);
-            goto fail;
+            should_abort = true;
         } else {
             if (JS_ToBool(ctx, ret)) {
-            // The event wasn't cancelled, maybe abort.
-            fail:;
-                TJSRuntime *qrt = TJS_GetRuntime(ctx);
-                CHECK_NOT_NULL(qrt);
-                JS_Throw(qrt->ctx, JS_DupValue(qrt->ctx, reason));
-                TJS_Stop(qrt);
+                // The event wasn't cancelled, maybe abort.
+                should_abort = true;
             }
         }
 
         JS_FreeValue(ctx, ret);
+
+        if (should_abort) {
+            /* Defer the throw/stop: calling JS_Throw from within promise
+             * machinery (fulfill_or_reject_promise) sets current_exception
+             * on the runtime while promise reactions are still being
+             * enqueued, corrupting subsequent job processing. Instead,
+             * record the rejection and handle it after all pending jobs
+             * have been processed. */
+            qrt->unhandled_rejection.count++;
+            JS_FreeValue(ctx, qrt->unhandled_rejection.reason);
+            qrt->unhandled_rejection.reason = JS_DupValue(ctx, reason);
+        }
+    } else {
+        /* The rejection is now handled (e.g. via await in try/catch).
+         * Cancel any pending deferred abort. */
+        if (qrt->unhandled_rejection.count > 0) {
+            qrt->unhandled_rejection.count--;
+        }
     }
 }
 
@@ -370,6 +386,10 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     qrt->timers.timers = NULL;
     qrt->timers.next_timer = 1;
 
+    /* Unhandled rejection tracking */
+    qrt->unhandled_rejection.count = 0;
+    qrt->unhandled_rejection.reason = JS_UNDEFINED;
+
     return qrt;
 }
 
@@ -403,6 +423,8 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     qrt->builtins.dispatch_event_func = JS_UNDEFINED;
     JS_FreeValue(qrt->ctx, qrt->builtins.promise_event_ctor);
     qrt->builtins.promise_event_ctor = JS_UNDEFINED;
+    JS_FreeValue(qrt->ctx, qrt->unhandled_rejection.reason);
+    qrt->unhandled_rejection.reason = JS_UNDEFINED;
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
 
@@ -495,6 +517,19 @@ void tjs__execute_jobs(JSContext *ctx) {
 
             break;
         }
+    }
+
+    /* Check for deferred unhandled promise rejections.
+     * The rejection tracker defers JS_Throw to avoid corrupting
+     * promise machinery internals. If any rejections are still
+     * unhandled after all jobs have been processed, throw now. */
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+    if (qrt->unhandled_rejection.count > 0) {
+        JS_Throw(ctx, qrt->unhandled_rejection.reason);
+        qrt->unhandled_rejection.reason = JS_UNDEFINED;
+        qrt->unhandled_rejection.count = 0;
+        TJS_Stop(qrt);
     }
 }
 
