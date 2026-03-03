@@ -78,6 +78,7 @@ add_library(tjs STATIC
     src/mod_ffi.c
     src/mod_fs.c
     src/mod_fswatch.c
+    src/mod_hashing.c
     src/mod_os.c
     src/mod_process.c
     src/mod_sqlite3.c
