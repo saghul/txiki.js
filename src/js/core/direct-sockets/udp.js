@@ -78,6 +78,9 @@ export class UDPSocket {
         const { promise: closedPromise, resolve: closedResolve, reject: closedReject } = Promise.withResolvers();
 
         this[kClosed] = closedPromise;
+        // Prevent unhandled rejection if the socket fails to open and
+        // nobody observes the closed promise.
+        closedPromise.catch(() => {});
         this._closedResolve = closedResolve;
         this._closedReject = closedReject;
 
