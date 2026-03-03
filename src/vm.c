@@ -283,7 +283,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_NOT_NULL(rt);
     qrt->rt = rt;
 
-#ifdef DEBUG
+#ifndef NDEBUG
     JS_SetDumpFlags(rt, JS_DUMP_LEAKS);
 #endif
 
@@ -421,7 +421,7 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         }
         uv_run(&qrt->loop, UV_RUN_NOWAIT);
     }
-#ifdef DEBUG
+#ifndef NDEBUG
     if (!closed) {
         uv_print_all_handles(&qrt->loop, stderr);
     }
