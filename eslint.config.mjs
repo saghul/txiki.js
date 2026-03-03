@@ -6,6 +6,7 @@ import globals from 'globals';
 export default [
     {
         ignores: [
+            'benchmark/**',
             'build/**',
             'deps/**',
             'docs/**',

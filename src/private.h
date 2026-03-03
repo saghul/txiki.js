@@ -93,6 +93,7 @@ void tjs__mod_error_init(JSContext *ctx, JSValue ns);
 void tjs__mod_ffi_init(JSContext *ctx, JSValue ns);
 void tjs__mod_fs_init(JSContext *ctx, JSValue ns);
 void tjs__mod_fswatch_init(JSContext *ctx, JSValue ns);
+void tjs__mod_hashing_init(JSContext *ctx, JSValue ns);
 void tjs__mod_httpclient_init(JSContext *ctx, JSValue ns);
 void tjs__mod_miniz_init(JSContext *ctx, JSValue ns);
 typedef struct TJSDecompressor TJSDecompressor;

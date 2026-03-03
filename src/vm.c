@@ -159,6 +159,7 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_url_init(ctx, ns);
     tjs__mod_wasm_init(ctx, ns);
     tjs__mod_worker_init(ctx, ns);
+    tjs__mod_hashing_init(ctx, ns);
     tjs__mod_httpclient_init(ctx, ns);
     tjs__mod_miniz_init(ctx, ns);
     tjs__mod_ws_init(ctx, ns);
