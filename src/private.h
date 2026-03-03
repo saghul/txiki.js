@@ -85,6 +85,10 @@ struct TJSRuntime {
         JSValue promise_event_ctor;
         JSValue dispatch_event_func;
     } builtins;
+    struct {
+        int count;
+        JSValue reason;
+    } unhandled_rejection;
 };
 
 void tjs__mod_dns_init(JSContext *ctx, JSValue ns);
