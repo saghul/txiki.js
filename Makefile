@@ -1,5 +1,6 @@
 BUILD_DIR=build
 BUILDTYPE?=Release
+MIMALLOC?=ON
 
 JOBS?=$(shell getconf _NPROCESSORS_ONLN)
 ifeq ($(JOBS),)
@@ -29,7 +30,7 @@ endif
 all: $(TJS)
 
 $(BUILD_DIR)/CMakeCache.txt:
-	cmake -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=$(BUILDTYPE)
+	cmake -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=$(BUILDTYPE) -DBUILD_WITH_MIMALLOC=$(MIMALLOC)
 
 $(TJS): $(BUILD_DIR)/CMakeCache.txt
 	cmake --build $(BUILD_DIR) -j $(JOBS)

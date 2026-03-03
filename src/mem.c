@@ -26,15 +26,28 @@
 
 #include <stdlib.h>
 
-#ifdef TJS__HAS_MIMALLOC
+#if defined(TJS__HAS_MIMALLOC)
 #include <mimalloc.h>
+#elif defined(__APPLE__)
+#include <malloc/malloc.h>
+#else
+#include <malloc.h>
 #endif
 
 size_t tjs__malloc_usable_size(const void *ptr) {
 #if defined(TJS__HAS_MIMALLOC)
     return mi_malloc_usable_size(ptr);
+#elif defined(__APPLE__)
+    return malloc_size(ptr);
+#elif defined(_WIN32)
+    if (!ptr) {
+        return 0;
+    }
+    return _msize((void *) ptr);
+#elif defined(__linux__) || defined(__ANDROID__) || defined(__CYGWIN__) || defined(__FreeBSD__) || defined(__GLIBC__)
+    return malloc_usable_size((void *) ptr);
 #else
-    return js__malloc_usable_size(ptr);
+    return 0;
 #endif
 }
 

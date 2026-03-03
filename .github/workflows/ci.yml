@@ -50,15 +50,17 @@ jobs:
       - name: Check if the git repository is clean
         run: $(exit $(git status --porcelain --untracked-files=no | head -255 | wc -l)) || (echo "Dirty git tree"; git diff; exit 1)
   build-linux:
-    name: Linux
+    name: Linux (${{ matrix.buildType }}, ${{ matrix.compiler }}, mimalloc=${{ matrix.mimalloc }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         buildType: [Debug, Release]
         compiler: [gcc, clang]
+        mimalloc: [ON, OFF]
     env:
       BUILDTYPE: ${{ matrix.buildType }}
+      MIMALLOC: ${{ matrix.mimalloc }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -78,7 +80,7 @@ jobs:
           echo "::set-env name=CXX::clang++"
         fi
     - name: Build it
-      run: make VERBOSE=1
+      run: make VERBOSE=1 
     - name: Download esbuild
       run: ./build/tjs bundle tests/helpers/bundle-input.js /tmp/warm.js && rm -f /tmp/warm.js
     - name: Test it
@@ -86,15 +88,17 @@ jobs:
     - name: Test it (advanced)
       run: make test-advanced
   build-macos:
-    name: macOS
+    name: macOS (${{ matrix.buildType }}, ${{ matrix.os }}, mimalloc=${{ matrix.mimalloc }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         buildType: [Debug, Release]
         os: [macos-15, macos-15-intel]
+        mimalloc: [ON, OFF]
     env:
       BUILDTYPE: ${{ matrix.buildType }}
+      MIMALLOC: ${{ matrix.mimalloc }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -111,15 +115,17 @@ jobs:
     - name: Test it (advanced)
       run: make test-advanced
   build-alpine:
-    name: Alpine Linux
+    name: Alpine Linux (${{ matrix.buildType }}, mimalloc=${{ matrix.mimalloc }})
     runs-on: ubuntu-latest
     container: alpine:edge
     strategy:
       fail-fast: false
       matrix:
         buildType: [Debug, Release]
+        mimalloc: [ON, OFF]
     env:
       BUILDTYPE: ${{ matrix.buildType }}
+      MIMALLOC: ${{ matrix.mimalloc }}
     steps:
     - name: Prepare
       run: apk add git build-base cmake linux-headers libffi-dev --update-cache
@@ -136,12 +142,13 @@ jobs:
     - name: Test it
       run: make test
   build-windows:
-    name: Windows
+    name: Windows (${{ matrix.buildType }}, mimalloc=${{ matrix.mimalloc }})
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
         buildType: [Debug, Release]
+        mimalloc: [ON, OFF]
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
@@ -157,7 +164,7 @@ jobs:
       run: vcpkg install libffi:x64-windows-static
     - name: Configure
       run: |
-        cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static
+        cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static -DBUILD_WITH_MIMALLOC=${{ matrix.mimalloc }}
     - name: Build
       run: cmake --build build --config ${{ matrix.buildType }}
     - name: Download esbuild
