@@ -20,6 +20,10 @@ export const nativeEcKeyToDer = core.webcrypto.ecKeyToDer;
 export const nativeRsaExportJwk = core.webcrypto.rsaExportJwk;
 export const nativeRsaImportJwk = core.webcrypto.rsaImportJwk;
 export const nativeEcGetPublicKey = core.webcrypto.ecGetPublicKey;
+export const nativeEd25519GenerateKey = core.webcrypto.ed25519GenerateKey;
+export const nativeEd25519Sign = core.webcrypto.ed25519Sign;
+export const nativeEd25519Verify = core.webcrypto.ed25519Verify;
+export const nativeEd25519GetPublicKey = core.webcrypto.ed25519GetPublicKey;
 
 export const curveIdToName = {
     [nativeEcGenerateKey.CURVE_P256]: 'P-256',
