@@ -705,8 +705,8 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValue this_val, int argc, JSVal
     }
 
     size_t retsz = ffi_type_get_sz(cif->ffi_cif.rtype);
-    // man page requires at least sizeof(long) for return value
-    void *rptr = js_malloc(ctx, retsz > sizeof(long) ? retsz : sizeof(long));
+    // ffi_call requires the return buffer to be at least sizeof(ffi_arg) bytes.
+    void *rptr = js_malloc(ctx, retsz > sizeof(ffi_arg) ? retsz : sizeof(ffi_arg));
 
     ffi_call(&cif->ffi_cif, func, rptr, aval);
     if (aval != NULL) {
