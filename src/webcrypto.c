@@ -40,6 +40,8 @@
 #include <mbedtls/sha512.h>
 #include <string.h>
 
+#include "ed25519.h"
+
 enum {
     DIGEST_SHA1 = 0,
     DIGEST_SHA256,
@@ -3307,6 +3309,374 @@ static const JSCFunctionListEntry tjs_ec_consts[] = {
 };
 /* clang-format on */
 
+/* Ed25519 key generation (async). */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    uint8_t seed[32];
+    uint8_t privkey[32];
+    uint8_t pubkey[32];
+    int r;
+} TJSEd25519GenerateKeyReq;
+
+static void tjs__ed25519_generate_key_work_cb(uv_work_t *req) {
+    TJSEd25519GenerateKeyReq *er = req->data;
+    uint8_t sk[64];
+
+    crypto_sign_ed25519_seed_keypair(er->pubkey, sk, er->seed);
+    memcpy(er->privkey, er->seed, 32);
+    er->r = 0;
+}
+
+static void tjs__ed25519_generate_key_after_work_cb(uv_work_t *req, int status) {
+    TJSEd25519GenerateKeyReq *er = req->data;
+    CHECK_NOT_NULL(er);
+
+    JSContext *ctx = er->ctx;
+    JSValue args[3];
+
+    if (status != 0 || er->r != 0) {
+        args[0] = JS_NewString(ctx, "Ed25519 key generation failed");
+        args[1] = JS_UNDEFINED;
+        args[2] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, er->privkey, 32);
+        args[2] = JS_NewUint8ArrayCopy(ctx, er->pubkey, 32);
+    }
+
+    tjs_call_handler(ctx, er->callback, 3, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, args[2]);
+    JS_FreeValue(ctx, er->callback);
+    js_free(ctx, er);
+}
+
+static JSValue tjs_webcrypto_ed25519_generate_key(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "expected 1 argument: callback");
+    }
+
+    if (!JS_IsFunction(ctx, argv[0])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSEd25519GenerateKeyReq *er = js_malloc(ctx, sizeof(*er));
+    if (!er) {
+        return JS_EXCEPTION;
+    }
+
+    memset(er, 0, sizeof(*er));
+    er->ctx = ctx;
+    er->callback = JS_DupValue(ctx, argv[0]);
+    er->r = -1;
+
+    /* Generate random seed. */
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_context entropy;
+    int ret = tjs__setup_rng(&ctr_drbg, &entropy);
+    if (ret != 0) {
+        JS_FreeValue(ctx, er->callback);
+        js_free(ctx, er);
+        return JS_ThrowInternalError(ctx, "RNG setup failed");
+    }
+    ret = mbedtls_ctr_drbg_random(&ctr_drbg, er->seed, 32);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    if (ret != 0) {
+        JS_FreeValue(ctx, er->callback);
+        js_free(ctx, er);
+        return JS_ThrowInternalError(ctx, "random generation failed");
+    }
+
+    er->req.data = er;
+
+    int r = uv_queue_work(tjs_get_loop(ctx),
+                          &er->req,
+                          tjs__ed25519_generate_key_work_cb,
+                          tjs__ed25519_generate_key_after_work_cb);
+    if (r != 0) {
+        JS_FreeValue(ctx, er->callback);
+        js_free(ctx, er);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return JS_UNDEFINED;
+}
+
+/* Ed25519 sign (async). */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    uint8_t *privkey;
+    uint8_t *message;
+    size_t message_len;
+    uint8_t signature[64];
+    int r;
+} TJSEd25519SignReq;
+
+static void tjs__ed25519_sign_work_cb(uv_work_t *req) {
+    TJSEd25519SignReq *sr = req->data;
+    uint8_t pk[32], sk[64];
+    unsigned long long smlen;
+
+    /* Build the 64-byte secret key: seed || public_key. */
+    crypto_sign_ed25519_seed_keypair(pk, sk, sr->privkey);
+
+    /* crypto_sign produces combined sig || msg; extract the 64-byte signature. */
+    unsigned char *sm = malloc(64 + sr->message_len);
+    crypto_sign_ed25519(sm, &smlen, sr->message, sr->message_len, sk);
+    memcpy(sr->signature, sm, 64);
+    free(sm);
+    sr->r = 0;
+}
+
+static void tjs__ed25519_sign_after_work_cb(uv_work_t *req, int status) {
+    TJSEd25519SignReq *sr = req->data;
+    CHECK_NOT_NULL(sr);
+
+    JSContext *ctx = sr->ctx;
+    JSValue args[2];
+
+    if (status != 0 || sr->r != 0) {
+        args[0] = JS_NewString(ctx, "Ed25519 sign failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, sr->signature, 64);
+    }
+
+    tjs_call_handler(ctx, sr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, sr->callback);
+    js_free(ctx, sr->privkey);
+    js_free(ctx, sr->message);
+    js_free(ctx, sr);
+}
+
+static JSValue tjs_webcrypto_ed25519_sign(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 3) {
+        return JS_ThrowTypeError(ctx, "expected 3 arguments: privkey, message, callback");
+    }
+
+    size_t privkey_len;
+    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[0]);
+    if (!privkey || privkey_len != 32) {
+        return JS_ThrowTypeError(ctx, "privkey must be 32 bytes");
+    }
+
+    size_t message_len;
+    const uint8_t *message = JS_GetUint8Array(ctx, &message_len, argv[1]);
+    if (!message && message_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    if (!JS_IsFunction(ctx, argv[2])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSEd25519SignReq *sr = js_malloc(ctx, sizeof(*sr));
+    if (!sr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(sr, 0, sizeof(*sr));
+    sr->ctx = ctx;
+    sr->callback = JS_DupValue(ctx, argv[2]);
+    sr->r = -1;
+
+    sr->privkey = js_malloc(ctx, 32);
+    if (!sr->privkey) {
+        goto fail;
+    }
+    memcpy(sr->privkey, privkey, 32);
+
+    if (message_len > 0) {
+        sr->message = js_malloc(ctx, message_len);
+        if (!sr->message) {
+            goto fail;
+        }
+        memcpy(sr->message, message, message_len);
+    }
+    sr->message_len = message_len;
+
+    sr->req.data = sr;
+
+    int r = uv_queue_work(tjs_get_loop(ctx), &sr->req, tjs__ed25519_sign_work_cb, tjs__ed25519_sign_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, sr->callback);
+    js_free(ctx, sr->privkey);
+    js_free(ctx, sr->message);
+    js_free(ctx, sr);
+    return JS_EXCEPTION;
+}
+
+/* Ed25519 verify (async). */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    uint8_t *pubkey;
+    uint8_t *signature;
+    uint8_t *message;
+    size_t message_len;
+    int r;
+} TJSEd25519VerifyReq;
+
+static void tjs__ed25519_verify_work_cb(uv_work_t *req) {
+    TJSEd25519VerifyReq *vr = req->data;
+    unsigned long long tmplen;
+    size_t combined_len = 64 + vr->message_len;
+
+    /* Build combined sig || msg for crypto_sign_open. */
+    unsigned char *sm = malloc(combined_len);
+    unsigned char *tmp = malloc(combined_len);
+    memcpy(sm, vr->signature, 64);
+    memcpy(sm + 64, vr->message, vr->message_len);
+
+    /* r == 0 means valid, -1 means invalid. */
+    vr->r = crypto_sign_ed25519_open(tmp, &tmplen, sm, combined_len, vr->pubkey);
+    free(sm);
+    free(tmp);
+}
+
+static void tjs__ed25519_verify_after_work_cb(uv_work_t *req, int status) {
+    TJSEd25519VerifyReq *vr = req->data;
+    CHECK_NOT_NULL(vr);
+
+    JSContext *ctx = vr->ctx;
+    JSValue args[2];
+
+    if (status != 0) {
+        args[0] = JS_NewString(ctx, "Ed25519 verify failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewBool(ctx, vr->r == 0);
+    }
+
+    tjs_call_handler(ctx, vr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, vr->callback);
+    js_free(ctx, vr->pubkey);
+    js_free(ctx, vr->signature);
+    js_free(ctx, vr->message);
+    js_free(ctx, vr);
+}
+
+static JSValue tjs_webcrypto_ed25519_verify(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 4) {
+        return JS_ThrowTypeError(ctx, "expected 4 arguments: pubkey, signature, message, callback");
+    }
+
+    size_t pubkey_len;
+    const uint8_t *pubkey = JS_GetUint8Array(ctx, &pubkey_len, argv[0]);
+    if (!pubkey || pubkey_len != 32) {
+        return JS_ThrowTypeError(ctx, "pubkey must be 32 bytes");
+    }
+
+    size_t sig_len;
+    const uint8_t *signature = JS_GetUint8Array(ctx, &sig_len, argv[1]);
+    if (!signature || sig_len != 64) {
+        return JS_ThrowTypeError(ctx, "signature must be 64 bytes");
+    }
+
+    size_t message_len;
+    const uint8_t *message = JS_GetUint8Array(ctx, &message_len, argv[2]);
+    if (!message && message_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    if (!JS_IsFunction(ctx, argv[3])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSEd25519VerifyReq *vr = js_malloc(ctx, sizeof(*vr));
+    if (!vr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(vr, 0, sizeof(*vr));
+    vr->ctx = ctx;
+    vr->callback = JS_DupValue(ctx, argv[3]);
+    vr->r = -1;
+
+    vr->pubkey = js_malloc(ctx, 32);
+    if (!vr->pubkey) {
+        goto fail;
+    }
+    memcpy(vr->pubkey, pubkey, 32);
+
+    vr->signature = js_malloc(ctx, 64);
+    if (!vr->signature) {
+        goto fail;
+    }
+    memcpy(vr->signature, signature, 64);
+
+    if (message_len > 0) {
+        vr->message = js_malloc(ctx, message_len);
+        if (!vr->message) {
+            goto fail;
+        }
+        memcpy(vr->message, message, message_len);
+    }
+    vr->message_len = message_len;
+
+    vr->req.data = vr;
+
+    int r =
+        uv_queue_work(tjs_get_loop(ctx), &vr->req, tjs__ed25519_verify_work_cb, tjs__ed25519_verify_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, vr->callback);
+    js_free(ctx, vr->pubkey);
+    js_free(ctx, vr->signature);
+    js_free(ctx, vr->message);
+    js_free(ctx, vr);
+    return JS_EXCEPTION;
+}
+
+/* Ed25519 get public key from private key (sync). */
+
+static JSValue tjs_webcrypto_ed25519_get_public_key(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "expected 1 argument: privkey");
+    }
+
+    size_t privkey_len;
+    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[0]);
+    if (!privkey || privkey_len != 32) {
+        return JS_ThrowTypeError(ctx, "privkey must be 32 bytes");
+    }
+
+    uint8_t pubkey[32], sk_tmp[64];
+    crypto_sign_ed25519_seed_keypair(pubkey, sk_tmp, privkey);
+
+    return JS_NewUint8ArrayCopy(ctx, pubkey, 32);
+}
+
 void tjs__webcrypto_init(JSContext *ctx, JSValue ns) {
     JSValue obj = JS_NewObject(ctx);
     JSValue digest_fn = JS_NewCFunction(ctx, tjs_webcrypto_digest, "digest", 3);
@@ -3369,5 +3739,13 @@ void tjs__webcrypto_init(JSContext *ctx, JSValue ns) {
     JSValue ec_get_pub_fn = JS_NewCFunction(ctx, tjs_webcrypto_ec_get_public_key, "ecGetPublicKey", 2);
     JS_SetPropertyFunctionList(ctx, ec_get_pub_fn, tjs_ec_consts, countof(tjs_ec_consts));
     JS_DefinePropertyValueStr(ctx, obj, "ecGetPublicKey", ec_get_pub_fn, JS_PROP_C_W_E);
+    JSValue ed_gen_fn = JS_NewCFunction(ctx, tjs_webcrypto_ed25519_generate_key, "ed25519GenerateKey", 1);
+    JS_DefinePropertyValueStr(ctx, obj, "ed25519GenerateKey", ed_gen_fn, JS_PROP_C_W_E);
+    JSValue ed_sign_fn = JS_NewCFunction(ctx, tjs_webcrypto_ed25519_sign, "ed25519Sign", 3);
+    JS_DefinePropertyValueStr(ctx, obj, "ed25519Sign", ed_sign_fn, JS_PROP_C_W_E);
+    JSValue ed_verify_fn = JS_NewCFunction(ctx, tjs_webcrypto_ed25519_verify, "ed25519Verify", 4);
+    JS_DefinePropertyValueStr(ctx, obj, "ed25519Verify", ed_verify_fn, JS_PROP_C_W_E);
+    JSValue ed_get_pub_fn = JS_NewCFunction(ctx, tjs_webcrypto_ed25519_get_public_key, "ed25519GetPublicKey", 1);
+    JS_DefinePropertyValueStr(ctx, obj, "ed25519GetPublicKey", ed_get_pub_fn, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "webcrypto", obj, JS_PROP_C_W_E);
 }
