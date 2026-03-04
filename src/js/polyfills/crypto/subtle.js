@@ -4,6 +4,10 @@ import { ecGenerateKey, ecdsaSign, ecdsaVerify, ecdhDeriveBits, ecImportKey, ecE
 import { normalizeHashAlgorithm, hashBlockSizes } from './helpers.js';
 import { hmacSign, hmacVerify, hmacGenerateKey, hmacImportKey, hmacExportKey } from './hmac.js';
 import { kdfImportKey, pbkdf2DeriveBits, hkdfDeriveBits } from './kdf.js';
+import {
+    rsaGenerateKey, rsaOaepEncrypt, rsaOaepDecrypt,
+    rsaSign, rsaVerify, rsaImportKey, rsaExportKey,
+} from './rsa.js';
 
 export class SubtleCrypto {
     digest(algorithm, data) {
@@ -17,6 +21,8 @@ export class SubtleCrypto {
             case 'AES-CBC':
             case 'AES-GCM':
                 return aesEncrypt(algorithm, key, data);
+            case 'RSA-OAEP':
+                return rsaOaepEncrypt(algorithm, key, data);
             default:
                 return Promise.reject(new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
         }
@@ -29,6 +35,8 @@ export class SubtleCrypto {
             case 'AES-CBC':
             case 'AES-GCM':
                 return aesDecrypt(algorithm, key, data);
+            case 'RSA-OAEP':
+                return rsaOaepDecrypt(algorithm, key, data);
             default:
                 return Promise.reject(new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
         }
@@ -42,6 +50,9 @@ export class SubtleCrypto {
                 return hmacSign(algorithm, key, data);
             case 'ECDSA':
                 return ecdsaSign(algorithm, key, data);
+            case 'RSA-PSS':
+            case 'RSASSA-PKCS1-v1_5':
+                return rsaSign(algorithm, key, data);
             default:
                 return Promise.reject(new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
         }
@@ -55,6 +66,9 @@ export class SubtleCrypto {
                 return hmacVerify(algorithm, key, signature, data);
             case 'ECDSA':
                 return ecdsaVerify(algorithm, key, signature, data);
+            case 'RSA-PSS':
+            case 'RSASSA-PKCS1-v1_5':
+                return rsaVerify(algorithm, key, signature, data);
             default:
                 return Promise.reject(new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
         }
@@ -136,6 +150,10 @@ export class SubtleCrypto {
                 case 'ECDSA':
                 case 'ECDH':
                     return ecGenerateKey(algorithm, extractable, keyUsages);
+                case 'RSA-OAEP':
+                case 'RSA-PSS':
+                case 'RSASSA-PKCS1-v1_5':
+                    return rsaGenerateKey(algorithm, extractable, keyUsages);
                 default:
                     return Promise.reject(
                         new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
@@ -165,6 +183,11 @@ export class SubtleCrypto {
                 case 'ECDH':
                     return Promise.resolve(
                         ecImportKey(format, keyData, algorithm, extractable, keyUsages));
+                case 'RSA-OAEP':
+                case 'RSA-PSS':
+                case 'RSASSA-PKCS1-v1_5':
+                    return Promise.resolve(
+                        rsaImportKey(format, keyData, algorithm, extractable, keyUsages));
                 default:
                     return Promise.reject(
                         new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
@@ -191,6 +214,10 @@ export class SubtleCrypto {
                 case 'ECDSA':
                 case 'ECDH':
                     return Promise.resolve(ecExportKey(format, key));
+                case 'RSA-OAEP':
+                case 'RSA-PSS':
+                case 'RSASSA-PKCS1-v1_5':
+                    return Promise.resolve(rsaExportKey(format, key));
                 default:
                     return Promise.reject(
                         new DOMException(`Unrecognized algorithm name: ${algoName}`, 'NotSupportedError'));

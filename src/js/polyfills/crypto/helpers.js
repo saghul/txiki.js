@@ -9,6 +9,12 @@ export const nativeEcGenerateKey = core.webcrypto.ecGenerateKey;
 export const nativeEcdsaSign = core.webcrypto.ecdsaSign;
 export const nativeEcdsaVerify = core.webcrypto.ecdsaVerify;
 export const nativeEcdhDeriveBits = core.webcrypto.ecdhDeriveBits;
+export const nativeRsaGenerateKey = core.webcrypto.rsaGenerateKey;
+export const nativeRsaOaepEncrypt = core.webcrypto.rsaOaepEncrypt;
+export const nativeRsaOaepDecrypt = core.webcrypto.rsaOaepDecrypt;
+export const nativeRsaSign = core.webcrypto.rsaSign;
+export const nativeRsaVerify = core.webcrypto.rsaVerify;
+export const nativeRsaParseKey = core.webcrypto.rsaParseKey;
 
 export const digestAlgorithms = {
     'SHA-1':   nativeDigest.DIGEST_SHA1,

@@ -32,7 +32,9 @@
 #include <mbedtls/entropy.h>
 #include <mbedtls/hkdf.h>
 #include <mbedtls/md.h>
+#include <mbedtls/pk.h>
 #include <mbedtls/pkcs5.h>
+#include <mbedtls/rsa.h>
 #include <mbedtls/sha1.h>
 #include <mbedtls/sha256.h>
 #include <mbedtls/sha512.h>
@@ -1728,6 +1730,1032 @@ fail:
     return JS_EXCEPTION;
 }
 
+/* RSA padding modes. */
+enum { RSA_PADDING_PSS = 0, RSA_PADDING_PKCS1V15 };
+
+/* RSA key generation. */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    uint32_t modulus_length;
+    int exponent;
+    uint8_t *privkey_der;
+    size_t privkey_der_len;
+    uint8_t *pubkey_der;
+    size_t pubkey_der_len;
+    int r;
+} TJSRsaGenerateKeyReq;
+
+static void tjs__rsa_generate_key_work_cb(uv_work_t *req) {
+    TJSRsaGenerateKeyReq *rr = req->data;
+    mbedtls_pk_context pk;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_context entropy;
+
+    mbedtls_pk_init(&pk);
+
+    int ret = tjs__setup_rng(&ctr_drbg, &entropy);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_pk_setup(&pk, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(pk), mbedtls_ctr_drbg_random, &ctr_drbg, rr->modulus_length, rr->exponent);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    /* Write private key DER (writes from end of buffer). */
+    {
+        size_t buf_size = 4 * (rr->modulus_length / 8) + 512;
+        uint8_t *buf = malloc(buf_size);
+        if (!buf) {
+            ret = -1;
+            goto cleanup;
+        }
+
+        int len = mbedtls_pk_write_key_der(&pk, buf, buf_size);
+        if (len < 0) {
+            free(buf);
+            ret = len;
+            goto cleanup;
+        }
+
+        rr->privkey_der = malloc(len);
+        if (!rr->privkey_der) {
+            free(buf);
+            ret = -1;
+            goto cleanup;
+        }
+        memcpy(rr->privkey_der, buf + buf_size - len, len);
+        rr->privkey_der_len = len;
+        free(buf);
+    }
+
+    /* Write public key DER. */
+    {
+        size_t buf_size = (rr->modulus_length / 8) + 256;
+        uint8_t *buf = malloc(buf_size);
+        if (!buf) {
+            ret = -1;
+            goto cleanup;
+        }
+
+        int len = mbedtls_pk_write_pubkey_der(&pk, buf, buf_size);
+        if (len < 0) {
+            free(buf);
+            ret = len;
+            goto cleanup;
+        }
+
+        rr->pubkey_der = malloc(len);
+        if (!rr->pubkey_der) {
+            free(buf);
+            ret = -1;
+            goto cleanup;
+        }
+        memcpy(rr->pubkey_der, buf + buf_size - len, len);
+        rr->pubkey_der_len = len;
+        free(buf);
+    }
+
+cleanup:
+    mbedtls_pk_free(&pk);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    rr->r = ret;
+}
+
+static void tjs__rsa_generate_key_after_work_cb(uv_work_t *req, int status) {
+    TJSRsaGenerateKeyReq *rr = req->data;
+    CHECK_NOT_NULL(rr);
+
+    JSContext *ctx = rr->ctx;
+    JSValue args[3];
+
+    if (status != 0 || rr->r != 0) {
+        args[0] = JS_NewString(ctx, "RSA key generation failed");
+        args[1] = JS_UNDEFINED;
+        args[2] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, rr->privkey_der, rr->privkey_der_len);
+        args[2] = JS_NewUint8ArrayCopy(ctx, rr->pubkey_der, rr->pubkey_der_len);
+    }
+
+    tjs_call_handler(ctx, rr->callback, 3, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, args[2]);
+    JS_FreeValue(ctx, rr->callback);
+    free(rr->privkey_der);
+    free(rr->pubkey_der);
+    js_free(ctx, rr);
+}
+
+static JSValue tjs_webcrypto_rsa_generate_key(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 3) {
+        return JS_ThrowTypeError(ctx, "expected 3 arguments: modulusLength, pubExpBuf, callback");
+    }
+
+    uint32_t modulus_length;
+    if (JS_ToUint32(ctx, &modulus_length, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    /* Convert public exponent from big-endian Uint8Array to int. */
+    size_t exp_len;
+    const uint8_t *exp_buf = JS_GetUint8Array(ctx, &exp_len, argv[1]);
+    if (!exp_buf) {
+        return JS_EXCEPTION;
+    }
+
+    int exponent = 0;
+    for (size_t i = 0; i < exp_len; i++) {
+        exponent = (exponent << 8) | exp_buf[i];
+    }
+
+    if (!JS_IsFunction(ctx, argv[2])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSRsaGenerateKeyReq *rr = js_malloc(ctx, sizeof(*rr));
+    if (!rr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(rr, 0, sizeof(*rr));
+    rr->ctx = ctx;
+    rr->callback = JS_DupValue(ctx, argv[2]);
+    rr->modulus_length = modulus_length;
+    rr->exponent = exponent;
+    rr->r = -1;
+
+    rr->req.data = rr;
+
+    int r =
+        uv_queue_work(tjs_get_loop(ctx), &rr->req, tjs__rsa_generate_key_work_cb, tjs__rsa_generate_key_after_work_cb);
+    if (r != 0) {
+        JS_FreeValue(ctx, rr->callback);
+        js_free(ctx, rr);
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return JS_UNDEFINED;
+}
+
+/* RSA-OAEP encrypt. */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    int hash_type;
+    uint8_t *pubkey_der;
+    size_t pubkey_der_len;
+    uint8_t *data;
+    size_t data_len;
+    uint8_t *label;
+    size_t label_len;
+    uint8_t *output;
+    size_t output_len;
+    int r;
+} TJSRsaOaepEncryptReq;
+
+static void tjs__rsa_oaep_encrypt_work_cb(uv_work_t *req) {
+    TJSRsaOaepEncryptReq *er = req->data;
+    mbedtls_pk_context pk;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_context entropy;
+
+    mbedtls_pk_init(&pk);
+
+    int ret = tjs__setup_rng(&ctr_drbg, &entropy);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_pk_parse_public_key(&pk, er->pubkey_der, er->pubkey_der_len);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    mbedtls_rsa_context *rsa = mbedtls_pk_rsa(pk);
+    mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V21, digest_to_md_type[er->hash_type]);
+
+    er->output_len = mbedtls_rsa_get_len(rsa);
+    er->output = malloc(er->output_len);
+    if (!er->output) {
+        ret = -1;
+        goto cleanup;
+    }
+
+    ret = mbedtls_rsa_rsaes_oaep_encrypt(rsa,
+                                         mbedtls_ctr_drbg_random,
+                                         &ctr_drbg,
+                                         er->label,
+                                         er->label_len,
+                                         er->data_len,
+                                         er->data,
+                                         er->output);
+
+cleanup:
+    mbedtls_pk_free(&pk);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    er->r = ret;
+}
+
+static void tjs__rsa_oaep_encrypt_after_work_cb(uv_work_t *req, int status) {
+    TJSRsaOaepEncryptReq *er = req->data;
+    CHECK_NOT_NULL(er);
+
+    JSContext *ctx = er->ctx;
+    JSValue args[2];
+
+    if (status != 0 || er->r != 0) {
+        args[0] = JS_NewString(ctx, "RSA-OAEP encrypt failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, er->output, er->output_len);
+    }
+
+    tjs_call_handler(ctx, er->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, er->callback);
+    js_free(ctx, er->pubkey_der);
+    js_free(ctx, er->data);
+    js_free(ctx, er->label);
+    free(er->output);
+    js_free(ctx, er);
+}
+
+static JSValue tjs_webcrypto_rsa_oaep_encrypt(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 5) {
+        return JS_ThrowTypeError(ctx, "expected 5 arguments: hashType, pubDER, data, label, callback");
+    }
+
+    int32_t hash_type;
+    if (JS_ToInt32(ctx, &hash_type, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    if (hash_type < DIGEST_SHA1 || hash_type > DIGEST_SHA512) {
+        return JS_ThrowRangeError(ctx, "invalid digest algorithm");
+    }
+
+    size_t pubkey_der_len;
+    const uint8_t *pubkey_der = JS_GetUint8Array(ctx, &pubkey_der_len, argv[1]);
+    if (!pubkey_der) {
+        return JS_EXCEPTION;
+    }
+
+    size_t data_len;
+    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[2]);
+    if (!data && data_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    /* Label is optional. */
+    size_t label_len = 0;
+    const uint8_t *label = NULL;
+    if (!JS_IsUndefined(argv[3])) {
+        label = JS_GetUint8Array(ctx, &label_len, argv[3]);
+        if (!label && label_len != 0) {
+            return JS_EXCEPTION;
+        }
+    }
+
+    if (!JS_IsFunction(ctx, argv[4])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSRsaOaepEncryptReq *er = js_malloc(ctx, sizeof(*er));
+    if (!er) {
+        return JS_EXCEPTION;
+    }
+
+    memset(er, 0, sizeof(*er));
+    er->ctx = ctx;
+    er->callback = JS_DupValue(ctx, argv[4]);
+    er->hash_type = hash_type;
+    er->r = -1;
+
+    er->pubkey_der = js_malloc(ctx, pubkey_der_len);
+    if (!er->pubkey_der) {
+        goto fail;
+    }
+    memcpy(er->pubkey_der, pubkey_der, pubkey_der_len);
+    er->pubkey_der_len = pubkey_der_len;
+
+    if (data_len > 0) {
+        er->data = js_malloc(ctx, data_len);
+        if (!er->data) {
+            goto fail;
+        }
+        memcpy(er->data, data, data_len);
+    }
+    er->data_len = data_len;
+
+    if (label_len > 0) {
+        er->label = js_malloc(ctx, label_len);
+        if (!er->label) {
+            goto fail;
+        }
+        memcpy(er->label, label, label_len);
+    }
+    er->label_len = label_len;
+
+    er->req.data = er;
+
+    int r =
+        uv_queue_work(tjs_get_loop(ctx), &er->req, tjs__rsa_oaep_encrypt_work_cb, tjs__rsa_oaep_encrypt_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, er->callback);
+    js_free(ctx, er->pubkey_der);
+    js_free(ctx, er->data);
+    js_free(ctx, er->label);
+    js_free(ctx, er);
+    return JS_EXCEPTION;
+}
+
+/* RSA-OAEP decrypt. */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    int hash_type;
+    uint8_t *privkey_der;
+    size_t privkey_der_len;
+    uint8_t *data;
+    size_t data_len;
+    uint8_t *label;
+    size_t label_len;
+    uint8_t *output;
+    size_t output_len;
+    size_t output_alloc;
+    int r;
+} TJSRsaOaepDecryptReq;
+
+static void tjs__rsa_oaep_decrypt_work_cb(uv_work_t *req) {
+    TJSRsaOaepDecryptReq *dr = req->data;
+    mbedtls_pk_context pk;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_context entropy;
+
+    mbedtls_pk_init(&pk);
+
+    int ret = tjs__setup_rng(&ctr_drbg, &entropy);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_pk_parse_key(&pk, dr->privkey_der, dr->privkey_der_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    mbedtls_rsa_context *rsa = mbedtls_pk_rsa(pk);
+    mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V21, digest_to_md_type[dr->hash_type]);
+
+    dr->output_alloc = mbedtls_rsa_get_len(rsa);
+    dr->output = malloc(dr->output_alloc);
+    if (!dr->output) {
+        ret = -1;
+        goto cleanup;
+    }
+
+    ret = mbedtls_rsa_rsaes_oaep_decrypt(rsa,
+                                         mbedtls_ctr_drbg_random,
+                                         &ctr_drbg,
+                                         dr->label,
+                                         dr->label_len,
+                                         &dr->output_len,
+                                         dr->data,
+                                         dr->output,
+                                         dr->output_alloc);
+
+cleanup:
+    mbedtls_pk_free(&pk);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    dr->r = ret;
+}
+
+static void tjs__rsa_oaep_decrypt_after_work_cb(uv_work_t *req, int status) {
+    TJSRsaOaepDecryptReq *dr = req->data;
+    CHECK_NOT_NULL(dr);
+
+    JSContext *ctx = dr->ctx;
+    JSValue args[2];
+
+    if (status != 0 || dr->r != 0) {
+        args[0] = JS_NewString(ctx, "RSA-OAEP decrypt failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, dr->output, dr->output_len);
+    }
+
+    tjs_call_handler(ctx, dr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, dr->callback);
+    js_free(ctx, dr->privkey_der);
+    js_free(ctx, dr->data);
+    js_free(ctx, dr->label);
+    free(dr->output);
+    js_free(ctx, dr);
+}
+
+static JSValue tjs_webcrypto_rsa_oaep_decrypt(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 5) {
+        return JS_ThrowTypeError(ctx, "expected 5 arguments: hashType, privDER, data, label, callback");
+    }
+
+    int32_t hash_type;
+    if (JS_ToInt32(ctx, &hash_type, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    if (hash_type < DIGEST_SHA1 || hash_type > DIGEST_SHA512) {
+        return JS_ThrowRangeError(ctx, "invalid digest algorithm");
+    }
+
+    size_t privkey_der_len;
+    const uint8_t *privkey_der = JS_GetUint8Array(ctx, &privkey_der_len, argv[1]);
+    if (!privkey_der) {
+        return JS_EXCEPTION;
+    }
+
+    size_t data_len;
+    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[2]);
+    if (!data) {
+        return JS_EXCEPTION;
+    }
+
+    /* Label is optional. */
+    size_t label_len = 0;
+    const uint8_t *label = NULL;
+    if (!JS_IsUndefined(argv[3])) {
+        label = JS_GetUint8Array(ctx, &label_len, argv[3]);
+        if (!label && label_len != 0) {
+            return JS_EXCEPTION;
+        }
+    }
+
+    if (!JS_IsFunction(ctx, argv[4])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSRsaOaepDecryptReq *dr = js_malloc(ctx, sizeof(*dr));
+    if (!dr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(dr, 0, sizeof(*dr));
+    dr->ctx = ctx;
+    dr->callback = JS_DupValue(ctx, argv[4]);
+    dr->hash_type = hash_type;
+    dr->r = -1;
+
+    dr->privkey_der = js_malloc(ctx, privkey_der_len);
+    if (!dr->privkey_der) {
+        goto fail;
+    }
+    memcpy(dr->privkey_der, privkey_der, privkey_der_len);
+    dr->privkey_der_len = privkey_der_len;
+
+    dr->data = js_malloc(ctx, data_len);
+    if (!dr->data) {
+        goto fail;
+    }
+    memcpy(dr->data, data, data_len);
+    dr->data_len = data_len;
+
+    if (label_len > 0) {
+        dr->label = js_malloc(ctx, label_len);
+        if (!dr->label) {
+            goto fail;
+        }
+        memcpy(dr->label, label, label_len);
+    }
+    dr->label_len = label_len;
+
+    dr->req.data = dr;
+
+    int r =
+        uv_queue_work(tjs_get_loop(ctx), &dr->req, tjs__rsa_oaep_decrypt_work_cb, tjs__rsa_oaep_decrypt_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, dr->callback);
+    js_free(ctx, dr->privkey_der);
+    js_free(ctx, dr->data);
+    js_free(ctx, dr->label);
+    js_free(ctx, dr);
+    return JS_EXCEPTION;
+}
+
+/* RSA sign (PSS + PKCS1v15). */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    int padding_mode;
+    int hash_type;
+    int salt_length;
+    uint8_t *privkey_der;
+    size_t privkey_der_len;
+    uint8_t *data;
+    size_t data_len;
+    uint8_t *signature;
+    size_t sig_len;
+    int r;
+} TJSRsaSignReq;
+
+static void tjs__rsa_sign_work_cb(uv_work_t *req) {
+    TJSRsaSignReq *sr = req->data;
+    mbedtls_pk_context pk;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_context entropy;
+    uint8_t hash[64]; /* Max SHA-512. */
+
+    mbedtls_pk_init(&pk);
+
+    int ret = tjs__setup_rng(&ctr_drbg, &entropy);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_pk_parse_key(&pk, sr->privkey_der, sr->privkey_der_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    /* Hash the data. */
+    mbedtls_md_type_t md_type = digest_to_md_type[sr->hash_type];
+    const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type(md_type);
+    if (!md_info) {
+        ret = -1;
+        goto cleanup;
+    }
+
+    size_t hash_len = mbedtls_md_get_size(md_info);
+    ret = mbedtls_md(md_info, sr->data, sr->data_len, hash);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    mbedtls_rsa_context *rsa = mbedtls_pk_rsa(pk);
+    sr->sig_len = mbedtls_rsa_get_len(rsa);
+    sr->signature = malloc(sr->sig_len);
+    if (!sr->signature) {
+        ret = -1;
+        goto cleanup;
+    }
+
+    if (sr->padding_mode == RSA_PADDING_PSS) {
+        mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V21, md_type);
+        ret = mbedtls_rsa_rsassa_pss_sign_ext(rsa,
+                                              mbedtls_ctr_drbg_random,
+                                              &ctr_drbg,
+                                              md_type,
+                                              (unsigned int) hash_len,
+                                              hash,
+                                              sr->salt_length,
+                                              sr->signature);
+    } else {
+        mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V15, md_type);
+        ret = mbedtls_rsa_rsassa_pkcs1_v15_sign(rsa,
+                                                mbedtls_ctr_drbg_random,
+                                                &ctr_drbg,
+                                                md_type,
+                                                (unsigned int) hash_len,
+                                                hash,
+                                                sr->signature);
+    }
+
+cleanup:
+    mbedtls_pk_free(&pk);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    sr->r = ret;
+}
+
+static void tjs__rsa_sign_after_work_cb(uv_work_t *req, int status) {
+    TJSRsaSignReq *sr = req->data;
+    CHECK_NOT_NULL(sr);
+
+    JSContext *ctx = sr->ctx;
+    JSValue args[2];
+
+    if (status != 0 || sr->r != 0) {
+        args[0] = JS_NewString(ctx, "RSA sign failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, sr->signature, sr->sig_len);
+    }
+
+    tjs_call_handler(ctx, sr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, sr->callback);
+    js_free(ctx, sr->privkey_der);
+    js_free(ctx, sr->data);
+    free(sr->signature);
+    js_free(ctx, sr);
+}
+
+static JSValue tjs_webcrypto_rsa_sign(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 6) {
+        return JS_ThrowTypeError(ctx,
+                                 "expected 6 arguments: paddingMode, hashType, saltLength, privDER, data, callback");
+    }
+
+    int32_t padding_mode;
+    if (JS_ToInt32(ctx, &padding_mode, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    int32_t hash_type;
+    if (JS_ToInt32(ctx, &hash_type, argv[1])) {
+        return JS_EXCEPTION;
+    }
+
+    if (hash_type < DIGEST_SHA1 || hash_type > DIGEST_SHA512) {
+        return JS_ThrowRangeError(ctx, "invalid digest algorithm");
+    }
+
+    int32_t salt_length;
+    if (JS_ToInt32(ctx, &salt_length, argv[2])) {
+        return JS_EXCEPTION;
+    }
+
+    size_t privkey_der_len;
+    const uint8_t *privkey_der = JS_GetUint8Array(ctx, &privkey_der_len, argv[3]);
+    if (!privkey_der) {
+        return JS_EXCEPTION;
+    }
+
+    size_t data_len;
+    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[4]);
+    if (!data && data_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    if (!JS_IsFunction(ctx, argv[5])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSRsaSignReq *sr = js_malloc(ctx, sizeof(*sr));
+    if (!sr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(sr, 0, sizeof(*sr));
+    sr->ctx = ctx;
+    sr->callback = JS_DupValue(ctx, argv[5]);
+    sr->padding_mode = padding_mode;
+    sr->hash_type = hash_type;
+    sr->salt_length = salt_length;
+    sr->r = -1;
+
+    sr->privkey_der = js_malloc(ctx, privkey_der_len);
+    if (!sr->privkey_der) {
+        goto fail;
+    }
+    memcpy(sr->privkey_der, privkey_der, privkey_der_len);
+    sr->privkey_der_len = privkey_der_len;
+
+    if (data_len > 0) {
+        sr->data = js_malloc(ctx, data_len);
+        if (!sr->data) {
+            goto fail;
+        }
+        memcpy(sr->data, data, data_len);
+    }
+    sr->data_len = data_len;
+
+    sr->req.data = sr;
+
+    int r = uv_queue_work(tjs_get_loop(ctx), &sr->req, tjs__rsa_sign_work_cb, tjs__rsa_sign_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, sr->callback);
+    js_free(ctx, sr->privkey_der);
+    js_free(ctx, sr->data);
+    js_free(ctx, sr);
+    return JS_EXCEPTION;
+}
+
+/* RSA verify (PSS + PKCS1v15). */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    int padding_mode;
+    int hash_type;
+    int salt_length;
+    uint8_t *pubkey_der;
+    size_t pubkey_der_len;
+    uint8_t *signature;
+    size_t sig_len;
+    uint8_t *data;
+    size_t data_len;
+    int r;
+} TJSRsaVerifyReq;
+
+static void tjs__rsa_verify_work_cb(uv_work_t *req) {
+    TJSRsaVerifyReq *vr = req->data;
+    mbedtls_pk_context pk;
+    uint8_t hash[64];
+
+    mbedtls_pk_init(&pk);
+
+    int ret = mbedtls_pk_parse_public_key(&pk, vr->pubkey_der, vr->pubkey_der_len);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    /* Hash the data. */
+    mbedtls_md_type_t md_type = digest_to_md_type[vr->hash_type];
+    const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type(md_type);
+    if (!md_info) {
+        ret = -1;
+        goto cleanup;
+    }
+
+    size_t hash_len = mbedtls_md_get_size(md_info);
+    ret = mbedtls_md(md_info, vr->data, vr->data_len, hash);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    mbedtls_rsa_context *rsa = mbedtls_pk_rsa(pk);
+
+    if (vr->padding_mode == RSA_PADDING_PSS) {
+        mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V21, md_type);
+        ret = mbedtls_rsa_rsassa_pss_verify_ext(rsa,
+                                                md_type,
+                                                (unsigned int) hash_len,
+                                                hash,
+                                                md_type,
+                                                vr->salt_length,
+                                                vr->signature);
+    } else {
+        mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V15, md_type);
+        ret = mbedtls_rsa_rsassa_pkcs1_v15_verify(rsa, md_type, (unsigned int) hash_len, hash, vr->signature);
+    }
+
+cleanup:
+    mbedtls_pk_free(&pk);
+    vr->r = ret;
+}
+
+static void tjs__rsa_verify_after_work_cb(uv_work_t *req, int status) {
+    TJSRsaVerifyReq *vr = req->data;
+    CHECK_NOT_NULL(vr);
+
+    JSContext *ctx = vr->ctx;
+    JSValue args[2];
+
+    if (status != 0) {
+        args[0] = JS_NewString(ctx, "RSA verify failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewBool(ctx, vr->r == 0);
+    }
+
+    tjs_call_handler(ctx, vr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, vr->callback);
+    js_free(ctx, vr->pubkey_der);
+    js_free(ctx, vr->signature);
+    js_free(ctx, vr->data);
+    js_free(ctx, vr);
+}
+
+static JSValue tjs_webcrypto_rsa_verify(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 7) {
+        return JS_ThrowTypeError(ctx,
+                                 "expected 7 arguments: paddingMode, hashType, saltLength, pubDER, signature, data, "
+                                 "callback");
+    }
+
+    int32_t padding_mode;
+    if (JS_ToInt32(ctx, &padding_mode, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    int32_t hash_type;
+    if (JS_ToInt32(ctx, &hash_type, argv[1])) {
+        return JS_EXCEPTION;
+    }
+
+    if (hash_type < DIGEST_SHA1 || hash_type > DIGEST_SHA512) {
+        return JS_ThrowRangeError(ctx, "invalid digest algorithm");
+    }
+
+    int32_t salt_length;
+    if (JS_ToInt32(ctx, &salt_length, argv[2])) {
+        return JS_EXCEPTION;
+    }
+
+    size_t pubkey_der_len;
+    const uint8_t *pubkey_der = JS_GetUint8Array(ctx, &pubkey_der_len, argv[3]);
+    if (!pubkey_der) {
+        return JS_EXCEPTION;
+    }
+
+    size_t sig_len;
+    const uint8_t *signature = JS_GetUint8Array(ctx, &sig_len, argv[4]);
+    if (!signature) {
+        return JS_EXCEPTION;
+    }
+
+    size_t data_len;
+    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[5]);
+    if (!data && data_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    if (!JS_IsFunction(ctx, argv[6])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSRsaVerifyReq *vr = js_malloc(ctx, sizeof(*vr));
+    if (!vr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(vr, 0, sizeof(*vr));
+    vr->ctx = ctx;
+    vr->callback = JS_DupValue(ctx, argv[6]);
+    vr->padding_mode = padding_mode;
+    vr->hash_type = hash_type;
+    vr->salt_length = salt_length;
+    vr->r = -1;
+
+    vr->pubkey_der = js_malloc(ctx, pubkey_der_len);
+    if (!vr->pubkey_der) {
+        goto fail;
+    }
+    memcpy(vr->pubkey_der, pubkey_der, pubkey_der_len);
+    vr->pubkey_der_len = pubkey_der_len;
+
+    vr->signature = js_malloc(ctx, sig_len);
+    if (!vr->signature) {
+        goto fail;
+    }
+    memcpy(vr->signature, signature, sig_len);
+    vr->sig_len = sig_len;
+
+    if (data_len > 0) {
+        vr->data = js_malloc(ctx, data_len);
+        if (!vr->data) {
+            goto fail;
+        }
+        memcpy(vr->data, data, data_len);
+    }
+    vr->data_len = data_len;
+
+    vr->req.data = vr;
+
+    int r = uv_queue_work(tjs_get_loop(ctx), &vr->req, tjs__rsa_verify_work_cb, tjs__rsa_verify_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, vr->callback);
+    js_free(ctx, vr->pubkey_der);
+    js_free(ctx, vr->signature);
+    js_free(ctx, vr->data);
+    js_free(ctx, vr);
+    return JS_EXCEPTION;
+}
+
+/* RSA parse key (sync). */
+
+static JSValue tjs_webcrypto_rsa_parse_key(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 2) {
+        return JS_ThrowTypeError(ctx, "expected 2 arguments: derBuf, isPrivate");
+    }
+
+    size_t der_len;
+    const uint8_t *der = JS_GetUint8Array(ctx, &der_len, argv[0]);
+    if (!der) {
+        return JS_EXCEPTION;
+    }
+
+    int is_private = JS_ToBool(ctx, argv[1]);
+
+    mbedtls_pk_context pk;
+    mbedtls_pk_init(&pk);
+
+    int ret;
+    if (is_private) {
+        mbedtls_ctr_drbg_context ctr_drbg;
+        mbedtls_entropy_context entropy;
+        ret = tjs__setup_rng(&ctr_drbg, &entropy);
+        if (ret == 0) {
+            ret = mbedtls_pk_parse_key(&pk, der, der_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg);
+        }
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        mbedtls_entropy_free(&entropy);
+    } else {
+        ret = mbedtls_pk_parse_public_key(&pk, der, der_len);
+    }
+
+    if (ret != 0) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "failed to parse RSA key");
+    }
+
+    if (mbedtls_pk_get_type(&pk) != MBEDTLS_PK_RSA) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "key is not RSA");
+    }
+
+    unsigned int modulus_length = (unsigned int) mbedtls_pk_get_bitlen(&pk);
+
+    /* Extract public exponent E. */
+    mbedtls_rsa_context *rsa = mbedtls_pk_rsa(pk);
+    mbedtls_mpi E;
+    mbedtls_mpi_init(&E);
+    ret = mbedtls_rsa_export(rsa, NULL, NULL, NULL, NULL, &E);
+    if (ret != 0) {
+        mbedtls_mpi_free(&E);
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "failed to export RSA public exponent");
+    }
+
+    size_t e_len = mbedtls_mpi_size(&E);
+    uint8_t e_buf[8]; /* Public exponent is typically 3 bytes (65537). */
+    if (e_len > sizeof(e_buf)) {
+        mbedtls_mpi_free(&E);
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "public exponent too large");
+    }
+    ret = mbedtls_mpi_write_binary(&E, e_buf, e_len);
+    mbedtls_mpi_free(&E);
+    mbedtls_pk_free(&pk);
+
+    if (ret != 0) {
+        return JS_ThrowTypeError(ctx, "failed to write public exponent");
+    }
+
+    JSValue result = JS_NewObject(ctx);
+    JS_DefinePropertyValueStr(ctx, result, "modulusLength", JS_NewUint32(ctx, modulus_length), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, result, "publicExponent", JS_NewUint8ArrayCopy(ctx, e_buf, e_len), JS_PROP_C_W_E);
+
+    return result;
+}
+
+/* clang-format off */
+static const JSCFunctionListEntry tjs_rsa_consts[] = {
+    TJS_CONST(RSA_PADDING_PSS),
+    TJS_CONST(RSA_PADDING_PKCS1V15),
+};
+/* clang-format on */
+
 /* clang-format off */
 static const JSCFunctionListEntry tjs_cipher_consts[] = {
     TJS_CONST(CIPHER_AES_CBC),
@@ -1785,5 +2813,23 @@ void tjs__webcrypto_init(JSContext *ctx, JSValue ns) {
     JSValue ecdh_fn = JS_NewCFunction(ctx, tjs_webcrypto_ecdh_derive_bits, "ecdhDeriveBits", 4);
     JS_SetPropertyFunctionList(ctx, ecdh_fn, tjs_ec_consts, countof(tjs_ec_consts));
     JS_DefinePropertyValueStr(ctx, obj, "ecdhDeriveBits", ecdh_fn, JS_PROP_C_W_E);
+    JSValue rsa_gen_fn = JS_NewCFunction(ctx, tjs_webcrypto_rsa_generate_key, "rsaGenerateKey", 3);
+    JS_DefinePropertyValueStr(ctx, obj, "rsaGenerateKey", rsa_gen_fn, JS_PROP_C_W_E);
+    JSValue rsa_oaep_enc_fn = JS_NewCFunction(ctx, tjs_webcrypto_rsa_oaep_encrypt, "rsaOaepEncrypt", 5);
+    JS_SetPropertyFunctionList(ctx, rsa_oaep_enc_fn, tjs_webcrypto_consts, countof(tjs_webcrypto_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "rsaOaepEncrypt", rsa_oaep_enc_fn, JS_PROP_C_W_E);
+    JSValue rsa_oaep_dec_fn = JS_NewCFunction(ctx, tjs_webcrypto_rsa_oaep_decrypt, "rsaOaepDecrypt", 5);
+    JS_SetPropertyFunctionList(ctx, rsa_oaep_dec_fn, tjs_webcrypto_consts, countof(tjs_webcrypto_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "rsaOaepDecrypt", rsa_oaep_dec_fn, JS_PROP_C_W_E);
+    JSValue rsa_sign_fn = JS_NewCFunction(ctx, tjs_webcrypto_rsa_sign, "rsaSign", 6);
+    JS_SetPropertyFunctionList(ctx, rsa_sign_fn, tjs_rsa_consts, countof(tjs_rsa_consts));
+    JS_SetPropertyFunctionList(ctx, rsa_sign_fn, tjs_webcrypto_consts, countof(tjs_webcrypto_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "rsaSign", rsa_sign_fn, JS_PROP_C_W_E);
+    JSValue rsa_verify_fn = JS_NewCFunction(ctx, tjs_webcrypto_rsa_verify, "rsaVerify", 7);
+    JS_SetPropertyFunctionList(ctx, rsa_verify_fn, tjs_rsa_consts, countof(tjs_rsa_consts));
+    JS_SetPropertyFunctionList(ctx, rsa_verify_fn, tjs_webcrypto_consts, countof(tjs_webcrypto_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "rsaVerify", rsa_verify_fn, JS_PROP_C_W_E);
+    JSValue rsa_parse_fn = JS_NewCFunction(ctx, tjs_webcrypto_rsa_parse_key, "rsaParseKey", 2);
+    JS_DefinePropertyValueStr(ctx, obj, "rsaParseKey", rsa_parse_fn, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "webcrypto", obj, JS_PROP_C_W_E);
 }
