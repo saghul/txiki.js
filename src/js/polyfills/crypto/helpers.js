@@ -2,6 +2,7 @@ const core = globalThis[Symbol.for('tjs.internal.core')];
 
 export const nativeDigest = core.webcrypto.digest;
 export const nativeHmacSign = core.webcrypto.hmacSign;
+export const nativeCipher = core.webcrypto.cipher;
 
 export const digestAlgorithms = {
     'SHA-1':   nativeDigest.DIGEST_SHA1,
