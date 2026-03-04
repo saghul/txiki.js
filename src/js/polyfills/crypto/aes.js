@@ -28,13 +28,14 @@ function cipherOp(cipherType, operation, key, iv, data, aad, tagLengthBytes) {
     return promise;
 }
 
-export function aesEncrypt(algorithm, key, data) {
+export function aesEncrypt(algorithm, key, data, requiredUsage = 'encrypt') {
     if (!(key instanceof CryptoKey)) {
         return Promise.reject(new TypeError('key must be a CryptoKey'));
     }
 
-    if (!key.usages.includes('encrypt')) {
-        return Promise.reject(new DOMException('Key does not support the "encrypt" operation', 'InvalidAccessError'));
+    if (!key.usages.includes(requiredUsage)) {
+        return Promise.reject(new DOMException(
+            `Key does not support the "${requiredUsage}" operation`, 'InvalidAccessError'));
     }
 
     const algoName = typeof algorithm === 'string' ? algorithm : algorithm?.name;
@@ -102,13 +103,14 @@ export function aesEncrypt(algorithm, key, data) {
     }
 }
 
-export function aesDecrypt(algorithm, key, data) {
+export function aesDecrypt(algorithm, key, data, requiredUsage = 'decrypt') {
     if (!(key instanceof CryptoKey)) {
         return Promise.reject(new TypeError('key must be a CryptoKey'));
     }
 
-    if (!key.usages.includes('decrypt')) {
-        return Promise.reject(new DOMException('Key does not support the "decrypt" operation', 'InvalidAccessError'));
+    if (!key.usages.includes(requiredUsage)) {
+        return Promise.reject(new DOMException(
+            `Key does not support the "${requiredUsage}" operation`, 'InvalidAccessError'));
     }
 
     const algoName = typeof algorithm === 'string' ? algorithm : algorithm?.name;

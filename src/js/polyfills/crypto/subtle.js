@@ -197,6 +197,67 @@ export class SubtleCrypto {
         }
     }
 
+    wrapKey(format, key, wrappingKey, wrapAlgorithm) {
+        if (!wrappingKey?.usages?.includes('wrapKey')) {
+            return Promise.reject(
+                new DOMException('Key does not support the "wrapKey" operation', 'InvalidAccessError'));
+        }
+
+        if (!key?.extractable) {
+            return Promise.reject(
+                new DOMException('Key is not extractable', 'InvalidAccessError'));
+        }
+
+        return this.exportKey(format, key).then(exported => {
+            const data = format === 'jwk'
+                ? new TextEncoder().encode(JSON.stringify(exported))
+                : new Uint8Array(exported);
+
+            const name = typeof wrapAlgorithm === 'string' ? wrapAlgorithm : wrapAlgorithm?.name;
+
+            switch (name) {
+                case 'AES-CBC':
+                case 'AES-GCM':
+                    return aesEncrypt(wrapAlgorithm, wrappingKey, data, 'wrapKey');
+                case 'RSA-OAEP':
+                    return rsaOaepEncrypt(wrapAlgorithm, wrappingKey, data, 'wrapKey');
+                default:
+                    throw new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError');
+            }
+        });
+    }
+
+    unwrapKey(format, wrappedKey, unwrappingKey, unwrapAlgorithm, unwrappedKeyAlgorithm, extractable, keyUsages) {
+        if (!unwrappingKey?.usages?.includes('unwrapKey')) {
+            return Promise.reject(
+                new DOMException('Key does not support the "unwrapKey" operation', 'InvalidAccessError'));
+        }
+
+        const name = typeof unwrapAlgorithm === 'string' ? unwrapAlgorithm : unwrapAlgorithm?.name;
+        let decryptPromise;
+
+        switch (name) {
+            case 'AES-CBC':
+            case 'AES-GCM':
+                decryptPromise = aesDecrypt(unwrapAlgorithm, unwrappingKey, wrappedKey, 'unwrapKey');
+                break;
+            case 'RSA-OAEP':
+                decryptPromise = rsaOaepDecrypt(unwrapAlgorithm, unwrappingKey, wrappedKey, 'unwrapKey');
+                break;
+            default:
+                return Promise.reject(
+                    new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
+        }
+
+        return decryptPromise.then(decrypted => {
+            const keyData = format === 'jwk'
+                ? JSON.parse(new TextDecoder().decode(decrypted))
+                : decrypted;
+
+            return this.importKey(format, keyData, unwrappedKeyAlgorithm, extractable, keyUsages);
+        });
+    }
+
     exportKey(format, key) {
         const algoName = key?.algorithm?.name;
 
