@@ -468,7 +468,7 @@ static void tjs_stream_finalizer(JSRuntime *rt, TJSStream *s) {
         s->read.buf = NULL;
         s->finalized = 1;
         if (s->closed) {
-            js_free_rt(rt, s);
+            tjs__free(s);
         } else {
             maybe_close(s);
         }
