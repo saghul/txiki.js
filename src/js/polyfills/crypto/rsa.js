@@ -65,7 +65,7 @@ export function rsaGenerateKey(algorithm, extractable, keyUsages) {
     return promise;
 }
 
-export function rsaOaepEncrypt(algorithm, key, data) {
+export function rsaOaepEncrypt(algorithm, key, data, requiredUsage = 'encrypt') {
     if (!(key instanceof CryptoKey)) {
         return Promise.reject(new TypeError('key must be a CryptoKey'));
     }
@@ -78,8 +78,9 @@ export function rsaOaepEncrypt(algorithm, key, data) {
         return Promise.reject(new DOMException('Key algorithm mismatch', 'InvalidAccessError'));
     }
 
-    if (!key.usages.includes('encrypt')) {
-        return Promise.reject(new DOMException('Key does not support the "encrypt" operation', 'InvalidAccessError'));
+    if (!key.usages.includes(requiredUsage)) {
+        return Promise.reject(new DOMException(
+            `Key does not support the "${requiredUsage}" operation`, 'InvalidAccessError'));
     }
 
     let bytes, labelBytes;
@@ -106,7 +107,7 @@ export function rsaOaepEncrypt(algorithm, key, data) {
     return promise;
 }
 
-export function rsaOaepDecrypt(algorithm, key, data) {
+export function rsaOaepDecrypt(algorithm, key, data, requiredUsage = 'decrypt') {
     if (!(key instanceof CryptoKey)) {
         return Promise.reject(new TypeError('key must be a CryptoKey'));
     }
@@ -119,8 +120,9 @@ export function rsaOaepDecrypt(algorithm, key, data) {
         return Promise.reject(new DOMException('Key algorithm mismatch', 'InvalidAccessError'));
     }
 
-    if (!key.usages.includes('decrypt')) {
-        return Promise.reject(new DOMException('Key does not support the "decrypt" operation', 'InvalidAccessError'));
+    if (!key.usages.includes(requiredUsage)) {
+        return Promise.reject(new DOMException(
+            `Key does not support the "${requiredUsage}" operation`, 'InvalidAccessError'));
     }
 
     let bytes, labelBytes;
