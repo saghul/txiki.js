@@ -1,5 +1,6 @@
 import { aesEncrypt, aesDecrypt, aesGenerateKey, aesImportKey, aesExportKey } from './aes.js';
 import { digest } from './digest.js';
+import { ecGenerateKey, ecdsaSign, ecdsaVerify, ecdhDeriveBits, ecImportKey, ecExportKey } from './ec.js';
 import { normalizeHashAlgorithm, hashBlockSizes } from './helpers.js';
 import { hmacSign, hmacVerify, hmacGenerateKey, hmacImportKey, hmacExportKey } from './hmac.js';
 import { kdfImportKey, pbkdf2DeriveBits, hkdfDeriveBits } from './kdf.js';
@@ -39,6 +40,8 @@ export class SubtleCrypto {
         switch (name) {
             case 'HMAC':
                 return hmacSign(algorithm, key, data);
+            case 'ECDSA':
+                return ecdsaSign(algorithm, key, data);
             default:
                 return Promise.reject(new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
         }
@@ -50,6 +53,8 @@ export class SubtleCrypto {
         switch (name) {
             case 'HMAC':
                 return hmacVerify(algorithm, key, signature, data);
+            case 'ECDSA':
+                return ecdsaVerify(algorithm, key, signature, data);
             default:
                 return Promise.reject(new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
         }
@@ -63,6 +68,8 @@ export class SubtleCrypto {
                 return pbkdf2DeriveBits(algorithm, baseKey, length);
             case 'HKDF':
                 return hkdfDeriveBits(algorithm, baseKey, length);
+            case 'ECDH':
+                return ecdhDeriveBits(algorithm, baseKey, length);
             default:
                 return Promise.reject(new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
         }
@@ -104,6 +111,9 @@ export class SubtleCrypto {
             case 'HKDF':
                 bitsPromise = hkdfDeriveBits(algorithm, baseKey, length, 'deriveKey');
                 break;
+            case 'ECDH':
+                bitsPromise = ecdhDeriveBits(algorithm, baseKey, length, 'deriveKey');
+                break;
             default:
                 return Promise.reject(
                     new DOMException(`Unrecognized algorithm name: ${algoName}`, 'NotSupportedError'));
@@ -123,6 +133,9 @@ export class SubtleCrypto {
                 case 'AES-CBC':
                 case 'AES-GCM':
                     return Promise.resolve(aesGenerateKey(algorithm, extractable, keyUsages));
+                case 'ECDSA':
+                case 'ECDH':
+                    return ecGenerateKey(algorithm, extractable, keyUsages);
                 default:
                     return Promise.reject(
                         new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
@@ -148,6 +161,10 @@ export class SubtleCrypto {
                 case 'HKDF':
                     return Promise.resolve(
                         kdfImportKey(format, keyData, algorithm, extractable, keyUsages));
+                case 'ECDSA':
+                case 'ECDH':
+                    return Promise.resolve(
+                        ecImportKey(format, keyData, algorithm, extractable, keyUsages));
                 default:
                     return Promise.reject(
                         new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
@@ -171,6 +188,9 @@ export class SubtleCrypto {
                 case 'HKDF':
                     return Promise.reject(
                         new DOMException('KDF keys are not exportable', 'InvalidAccessError'));
+                case 'ECDSA':
+                case 'ECDH':
+                    return Promise.resolve(ecExportKey(format, key));
                 default:
                     return Promise.reject(
                         new DOMException(`Unrecognized algorithm name: ${algoName}`, 'NotSupportedError'));

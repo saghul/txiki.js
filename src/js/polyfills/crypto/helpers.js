@@ -5,6 +5,10 @@ export const nativeHmacSign = core.webcrypto.hmacSign;
 export const nativeCipher = core.webcrypto.cipher;
 export const nativePbkdf2 = core.webcrypto.pbkdf2;
 export const nativeHkdf = core.webcrypto.hkdf;
+export const nativeEcGenerateKey = core.webcrypto.ecGenerateKey;
+export const nativeEcdsaSign = core.webcrypto.ecdsaSign;
+export const nativeEcdsaVerify = core.webcrypto.ecdsaVerify;
+export const nativeEcdhDeriveBits = core.webcrypto.ecdhDeriveBits;
 
 export const digestAlgorithms = {
     'SHA-1':   nativeDigest.DIGEST_SHA1,
@@ -28,6 +32,20 @@ export function toUint8Array(data) {
     }
 
     throw new TypeError('data must be a BufferSource');
+}
+
+export const curveAlgorithms = {
+    'P-256': nativeEcGenerateKey.CURVE_P256,
+    'P-384': nativeEcGenerateKey.CURVE_P384,
+    'P-521': nativeEcGenerateKey.CURVE_P521,
+};
+
+export function normalizeCurve(namedCurve) {
+    if (!(namedCurve in curveAlgorithms)) {
+        throw new DOMException(`Unrecognized named curve: ${namedCurve}`, 'NotSupportedError');
+    }
+
+    return namedCurve;
 }
 
 export function normalizeHashAlgorithm(hash) {

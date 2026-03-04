@@ -25,6 +25,11 @@
 #include "private.h"
 
 #include <mbedtls/cipher.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/ecdh.h>
+#include <mbedtls/ecdsa.h>
+#include <mbedtls/ecp.h>
+#include <mbedtls/entropy.h>
 #include <mbedtls/hkdf.h>
 #include <mbedtls/md.h>
 #include <mbedtls/pkcs5.h>
@@ -976,6 +981,753 @@ fail:
     return JS_EXCEPTION;
 }
 
+/* EC curves. */
+enum { CURVE_P256 = 0, CURVE_P384, CURVE_P521 };
+
+/* clang-format off */
+static const mbedtls_ecp_group_id curve_to_group_id[] = {
+    [CURVE_P256] = MBEDTLS_ECP_DP_SECP256R1,
+    [CURVE_P384] = MBEDTLS_ECP_DP_SECP384R1,
+    [CURVE_P521] = MBEDTLS_ECP_DP_SECP521R1,
+};
+
+static const int curve_byte_sizes[] = { 32, 48, 66 };
+/* clang-format on */
+
+static int tjs__setup_rng(mbedtls_ctr_drbg_context *ctr_drbg, mbedtls_entropy_context *entropy) {
+    mbedtls_ctr_drbg_init(ctr_drbg);
+    mbedtls_entropy_init(entropy);
+    return mbedtls_ctr_drbg_seed(ctr_drbg, mbedtls_entropy_func, entropy, NULL, 0);
+}
+
+/* EC key generation (shared by ECDSA and ECDH). */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    int curve;
+    uint8_t *privkey;
+    size_t privkey_len;
+    uint8_t *pubkey;
+    size_t pubkey_len;
+    int r;
+} TJSEcGenerateKeyReq;
+
+static void tjs__ec_generate_key_work_cb(uv_work_t *req) {
+    TJSEcGenerateKeyReq *er = req->data;
+    mbedtls_ecdsa_context ecdsa;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_context entropy;
+
+    mbedtls_ecdsa_init(&ecdsa);
+
+    int ret = tjs__setup_rng(&ctr_drbg, &entropy);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_ecdsa_genkey(&ecdsa, curve_to_group_id[er->curve], mbedtls_ctr_drbg_random, &ctr_drbg);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_mpi_write_binary(&ecdsa.MBEDTLS_PRIVATE(d), er->privkey, er->privkey_len);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    size_t olen = 0;
+    ret = mbedtls_ecp_point_write_binary(&ecdsa.MBEDTLS_PRIVATE(grp),
+                                         &ecdsa.MBEDTLS_PRIVATE(Q),
+                                         MBEDTLS_ECP_PF_UNCOMPRESSED,
+                                         &olen,
+                                         er->pubkey,
+                                         er->pubkey_len);
+
+cleanup:
+    mbedtls_ecdsa_free(&ecdsa);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    er->r = ret;
+}
+
+static void tjs__ec_generate_key_after_work_cb(uv_work_t *req, int status) {
+    TJSEcGenerateKeyReq *er = req->data;
+    CHECK_NOT_NULL(er);
+
+    JSContext *ctx = er->ctx;
+    JSValue args[3];
+
+    if (status != 0 || er->r != 0) {
+        args[0] = JS_NewString(ctx, "EC key generation failed");
+        args[1] = JS_UNDEFINED;
+        args[2] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, er->privkey, er->privkey_len);
+        args[2] = JS_NewUint8ArrayCopy(ctx, er->pubkey, er->pubkey_len);
+    }
+
+    tjs_call_handler(ctx, er->callback, 3, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, args[2]);
+    JS_FreeValue(ctx, er->callback);
+    js_free(ctx, er->privkey);
+    js_free(ctx, er->pubkey);
+    js_free(ctx, er);
+}
+
+static JSValue tjs_webcrypto_ec_generate_key(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 2) {
+        return JS_ThrowTypeError(ctx, "expected 2 arguments: curveId, callback");
+    }
+
+    int32_t curve;
+    if (JS_ToInt32(ctx, &curve, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    if (curve < CURVE_P256 || curve > CURVE_P521) {
+        return JS_ThrowRangeError(ctx, "invalid curve");
+    }
+
+    if (!JS_IsFunction(ctx, argv[1])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    int key_size = curve_byte_sizes[curve];
+
+    TJSEcGenerateKeyReq *er = js_malloc(ctx, sizeof(*er));
+    if (!er) {
+        return JS_EXCEPTION;
+    }
+
+    memset(er, 0, sizeof(*er));
+    er->ctx = ctx;
+    er->callback = JS_DupValue(ctx, argv[1]);
+    er->curve = curve;
+    er->privkey_len = key_size;
+    er->pubkey_len = 1 + 2 * key_size;
+
+    er->privkey = js_malloc(ctx, er->privkey_len);
+    if (!er->privkey) {
+        goto fail;
+    }
+
+    er->pubkey = js_malloc(ctx, er->pubkey_len);
+    if (!er->pubkey) {
+        goto fail;
+    }
+
+    er->req.data = er;
+
+    int r =
+        uv_queue_work(tjs_get_loop(ctx), &er->req, tjs__ec_generate_key_work_cb, tjs__ec_generate_key_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, er->callback);
+    js_free(ctx, er->privkey);
+    js_free(ctx, er->pubkey);
+    js_free(ctx, er);
+    return JS_EXCEPTION;
+}
+
+/* ECDSA sign. */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    int curve;
+    int hash_type;
+    uint8_t *privkey;
+    size_t privkey_len;
+    uint8_t *data;
+    size_t data_len;
+    uint8_t *signature;
+    size_t sig_len;
+    int r;
+} TJSEcdsaSignReq;
+
+static void tjs__ecdsa_sign_work_cb(uv_work_t *req) {
+    TJSEcdsaSignReq *sr = req->data;
+    mbedtls_ecp_group grp;
+    mbedtls_mpi d, r_mpi, s_mpi;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_context entropy;
+    uint8_t hash[64]; /* Max SHA-512. */
+
+    mbedtls_ecp_group_init(&grp);
+    mbedtls_mpi_init(&d);
+    mbedtls_mpi_init(&r_mpi);
+    mbedtls_mpi_init(&s_mpi);
+
+    int ret = tjs__setup_rng(&ctr_drbg, &entropy);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    /* Hash the data. */
+    mbedtls_md_type_t md_type = digest_to_md_type[sr->hash_type];
+    const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type(md_type);
+    if (!md_info) {
+        ret = -1;
+        goto cleanup;
+    }
+
+    size_t hash_len = mbedtls_md_get_size(md_info);
+    ret = mbedtls_md(md_info, sr->data, sr->data_len, hash);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    /* Load EC group and private key. */
+    ret = mbedtls_ecp_group_load(&grp, curve_to_group_id[sr->curve]);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_mpi_read_binary(&d, sr->privkey, sr->privkey_len);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    /* Deterministic ECDSA sign. */
+    ret = mbedtls_ecdsa_sign_det_ext(&grp,
+                                     &r_mpi,
+                                     &s_mpi,
+                                     &d,
+                                     hash,
+                                     hash_len,
+                                     md_type,
+                                     mbedtls_ctr_drbg_random,
+                                     &ctr_drbg);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    /* Write r || s in IEEE P1363 format. */
+    int key_size = curve_byte_sizes[sr->curve];
+    ret = mbedtls_mpi_write_binary(&r_mpi, sr->signature, key_size);
+    if (ret != 0) {
+        goto cleanup;
+    }
+    ret = mbedtls_mpi_write_binary(&s_mpi, sr->signature + key_size, key_size);
+
+cleanup:
+    mbedtls_mpi_free(&s_mpi);
+    mbedtls_mpi_free(&r_mpi);
+    mbedtls_mpi_free(&d);
+    mbedtls_ecp_group_free(&grp);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    sr->r = ret;
+}
+
+static void tjs__ecdsa_sign_after_work_cb(uv_work_t *req, int status) {
+    TJSEcdsaSignReq *sr = req->data;
+    CHECK_NOT_NULL(sr);
+
+    JSContext *ctx = sr->ctx;
+    JSValue args[2];
+
+    if (status != 0 || sr->r != 0) {
+        args[0] = JS_NewString(ctx, "ECDSA sign failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, sr->signature, sr->sig_len);
+    }
+
+    tjs_call_handler(ctx, sr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, sr->callback);
+    js_free(ctx, sr->privkey);
+    js_free(ctx, sr->data);
+    js_free(ctx, sr->signature);
+    js_free(ctx, sr);
+}
+
+static JSValue tjs_webcrypto_ecdsa_sign(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 5) {
+        return JS_ThrowTypeError(ctx, "expected 5 arguments: curveId, hashType, privKey, data, callback");
+    }
+
+    int32_t curve;
+    if (JS_ToInt32(ctx, &curve, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    if (curve < CURVE_P256 || curve > CURVE_P521) {
+        return JS_ThrowRangeError(ctx, "invalid curve");
+    }
+
+    int32_t hash_type;
+    if (JS_ToInt32(ctx, &hash_type, argv[1])) {
+        return JS_EXCEPTION;
+    }
+
+    if (hash_type < DIGEST_SHA1 || hash_type > DIGEST_SHA512) {
+        return JS_ThrowRangeError(ctx, "invalid digest algorithm");
+    }
+
+    size_t privkey_len;
+    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[2]);
+    if (!privkey) {
+        return JS_EXCEPTION;
+    }
+
+    size_t data_len;
+    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[3]);
+    if (!data && data_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    if (!JS_IsFunction(ctx, argv[4])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    int key_size = curve_byte_sizes[curve];
+
+    TJSEcdsaSignReq *sr = js_malloc(ctx, sizeof(*sr));
+    if (!sr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(sr, 0, sizeof(*sr));
+    sr->ctx = ctx;
+    sr->callback = JS_DupValue(ctx, argv[4]);
+    sr->curve = curve;
+    sr->hash_type = hash_type;
+    sr->sig_len = 2 * key_size;
+    sr->r = -1;
+
+    sr->privkey = js_malloc(ctx, privkey_len);
+    if (!sr->privkey) {
+        goto fail;
+    }
+    memcpy(sr->privkey, privkey, privkey_len);
+    sr->privkey_len = privkey_len;
+
+    if (data_len > 0) {
+        sr->data = js_malloc(ctx, data_len);
+        if (!sr->data) {
+            goto fail;
+        }
+        memcpy(sr->data, data, data_len);
+    }
+    sr->data_len = data_len;
+
+    sr->signature = js_malloc(ctx, sr->sig_len);
+    if (!sr->signature) {
+        goto fail;
+    }
+
+    sr->req.data = sr;
+
+    int r = uv_queue_work(tjs_get_loop(ctx), &sr->req, tjs__ecdsa_sign_work_cb, tjs__ecdsa_sign_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, sr->callback);
+    js_free(ctx, sr->privkey);
+    js_free(ctx, sr->data);
+    js_free(ctx, sr->signature);
+    js_free(ctx, sr);
+    return JS_EXCEPTION;
+}
+
+/* ECDSA verify. */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    int curve;
+    int hash_type;
+    uint8_t *pubkey;
+    size_t pubkey_len;
+    uint8_t *signature;
+    size_t sig_len;
+    uint8_t *data;
+    size_t data_len;
+    int r;
+} TJSEcdsaVerifyReq;
+
+static void tjs__ecdsa_verify_work_cb(uv_work_t *req) {
+    TJSEcdsaVerifyReq *vr = req->data;
+    mbedtls_ecp_group grp;
+    mbedtls_ecp_point Q;
+    mbedtls_mpi r_mpi, s_mpi;
+    uint8_t hash[64];
+
+    mbedtls_ecp_group_init(&grp);
+    mbedtls_ecp_point_init(&Q);
+    mbedtls_mpi_init(&r_mpi);
+    mbedtls_mpi_init(&s_mpi);
+
+    /* Hash the data. */
+    mbedtls_md_type_t md_type = digest_to_md_type[vr->hash_type];
+    const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type(md_type);
+    if (!md_info) {
+        vr->r = -1;
+        goto cleanup;
+    }
+
+    size_t hash_len = mbedtls_md_get_size(md_info);
+    int ret = mbedtls_md(md_info, vr->data, vr->data_len, hash);
+    if (ret != 0) {
+        vr->r = ret;
+        goto cleanup;
+    }
+
+    /* Load EC group and public key. */
+    ret = mbedtls_ecp_group_load(&grp, curve_to_group_id[vr->curve]);
+    if (ret != 0) {
+        vr->r = ret;
+        goto cleanup;
+    }
+
+    ret = mbedtls_ecp_point_read_binary(&grp, &Q, vr->pubkey, vr->pubkey_len);
+    if (ret != 0) {
+        vr->r = ret;
+        goto cleanup;
+    }
+
+    /* Read r and s from signature (IEEE P1363: r || s). */
+    int key_size = curve_byte_sizes[vr->curve];
+    ret = mbedtls_mpi_read_binary(&r_mpi, vr->signature, key_size);
+    if (ret != 0) {
+        vr->r = ret;
+        goto cleanup;
+    }
+
+    ret = mbedtls_mpi_read_binary(&s_mpi, vr->signature + key_size, key_size);
+    if (ret != 0) {
+        vr->r = ret;
+        goto cleanup;
+    }
+
+    /* Verify: r == 0 means valid. */
+    vr->r = mbedtls_ecdsa_verify(&grp, hash, hash_len, &Q, &r_mpi, &s_mpi);
+
+cleanup:
+    mbedtls_mpi_free(&s_mpi);
+    mbedtls_mpi_free(&r_mpi);
+    mbedtls_ecp_point_free(&Q);
+    mbedtls_ecp_group_free(&grp);
+}
+
+static void tjs__ecdsa_verify_after_work_cb(uv_work_t *req, int status) {
+    TJSEcdsaVerifyReq *vr = req->data;
+    CHECK_NOT_NULL(vr);
+
+    JSContext *ctx = vr->ctx;
+    JSValue args[2];
+
+    if (status != 0) {
+        args[0] = JS_NewString(ctx, "ECDSA verify failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewBool(ctx, vr->r == 0);
+    }
+
+    tjs_call_handler(ctx, vr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, vr->callback);
+    js_free(ctx, vr->pubkey);
+    js_free(ctx, vr->signature);
+    js_free(ctx, vr->data);
+    js_free(ctx, vr);
+}
+
+static JSValue tjs_webcrypto_ecdsa_verify(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 6) {
+        return JS_ThrowTypeError(ctx, "expected 6 arguments: curveId, hashType, pubKey, signature, data, callback");
+    }
+
+    int32_t curve;
+    if (JS_ToInt32(ctx, &curve, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    if (curve < CURVE_P256 || curve > CURVE_P521) {
+        return JS_ThrowRangeError(ctx, "invalid curve");
+    }
+
+    int32_t hash_type;
+    if (JS_ToInt32(ctx, &hash_type, argv[1])) {
+        return JS_EXCEPTION;
+    }
+
+    if (hash_type < DIGEST_SHA1 || hash_type > DIGEST_SHA512) {
+        return JS_ThrowRangeError(ctx, "invalid digest algorithm");
+    }
+
+    size_t pubkey_len;
+    const uint8_t *pubkey = JS_GetUint8Array(ctx, &pubkey_len, argv[2]);
+    if (!pubkey) {
+        return JS_EXCEPTION;
+    }
+
+    size_t sig_len;
+    const uint8_t *signature = JS_GetUint8Array(ctx, &sig_len, argv[3]);
+    if (!signature) {
+        return JS_EXCEPTION;
+    }
+
+    size_t data_len;
+    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[4]);
+    if (!data && data_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    if (!JS_IsFunction(ctx, argv[5])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSEcdsaVerifyReq *vr = js_malloc(ctx, sizeof(*vr));
+    if (!vr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(vr, 0, sizeof(*vr));
+    vr->ctx = ctx;
+    vr->callback = JS_DupValue(ctx, argv[5]);
+    vr->curve = curve;
+    vr->hash_type = hash_type;
+    vr->r = -1;
+
+    vr->pubkey = js_malloc(ctx, pubkey_len);
+    if (!vr->pubkey) {
+        goto fail;
+    }
+    memcpy(vr->pubkey, pubkey, pubkey_len);
+    vr->pubkey_len = pubkey_len;
+
+    vr->signature = js_malloc(ctx, sig_len);
+    if (!vr->signature) {
+        goto fail;
+    }
+    memcpy(vr->signature, signature, sig_len);
+    vr->sig_len = sig_len;
+
+    if (data_len > 0) {
+        vr->data = js_malloc(ctx, data_len);
+        if (!vr->data) {
+            goto fail;
+        }
+        memcpy(vr->data, data, data_len);
+    }
+    vr->data_len = data_len;
+
+    vr->req.data = vr;
+
+    int r = uv_queue_work(tjs_get_loop(ctx), &vr->req, tjs__ecdsa_verify_work_cb, tjs__ecdsa_verify_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, vr->callback);
+    js_free(ctx, vr->pubkey);
+    js_free(ctx, vr->signature);
+    js_free(ctx, vr->data);
+    js_free(ctx, vr);
+    return JS_EXCEPTION;
+}
+
+/* ECDH deriveBits. */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    int curve;
+    uint8_t *privkey;
+    size_t privkey_len;
+    uint8_t *pubkey;
+    size_t pubkey_len;
+    uint8_t *output;
+    size_t output_len;
+    int r;
+} TJSEcdhDeriveBitsReq;
+
+static void tjs__ecdh_derive_bits_work_cb(uv_work_t *req) {
+    TJSEcdhDeriveBitsReq *dr = req->data;
+    mbedtls_ecp_group grp;
+    mbedtls_mpi d, z;
+    mbedtls_ecp_point Q;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_context entropy;
+
+    mbedtls_ecp_group_init(&grp);
+    mbedtls_mpi_init(&d);
+    mbedtls_mpi_init(&z);
+    mbedtls_ecp_point_init(&Q);
+
+    int ret = tjs__setup_rng(&ctr_drbg, &entropy);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_ecp_group_load(&grp, curve_to_group_id[dr->curve]);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_mpi_read_binary(&d, dr->privkey, dr->privkey_len);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_ecp_point_read_binary(&grp, &Q, dr->pubkey, dr->pubkey_len);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_ecdh_compute_shared(&grp, &z, &Q, &d, mbedtls_ctr_drbg_random, &ctr_drbg);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    ret = mbedtls_mpi_write_binary(&z, dr->output, dr->output_len);
+
+cleanup:
+    mbedtls_ecp_point_free(&Q);
+    mbedtls_mpi_free(&z);
+    mbedtls_mpi_free(&d);
+    mbedtls_ecp_group_free(&grp);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    dr->r = ret;
+}
+
+static void tjs__ecdh_derive_bits_after_work_cb(uv_work_t *req, int status) {
+    TJSEcdhDeriveBitsReq *dr = req->data;
+    CHECK_NOT_NULL(dr);
+
+    JSContext *ctx = dr->ctx;
+    JSValue args[2];
+
+    if (status != 0 || dr->r != 0) {
+        args[0] = JS_NewString(ctx, "ECDH deriveBits failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, dr->output, dr->output_len);
+    }
+
+    tjs_call_handler(ctx, dr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, dr->callback);
+    js_free(ctx, dr->privkey);
+    js_free(ctx, dr->pubkey);
+    js_free(ctx, dr->output);
+    js_free(ctx, dr);
+}
+
+static JSValue tjs_webcrypto_ecdh_derive_bits(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 4) {
+        return JS_ThrowTypeError(ctx, "expected 4 arguments: curveId, privKey, pubKey, callback");
+    }
+
+    int32_t curve;
+    if (JS_ToInt32(ctx, &curve, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    if (curve < CURVE_P256 || curve > CURVE_P521) {
+        return JS_ThrowRangeError(ctx, "invalid curve");
+    }
+
+    size_t privkey_len;
+    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[1]);
+    if (!privkey) {
+        return JS_EXCEPTION;
+    }
+
+    size_t pubkey_len;
+    const uint8_t *pubkey = JS_GetUint8Array(ctx, &pubkey_len, argv[2]);
+    if (!pubkey) {
+        return JS_EXCEPTION;
+    }
+
+    if (!JS_IsFunction(ctx, argv[3])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSEcdhDeriveBitsReq *dr = js_malloc(ctx, sizeof(*dr));
+    if (!dr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(dr, 0, sizeof(*dr));
+    dr->ctx = ctx;
+    dr->callback = JS_DupValue(ctx, argv[3]);
+    dr->curve = curve;
+    dr->output_len = curve_byte_sizes[curve];
+    dr->r = -1;
+
+    dr->privkey = js_malloc(ctx, privkey_len);
+    if (!dr->privkey) {
+        goto fail;
+    }
+    memcpy(dr->privkey, privkey, privkey_len);
+    dr->privkey_len = privkey_len;
+
+    dr->pubkey = js_malloc(ctx, pubkey_len);
+    if (!dr->pubkey) {
+        goto fail;
+    }
+    memcpy(dr->pubkey, pubkey, pubkey_len);
+    dr->pubkey_len = pubkey_len;
+
+    dr->output = js_malloc(ctx, dr->output_len);
+    if (!dr->output) {
+        goto fail;
+    }
+
+    dr->req.data = dr;
+
+    int r =
+        uv_queue_work(tjs_get_loop(ctx), &dr->req, tjs__ecdh_derive_bits_work_cb, tjs__ecdh_derive_bits_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, dr->callback);
+    js_free(ctx, dr->privkey);
+    js_free(ctx, dr->pubkey);
+    js_free(ctx, dr->output);
+    js_free(ctx, dr);
+    return JS_EXCEPTION;
+}
+
 /* clang-format off */
 static const JSCFunctionListEntry tjs_cipher_consts[] = {
     TJS_CONST(CIPHER_AES_CBC),
@@ -991,6 +1743,14 @@ static const JSCFunctionListEntry tjs_webcrypto_consts[] = {
     TJS_CONST(DIGEST_SHA256),
     TJS_CONST(DIGEST_SHA384),
     TJS_CONST(DIGEST_SHA512),
+};
+/* clang-format on */
+
+/* clang-format off */
+static const JSCFunctionListEntry tjs_ec_consts[] = {
+    TJS_CONST(CURVE_P256),
+    TJS_CONST(CURVE_P384),
+    TJS_CONST(CURVE_P521),
 };
 /* clang-format on */
 
@@ -1011,5 +1771,19 @@ void tjs__webcrypto_init(JSContext *ctx, JSValue ns) {
     JSValue hkdf_fn = JS_NewCFunction(ctx, tjs_webcrypto_hkdf, "hkdf", 6);
     JS_SetPropertyFunctionList(ctx, hkdf_fn, tjs_webcrypto_consts, countof(tjs_webcrypto_consts));
     JS_DefinePropertyValueStr(ctx, obj, "hkdf", hkdf_fn, JS_PROP_C_W_E);
+    JSValue ec_gen_fn = JS_NewCFunction(ctx, tjs_webcrypto_ec_generate_key, "ecGenerateKey", 2);
+    JS_SetPropertyFunctionList(ctx, ec_gen_fn, tjs_ec_consts, countof(tjs_ec_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "ecGenerateKey", ec_gen_fn, JS_PROP_C_W_E);
+    JSValue ecdsa_sign_fn = JS_NewCFunction(ctx, tjs_webcrypto_ecdsa_sign, "ecdsaSign", 5);
+    JS_SetPropertyFunctionList(ctx, ecdsa_sign_fn, tjs_ec_consts, countof(tjs_ec_consts));
+    JS_SetPropertyFunctionList(ctx, ecdsa_sign_fn, tjs_webcrypto_consts, countof(tjs_webcrypto_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "ecdsaSign", ecdsa_sign_fn, JS_PROP_C_W_E);
+    JSValue ecdsa_verify_fn = JS_NewCFunction(ctx, tjs_webcrypto_ecdsa_verify, "ecdsaVerify", 6);
+    JS_SetPropertyFunctionList(ctx, ecdsa_verify_fn, tjs_ec_consts, countof(tjs_ec_consts));
+    JS_SetPropertyFunctionList(ctx, ecdsa_verify_fn, tjs_webcrypto_consts, countof(tjs_webcrypto_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "ecdsaVerify", ecdsa_verify_fn, JS_PROP_C_W_E);
+    JSValue ecdh_fn = JS_NewCFunction(ctx, tjs_webcrypto_ecdh_derive_bits, "ecdhDeriveBits", 4);
+    JS_SetPropertyFunctionList(ctx, ecdh_fn, tjs_ec_consts, countof(tjs_ec_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "ecdhDeriveBits", ecdh_fn, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "webcrypto", obj, JS_PROP_C_W_E);
 }
