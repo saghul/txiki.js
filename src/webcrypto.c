@@ -25,7 +25,9 @@
 #include "private.h"
 
 #include <mbedtls/cipher.h>
+#include <mbedtls/hkdf.h>
 #include <mbedtls/md.h>
+#include <mbedtls/pkcs5.h>
 #include <mbedtls/sha1.h>
 #include <mbedtls/sha256.h>
 #include <mbedtls/sha512.h>
@@ -660,6 +662,320 @@ fail:
     return JS_EXCEPTION;
 }
 
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    int type;
+    uint8_t *password;
+    size_t password_len;
+    uint8_t *salt;
+    size_t salt_len;
+    uint32_t iterations;
+    uint8_t *output;
+    uint32_t key_length;
+    int r;
+} TJSPbkdf2Req;
+
+static void tjs__pbkdf2_work_cb(uv_work_t *req) {
+    TJSPbkdf2Req *pr = req->data;
+    pr->r = mbedtls_pkcs5_pbkdf2_hmac_ext(digest_to_md_type[pr->type],
+                                          pr->password,
+                                          pr->password_len,
+                                          pr->salt,
+                                          pr->salt_len,
+                                          pr->iterations,
+                                          pr->key_length,
+                                          pr->output);
+}
+
+static void tjs__pbkdf2_after_work_cb(uv_work_t *req, int status) {
+    TJSPbkdf2Req *pr = req->data;
+    CHECK_NOT_NULL(pr);
+
+    JSContext *ctx = pr->ctx;
+    JSValue args[2];
+
+    if (status != 0 || pr->r != 0) {
+        args[0] = JS_NewString(ctx, "PBKDF2 operation failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, pr->output, pr->key_length);
+    }
+
+    tjs_call_handler(ctx, pr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, pr->callback);
+    js_free(ctx, pr->password);
+    js_free(ctx, pr->salt);
+    js_free(ctx, pr->output);
+    js_free(ctx, pr);
+}
+
+static JSValue tjs_webcrypto_pbkdf2(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 6) {
+        return JS_ThrowTypeError(ctx, "expected 6 arguments: type, password, salt, iterations, keyLength, callback");
+    }
+
+    int32_t type;
+    if (JS_ToInt32(ctx, &type, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    if (type < DIGEST_SHA1 || type > DIGEST_SHA512) {
+        return JS_ThrowRangeError(ctx, "invalid digest algorithm");
+    }
+
+    size_t password_len;
+    const uint8_t *password = JS_GetUint8Array(ctx, &password_len, argv[1]);
+    if (!password && password_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    size_t salt_len;
+    const uint8_t *salt = JS_GetUint8Array(ctx, &salt_len, argv[2]);
+    if (!salt && salt_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    uint32_t iterations;
+    if (JS_ToUint32(ctx, &iterations, argv[3])) {
+        return JS_EXCEPTION;
+    }
+
+    uint32_t key_length;
+    if (JS_ToUint32(ctx, &key_length, argv[4])) {
+        return JS_EXCEPTION;
+    }
+
+    if (!JS_IsFunction(ctx, argv[5])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSPbkdf2Req *pr = js_malloc(ctx, sizeof(*pr));
+    if (!pr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(pr, 0, sizeof(*pr));
+    pr->ctx = ctx;
+    pr->callback = JS_DupValue(ctx, argv[5]);
+    pr->type = type;
+    pr->iterations = iterations;
+    pr->key_length = key_length;
+    pr->r = -1;
+
+    if (password_len > 0) {
+        pr->password = js_malloc(ctx, password_len);
+        if (!pr->password) {
+            goto fail;
+        }
+        memcpy(pr->password, password, password_len);
+    }
+    pr->password_len = password_len;
+
+    if (salt_len > 0) {
+        pr->salt = js_malloc(ctx, salt_len);
+        if (!pr->salt) {
+            goto fail;
+        }
+        memcpy(pr->salt, salt, salt_len);
+    }
+    pr->salt_len = salt_len;
+
+    pr->output = js_malloc(ctx, key_length);
+    if (!pr->output) {
+        goto fail;
+    }
+
+    pr->req.data = pr;
+
+    int r = uv_queue_work(tjs_get_loop(ctx), &pr->req, tjs__pbkdf2_work_cb, tjs__pbkdf2_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, pr->callback);
+    js_free(ctx, pr->password);
+    js_free(ctx, pr->salt);
+    js_free(ctx, pr->output);
+    js_free(ctx, pr);
+    return JS_EXCEPTION;
+}
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    int type;
+    uint8_t *ikm;
+    size_t ikm_len;
+    uint8_t *salt;
+    size_t salt_len;
+    uint8_t *info;
+    size_t info_len;
+    uint8_t *output;
+    size_t key_length;
+    int r;
+} TJSHkdfReq;
+
+static void tjs__hkdf_work_cb(uv_work_t *req) {
+    TJSHkdfReq *hr = req->data;
+    const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type(digest_to_md_type[hr->type]);
+
+    if (!md_info) {
+        hr->r = -1;
+        return;
+    }
+
+    hr->r = mbedtls_hkdf(md_info,
+                         hr->salt,
+                         hr->salt_len,
+                         hr->ikm,
+                         hr->ikm_len,
+                         hr->info,
+                         hr->info_len,
+                         hr->output,
+                         hr->key_length);
+}
+
+static void tjs__hkdf_after_work_cb(uv_work_t *req, int status) {
+    TJSHkdfReq *hr = req->data;
+    CHECK_NOT_NULL(hr);
+
+    JSContext *ctx = hr->ctx;
+    JSValue args[2];
+
+    if (status != 0 || hr->r != 0) {
+        args[0] = JS_NewString(ctx, "HKDF operation failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, hr->output, hr->key_length);
+    }
+
+    tjs_call_handler(ctx, hr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, hr->callback);
+    js_free(ctx, hr->ikm);
+    js_free(ctx, hr->salt);
+    js_free(ctx, hr->info);
+    js_free(ctx, hr->output);
+    js_free(ctx, hr);
+}
+
+static JSValue tjs_webcrypto_hkdf(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 6) {
+        return JS_ThrowTypeError(ctx, "expected 6 arguments: type, ikm, salt, info, keyLength, callback");
+    }
+
+    int32_t type;
+    if (JS_ToInt32(ctx, &type, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    if (type < DIGEST_SHA1 || type > DIGEST_SHA512) {
+        return JS_ThrowRangeError(ctx, "invalid digest algorithm");
+    }
+
+    size_t ikm_len;
+    const uint8_t *ikm = JS_GetUint8Array(ctx, &ikm_len, argv[1]);
+    if (!ikm && ikm_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    size_t salt_len;
+    const uint8_t *salt = JS_GetUint8Array(ctx, &salt_len, argv[2]);
+    if (!salt && salt_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    size_t info_len;
+    const uint8_t *info = JS_GetUint8Array(ctx, &info_len, argv[3]);
+    if (!info && info_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    uint32_t key_length;
+    if (JS_ToUint32(ctx, &key_length, argv[4])) {
+        return JS_EXCEPTION;
+    }
+
+    if (!JS_IsFunction(ctx, argv[5])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSHkdfReq *hkr = js_malloc(ctx, sizeof(*hkr));
+    if (!hkr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(hkr, 0, sizeof(*hkr));
+    hkr->ctx = ctx;
+    hkr->callback = JS_DupValue(ctx, argv[5]);
+    hkr->type = type;
+    hkr->key_length = key_length;
+    hkr->r = -1;
+
+    if (ikm_len > 0) {
+        hkr->ikm = js_malloc(ctx, ikm_len);
+        if (!hkr->ikm) {
+            goto fail;
+        }
+        memcpy(hkr->ikm, ikm, ikm_len);
+    }
+    hkr->ikm_len = ikm_len;
+
+    if (salt_len > 0) {
+        hkr->salt = js_malloc(ctx, salt_len);
+        if (!hkr->salt) {
+            goto fail;
+        }
+        memcpy(hkr->salt, salt, salt_len);
+    }
+    hkr->salt_len = salt_len;
+
+    if (info_len > 0) {
+        hkr->info = js_malloc(ctx, info_len);
+        if (!hkr->info) {
+            goto fail;
+        }
+        memcpy(hkr->info, info, info_len);
+    }
+    hkr->info_len = info_len;
+
+    hkr->output = js_malloc(ctx, key_length);
+    if (!hkr->output) {
+        goto fail;
+    }
+
+    hkr->req.data = hkr;
+
+    int r = uv_queue_work(tjs_get_loop(ctx), &hkr->req, tjs__hkdf_work_cb, tjs__hkdf_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, hkr->callback);
+    js_free(ctx, hkr->ikm);
+    js_free(ctx, hkr->salt);
+    js_free(ctx, hkr->info);
+    js_free(ctx, hkr->output);
+    js_free(ctx, hkr);
+    return JS_EXCEPTION;
+}
+
 /* clang-format off */
 static const JSCFunctionListEntry tjs_cipher_consts[] = {
     TJS_CONST(CIPHER_AES_CBC),
@@ -689,5 +1005,11 @@ void tjs__webcrypto_init(JSContext *ctx, JSValue ns) {
     JSValue cipher_fn = JS_NewCFunction(ctx, tjs_webcrypto_cipher, "cipher", 8);
     JS_SetPropertyFunctionList(ctx, cipher_fn, tjs_cipher_consts, countof(tjs_cipher_consts));
     JS_DefinePropertyValueStr(ctx, obj, "cipher", cipher_fn, JS_PROP_C_W_E);
+    JSValue pbkdf2_fn = JS_NewCFunction(ctx, tjs_webcrypto_pbkdf2, "pbkdf2", 6);
+    JS_SetPropertyFunctionList(ctx, pbkdf2_fn, tjs_webcrypto_consts, countof(tjs_webcrypto_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "pbkdf2", pbkdf2_fn, JS_PROP_C_W_E);
+    JSValue hkdf_fn = JS_NewCFunction(ctx, tjs_webcrypto_hkdf, "hkdf", 6);
+    JS_SetPropertyFunctionList(ctx, hkdf_fn, tjs_webcrypto_consts, countof(tjs_webcrypto_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "hkdf", hkdf_fn, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "webcrypto", obj, JS_PROP_C_W_E);
 }
