@@ -2963,6 +2963,317 @@ static JSValue tjs_webcrypto_rsa_parse_key(JSContext *ctx, JSValue this_val, int
     return result;
 }
 
+/* Helper: convert mbedtls MPI to JS Uint8Array. */
+static JSValue tjs__mpi_to_js(JSContext *ctx, const mbedtls_mpi *mpi) {
+    size_t len = mbedtls_mpi_size(mpi);
+    uint8_t *buf = js_malloc(ctx, len);
+    if (!buf) {
+        return JS_EXCEPTION;
+    }
+    int ret = mbedtls_mpi_write_binary(mpi, buf, len);
+    if (ret != 0) {
+        js_free(ctx, buf);
+        return JS_EXCEPTION;
+    }
+    JSValue val = JS_NewUint8ArrayCopy(ctx, buf, len);
+    js_free(ctx, buf);
+    return val;
+}
+
+/* RSA export JWK (sync): parse DER, extract RSA components as Uint8Arrays. */
+
+static JSValue tjs_webcrypto_rsa_export_jwk(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 2) {
+        return JS_ThrowTypeError(ctx, "expected 2 arguments: derBuf, isPrivate");
+    }
+
+    size_t der_len;
+    const uint8_t *der = JS_GetUint8Array(ctx, &der_len, argv[0]);
+    if (!der) {
+        return JS_EXCEPTION;
+    }
+
+    int is_private = JS_ToBool(ctx, argv[1]);
+
+    mbedtls_pk_context pk;
+    mbedtls_pk_init(&pk);
+
+    int ret;
+    if (is_private) {
+        mbedtls_ctr_drbg_context ctr_drbg;
+        mbedtls_entropy_context entropy;
+        ret = tjs__setup_rng(&ctr_drbg, &entropy);
+        if (ret == 0) {
+            ret = mbedtls_pk_parse_key(&pk, der, der_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg);
+        }
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        mbedtls_entropy_free(&entropy);
+    } else {
+        ret = mbedtls_pk_parse_public_key(&pk, der, der_len);
+    }
+
+    if (ret != 0) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "failed to parse RSA key");
+    }
+
+    if (mbedtls_pk_get_type(&pk) != MBEDTLS_PK_RSA) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "key is not RSA");
+    }
+
+    mbedtls_rsa_context *rsa = mbedtls_pk_rsa(pk);
+    mbedtls_mpi N, E;
+    mbedtls_mpi_init(&N);
+    mbedtls_mpi_init(&E);
+
+    ret = mbedtls_rsa_export(rsa, &N, NULL, NULL, NULL, &E);
+    if (ret != 0) {
+        mbedtls_mpi_free(&N);
+        mbedtls_mpi_free(&E);
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "failed to export RSA N/E");
+    }
+
+    JSValue result = JS_NewObject(ctx);
+    JS_DefinePropertyValueStr(ctx, result, "n", tjs__mpi_to_js(ctx, &N), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, result, "e", tjs__mpi_to_js(ctx, &E), JS_PROP_C_W_E);
+
+    mbedtls_mpi_free(&N);
+    mbedtls_mpi_free(&E);
+
+    if (is_private) {
+        mbedtls_mpi P, Q, D, DP, DQ, QP;
+        mbedtls_mpi_init(&P);
+        mbedtls_mpi_init(&Q);
+        mbedtls_mpi_init(&D);
+        mbedtls_mpi_init(&DP);
+        mbedtls_mpi_init(&DQ);
+        mbedtls_mpi_init(&QP);
+
+        ret = mbedtls_rsa_export(rsa, NULL, &P, &Q, &D, NULL);
+        if (ret == 0) {
+            ret = mbedtls_rsa_export_crt(rsa, &DP, &DQ, &QP);
+        }
+
+        if (ret != 0) {
+            mbedtls_mpi_free(&P);
+            mbedtls_mpi_free(&Q);
+            mbedtls_mpi_free(&D);
+            mbedtls_mpi_free(&DP);
+            mbedtls_mpi_free(&DQ);
+            mbedtls_mpi_free(&QP);
+            mbedtls_pk_free(&pk);
+            JS_FreeValue(ctx, result);
+            return JS_ThrowTypeError(ctx, "failed to export RSA private components");
+        }
+
+        JS_DefinePropertyValueStr(ctx, result, "d", tjs__mpi_to_js(ctx, &D), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, result, "p", tjs__mpi_to_js(ctx, &P), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, result, "q", tjs__mpi_to_js(ctx, &Q), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, result, "dp", tjs__mpi_to_js(ctx, &DP), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, result, "dq", tjs__mpi_to_js(ctx, &DQ), JS_PROP_C_W_E);
+        JS_DefinePropertyValueStr(ctx, result, "qi", tjs__mpi_to_js(ctx, &QP), JS_PROP_C_W_E);
+
+        mbedtls_mpi_free(&P);
+        mbedtls_mpi_free(&Q);
+        mbedtls_mpi_free(&D);
+        mbedtls_mpi_free(&DP);
+        mbedtls_mpi_free(&DQ);
+        mbedtls_mpi_free(&QP);
+    }
+
+    mbedtls_pk_free(&pk);
+    return result;
+}
+
+/* RSA import JWK (sync): reconstruct DER from JWK component Uint8Arrays. */
+
+static JSValue tjs_webcrypto_rsa_import_jwk(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 2) {
+        return JS_ThrowTypeError(ctx, "expected at least 2 arguments: n, e, [d, p, q, dp, dq, qi]");
+    }
+
+    size_t n_len, e_len;
+    const uint8_t *n = JS_GetUint8Array(ctx, &n_len, argv[0]);
+    if (!n) {
+        return JS_EXCEPTION;
+    }
+    const uint8_t *e = JS_GetUint8Array(ctx, &e_len, argv[1]);
+    if (!e) {
+        return JS_EXCEPTION;
+    }
+
+    int is_private = argc >= 3 && !JS_IsUndefined(argv[2]);
+
+    mbedtls_pk_context pk;
+    mbedtls_pk_init(&pk);
+
+    int ret = mbedtls_pk_setup(&pk, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
+    if (ret != 0) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "failed to setup RSA context");
+    }
+
+    mbedtls_rsa_context *rsa = mbedtls_pk_rsa(pk);
+
+    if (is_private) {
+        size_t d_len, p_len = 0, q_len = 0;
+        const uint8_t *d = JS_GetUint8Array(ctx, &d_len, argv[2]);
+        if (!d) {
+            mbedtls_pk_free(&pk);
+            return JS_EXCEPTION;
+        }
+
+        const uint8_t *p = NULL;
+        const uint8_t *q = NULL;
+        if (argc >= 5 && !JS_IsUndefined(argv[3]) && !JS_IsUndefined(argv[4])) {
+            p = JS_GetUint8Array(ctx, &p_len, argv[3]);
+            if (!p) {
+                mbedtls_pk_free(&pk);
+                return JS_EXCEPTION;
+            }
+            q = JS_GetUint8Array(ctx, &q_len, argv[4]);
+            if (!q) {
+                mbedtls_pk_free(&pk);
+                return JS_EXCEPTION;
+            }
+        }
+
+        ret = mbedtls_rsa_import_raw(rsa, n, n_len, p, p_len, q, q_len, d, d_len, e, e_len);
+    } else {
+        ret = mbedtls_rsa_import_raw(rsa, n, n_len, NULL, 0, NULL, 0, NULL, 0, e, e_len);
+    }
+
+    if (ret != 0) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "failed to import RSA key components");
+    }
+
+    ret = mbedtls_rsa_complete(rsa);
+    if (ret != 0) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "failed to complete RSA key");
+    }
+
+    size_t buf_size = is_private ? (4 * n_len + 512) : (n_len + 256);
+    uint8_t *buf = js_malloc(ctx, buf_size);
+    if (!buf) {
+        mbedtls_pk_free(&pk);
+        return JS_EXCEPTION;
+    }
+
+    int len;
+    if (is_private) {
+        len = mbedtls_pk_write_key_der(&pk, buf, buf_size);
+    } else {
+        len = mbedtls_pk_write_pubkey_der(&pk, buf, buf_size);
+    }
+
+    mbedtls_pk_free(&pk);
+
+    if (len < 0) {
+        js_free(ctx, buf);
+        return JS_ThrowTypeError(ctx, "failed to write RSA key DER");
+    }
+
+    /* mbedtls writes from end of buffer. */
+    JSValue result = JS_NewUint8ArrayCopy(ctx, buf + buf_size - len, len);
+    js_free(ctx, buf);
+
+    return result;
+}
+
+/* EC get public key (sync): compute uncompressed public point from private scalar. */
+
+static JSValue tjs_webcrypto_ec_get_public_key(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 2) {
+        return JS_ThrowTypeError(ctx, "expected 2 arguments: privKeyBuf, curveId");
+    }
+
+    size_t priv_len;
+    const uint8_t *priv = JS_GetUint8Array(ctx, &priv_len, argv[0]);
+    if (!priv) {
+        return JS_EXCEPTION;
+    }
+
+    int32_t curve;
+    if (JS_ToInt32(ctx, &curve, argv[1])) {
+        return JS_EXCEPTION;
+    }
+
+    if (curve < CURVE_P256 || curve > CURVE_P521) {
+        return JS_ThrowRangeError(ctx, "invalid curve");
+    }
+
+    int key_size = curve_byte_sizes[curve];
+    mbedtls_ecp_group grp;
+    mbedtls_mpi d;
+    mbedtls_ecp_point Q;
+
+    mbedtls_ecp_group_init(&grp);
+    mbedtls_mpi_init(&d);
+    mbedtls_ecp_point_init(&Q);
+
+    int ret = mbedtls_ecp_group_load(&grp, curve_to_group_id[curve]);
+    if (ret != 0) {
+        goto ec_pub_fail;
+    }
+
+    ret = mbedtls_mpi_read_binary(&d, priv, priv_len);
+    if (ret != 0) {
+        goto ec_pub_fail;
+    }
+
+    {
+        mbedtls_ctr_drbg_context ctr_drbg;
+        mbedtls_entropy_context entropy;
+        ret = tjs__setup_rng(&ctr_drbg, &entropy);
+        if (ret == 0) {
+            ret = mbedtls_ecp_mul(&grp, &Q, &d, &grp.G, mbedtls_ctr_drbg_random, &ctr_drbg);
+        }
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        mbedtls_entropy_free(&entropy);
+    }
+
+    if (ret != 0) {
+        goto ec_pub_fail;
+    }
+
+    {
+        size_t pub_len = 1 + 2 * key_size;
+        uint8_t *buf = js_malloc(ctx, pub_len);
+        if (!buf) {
+            mbedtls_ecp_point_free(&Q);
+            mbedtls_mpi_free(&d);
+            mbedtls_ecp_group_free(&grp);
+            return JS_EXCEPTION;
+        }
+
+        size_t olen = 0;
+        ret = mbedtls_ecp_point_write_binary(&grp, &Q, MBEDTLS_ECP_PF_UNCOMPRESSED, &olen, buf, pub_len);
+
+        mbedtls_ecp_point_free(&Q);
+        mbedtls_mpi_free(&d);
+        mbedtls_ecp_group_free(&grp);
+
+        if (ret != 0) {
+            js_free(ctx, buf);
+            return JS_ThrowTypeError(ctx, "failed to write EC public key");
+        }
+
+        JSValue result = JS_NewUint8ArrayCopy(ctx, buf, olen);
+        js_free(ctx, buf);
+        return result;
+    }
+
+ec_pub_fail:
+    mbedtls_ecp_point_free(&Q);
+    mbedtls_mpi_free(&d);
+    mbedtls_ecp_group_free(&grp);
+    return JS_ThrowTypeError(ctx, "failed to compute EC public key from private key");
+}
+
 /* clang-format off */
 static const JSCFunctionListEntry tjs_rsa_consts[] = {
     TJS_CONST(RSA_PADDING_PSS),
@@ -3051,5 +3362,12 @@ void tjs__webcrypto_init(JSContext *ctx, JSValue ns) {
     JSValue ec_to_der_fn = JS_NewCFunction(ctx, tjs_webcrypto_ec_key_to_der, "ecKeyToDer", 3);
     JS_SetPropertyFunctionList(ctx, ec_to_der_fn, tjs_ec_consts, countof(tjs_ec_consts));
     JS_DefinePropertyValueStr(ctx, obj, "ecKeyToDer", ec_to_der_fn, JS_PROP_C_W_E);
+    JSValue rsa_export_jwk_fn = JS_NewCFunction(ctx, tjs_webcrypto_rsa_export_jwk, "rsaExportJwk", 2);
+    JS_DefinePropertyValueStr(ctx, obj, "rsaExportJwk", rsa_export_jwk_fn, JS_PROP_C_W_E);
+    JSValue rsa_import_jwk_fn = JS_NewCFunction(ctx, tjs_webcrypto_rsa_import_jwk, "rsaImportJwk", 8);
+    JS_DefinePropertyValueStr(ctx, obj, "rsaImportJwk", rsa_import_jwk_fn, JS_PROP_C_W_E);
+    JSValue ec_get_pub_fn = JS_NewCFunction(ctx, tjs_webcrypto_ec_get_public_key, "ecGetPublicKey", 2);
+    JS_SetPropertyFunctionList(ctx, ec_get_pub_fn, tjs_ec_consts, countof(tjs_ec_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "ecGetPublicKey", ec_get_pub_fn, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "webcrypto", obj, JS_PROP_C_W_E);
 }

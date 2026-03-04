@@ -1,5 +1,5 @@
 import { CryptoKey, kKeyData } from './crypto-key.js';
-import { nativeCipher, toUint8Array } from './helpers.js';
+import { nativeCipher, toUint8Array, base64urlEncode, base64urlDecode } from './helpers.js';
 
 const CIPHER_AES_CBC = nativeCipher.CIPHER_AES_CBC;
 const CIPHER_AES_GCM = nativeCipher.CIPHER_AES_GCM;
@@ -198,8 +198,22 @@ export function aesGenerateKey(algorithm, extractable, keyUsages) {
     return new CryptoKey('secret', extractable, { name: algoName, length }, keyUsages, keyData);
 }
 
+function aesJwkAlg(algoName, bitLength) {
+    const prefix = `A${bitLength}`;
+
+    if (algoName === 'AES-GCM') {
+        return `${prefix}GCM`;
+    }
+
+    if (algoName === 'AES-CBC') {
+        return `${prefix}CBC`;
+    }
+
+    return undefined;
+}
+
 export function aesImportKey(format, keyData, algorithm, extractable, keyUsages) {
-    if (format !== 'raw') {
+    if (format !== 'raw' && format !== 'jwk') {
         throw new DOMException(`Unsupported key format: ${format}`, 'NotSupportedError');
     }
 
@@ -213,12 +227,25 @@ export function aesImportKey(format, keyData, algorithm, extractable, keyUsages)
 
     let rawBytes;
 
-    if (ArrayBuffer.isView(keyData)) {
-        rawBytes = new Uint8Array(keyData.buffer.slice(keyData.byteOffset, keyData.byteOffset + keyData.byteLength));
-    } else if (keyData instanceof ArrayBuffer) {
-        rawBytes = new Uint8Array(keyData.slice(0));
+    if (format === 'jwk') {
+        if (keyData.kty !== 'oct') {
+            throw new DOMException(`Invalid JWK key type: ${keyData.kty}`, 'DataError');
+        }
+
+        if (!keyData.k) {
+            throw new DOMException('JWK missing "k" field', 'DataError');
+        }
+
+        rawBytes = base64urlDecode(keyData.k);
     } else {
-        throw new TypeError('keyData must be a BufferSource');
+        if (ArrayBuffer.isView(keyData)) {
+            rawBytes = new Uint8Array(
+                keyData.buffer.slice(keyData.byteOffset, keyData.byteOffset + keyData.byteLength));
+        } else if (keyData instanceof ArrayBuffer) {
+            rawBytes = new Uint8Array(keyData.slice(0));
+        } else {
+            throw new TypeError('keyData must be a BufferSource');
+        }
     }
 
     if (rawBytes.byteLength !== 16 && rawBytes.byteLength !== 24 && rawBytes.byteLength !== 32) {
@@ -231,12 +258,22 @@ export function aesImportKey(format, keyData, algorithm, extractable, keyUsages)
 }
 
 export function aesExportKey(format, key) {
-    if (format !== 'raw') {
+    if (format !== 'raw' && format !== 'jwk') {
         throw new DOMException(`Unsupported export format: ${format}`, 'NotSupportedError');
     }
 
     if (!key.extractable) {
         throw new DOMException('Key is not extractable', 'InvalidAccessError');
+    }
+
+    if (format === 'jwk') {
+        return {
+            kty: 'oct',
+            k: base64urlEncode(key[kKeyData]),
+            alg: aesJwkAlg(key.algorithm.name, key.algorithm.length),
+            ext: key.extractable,
+            key_ops: [ ...key.usages ],
+        };
     }
 
     return key[kKeyData].buffer.slice(0);
