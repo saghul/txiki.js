@@ -2,9 +2,6 @@ BUILD_DIR=build
 BUILDTYPE?=Release
 
 JOBS?=$(shell getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-ifeq ($(JOBS),)
-JOBS := 4
-endif
 
 TJS=$(BUILD_DIR)/tjs
 TJSC=$(BUILD_DIR)/tjsc
@@ -155,8 +152,7 @@ debug:
 
 distclean:
 	@rm -rf $(BUILD_DIR)
-	@rm -f src/bundles/js/*.js src/bundles/js/core/*.js src/bundles/js/stdlib/*.js
-	@rm -f src/bundles/c/*.c src/bundles/c/core/*.c src/bundles/c/stdlib/*.c
+	@find src/bundles -type f -delete
 
 format:
 	clang-format -i src/*.{c,h}
