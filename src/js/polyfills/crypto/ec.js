@@ -9,9 +9,12 @@ import {
     nativeEcdhDeriveBits,
     nativeEcParseKey,
     nativeEcKeyToDer,
+    nativeEcGetPublicKey,
     normalizeCurve,
     normalizeHashAlgorithm,
     toUint8Array,
+    base64urlEncode,
+    base64urlDecode,
 } from './helpers.js';
 
 const curveByteSizes = { 'P-256': 32, 'P-384': 48, 'P-521': 66 };
@@ -210,6 +213,53 @@ export function ecImportKey(format, keyData, algorithm, extractable, keyUsages) 
     const algoName = typeof algorithm === 'string' ? algorithm : algorithm?.name;
     const namedCurve = normalizeCurve(algorithm.namedCurve);
 
+    if (format === 'jwk') {
+        if (keyData.kty !== 'EC') {
+            throw new DOMException(`Invalid JWK key type: ${keyData.kty}`, 'DataError');
+        }
+
+        if (keyData.crv !== namedCurve) {
+            throw new DOMException(`JWK curve ${keyData.crv} does not match ${namedCurve}`, 'DataError');
+        }
+
+        const size = curveByteSizes[namedCurve];
+        const x = base64urlDecode(keyData.x);
+        const y = base64urlDecode(keyData.y);
+
+        if (x.byteLength !== size || y.byteLength !== size) {
+            throw new DOMException('Invalid EC JWK coordinate size', 'DataError');
+        }
+
+        if (keyData.d) {
+            const d = base64urlDecode(keyData.d);
+            const validUsages = algoName === 'ECDSA' ? [ 'sign' ] : [ 'deriveBits', 'deriveKey' ];
+
+            for (const usage of keyUsages) {
+                if (!validUsages.includes(usage)) {
+                    throw new DOMException(`Invalid key usage for EC private key: ${usage}`, 'SyntaxError');
+                }
+            }
+
+            return new CryptoKey('private', extractable, { name: algoName, namedCurve }, keyUsages, d);
+        }
+
+        const validUsages = algoName === 'ECDSA' ? [ 'verify' ] : [];
+
+        for (const usage of keyUsages) {
+            if (!validUsages.includes(usage)) {
+                throw new DOMException(`Invalid key usage for EC public key: ${usage}`, 'SyntaxError');
+            }
+        }
+
+        const pubBytes = new Uint8Array(1 + 2 * size);
+
+        pubBytes[0] = 0x04;
+        pubBytes.set(x, 1);
+        pubBytes.set(y, 1 + size);
+
+        return new CryptoKey('public', extractable, { name: algoName, namedCurve }, keyUsages, pubBytes);
+    }
+
     let rawBytes;
 
     if (ArrayBuffer.isView(keyData)) {
@@ -316,6 +366,37 @@ export function ecExportKey(format, key) {
         const der = nativeEcKeyToDer(key[kKeyData], curveId, true);
 
         return der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength);
+    }
+
+    if (format === 'jwk') {
+        const namedCurve = key.algorithm.namedCurve;
+        const size = curveByteSizes[namedCurve];
+        const curveId = curveAlgorithms[namedCurve];
+        let pubBytes;
+
+        if (key.type === 'private') {
+            pubBytes = nativeEcGetPublicKey(key[kKeyData], curveId);
+        } else {
+            pubBytes = key[kKeyData];
+        }
+
+        const x = base64urlEncode(pubBytes.slice(1, 1 + size));
+        const y = base64urlEncode(pubBytes.slice(1 + size));
+
+        const jwk = {
+            kty: 'EC',
+            crv: namedCurve,
+            x,
+            y,
+            ext: key.extractable,
+            key_ops: [ ...key.usages ],
+        };
+
+        if (key.type === 'private') {
+            jwk.d = base64urlEncode(key[kKeyData]);
+        }
+
+        return jwk;
     }
 
     throw new DOMException(`Unsupported export format: ${format}`, 'NotSupportedError');

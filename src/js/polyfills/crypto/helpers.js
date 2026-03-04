@@ -17,6 +17,9 @@ export const nativeRsaVerify = core.webcrypto.rsaVerify;
 export const nativeRsaParseKey = core.webcrypto.rsaParseKey;
 export const nativeEcParseKey = core.webcrypto.ecParseKey;
 export const nativeEcKeyToDer = core.webcrypto.ecKeyToDer;
+export const nativeRsaExportJwk = core.webcrypto.rsaExportJwk;
+export const nativeRsaImportJwk = core.webcrypto.rsaImportJwk;
+export const nativeEcGetPublicKey = core.webcrypto.ecGetPublicKey;
 
 export const curveIdToName = {
     [nativeEcGenerateKey.CURVE_P256]: 'P-256',
@@ -70,4 +73,31 @@ export function normalizeHashAlgorithm(hash) {
     }
 
     return name;
+}
+
+export function base64urlEncode(bytes) {
+    let binary = '';
+
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export function base64urlDecode(str) {
+    str = str.replace(/-/g, '+').replace(/_/g, '/');
+
+    const pad = (4 - (str.length % 4)) % 4;
+
+    str += '='.repeat(pad);
+
+    const binary = atob(str);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+
+    return bytes;
 }

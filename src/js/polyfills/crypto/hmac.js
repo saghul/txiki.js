@@ -1,5 +1,8 @@
 import { CryptoKey, kKeyData } from './crypto-key.js';
-import { digestAlgorithms, nativeHmacSign, normalizeHashAlgorithm, hashBlockSizes, toUint8Array } from './helpers.js';
+import {
+    digestAlgorithms, nativeHmacSign, normalizeHashAlgorithm,
+    hashBlockSizes, toUint8Array, base64urlEncode, base64urlDecode,
+} from './helpers.js';
 
 function hmacCompute(hashName, keyData, data) {
     const typeId = digestAlgorithms[hashName];
@@ -93,8 +96,10 @@ export function hmacGenerateKey(algorithm, extractable, keyUsages) {
     return new CryptoKey('secret', extractable, { name: 'HMAC', hash: { name: hashName }, length }, keyUsages, keyData);
 }
 
+const hmacJwkAlg = { 'SHA-1': 'HS1', 'SHA-256': 'HS256', 'SHA-384': 'HS384', 'SHA-512': 'HS512' };
+
 export function hmacImportKey(format, keyData, algorithm, extractable, keyUsages) {
-    if (format !== 'raw') {
+    if (format !== 'raw' && format !== 'jwk') {
         throw new DOMException(`Unsupported key format: ${format}`, 'NotSupportedError');
     }
 
@@ -109,12 +114,25 @@ export function hmacImportKey(format, keyData, algorithm, extractable, keyUsages
 
     let rawBytes;
 
-    if (ArrayBuffer.isView(keyData)) {
-        rawBytes = new Uint8Array(keyData.buffer.slice(keyData.byteOffset, keyData.byteOffset + keyData.byteLength));
-    } else if (keyData instanceof ArrayBuffer) {
-        rawBytes = new Uint8Array(keyData.slice(0));
+    if (format === 'jwk') {
+        if (keyData.kty !== 'oct') {
+            throw new DOMException(`Invalid JWK key type: ${keyData.kty}`, 'DataError');
+        }
+
+        if (!keyData.k) {
+            throw new DOMException('JWK missing "k" field', 'DataError');
+        }
+
+        rawBytes = base64urlDecode(keyData.k);
     } else {
-        throw new TypeError('keyData must be a BufferSource');
+        if (ArrayBuffer.isView(keyData)) {
+            rawBytes = new Uint8Array(
+                keyData.buffer.slice(keyData.byteOffset, keyData.byteOffset + keyData.byteLength));
+        } else if (keyData instanceof ArrayBuffer) {
+            rawBytes = new Uint8Array(keyData.slice(0));
+        } else {
+            throw new TypeError('keyData must be a BufferSource');
+        }
     }
 
     if (rawBytes.byteLength === 0) {
@@ -129,12 +147,22 @@ export function hmacImportKey(format, keyData, algorithm, extractable, keyUsages
 }
 
 export function hmacExportKey(format, key) {
-    if (format !== 'raw') {
+    if (format !== 'raw' && format !== 'jwk') {
         throw new DOMException(`Unsupported export format: ${format}`, 'NotSupportedError');
     }
 
     if (!key.extractable) {
         throw new DOMException('Key is not extractable', 'InvalidAccessError');
+    }
+
+    if (format === 'jwk') {
+        return {
+            kty: 'oct',
+            k: base64urlEncode(key[kKeyData]),
+            alg: hmacJwkAlg[key.algorithm.hash.name],
+            ext: key.extractable,
+            key_ops: [ ...key.usages ],
+        };
     }
 
     return key[kKeyData].buffer.slice(0);

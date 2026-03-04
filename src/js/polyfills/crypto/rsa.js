@@ -7,8 +7,12 @@ import {
     nativeRsaSign,
     nativeRsaVerify,
     nativeRsaParseKey,
+    nativeRsaExportJwk,
+    nativeRsaImportJwk,
     normalizeHashAlgorithm,
     toUint8Array,
+    base64urlEncode,
+    base64urlDecode,
 } from './helpers.js';
 
 const validOaepUsages = [ 'encrypt', 'decrypt', 'wrapKey', 'unwrapKey' ];
@@ -236,13 +240,84 @@ export function rsaVerify(algorithm, key, signature, data) {
     return promise;
 }
 
+function rsaJwkAlg(algoName, hashName) {
+    if (algoName === 'RSA-OAEP') {
+        if (hashName === 'SHA-1') {
+            return 'RSA-OAEP';
+        }
+
+        return `RSA-OAEP-${hashName.replace('SHA-', '')}`;
+    }
+
+    if (algoName === 'RSA-PSS') {
+        return `PS${hashName.replace('SHA-', '')}`;
+    }
+
+    if (algoName === 'RSASSA-PKCS1-v1_5') {
+        return `RS${hashName.replace('SHA-', '')}`;
+    }
+
+    return undefined;
+}
+
 export function rsaImportKey(format, keyData, algorithm, extractable, keyUsages) {
-    if (format !== 'spki' && format !== 'pkcs8') {
+    if (format !== 'spki' && format !== 'pkcs8' && format !== 'jwk') {
         throw new DOMException(`Unsupported key format: ${format}`, 'NotSupportedError');
     }
 
     const algoName = typeof algorithm === 'string' ? algorithm : algorithm?.name;
     const hashName = normalizeHashAlgorithm(algorithm.hash);
+
+    if (format === 'jwk') {
+        if (keyData.kty !== 'RSA') {
+            throw new DOMException(`Invalid JWK key type: ${keyData.kty}`, 'DataError');
+        }
+
+        if (!keyData.n || !keyData.e) {
+            throw new DOMException('JWK missing required RSA fields', 'DataError');
+        }
+
+        const nBytes = base64urlDecode(keyData.n);
+        const eBytes = base64urlDecode(keyData.e);
+        const isPrivate = !!keyData.d;
+        const keyType = isPrivate ? 'private' : 'public';
+        let validUsages;
+
+        if (algoName === 'RSA-OAEP') {
+            validUsages = isPrivate ? [ 'decrypt', 'unwrapKey' ] : [ 'encrypt', 'wrapKey' ];
+        } else {
+            validUsages = isPrivate ? [ 'sign' ] : [ 'verify' ];
+        }
+
+        for (const usage of keyUsages) {
+            if (!validUsages.includes(usage)) {
+                throw new DOMException(`Invalid key usage for jwk ${keyType} key: ${usage}`, 'SyntaxError');
+            }
+        }
+
+        let derBytes;
+
+        if (isPrivate) {
+            const dBytes = base64urlDecode(keyData.d);
+            const pBytes = keyData.p ? base64urlDecode(keyData.p) : undefined;
+            const qBytes = keyData.q ? base64urlDecode(keyData.q) : undefined;
+
+            derBytes = nativeRsaImportJwk(nBytes, eBytes, dBytes, pBytes, qBytes);
+        } else {
+            derBytes = nativeRsaImportJwk(nBytes, eBytes);
+        }
+
+        const modulusLength = nBytes.byteLength * 8;
+        const algo = {
+            name: algoName,
+            modulusLength,
+            publicExponent: new Uint8Array(eBytes),
+            hash: { name: hashName },
+        };
+
+        return new CryptoKey(keyType, extractable, algo, keyUsages, derBytes);
+    }
+
     const isPrivate = format === 'pkcs8';
     const keyType = isPrivate ? 'private' : 'public';
     let validUsages;
@@ -283,6 +358,32 @@ export function rsaImportKey(format, keyData, algorithm, extractable, keyUsages)
 export function rsaExportKey(format, key) {
     if (!key.extractable) {
         throw new DOMException('Key is not extractable', 'InvalidAccessError');
+    }
+
+    if (format === 'jwk') {
+        const isPrivate = key.type === 'private';
+        const components = nativeRsaExportJwk(key[kKeyData], isPrivate);
+        const hashName = key.algorithm.hash.name;
+
+        const jwk = {
+            kty: 'RSA',
+            n: base64urlEncode(components.n),
+            e: base64urlEncode(components.e),
+            alg: rsaJwkAlg(key.algorithm.name, hashName),
+            ext: key.extractable,
+            key_ops: [ ...key.usages ],
+        };
+
+        if (isPrivate) {
+            jwk.d = base64urlEncode(components.d);
+            jwk.p = base64urlEncode(components.p);
+            jwk.q = base64urlEncode(components.q);
+            jwk.dp = base64urlEncode(components.dp);
+            jwk.dq = base64urlEncode(components.dq);
+            jwk.qi = base64urlEncode(components.qi);
+        }
+
+        return jwk;
     }
 
     if (key.type === 'public') {
