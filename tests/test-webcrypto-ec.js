@@ -438,3 +438,316 @@ import assert from 'tjs:assert';
         assert.eq(e.name, 'InvalidAccessError', 'export private key throws InvalidAccessError');
     }
 }
+
+// 17. ECDSA spki export + import round-trip (P-256), verify with imported key
+{
+    const keyPair = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        [ 'sign', 'verify' ]
+    );
+
+    const spki = await crypto.subtle.exportKey('spki', keyPair.publicKey);
+    assert.ok(spki instanceof ArrayBuffer, 'spki export is ArrayBuffer');
+    assert.ok(spki.byteLength > 0, 'spki is non-empty');
+
+    const imported = await crypto.subtle.importKey(
+        'spki',
+        spki,
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        [ 'verify' ]
+    );
+
+    assert.eq(imported.type, 'public', 'imported spki key type');
+    assert.eq(imported.algorithm.name, 'ECDSA', 'imported spki key algorithm');
+    assert.eq(imported.algorithm.namedCurve, 'P-256', 'imported spki key curve');
+
+    const data = new TextEncoder().encode('spki test');
+    const signature = await crypto.subtle.sign(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        keyPair.privateKey,
+        data
+    );
+
+    const valid = await crypto.subtle.verify(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        imported,
+        signature,
+        data
+    );
+
+    assert.eq(valid, true, 'spki imported key verifies signature');
+}
+
+// 18. ECDSA pkcs8 export + import round-trip (P-256), sign with imported key
+{
+    const keyPair = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        [ 'sign', 'verify' ]
+    );
+
+    const pkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+    assert.ok(pkcs8 instanceof ArrayBuffer, 'pkcs8 export is ArrayBuffer');
+    assert.ok(pkcs8.byteLength > 0, 'pkcs8 is non-empty');
+
+    const imported = await crypto.subtle.importKey(
+        'pkcs8',
+        pkcs8,
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        [ 'sign' ]
+    );
+
+    assert.eq(imported.type, 'private', 'imported pkcs8 key type');
+    assert.eq(imported.algorithm.name, 'ECDSA', 'imported pkcs8 key algorithm');
+    assert.eq(imported.algorithm.namedCurve, 'P-256', 'imported pkcs8 key curve');
+
+    const data = new TextEncoder().encode('pkcs8 test');
+    const signature = await crypto.subtle.sign(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        imported,
+        data
+    );
+
+    const valid = await crypto.subtle.verify(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        keyPair.publicKey,
+        signature,
+        data
+    );
+
+    assert.eq(valid, true, 'pkcs8 imported key signs correctly');
+}
+
+// 19. ECDSA spki/pkcs8 round-trip all curves (P-256, P-384, P-521)
+{
+    const curves = [
+        [ 'P-256', 'SHA-256' ],
+        [ 'P-384', 'SHA-384' ],
+        [ 'P-521', 'SHA-512' ],
+    ];
+
+    for (const [curve, hash] of curves) {
+        const keyPair = await crypto.subtle.generateKey(
+            { name: 'ECDSA', namedCurve: curve },
+            true,
+            [ 'sign', 'verify' ]
+        );
+
+        const spki = await crypto.subtle.exportKey('spki', keyPair.publicKey);
+        const importedPub = await crypto.subtle.importKey(
+            'spki',
+            spki,
+            { name: 'ECDSA', namedCurve: curve },
+            true,
+            [ 'verify' ]
+        );
+
+        const pkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+        const importedPriv = await crypto.subtle.importKey(
+            'pkcs8',
+            pkcs8,
+            { name: 'ECDSA', namedCurve: curve },
+            true,
+            [ 'sign' ]
+        );
+
+        const data = new TextEncoder().encode(`round-trip ${curve}`);
+        const signature = await crypto.subtle.sign(
+            { name: 'ECDSA', hash },
+            importedPriv,
+            data
+        );
+
+        const valid = await crypto.subtle.verify(
+            { name: 'ECDSA', hash },
+            importedPub,
+            signature,
+            data
+        );
+
+        assert.eq(valid, true, `${curve} spki/pkcs8 round-trip works`);
+    }
+}
+
+// 20. ECDH spki/pkcs8 round-trip — deriveBits with imported keys matches
+{
+    const keyPairA = await crypto.subtle.generateKey(
+        { name: 'ECDH', namedCurve: 'P-256' },
+        true,
+        [ 'deriveBits' ]
+    );
+
+    const keyPairB = await crypto.subtle.generateKey(
+        { name: 'ECDH', namedCurve: 'P-256' },
+        true,
+        [ 'deriveBits' ]
+    );
+
+    const spkiB = await crypto.subtle.exportKey('spki', keyPairB.publicKey);
+    const importedPubB = await crypto.subtle.importKey(
+        'spki',
+        spkiB,
+        { name: 'ECDH', namedCurve: 'P-256' },
+        true,
+        []
+    );
+
+    const pkcs8A = await crypto.subtle.exportKey('pkcs8', keyPairA.privateKey);
+    const importedPrivA = await crypto.subtle.importKey(
+        'pkcs8',
+        pkcs8A,
+        { name: 'ECDH', namedCurve: 'P-256' },
+        true,
+        [ 'deriveBits' ]
+    );
+
+    const shared1 = await crypto.subtle.deriveBits(
+        { name: 'ECDH', public: keyPairB.publicKey },
+        keyPairA.privateKey,
+        256
+    );
+
+    const shared2 = await crypto.subtle.deriveBits(
+        { name: 'ECDH', public: importedPubB },
+        importedPrivA,
+        256
+    );
+
+    const a = new Uint8Array(shared1);
+    const b = new Uint8Array(shared2);
+    let equal = a.byteLength === b.byteLength;
+
+    for (let i = 0; i < a.byteLength; i++) {
+        if (a[i] !== b[i]) {
+            equal = false;
+        }
+    }
+
+    assert.eq(equal, true, 'ECDH deriveBits with imported keys matches original');
+}
+
+// 21. Cross-format: pkcs8 sign + raw verify
+{
+    const keyPair = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        [ 'sign', 'verify' ]
+    );
+
+    const pkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+    const importedPriv = await crypto.subtle.importKey(
+        'pkcs8',
+        pkcs8,
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        [ 'sign' ]
+    );
+
+    const raw = await crypto.subtle.exportKey('raw', keyPair.publicKey);
+    const importedPub = await crypto.subtle.importKey(
+        'raw',
+        raw,
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        [ 'verify' ]
+    );
+
+    const data = new TextEncoder().encode('cross-format test');
+    const signature = await crypto.subtle.sign(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        importedPriv,
+        data
+    );
+
+    const valid = await crypto.subtle.verify(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        importedPub,
+        signature,
+        data
+    );
+
+    assert.eq(valid, true, 'cross-format pkcs8 sign + raw verify works');
+}
+
+// 22. Error: export private key as spki
+{
+    const keyPair = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        [ 'sign', 'verify' ]
+    );
+
+    try {
+        await crypto.subtle.exportKey('spki', keyPair.privateKey);
+        assert.ok(false, 'should have thrown');
+    } catch (e) {
+        assert.eq(e.name, 'InvalidAccessError', 'export private key as spki throws InvalidAccessError');
+    }
+}
+
+// 23. Error: export public key as pkcs8
+{
+    const keyPair = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        [ 'sign', 'verify' ]
+    );
+
+    try {
+        await crypto.subtle.exportKey('pkcs8', keyPair.publicKey);
+        assert.ok(false, 'should have thrown');
+    } catch (e) {
+        assert.eq(e.name, 'InvalidAccessError', 'export public key as pkcs8 throws InvalidAccessError');
+    }
+}
+
+// 24. Error: import spki with sign usage
+{
+    const keyPair = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        [ 'sign', 'verify' ]
+    );
+
+    const spki = await crypto.subtle.exportKey('spki', keyPair.publicKey);
+
+    try {
+        await crypto.subtle.importKey(
+            'spki',
+            spki,
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            [ 'sign' ]
+        );
+        assert.ok(false, 'should have thrown');
+    } catch (e) {
+        assert.eq(e.name, 'SyntaxError', 'import spki with sign usage throws SyntaxError');
+    }
+}
+
+// 25. Error: import pkcs8 with verify usage
+{
+    const keyPair = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        [ 'sign', 'verify' ]
+    );
+
+    const pkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+
+    try {
+        await crypto.subtle.importKey(
+            'pkcs8',
+            pkcs8,
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            [ 'verify' ]
+        );
+        assert.ok(false, 'should have thrown');
+    } catch (e) {
+        assert.eq(e.name, 'SyntaxError', 'import pkcs8 with verify usage throws SyntaxError');
+    }
+}

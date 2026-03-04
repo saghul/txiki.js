@@ -2672,6 +2672,220 @@ fail:
     return JS_EXCEPTION;
 }
 
+/* EC parse key (sync): parse DER-encoded SPKI/PKCS8, return raw bytes + curve ID. */
+
+static JSValue tjs_webcrypto_ec_parse_key(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 2) {
+        return JS_ThrowTypeError(ctx, "expected 2 arguments: derBuf, isPrivate");
+    }
+
+    size_t der_len;
+    const uint8_t *der = JS_GetUint8Array(ctx, &der_len, argv[0]);
+    if (!der) {
+        return JS_EXCEPTION;
+    }
+
+    int is_private = JS_ToBool(ctx, argv[1]);
+
+    mbedtls_pk_context pk;
+    mbedtls_pk_init(&pk);
+
+    int ret;
+    if (is_private) {
+        mbedtls_ctr_drbg_context ctr_drbg;
+        mbedtls_entropy_context entropy;
+        ret = tjs__setup_rng(&ctr_drbg, &entropy);
+        if (ret == 0) {
+            ret = mbedtls_pk_parse_key(&pk, der, der_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg);
+        }
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        mbedtls_entropy_free(&entropy);
+    } else {
+        ret = mbedtls_pk_parse_public_key(&pk, der, der_len);
+    }
+
+    if (ret != 0) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "failed to parse EC key");
+    }
+
+    mbedtls_pk_type_t pk_type = mbedtls_pk_get_type(&pk);
+    if (pk_type != MBEDTLS_PK_ECKEY && pk_type != MBEDTLS_PK_ECKEY_DH && pk_type != MBEDTLS_PK_ECDSA) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "key is not EC");
+    }
+
+    mbedtls_ecp_keypair *ec = mbedtls_pk_ec(pk);
+    mbedtls_ecp_group_id grp_id = ec->MBEDTLS_PRIVATE(grp).id;
+
+    /* Map group ID back to our curve enum. */
+    int curve = -1;
+    for (int i = CURVE_P256; i <= CURVE_P521; i++) {
+        if (curve_to_group_id[i] == grp_id) {
+            curve = i;
+            break;
+        }
+    }
+
+    if (curve < 0) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "unsupported EC curve");
+    }
+
+    int key_size = curve_byte_sizes[curve];
+    JSValue key_data;
+
+    if (is_private) {
+        uint8_t *buf = js_malloc(ctx, key_size);
+        if (!buf) {
+            mbedtls_pk_free(&pk);
+            return JS_EXCEPTION;
+        }
+        ret = mbedtls_mpi_write_binary(&ec->MBEDTLS_PRIVATE(d), buf, key_size);
+        if (ret != 0) {
+            js_free(ctx, buf);
+            mbedtls_pk_free(&pk);
+            return JS_ThrowTypeError(ctx, "failed to extract EC private key");
+        }
+        key_data = JS_NewUint8ArrayCopy(ctx, buf, key_size);
+        js_free(ctx, buf);
+    } else {
+        size_t pub_len = 1 + 2 * key_size;
+        uint8_t *buf = js_malloc(ctx, pub_len);
+        if (!buf) {
+            mbedtls_pk_free(&pk);
+            return JS_EXCEPTION;
+        }
+        size_t olen = 0;
+        ret = mbedtls_ecp_point_write_binary(&ec->MBEDTLS_PRIVATE(grp),
+                                             &ec->MBEDTLS_PRIVATE(Q),
+                                             MBEDTLS_ECP_PF_UNCOMPRESSED,
+                                             &olen,
+                                             buf,
+                                             pub_len);
+        if (ret != 0) {
+            js_free(ctx, buf);
+            mbedtls_pk_free(&pk);
+            return JS_ThrowTypeError(ctx, "failed to extract EC public key");
+        }
+        key_data = JS_NewUint8ArrayCopy(ctx, buf, olen);
+        js_free(ctx, buf);
+    }
+
+    mbedtls_pk_free(&pk);
+
+    JSValue result = JS_NewObject(ctx);
+    JS_DefinePropertyValueStr(ctx, result, "curve", JS_NewInt32(ctx, curve), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, result, "keyData", key_data, JS_PROP_C_W_E);
+
+    return result;
+}
+
+/* EC key to DER (sync): convert raw EC key bytes to DER (SPKI or PKCS8). */
+
+static JSValue tjs_webcrypto_ec_key_to_der(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 3) {
+        return JS_ThrowTypeError(ctx, "expected 3 arguments: rawKeyBuf, curveId, isPrivate");
+    }
+
+    size_t raw_len;
+    const uint8_t *raw = JS_GetUint8Array(ctx, &raw_len, argv[0]);
+    if (!raw) {
+        return JS_EXCEPTION;
+    }
+
+    int32_t curve;
+    if (JS_ToInt32(ctx, &curve, argv[1])) {
+        return JS_EXCEPTION;
+    }
+
+    if (curve < CURVE_P256 || curve > CURVE_P521) {
+        return JS_ThrowRangeError(ctx, "invalid curve");
+    }
+
+    int is_private = JS_ToBool(ctx, argv[2]);
+    int key_size = curve_byte_sizes[curve];
+
+    mbedtls_pk_context pk;
+    mbedtls_pk_init(&pk);
+
+    int ret = mbedtls_pk_setup(&pk, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY));
+    if (ret != 0) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "failed to setup EC key context");
+    }
+
+    mbedtls_ecp_keypair *ec = mbedtls_pk_ec(pk);
+    ret = mbedtls_ecp_group_load(&ec->MBEDTLS_PRIVATE(grp), curve_to_group_id[curve]);
+    if (ret != 0) {
+        mbedtls_pk_free(&pk);
+        return JS_ThrowTypeError(ctx, "failed to load EC group");
+    }
+
+    if (is_private) {
+        /* Load private scalar d. */
+        ret = mbedtls_mpi_read_binary(&ec->MBEDTLS_PRIVATE(d), raw, raw_len);
+        if (ret != 0) {
+            mbedtls_pk_free(&pk);
+            return JS_ThrowTypeError(ctx, "failed to read EC private key");
+        }
+
+        /* Compute Q = d * G. */
+        mbedtls_ctr_drbg_context ctr_drbg;
+        mbedtls_entropy_context entropy;
+        ret = tjs__setup_rng(&ctr_drbg, &entropy);
+        if (ret == 0) {
+            ret = mbedtls_ecp_mul(&ec->MBEDTLS_PRIVATE(grp),
+                                  &ec->MBEDTLS_PRIVATE(Q),
+                                  &ec->MBEDTLS_PRIVATE(d),
+                                  &ec->MBEDTLS_PRIVATE(grp).G,
+                                  mbedtls_ctr_drbg_random,
+                                  &ctr_drbg);
+        }
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        mbedtls_entropy_free(&entropy);
+
+        if (ret != 0) {
+            mbedtls_pk_free(&pk);
+            return JS_ThrowTypeError(ctx, "failed to compute EC public key");
+        }
+    } else {
+        /* Load public point Q. */
+        ret = mbedtls_ecp_point_read_binary(&ec->MBEDTLS_PRIVATE(grp), &ec->MBEDTLS_PRIVATE(Q), raw, raw_len);
+        if (ret != 0) {
+            mbedtls_pk_free(&pk);
+            return JS_ThrowTypeError(ctx, "failed to read EC public key");
+        }
+    }
+
+    size_t buf_size = 256 + 2 * key_size;
+    uint8_t *buf = js_malloc(ctx, buf_size);
+    if (!buf) {
+        mbedtls_pk_free(&pk);
+        return JS_EXCEPTION;
+    }
+
+    int len;
+    if (is_private) {
+        len = mbedtls_pk_write_key_der(&pk, buf, buf_size);
+    } else {
+        len = mbedtls_pk_write_pubkey_der(&pk, buf, buf_size);
+    }
+
+    mbedtls_pk_free(&pk);
+
+    if (len < 0) {
+        js_free(ctx, buf);
+        return JS_ThrowTypeError(ctx, "failed to write EC key DER");
+    }
+
+    /* mbedtls writes from end of buffer. */
+    JSValue result = JS_NewUint8ArrayCopy(ctx, buf + buf_size - len, len);
+    js_free(ctx, buf);
+
+    return result;
+}
+
 /* RSA parse key (sync). */
 
 static JSValue tjs_webcrypto_rsa_parse_key(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -2831,5 +3045,11 @@ void tjs__webcrypto_init(JSContext *ctx, JSValue ns) {
     JS_DefinePropertyValueStr(ctx, obj, "rsaVerify", rsa_verify_fn, JS_PROP_C_W_E);
     JSValue rsa_parse_fn = JS_NewCFunction(ctx, tjs_webcrypto_rsa_parse_key, "rsaParseKey", 2);
     JS_DefinePropertyValueStr(ctx, obj, "rsaParseKey", rsa_parse_fn, JS_PROP_C_W_E);
+    JSValue ec_parse_fn = JS_NewCFunction(ctx, tjs_webcrypto_ec_parse_key, "ecParseKey", 2);
+    JS_SetPropertyFunctionList(ctx, ec_parse_fn, tjs_ec_consts, countof(tjs_ec_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "ecParseKey", ec_parse_fn, JS_PROP_C_W_E);
+    JSValue ec_to_der_fn = JS_NewCFunction(ctx, tjs_webcrypto_ec_key_to_der, "ecKeyToDer", 3);
+    JS_SetPropertyFunctionList(ctx, ec_to_der_fn, tjs_ec_consts, countof(tjs_ec_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "ecKeyToDer", ec_to_der_fn, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "webcrypto", obj, JS_PROP_C_W_E);
 }

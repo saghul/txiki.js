@@ -15,6 +15,14 @@ export const nativeRsaOaepDecrypt = core.webcrypto.rsaOaepDecrypt;
 export const nativeRsaSign = core.webcrypto.rsaSign;
 export const nativeRsaVerify = core.webcrypto.rsaVerify;
 export const nativeRsaParseKey = core.webcrypto.rsaParseKey;
+export const nativeEcParseKey = core.webcrypto.ecParseKey;
+export const nativeEcKeyToDer = core.webcrypto.ecKeyToDer;
+
+export const curveIdToName = {
+    [nativeEcGenerateKey.CURVE_P256]: 'P-256',
+    [nativeEcGenerateKey.CURVE_P384]: 'P-384',
+    [nativeEcGenerateKey.CURVE_P521]: 'P-521',
+};
 
 export const digestAlgorithms = {
     'SHA-1':   nativeDigest.DIGEST_SHA1,

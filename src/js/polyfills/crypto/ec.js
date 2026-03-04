@@ -1,11 +1,14 @@
 import { CryptoKey, kKeyData } from './crypto-key.js';
 import {
     curveAlgorithms,
+    curveIdToName,
     digestAlgorithms,
     nativeEcGenerateKey,
     nativeEcdsaSign,
     nativeEcdsaVerify,
     nativeEcdhDeriveBits,
+    nativeEcParseKey,
+    nativeEcKeyToDer,
     normalizeCurve,
     normalizeHashAlgorithm,
     toUint8Array,
@@ -204,20 +207,8 @@ export function ecdhDeriveBits(algorithm, baseKey, length, requiredUsage = 'deri
 }
 
 export function ecImportKey(format, keyData, algorithm, extractable, keyUsages) {
-    if (format !== 'raw') {
-        throw new DOMException(`Unsupported key format: ${format}`, 'NotSupportedError');
-    }
-
     const algoName = typeof algorithm === 'string' ? algorithm : algorithm?.name;
     const namedCurve = normalizeCurve(algorithm.namedCurve);
-    const expectedLen = 1 + 2 * curveByteSizes[namedCurve];
-    const validUsages = algoName === 'ECDSA' ? [ 'verify' ] : [];
-
-    for (const usage of keyUsages) {
-        if (!validUsages.includes(usage)) {
-            throw new DOMException(`Invalid key usage for raw public key: ${usage}`, 'SyntaxError');
-        }
-    }
 
     let rawBytes;
 
@@ -229,30 +220,103 @@ export function ecImportKey(format, keyData, algorithm, extractable, keyUsages) 
         throw new TypeError('keyData must be a BufferSource');
     }
 
-    if (rawBytes.byteLength !== expectedLen) {
-        throw new DOMException(
-            `Invalid key data length: expected ${expectedLen} bytes, got ${rawBytes.byteLength}`, 'DataError');
+    if (format === 'raw') {
+        const expectedLen = 1 + 2 * curveByteSizes[namedCurve];
+        const validUsages = algoName === 'ECDSA' ? [ 'verify' ] : [];
+
+        for (const usage of keyUsages) {
+            if (!validUsages.includes(usage)) {
+                throw new DOMException(`Invalid key usage for raw public key: ${usage}`, 'SyntaxError');
+            }
+        }
+
+        if (rawBytes.byteLength !== expectedLen) {
+            throw new DOMException(
+                `Invalid key data length: expected ${expectedLen} bytes, got ${rawBytes.byteLength}`, 'DataError');
+        }
+
+        if (rawBytes[0] !== 0x04) {
+            throw new DOMException('Invalid uncompressed point format', 'DataError');
+        }
+
+        return new CryptoKey('public', extractable, { name: algoName, namedCurve }, keyUsages, rawBytes);
     }
 
-    if (rawBytes[0] !== 0x04) {
-        throw new DOMException('Invalid uncompressed point format', 'DataError');
+    if (format === 'spki') {
+        const validUsages = algoName === 'ECDSA' ? [ 'verify' ] : [];
+
+        for (const usage of keyUsages) {
+            if (!validUsages.includes(usage)) {
+                throw new DOMException(`Invalid key usage for spki public key: ${usage}`, 'SyntaxError');
+            }
+        }
+
+        const parsed = nativeEcParseKey(rawBytes, false);
+        const parsedCurve = curveIdToName[parsed.curve];
+
+        if (parsedCurve !== namedCurve) {
+            throw new DOMException(`Key curve ${parsedCurve} does not match ${namedCurve}`, 'DataError');
+        }
+
+        return new CryptoKey('public', extractable, { name: algoName, namedCurve }, keyUsages, parsed.keyData);
     }
 
-    return new CryptoKey('public', extractable, { name: algoName, namedCurve }, keyUsages, rawBytes);
+    if (format === 'pkcs8') {
+        const validUsages = algoName === 'ECDSA' ? [ 'sign' ] : [ 'deriveBits', 'deriveKey' ];
+
+        for (const usage of keyUsages) {
+            if (!validUsages.includes(usage)) {
+                throw new DOMException(`Invalid key usage for pkcs8 private key: ${usage}`, 'SyntaxError');
+            }
+        }
+
+        const parsed = nativeEcParseKey(rawBytes, true);
+        const parsedCurve = curveIdToName[parsed.curve];
+
+        if (parsedCurve !== namedCurve) {
+            throw new DOMException(`Key curve ${parsedCurve} does not match ${namedCurve}`, 'DataError');
+        }
+
+        return new CryptoKey('private', extractable, { name: algoName, namedCurve }, keyUsages, parsed.keyData);
+    }
+
+    throw new DOMException(`Unsupported key format: ${format}`, 'NotSupportedError');
 }
 
 export function ecExportKey(format, key) {
-    if (format !== 'raw') {
-        throw new DOMException(`Unsupported export format: ${format}`, 'NotSupportedError');
-    }
-
-    if (key.type === 'private') {
-        throw new DOMException('Cannot export private key in raw format', 'InvalidAccessError');
-    }
-
     if (!key.extractable) {
         throw new DOMException('Key is not extractable', 'InvalidAccessError');
     }
 
-    return key[kKeyData].buffer.slice(0);
+    if (format === 'raw') {
+        if (key.type === 'private') {
+            throw new DOMException('Cannot export private key in raw format', 'InvalidAccessError');
+        }
+
+        return key[kKeyData].buffer.slice(0);
+    }
+
+    if (format === 'spki') {
+        if (key.type !== 'public') {
+            throw new DOMException('Cannot export private key as spki', 'InvalidAccessError');
+        }
+
+        const curveId = curveAlgorithms[key.algorithm.namedCurve];
+        const der = nativeEcKeyToDer(key[kKeyData], curveId, false);
+
+        return der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength);
+    }
+
+    if (format === 'pkcs8') {
+        if (key.type !== 'private') {
+            throw new DOMException('Cannot export public key as pkcs8', 'InvalidAccessError');
+        }
+
+        const curveId = curveAlgorithms[key.algorithm.namedCurve];
+        const der = nativeEcKeyToDer(key[kKeyData], curveId, true);
+
+        return der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength);
+    }
+
+    throw new DOMException(`Unsupported export format: ${format}`, 'NotSupportedError');
 }
