@@ -1,5 +1,5 @@
-import { digestAlgorithms, nativeHmacSign, normalizeHashAlgorithm, hashBlockSizes, toUint8Array } from './helpers.js';
 import { CryptoKey, kKeyData } from './crypto-key.js';
+import { digestAlgorithms, nativeHmacSign, normalizeHashAlgorithm, hashBlockSizes, toUint8Array } from './helpers.js';
 
 function hmacCompute(hashName, keyData, data) {
     const typeId = digestAlgorithms[hashName];
@@ -123,7 +123,9 @@ export function hmacImportKey(format, keyData, algorithm, extractable, keyUsages
 
     const length = algorithm.length || (rawBytes.byteLength * 8);
 
-    return new CryptoKey('secret', extractable, { name: 'HMAC', hash: { name: hashName }, length }, keyUsages, rawBytes);
+    const algo = { name: 'HMAC', hash: { name: hashName }, length };
+
+    return new CryptoKey('secret', extractable, algo, keyUsages, rawBytes);
 }
 
 export function hmacExportKey(format, key) {

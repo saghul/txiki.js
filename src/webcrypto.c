@@ -24,6 +24,7 @@
 
 #include "private.h"
 
+#include <mbedtls/cipher.h>
 #include <mbedtls/md.h>
 #include <mbedtls/sha1.h>
 #include <mbedtls/sha256.h>
@@ -348,6 +349,326 @@ static JSValue tjs_webcrypto_hmac_sign(JSContext *ctx, JSValue this_val, int arg
     return JS_UNDEFINED;
 }
 
+enum {
+    CIPHER_AES_CBC = 0,
+    CIPHER_AES_GCM,
+};
+
+enum {
+    CIPHER_OP_ENCRYPT = 0,
+    CIPHER_OP_DECRYPT,
+};
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    int cipher_type;
+    int operation;
+    uint8_t *key;
+    size_t key_len;
+    uint8_t *iv;
+    size_t iv_len;
+    uint8_t *data;
+    size_t data_len;
+    uint8_t *aad;
+    size_t aad_len;
+    int tag_length;
+    uint8_t *output;
+    size_t output_len;
+    int r;
+} TJSCipherReq;
+
+static mbedtls_cipher_type_t tjs__get_cipher_type(int cipher_type, size_t key_len) {
+    if (cipher_type == CIPHER_AES_CBC) {
+        switch (key_len) {
+            case 16:
+                return MBEDTLS_CIPHER_AES_128_CBC;
+            case 24:
+                return MBEDTLS_CIPHER_AES_192_CBC;
+            case 32:
+                return MBEDTLS_CIPHER_AES_256_CBC;
+            default:
+                return MBEDTLS_CIPHER_NONE;
+        }
+    } else if (cipher_type == CIPHER_AES_GCM) {
+        switch (key_len) {
+            case 16:
+                return MBEDTLS_CIPHER_AES_128_GCM;
+            case 24:
+                return MBEDTLS_CIPHER_AES_192_GCM;
+            case 32:
+                return MBEDTLS_CIPHER_AES_256_GCM;
+            default:
+                return MBEDTLS_CIPHER_NONE;
+        }
+    }
+
+    return MBEDTLS_CIPHER_NONE;
+}
+
+static void tjs__cipher_work_cb(uv_work_t *req) {
+    TJSCipherReq *cr = req->data;
+    int ret;
+
+    mbedtls_cipher_type_t ct = tjs__get_cipher_type(cr->cipher_type, cr->key_len);
+    if (ct == MBEDTLS_CIPHER_NONE) {
+        cr->r = -1;
+        return;
+    }
+
+    const mbedtls_cipher_info_t *cipher_info = mbedtls_cipher_info_from_type(ct);
+    if (!cipher_info) {
+        cr->r = -1;
+        return;
+    }
+
+    mbedtls_cipher_context_t cipher_ctx;
+    mbedtls_cipher_init(&cipher_ctx);
+
+    ret = mbedtls_cipher_setup(&cipher_ctx, cipher_info);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    if (cr->cipher_type == CIPHER_AES_CBC) {
+        ret = mbedtls_cipher_set_padding_mode(&cipher_ctx, MBEDTLS_PADDING_PKCS7);
+        if (ret != 0) {
+            goto cleanup;
+        }
+    }
+
+    mbedtls_operation_t op = cr->operation == CIPHER_OP_ENCRYPT ? MBEDTLS_ENCRYPT : MBEDTLS_DECRYPT;
+
+    ret = mbedtls_cipher_setkey(&cipher_ctx, cr->key, (int) (cr->key_len * 8), op);
+    if (ret != 0) {
+        goto cleanup;
+    }
+
+    if (cr->cipher_type == CIPHER_AES_CBC) {
+        /* CBC: output can be up to data_len + block_size (16) for encryption due to padding. */
+        size_t out_alloc = cr->data_len + 16;
+        cr->output = malloc(out_alloc);
+        if (!cr->output) {
+            ret = -1;
+            goto cleanup;
+        }
+
+        ret =
+            mbedtls_cipher_crypt(&cipher_ctx, cr->iv, cr->iv_len, cr->data, cr->data_len, cr->output, &cr->output_len);
+    } else if (cr->cipher_type == CIPHER_AES_GCM) {
+        if (cr->operation == CIPHER_OP_ENCRYPT) {
+            /* Encrypt: output = ciphertext + tag */
+            size_t out_alloc = cr->data_len + cr->tag_length;
+            cr->output = malloc(out_alloc);
+            if (!cr->output) {
+                ret = -1;
+                goto cleanup;
+            }
+
+            ret = mbedtls_cipher_auth_encrypt_ext(&cipher_ctx,
+                                                  cr->iv,
+                                                  cr->iv_len,
+                                                  cr->aad,
+                                                  cr->aad_len,
+                                                  cr->data,
+                                                  cr->data_len,
+                                                  cr->output,
+                                                  out_alloc,
+                                                  &cr->output_len,
+                                                  cr->tag_length);
+        } else {
+            /* Decrypt: input = ciphertext + tag, output = plaintext */
+            if ((size_t) cr->tag_length > cr->data_len) {
+                ret = -1;
+                goto cleanup;
+            }
+
+            size_t out_alloc = cr->data_len - cr->tag_length;
+            cr->output = malloc(out_alloc > 0 ? out_alloc : 1);
+            if (!cr->output) {
+                ret = -1;
+                goto cleanup;
+            }
+
+            ret = mbedtls_cipher_auth_decrypt_ext(&cipher_ctx,
+                                                  cr->iv,
+                                                  cr->iv_len,
+                                                  cr->aad,
+                                                  cr->aad_len,
+                                                  cr->data,
+                                                  cr->data_len,
+                                                  cr->output,
+                                                  out_alloc,
+                                                  &cr->output_len,
+                                                  cr->tag_length);
+        }
+    } else {
+        ret = -1;
+    }
+
+cleanup:
+    mbedtls_cipher_free(&cipher_ctx);
+    cr->r = ret;
+}
+
+static void tjs__cipher_after_work_cb(uv_work_t *req, int status) {
+    TJSCipherReq *cr = req->data;
+    CHECK_NOT_NULL(cr);
+
+    JSContext *ctx = cr->ctx;
+    JSValue args[2];
+
+    if (status != 0 || cr->r != 0) {
+        args[0] = JS_NewString(ctx, "cipher operation failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, cr->output, cr->output_len);
+    }
+
+    tjs_call_handler(ctx, cr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, cr->callback);
+    js_free(ctx, cr->key);
+    js_free(ctx, cr->iv);
+    js_free(ctx, cr->data);
+    js_free(ctx, cr->aad);
+    free(cr->output);
+    js_free(ctx, cr);
+}
+
+static JSValue tjs_webcrypto_cipher(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 8) {
+        return JS_ThrowTypeError(ctx, "expected 8 arguments: type, op, key, iv, data, aad, tagLen, callback");
+    }
+
+    int32_t cipher_type;
+    if (JS_ToInt32(ctx, &cipher_type, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    int32_t operation;
+    if (JS_ToInt32(ctx, &operation, argv[1])) {
+        return JS_EXCEPTION;
+    }
+
+    size_t key_len;
+    const uint8_t *key = JS_GetUint8Array(ctx, &key_len, argv[2]);
+    if (!key) {
+        return JS_EXCEPTION;
+    }
+
+    size_t iv_len;
+    const uint8_t *iv = JS_GetUint8Array(ctx, &iv_len, argv[3]);
+    if (!iv) {
+        return JS_EXCEPTION;
+    }
+
+    size_t data_len;
+    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[4]);
+    if (!data && data_len != 0) {
+        return JS_EXCEPTION;
+    }
+
+    /* AAD is optional (can be undefined). */
+    size_t aad_len = 0;
+    const uint8_t *aad = NULL;
+    if (!JS_IsUndefined(argv[5])) {
+        aad = JS_GetUint8Array(ctx, &aad_len, argv[5]);
+        if (!aad && aad_len != 0) {
+            return JS_EXCEPTION;
+        }
+    }
+
+    int32_t tag_length;
+    if (JS_ToInt32(ctx, &tag_length, argv[6])) {
+        return JS_EXCEPTION;
+    }
+
+    if (!JS_IsFunction(ctx, argv[7])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSCipherReq *cr = js_malloc(ctx, sizeof(*cr));
+    if (!cr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(cr, 0, sizeof(*cr));
+    cr->ctx = ctx;
+    cr->callback = JS_DupValue(ctx, argv[7]);
+    cr->cipher_type = cipher_type;
+    cr->operation = operation;
+    cr->tag_length = tag_length;
+    cr->r = -1;
+
+    /* Copy key. */
+    cr->key = js_malloc(ctx, key_len);
+    if (!cr->key) {
+        goto fail;
+    }
+    memcpy(cr->key, key, key_len);
+    cr->key_len = key_len;
+
+    /* Copy IV. */
+    cr->iv = js_malloc(ctx, iv_len);
+    if (!cr->iv) {
+        goto fail;
+    }
+    memcpy(cr->iv, iv, iv_len);
+    cr->iv_len = iv_len;
+
+    /* Copy data. */
+    if (data_len > 0) {
+        cr->data = js_malloc(ctx, data_len);
+        if (!cr->data) {
+            goto fail;
+        }
+        memcpy(cr->data, data, data_len);
+    }
+    cr->data_len = data_len;
+
+    /* Copy AAD. */
+    if (aad_len > 0) {
+        cr->aad = js_malloc(ctx, aad_len);
+        if (!cr->aad) {
+            goto fail;
+        }
+        memcpy(cr->aad, aad, aad_len);
+    }
+    cr->aad_len = aad_len;
+
+    cr->req.data = cr;
+
+    int r = uv_queue_work(tjs_get_loop(ctx), &cr->req, tjs__cipher_work_cb, tjs__cipher_after_work_cb);
+    if (r != 0) {
+        goto fail;
+    }
+
+    return JS_UNDEFINED;
+
+fail:
+    JS_FreeValue(ctx, cr->callback);
+    js_free(ctx, cr->key);
+    js_free(ctx, cr->iv);
+    js_free(ctx, cr->data);
+    js_free(ctx, cr->aad);
+    js_free(ctx, cr);
+    return JS_EXCEPTION;
+}
+
+/* clang-format off */
+static const JSCFunctionListEntry tjs_cipher_consts[] = {
+    TJS_CONST(CIPHER_AES_CBC),
+    TJS_CONST(CIPHER_AES_GCM),
+    TJS_CONST(CIPHER_OP_ENCRYPT),
+    TJS_CONST(CIPHER_OP_DECRYPT),
+};
+/* clang-format on */
+
 /* clang-format off */
 static const JSCFunctionListEntry tjs_webcrypto_consts[] = {
     TJS_CONST(DIGEST_SHA1),
@@ -365,5 +686,8 @@ void tjs__webcrypto_init(JSContext *ctx, JSValue ns) {
     JSValue hmac_sign_fn = JS_NewCFunction(ctx, tjs_webcrypto_hmac_sign, "hmacSign", 4);
     JS_SetPropertyFunctionList(ctx, hmac_sign_fn, tjs_webcrypto_consts, countof(tjs_webcrypto_consts));
     JS_DefinePropertyValueStr(ctx, obj, "hmacSign", hmac_sign_fn, JS_PROP_C_W_E);
+    JSValue cipher_fn = JS_NewCFunction(ctx, tjs_webcrypto_cipher, "cipher", 8);
+    JS_SetPropertyFunctionList(ctx, cipher_fn, tjs_cipher_consts, countof(tjs_cipher_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "cipher", cipher_fn, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "webcrypto", obj, JS_PROP_C_W_E);
 }
