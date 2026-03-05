@@ -48,6 +48,9 @@ typedef struct {
     struct list_head pending_writes;
     char protocol[256];
     char extensions[256];
+    /* Custom request headers (parallel arrays). */
+    JSValue header_names;
+    JSValue header_values;
     /* Close info (lws two-phase: stored in PEER_INITIATED_CLOSE, used in CLIENT_CLOSED) */
     uint16_t close_code;
     char close_reason[124]; /* RFC 6455: max 123 bytes + NUL */
@@ -69,6 +72,8 @@ static void tjs_ws_finalizer(JSRuntime *rt, JSValue val) {
             js_free_rt(rt, pw);
         }
         tbuf_free(&w->recv_buf);
+        JS_FreeValueRT(rt, w->header_names);
+        JS_FreeValueRT(rt, w->header_values);
         js_free_rt(rt, w);
     }
 }
@@ -79,6 +84,8 @@ static void tjs_ws_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
         for (int i = 0; i < WS_CALLBACK_MAX; i++) {
             JS_MarkValue(rt, w->callbacks[i], mark_func);
         }
+        JS_MarkValue(rt, w->header_names, mark_func);
+        JS_MarkValue(rt, w->header_values, mark_func);
     }
 }
 
@@ -120,6 +127,47 @@ static int tjs_lws_callback(struct lws *wsi, enum lws_callback_reasons reason, v
     }
 
     switch (reason) {
+        case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER: {
+            if (!JS_IsArray(w->header_names)) {
+                break;
+            }
+
+            unsigned char **p = (unsigned char **) in, *end = (*p) + len;
+            JSContext *ctx = w->ctx;
+            int64_t n_headers;
+            JS_GetLength(ctx, w->header_names, &n_headers);
+
+            for (int64_t i = 0; i < n_headers; i++) {
+                JSValue js_name = JS_GetPropertyUint32(ctx, w->header_names, i);
+                JSValue js_value = JS_GetPropertyUint32(ctx, w->header_values, i);
+
+                const char *name = JS_ToCString(ctx, js_name);
+                const char *value = JS_ToCString(ctx, js_value);
+                JS_FreeValue(ctx, js_name);
+                JS_FreeValue(ctx, js_value);
+
+                if (!name || !value) {
+                    JS_FreeCString(ctx, name);
+                    JS_FreeCString(ctx, value);
+                    return -1;
+                }
+
+                int r = lws_add_http_header_by_name(wsi,
+                                                    (const unsigned char *) name,
+                                                    (const unsigned char *) value,
+                                                    (int) strlen(value),
+                                                    p,
+                                                    end);
+                JS_FreeCString(ctx, name);
+                JS_FreeCString(ctx, value);
+
+                if (r) {
+                    return -1;
+                }
+            }
+            break;
+        }
+
         case LWS_CALLBACK_CLIENT_FILTER_PRE_ESTABLISH: {
             /* Capture negotiated protocol and extensions while headers are still available.
              * lws releases the header table before CLIENT_ESTABLISHED fires. */
@@ -297,6 +345,8 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     }
     w->this_val = JS_UNDEFINED;
     tbuf_init(ctx, &w->recv_buf);
+    w->header_names = JS_UNDEFINED;
+    w->header_values = JS_UNDEFINED;
     init_list_head(&w->pending_writes);
 
     const char *url = JS_ToCString(ctx, argv[0]);
@@ -309,6 +359,12 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     const char *protocols = NULL;
     if (!JS_IsNull(argv[1])) {
         protocols = JS_ToCString(ctx, argv[1]);
+    }
+
+    /* Optional third and fourth arguments: header names and values arrays. */
+    if (argc > 3 && JS_IsArray(argv[2])) {
+        w->header_names = JS_DupValue(ctx, argv[2]);
+        w->header_values = JS_DupValue(ctx, argv[3]);
     }
 
     /* Parse the URL. lws_parse_uri modifies the string in-place. */
@@ -561,6 +617,6 @@ void tjs__mod_ws_init(JSContext *ctx, JSValue ns) {
     JS_SetClassProto(ctx, tjs_ws_class_id, proto);
 
     /* WebSocket constructor */
-    obj = JS_NewCFunction2(ctx, tjs_ws_constructor, "WebSocket", 2, JS_CFUNC_constructor, 0);
+    obj = JS_NewCFunction2(ctx, tjs_ws_constructor, "WebSocket", 4, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx, ns, "WebSocket", obj, JS_PROP_C_W_E);
 }
