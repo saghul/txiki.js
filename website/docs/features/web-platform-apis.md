@@ -27,8 +27,48 @@ txiki.js implements a number of Web Platform APIs to provide a familiar environm
 | [URLPattern](https://developer.mozilla.org/en-US/docs/Web/API/URLPattern) | |
 | [URLSearchParams](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) | |
 | [WebAssembly](https://developer.mozilla.org/en-US/docs/WebAssembly) | No tables, globals or memory support |
-| [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) | |
+| [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) | [Extensions](#websocket--websocketstream-headers) |
+| [WebSocketStream](https://developer.mozilla.org/en-US/docs/Web/API/WebSocketStream) | [Extensions](#websocket--websocketstream-headers) |
 | [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Worker) | |
+
+## Extensions
+
+### WebSocket / WebSocketStream headers
+
+Both `WebSocket` and `WebSocketStream` support setting custom HTTP headers on the client handshake request. This is a non-standard extension useful for authentication, API keys, and other scenarios where you need to send headers during the WebSocket upgrade.
+
+Certain headers related to the WebSocket handshake itself (e.g. `Connection`, `Upgrade`, `Sec-WebSocket-*`) are forbidden and will throw a `TypeError`.
+
+#### WebSocket
+
+Instead of passing protocols as the second argument, pass an options object with `headers` (and optionally `protocols`):
+
+```js
+const ws = new WebSocket('wss://example.com/ws', {
+    protocols: ['chat'],
+    headers: {
+        'Authorization': 'Bearer my-token',
+        'X-Custom-Header': 'value',
+    },
+});
+```
+
+The `headers` option accepts a plain object, a `Headers` instance, or an array of `[name, value]` pairs.
+
+#### WebSocketStream
+
+Pass `headers` in the options object:
+
+```js
+const wss = new WebSocketStream('wss://example.com/ws', {
+    protocols: ['chat'],
+    headers: {
+        'Authorization': 'Bearer my-token',
+    },
+});
+
+const { readable, writable } = await wss.opened;
+```
 
 ## WinterTC compliance
 
