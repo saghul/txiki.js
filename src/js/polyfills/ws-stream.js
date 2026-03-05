@@ -89,6 +89,7 @@ class WebSocketStream {
         this[kURL] = urlStr;
 
         const protocols = options.protocols || [];
+        const headers = options.headers || [];
         const signal = options.signal;
 
         if (signal && signal.aborted) {
@@ -111,7 +112,12 @@ class WebSocketStream {
         this[kOpened] = opened.promise;
         this[kClosed] = closed.promise;
 
-        const ws = new WebSocket(urlStr, protocols);
+        const wsOptions = {
+            headers,
+            protocols
+        };
+
+        const ws = new WebSocket(urlStr, wsOptions);
 
         ws.binaryType = 'arraybuffer';
         this[kWebSocket] = ws;
