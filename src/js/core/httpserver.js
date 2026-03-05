@@ -56,8 +56,29 @@ class Server {
         }
 
         const data = options?.data ?? null;
+        const headers = options?.headers;
 
-        return this.#handle.acceptUpgrade(upgradeId, data);
+        let headerNames = null;
+        let headerValues = null;
+
+        if (headers) {
+            headerNames = [];
+            headerValues = [];
+
+            if (headers instanceof Headers) {
+                headers.forEach((value, name) => {
+                    headerNames.push(name + ':');
+                    headerValues.push(value);
+                });
+            } else if (typeof headers === 'object') {
+                for (const [ name, value ] of Object.entries(headers)) {
+                    headerNames.push(name + ':');
+                    headerValues.push(String(value));
+                }
+            }
+        }
+
+        return this.#handle.acceptUpgrade(upgradeId, data, headerNames, headerValues);
     }
 
     #handleWsUpgrade(upgradeId, method, url, headersArr, remoteAddr) {
