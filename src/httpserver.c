@@ -94,6 +94,9 @@ typedef struct TJSWsConnection {
     uint16_t close_code;
     char close_reason[124];
     char remote_addr[64];
+    /* Custom response headers for the 101 upgrade (parallel arrays, consumed in ADD_HEADERS). */
+    JSValue header_names;
+    JSValue header_values;
 } TJSWsConnection;
 
 enum { WS_EVENT_OPEN = 0, WS_EVENT_MESSAGE, WS_EVENT_CLOSE, WS_EVENT_ERROR, WS_EVENT_MAX };
@@ -125,6 +128,11 @@ typedef struct {
     TJSHttpRequest *active_requests;   /* uthash table keyed by id */
     TJSUpgradeCtx *upgrade_contexts;   /* uthash table keyed by id */
     TJSWsConnection *pending_upgrades; /* uthash table keyed by wsi */
+    /* Mutable protocol name buffer.  During a WS upgrade the name is
+     * temporarily swapped to the negotiated subprotocol so that lws's own
+     * protocol matching and Sec-WebSocket-Protocol response header work
+     * correctly.  Reset in LWS_CALLBACK_ESTABLISHED / rejection. */
+    char ws_protocol_name[256];
 } TJSHttpServer;
 
 static JSClassID tjs_httpserver_class_id;
@@ -154,6 +162,8 @@ static void tjs_wsconn_finalizer(JSRuntime *rt, JSValue val) {
     TJSWsConnection *ws = JS_GetOpaque(val, tjs_wsconn_class_id);
     if (ws) {
         JS_FreeValueRT(rt, ws->data);
+        JS_FreeValueRT(rt, ws->header_names);
+        JS_FreeValueRT(rt, ws->header_values);
 
         struct list_head *el, *el1;
         list_for_each_safe(el, el1, &ws->pending_writes) {
@@ -172,6 +182,8 @@ static void tjs_wsconn_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) 
     TJSWsConnection *ws = JS_GetOpaque(val, tjs_wsconn_class_id);
     if (ws) {
         JS_MarkValue(rt, ws->data, mark_func);
+        JS_MarkValue(rt, ws->header_names, mark_func);
+        JS_MarkValue(rt, ws->header_values, mark_func);
     }
 }
 
@@ -383,7 +395,69 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
         /*
          * WebSocket callbacks (after upgrade).
          */
+        case LWS_CALLBACK_ADD_HEADERS: {
+            /* Add custom headers to the 101 upgrade response. */
+            TJSWsConnection *ws = NULL;
+            HASH_FIND_PTR(s->pending_upgrades, &wsi, ws);
+            if (!ws || !JS_IsArray(ws->header_names)) {
+                break;
+            }
+
+            struct lws_process_html_args *args = (struct lws_process_html_args *) in;
+            unsigned char **p = (unsigned char **) &args->p;
+            unsigned char *end = (unsigned char *) args->p + args->max_len;
+            JSContext *ctx = ws->ctx;
+            int64_t n_headers;
+            JS_GetLength(ctx, ws->header_names, &n_headers);
+
+            for (int64_t i = 0; i < n_headers; i++) {
+                JSValue js_name = JS_GetPropertyUint32(ctx, ws->header_names, i);
+                JSValue js_value = JS_GetPropertyUint32(ctx, ws->header_values, i);
+
+                const char *name = JS_ToCString(ctx, js_name);
+                const char *value = JS_ToCString(ctx, js_value);
+                JS_FreeValue(ctx, js_name);
+                JS_FreeValue(ctx, js_value);
+
+                if (!name || !value) {
+                    JS_FreeCString(ctx, name);
+                    JS_FreeCString(ctx, value);
+                    return -1;
+                }
+
+                /* Skip sec-websocket-protocol — handled via lws protocol name. */
+                if (!strcasecmp(name, "sec-websocket-protocol:")) {
+                    JS_FreeCString(ctx, name);
+                    JS_FreeCString(ctx, value);
+                    continue;
+                }
+
+                int r = lws_add_http_header_by_name(wsi,
+                                                    (const unsigned char *) name,
+                                                    (const unsigned char *) value,
+                                                    (int) strlen(value),
+                                                    p,
+                                                    end);
+                JS_FreeCString(ctx, name);
+                JS_FreeCString(ctx, value);
+
+                if (r) {
+                    return -1;
+                }
+            }
+
+            /* Headers consumed, release them. */
+            JS_FreeValue(ctx, ws->header_names);
+            JS_FreeValue(ctx, ws->header_values);
+            ws->header_names = JS_UNDEFINED;
+            ws->header_values = JS_UNDEFINED;
+            break;
+        }
+
         case LWS_CALLBACK_ESTABLISHED: {
+            /* Restore the protocol name after the upgrade handshake. */
+            strncpy(s->ws_protocol_name, TJS_HTTP_PROTOCOL_NAME, sizeof(s->ws_protocol_name));
+
             TJSWsConnection *ws = NULL;
             HASH_FIND_PTR(s->pending_upgrades, &wsi, ws);
             if (!ws) {
@@ -542,6 +616,10 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             if (JS_IsUndefined(s->ws_callbacks[WS_EVENT_MESSAGE])) {
                 return -1;
             }
+
+            /* Reset the protocol name before each upgrade attempt, in case a
+             * previous upgrade failed after the name was swapped. */
+            strncpy(s->ws_protocol_name, TJS_HTTP_PROTOCOL_NAME, sizeof(s->ws_protocol_name));
 
             JSContext *ctx = s->ctx;
 
@@ -771,15 +849,8 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
     return 0;
 }
 
-static const struct lws_protocols tjs_http_protocol = {
-    .name = TJS_HTTP_PROTOCOL_NAME,
-    .callback = tjs_http_callback,
-    .per_session_data_size = 0,
-    .rx_buffer_size = 0,
-};
-
 /*
- * HttpServer.prototype._acceptUpgrade(upgradeId, data)
+ * HttpServer.prototype._acceptUpgrade(upgradeId, data, headerNames, headerValues)
  *
  * Called from JS server.upgrade(). Looks up the upgrade context by ID,
  * allocates a TJSWsConnection, and adds it to the pending_upgrades hash.
@@ -819,8 +890,38 @@ static JSValue tjs_httpserver_accept_upgrade(JSContext *ctx, JSValue this_val, i
     ws->this_val = JS_UNDEFINED;
     ws->wsi = uctx->wsi;
     ws->data = JS_DupValue(ctx, argv[1]);
+    ws->header_names = JS_UNDEFINED;
+    ws->header_values = JS_UNDEFINED;
     tbuf_init(ctx, &ws->recv_buf);
     init_list_head(&ws->pending_writes);
+
+    /* Optional header arrays (argv[2] = names, argv[3] = values). */
+    if (argc > 3 && JS_IsArray(argv[2])) {
+        ws->header_names = JS_DupValue(ctx, argv[2]);
+        ws->header_values = JS_DupValue(ctx, argv[3]);
+
+        /* Check if sec-websocket-protocol is among the headers.
+         * If so, swap the lws protocol name so lws's own protocol matching
+         * and response header generation work correctly. */
+        int64_t n_headers;
+        JS_GetLength(ctx, ws->header_names, &n_headers);
+        for (int64_t i = 0; i < n_headers; i++) {
+            JSValue js_name = JS_GetPropertyUint32(ctx, ws->header_names, i);
+            const char *name = JS_ToCString(ctx, js_name);
+            JS_FreeValue(ctx, js_name);
+            if (name && !strcasecmp(name, "sec-websocket-protocol:")) {
+                JSValue js_value = JS_GetPropertyUint32(ctx, ws->header_values, i);
+                const char *value = JS_ToCString(ctx, js_value);
+                JS_FreeValue(ctx, js_value);
+                if (value) {
+                    strncpy(s->ws_protocol_name, value, sizeof(s->ws_protocol_name) - 1);
+                    s->ws_protocol_name[sizeof(s->ws_protocol_name) - 1] = '\0';
+                }
+                JS_FreeCString(ctx, value);
+            }
+            JS_FreeCString(ctx, name);
+        }
+    }
 
     /* Create JS object. */
     JSValue ws_obj = JS_NewObjectClass(ctx, tjs_wsconn_class_id);
@@ -902,6 +1003,8 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         }
     }
 
+    strncpy(s->ws_protocol_name, TJS_HTTP_PROTOCOL_NAME, sizeof(s->ws_protocol_name));
+
     JS_SetOpaque(obj, s);
 
     /* Create lws vhost for this server. */
@@ -912,8 +1015,10 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         return JS_ThrowInternalError(ctx, "failed to get lws context");
     }
 
-    const struct lws_protocols protocols[] = {
-        tjs_http_protocol,
+    /* Use a mutable protocol name so we can swap it during WS upgrades
+     * to match the negotiated subprotocol. */
+    struct lws_protocols protocols[] = {
+        { .name = s->ws_protocol_name, .callback = tjs_http_callback, .per_session_data_size = 0, .rx_buffer_size = 0 },
         LWS_PROTOCOL_LIST_TERM,
     };
 
@@ -1473,7 +1578,7 @@ static const JSCFunctionListEntry tjs_httpserver_proto_funcs[] = {
     TJS_CFUNC_DEF("sendResponse", 4, tjs_httpserver_send_response),
     TJS_CFUNC_DEF("sendHeaders", 3, tjs_httpserver_send_headers),
     TJS_CFUNC_DEF("sendBody", 3, tjs_httpserver_send_body),
-    TJS_CFUNC_DEF("acceptUpgrade", 2, tjs_httpserver_accept_upgrade),
+    TJS_CFUNC_DEF("acceptUpgrade", 4, tjs_httpserver_accept_upgrade),
 };
 
 void tjs__mod_httpserver_init(JSContext *ctx, JSValue ns) {
