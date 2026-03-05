@@ -136,7 +136,7 @@ class WebSocket extends EventTarget {
         const ws = new WS(urlStr, protocolStr, headerNames, headerValues);
 
         ws.onopen = protocol => {
-            this[kWsProtocol] = protocol || (protocols.length ? protocols[0] : '');
+            this[kWsProtocol] = protocol || '';
             this[kReadyState] = WebSocket.OPEN;
             this.dispatchEvent(new Event('open'));
         };
