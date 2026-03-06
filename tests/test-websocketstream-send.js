@@ -1,6 +1,27 @@
 import assert from 'tjs:assert';
 
-const echoUrl = 'wss://echo.websocket.org';
+// Local echo server for reliable testing.
+const server = tjs.serve({
+    port: 0,
+    fetch(req, { server }) {
+        if (server.upgrade(req)) {
+            return;
+        }
+
+        return new Response('not a websocket request');
+    },
+    websocket: {
+        message(ws, data) {
+            if (typeof data === 'string') {
+                ws.sendText(data);
+            } else {
+                ws.sendBinary(data);
+            }
+        },
+    },
+});
+
+const echoUrl = `ws://127.0.0.1:${server.port}`;
 
 // Test: send and receive text messages.
 {
@@ -11,10 +32,6 @@ const echoUrl = 'wss://echo.websocket.org';
 
     const writer = writable.getWriter();
     const reader = readable.getReader();
-
-    // Consume the server's welcome message.
-    const welcome = await reader.read();
-    console.log('[TEST] send: welcome message:', welcome.value);
 
     await writer.write('hello');
 
@@ -46,9 +63,6 @@ const echoUrl = 'wss://echo.websocket.org';
     const writer = writable.getWriter();
     const reader = readable.getReader();
 
-    // Consume the server's welcome message.
-    await reader.read();
-
     const data = new Uint8Array([ 1, 2, 3, 4, 5 ]);
 
     await writer.write(data);
@@ -70,3 +84,5 @@ const echoUrl = 'wss://echo.websocket.org';
     await wss.closed;
     console.log('[TEST] send: binary test done');
 }
+
+server.close();
