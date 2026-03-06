@@ -16,7 +16,7 @@ Support for the [ES2025] specification (almost complete).
 ### Web Platform APIs
 
 - [Console]
-- [Crypto] (1)
+- [Crypto]
 - [Encoding API]
 - [EventTarget]
 - [fetch]
@@ -28,13 +28,11 @@ Support for the [ES2025] specification (almost complete).
 - [URL]
 - [URLPattern]
 - [URLSearchParams]
-- [WebAssembly] (2)
+- [WebAssembly] (1)
 - [WebSocket]
 - [Web Workers API]
 
-(1): No subtle support.
-
-(2): No tables, globals or memory support.
+(1): No tables, globals or memory support.
 
 ### Runtime features
 
