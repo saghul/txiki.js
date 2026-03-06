@@ -24,6 +24,9 @@ export const nativeEd25519GenerateKey = core.webcrypto.ed25519GenerateKey;
 export const nativeEd25519Sign = core.webcrypto.ed25519Sign;
 export const nativeEd25519Verify = core.webcrypto.ed25519Verify;
 export const nativeEd25519GetPublicKey = core.webcrypto.ed25519GetPublicKey;
+export const nativeX25519GenerateKey = core.webcrypto.x25519GenerateKey;
+export const nativeX25519DeriveBits = core.webcrypto.x25519DeriveBits;
+export const nativeX25519GetPublicKey = core.webcrypto.x25519GetPublicKey;
 
 export const curveIdToName = {
     [nativeEcGenerateKey.CURVE_P256]: 'P-256',

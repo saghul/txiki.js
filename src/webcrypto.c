@@ -3677,6 +3677,203 @@ static JSValue tjs_webcrypto_ed25519_get_public_key(JSContext *ctx, JSValue this
     return JS_NewUint8ArrayCopy(ctx, pubkey, 32);
 }
 
+/* X25519 key generation. */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    uint8_t privkey[32];
+    uint8_t pubkey[32];
+    int r;
+} TJSX25519GenerateKeyReq;
+
+static void tjs__x25519_generate_key_work_cb(uv_work_t *req) {
+    TJSX25519GenerateKeyReq *xr = req->data;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_context entropy;
+
+    int ret = tjs__setup_rng(&ctr_drbg, &entropy);
+    if (ret != 0) {
+        xr->r = ret;
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        mbedtls_entropy_free(&entropy);
+        return;
+    }
+
+    ret = mbedtls_ctr_drbg_random(&ctr_drbg, xr->privkey, 32);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+
+    if (ret != 0) {
+        xr->r = ret;
+        return;
+    }
+
+    crypto_scalarmult_curve25519_base(xr->pubkey, xr->privkey);
+    xr->r = 0;
+}
+
+static void tjs__x25519_generate_key_after_work_cb(uv_work_t *req, int status) {
+    TJSX25519GenerateKeyReq *xr = req->data;
+    CHECK_NOT_NULL(xr);
+
+    JSContext *ctx = xr->ctx;
+    JSValue args[3];
+
+    if (status != 0 || xr->r != 0) {
+        args[0] = JS_NewString(ctx, "X25519 key generation failed");
+        args[1] = JS_UNDEFINED;
+        args[2] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, xr->privkey, 32);
+        args[2] = JS_NewUint8ArrayCopy(ctx, xr->pubkey, 32);
+    }
+
+    tjs_call_handler(ctx, xr->callback, 3, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, args[2]);
+    JS_FreeValue(ctx, xr->callback);
+    js_free(ctx, xr);
+}
+
+static JSValue tjs_webcrypto_x25519_generate_key(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 1 || !JS_IsFunction(ctx, argv[0])) {
+        return JS_ThrowTypeError(ctx, "expected 1 argument: callback");
+    }
+
+    TJSX25519GenerateKeyReq *xr = js_malloc(ctx, sizeof(*xr));
+    if (!xr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(xr, 0, sizeof(*xr));
+    xr->ctx = ctx;
+    xr->callback = JS_DupValue(ctx, argv[0]);
+    xr->r = -1;
+    xr->req.data = xr;
+
+    int r = uv_queue_work(tjs_get_loop(ctx), &xr->req,
+                          tjs__x25519_generate_key_work_cb,
+                          tjs__x25519_generate_key_after_work_cb);
+    if (r != 0) {
+        JS_FreeValue(ctx, xr->callback);
+        js_free(ctx, xr);
+        return JS_EXCEPTION;
+    }
+
+    return JS_UNDEFINED;
+}
+
+/* X25519 deriveBits. */
+
+typedef struct {
+    uv_work_t req;
+    JSContext *ctx;
+    JSValue callback;
+    uint8_t privkey[32];
+    uint8_t pubkey[32];
+    uint8_t shared[32];
+    int r;
+} TJSX25519DeriveBitsReq;
+
+static void tjs__x25519_derive_bits_work_cb(uv_work_t *req) {
+    TJSX25519DeriveBitsReq *dr = req->data;
+
+    dr->r = crypto_scalarmult_curve25519(dr->shared, dr->privkey, dr->pubkey);
+}
+
+static void tjs__x25519_derive_bits_after_work_cb(uv_work_t *req, int status) {
+    TJSX25519DeriveBitsReq *dr = req->data;
+    CHECK_NOT_NULL(dr);
+
+    JSContext *ctx = dr->ctx;
+    JSValue args[2];
+
+    if (status != 0 || dr->r != 0) {
+        args[0] = JS_NewString(ctx, "X25519 deriveBits failed");
+        args[1] = JS_UNDEFINED;
+    } else {
+        args[0] = JS_UNDEFINED;
+        args[1] = JS_NewUint8ArrayCopy(ctx, dr->shared, 32);
+    }
+
+    tjs_call_handler(ctx, dr->callback, 2, args);
+
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, dr->callback);
+    js_free(ctx, dr);
+}
+
+static JSValue tjs_webcrypto_x25519_derive_bits(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 3) {
+        return JS_ThrowTypeError(ctx, "expected 3 arguments: privKey, pubKey, callback");
+    }
+
+    size_t privkey_len;
+    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[0]);
+    if (!privkey || privkey_len != 32) {
+        return JS_ThrowTypeError(ctx, "privkey must be 32 bytes");
+    }
+
+    size_t pubkey_len;
+    const uint8_t *pubkey = JS_GetUint8Array(ctx, &pubkey_len, argv[1]);
+    if (!pubkey || pubkey_len != 32) {
+        return JS_ThrowTypeError(ctx, "pubkey must be 32 bytes");
+    }
+
+    if (!JS_IsFunction(ctx, argv[2])) {
+        return JS_ThrowTypeError(ctx, "expected callback function");
+    }
+
+    TJSX25519DeriveBitsReq *dr = js_malloc(ctx, sizeof(*dr));
+    if (!dr) {
+        return JS_EXCEPTION;
+    }
+
+    memset(dr, 0, sizeof(*dr));
+    dr->ctx = ctx;
+    dr->callback = JS_DupValue(ctx, argv[2]);
+    dr->r = -1;
+    memcpy(dr->privkey, privkey, 32);
+    memcpy(dr->pubkey, pubkey, 32);
+    dr->req.data = dr;
+
+    int r = uv_queue_work(tjs_get_loop(ctx), &dr->req,
+                          tjs__x25519_derive_bits_work_cb,
+                          tjs__x25519_derive_bits_after_work_cb);
+    if (r != 0) {
+        JS_FreeValue(ctx, dr->callback);
+        js_free(ctx, dr);
+        return JS_EXCEPTION;
+    }
+
+    return JS_UNDEFINED;
+}
+
+/* X25519 get public key from private key (sync). */
+
+static JSValue tjs_webcrypto_x25519_get_public_key(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "expected 1 argument: privkey");
+    }
+
+    size_t privkey_len;
+    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[0]);
+    if (!privkey || privkey_len != 32) {
+        return JS_ThrowTypeError(ctx, "privkey must be 32 bytes");
+    }
+
+    uint8_t pubkey[32];
+    crypto_scalarmult_curve25519_base(pubkey, privkey);
+
+    return JS_NewUint8ArrayCopy(ctx, pubkey, 32);
+}
+
 void tjs__webcrypto_init(JSContext *ctx, JSValue ns) {
     JSValue obj = JS_NewObject(ctx);
     JSValue digest_fn = JS_NewCFunction(ctx, tjs_webcrypto_digest, "digest", 3);
@@ -3747,5 +3944,11 @@ void tjs__webcrypto_init(JSContext *ctx, JSValue ns) {
     JS_DefinePropertyValueStr(ctx, obj, "ed25519Verify", ed_verify_fn, JS_PROP_C_W_E);
     JSValue ed_get_pub_fn = JS_NewCFunction(ctx, tjs_webcrypto_ed25519_get_public_key, "ed25519GetPublicKey", 1);
     JS_DefinePropertyValueStr(ctx, obj, "ed25519GetPublicKey", ed_get_pub_fn, JS_PROP_C_W_E);
+    JSValue x25519_gen_fn = JS_NewCFunction(ctx, tjs_webcrypto_x25519_generate_key, "x25519GenerateKey", 1);
+    JS_DefinePropertyValueStr(ctx, obj, "x25519GenerateKey", x25519_gen_fn, JS_PROP_C_W_E);
+    JSValue x25519_derive_fn = JS_NewCFunction(ctx, tjs_webcrypto_x25519_derive_bits, "x25519DeriveBits", 3);
+    JS_DefinePropertyValueStr(ctx, obj, "x25519DeriveBits", x25519_derive_fn, JS_PROP_C_W_E);
+    JSValue x25519_get_pub_fn = JS_NewCFunction(ctx, tjs_webcrypto_x25519_get_public_key, "x25519GetPublicKey", 1);
+    JS_DefinePropertyValueStr(ctx, obj, "x25519GetPublicKey", x25519_get_pub_fn, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "webcrypto", obj, JS_PROP_C_W_E);
 }

@@ -2,6 +2,7 @@ import { aesEncrypt, aesDecrypt, aesGenerateKey, aesImportKey, aesExportKey } fr
 import { digest } from './digest.js';
 import { ecGenerateKey, ecdsaSign, ecdsaVerify, ecdhDeriveBits, ecImportKey, ecExportKey } from './ec.js';
 import { ed25519GenerateKey, ed25519Sign, ed25519Verify, ed25519ImportKey, ed25519ExportKey } from './ed.js';
+import { x25519GenerateKey, x25519DeriveBits, x25519ImportKey, x25519ExportKey } from './x25519.js';
 import { normalizeHashAlgorithm, hashBlockSizes } from './helpers.js';
 import { hmacSign, hmacVerify, hmacGenerateKey, hmacImportKey, hmacExportKey } from './hmac.js';
 import { kdfImportKey, pbkdf2DeriveBits, hkdfDeriveBits } from './kdf.js';
@@ -89,6 +90,8 @@ export class SubtleCrypto {
                 return hkdfDeriveBits(algorithm, baseKey, length);
             case 'ECDH':
                 return ecdhDeriveBits(algorithm, baseKey, length);
+            case 'X25519':
+                return x25519DeriveBits(algorithm, baseKey, length);
             default:
                 return Promise.reject(new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
         }
@@ -133,6 +136,9 @@ export class SubtleCrypto {
             case 'ECDH':
                 bitsPromise = ecdhDeriveBits(algorithm, baseKey, length, 'deriveKey');
                 break;
+            case 'X25519':
+                bitsPromise = x25519DeriveBits(algorithm, baseKey, length, 'deriveKey');
+                break;
             default:
                 return Promise.reject(
                     new DOMException(`Unrecognized algorithm name: ${algoName}`, 'NotSupportedError'));
@@ -157,6 +163,8 @@ export class SubtleCrypto {
                     return ecGenerateKey(algorithm, extractable, keyUsages);
                 case 'Ed25519':
                     return ed25519GenerateKey(algorithm, extractable, keyUsages);
+                case 'X25519':
+                    return x25519GenerateKey(algorithm, extractable, keyUsages);
                 case 'RSA-OAEP':
                 case 'RSA-PSS':
                 case 'RSASSA-PKCS1-v1_5':
@@ -193,6 +201,9 @@ export class SubtleCrypto {
                 case 'Ed25519':
                     return Promise.resolve(
                         ed25519ImportKey(format, keyData, algorithm, extractable, keyUsages));
+                case 'X25519':
+                    return Promise.resolve(
+                        x25519ImportKey(format, keyData, algorithm, extractable, keyUsages));
                 case 'RSA-OAEP':
                 case 'RSA-PSS':
                 case 'RSASSA-PKCS1-v1_5':
@@ -287,6 +298,8 @@ export class SubtleCrypto {
                     return Promise.resolve(ecExportKey(format, key));
                 case 'Ed25519':
                     return Promise.resolve(ed25519ExportKey(format, key));
+                case 'X25519':
+                    return Promise.resolve(x25519ExportKey(format, key));
                 case 'RSA-OAEP':
                 case 'RSA-PSS':
                 case 'RSASSA-PKCS1-v1_5':
