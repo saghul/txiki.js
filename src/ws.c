@@ -537,14 +537,18 @@ static JSValue tjs_ws_sendBinary(JSContext *ctx, JSValue this_val, int argc, JSV
         return JS_EXCEPTION;
     }
 
-    uint64_t off;
-    if (JS_ToIndex(ctx, &off, argv[1])) {
-        return JS_EXCEPTION;
+    uint64_t off = 0;
+    if (argc > 1 && !JS_IsUndefined(argv[1])) {
+        if (JS_ToIndex(ctx, &off, argv[1])) {
+            return JS_EXCEPTION;
+        }
     }
 
-    uint64_t blen;
-    if (JS_ToIndex(ctx, &blen, argv[2])) {
-        return JS_EXCEPTION;
+    uint64_t blen = size - off;
+    if (argc > 2 && !JS_IsUndefined(argv[2])) {
+        if (JS_ToIndex(ctx, &blen, argv[2])) {
+            return JS_EXCEPTION;
+        }
     }
 
     ws_queue_write(w, buf + off, blen, false);

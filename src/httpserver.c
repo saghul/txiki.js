@@ -1464,22 +1464,26 @@ static JSValue tjs_wsconn_send_binary(JSContext *ctx, JSValue this_val, int argc
     }
 
     size_t size;
-    uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
+    size_t off = 0;
+    uint8_t *buf;
+
+    /* Try ArrayBuffer first, then TypedArray/DataView. */
+    buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
     if (!buf) {
-        return JS_EXCEPTION;
+        JS_FreeValue(ctx, JS_GetException(ctx));
+        size_t bpe, asize;
+        JSValue abuf = JS_GetTypedArrayBuffer(ctx, argv[0], &off, &size, &bpe);
+        if (JS_IsException(abuf)) {
+            return JS_EXCEPTION;
+        }
+        buf = JS_GetArrayBuffer(ctx, &asize, abuf);
+        JS_FreeValue(ctx, abuf);
+        if (!buf) {
+            return JS_EXCEPTION;
+        }
     }
 
-    uint64_t off;
-    if (JS_ToIndex(ctx, &off, argv[1])) {
-        return JS_EXCEPTION;
-    }
-
-    uint64_t blen;
-    if (JS_ToIndex(ctx, &blen, argv[2])) {
-        return JS_EXCEPTION;
-    }
-
-    wsconn_queue_write(ws, buf + off, blen, false);
+    wsconn_queue_write(ws, buf + off, size, false);
     return JS_UNDEFINED;
 }
 
@@ -1568,7 +1572,7 @@ static const JSCFunctionListEntry tjs_wsconn_proto_funcs[] = {
     JS_CGETSET_DEF("remoteAddress", tjs_wsconn_remoteaddr_get, NULL),
     JS_CGETSET_DEF("bufferedAmount", tjs_wsconn_bufferedamount_get, NULL),
     TJS_CFUNC_DEF("sendText", 1, tjs_wsconn_send_text),
-    TJS_CFUNC_DEF("sendBinary", 3, tjs_wsconn_send_binary),
+    TJS_CFUNC_DEF("sendBinary", 1, tjs_wsconn_send_binary),
     TJS_CFUNC_DEF("close", 2, tjs_wsconn_close),
 };
 
