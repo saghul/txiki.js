@@ -211,10 +211,10 @@ class WebSocket extends EventTarget {
             this[kWS].sendText(data);
         } else if (data instanceof Blob) {
             data.arrayBuffer().then(buf => {
-                this[kWS].sendBinary(buf, 0, buf.byteLength);
+                this[kWS].sendBinary(buf);
             });
         } else if (data instanceof ArrayBuffer) {
-            this[kWS].sendBinary(data, 0, data.byteLength);
+            this[kWS].sendBinary(data);
         } else if (ArrayBuffer.isView(data)) {
             this[kWS].sendBinary(data.buffer, data.byteOffset, data.byteLength);
         }
