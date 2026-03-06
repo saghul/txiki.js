@@ -1,4 +1,4 @@
-import { aesEncrypt, aesDecrypt, aesGenerateKey, aesImportKey, aesExportKey } from './aes.js';
+import { aesEncrypt, aesDecrypt, aesGenerateKey, aesImportKey, aesExportKey, aesKwWrap, aesKwUnwrap } from './aes.js';
 import { digest } from './digest.js';
 import { ecGenerateKey, ecdsaSign, ecdsaVerify, ecdhDeriveBits, ecImportKey, ecExportKey } from './ec.js';
 import { ed25519GenerateKey, ed25519Sign, ed25519Verify, ed25519ImportKey, ed25519ExportKey } from './ed.js';
@@ -108,6 +108,7 @@ export class SubtleCrypto {
                 case 'AES-CBC':
                 case 'AES-CTR':
                 case 'AES-GCM':
+                case 'AES-KW':
                     length = derivedKeyType.length;
                     break;
 
@@ -161,6 +162,7 @@ export class SubtleCrypto {
                 case 'AES-CBC':
                 case 'AES-CTR':
                 case 'AES-GCM':
+                case 'AES-KW':
                     return Promise.resolve(aesGenerateKey(algorithm, extractable, keyUsages));
                 case 'ECDSA':
                 case 'ECDH':
@@ -193,6 +195,7 @@ export class SubtleCrypto {
                 case 'AES-CBC':
                 case 'AES-CTR':
                 case 'AES-GCM':
+                case 'AES-KW':
                     return Promise.resolve(
                         aesImportKey(format, keyData, algorithm, extractable, keyUsages));
                 case 'PBKDF2':
@@ -246,6 +249,8 @@ export class SubtleCrypto {
                 case 'AES-CTR':
                 case 'AES-GCM':
                     return aesEncrypt(wrapAlgorithm, wrappingKey, data, 'wrapKey');
+                case 'AES-KW':
+                    return aesKwWrap(wrappingKey, data);
                 case 'RSA-OAEP':
                     return rsaOaepEncrypt(wrapAlgorithm, wrappingKey, data, 'wrapKey');
                 default:
@@ -269,6 +274,9 @@ export class SubtleCrypto {
             case 'AES-GCM':
                 decryptPromise = aesDecrypt(unwrapAlgorithm, unwrappingKey, wrappedKey, 'unwrapKey');
                 break;
+            case 'AES-KW':
+                decryptPromise = aesKwUnwrap(unwrappingKey, wrappedKey);
+                break;
             case 'RSA-OAEP':
                 decryptPromise = rsaOaepDecrypt(unwrapAlgorithm, unwrappingKey, wrappedKey, 'unwrapKey');
                 break;
@@ -278,9 +286,21 @@ export class SubtleCrypto {
         }
 
         return decryptPromise.then(decrypted => {
-            const keyData = format === 'jwk'
-                ? JSON.parse(new TextDecoder().decode(decrypted))
-                : decrypted;
+            let keyData;
+
+            if (format === 'jwk') {
+                // Trim trailing zero bytes (AES-KW pads to 8-byte boundary)
+                let bytes = new Uint8Array(decrypted);
+                let end = bytes.length;
+
+                while (end > 0 && bytes[end - 1] === 0) {
+                    end--;
+                }
+
+                keyData = JSON.parse(new TextDecoder().decode(bytes.subarray(0, end)));
+            } else {
+                keyData = decrypted;
+            }
 
             return this.importKey(format, keyData, unwrappedKeyAlgorithm, extractable, keyUsages);
         });
@@ -296,6 +316,7 @@ export class SubtleCrypto {
                 case 'AES-CBC':
                 case 'AES-CTR':
                 case 'AES-GCM':
+                case 'AES-KW':
                     return Promise.resolve(aesExportKey(format, key));
                 case 'PBKDF2':
                 case 'HKDF':

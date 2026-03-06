@@ -33,6 +33,7 @@
 #include <mbedtls/entropy.h>
 #include <mbedtls/hkdf.h>
 #include <mbedtls/md.h>
+#include <mbedtls/nist_kw.h>
 #include <mbedtls/pk.h>
 #include <mbedtls/pkcs5.h>
 #include <mbedtls/rsa.h>
@@ -3314,6 +3315,18 @@ static const JSCFunctionListEntry tjs_cipher_consts[] = {
 };
 /* clang-format on */
 
+enum {
+    AES_KW_OP_WRAP = 0,
+    AES_KW_OP_UNWRAP,
+};
+
+/* clang-format off */
+static const JSCFunctionListEntry tjs_aes_kw_consts[] = {
+    TJS_CONST(AES_KW_OP_WRAP),
+    TJS_CONST(AES_KW_OP_UNWRAP),
+};
+/* clang-format on */
+
 /* clang-format off */
 static const JSCFunctionListEntry tjs_webcrypto_consts[] = {
     TJS_CONST(DIGEST_SHA1),
@@ -3878,6 +3891,70 @@ static JSValue tjs_webcrypto_x25519_derive_bits(JSContext *ctx, JSValue this_val
     return JS_UNDEFINED;
 }
 
+/* AES-KW wrap/unwrap (sync). */
+
+static JSValue tjs_webcrypto_aes_kw(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 3) {
+        return JS_ThrowTypeError(ctx, "expected 3 arguments: operation, key, data");
+    }
+
+    int32_t operation;
+    if (JS_ToInt32(ctx, &operation, argv[0])) {
+        return JS_EXCEPTION;
+    }
+
+    size_t key_len;
+    const uint8_t *key = JS_GetUint8Array(ctx, &key_len, argv[1]);
+    if (!key) {
+        return JS_EXCEPTION;
+    }
+
+    if (key_len != 16 && key_len != 24 && key_len != 32) {
+        return JS_ThrowTypeError(ctx, "invalid AES key length");
+    }
+
+    size_t data_len;
+    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[2]);
+    if (!data) {
+        return JS_EXCEPTION;
+    }
+
+    mbedtls_nist_kw_context kw_ctx;
+    mbedtls_nist_kw_init(&kw_ctx);
+
+    int is_wrap = (operation == AES_KW_OP_WRAP);
+    int ret = mbedtls_nist_kw_setkey(&kw_ctx, MBEDTLS_CIPHER_ID_AES, key, (unsigned int) (key_len * 8), is_wrap);
+    if (ret != 0) {
+        mbedtls_nist_kw_free(&kw_ctx);
+        return JS_ThrowTypeError(ctx, "AES-KW setkey failed");
+    }
+
+    size_t out_size = is_wrap ? data_len + 8 : data_len - 8;
+    uint8_t *output = js_malloc(ctx, out_size > 0 ? out_size : 1);
+    if (!output) {
+        mbedtls_nist_kw_free(&kw_ctx);
+        return JS_EXCEPTION;
+    }
+
+    size_t out_len = 0;
+    if (is_wrap) {
+        ret = mbedtls_nist_kw_wrap(&kw_ctx, MBEDTLS_KW_MODE_KW, data, data_len, output, &out_len, out_size);
+    } else {
+        ret = mbedtls_nist_kw_unwrap(&kw_ctx, MBEDTLS_KW_MODE_KW, data, data_len, output, &out_len, out_size);
+    }
+
+    mbedtls_nist_kw_free(&kw_ctx);
+
+    if (ret != 0) {
+        js_free(ctx, output);
+        return JS_ThrowTypeError(ctx, "AES-KW operation failed");
+    }
+
+    JSValue result = JS_NewUint8ArrayCopy(ctx, output, out_len);
+    js_free(ctx, output);
+    return result;
+}
+
 /* X25519 get public key from private key (sync). */
 
 static JSValue tjs_webcrypto_x25519_get_public_key(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -3973,5 +4050,8 @@ void tjs__webcrypto_init(JSContext *ctx, JSValue ns) {
     JS_DefinePropertyValueStr(ctx, obj, "x25519DeriveBits", x25519_derive_fn, JS_PROP_C_W_E);
     JSValue x25519_get_pub_fn = JS_NewCFunction(ctx, tjs_webcrypto_x25519_get_public_key, "x25519GetPublicKey", 1);
     JS_DefinePropertyValueStr(ctx, obj, "x25519GetPublicKey", x25519_get_pub_fn, JS_PROP_C_W_E);
+    JSValue aes_kw_fn = JS_NewCFunction(ctx, tjs_webcrypto_aes_kw, "aesKw", 3);
+    JS_SetPropertyFunctionList(ctx, aes_kw_fn, tjs_aes_kw_consts, countof(tjs_aes_kw_consts));
+    JS_DefinePropertyValueStr(ctx, obj, "aesKw", aes_kw_fn, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "webcrypto", obj, JS_PROP_C_W_E);
 }

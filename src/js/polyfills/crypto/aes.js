@@ -1,5 +1,5 @@
 import { CryptoKey, kKeyData } from './crypto-key.js';
-import { nativeCipher, toUint8Array, base64urlEncode, base64urlDecode } from './helpers.js';
+import { nativeCipher, nativeAesKw, toUint8Array, base64urlEncode, base64urlDecode } from './helpers.js';
 
 const CIPHER_AES_CBC = nativeCipher.CIPHER_AES_CBC;
 const CIPHER_AES_GCM = nativeCipher.CIPHER_AES_GCM;
@@ -13,7 +13,11 @@ const cipherTypes = {
     'AES-CTR': CIPHER_AES_CTR,
 };
 
+const AES_KW_OP_WRAP = nativeAesKw.AES_KW_OP_WRAP;
+const AES_KW_OP_UNWRAP = nativeAesKw.AES_KW_OP_UNWRAP;
+
 const validAesUsages = [ 'encrypt', 'decrypt', 'wrapKey', 'unwrapKey' ];
+const validAesKwUsages = [ 'wrapKey', 'unwrapKey' ];
 const validTagLengths = [ 32, 64, 96, 104, 112, 120, 128 ];
 
 function cipherOp(cipherType, operation, key, iv, data, aad, tagLengthBytes) {
@@ -234,8 +238,10 @@ export function aesGenerateKey(algorithm, extractable, keyUsages) {
         throw new DOMException(`Invalid AES key length: ${length}`, 'OperationError');
     }
 
+    const validUsages = algoName === 'AES-KW' ? validAesKwUsages : validAesUsages;
+
     for (const usage of keyUsages) {
-        if (!validAesUsages.includes(usage)) {
+        if (!validUsages.includes(usage)) {
             throw new DOMException(`Invalid key usage: ${usage}`, 'SyntaxError');
         }
     }
@@ -263,6 +269,10 @@ function aesJwkAlg(algoName, bitLength) {
         return `${prefix}CTR`;
     }
 
+    if (algoName === 'AES-KW') {
+        return `A${bitLength}KW`;
+    }
+
     return undefined;
 }
 
@@ -272,9 +282,10 @@ export function aesImportKey(format, keyData, algorithm, extractable, keyUsages)
     }
 
     const algoName = typeof algorithm === 'string' ? algorithm : algorithm?.name;
+    const validUsages = algoName === 'AES-KW' ? validAesKwUsages : validAesUsages;
 
     for (const usage of keyUsages) {
-        if (!validAesUsages.includes(usage)) {
+        if (!validUsages.includes(usage)) {
             throw new DOMException(`Invalid key usage: ${usage}`, 'SyntaxError');
         }
     }
@@ -331,4 +342,79 @@ export function aesExportKey(format, key) {
     }
 
     return key[kKeyData].buffer.slice(0);
+}
+
+export function aesKwWrap(key, data) {
+    if (!(key instanceof CryptoKey)) {
+        return Promise.reject(new TypeError('key must be a CryptoKey'));
+    }
+
+    if (!key.usages.includes('wrapKey')) {
+        return Promise.reject(
+            new DOMException('Key does not support the "wrapKey" operation', 'InvalidAccessError'));
+    }
+
+    let bytes;
+
+    try {
+        bytes = toUint8Array(data);
+    } catch (e) {
+        return Promise.reject(e);
+    }
+
+    // Pad to 8-byte boundary if needed (required for JWK format wrapping)
+    const remainder = bytes.byteLength % 8;
+
+    if (remainder !== 0) {
+        const padded = new Uint8Array(bytes.byteLength + (8 - remainder));
+
+        padded.set(bytes);
+        bytes = padded;
+    }
+
+    if (bytes.byteLength < 16) {
+        return Promise.reject(
+            new DOMException('AES-KW input must be at least 16 bytes', 'OperationError'));
+    }
+
+    try {
+        const result = nativeAesKw(AES_KW_OP_WRAP, key[kKeyData], bytes);
+
+        return Promise.resolve(result.buffer);
+    } catch (_e) {
+        return Promise.reject(new DOMException('AES-KW wrap failed', 'OperationError'));
+    }
+}
+
+export function aesKwUnwrap(key, data) {
+    if (!(key instanceof CryptoKey)) {
+        return Promise.reject(new TypeError('key must be a CryptoKey'));
+    }
+
+    if (!key.usages.includes('unwrapKey')) {
+        return Promise.reject(
+            new DOMException('Key does not support the "unwrapKey" operation', 'InvalidAccessError'));
+    }
+
+    let bytes;
+
+    try {
+        bytes = toUint8Array(data);
+    } catch (e) {
+        return Promise.reject(e);
+    }
+
+    if (bytes.byteLength % 8 !== 0 || bytes.byteLength < 24) {
+        return Promise.reject(
+            new DOMException(
+                'AES-KW wrapped data must be a multiple of 8 bytes and at least 24 bytes', 'OperationError'));
+    }
+
+    try {
+        const result = nativeAesKw(AES_KW_OP_UNWRAP, key[kKeyData], bytes);
+
+        return Promise.resolve(result.buffer);
+    } catch (_e) {
+        return Promise.reject(new DOMException('AES-KW unwrap failed', 'OperationError'));
+    }
 }
