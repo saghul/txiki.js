@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "ed25519.h"
 #include "private.h"
 
 #include <mbedtls/cipher.h>
@@ -39,8 +40,6 @@
 #include <mbedtls/sha256.h>
 #include <mbedtls/sha512.h>
 #include <string.h>
-
-#include "ed25519.h"
 
 enum {
     DIGEST_SHA1 = 0,
@@ -363,6 +362,7 @@ static JSValue tjs_webcrypto_hmac_sign(JSContext *ctx, JSValue this_val, int arg
 enum {
     CIPHER_AES_CBC = 0,
     CIPHER_AES_GCM,
+    CIPHER_AES_CTR,
 };
 
 enum {
@@ -410,6 +410,17 @@ static mbedtls_cipher_type_t tjs__get_cipher_type(int cipher_type, size_t key_le
                 return MBEDTLS_CIPHER_AES_192_GCM;
             case 32:
                 return MBEDTLS_CIPHER_AES_256_GCM;
+            default:
+                return MBEDTLS_CIPHER_NONE;
+        }
+    } else if (cipher_type == CIPHER_AES_CTR) {
+        switch (key_len) {
+            case 16:
+                return MBEDTLS_CIPHER_AES_128_CTR;
+            case 24:
+                return MBEDTLS_CIPHER_AES_192_CTR;
+            case 32:
+                return MBEDTLS_CIPHER_AES_256_CTR;
             default:
                 return MBEDTLS_CIPHER_NONE;
         }
@@ -514,6 +525,16 @@ static void tjs__cipher_work_cb(uv_work_t *req) {
                                                   &cr->output_len,
                                                   cr->tag_length);
         }
+    } else if (cr->cipher_type == CIPHER_AES_CTR) {
+        /* CTR: stream cipher, output length == input length, no padding. */
+        cr->output = malloc(cr->data_len > 0 ? cr->data_len : 1);
+        if (!cr->output) {
+            ret = -1;
+            goto cleanup;
+        }
+
+        ret =
+            mbedtls_cipher_crypt(&cipher_ctx, cr->iv, cr->iv_len, cr->data, cr->data_len, cr->output, &cr->output_len);
     } else {
         ret = -1;
     }
@@ -3287,6 +3308,7 @@ static const JSCFunctionListEntry tjs_rsa_consts[] = {
 static const JSCFunctionListEntry tjs_cipher_consts[] = {
     TJS_CONST(CIPHER_AES_CBC),
     TJS_CONST(CIPHER_AES_GCM),
+    TJS_CONST(CIPHER_AES_CTR),
     TJS_CONST(CIPHER_OP_ENCRYPT),
     TJS_CONST(CIPHER_OP_DECRYPT),
 };
@@ -3641,8 +3663,7 @@ static JSValue tjs_webcrypto_ed25519_verify(JSContext *ctx, JSValue this_val, in
 
     vr->req.data = vr;
 
-    int r =
-        uv_queue_work(tjs_get_loop(ctx), &vr->req, tjs__ed25519_verify_work_cb, tjs__ed25519_verify_after_work_cb);
+    int r = uv_queue_work(tjs_get_loop(ctx), &vr->req, tjs__ed25519_verify_work_cb, tjs__ed25519_verify_after_work_cb);
     if (r != 0) {
         goto fail;
     }
@@ -3756,7 +3777,8 @@ static JSValue tjs_webcrypto_x25519_generate_key(JSContext *ctx, JSValue this_va
     xr->r = -1;
     xr->req.data = xr;
 
-    int r = uv_queue_work(tjs_get_loop(ctx), &xr->req,
+    int r = uv_queue_work(tjs_get_loop(ctx),
+                          &xr->req,
                           tjs__x25519_generate_key_work_cb,
                           tjs__x25519_generate_key_after_work_cb);
     if (r != 0) {
@@ -3843,7 +3865,8 @@ static JSValue tjs_webcrypto_x25519_derive_bits(JSContext *ctx, JSValue this_val
     memcpy(dr->pubkey, pubkey, 32);
     dr->req.data = dr;
 
-    int r = uv_queue_work(tjs_get_loop(ctx), &dr->req,
+    int r = uv_queue_work(tjs_get_loop(ctx),
+                          &dr->req,
                           tjs__x25519_derive_bits_work_cb,
                           tjs__x25519_derive_bits_after_work_cb);
     if (r != 0) {

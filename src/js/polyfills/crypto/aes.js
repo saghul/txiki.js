@@ -3,12 +3,14 @@ import { nativeCipher, toUint8Array, base64urlEncode, base64urlDecode } from './
 
 const CIPHER_AES_CBC = nativeCipher.CIPHER_AES_CBC;
 const CIPHER_AES_GCM = nativeCipher.CIPHER_AES_GCM;
+const CIPHER_AES_CTR = nativeCipher.CIPHER_AES_CTR;
 const CIPHER_OP_ENCRYPT = nativeCipher.CIPHER_OP_ENCRYPT;
 const CIPHER_OP_DECRYPT = nativeCipher.CIPHER_OP_DECRYPT;
 
 const cipherTypes = {
     'AES-CBC': CIPHER_AES_CBC,
     'AES-GCM': CIPHER_AES_GCM,
+    'AES-CTR': CIPHER_AES_CTR,
 };
 
 const validAesUsages = [ 'encrypt', 'decrypt', 'wrapKey', 'unwrapKey' ];
@@ -68,6 +70,29 @@ export function aesEncrypt(algorithm, key, data, requiredUsage = 'encrypt') {
         }
 
         return cipherOp(cipherType, CIPHER_OP_ENCRYPT, key[kKeyData], iv, bytes, undefined, 0)
+            .then(r => r.buffer);
+    }
+
+    if (algoName === 'AES-CTR') {
+        let counter;
+
+        try {
+            counter = toUint8Array(algorithm.counter);
+        } catch (e) {
+            return Promise.reject(e);
+        }
+
+        if (counter.byteLength !== 16) {
+            return Promise.reject(new DOMException('AES-CTR counter must be 16 bytes', 'OperationError'));
+        }
+
+        const length = algorithm.length;
+
+        if (!Number.isInteger(length) || length < 1 || length > 128) {
+            return Promise.reject(new DOMException('AES-CTR length must be between 1 and 128', 'OperationError'));
+        }
+
+        return cipherOp(cipherType, CIPHER_OP_ENCRYPT, key[kKeyData], counter, bytes, undefined, 0)
             .then(r => r.buffer);
     }
 
@@ -146,6 +171,29 @@ export function aesDecrypt(algorithm, key, data, requiredUsage = 'decrypt') {
             .then(r => r.buffer);
     }
 
+    if (algoName === 'AES-CTR') {
+        let counter;
+
+        try {
+            counter = toUint8Array(algorithm.counter);
+        } catch (e) {
+            return Promise.reject(e);
+        }
+
+        if (counter.byteLength !== 16) {
+            return Promise.reject(new DOMException('AES-CTR counter must be 16 bytes', 'OperationError'));
+        }
+
+        const length = algorithm.length;
+
+        if (!Number.isInteger(length) || length < 1 || length > 128) {
+            return Promise.reject(new DOMException('AES-CTR length must be between 1 and 128', 'OperationError'));
+        }
+
+        return cipherOp(cipherType, CIPHER_OP_DECRYPT, key[kKeyData], counter, bytes, undefined, 0)
+            .then(r => r.buffer);
+    }
+
     if (algoName === 'AES-GCM') {
         let iv;
 
@@ -209,6 +257,10 @@ function aesJwkAlg(algoName, bitLength) {
 
     if (algoName === 'AES-CBC') {
         return `${prefix}CBC`;
+    }
+
+    if (algoName === 'AES-CTR') {
+        return `${prefix}CTR`;
     }
 
     return undefined;

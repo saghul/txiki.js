@@ -2,7 +2,6 @@ import { aesEncrypt, aesDecrypt, aesGenerateKey, aesImportKey, aesExportKey } fr
 import { digest } from './digest.js';
 import { ecGenerateKey, ecdsaSign, ecdsaVerify, ecdhDeriveBits, ecImportKey, ecExportKey } from './ec.js';
 import { ed25519GenerateKey, ed25519Sign, ed25519Verify, ed25519ImportKey, ed25519ExportKey } from './ed.js';
-import { x25519GenerateKey, x25519DeriveBits, x25519ImportKey, x25519ExportKey } from './x25519.js';
 import { normalizeHashAlgorithm, hashBlockSizes } from './helpers.js';
 import { hmacSign, hmacVerify, hmacGenerateKey, hmacImportKey, hmacExportKey } from './hmac.js';
 import { kdfImportKey, pbkdf2DeriveBits, hkdfDeriveBits } from './kdf.js';
@@ -10,6 +9,7 @@ import {
     rsaGenerateKey, rsaOaepEncrypt, rsaOaepDecrypt,
     rsaSign, rsaVerify, rsaImportKey, rsaExportKey,
 } from './rsa.js';
+import { x25519GenerateKey, x25519DeriveBits, x25519ImportKey, x25519ExportKey } from './x25519.js';
 
 export class SubtleCrypto {
     digest(algorithm, data) {
@@ -21,6 +21,7 @@ export class SubtleCrypto {
 
         switch (name) {
             case 'AES-CBC':
+            case 'AES-CTR':
             case 'AES-GCM':
                 return aesEncrypt(algorithm, key, data);
             case 'RSA-OAEP':
@@ -35,6 +36,7 @@ export class SubtleCrypto {
 
         switch (name) {
             case 'AES-CBC':
+            case 'AES-CTR':
             case 'AES-GCM':
                 return aesDecrypt(algorithm, key, data);
             case 'RSA-OAEP':
@@ -104,6 +106,7 @@ export class SubtleCrypto {
         try {
             switch (dktName) {
                 case 'AES-CBC':
+                case 'AES-CTR':
                 case 'AES-GCM':
                     length = derivedKeyType.length;
                     break;
@@ -156,6 +159,7 @@ export class SubtleCrypto {
                 case 'HMAC':
                     return Promise.resolve(hmacGenerateKey(algorithm, extractable, keyUsages));
                 case 'AES-CBC':
+                case 'AES-CTR':
                 case 'AES-GCM':
                     return Promise.resolve(aesGenerateKey(algorithm, extractable, keyUsages));
                 case 'ECDSA':
@@ -187,6 +191,7 @@ export class SubtleCrypto {
                     return Promise.resolve(
                         hmacImportKey(format, keyData, algorithm, extractable, keyUsages));
                 case 'AES-CBC':
+                case 'AES-CTR':
                 case 'AES-GCM':
                     return Promise.resolve(
                         aesImportKey(format, keyData, algorithm, extractable, keyUsages));
@@ -238,6 +243,7 @@ export class SubtleCrypto {
 
             switch (name) {
                 case 'AES-CBC':
+                case 'AES-CTR':
                 case 'AES-GCM':
                     return aesEncrypt(wrapAlgorithm, wrappingKey, data, 'wrapKey');
                 case 'RSA-OAEP':
@@ -259,6 +265,7 @@ export class SubtleCrypto {
 
         switch (name) {
             case 'AES-CBC':
+            case 'AES-CTR':
             case 'AES-GCM':
                 decryptPromise = aesDecrypt(unwrapAlgorithm, unwrappingKey, wrappedKey, 'unwrapKey');
                 break;
@@ -287,6 +294,7 @@ export class SubtleCrypto {
                 case 'HMAC':
                     return Promise.resolve(hmacExportKey(format, key));
                 case 'AES-CBC':
+                case 'AES-CTR':
                 case 'AES-GCM':
                     return Promise.resolve(aesExportKey(format, key));
                 case 'PBKDF2':
