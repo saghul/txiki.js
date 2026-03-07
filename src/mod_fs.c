@@ -1290,6 +1290,9 @@ static void tjs__readfile_after_work_cb(uv_work_t *req, int status) {
     } else if (fr->r < 0) {
         arg = tjs_new_error(ctx, fr->r);
         is_reject = true;
+    } else if (fr->dbuf.size == 0) {
+        uint8_t *buf = tjs__malloc(1);
+        arg = JS_NewUint8Array(ctx, buf, 0, tjs__raw_buf_free, NULL, false);
     } else {
         /* The buffer was allocated with raw realloc on the worker thread,
            so use a free function that bypasses QJS malloc tracking. */
