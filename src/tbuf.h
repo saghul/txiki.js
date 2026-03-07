@@ -42,6 +42,7 @@ typedef struct TBuf {
     bool error;
 } TBuf;
 
+/* Pass NULL ctx to use raw (untracked) allocations, safe for worker threads. */
 void tbuf_init(JSContext *ctx, TBuf *s);
 int tbuf_claim(TBuf *s, size_t len);
 int tbuf_put(TBuf *s, const void *data, size_t len);

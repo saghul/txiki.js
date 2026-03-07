@@ -26,6 +26,7 @@
 
 #include "tbuf.h"
 
+#include "mem.h"
 #include "utils.h"
 
 #include <stdarg.h>
@@ -34,7 +35,9 @@
 
 void tbuf_init(JSContext *ctx, TBuf *s) {
     memset(s, 0, sizeof(*s));
-    s->rt = JS_GetRuntime(ctx);
+    if (ctx) {
+        s->rt = JS_GetRuntime(ctx);
+    }
 }
 
 int tbuf_claim(TBuf *s, size_t len) {
@@ -54,7 +57,11 @@ int tbuf_claim(TBuf *s, size_t len) {
         } else {
             new_allocated_size = size;
         }
-        new_buf = js_realloc_rt(s->rt, s->buf, new_allocated_size);
+        if (s->rt) {
+            new_buf = js_realloc_rt(s->rt, s->buf, new_allocated_size);
+        } else {
+            new_buf = tjs__realloc(s->buf, new_allocated_size);
+        }
         if (!new_buf) {
             s->error = true;
             return -1;
@@ -117,7 +124,11 @@ int tbuf_printf(TBuf *s, const char *fmt, ...) {
 
 void tbuf_free(TBuf *s) {
     if (s->buf) {
-        js_free_rt(s->rt, s->buf);
+        if (s->rt) {
+            js_free_rt(s->rt, s->buf);
+        } else {
+            tjs__free(s->buf);
+        }
     }
     memset(s, 0, sizeof(*s));
 }

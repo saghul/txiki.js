@@ -22,12 +22,16 @@
  * THE SOFTWARE.
  */
 
+#include "mem.h"
 #include "private.h"
 #include "utils.h"
 
 #include <string.h>
 #include <uv.h>
 
+static void tjs__raw_buf_free(JSRuntime *rt, void *opaque, void *ptr) {
+    tjs__free(ptr);
+}
 
 static JSClassID tjs_file_class_id;
 
@@ -1283,20 +1287,22 @@ static void tjs__readfile_after_work_cb(uv_work_t *req, int status) {
     if (status != 0) {
         arg = tjs_new_error(ctx, status);
         is_reject = true;
-        tbuf_free(&fr->dbuf);
     } else if (fr->r < 0) {
         arg = tjs_new_error(ctx, fr->r);
         is_reject = true;
-        tbuf_free(&fr->dbuf);
     } else {
-        arg = TJS_NewUint8Array(ctx, fr->dbuf.buf, fr->dbuf.size);
+        /* The buffer was allocated with raw realloc on the worker thread,
+           so use a free function that bypasses QJS malloc tracking. */
+        arg = JS_NewUint8Array(ctx, fr->dbuf.buf, fr->dbuf.size, tjs__raw_buf_free, NULL, false);
+        fr->dbuf.buf = NULL;
         if (JS_IsException(arg)) {
-            tbuf_free(&fr->dbuf);
+            is_reject = true;
         }
     }
 
     TJS_SettlePromise(ctx, &fr->result, is_reject, arg);
 
+    tbuf_free(&fr->dbuf);
     js_free(ctx, fr->filename);
     js_free(ctx, fr);
 }
@@ -1314,7 +1320,7 @@ static JSValue tjs_fs_readfile(JSContext *ctx, JSValue this_val, int argc, JSVal
     }
 
     fr->ctx = ctx;
-    tbuf_init(ctx, &fr->dbuf);
+    tbuf_init(NULL, &fr->dbuf);
     fr->r = -1;
     fr->filename = js_strdup(ctx, path);
     fr->req.data = fr;
