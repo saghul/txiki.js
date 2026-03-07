@@ -63,8 +63,7 @@ typedef struct {
     JSContext *ctx;
     JSValue callback;
     int type;
-    uint8_t *data;
-    size_t data_len;
+    TJSBufferRef data_ref;
     uint8_t digest[64]; /* Max digest size (SHA-512). */
     int digest_len;
     int r;
@@ -80,7 +79,7 @@ static void tjs__digest_work_cb(uv_work_t *req) {
             mbedtls_sha1_init(&sha1);
             ret = mbedtls_sha1_starts(&sha1);
             if (ret == 0) {
-                ret = mbedtls_sha1_update(&sha1, dr->data, dr->data_len);
+                ret = mbedtls_sha1_update(&sha1, dr->data_ref.data, dr->data_ref.size);
             }
             if (ret == 0) {
                 ret = mbedtls_sha1_finish(&sha1, dr->digest);
@@ -93,7 +92,7 @@ static void tjs__digest_work_cb(uv_work_t *req) {
             mbedtls_sha256_init(&sha256);
             ret = mbedtls_sha256_starts(&sha256, 0);
             if (ret == 0) {
-                ret = mbedtls_sha256_update(&sha256, dr->data, dr->data_len);
+                ret = mbedtls_sha256_update(&sha256, dr->data_ref.data, dr->data_ref.size);
             }
             if (ret == 0) {
                 ret = mbedtls_sha256_finish(&sha256, dr->digest);
@@ -106,7 +105,7 @@ static void tjs__digest_work_cb(uv_work_t *req) {
             mbedtls_sha512_init(&sha512);
             ret = mbedtls_sha512_starts(&sha512, 1);
             if (ret == 0) {
-                ret = mbedtls_sha512_update(&sha512, dr->data, dr->data_len);
+                ret = mbedtls_sha512_update(&sha512, dr->data_ref.data, dr->data_ref.size);
             }
             if (ret == 0) {
                 ret = mbedtls_sha512_finish(&sha512, dr->digest);
@@ -119,7 +118,7 @@ static void tjs__digest_work_cb(uv_work_t *req) {
             mbedtls_sha512_init(&sha512);
             ret = mbedtls_sha512_starts(&sha512, 0);
             if (ret == 0) {
-                ret = mbedtls_sha512_update(&sha512, dr->data, dr->data_len);
+                ret = mbedtls_sha512_update(&sha512, dr->data_ref.data, dr->data_ref.size);
             }
             if (ret == 0) {
                 ret = mbedtls_sha512_finish(&sha512, dr->digest);
@@ -155,7 +154,7 @@ static void tjs__digest_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, dr->callback);
-    js_free(ctx, dr->data);
+    tjs_buf_ref_release(ctx, &dr->data_ref);
     js_free(ctx, dr);
 }
 
@@ -173,12 +172,6 @@ static JSValue tjs_webcrypto_digest(JSContext *ctx, JSValue this_val, int argc, 
         return JS_ThrowRangeError(ctx, "invalid digest algorithm");
     }
 
-    size_t data_len;
-    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[1]);
-    if (!data && data_len != 0) {
-        return JS_EXCEPTION;
-    }
-
     if (!JS_IsFunction(ctx, argv[2])) {
         return JS_ThrowTypeError(ctx, "expected callback function");
     }
@@ -193,25 +186,23 @@ static JSValue tjs_webcrypto_digest(JSContext *ctx, JSValue this_val, int argc, 
     dr->type = type;
     dr->digest_len = digest_sizes[type];
     dr->r = -1;
+    tjs_buf_ref_init(&dr->data_ref);
 
+    size_t data_len;
+    JS_GetUint8Array(ctx, &data_len, argv[1]);
     if (data_len > 0) {
-        dr->data = js_malloc(ctx, data_len);
-        if (!dr->data) {
+        if (tjs_buf_ref_get(ctx, argv[1], &dr->data_ref)) {
             JS_FreeValue(ctx, dr->callback);
             js_free(ctx, dr);
             return JS_EXCEPTION;
         }
-        memcpy(dr->data, data, data_len);
-    } else {
-        dr->data = NULL;
     }
-    dr->data_len = data_len;
     dr->req.data = dr;
 
     int r = uv_queue_work(tjs_get_loop(ctx), &dr->req, tjs__digest_work_cb, tjs__digest_after_work_cb);
     if (r != 0) {
         JS_FreeValue(ctx, dr->callback);
-        js_free(ctx, dr->data);
+        tjs_buf_ref_release(ctx, &dr->data_ref);
         js_free(ctx, dr);
         return tjs_throw_errno(ctx, r);
     }
@@ -233,10 +224,8 @@ typedef struct {
     JSContext *ctx;
     JSValue callback;
     int type;
-    uint8_t *key;
-    size_t key_len;
-    uint8_t *data;
-    size_t data_len;
+    TJSBufferRef key_ref;
+    TJSBufferRef data_ref;
     uint8_t digest[64]; /* Max digest size (SHA-512). */
     int digest_len;
     int r;
@@ -251,7 +240,8 @@ static void tjs__hmac_sign_work_cb(uv_work_t *req) {
         return;
     }
 
-    hr->r = mbedtls_md_hmac(md_info, hr->key, hr->key_len, hr->data, hr->data_len, hr->digest);
+    hr->r =
+        mbedtls_md_hmac(md_info, hr->key_ref.data, hr->key_ref.size, hr->data_ref.data, hr->data_ref.size, hr->digest);
 }
 
 static void tjs__hmac_sign_after_work_cb(uv_work_t *req, int status) {
@@ -274,8 +264,8 @@ static void tjs__hmac_sign_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, hr->callback);
-    js_free(ctx, hr->key);
-    js_free(ctx, hr->data);
+    tjs_buf_ref_release(ctx, &hr->key_ref);
+    tjs_buf_ref_release(ctx, &hr->data_ref);
     js_free(ctx, hr);
 }
 
@@ -293,18 +283,6 @@ static JSValue tjs_webcrypto_hmac_sign(JSContext *ctx, JSValue this_val, int arg
         return JS_ThrowRangeError(ctx, "invalid digest algorithm");
     }
 
-    size_t key_len;
-    const uint8_t *key = JS_GetUint8Array(ctx, &key_len, argv[1]);
-    if (!key && key_len != 0) {
-        return JS_EXCEPTION;
-    }
-
-    size_t data_len;
-    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[2]);
-    if (!data && data_len != 0) {
-        return JS_EXCEPTION;
-    }
-
     if (!JS_IsFunction(ctx, argv[3])) {
         return JS_ThrowTypeError(ctx, "expected callback function");
     }
@@ -319,45 +297,46 @@ static JSValue tjs_webcrypto_hmac_sign(JSContext *ctx, JSValue this_val, int arg
     hr->type = type;
     hr->digest_len = digest_sizes[type];
     hr->r = -1;
+    tjs_buf_ref_init(&hr->key_ref);
+    tjs_buf_ref_init(&hr->data_ref);
 
+    size_t key_len;
+    JS_GetUint8Array(ctx, &key_len, argv[1]);
     if (key_len > 0) {
-        hr->key = js_malloc(ctx, key_len);
-        if (!hr->key) {
-            JS_FreeValue(ctx, hr->callback);
-            js_free(ctx, hr);
-            return JS_EXCEPTION;
+        if (tjs_buf_ref_get(ctx, argv[1], &hr->key_ref)) {
+            goto fail;
         }
-        memcpy(hr->key, key, key_len);
-    } else {
-        hr->key = NULL;
     }
-    hr->key_len = key_len;
 
+    size_t data_len;
+    JS_GetUint8Array(ctx, &data_len, argv[2]);
     if (data_len > 0) {
-        hr->data = js_malloc(ctx, data_len);
-        if (!hr->data) {
-            JS_FreeValue(ctx, hr->callback);
-            js_free(ctx, hr->key);
-            js_free(ctx, hr);
-            return JS_EXCEPTION;
+        if (tjs_buf_ref_get(ctx, argv[2], &hr->data_ref)) {
+            goto fail;
         }
-        memcpy(hr->data, data, data_len);
-    } else {
-        hr->data = NULL;
     }
-    hr->data_len = data_len;
     hr->req.data = hr;
 
     int r = uv_queue_work(tjs_get_loop(ctx), &hr->req, tjs__hmac_sign_work_cb, tjs__hmac_sign_after_work_cb);
     if (r != 0) {
-        JS_FreeValue(ctx, hr->callback);
-        js_free(ctx, hr->key);
-        js_free(ctx, hr->data);
-        js_free(ctx, hr);
-        return tjs_throw_errno(ctx, r);
+        goto fail_errno;
     }
 
     return JS_UNDEFINED;
+
+fail_errno:
+    JS_FreeValue(ctx, hr->callback);
+    tjs_buf_ref_release(ctx, &hr->key_ref);
+    tjs_buf_ref_release(ctx, &hr->data_ref);
+    js_free(ctx, hr);
+    return tjs_throw_errno(ctx, r);
+
+fail:
+    JS_FreeValue(ctx, hr->callback);
+    tjs_buf_ref_release(ctx, &hr->key_ref);
+    tjs_buf_ref_release(ctx, &hr->data_ref);
+    js_free(ctx, hr);
+    return JS_EXCEPTION;
 }
 
 enum {
@@ -377,14 +356,10 @@ typedef struct {
     JSValue callback;
     int cipher_type;
     int operation;
-    uint8_t *key;
-    size_t key_len;
-    uint8_t *iv;
-    size_t iv_len;
-    uint8_t *data;
-    size_t data_len;
-    uint8_t *aad;
-    size_t aad_len;
+    TJSBufferRef key_ref;
+    TJSBufferRef iv_ref;
+    TJSBufferRef data_ref;
+    TJSBufferRef aad_ref;
     int tag_length;
     uint8_t *output;
     size_t output_len;
@@ -434,7 +409,7 @@ static void tjs__cipher_work_cb(uv_work_t *req) {
     TJSCipherReq *cr = req->data;
     int ret;
 
-    mbedtls_cipher_type_t ct = tjs__get_cipher_type(cr->cipher_type, cr->key_len);
+    mbedtls_cipher_type_t ct = tjs__get_cipher_type(cr->cipher_type, cr->key_ref.size);
     if (ct == MBEDTLS_CIPHER_NONE) {
         cr->r = -1;
         return;
@@ -463,26 +438,31 @@ static void tjs__cipher_work_cb(uv_work_t *req) {
 
     mbedtls_operation_t op = cr->operation == CIPHER_OP_ENCRYPT ? MBEDTLS_ENCRYPT : MBEDTLS_DECRYPT;
 
-    ret = mbedtls_cipher_setkey(&cipher_ctx, cr->key, (int) (cr->key_len * 8), op);
+    ret = mbedtls_cipher_setkey(&cipher_ctx, cr->key_ref.data, (int) (cr->key_ref.size * 8), op);
     if (ret != 0) {
         goto cleanup;
     }
 
     if (cr->cipher_type == CIPHER_AES_CBC) {
         /* CBC: output can be up to data_len + block_size (16) for encryption due to padding. */
-        size_t out_alloc = cr->data_len + 16;
+        size_t out_alloc = cr->data_ref.size + 16;
         cr->output = malloc(out_alloc);
         if (!cr->output) {
             ret = -1;
             goto cleanup;
         }
 
-        ret =
-            mbedtls_cipher_crypt(&cipher_ctx, cr->iv, cr->iv_len, cr->data, cr->data_len, cr->output, &cr->output_len);
+        ret = mbedtls_cipher_crypt(&cipher_ctx,
+                                   cr->iv_ref.data,
+                                   cr->iv_ref.size,
+                                   cr->data_ref.data,
+                                   cr->data_ref.size,
+                                   cr->output,
+                                   &cr->output_len);
     } else if (cr->cipher_type == CIPHER_AES_GCM) {
         if (cr->operation == CIPHER_OP_ENCRYPT) {
             /* Encrypt: output = ciphertext + tag */
-            size_t out_alloc = cr->data_len + cr->tag_length;
+            size_t out_alloc = cr->data_ref.size + cr->tag_length;
             cr->output = malloc(out_alloc);
             if (!cr->output) {
                 ret = -1;
@@ -490,24 +470,24 @@ static void tjs__cipher_work_cb(uv_work_t *req) {
             }
 
             ret = mbedtls_cipher_auth_encrypt_ext(&cipher_ctx,
-                                                  cr->iv,
-                                                  cr->iv_len,
-                                                  cr->aad,
-                                                  cr->aad_len,
-                                                  cr->data,
-                                                  cr->data_len,
+                                                  cr->iv_ref.data,
+                                                  cr->iv_ref.size,
+                                                  cr->aad_ref.data,
+                                                  cr->aad_ref.size,
+                                                  cr->data_ref.data,
+                                                  cr->data_ref.size,
                                                   cr->output,
                                                   out_alloc,
                                                   &cr->output_len,
                                                   cr->tag_length);
         } else {
             /* Decrypt: input = ciphertext + tag, output = plaintext */
-            if ((size_t) cr->tag_length > cr->data_len) {
+            if ((size_t) cr->tag_length > cr->data_ref.size) {
                 ret = -1;
                 goto cleanup;
             }
 
-            size_t out_alloc = cr->data_len - cr->tag_length;
+            size_t out_alloc = cr->data_ref.size - cr->tag_length;
             cr->output = malloc(out_alloc > 0 ? out_alloc : 1);
             if (!cr->output) {
                 ret = -1;
@@ -515,12 +495,12 @@ static void tjs__cipher_work_cb(uv_work_t *req) {
             }
 
             ret = mbedtls_cipher_auth_decrypt_ext(&cipher_ctx,
-                                                  cr->iv,
-                                                  cr->iv_len,
-                                                  cr->aad,
-                                                  cr->aad_len,
-                                                  cr->data,
-                                                  cr->data_len,
+                                                  cr->iv_ref.data,
+                                                  cr->iv_ref.size,
+                                                  cr->aad_ref.data,
+                                                  cr->aad_ref.size,
+                                                  cr->data_ref.data,
+                                                  cr->data_ref.size,
                                                   cr->output,
                                                   out_alloc,
                                                   &cr->output_len,
@@ -528,14 +508,19 @@ static void tjs__cipher_work_cb(uv_work_t *req) {
         }
     } else if (cr->cipher_type == CIPHER_AES_CTR) {
         /* CTR: stream cipher, output length == input length, no padding. */
-        cr->output = malloc(cr->data_len > 0 ? cr->data_len : 1);
+        cr->output = malloc(cr->data_ref.size > 0 ? cr->data_ref.size : 1);
         if (!cr->output) {
             ret = -1;
             goto cleanup;
         }
 
-        ret =
-            mbedtls_cipher_crypt(&cipher_ctx, cr->iv, cr->iv_len, cr->data, cr->data_len, cr->output, &cr->output_len);
+        ret = mbedtls_cipher_crypt(&cipher_ctx,
+                                   cr->iv_ref.data,
+                                   cr->iv_ref.size,
+                                   cr->data_ref.data,
+                                   cr->data_ref.size,
+                                   cr->output,
+                                   &cr->output_len);
     } else {
         ret = -1;
     }
@@ -565,10 +550,10 @@ static void tjs__cipher_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, cr->callback);
-    js_free(ctx, cr->key);
-    js_free(ctx, cr->iv);
-    js_free(ctx, cr->data);
-    js_free(ctx, cr->aad);
+    tjs_buf_ref_release(ctx, &cr->key_ref);
+    tjs_buf_ref_release(ctx, &cr->iv_ref);
+    tjs_buf_ref_release(ctx, &cr->data_ref);
+    tjs_buf_ref_release(ctx, &cr->aad_ref);
     free(cr->output);
     js_free(ctx, cr);
 }
@@ -586,34 +571,6 @@ static JSValue tjs_webcrypto_cipher(JSContext *ctx, JSValue this_val, int argc, 
     int32_t operation;
     if (JS_ToInt32(ctx, &operation, argv[1])) {
         return JS_EXCEPTION;
-    }
-
-    size_t key_len;
-    const uint8_t *key = JS_GetUint8Array(ctx, &key_len, argv[2]);
-    if (!key) {
-        return JS_EXCEPTION;
-    }
-
-    size_t iv_len;
-    const uint8_t *iv = JS_GetUint8Array(ctx, &iv_len, argv[3]);
-    if (!iv) {
-        return JS_EXCEPTION;
-    }
-
-    size_t data_len;
-    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[4]);
-    if (!data && data_len != 0) {
-        return JS_EXCEPTION;
-    }
-
-    /* AAD is optional (can be undefined). */
-    size_t aad_len = 0;
-    const uint8_t *aad = NULL;
-    if (!JS_IsUndefined(argv[5])) {
-        aad = JS_GetUint8Array(ctx, &aad_len, argv[5]);
-        if (!aad && aad_len != 0) {
-            return JS_EXCEPTION;
-        }
     }
 
     int32_t tag_length;
@@ -637,58 +594,65 @@ static JSValue tjs_webcrypto_cipher(JSContext *ctx, JSValue this_val, int argc, 
     cr->operation = operation;
     cr->tag_length = tag_length;
     cr->r = -1;
+    tjs_buf_ref_init(&cr->key_ref);
+    tjs_buf_ref_init(&cr->iv_ref);
+    tjs_buf_ref_init(&cr->data_ref);
+    tjs_buf_ref_init(&cr->aad_ref);
 
-    /* Copy key. */
-    cr->key = js_malloc(ctx, key_len);
-    if (!cr->key) {
+    /* Pin key buffer. */
+    if (tjs_buf_ref_get(ctx, argv[2], &cr->key_ref)) {
         goto fail;
     }
-    memcpy(cr->key, key, key_len);
-    cr->key_len = key_len;
 
-    /* Copy IV. */
-    cr->iv = js_malloc(ctx, iv_len);
-    if (!cr->iv) {
+    /* Pin IV buffer. */
+    if (tjs_buf_ref_get(ctx, argv[3], &cr->iv_ref)) {
         goto fail;
     }
-    memcpy(cr->iv, iv, iv_len);
-    cr->iv_len = iv_len;
 
-    /* Copy data. */
+    /* Pin data buffer. */
+    size_t data_len;
+    JS_GetUint8Array(ctx, &data_len, argv[4]);
     if (data_len > 0) {
-        cr->data = js_malloc(ctx, data_len);
-        if (!cr->data) {
+        if (tjs_buf_ref_get(ctx, argv[4], &cr->data_ref)) {
             goto fail;
         }
-        memcpy(cr->data, data, data_len);
     }
-    cr->data_len = data_len;
 
-    /* Copy AAD. */
-    if (aad_len > 0) {
-        cr->aad = js_malloc(ctx, aad_len);
-        if (!cr->aad) {
-            goto fail;
+    /* Pin AAD buffer (optional). */
+    if (!JS_IsUndefined(argv[5])) {
+        size_t aad_len;
+        JS_GetUint8Array(ctx, &aad_len, argv[5]);
+        if (aad_len > 0) {
+            if (tjs_buf_ref_get(ctx, argv[5], &cr->aad_ref)) {
+                goto fail;
+            }
         }
-        memcpy(cr->aad, aad, aad_len);
     }
-    cr->aad_len = aad_len;
 
     cr->req.data = cr;
 
     int r = uv_queue_work(tjs_get_loop(ctx), &cr->req, tjs__cipher_work_cb, tjs__cipher_after_work_cb);
     if (r != 0) {
-        goto fail;
+        goto fail_errno;
     }
 
     return JS_UNDEFINED;
 
+fail_errno:
+    JS_FreeValue(ctx, cr->callback);
+    tjs_buf_ref_release(ctx, &cr->key_ref);
+    tjs_buf_ref_release(ctx, &cr->iv_ref);
+    tjs_buf_ref_release(ctx, &cr->data_ref);
+    tjs_buf_ref_release(ctx, &cr->aad_ref);
+    js_free(ctx, cr);
+    return tjs_throw_errno(ctx, r);
+
 fail:
     JS_FreeValue(ctx, cr->callback);
-    js_free(ctx, cr->key);
-    js_free(ctx, cr->iv);
-    js_free(ctx, cr->data);
-    js_free(ctx, cr->aad);
+    tjs_buf_ref_release(ctx, &cr->key_ref);
+    tjs_buf_ref_release(ctx, &cr->iv_ref);
+    tjs_buf_ref_release(ctx, &cr->data_ref);
+    tjs_buf_ref_release(ctx, &cr->aad_ref);
     js_free(ctx, cr);
     return JS_EXCEPTION;
 }
@@ -698,10 +662,8 @@ typedef struct {
     JSContext *ctx;
     JSValue callback;
     int type;
-    uint8_t *password;
-    size_t password_len;
-    uint8_t *salt;
-    size_t salt_len;
+    TJSBufferRef password_ref;
+    TJSBufferRef salt_ref;
     uint32_t iterations;
     uint8_t *output;
     uint32_t key_length;
@@ -711,10 +673,10 @@ typedef struct {
 static void tjs__pbkdf2_work_cb(uv_work_t *req) {
     TJSPbkdf2Req *pr = req->data;
     pr->r = mbedtls_pkcs5_pbkdf2_hmac_ext(digest_to_md_type[pr->type],
-                                          pr->password,
-                                          pr->password_len,
-                                          pr->salt,
-                                          pr->salt_len,
+                                          pr->password_ref.data,
+                                          pr->password_ref.size,
+                                          pr->salt_ref.data,
+                                          pr->salt_ref.size,
                                           pr->iterations,
                                           pr->key_length,
                                           pr->output);
@@ -740,8 +702,8 @@ static void tjs__pbkdf2_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, pr->callback);
-    js_free(ctx, pr->password);
-    js_free(ctx, pr->salt);
+    tjs_buf_ref_release(ctx, &pr->password_ref);
+    tjs_buf_ref_release(ctx, &pr->salt_ref);
     js_free(ctx, pr->output);
     js_free(ctx, pr);
 }
@@ -758,18 +720,6 @@ static JSValue tjs_webcrypto_pbkdf2(JSContext *ctx, JSValue this_val, int argc, 
 
     if (type < DIGEST_SHA1 || type > DIGEST_SHA512) {
         return JS_ThrowRangeError(ctx, "invalid digest algorithm");
-    }
-
-    size_t password_len;
-    const uint8_t *password = JS_GetUint8Array(ctx, &password_len, argv[1]);
-    if (!password && password_len != 0) {
-        return JS_EXCEPTION;
-    }
-
-    size_t salt_len;
-    const uint8_t *salt = JS_GetUint8Array(ctx, &salt_len, argv[2]);
-    if (!salt && salt_len != 0) {
-        return JS_EXCEPTION;
     }
 
     uint32_t iterations;
@@ -798,24 +748,24 @@ static JSValue tjs_webcrypto_pbkdf2(JSContext *ctx, JSValue this_val, int argc, 
     pr->iterations = iterations;
     pr->key_length = key_length;
     pr->r = -1;
+    tjs_buf_ref_init(&pr->password_ref);
+    tjs_buf_ref_init(&pr->salt_ref);
 
+    size_t password_len;
+    JS_GetUint8Array(ctx, &password_len, argv[1]);
     if (password_len > 0) {
-        pr->password = js_malloc(ctx, password_len);
-        if (!pr->password) {
+        if (tjs_buf_ref_get(ctx, argv[1], &pr->password_ref)) {
             goto fail;
         }
-        memcpy(pr->password, password, password_len);
     }
-    pr->password_len = password_len;
 
+    size_t salt_len;
+    JS_GetUint8Array(ctx, &salt_len, argv[2]);
     if (salt_len > 0) {
-        pr->salt = js_malloc(ctx, salt_len);
-        if (!pr->salt) {
+        if (tjs_buf_ref_get(ctx, argv[2], &pr->salt_ref)) {
             goto fail;
         }
-        memcpy(pr->salt, salt, salt_len);
     }
-    pr->salt_len = salt_len;
 
     pr->output = js_malloc(ctx, key_length);
     if (!pr->output) {
@@ -826,15 +776,23 @@ static JSValue tjs_webcrypto_pbkdf2(JSContext *ctx, JSValue this_val, int argc, 
 
     int r = uv_queue_work(tjs_get_loop(ctx), &pr->req, tjs__pbkdf2_work_cb, tjs__pbkdf2_after_work_cb);
     if (r != 0) {
-        goto fail;
+        goto fail_errno;
     }
 
     return JS_UNDEFINED;
 
+fail_errno:
+    JS_FreeValue(ctx, pr->callback);
+    tjs_buf_ref_release(ctx, &pr->password_ref);
+    tjs_buf_ref_release(ctx, &pr->salt_ref);
+    js_free(ctx, pr->output);
+    js_free(ctx, pr);
+    return tjs_throw_errno(ctx, r);
+
 fail:
     JS_FreeValue(ctx, pr->callback);
-    js_free(ctx, pr->password);
-    js_free(ctx, pr->salt);
+    tjs_buf_ref_release(ctx, &pr->password_ref);
+    tjs_buf_ref_release(ctx, &pr->salt_ref);
     js_free(ctx, pr->output);
     js_free(ctx, pr);
     return JS_EXCEPTION;
@@ -845,12 +803,9 @@ typedef struct {
     JSContext *ctx;
     JSValue callback;
     int type;
-    uint8_t *ikm;
-    size_t ikm_len;
-    uint8_t *salt;
-    size_t salt_len;
-    uint8_t *info;
-    size_t info_len;
+    TJSBufferRef ikm_ref;
+    TJSBufferRef salt_ref;
+    TJSBufferRef info_ref;
     uint8_t *output;
     size_t key_length;
     int r;
@@ -866,12 +821,12 @@ static void tjs__hkdf_work_cb(uv_work_t *req) {
     }
 
     hr->r = mbedtls_hkdf(md_info,
-                         hr->salt,
-                         hr->salt_len,
-                         hr->ikm,
-                         hr->ikm_len,
-                         hr->info,
-                         hr->info_len,
+                         hr->salt_ref.data,
+                         hr->salt_ref.size,
+                         hr->ikm_ref.data,
+                         hr->ikm_ref.size,
+                         hr->info_ref.data,
+                         hr->info_ref.size,
                          hr->output,
                          hr->key_length);
 }
@@ -896,9 +851,9 @@ static void tjs__hkdf_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, hr->callback);
-    js_free(ctx, hr->ikm);
-    js_free(ctx, hr->salt);
-    js_free(ctx, hr->info);
+    tjs_buf_ref_release(ctx, &hr->ikm_ref);
+    tjs_buf_ref_release(ctx, &hr->salt_ref);
+    tjs_buf_ref_release(ctx, &hr->info_ref);
     js_free(ctx, hr->output);
     js_free(ctx, hr);
 }
@@ -915,24 +870,6 @@ static JSValue tjs_webcrypto_hkdf(JSContext *ctx, JSValue this_val, int argc, JS
 
     if (type < DIGEST_SHA1 || type > DIGEST_SHA512) {
         return JS_ThrowRangeError(ctx, "invalid digest algorithm");
-    }
-
-    size_t ikm_len;
-    const uint8_t *ikm = JS_GetUint8Array(ctx, &ikm_len, argv[1]);
-    if (!ikm && ikm_len != 0) {
-        return JS_EXCEPTION;
-    }
-
-    size_t salt_len;
-    const uint8_t *salt = JS_GetUint8Array(ctx, &salt_len, argv[2]);
-    if (!salt && salt_len != 0) {
-        return JS_EXCEPTION;
-    }
-
-    size_t info_len;
-    const uint8_t *info = JS_GetUint8Array(ctx, &info_len, argv[3]);
-    if (!info && info_len != 0) {
-        return JS_EXCEPTION;
     }
 
     uint32_t key_length;
@@ -955,33 +892,33 @@ static JSValue tjs_webcrypto_hkdf(JSContext *ctx, JSValue this_val, int argc, JS
     hkr->type = type;
     hkr->key_length = key_length;
     hkr->r = -1;
+    tjs_buf_ref_init(&hkr->ikm_ref);
+    tjs_buf_ref_init(&hkr->salt_ref);
+    tjs_buf_ref_init(&hkr->info_ref);
 
+    size_t ikm_len;
+    JS_GetUint8Array(ctx, &ikm_len, argv[1]);
     if (ikm_len > 0) {
-        hkr->ikm = js_malloc(ctx, ikm_len);
-        if (!hkr->ikm) {
+        if (tjs_buf_ref_get(ctx, argv[1], &hkr->ikm_ref)) {
             goto fail;
         }
-        memcpy(hkr->ikm, ikm, ikm_len);
     }
-    hkr->ikm_len = ikm_len;
 
+    size_t salt_len;
+    JS_GetUint8Array(ctx, &salt_len, argv[2]);
     if (salt_len > 0) {
-        hkr->salt = js_malloc(ctx, salt_len);
-        if (!hkr->salt) {
+        if (tjs_buf_ref_get(ctx, argv[2], &hkr->salt_ref)) {
             goto fail;
         }
-        memcpy(hkr->salt, salt, salt_len);
     }
-    hkr->salt_len = salt_len;
 
+    size_t info_len;
+    JS_GetUint8Array(ctx, &info_len, argv[3]);
     if (info_len > 0) {
-        hkr->info = js_malloc(ctx, info_len);
-        if (!hkr->info) {
+        if (tjs_buf_ref_get(ctx, argv[3], &hkr->info_ref)) {
             goto fail;
         }
-        memcpy(hkr->info, info, info_len);
     }
-    hkr->info_len = info_len;
 
     hkr->output = js_malloc(ctx, key_length);
     if (!hkr->output) {
@@ -992,16 +929,25 @@ static JSValue tjs_webcrypto_hkdf(JSContext *ctx, JSValue this_val, int argc, JS
 
     int r = uv_queue_work(tjs_get_loop(ctx), &hkr->req, tjs__hkdf_work_cb, tjs__hkdf_after_work_cb);
     if (r != 0) {
-        goto fail;
+        goto fail_errno;
     }
 
     return JS_UNDEFINED;
 
+fail_errno:
+    JS_FreeValue(ctx, hkr->callback);
+    tjs_buf_ref_release(ctx, &hkr->ikm_ref);
+    tjs_buf_ref_release(ctx, &hkr->salt_ref);
+    tjs_buf_ref_release(ctx, &hkr->info_ref);
+    js_free(ctx, hkr->output);
+    js_free(ctx, hkr);
+    return tjs_throw_errno(ctx, r);
+
 fail:
     JS_FreeValue(ctx, hkr->callback);
-    js_free(ctx, hkr->ikm);
-    js_free(ctx, hkr->salt);
-    js_free(ctx, hkr->info);
+    tjs_buf_ref_release(ctx, &hkr->ikm_ref);
+    tjs_buf_ref_release(ctx, &hkr->salt_ref);
+    tjs_buf_ref_release(ctx, &hkr->info_ref);
     js_free(ctx, hkr->output);
     js_free(ctx, hkr);
     return JS_EXCEPTION;
@@ -1174,10 +1120,8 @@ typedef struct {
     JSValue callback;
     int curve;
     int hash_type;
-    uint8_t *privkey;
-    size_t privkey_len;
-    uint8_t *data;
-    size_t data_len;
+    TJSBufferRef privkey_ref;
+    TJSBufferRef data_ref;
     uint8_t *signature;
     size_t sig_len;
     int r;
@@ -1210,7 +1154,7 @@ static void tjs__ecdsa_sign_work_cb(uv_work_t *req) {
     }
 
     size_t hash_len = mbedtls_md_get_size(md_info);
-    ret = mbedtls_md(md_info, sr->data, sr->data_len, hash);
+    ret = mbedtls_md(md_info, sr->data_ref.data, sr->data_ref.size, hash);
     if (ret != 0) {
         goto cleanup;
     }
@@ -1221,7 +1165,7 @@ static void tjs__ecdsa_sign_work_cb(uv_work_t *req) {
         goto cleanup;
     }
 
-    ret = mbedtls_mpi_read_binary(&d, sr->privkey, sr->privkey_len);
+    ret = mbedtls_mpi_read_binary(&d, sr->privkey_ref.data, sr->privkey_ref.size);
     if (ret != 0) {
         goto cleanup;
     }
@@ -1278,8 +1222,8 @@ static void tjs__ecdsa_sign_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, sr->callback);
-    js_free(ctx, sr->privkey);
-    js_free(ctx, sr->data);
+    tjs_buf_ref_release(ctx, &sr->privkey_ref);
+    tjs_buf_ref_release(ctx, &sr->data_ref);
     js_free(ctx, sr->signature);
     js_free(ctx, sr);
 }
@@ -1307,18 +1251,6 @@ static JSValue tjs_webcrypto_ecdsa_sign(JSContext *ctx, JSValue this_val, int ar
         return JS_ThrowRangeError(ctx, "invalid digest algorithm");
     }
 
-    size_t privkey_len;
-    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[2]);
-    if (!privkey) {
-        return JS_EXCEPTION;
-    }
-
-    size_t data_len;
-    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[3]);
-    if (!data && data_len != 0) {
-        return JS_EXCEPTION;
-    }
-
     if (!JS_IsFunction(ctx, argv[4])) {
         return JS_ThrowTypeError(ctx, "expected callback function");
     }
@@ -1337,22 +1269,16 @@ static JSValue tjs_webcrypto_ecdsa_sign(JSContext *ctx, JSValue this_val, int ar
     sr->hash_type = hash_type;
     sr->sig_len = 2 * key_size;
     sr->r = -1;
+    tjs_buf_ref_init(&sr->privkey_ref);
+    tjs_buf_ref_init(&sr->data_ref);
 
-    sr->privkey = js_malloc(ctx, privkey_len);
-    if (!sr->privkey) {
+    if (tjs_buf_ref_get(ctx, argv[2], &sr->privkey_ref) != 0) {
         goto fail;
     }
-    memcpy(sr->privkey, privkey, privkey_len);
-    sr->privkey_len = privkey_len;
 
-    if (data_len > 0) {
-        sr->data = js_malloc(ctx, data_len);
-        if (!sr->data) {
-            goto fail;
-        }
-        memcpy(sr->data, data, data_len);
+    if (tjs_buf_ref_get(ctx, argv[3], &sr->data_ref) != 0) {
+        goto fail;
     }
-    sr->data_len = data_len;
 
     sr->signature = js_malloc(ctx, sr->sig_len);
     if (!sr->signature) {
@@ -1370,8 +1296,8 @@ static JSValue tjs_webcrypto_ecdsa_sign(JSContext *ctx, JSValue this_val, int ar
 
 fail:
     JS_FreeValue(ctx, sr->callback);
-    js_free(ctx, sr->privkey);
-    js_free(ctx, sr->data);
+    tjs_buf_ref_release(ctx, &sr->privkey_ref);
+    tjs_buf_ref_release(ctx, &sr->data_ref);
     js_free(ctx, sr->signature);
     js_free(ctx, sr);
     return JS_EXCEPTION;
@@ -1385,12 +1311,9 @@ typedef struct {
     JSValue callback;
     int curve;
     int hash_type;
-    uint8_t *pubkey;
-    size_t pubkey_len;
-    uint8_t *signature;
-    size_t sig_len;
-    uint8_t *data;
-    size_t data_len;
+    TJSBufferRef pubkey_ref;
+    TJSBufferRef sig_ref;
+    TJSBufferRef data_ref;
     int r;
 } TJSEcdsaVerifyReq;
 
@@ -1415,7 +1338,7 @@ static void tjs__ecdsa_verify_work_cb(uv_work_t *req) {
     }
 
     size_t hash_len = mbedtls_md_get_size(md_info);
-    int ret = mbedtls_md(md_info, vr->data, vr->data_len, hash);
+    int ret = mbedtls_md(md_info, vr->data_ref.data, vr->data_ref.size, hash);
     if (ret != 0) {
         vr->r = ret;
         goto cleanup;
@@ -1428,7 +1351,7 @@ static void tjs__ecdsa_verify_work_cb(uv_work_t *req) {
         goto cleanup;
     }
 
-    ret = mbedtls_ecp_point_read_binary(&grp, &Q, vr->pubkey, vr->pubkey_len);
+    ret = mbedtls_ecp_point_read_binary(&grp, &Q, vr->pubkey_ref.data, vr->pubkey_ref.size);
     if (ret != 0) {
         vr->r = ret;
         goto cleanup;
@@ -1436,13 +1359,13 @@ static void tjs__ecdsa_verify_work_cb(uv_work_t *req) {
 
     /* Read r and s from signature (IEEE P1363: r || s). */
     int key_size = curve_byte_sizes[vr->curve];
-    ret = mbedtls_mpi_read_binary(&r_mpi, vr->signature, key_size);
+    ret = mbedtls_mpi_read_binary(&r_mpi, vr->sig_ref.data, key_size);
     if (ret != 0) {
         vr->r = ret;
         goto cleanup;
     }
 
-    ret = mbedtls_mpi_read_binary(&s_mpi, vr->signature + key_size, key_size);
+    ret = mbedtls_mpi_read_binary(&s_mpi, vr->sig_ref.data + key_size, key_size);
     if (ret != 0) {
         vr->r = ret;
         goto cleanup;
@@ -1478,9 +1401,9 @@ static void tjs__ecdsa_verify_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, vr->callback);
-    js_free(ctx, vr->pubkey);
-    js_free(ctx, vr->signature);
-    js_free(ctx, vr->data);
+    tjs_buf_ref_release(ctx, &vr->pubkey_ref);
+    tjs_buf_ref_release(ctx, &vr->sig_ref);
+    tjs_buf_ref_release(ctx, &vr->data_ref);
     js_free(ctx, vr);
 }
 
@@ -1507,24 +1430,6 @@ static JSValue tjs_webcrypto_ecdsa_verify(JSContext *ctx, JSValue this_val, int 
         return JS_ThrowRangeError(ctx, "invalid digest algorithm");
     }
 
-    size_t pubkey_len;
-    const uint8_t *pubkey = JS_GetUint8Array(ctx, &pubkey_len, argv[2]);
-    if (!pubkey) {
-        return JS_EXCEPTION;
-    }
-
-    size_t sig_len;
-    const uint8_t *signature = JS_GetUint8Array(ctx, &sig_len, argv[3]);
-    if (!signature) {
-        return JS_EXCEPTION;
-    }
-
-    size_t data_len;
-    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[4]);
-    if (!data && data_len != 0) {
-        return JS_EXCEPTION;
-    }
-
     if (!JS_IsFunction(ctx, argv[5])) {
         return JS_ThrowTypeError(ctx, "expected callback function");
     }
@@ -1540,29 +1445,21 @@ static JSValue tjs_webcrypto_ecdsa_verify(JSContext *ctx, JSValue this_val, int 
     vr->curve = curve;
     vr->hash_type = hash_type;
     vr->r = -1;
+    tjs_buf_ref_init(&vr->pubkey_ref);
+    tjs_buf_ref_init(&vr->sig_ref);
+    tjs_buf_ref_init(&vr->data_ref);
 
-    vr->pubkey = js_malloc(ctx, pubkey_len);
-    if (!vr->pubkey) {
+    if (tjs_buf_ref_get(ctx, argv[2], &vr->pubkey_ref) != 0) {
         goto fail;
     }
-    memcpy(vr->pubkey, pubkey, pubkey_len);
-    vr->pubkey_len = pubkey_len;
 
-    vr->signature = js_malloc(ctx, sig_len);
-    if (!vr->signature) {
+    if (tjs_buf_ref_get(ctx, argv[3], &vr->sig_ref) != 0) {
         goto fail;
     }
-    memcpy(vr->signature, signature, sig_len);
-    vr->sig_len = sig_len;
 
-    if (data_len > 0) {
-        vr->data = js_malloc(ctx, data_len);
-        if (!vr->data) {
-            goto fail;
-        }
-        memcpy(vr->data, data, data_len);
+    if (tjs_buf_ref_get(ctx, argv[4], &vr->data_ref) != 0) {
+        goto fail;
     }
-    vr->data_len = data_len;
 
     vr->req.data = vr;
 
@@ -1575,9 +1472,9 @@ static JSValue tjs_webcrypto_ecdsa_verify(JSContext *ctx, JSValue this_val, int 
 
 fail:
     JS_FreeValue(ctx, vr->callback);
-    js_free(ctx, vr->pubkey);
-    js_free(ctx, vr->signature);
-    js_free(ctx, vr->data);
+    tjs_buf_ref_release(ctx, &vr->pubkey_ref);
+    tjs_buf_ref_release(ctx, &vr->sig_ref);
+    tjs_buf_ref_release(ctx, &vr->data_ref);
     js_free(ctx, vr);
     return JS_EXCEPTION;
 }
@@ -1589,10 +1486,8 @@ typedef struct {
     JSContext *ctx;
     JSValue callback;
     int curve;
-    uint8_t *privkey;
-    size_t privkey_len;
-    uint8_t *pubkey;
-    size_t pubkey_len;
+    TJSBufferRef privkey_ref;
+    TJSBufferRef pubkey_ref;
     uint8_t *output;
     size_t output_len;
     int r;
@@ -1621,12 +1516,12 @@ static void tjs__ecdh_derive_bits_work_cb(uv_work_t *req) {
         goto cleanup;
     }
 
-    ret = mbedtls_mpi_read_binary(&d, dr->privkey, dr->privkey_len);
+    ret = mbedtls_mpi_read_binary(&d, dr->privkey_ref.data, dr->privkey_ref.size);
     if (ret != 0) {
         goto cleanup;
     }
 
-    ret = mbedtls_ecp_point_read_binary(&grp, &Q, dr->pubkey, dr->pubkey_len);
+    ret = mbedtls_ecp_point_read_binary(&grp, &Q, dr->pubkey_ref.data, dr->pubkey_ref.size);
     if (ret != 0) {
         goto cleanup;
     }
@@ -1668,8 +1563,8 @@ static void tjs__ecdh_derive_bits_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, dr->callback);
-    js_free(ctx, dr->privkey);
-    js_free(ctx, dr->pubkey);
+    tjs_buf_ref_release(ctx, &dr->privkey_ref);
+    tjs_buf_ref_release(ctx, &dr->pubkey_ref);
     js_free(ctx, dr->output);
     js_free(ctx, dr);
 }
@@ -1688,18 +1583,6 @@ static JSValue tjs_webcrypto_ecdh_derive_bits(JSContext *ctx, JSValue this_val, 
         return JS_ThrowRangeError(ctx, "invalid curve");
     }
 
-    size_t privkey_len;
-    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[1]);
-    if (!privkey) {
-        return JS_EXCEPTION;
-    }
-
-    size_t pubkey_len;
-    const uint8_t *pubkey = JS_GetUint8Array(ctx, &pubkey_len, argv[2]);
-    if (!pubkey) {
-        return JS_EXCEPTION;
-    }
-
     if (!JS_IsFunction(ctx, argv[3])) {
         return JS_ThrowTypeError(ctx, "expected callback function");
     }
@@ -1715,20 +1598,16 @@ static JSValue tjs_webcrypto_ecdh_derive_bits(JSContext *ctx, JSValue this_val, 
     dr->curve = curve;
     dr->output_len = curve_byte_sizes[curve];
     dr->r = -1;
+    tjs_buf_ref_init(&dr->privkey_ref);
+    tjs_buf_ref_init(&dr->pubkey_ref);
 
-    dr->privkey = js_malloc(ctx, privkey_len);
-    if (!dr->privkey) {
+    if (tjs_buf_ref_get(ctx, argv[1], &dr->privkey_ref) != 0) {
         goto fail;
     }
-    memcpy(dr->privkey, privkey, privkey_len);
-    dr->privkey_len = privkey_len;
 
-    dr->pubkey = js_malloc(ctx, pubkey_len);
-    if (!dr->pubkey) {
+    if (tjs_buf_ref_get(ctx, argv[2], &dr->pubkey_ref) != 0) {
         goto fail;
     }
-    memcpy(dr->pubkey, pubkey, pubkey_len);
-    dr->pubkey_len = pubkey_len;
 
     dr->output = js_malloc(ctx, dr->output_len);
     if (!dr->output) {
@@ -1747,8 +1626,8 @@ static JSValue tjs_webcrypto_ecdh_derive_bits(JSContext *ctx, JSValue this_val, 
 
 fail:
     JS_FreeValue(ctx, dr->callback);
-    js_free(ctx, dr->privkey);
-    js_free(ctx, dr->pubkey);
+    tjs_buf_ref_release(ctx, &dr->privkey_ref);
+    tjs_buf_ref_release(ctx, &dr->pubkey_ref);
     js_free(ctx, dr->output);
     js_free(ctx, dr);
     return JS_EXCEPTION;
@@ -1942,12 +1821,9 @@ typedef struct {
     JSContext *ctx;
     JSValue callback;
     int hash_type;
-    uint8_t *pubkey_der;
-    size_t pubkey_der_len;
-    uint8_t *data;
-    size_t data_len;
-    uint8_t *label;
-    size_t label_len;
+    TJSBufferRef pubkey_der_ref;
+    TJSBufferRef data_ref;
+    TJSBufferRef label_ref;
     uint8_t *output;
     size_t output_len;
     int r;
@@ -1966,7 +1842,7 @@ static void tjs__rsa_oaep_encrypt_work_cb(uv_work_t *req) {
         goto cleanup;
     }
 
-    ret = mbedtls_pk_parse_public_key(&pk, er->pubkey_der, er->pubkey_der_len);
+    ret = mbedtls_pk_parse_public_key(&pk, er->pubkey_der_ref.data, er->pubkey_der_ref.size);
     if (ret != 0) {
         goto cleanup;
     }
@@ -1984,10 +1860,10 @@ static void tjs__rsa_oaep_encrypt_work_cb(uv_work_t *req) {
     ret = mbedtls_rsa_rsaes_oaep_encrypt(rsa,
                                          mbedtls_ctr_drbg_random,
                                          &ctr_drbg,
-                                         er->label,
-                                         er->label_len,
-                                         er->data_len,
-                                         er->data,
+                                         er->label_ref.data,
+                                         er->label_ref.size,
+                                         er->data_ref.size,
+                                         er->data_ref.data,
                                          er->output);
 
 cleanup:
@@ -2017,9 +1893,9 @@ static void tjs__rsa_oaep_encrypt_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, er->callback);
-    js_free(ctx, er->pubkey_der);
-    js_free(ctx, er->data);
-    js_free(ctx, er->label);
+    tjs_buf_ref_release(ctx, &er->pubkey_der_ref);
+    tjs_buf_ref_release(ctx, &er->data_ref);
+    tjs_buf_ref_release(ctx, &er->label_ref);
     free(er->output);
     js_free(ctx, er);
 }
@@ -2038,28 +1914,6 @@ static JSValue tjs_webcrypto_rsa_oaep_encrypt(JSContext *ctx, JSValue this_val, 
         return JS_ThrowRangeError(ctx, "invalid digest algorithm");
     }
 
-    size_t pubkey_der_len;
-    const uint8_t *pubkey_der = JS_GetUint8Array(ctx, &pubkey_der_len, argv[1]);
-    if (!pubkey_der) {
-        return JS_EXCEPTION;
-    }
-
-    size_t data_len;
-    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[2]);
-    if (!data && data_len != 0) {
-        return JS_EXCEPTION;
-    }
-
-    /* Label is optional. */
-    size_t label_len = 0;
-    const uint8_t *label = NULL;
-    if (!JS_IsUndefined(argv[3])) {
-        label = JS_GetUint8Array(ctx, &label_len, argv[3]);
-        if (!label && label_len != 0) {
-            return JS_EXCEPTION;
-        }
-    }
-
     if (!JS_IsFunction(ctx, argv[4])) {
         return JS_ThrowTypeError(ctx, "expected callback function");
     }
@@ -2074,31 +1928,24 @@ static JSValue tjs_webcrypto_rsa_oaep_encrypt(JSContext *ctx, JSValue this_val, 
     er->callback = JS_DupValue(ctx, argv[4]);
     er->hash_type = hash_type;
     er->r = -1;
+    tjs_buf_ref_init(&er->pubkey_der_ref);
+    tjs_buf_ref_init(&er->data_ref);
+    tjs_buf_ref_init(&er->label_ref);
 
-    er->pubkey_der = js_malloc(ctx, pubkey_der_len);
-    if (!er->pubkey_der) {
+    if (tjs_buf_ref_get(ctx, argv[1], &er->pubkey_der_ref) != 0) {
         goto fail;
     }
-    memcpy(er->pubkey_der, pubkey_der, pubkey_der_len);
-    er->pubkey_der_len = pubkey_der_len;
 
-    if (data_len > 0) {
-        er->data = js_malloc(ctx, data_len);
-        if (!er->data) {
+    if (tjs_buf_ref_get(ctx, argv[2], &er->data_ref) != 0) {
+        goto fail;
+    }
+
+    /* Label is optional. */
+    if (!JS_IsUndefined(argv[3])) {
+        if (tjs_buf_ref_get(ctx, argv[3], &er->label_ref) != 0) {
             goto fail;
         }
-        memcpy(er->data, data, data_len);
     }
-    er->data_len = data_len;
-
-    if (label_len > 0) {
-        er->label = js_malloc(ctx, label_len);
-        if (!er->label) {
-            goto fail;
-        }
-        memcpy(er->label, label, label_len);
-    }
-    er->label_len = label_len;
 
     er->req.data = er;
 
@@ -2112,9 +1959,9 @@ static JSValue tjs_webcrypto_rsa_oaep_encrypt(JSContext *ctx, JSValue this_val, 
 
 fail:
     JS_FreeValue(ctx, er->callback);
-    js_free(ctx, er->pubkey_der);
-    js_free(ctx, er->data);
-    js_free(ctx, er->label);
+    tjs_buf_ref_release(ctx, &er->pubkey_der_ref);
+    tjs_buf_ref_release(ctx, &er->data_ref);
+    tjs_buf_ref_release(ctx, &er->label_ref);
     js_free(ctx, er);
     return JS_EXCEPTION;
 }
@@ -2126,12 +1973,9 @@ typedef struct {
     JSContext *ctx;
     JSValue callback;
     int hash_type;
-    uint8_t *privkey_der;
-    size_t privkey_der_len;
-    uint8_t *data;
-    size_t data_len;
-    uint8_t *label;
-    size_t label_len;
+    TJSBufferRef privkey_der_ref;
+    TJSBufferRef data_ref;
+    TJSBufferRef label_ref;
     uint8_t *output;
     size_t output_len;
     size_t output_alloc;
@@ -2151,7 +1995,13 @@ static void tjs__rsa_oaep_decrypt_work_cb(uv_work_t *req) {
         goto cleanup;
     }
 
-    ret = mbedtls_pk_parse_key(&pk, dr->privkey_der, dr->privkey_der_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg);
+    ret = mbedtls_pk_parse_key(&pk,
+                               dr->privkey_der_ref.data,
+                               dr->privkey_der_ref.size,
+                               NULL,
+                               0,
+                               mbedtls_ctr_drbg_random,
+                               &ctr_drbg);
     if (ret != 0) {
         goto cleanup;
     }
@@ -2169,10 +2019,10 @@ static void tjs__rsa_oaep_decrypt_work_cb(uv_work_t *req) {
     ret = mbedtls_rsa_rsaes_oaep_decrypt(rsa,
                                          mbedtls_ctr_drbg_random,
                                          &ctr_drbg,
-                                         dr->label,
-                                         dr->label_len,
+                                         dr->label_ref.data,
+                                         dr->label_ref.size,
                                          &dr->output_len,
-                                         dr->data,
+                                         dr->data_ref.data,
                                          dr->output,
                                          dr->output_alloc);
 
@@ -2203,9 +2053,9 @@ static void tjs__rsa_oaep_decrypt_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, dr->callback);
-    js_free(ctx, dr->privkey_der);
-    js_free(ctx, dr->data);
-    js_free(ctx, dr->label);
+    tjs_buf_ref_release(ctx, &dr->privkey_der_ref);
+    tjs_buf_ref_release(ctx, &dr->data_ref);
+    tjs_buf_ref_release(ctx, &dr->label_ref);
     free(dr->output);
     js_free(ctx, dr);
 }
@@ -2224,28 +2074,6 @@ static JSValue tjs_webcrypto_rsa_oaep_decrypt(JSContext *ctx, JSValue this_val, 
         return JS_ThrowRangeError(ctx, "invalid digest algorithm");
     }
 
-    size_t privkey_der_len;
-    const uint8_t *privkey_der = JS_GetUint8Array(ctx, &privkey_der_len, argv[1]);
-    if (!privkey_der) {
-        return JS_EXCEPTION;
-    }
-
-    size_t data_len;
-    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[2]);
-    if (!data) {
-        return JS_EXCEPTION;
-    }
-
-    /* Label is optional. */
-    size_t label_len = 0;
-    const uint8_t *label = NULL;
-    if (!JS_IsUndefined(argv[3])) {
-        label = JS_GetUint8Array(ctx, &label_len, argv[3]);
-        if (!label && label_len != 0) {
-            return JS_EXCEPTION;
-        }
-    }
-
     if (!JS_IsFunction(ctx, argv[4])) {
         return JS_ThrowTypeError(ctx, "expected callback function");
     }
@@ -2260,29 +2088,24 @@ static JSValue tjs_webcrypto_rsa_oaep_decrypt(JSContext *ctx, JSValue this_val, 
     dr->callback = JS_DupValue(ctx, argv[4]);
     dr->hash_type = hash_type;
     dr->r = -1;
+    tjs_buf_ref_init(&dr->privkey_der_ref);
+    tjs_buf_ref_init(&dr->data_ref);
+    tjs_buf_ref_init(&dr->label_ref);
 
-    dr->privkey_der = js_malloc(ctx, privkey_der_len);
-    if (!dr->privkey_der) {
+    if (tjs_buf_ref_get(ctx, argv[1], &dr->privkey_der_ref)) {
         goto fail;
     }
-    memcpy(dr->privkey_der, privkey_der, privkey_der_len);
-    dr->privkey_der_len = privkey_der_len;
 
-    dr->data = js_malloc(ctx, data_len);
-    if (!dr->data) {
+    if (tjs_buf_ref_get(ctx, argv[2], &dr->data_ref)) {
         goto fail;
     }
-    memcpy(dr->data, data, data_len);
-    dr->data_len = data_len;
 
-    if (label_len > 0) {
-        dr->label = js_malloc(ctx, label_len);
-        if (!dr->label) {
+    /* Label is optional. */
+    if (!JS_IsUndefined(argv[3])) {
+        if (tjs_buf_ref_get(ctx, argv[3], &dr->label_ref)) {
             goto fail;
         }
-        memcpy(dr->label, label, label_len);
     }
-    dr->label_len = label_len;
 
     dr->req.data = dr;
 
@@ -2296,9 +2119,9 @@ static JSValue tjs_webcrypto_rsa_oaep_decrypt(JSContext *ctx, JSValue this_val, 
 
 fail:
     JS_FreeValue(ctx, dr->callback);
-    js_free(ctx, dr->privkey_der);
-    js_free(ctx, dr->data);
-    js_free(ctx, dr->label);
+    tjs_buf_ref_release(ctx, &dr->privkey_der_ref);
+    tjs_buf_ref_release(ctx, &dr->data_ref);
+    tjs_buf_ref_release(ctx, &dr->label_ref);
     js_free(ctx, dr);
     return JS_EXCEPTION;
 }
@@ -2312,10 +2135,8 @@ typedef struct {
     int padding_mode;
     int hash_type;
     int salt_length;
-    uint8_t *privkey_der;
-    size_t privkey_der_len;
-    uint8_t *data;
-    size_t data_len;
+    TJSBufferRef privkey_der_ref;
+    TJSBufferRef data_ref;
     uint8_t *signature;
     size_t sig_len;
     int r;
@@ -2335,7 +2156,13 @@ static void tjs__rsa_sign_work_cb(uv_work_t *req) {
         goto cleanup;
     }
 
-    ret = mbedtls_pk_parse_key(&pk, sr->privkey_der, sr->privkey_der_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg);
+    ret = mbedtls_pk_parse_key(&pk,
+                               sr->privkey_der_ref.data,
+                               sr->privkey_der_ref.size,
+                               NULL,
+                               0,
+                               mbedtls_ctr_drbg_random,
+                               &ctr_drbg);
     if (ret != 0) {
         goto cleanup;
     }
@@ -2349,7 +2176,7 @@ static void tjs__rsa_sign_work_cb(uv_work_t *req) {
     }
 
     size_t hash_len = mbedtls_md_get_size(md_info);
-    ret = mbedtls_md(md_info, sr->data, sr->data_len, hash);
+    ret = mbedtls_md(md_info, sr->data_ref.data, sr->data_ref.size, hash);
     if (ret != 0) {
         goto cleanup;
     }
@@ -2410,8 +2237,8 @@ static void tjs__rsa_sign_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, sr->callback);
-    js_free(ctx, sr->privkey_der);
-    js_free(ctx, sr->data);
+    tjs_buf_ref_release(ctx, &sr->privkey_der_ref);
+    tjs_buf_ref_release(ctx, &sr->data_ref);
     free(sr->signature);
     js_free(ctx, sr);
 }
@@ -2441,18 +2268,6 @@ static JSValue tjs_webcrypto_rsa_sign(JSContext *ctx, JSValue this_val, int argc
         return JS_EXCEPTION;
     }
 
-    size_t privkey_der_len;
-    const uint8_t *privkey_der = JS_GetUint8Array(ctx, &privkey_der_len, argv[3]);
-    if (!privkey_der) {
-        return JS_EXCEPTION;
-    }
-
-    size_t data_len;
-    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[4]);
-    if (!data && data_len != 0) {
-        return JS_EXCEPTION;
-    }
-
     if (!JS_IsFunction(ctx, argv[5])) {
         return JS_ThrowTypeError(ctx, "expected callback function");
     }
@@ -2469,22 +2284,16 @@ static JSValue tjs_webcrypto_rsa_sign(JSContext *ctx, JSValue this_val, int argc
     sr->hash_type = hash_type;
     sr->salt_length = salt_length;
     sr->r = -1;
+    tjs_buf_ref_init(&sr->privkey_der_ref);
+    tjs_buf_ref_init(&sr->data_ref);
 
-    sr->privkey_der = js_malloc(ctx, privkey_der_len);
-    if (!sr->privkey_der) {
+    if (tjs_buf_ref_get(ctx, argv[3], &sr->privkey_der_ref)) {
         goto fail;
     }
-    memcpy(sr->privkey_der, privkey_der, privkey_der_len);
-    sr->privkey_der_len = privkey_der_len;
 
-    if (data_len > 0) {
-        sr->data = js_malloc(ctx, data_len);
-        if (!sr->data) {
-            goto fail;
-        }
-        memcpy(sr->data, data, data_len);
+    if (tjs_buf_ref_get(ctx, argv[4], &sr->data_ref)) {
+        goto fail;
     }
-    sr->data_len = data_len;
 
     sr->req.data = sr;
 
@@ -2497,8 +2306,8 @@ static JSValue tjs_webcrypto_rsa_sign(JSContext *ctx, JSValue this_val, int argc
 
 fail:
     JS_FreeValue(ctx, sr->callback);
-    js_free(ctx, sr->privkey_der);
-    js_free(ctx, sr->data);
+    tjs_buf_ref_release(ctx, &sr->privkey_der_ref);
+    tjs_buf_ref_release(ctx, &sr->data_ref);
     js_free(ctx, sr);
     return JS_EXCEPTION;
 }
@@ -2512,12 +2321,9 @@ typedef struct {
     int padding_mode;
     int hash_type;
     int salt_length;
-    uint8_t *pubkey_der;
-    size_t pubkey_der_len;
-    uint8_t *signature;
-    size_t sig_len;
-    uint8_t *data;
-    size_t data_len;
+    TJSBufferRef pubkey_der_ref;
+    TJSBufferRef sig_ref;
+    TJSBufferRef data_ref;
     int r;
 } TJSRsaVerifyReq;
 
@@ -2528,7 +2334,7 @@ static void tjs__rsa_verify_work_cb(uv_work_t *req) {
 
     mbedtls_pk_init(&pk);
 
-    int ret = mbedtls_pk_parse_public_key(&pk, vr->pubkey_der, vr->pubkey_der_len);
+    int ret = mbedtls_pk_parse_public_key(&pk, vr->pubkey_der_ref.data, vr->pubkey_der_ref.size);
     if (ret != 0) {
         goto cleanup;
     }
@@ -2542,7 +2348,7 @@ static void tjs__rsa_verify_work_cb(uv_work_t *req) {
     }
 
     size_t hash_len = mbedtls_md_get_size(md_info);
-    ret = mbedtls_md(md_info, vr->data, vr->data_len, hash);
+    ret = mbedtls_md(md_info, vr->data_ref.data, vr->data_ref.size, hash);
     if (ret != 0) {
         goto cleanup;
     }
@@ -2557,10 +2363,10 @@ static void tjs__rsa_verify_work_cb(uv_work_t *req) {
                                                 hash,
                                                 md_type,
                                                 vr->salt_length,
-                                                vr->signature);
+                                                vr->sig_ref.data);
     } else {
         mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V15, md_type);
-        ret = mbedtls_rsa_rsassa_pkcs1_v15_verify(rsa, md_type, (unsigned int) hash_len, hash, vr->signature);
+        ret = mbedtls_rsa_rsassa_pkcs1_v15_verify(rsa, md_type, (unsigned int) hash_len, hash, vr->sig_ref.data);
     }
 
 cleanup:
@@ -2588,9 +2394,9 @@ static void tjs__rsa_verify_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, vr->callback);
-    js_free(ctx, vr->pubkey_der);
-    js_free(ctx, vr->signature);
-    js_free(ctx, vr->data);
+    tjs_buf_ref_release(ctx, &vr->pubkey_der_ref);
+    tjs_buf_ref_release(ctx, &vr->sig_ref);
+    tjs_buf_ref_release(ctx, &vr->data_ref);
     js_free(ctx, vr);
 }
 
@@ -2620,24 +2426,6 @@ static JSValue tjs_webcrypto_rsa_verify(JSContext *ctx, JSValue this_val, int ar
         return JS_EXCEPTION;
     }
 
-    size_t pubkey_der_len;
-    const uint8_t *pubkey_der = JS_GetUint8Array(ctx, &pubkey_der_len, argv[3]);
-    if (!pubkey_der) {
-        return JS_EXCEPTION;
-    }
-
-    size_t sig_len;
-    const uint8_t *signature = JS_GetUint8Array(ctx, &sig_len, argv[4]);
-    if (!signature) {
-        return JS_EXCEPTION;
-    }
-
-    size_t data_len;
-    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[5]);
-    if (!data && data_len != 0) {
-        return JS_EXCEPTION;
-    }
-
     if (!JS_IsFunction(ctx, argv[6])) {
         return JS_ThrowTypeError(ctx, "expected callback function");
     }
@@ -2654,29 +2442,21 @@ static JSValue tjs_webcrypto_rsa_verify(JSContext *ctx, JSValue this_val, int ar
     vr->hash_type = hash_type;
     vr->salt_length = salt_length;
     vr->r = -1;
+    tjs_buf_ref_init(&vr->pubkey_der_ref);
+    tjs_buf_ref_init(&vr->sig_ref);
+    tjs_buf_ref_init(&vr->data_ref);
 
-    vr->pubkey_der = js_malloc(ctx, pubkey_der_len);
-    if (!vr->pubkey_der) {
+    if (tjs_buf_ref_get(ctx, argv[3], &vr->pubkey_der_ref)) {
         goto fail;
     }
-    memcpy(vr->pubkey_der, pubkey_der, pubkey_der_len);
-    vr->pubkey_der_len = pubkey_der_len;
 
-    vr->signature = js_malloc(ctx, sig_len);
-    if (!vr->signature) {
+    if (tjs_buf_ref_get(ctx, argv[4], &vr->sig_ref)) {
         goto fail;
     }
-    memcpy(vr->signature, signature, sig_len);
-    vr->sig_len = sig_len;
 
-    if (data_len > 0) {
-        vr->data = js_malloc(ctx, data_len);
-        if (!vr->data) {
-            goto fail;
-        }
-        memcpy(vr->data, data, data_len);
+    if (tjs_buf_ref_get(ctx, argv[5], &vr->data_ref)) {
+        goto fail;
     }
-    vr->data_len = data_len;
 
     vr->req.data = vr;
 
@@ -2689,9 +2469,9 @@ static JSValue tjs_webcrypto_rsa_verify(JSContext *ctx, JSValue this_val, int ar
 
 fail:
     JS_FreeValue(ctx, vr->callback);
-    js_free(ctx, vr->pubkey_der);
-    js_free(ctx, vr->signature);
-    js_free(ctx, vr->data);
+    tjs_buf_ref_release(ctx, &vr->pubkey_der_ref);
+    tjs_buf_ref_release(ctx, &vr->sig_ref);
+    tjs_buf_ref_release(ctx, &vr->data_ref);
     js_free(ctx, vr);
     return JS_EXCEPTION;
 }
@@ -3449,9 +3229,8 @@ typedef struct {
     uv_work_t req;
     JSContext *ctx;
     JSValue callback;
-    uint8_t *privkey;
-    uint8_t *message;
-    size_t message_len;
+    TJSBufferRef privkey_ref;
+    TJSBufferRef message_ref;
     uint8_t signature[64];
     int r;
 } TJSEd25519SignReq;
@@ -3462,11 +3241,11 @@ static void tjs__ed25519_sign_work_cb(uv_work_t *req) {
     unsigned long long smlen;
 
     /* Build the 64-byte secret key: seed || public_key. */
-    crypto_sign_ed25519_seed_keypair(pk, sk, sr->privkey);
+    crypto_sign_ed25519_seed_keypair(pk, sk, sr->privkey_ref.data);
 
     /* crypto_sign produces combined sig || msg; extract the 64-byte signature. */
-    unsigned char *sm = malloc(64 + sr->message_len);
-    crypto_sign_ed25519(sm, &smlen, sr->message, sr->message_len, sk);
+    unsigned char *sm = malloc(64 + sr->message_ref.size);
+    crypto_sign_ed25519(sm, &smlen, sr->message_ref.data, sr->message_ref.size, sk);
     memcpy(sr->signature, sm, 64);
     free(sm);
     sr->r = 0;
@@ -3492,26 +3271,14 @@ static void tjs__ed25519_sign_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, sr->callback);
-    js_free(ctx, sr->privkey);
-    js_free(ctx, sr->message);
+    tjs_buf_ref_release(ctx, &sr->privkey_ref);
+    tjs_buf_ref_release(ctx, &sr->message_ref);
     js_free(ctx, sr);
 }
 
 static JSValue tjs_webcrypto_ed25519_sign(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     if (argc < 3) {
         return JS_ThrowTypeError(ctx, "expected 3 arguments: privkey, message, callback");
-    }
-
-    size_t privkey_len;
-    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[0]);
-    if (!privkey || privkey_len != 32) {
-        return JS_ThrowTypeError(ctx, "privkey must be 32 bytes");
-    }
-
-    size_t message_len;
-    const uint8_t *message = JS_GetUint8Array(ctx, &message_len, argv[1]);
-    if (!message && message_len != 0) {
-        return JS_EXCEPTION;
     }
 
     if (!JS_IsFunction(ctx, argv[2])) {
@@ -3527,21 +3294,21 @@ static JSValue tjs_webcrypto_ed25519_sign(JSContext *ctx, JSValue this_val, int 
     sr->ctx = ctx;
     sr->callback = JS_DupValue(ctx, argv[2]);
     sr->r = -1;
+    tjs_buf_ref_init(&sr->privkey_ref);
+    tjs_buf_ref_init(&sr->message_ref);
 
-    sr->privkey = js_malloc(ctx, 32);
-    if (!sr->privkey) {
+    if (tjs_buf_ref_get(ctx, argv[0], &sr->privkey_ref)) {
         goto fail;
     }
-    memcpy(sr->privkey, privkey, 32);
 
-    if (message_len > 0) {
-        sr->message = js_malloc(ctx, message_len);
-        if (!sr->message) {
-            goto fail;
-        }
-        memcpy(sr->message, message, message_len);
+    if (sr->privkey_ref.size != 32) {
+        JS_ThrowTypeError(ctx, "privkey must be 32 bytes");
+        goto fail;
     }
-    sr->message_len = message_len;
+
+    if (tjs_buf_ref_get(ctx, argv[1], &sr->message_ref)) {
+        goto fail;
+    }
 
     sr->req.data = sr;
 
@@ -3554,8 +3321,8 @@ static JSValue tjs_webcrypto_ed25519_sign(JSContext *ctx, JSValue this_val, int 
 
 fail:
     JS_FreeValue(ctx, sr->callback);
-    js_free(ctx, sr->privkey);
-    js_free(ctx, sr->message);
+    tjs_buf_ref_release(ctx, &sr->privkey_ref);
+    tjs_buf_ref_release(ctx, &sr->message_ref);
     js_free(ctx, sr);
     return JS_EXCEPTION;
 }
@@ -3566,26 +3333,25 @@ typedef struct {
     uv_work_t req;
     JSContext *ctx;
     JSValue callback;
-    uint8_t *pubkey;
-    uint8_t *signature;
-    uint8_t *message;
-    size_t message_len;
+    TJSBufferRef pubkey_ref;
+    TJSBufferRef sig_ref;
+    TJSBufferRef message_ref;
     int r;
 } TJSEd25519VerifyReq;
 
 static void tjs__ed25519_verify_work_cb(uv_work_t *req) {
     TJSEd25519VerifyReq *vr = req->data;
     unsigned long long tmplen;
-    size_t combined_len = 64 + vr->message_len;
+    size_t combined_len = 64 + vr->message_ref.size;
 
     /* Build combined sig || msg for crypto_sign_open. */
     unsigned char *sm = malloc(combined_len);
     unsigned char *tmp = malloc(combined_len);
-    memcpy(sm, vr->signature, 64);
-    memcpy(sm + 64, vr->message, vr->message_len);
+    memcpy(sm, vr->sig_ref.data, 64);
+    memcpy(sm + 64, vr->message_ref.data, vr->message_ref.size);
 
     /* r == 0 means valid, -1 means invalid. */
-    vr->r = crypto_sign_ed25519_open(tmp, &tmplen, sm, combined_len, vr->pubkey);
+    vr->r = crypto_sign_ed25519_open(tmp, &tmplen, sm, combined_len, vr->pubkey_ref.data);
     free(sm);
     free(tmp);
 }
@@ -3610,33 +3376,15 @@ static void tjs__ed25519_verify_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, vr->callback);
-    js_free(ctx, vr->pubkey);
-    js_free(ctx, vr->signature);
-    js_free(ctx, vr->message);
+    tjs_buf_ref_release(ctx, &vr->pubkey_ref);
+    tjs_buf_ref_release(ctx, &vr->sig_ref);
+    tjs_buf_ref_release(ctx, &vr->message_ref);
     js_free(ctx, vr);
 }
 
 static JSValue tjs_webcrypto_ed25519_verify(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     if (argc < 4) {
         return JS_ThrowTypeError(ctx, "expected 4 arguments: pubkey, signature, message, callback");
-    }
-
-    size_t pubkey_len;
-    const uint8_t *pubkey = JS_GetUint8Array(ctx, &pubkey_len, argv[0]);
-    if (!pubkey || pubkey_len != 32) {
-        return JS_ThrowTypeError(ctx, "pubkey must be 32 bytes");
-    }
-
-    size_t sig_len;
-    const uint8_t *signature = JS_GetUint8Array(ctx, &sig_len, argv[1]);
-    if (!signature || sig_len != 64) {
-        return JS_ThrowTypeError(ctx, "signature must be 64 bytes");
-    }
-
-    size_t message_len;
-    const uint8_t *message = JS_GetUint8Array(ctx, &message_len, argv[2]);
-    if (!message && message_len != 0) {
-        return JS_EXCEPTION;
     }
 
     if (!JS_IsFunction(ctx, argv[3])) {
@@ -3652,27 +3400,31 @@ static JSValue tjs_webcrypto_ed25519_verify(JSContext *ctx, JSValue this_val, in
     vr->ctx = ctx;
     vr->callback = JS_DupValue(ctx, argv[3]);
     vr->r = -1;
+    tjs_buf_ref_init(&vr->pubkey_ref);
+    tjs_buf_ref_init(&vr->sig_ref);
+    tjs_buf_ref_init(&vr->message_ref);
 
-    vr->pubkey = js_malloc(ctx, 32);
-    if (!vr->pubkey) {
+    if (tjs_buf_ref_get(ctx, argv[0], &vr->pubkey_ref)) {
         goto fail;
     }
-    memcpy(vr->pubkey, pubkey, 32);
 
-    vr->signature = js_malloc(ctx, 64);
-    if (!vr->signature) {
+    if (vr->pubkey_ref.size != 32) {
+        JS_ThrowTypeError(ctx, "pubkey must be 32 bytes");
         goto fail;
     }
-    memcpy(vr->signature, signature, 64);
 
-    if (message_len > 0) {
-        vr->message = js_malloc(ctx, message_len);
-        if (!vr->message) {
-            goto fail;
-        }
-        memcpy(vr->message, message, message_len);
+    if (tjs_buf_ref_get(ctx, argv[1], &vr->sig_ref)) {
+        goto fail;
     }
-    vr->message_len = message_len;
+
+    if (vr->sig_ref.size != 64) {
+        JS_ThrowTypeError(ctx, "signature must be 64 bytes");
+        goto fail;
+    }
+
+    if (tjs_buf_ref_get(ctx, argv[2], &vr->message_ref)) {
+        goto fail;
+    }
 
     vr->req.data = vr;
 
@@ -3685,9 +3437,9 @@ static JSValue tjs_webcrypto_ed25519_verify(JSContext *ctx, JSValue this_val, in
 
 fail:
     JS_FreeValue(ctx, vr->callback);
-    js_free(ctx, vr->pubkey);
-    js_free(ctx, vr->signature);
-    js_free(ctx, vr->message);
+    tjs_buf_ref_release(ctx, &vr->pubkey_ref);
+    tjs_buf_ref_release(ctx, &vr->sig_ref);
+    tjs_buf_ref_release(ctx, &vr->message_ref);
     js_free(ctx, vr);
     return JS_EXCEPTION;
 }

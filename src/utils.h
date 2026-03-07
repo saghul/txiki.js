@@ -161,6 +161,17 @@ JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValue *argv);
 
 JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size);
 
+typedef struct {
+    JSValue abuf;       /* Underlying ArrayBuffer (refcount held) */
+    uint8_t *data;      /* Raw data pointer */
+    size_t size;        /* Data size */
+    bool was_immutable; /* Was the buffer already immutable before we pinned it? */
+} TJSBufferRef;
+
+void tjs_buf_ref_init(TJSBufferRef *ref);
+int tjs_buf_ref_get(JSContext *ctx, JSValueConst obj, TJSBufferRef *ref);
+void tjs_buf_ref_release(JSContext *ctx, TJSBufferRef *ref);
+
 extern const char *tjs_signal_map[];
 extern size_t tjs_signal_map_count;
 const char *tjs_getsig(int sig);

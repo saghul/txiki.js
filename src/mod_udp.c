@@ -48,7 +48,7 @@ typedef struct {
 
 typedef struct {
     uv_udp_send_t req;
-    JSValue tarray;
+    TJSBufferRef buf_ref;
 } TJSSendReq;
 
 static JSClassID tjs_udp_class_id;
@@ -242,7 +242,7 @@ static void uv__udp_send_cb(uv_udp_send_t *req, int status) {
     }
 
     maybe_invoke_callback(u, UDP_CB_SEND, 1, &arg);
-    JS_FreeValue(ctx, sr->tarray);
+    tjs_buf_ref_release(ctx, &sr->buf_ref);
     js_free(ctx, sr);
 }
 
@@ -253,9 +253,8 @@ static JSValue tjs_udp_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
     }
 
     /* arg 0: data buffer */
-    size_t size;
-    uint8_t *buf = JS_GetUint8Array(ctx, &size, argv[0]);
-    if (!buf) {
+    TJSBufferRef buf_ref;
+    if (tjs_buf_ref_get(ctx, argv[0], &buf_ref)) {
         return JS_EXCEPTION;
     }
 
@@ -266,6 +265,7 @@ static JSValue tjs_udp_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
     if (!JS_IsUndefined(argv[1])) {
         r = tjs_obj2addr(ctx, argv[1], &ss);
         if (r != 0) {
+            tjs_buf_ref_release(ctx, &buf_ref);
             return JS_EXCEPTION;
         }
         sa = (struct sockaddr *) &ss;
@@ -273,13 +273,17 @@ static JSValue tjs_udp_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
 
     /* First try to do the write inline */
     uv_buf_t b;
-    b = uv_buf_init((char *) buf, size);
+    b = uv_buf_init((char *) buf_ref.data, buf_ref.size);
     r = uv_udp_try_send(&u->udp, &b, 1, sa);
-    if (r == size) {
-        return JS_NewInt64(ctx, size);
+    if (r == (int) buf_ref.size) {
+        size_t total = buf_ref.size;
+        tjs_buf_ref_release(ctx, &buf_ref);
+        return JS_NewInt64(ctx, total);
     }
 
-    /* Do an async write, copy the data. */
+    /* Do an async write, pin the buffer. */
+    uint8_t *buf = buf_ref.data;
+    size_t size = buf_ref.size;
     if (r >= 0) {
         buf += r;
         size -= r;
@@ -287,16 +291,17 @@ static JSValue tjs_udp_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
 
     TJSSendReq *sr = js_malloc(ctx, sizeof(*sr));
     if (!sr) {
+        tjs_buf_ref_release(ctx, &buf_ref);
         return JS_EXCEPTION;
     }
 
     sr->req.data = sr;
-    sr->tarray = JS_DupValue(ctx, argv[0]);
+    sr->buf_ref = buf_ref;
 
     b = uv_buf_init((char *) buf, size);
     r = uv_udp_send(&sr->req, &u->udp, &b, 1, sa, uv__udp_send_cb);
     if (r != 0) {
-        JS_FreeValue(ctx, sr->tarray);
+        tjs_buf_ref_release(ctx, &sr->buf_ref);
         js_free(ctx, sr);
         return tjs_throw_errno(ctx, r);
     }

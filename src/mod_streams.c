@@ -63,7 +63,7 @@ typedef struct {
 
 typedef struct {
     uv_write_t req;
-    JSValue tarray;
+    TJSBufferRef buf_ref;
 } TJSWriteReq;
 
 static TJSStream *tjs_tcp_get(JSContext *ctx, JSValue obj);
@@ -233,7 +233,7 @@ static void uv__stream_write_cb(uv_write_t *req, int status) {
     }
 
     maybe_invoke_callback(s, STREAM_CB_WRITE, 1, &arg);
-    JS_FreeValue(ctx, wr->tarray);
+    tjs_buf_ref_release(ctx, &wr->buf_ref);
     js_free(ctx, wr);
 }
 
@@ -247,40 +247,42 @@ static JSValue tjs_stream_write(JSContext *ctx, JSValue this_val, int argc, JSVa
         return JS_ThrowInternalError(ctx, "stream is closed");
     }
 
-    size_t size;
-    uint8_t *buf = JS_GetUint8Array(ctx, &size, argv[0]);
-    if (!buf) {
+    TJSBufferRef buf_ref;
+    if (tjs_buf_ref_get(ctx, argv[0], &buf_ref)) {
         return JS_EXCEPTION;
     }
 
     /* First try to do the write inline */
     int r;
     uv_buf_t b;
-    b = uv_buf_init((char *) buf, size);
+    b = uv_buf_init((char *) buf_ref.data, buf_ref.size);
     r = uv_try_write(&s->h.stream, &b, 1);
 
-    if (r == size) {
-        return JS_NewInt64(ctx, size);
+    if (r == (int) buf_ref.size) {
+        size_t total = buf_ref.size;
+        tjs_buf_ref_release(ctx, &buf_ref);
+        return JS_NewInt64(ctx, total);
     }
 
-    /* Do an async write, copy the data. */
+    /* Do an async write, pin the buffer. */
     if (r >= 0) {
-        buf += r;
-        size -= r;
+        buf_ref.data += r;
+        buf_ref.size -= r;
     }
 
     TJSWriteReq *wr = js_malloc(ctx, sizeof(*wr));
     if (!wr) {
+        tjs_buf_ref_release(ctx, &buf_ref);
         return JS_EXCEPTION;
     }
 
     wr->req.data = wr;
-    wr->tarray = JS_DupValue(ctx, argv[0]);
+    wr->buf_ref = buf_ref;
 
-    b = uv_buf_init((char *) buf, size);
+    b = uv_buf_init((char *) buf_ref.data, buf_ref.size);
     r = uv_write(&wr->req, &s->h.stream, &b, 1, uv__stream_write_cb);
     if (r != 0) {
-        JS_FreeValue(ctx, wr->tarray);
+        tjs_buf_ref_release(ctx, &wr->buf_ref);
         js_free(ctx, wr);
         return tjs_throw_errno(ctx, r);
     }
