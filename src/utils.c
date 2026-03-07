@@ -266,6 +266,50 @@ JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size) {
     return JS_NewUint8Array(ctx, data, size, tjs__buf_free, NULL, false);
 }
 
+void tjs_buf_ref_init(TJSBufferRef *ref) {
+    ref->abuf = JS_UNDEFINED;
+    ref->data = NULL;
+    ref->size = 0;
+    ref->was_immutable = false;
+}
+
+int tjs_buf_ref_get(JSContext *ctx, JSValueConst obj, TJSBufferRef *ref) {
+    tjs_buf_ref_init(ref);
+
+    uint8_t *data = JS_GetUint8Array(ctx, &ref->size, obj);
+    if (!data) {
+        return -1;
+    }
+
+    ref->abuf = JS_GetTypedArrayBuffer(ctx, obj, NULL, NULL, NULL);
+    if (JS_IsException(ref->abuf)) {
+        ref->abuf = JS_UNDEFINED;
+        ref->size = 0;
+        return -1;
+    }
+
+    ref->data = data;
+    ref->was_immutable = JS_IsImmutableArrayBuffer(ref->abuf) == 1;
+    if (!ref->was_immutable) {
+        JS_SetImmutableArrayBuffer(ref->abuf, true);
+    }
+
+    return 0;
+}
+
+void tjs_buf_ref_release(JSContext *ctx, TJSBufferRef *ref) {
+    if (JS_IsUndefined(ref->abuf)) {
+        return;
+    }
+    if (!ref->was_immutable) {
+        JS_SetImmutableArrayBuffer(ref->abuf, false);
+    }
+    JS_FreeValue(ctx, ref->abuf);
+    ref->abuf = JS_UNDEFINED;
+    ref->data = NULL;
+    ref->size = 0;
+}
+
 const char *tjs_signal_map[] = {
 #ifdef SIGHUP
     [SIGHUP] = "SIGHUP",
