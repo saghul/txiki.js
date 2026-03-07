@@ -585,11 +585,14 @@ static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValue this_val, int argc, 
             // It's possible the buffer is NULL and there is no exception, in case of
             // an array buffer of size 0.
             JS_FreeValue(ctx, JS_GetException(ctx));
-            JS_ThrowTypeError(ctx, "invalid buffer");
-            return JS_EXCEPTION;
+            return JS_ThrowTypeError(ctx, "invalid buffer");
         }
         buf += aoffset;
         size = asize;
+    }
+
+    if (size == 0) {
+        return JS_ThrowTypeError(ctx, "invalid buffer");
     }
 
     JSValue obj = tjs_new_wasm_module(ctx);
