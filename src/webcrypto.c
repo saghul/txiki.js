@@ -23,6 +23,7 @@
  */
 
 #include "ed25519.h"
+#include "mem.h"
 #include "private.h"
 
 #include <mbedtls/cipher.h>
@@ -446,7 +447,7 @@ static void tjs__cipher_work_cb(uv_work_t *req) {
     if (cr->cipher_type == CIPHER_AES_CBC) {
         /* CBC: output can be up to data_len + block_size (16) for encryption due to padding. */
         size_t out_alloc = cr->data_ref.size + 16;
-        cr->output = malloc(out_alloc);
+        cr->output = tjs__malloc(out_alloc);
         if (!cr->output) {
             ret = -1;
             goto cleanup;
@@ -463,7 +464,7 @@ static void tjs__cipher_work_cb(uv_work_t *req) {
         if (cr->operation == CIPHER_OP_ENCRYPT) {
             /* Encrypt: output = ciphertext + tag */
             size_t out_alloc = cr->data_ref.size + cr->tag_length;
-            cr->output = malloc(out_alloc);
+            cr->output = tjs__malloc(out_alloc);
             if (!cr->output) {
                 ret = -1;
                 goto cleanup;
@@ -488,7 +489,7 @@ static void tjs__cipher_work_cb(uv_work_t *req) {
             }
 
             size_t out_alloc = cr->data_ref.size - cr->tag_length;
-            cr->output = malloc(out_alloc > 0 ? out_alloc : 1);
+            cr->output = tjs__malloc(out_alloc > 0 ? out_alloc : 1);
             if (!cr->output) {
                 ret = -1;
                 goto cleanup;
@@ -508,7 +509,7 @@ static void tjs__cipher_work_cb(uv_work_t *req) {
         }
     } else if (cr->cipher_type == CIPHER_AES_CTR) {
         /* CTR: stream cipher, output length == input length, no padding. */
-        cr->output = malloc(cr->data_ref.size > 0 ? cr->data_ref.size : 1);
+        cr->output = tjs__malloc(cr->data_ref.size > 0 ? cr->data_ref.size : 1);
         if (!cr->output) {
             ret = -1;
             goto cleanup;
@@ -554,7 +555,7 @@ static void tjs__cipher_after_work_cb(uv_work_t *req, int status) {
     tjs_buf_ref_release(ctx, &cr->iv_ref);
     tjs_buf_ref_release(ctx, &cr->data_ref);
     tjs_buf_ref_release(ctx, &cr->aad_ref);
-    free(cr->output);
+    tjs__free(cr->output);
     js_free(ctx, cr);
 }
 
@@ -1677,7 +1678,7 @@ static void tjs__rsa_generate_key_work_cb(uv_work_t *req) {
     /* Write private key DER (writes from end of buffer). */
     {
         size_t buf_size = 4 * (rr->modulus_length / 8) + 512;
-        uint8_t *buf = malloc(buf_size);
+        uint8_t *buf = tjs__malloc(buf_size);
         if (!buf) {
             ret = -1;
             goto cleanup;
@@ -1685,26 +1686,26 @@ static void tjs__rsa_generate_key_work_cb(uv_work_t *req) {
 
         int len = mbedtls_pk_write_key_der(&pk, buf, buf_size);
         if (len < 0) {
-            free(buf);
+            tjs__free(buf);
             ret = len;
             goto cleanup;
         }
 
-        rr->privkey_der = malloc(len);
+        rr->privkey_der = tjs__malloc(len);
         if (!rr->privkey_der) {
-            free(buf);
+            tjs__free(buf);
             ret = -1;
             goto cleanup;
         }
         memcpy(rr->privkey_der, buf + buf_size - len, len);
         rr->privkey_der_len = len;
-        free(buf);
+        tjs__free(buf);
     }
 
     /* Write public key DER. */
     {
         size_t buf_size = (rr->modulus_length / 8) + 256;
-        uint8_t *buf = malloc(buf_size);
+        uint8_t *buf = tjs__malloc(buf_size);
         if (!buf) {
             ret = -1;
             goto cleanup;
@@ -1712,20 +1713,20 @@ static void tjs__rsa_generate_key_work_cb(uv_work_t *req) {
 
         int len = mbedtls_pk_write_pubkey_der(&pk, buf, buf_size);
         if (len < 0) {
-            free(buf);
+            tjs__free(buf);
             ret = len;
             goto cleanup;
         }
 
-        rr->pubkey_der = malloc(len);
+        rr->pubkey_der = tjs__malloc(len);
         if (!rr->pubkey_der) {
-            free(buf);
+            tjs__free(buf);
             ret = -1;
             goto cleanup;
         }
         memcpy(rr->pubkey_der, buf + buf_size - len, len);
         rr->pubkey_der_len = len;
-        free(buf);
+        tjs__free(buf);
     }
 
 cleanup:
@@ -1758,8 +1759,8 @@ static void tjs__rsa_generate_key_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, args[2]);
     JS_FreeValue(ctx, rr->callback);
-    free(rr->privkey_der);
-    free(rr->pubkey_der);
+    tjs__free(rr->privkey_der);
+    tjs__free(rr->pubkey_der);
     js_free(ctx, rr);
 }
 
@@ -1851,7 +1852,7 @@ static void tjs__rsa_oaep_encrypt_work_cb(uv_work_t *req) {
     mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V21, digest_to_md_type[er->hash_type]);
 
     er->output_len = mbedtls_rsa_get_len(rsa);
-    er->output = malloc(er->output_len);
+    er->output = tjs__malloc(er->output_len);
     if (!er->output) {
         ret = -1;
         goto cleanup;
@@ -1896,7 +1897,7 @@ static void tjs__rsa_oaep_encrypt_after_work_cb(uv_work_t *req, int status) {
     tjs_buf_ref_release(ctx, &er->pubkey_der_ref);
     tjs_buf_ref_release(ctx, &er->data_ref);
     tjs_buf_ref_release(ctx, &er->label_ref);
-    free(er->output);
+    tjs__free(er->output);
     js_free(ctx, er);
 }
 
@@ -2010,7 +2011,7 @@ static void tjs__rsa_oaep_decrypt_work_cb(uv_work_t *req) {
     mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V21, digest_to_md_type[dr->hash_type]);
 
     dr->output_alloc = mbedtls_rsa_get_len(rsa);
-    dr->output = malloc(dr->output_alloc);
+    dr->output = tjs__malloc(dr->output_alloc);
     if (!dr->output) {
         ret = -1;
         goto cleanup;
@@ -2056,7 +2057,7 @@ static void tjs__rsa_oaep_decrypt_after_work_cb(uv_work_t *req, int status) {
     tjs_buf_ref_release(ctx, &dr->privkey_der_ref);
     tjs_buf_ref_release(ctx, &dr->data_ref);
     tjs_buf_ref_release(ctx, &dr->label_ref);
-    free(dr->output);
+    tjs__free(dr->output);
     js_free(ctx, dr);
 }
 
@@ -2183,7 +2184,7 @@ static void tjs__rsa_sign_work_cb(uv_work_t *req) {
 
     mbedtls_rsa_context *rsa = mbedtls_pk_rsa(pk);
     sr->sig_len = mbedtls_rsa_get_len(rsa);
-    sr->signature = malloc(sr->sig_len);
+    sr->signature = tjs__malloc(sr->sig_len);
     if (!sr->signature) {
         ret = -1;
         goto cleanup;
@@ -2239,7 +2240,7 @@ static void tjs__rsa_sign_after_work_cb(uv_work_t *req, int status) {
     JS_FreeValue(ctx, sr->callback);
     tjs_buf_ref_release(ctx, &sr->privkey_der_ref);
     tjs_buf_ref_release(ctx, &sr->data_ref);
-    free(sr->signature);
+    tjs__free(sr->signature);
     js_free(ctx, sr);
 }
 
@@ -3244,10 +3245,10 @@ static void tjs__ed25519_sign_work_cb(uv_work_t *req) {
     crypto_sign_ed25519_seed_keypair(pk, sk, sr->privkey_ref.data);
 
     /* crypto_sign produces combined sig || msg; extract the 64-byte signature. */
-    unsigned char *sm = malloc(64 + sr->message_ref.size);
+    unsigned char *sm = tjs__malloc(64 + sr->message_ref.size);
     crypto_sign_ed25519(sm, &smlen, sr->message_ref.data, sr->message_ref.size, sk);
     memcpy(sr->signature, sm, 64);
-    free(sm);
+    tjs__free(sm);
     sr->r = 0;
 }
 
@@ -3345,15 +3346,15 @@ static void tjs__ed25519_verify_work_cb(uv_work_t *req) {
     size_t combined_len = 64 + vr->message_ref.size;
 
     /* Build combined sig || msg for crypto_sign_open. */
-    unsigned char *sm = malloc(combined_len);
-    unsigned char *tmp = malloc(combined_len);
+    unsigned char *sm = tjs__malloc(combined_len);
+    unsigned char *tmp = tjs__malloc(combined_len);
     memcpy(sm, vr->sig_ref.data, 64);
     memcpy(sm + 64, vr->message_ref.data, vr->message_ref.size);
 
     /* r == 0 means valid, -1 means invalid. */
     vr->r = crypto_sign_ed25519_open(tmp, &tmplen, sm, combined_len, vr->pubkey_ref.data);
-    free(sm);
-    free(tmp);
+    tjs__free(sm);
+    tjs__free(tmp);
 }
 
 static void tjs__ed25519_verify_after_work_cb(uv_work_t *req, int status) {
