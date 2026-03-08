@@ -4,6 +4,7 @@ const kProcess = Symbol('kProcess');
 const kStdin = Symbol('kStdin');
 const kStdout = Symbol('kStdout');
 const kStderr = Symbol('kStderr');
+const kWaitPromise = Symbol('kWaitPromise');
 
 function silentClose(handle) {
     try {
@@ -146,8 +147,9 @@ class ProcessWritableStream extends WritableStream {
 }
 
 class Subprocess {
-    constructor(proc, stdin, stdout, stderr) {
+    constructor(proc, waitPromise, stdin, stdout, stderr) {
         this[kProcess] = proc;
+        this[kWaitPromise] = waitPromise;
         this[kStdin] = stdin ?? null;
         this[kStdout] = stdout ?? null;
         this[kStderr] = stderr ?? null;
@@ -174,7 +176,7 @@ class Subprocess {
     }
 
     wait() {
-        return this[kProcess].wait();
+        return this[kWaitPromise];
     }
 }
 
@@ -203,7 +205,11 @@ export function spawn(args, options) {
         stderr = new ProcessReadableStream(handle);
     }
 
+    const { promise, resolve } = Promise.withResolvers();
+
+    opts.onexit = resolve;
+
     const proc = core.spawn(args, opts);
 
-    return new Subprocess(proc, stdin, stdout, stderr);
+    return new Subprocess(proc, promise, stdin, stdout, stderr);
 }

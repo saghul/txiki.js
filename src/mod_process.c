@@ -34,15 +34,10 @@ static JSClassID tjs_process_class_id;
 typedef struct {
     JSContext *ctx;
     JSValue obj;
+    JSValue onexit;
     bool closed;
     bool finalized;
     uv_process_t process;
-    struct {
-        bool exited;
-        int64_t exit_status;
-        int term_signal;
-        TJSPromise result;
-    } status;
 } TJSProcess;
 
 static void uv__close_cb(uv_handle_t *handle) {
@@ -63,7 +58,7 @@ static void maybe_close(TJSProcess *p) {
 static void tjs_process_finalizer(JSRuntime *rt, JSValue val) {
     TJSProcess *p = JS_GetOpaque(val, tjs_process_class_id);
     if (p) {
-        TJS_FreePromiseRT(rt, &p->status.result);
+        JS_FreeValueRT(rt, p->onexit);
         p->finalized = true;
         if (p->closed) {
             tjs__free(p);
@@ -76,7 +71,7 @@ static void tjs_process_finalizer(JSRuntime *rt, JSValue val) {
 static void tjs_process_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     TJSProcess *p = JS_GetOpaque(val, tjs_process_class_id);
     if (p) {
-        TJS_MarkPromise(rt, &p->status.result, mark_func);
+        JS_MarkValue(rt, p->onexit, mark_func);
     }
 }
 
@@ -115,27 +110,6 @@ static JSValue tjs_process_kill(JSContext *ctx, JSValue this_val, int argc, JSVa
     return JS_UNDEFINED;
 }
 
-static JSValue tjs_process_wait(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSProcess *p = tjs_process_get(ctx, this_val);
-    if (!p) {
-        return JS_EXCEPTION;
-    }
-    CHECK(!p->closed);
-
-    if (p->status.exited) {
-        JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
-        JS_DefinePropertyValueStr(ctx, obj, "exit_status", JS_NewInt32(ctx, p->status.exit_status), JS_PROP_C_W_E);
-        JSValue term_signal =
-            p->status.term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(p->status.term_signal));
-        JS_DefinePropertyValueStr(ctx, obj, "term_signal", term_signal, JS_PROP_C_W_E);
-        return TJS_NewResolvedPromise(ctx, 1, &obj);
-    } else if (!JS_IsUndefined(p->status.result.p)) {
-        return JS_DupValue(ctx, p->status.result.p);
-    } else {
-        return TJS_InitPromise(ctx, &p->status.result);
-    }
-}
-
 static JSValue tjs_process_pid_get(JSContext *ctx, JSValue this_val) {
     TJSProcess *p = tjs_process_get(ctx, this_val);
     if (!p) {
@@ -149,20 +123,15 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
     CHECK_NOT_NULL(p);
     JSContext *ctx = p->ctx;
 
-    p->status.exited = true;
-    p->status.exit_status = exit_status;
-    p->status.term_signal = term_signal;
+    JSValue arg = JS_NewObjectProto(ctx, JS_NULL);
+    JS_DefinePropertyValueStr(ctx, arg, "exit_status", JS_NewInt32(ctx, exit_status), JS_PROP_C_W_E);
+    JSValue sig = term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(term_signal));
+    JS_DefinePropertyValueStr(ctx, arg, "term_signal", sig, JS_PROP_C_W_E);
 
-    if (!JS_IsUndefined(p->status.result.p)) {
-        JSValue arg = JS_NewObjectProto(ctx, JS_NULL);
-        JS_DefinePropertyValueStr(ctx, arg, "exit_status", JS_NewInt32(ctx, exit_status), JS_PROP_C_W_E);
-        JSValue term_signal =
-            p->status.term_signal == 0 ? JS_NULL : JS_NewString(ctx, tjs_getsig(p->status.term_signal));
-        JS_DefinePropertyValueStr(ctx, arg, "term_signal", term_signal, JS_PROP_C_W_E);
-
-        TJS_SettlePromise(ctx, &p->status.result, false, 1, &arg);
-        TJS_ClearPromise(ctx, &p->status.result);
-    }
+    tjs_call_handler(ctx, p->onexit, 1, &arg);
+    JS_FreeValue(ctx, p->onexit);
+    p->onexit = JS_UNDEFINED;
+    JS_FreeValue(ctx, arg);
 
     JS_FreeValue(ctx, p->obj);
     p->obj = JS_UNDEFINED;
@@ -186,8 +155,6 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
 
     p->ctx = ctx;
     p->process.data = p;
-
-    TJS_ClearPromise(ctx, &p->status.result);
 
     uv_process_options_t options;
     memset(&options, 0, sizeof(uv_process_options_t));
@@ -410,6 +377,18 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
             }
         }
         JS_FreeValue(ctx, js_stderr);
+
+        /* onexit */
+        JSValue js_onexit = JS_GetPropertyStr(ctx, arg1, "onexit");
+        if (!JS_IsFunction(ctx, js_onexit)) {
+            JS_FreeValue(ctx, js_onexit);
+            JS_ThrowTypeError(ctx, "onexit must be a function");
+            goto fail;
+        }
+        p->onexit = js_onexit;
+    } else {
+        JS_ThrowTypeError(ctx, "onexit must be a function");
+        goto fail;
     }
 
     options.exit_cb = uv__exit_cb;
@@ -548,7 +527,6 @@ static JSValue tjs_kill(JSContext *ctx, JSValue this_val, int argc, JSValue *arg
 
 static const JSCFunctionListEntry tjs_process_proto_funcs[] = {
     TJS_CFUNC_DEF("kill", 1, tjs_process_kill),
-    TJS_CFUNC_DEF("wait", 0, tjs_process_wait),
     JS_CGETSET_DEF("pid", tjs_process_pid_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "Process", JS_PROP_CONFIGURABLE),
 };

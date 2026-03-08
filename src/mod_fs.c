@@ -395,7 +395,7 @@ static void uv__fs_req_cb(uv_fs_t *req) {
     }
 
 skip:
-    TJS_SettlePromise(ctx, &fr->result, is_reject, 1, &arg);
+    TJS_SettlePromise(ctx, &fr->result, is_reject, arg);
 
     JS_FreeValue(ctx, fr->obj);
     tjs_buf_ref_release(ctx, &fr->buf_ref);
@@ -1295,7 +1295,7 @@ static void tjs__readfile_after_work_cb(uv_work_t *req, int status) {
         }
     }
 
-    TJS_SettlePromise(ctx, &fr->result, is_reject, 1, &arg);
+    TJS_SettlePromise(ctx, &fr->result, is_reject, arg);
 
     js_free(ctx, fr->filename);
     js_free(ctx, fr);

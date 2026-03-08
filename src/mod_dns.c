@@ -64,7 +64,7 @@ static void uv__getaddrinfo_cb(uv_getaddrinfo_t *req, int status, struct addrinf
         arg = tjs_addrinfo2obj(ctx, res);
     }
 
-    TJS_SettlePromise(ctx, &gr->result, is_reject, 1, &arg);
+    TJS_SettlePromise(ctx, &gr->result, is_reject, arg);
 
     uv_freeaddrinfo(res);
     js_free(ctx, gr);
