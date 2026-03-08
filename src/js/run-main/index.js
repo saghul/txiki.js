@@ -127,7 +127,7 @@ await (async () => {
     if (maybeMagic === Trailer.Magic) {
         const dw = new DataView(trailerBuf.buffer, Trailer.MagicSize, Trailer.DataSize);
         const offset = dw.getUint32(0, true);
-        const buf = new Uint8Array(offset - Trailer.Size);
+        const buf = new Uint8Array(exeSize - offset - Trailer.Size);
 
         await exef.read(buf, offset);
         await exef.close();
