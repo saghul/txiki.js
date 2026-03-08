@@ -148,16 +148,8 @@ typedef struct {
 } TJSPromise;
 
 JSValue TJS_InitPromise(JSContext *ctx, TJSPromise *p);
-bool TJS_IsPromisePending(JSContext *ctx, TJSPromise *p);
-void TJS_FreePromise(JSContext *ctx, TJSPromise *p);
-void TJS_FreePromiseRT(JSRuntime *rt, TJSPromise *p);
 void TJS_ClearPromise(JSContext *ctx, TJSPromise *p);
-void TJS_MarkPromise(JSRuntime *rt, TJSPromise *p, JS_MarkFunc *mark_func);
-void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, int argc, JSValue *argv);
-void TJS_ResolvePromise(JSContext *ctx, TJSPromise *p, int argc, JSValue *argv);
-void TJS_RejectPromise(JSContext *ctx, TJSPromise *p, int argc, JSValue *argv);
-JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValue *argv);
-JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValue *argv);
+void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, JSValue arg);
 
 JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size);
 

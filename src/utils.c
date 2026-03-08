@@ -173,30 +173,11 @@ void tjs_call_handler(JSContext *ctx, JSValue func, int argc, JSValue *argv) {
 }
 
 JSValue TJS_InitPromise(JSContext *ctx, TJSPromise *p) {
-    JSValue rfuncs[2];
-    p->p = JS_NewPromiseCapability(ctx, rfuncs);
+    p->p = JS_NewPromiseCapability(ctx, p->rfuncs);
     if (JS_IsException(p->p)) {
         return JS_EXCEPTION;
     }
-    p->rfuncs[0] = JS_DupValue(ctx, rfuncs[0]);
-    p->rfuncs[1] = JS_DupValue(ctx, rfuncs[1]);
     return JS_DupValue(ctx, p->p);
-}
-
-bool TJS_IsPromisePending(JSContext *ctx, TJSPromise *p) {
-    return !JS_IsUndefined(p->p);
-}
-
-void TJS_FreePromise(JSContext *ctx, TJSPromise *p) {
-    JS_FreeValue(ctx, p->rfuncs[0]);
-    JS_FreeValue(ctx, p->rfuncs[1]);
-    JS_FreeValue(ctx, p->p);
-}
-
-void TJS_FreePromiseRT(JSRuntime *rt, TJSPromise *p) {
-    JS_FreeValueRT(rt, p->rfuncs[0]);
-    JS_FreeValueRT(rt, p->rfuncs[1]);
-    JS_FreeValueRT(rt, p->p);
 }
 
 void TJS_ClearPromise(JSContext *ctx, TJSPromise *p) {
@@ -205,57 +186,14 @@ void TJS_ClearPromise(JSContext *ctx, TJSPromise *p) {
     p->rfuncs[1] = JS_UNDEFINED;
 }
 
-void TJS_MarkPromise(JSRuntime *rt, TJSPromise *p, JS_MarkFunc *mark_func) {
-    JS_MarkValue(rt, p->p, mark_func);
-    JS_MarkValue(rt, p->rfuncs[0], mark_func);
-    JS_MarkValue(rt, p->rfuncs[1], mark_func);
-}
-
-void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, int argc, JSValue *argv) {
-    JSValue ret = JS_Call(ctx, p->rfuncs[is_reject], JS_UNDEFINED, argc, argv);
-    for (int i = 0; i < argc; i++) {
-        JS_FreeValue(ctx, argv[i]);
-    }
+void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, JSValue arg) {
+    JSValue ret = JS_Call(ctx, p->rfuncs[is_reject], JS_UNDEFINED, 1, &arg);
+    JS_FreeValue(ctx, arg);
     JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
     JS_FreeValue(ctx, p->rfuncs[0]);
     JS_FreeValue(ctx, p->rfuncs[1]);
-    TJS_FreePromise(ctx, p);
-}
-
-void TJS_ResolvePromise(JSContext *ctx, TJSPromise *p, int argc, JSValue *argv) {
-    TJS_SettlePromise(ctx, p, false, argc, argv);
-}
-
-void TJS_RejectPromise(JSContext *ctx, TJSPromise *p, int argc, JSValue *argv) {
-    TJS_SettlePromise(ctx, p, true, argc, argv);
-}
-
-static inline JSValue tjs__settled_promise(JSContext *ctx, bool is_reject, int argc, JSValue *argv) {
-    JSValue promise, resolving_funcs[2], ret;
-
-    promise = JS_NewPromiseCapability(ctx, resolving_funcs);
-    if (JS_IsException(promise)) {
-        return JS_EXCEPTION;
-    }
-
-    ret = JS_Call(ctx, resolving_funcs[is_reject], JS_UNDEFINED, argc, argv);
-
-    for (int i = 0; i < argc; i++) {
-        JS_FreeValue(ctx, argv[i]);
-    }
-    JS_FreeValue(ctx, ret);
-    JS_FreeValue(ctx, resolving_funcs[0]);
-    JS_FreeValue(ctx, resolving_funcs[1]);
-
-    return promise;
-}
-
-JSValue TJS_NewResolvedPromise(JSContext *ctx, int argc, JSValue *argv) {
-    return tjs__settled_promise(ctx, false, argc, argv);
-}
-
-JSValue TJS_NewRejectedPromise(JSContext *ctx, int argc, JSValue *argv) {
-    return tjs__settled_promise(ctx, true, argc, argv);
+    JS_FreeValue(ctx, p->p);
+    TJS_ClearPromise(ctx, p);
 }
 
 static void tjs__buf_free(JSRuntime *rt, void *opaque, void *ptr) {
