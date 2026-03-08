@@ -22,16 +22,11 @@
  * THE SOFTWARE.
  */
 
-#include "mem.h"
 #include "private.h"
 #include "utils.h"
 
 #include <string.h>
 #include <uv.h>
-
-static void tjs__raw_buf_free(JSRuntime *rt, void *opaque, void *ptr) {
-    tjs__free(ptr);
-}
 
 static JSClassID tjs_file_class_id;
 
@@ -1290,16 +1285,34 @@ static void tjs__readfile_after_work_cb(uv_work_t *req, int status) {
     } else if (fr->r < 0) {
         arg = tjs_new_error(ctx, fr->r);
         is_reject = true;
-    } else if (fr->dbuf.size == 0) {
-        uint8_t *buf = tjs__malloc(1);
-        arg = JS_NewUint8Array(ctx, buf, 0, tjs__raw_buf_free, NULL, false);
     } else {
-        /* The buffer was allocated with raw realloc on the worker thread,
-           so use a free function that bypasses QJS malloc tracking. */
-        arg = JS_NewUint8Array(ctx, fr->dbuf.buf, fr->dbuf.size, tjs__raw_buf_free, NULL, false);
-        fr->dbuf.buf = NULL;
-        if (JS_IsException(arg)) {
-            is_reject = true;
+        /* The buffer was allocated with raw (untracked) realloc on the worker
+           thread to avoid a data race on QJS malloc_state.  We must copy it
+           into a QJS-tracked allocation here because ArrayBuffer.prototype.transfer
+           calls js_realloc on the backing buffer, which would corrupt malloc_state
+           if the buffer was never tracked. */
+        size_t size = fr->dbuf.size;
+        if (size == 0) {
+            uint8_t *buf = js_malloc(ctx, 1);
+            if (buf) {
+                arg = TJS_NewUint8Array(ctx, buf, 0);
+            } else {
+                arg = JS_EXCEPTION;
+                is_reject = true;
+            }
+        } else {
+            uint8_t *buf = js_malloc(ctx, size);
+            if (buf) {
+                memcpy(buf, fr->dbuf.buf, size);
+                arg = TJS_NewUint8Array(ctx, buf, size);
+                if (JS_IsException(arg)) {
+                    js_free(ctx, buf);
+                    is_reject = true;
+                }
+            } else {
+                arg = JS_EXCEPTION;
+                is_reject = true;
+            }
         }
     }
 
