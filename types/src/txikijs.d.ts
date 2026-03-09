@@ -1022,6 +1022,24 @@ declare global {
         }
 
         /**
+        * TLS options for enabling HTTPS on the server.
+        *
+        * @category HTTP Server
+        */
+        interface TlsOptions {
+            /** TLS certificate chain in PEM format. */
+            cert: string;
+            /** TLS private key in PEM format. */
+            key: string;
+            /** CA certificate(s) in PEM format, for client certificate verification. */
+            ca?: string;
+            /** Passphrase for an encrypted private key. */
+            passphrase?: string;
+            /** If `true`, the server requires a valid client certificate. Implies use of {@link ca}. */
+            requestCert?: boolean;
+        }
+
+        /**
         * Options for configuring the HTTP server.
         *
         * @category HTTP Server
@@ -1035,6 +1053,8 @@ declare global {
             listenIp?: string;
             /** Optional WebSocket event handlers for upgraded connections. */
             websocket?: WebSocketHandlers;
+            /** TLS options for enabling HTTPS. When provided, the server listens for HTTPS connections. */
+            tls?: TlsOptions;
         }
 
         /**
@@ -1116,6 +1136,21 @@ declare global {
         *
         * ```js
         * const server = tjs.serve((request) => new Response('Hello!'));
+        * ```
+        *
+        * To enable HTTPS, provide TLS certificate and key as PEM strings:
+        *
+        * ```js
+        * const cert = new TextDecoder().decode(await tjs.readFile('cert.pem'));
+        * const key = new TextDecoder().decode(await tjs.readFile('key.pem'));
+        *
+        * const server = tjs.serve({
+        *     fetch(request) {
+        *         return new Response('Hello HTTPS!');
+        *     },
+        *     port: 8443,
+        *     tls: { cert, key },
+        * });
         * ```
         *
         * @category HTTP Server
