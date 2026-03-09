@@ -4,17 +4,13 @@ const CHUNK_SIZE = 16640;
 
 const kHandle = Symbol('kHandle');
 const kType = Symbol('kType');
-
-function silentClose(handle) {
-    try {
-        handle.close();
-    } catch {
-        // Ignored.
-    }
-}
+const kClosed = Symbol('kClosed');
 
 class StdioReadableStream extends ReadableStream {
     constructor(handle, type) {
+        // Shared state object so source callbacks can mark the stream as closed.
+        const state = { closed: false };
+
         if (type === 'file') {
             super({
                 autoAllocateChunkSize: CHUNK_SIZE,
@@ -26,7 +22,7 @@ class StdioReadableStream extends ReadableStream {
                         const nread = await handle.read(buf);
 
                         if (nread === null) {
-                            silentClose(handle);
+                            state.closed = true;
                             controller.close();
                             controller.byobRequest.respond(0);
                         } else {
@@ -37,7 +33,7 @@ class StdioReadableStream extends ReadableStream {
                     }
                 },
                 cancel() {
-                    silentClose(handle);
+                    state.closed = true;
                 }
             });
         } else {
@@ -55,8 +51,8 @@ class StdioReadableStream extends ReadableStream {
                             handle.stopRead();
                             reading = false;
                             handle.onread = null;
+                            state.closed = true;
                             controller.close();
-                            silentClose(handle);
                         } else {
                             controller.enqueue(data);
 
@@ -80,13 +76,18 @@ class StdioReadableStream extends ReadableStream {
                     }
 
                     handle.onread = null;
-                    silentClose(handle);
+                    state.closed = true;
                 }
             });
         }
 
         this[kHandle] = handle;
         this[kType] = type;
+        this[kClosed] = state;
+    }
+
+    get isClosed() {
+        return this[kClosed].closed;
     }
 
     get isTerminal() {
@@ -110,6 +111,9 @@ class StdioReadableStream extends ReadableStream {
 
 class StdioWritableStream extends WritableStream {
     constructor(handle, type) {
+        // Shared state object so sink callbacks can mark the stream as closed.
+        const state = { closed: false };
+
         if (type === 'file') {
             super({
                 async write(chunk, controller) {
@@ -120,10 +124,10 @@ class StdioWritableStream extends WritableStream {
                     }
                 },
                 close() {
-                    silentClose(handle);
+                    state.closed = true;
                 },
                 abort() {
-                    silentClose(handle);
+                    state.closed = true;
                 }
             });
         } else {
@@ -143,16 +147,21 @@ class StdioWritableStream extends WritableStream {
                     }
                 },
                 close() {
-                    silentClose(handle);
+                    state.closed = true;
                 },
                 abort() {
-                    silentClose(handle);
+                    state.closed = true;
                 }
             });
         }
 
         this[kHandle] = handle;
         this[kType] = type;
+        this[kClosed] = state;
+    }
+
+    get isClosed() {
+        return this[kClosed].closed;
     }
 
     get isTerminal() {
@@ -180,7 +189,7 @@ class StdioWritableStream extends WritableStream {
     }
 }
 
-function createStdioStream(fd) {
+function createHandle(fd) {
     const isStdin = fd === core.STDIN_FILENO;
     const type = core.guessHandle(fd);
 
@@ -194,11 +203,7 @@ function createStdioStream(fd) {
                 rawHandle.setBlocking(true);
             }
 
-            if (isStdin) {
-                return new StdioReadableStream(rawHandle, type);
-            }
-
-            return new StdioWritableStream(rawHandle, type);
+            return { handle: rawHandle, type, isStdin };
         }
 
         case 'pipe': {
@@ -211,26 +216,30 @@ function createStdioStream(fd) {
                 rawHandle.setBlocking(true);
             }
 
-            if (isStdin) {
-                return new StdioReadableStream(rawHandle, type);
-            }
-
-            return new StdioWritableStream(rawHandle, type);
+            return { handle: rawHandle, type, isStdin };
         }
 
         case 'file': {
             const rawHandle = new core.File(fd, pathByFd(fd));
 
-            if (isStdin) {
-                return new StdioReadableStream(rawHandle, type);
-            }
-
-            return new StdioWritableStream(rawHandle, type);
+            return { handle: rawHandle, type, isStdin };
         }
 
         default:
             return undefined;
     }
+}
+
+function createStreamFromHandle(info) {
+    if (!info) {
+        return undefined;
+    }
+
+    if (info.isStdin) {
+        return new StdioReadableStream(info.handle, info.type);
+    }
+
+    return new StdioWritableStream(info.handle, info.type);
 }
 
 function pathByFd(fd) {
@@ -246,14 +255,23 @@ function pathByFd(fd) {
     }
 }
 
-export function createStdin() {
-    return createStdioStream(core.STDIN_FILENO);
+function createStdioAccessor(fd) {
+    let handleInfo;
+    let stream;
+
+    return () => {
+        if (!handleInfo) {
+            handleInfo = createHandle(fd);
+        }
+
+        if (!stream || stream.isClosed) {
+            stream = createStreamFromHandle(handleInfo);
+        }
+
+        return stream;
+    };
 }
 
-export function createStdout() {
-    return createStdioStream(core.STDOUT_FILENO);
-}
-
-export function createStderr() {
-    return createStdioStream(core.STDERR_FILENO);
-}
+export const getStdin = createStdioAccessor(core.STDIN_FILENO);
+export const getStdout = createStdioAccessor(core.STDOUT_FILENO);
+export const getStderr = createStdioAccessor(core.STDERR_FILENO);
