@@ -84,7 +84,9 @@ Bundle a JavaScript/TypeScript file using esbuild. If outfile is not
 specified it defaults to <infile-stem>.bundle.js.
 
 Options:
-  -m, --minify    Minify the output`;
+  -m, --minify    Minify the output
+
+Any other --option flags are passed through to esbuild.`;
 
 const helpEval = `Usage: ${exeName} eval EXPRESSION`;
 
