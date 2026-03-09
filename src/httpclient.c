@@ -280,6 +280,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
             /* Add custom headers stored in req_headers TBuf.
              * Format: "Name: Value\r\nName2: Value2\r\n" */
             if (h->req_headers.size > 0) {
+                tbuf_putc(&h->req_headers, '\0');
                 char *headers = (char *) h->req_headers.buf;
                 char *line = headers;
                 while (line && *line) {
