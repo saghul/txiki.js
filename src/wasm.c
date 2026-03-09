@@ -29,8 +29,14 @@
 #include <string.h>
 #include <wasm_export.h>
 
+/* Internal WAMR header for direct access to import structures (global imports) */
+#include "wasm.h"
+
 #define TJS__WASM_MAX_ARGS       32
 #define TJS__WASM_ERROR_BUF_SIZE 256
+
+typedef struct TJSWasmImportGroup TJSWasmImportGroup;
+
 static JSClassID tjs_wasm_module_class_id;
 
 typedef struct {
@@ -47,6 +53,7 @@ typedef struct {
         char **map_dir_list;
         uint32_t map_dir_count;
     } wasi;
+    TJSWasmImportGroup *pending_imports; /* Set by resolveImports, moved to instance by buildInstance */
 } TJSWasmModule;
 
 static void tjs_wasm_module_finalizer(JSRuntime *rt, JSValue val) {
@@ -84,11 +91,30 @@ static JSClassDef tjs_wasm_module_class = {
     .finalizer = tjs_wasm_module_finalizer,
 };
 
+/* Import trampoline context: bridges WAMR native calls to JS functions */
+typedef struct {
+    JSContext *ctx;
+    JSValue func;          /* The JS callback function */
+    wasm_func_type_t type; /* WAMR function type for param/result conversion */
+} TJSWasmImportCtx;
+
+/* Registered native symbols for a single import module name */
+typedef struct TJSWasmImportGroup {
+    char *module_name;
+    NativeSymbol *symbols;
+    uint32_t count;
+    TJSWasmImportCtx *ctxs;
+    struct TJSWasmImportGroup *next;
+} TJSWasmImportGroup;
+
 static JSClassID tjs_wasm_instance_class_id;
 
 typedef struct {
     wasm_module_inst_t module_inst;
     wasm_exec_env_t exec_env;
+    TJSWasmImportGroup *import_groups;
+    bool has_pending_exception;
+    JSValue pending_exception;
 } TJSWasmInstance;
 
 static void tjs_wasm_instance_finalizer(JSRuntime *rt, JSValue val) {
@@ -100,13 +126,46 @@ static void tjs_wasm_instance_finalizer(JSRuntime *rt, JSValue val) {
         if (i->module_inst) {
             wasm_runtime_deinstantiate(i->module_inst);
         }
+        /* Free import groups */
+        TJSWasmImportGroup *g = i->import_groups;
+        while (g) {
+            TJSWasmImportGroup *next = g->next;
+            wasm_runtime_unregister_natives(g->module_name, g->symbols);
+            for (uint32_t j = 0; j < g->count; j++) {
+                JS_FreeValueRT(rt, g->ctxs[j].func);
+                js_free_rt(rt, (char *) g->symbols[j].symbol);
+                js_free_rt(rt, (char *) g->symbols[j].signature);
+            }
+            js_free_rt(rt, g->ctxs);
+            js_free_rt(rt, g->symbols);
+            js_free_rt(rt, g->module_name);
+            js_free_rt(rt, g);
+            g = next;
+        }
         js_free_rt(rt, i);
+    }
+}
+
+static void tjs_wasm_instance_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
+    TJSWasmInstance *i = JS_GetOpaque(val, tjs_wasm_instance_class_id);
+    if (i) {
+        TJSWasmImportGroup *g = i->import_groups;
+        while (g) {
+            for (uint32_t j = 0; j < g->count; j++) {
+                JS_MarkValue(rt, g->ctxs[j].func, mark_func);
+            }
+            g = g->next;
+        }
+        if (i->has_pending_exception) {
+            JS_MarkValue(rt, i->pending_exception, mark_func);
+        }
     }
 }
 
 static JSClassDef tjs_wasm_instance_class = {
     "Instance",
     .finalizer = tjs_wasm_instance_finalizer,
+    .gc_mark = tjs_wasm_instance_mark,
 };
 
 static JSValue tjs_new_wasm_module(JSContext *ctx) {
@@ -232,6 +291,129 @@ static bool tjs__js_to_wasm_val(JSContext *ctx, JSValue jsval, wasm_valkind_t ty
         default:
             return false;
     }
+}
+
+/* Raw native trampoline: called by WAMR, forwards to a JS function */
+static void tjs__wasm_import_trampoline(wasm_exec_env_t exec_env, uint64_t *args) {
+    TJSWasmImportCtx *import_ctx = wasm_runtime_get_function_attachment(exec_env);
+    if (!import_ctx) {
+        return;
+    }
+
+    JSContext *ctx = import_ctx->ctx;
+    wasm_func_type_t func_type = import_ctx->type;
+
+    uint32_t param_count = wasm_func_type_get_param_count(func_type);
+    uint32_t result_count = wasm_func_type_get_result_count(func_type);
+
+    /* Convert WASM args to JS values */
+    JSValue js_args[TJS__WASM_MAX_ARGS];
+    for (uint32_t i = 0; i < param_count && i < TJS__WASM_MAX_ARGS; i++) {
+        wasm_valkind_t kind = wasm_func_type_get_param_valkind(func_type, i);
+        wasm_val_t val;
+        val.kind = kind;
+        switch (kind) {
+            case WASM_I32:
+                val.of.i32 = (int32_t) args[i];
+                break;
+            case WASM_I64:
+                val.of.i64 = (int64_t) args[i];
+                break;
+            case WASM_F32: {
+                union {
+                    uint32_t i;
+                    float f;
+                } u;
+                u.i = (uint32_t) args[i];
+                val.of.f32 = u.f;
+                break;
+            }
+            case WASM_F64: {
+                union {
+                    uint64_t i;
+                    double f;
+                } u;
+                u.i = args[i];
+                val.of.f64 = u.f;
+                break;
+            }
+            default:
+                js_args[i] = JS_UNDEFINED;
+                continue;
+        }
+        js_args[i] = tjs__wasm_val_to_js(ctx, &val);
+    }
+
+    /* Call the JS function */
+    JSValue global_obj = JS_GetGlobalObject(ctx);
+    JSValue ret = JS_Call(ctx, import_ctx->func, global_obj, param_count, js_args);
+    JS_FreeValue(ctx, global_obj);
+
+    for (uint32_t i = 0; i < param_count; i++) {
+        JS_FreeValue(ctx, js_args[i]);
+    }
+
+    if (JS_IsException(ret)) {
+        /* Save the JS exception on the instance so tjs__call_wasm_func_inst can re-throw it */
+        TJSWasmInstance *inst = wasm_runtime_get_user_data(exec_env);
+        if (inst) {
+            inst->pending_exception = JS_GetException(ctx);
+            inst->has_pending_exception = true;
+        }
+        wasm_runtime_set_exception(wasm_runtime_get_module_inst(exec_env), "imported function threw an exception");
+        return;
+    }
+
+    /* Convert return value back to WASM */
+    if (result_count > 0) {
+        wasm_valkind_t ret_kind = wasm_func_type_get_result_valkind(func_type, 0);
+        switch (ret_kind) {
+            case WASM_I32: {
+                int32_t i32;
+                JS_ToInt32(ctx, &i32, ret);
+                args[0] = (uint64_t) (uint32_t) i32;
+                break;
+            }
+            case WASM_I64: {
+                int64_t i64;
+                if (JS_ToBigInt64(ctx, &i64, ret)) {
+                    JS_FreeValue(ctx, JS_GetException(ctx));
+                    int32_t i32;
+                    JS_ToInt32(ctx, &i32, ret);
+                    i64 = i32;
+                }
+                args[0] = (uint64_t) i64;
+                break;
+            }
+            case WASM_F32: {
+                double f64;
+                JS_ToFloat64(ctx, &f64, ret);
+                union {
+                    uint32_t i;
+                    float f;
+                } u;
+                u.f = (float) f64;
+                args[0] = u.i;
+                break;
+            }
+            case WASM_F64: {
+                double f64;
+                JS_ToFloat64(ctx, &f64, ret);
+                union {
+                    uint64_t i;
+                    double f;
+                } u;
+                u.f = f64;
+                args[0] = u.i;
+                break;
+            }
+            default:
+                args[0] = 0;
+                break;
+        }
+    }
+
+    JS_FreeValue(ctx, ret);
 }
 
 static JSValue tjs_wasm_setwasioptions(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -419,9 +601,11 @@ fail:
     return JS_EXCEPTION;
 }
 
-static JSValue tjs__call_wasm_func_inst(JSContext *ctx, TJSWasmInstance *inst,
+static JSValue tjs__call_wasm_func_inst(JSContext *ctx,
+                                        TJSWasmInstance *inst,
                                         wasm_function_inst_t func,
-                                        int argc, JSValue *argv) {
+                                        int argc,
+                                        JSValue *argv) {
     uint32_t param_count = wasm_func_get_param_count(func, inst->module_inst);
     uint32_t result_count = wasm_func_get_result_count(func, inst->module_inst);
 
@@ -449,9 +633,19 @@ static JSValue tjs__call_wasm_func_inst(JSContext *ctx, TJSWasmInstance *inst,
     wasm_val_t results[TJS__WASM_MAX_ARGS];
 
     if (!wasm_runtime_call_wasm_a(inst->exec_env, func, result_count, results, param_count, params)) {
+        /* If an imported JS function threw, re-throw the original JS exception */
+        if (inst->has_pending_exception) {
+            JSValue exc = inst->pending_exception;
+            inst->has_pending_exception = false;
+            wasm_runtime_clear_exception(inst->module_inst);
+            return JS_Throw(ctx, exc);
+        }
+
         const char *exception = wasm_runtime_get_exception(inst->module_inst);
+        /* Use the exception string before clearing, since clear zeroes the buffer */
+        JSValue err = tjs_throw_wasm_error(ctx, "RuntimeError", exception ? exception : "call failed");
         wasm_runtime_clear_exception(inst->module_inst);
-        return tjs_throw_wasm_error(ctx, "RuntimeError", exception ? exception : "call failed");
+        return err;
     }
 
     if (result_count == 0) {
@@ -505,6 +699,9 @@ static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc
 
     uint32_t stack_size = 64 * 1024;
 
+    // Resolve any remaining symbols (WASI, etc.) if not already resolved
+    wasm_runtime_resolve_symbols(m->module);
+
     // Instantiate the module
     i->module_inst = wasm_runtime_instantiate(m->module, stack_size, 0, error_buf, sizeof(error_buf));
     if (!i->module_inst) {
@@ -520,6 +717,13 @@ static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc
         JS_FreeValue(ctx, obj);
         return JS_ThrowOutOfMemory(ctx);
     }
+
+    // Set user data so the import trampoline can find the instance
+    wasm_runtime_set_user_data(i->exec_env, i);
+
+    // Move pending imports from module to instance for lifetime management
+    i->import_groups = m->pending_imports;
+    m->pending_imports = NULL;
 
     return obj;
 }
@@ -574,6 +778,404 @@ static JSValue tjs_wasm_moduleexports(JSContext *ctx, JSValue this_val, int argc
     return exports;
 }
 
+static JSValue tjs_wasm_moduleimports(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSWasmModule *m = tjs_wasm_module_get(ctx, argv[0]);
+    if (!m) {
+        return JS_EXCEPTION;
+    }
+
+    JSValue imports = JS_NewArray(ctx);
+    if (JS_IsException(imports)) {
+        return imports;
+    }
+
+    int32_t import_count = wasm_runtime_get_import_count(m->module);
+    if (import_count < 0) {
+        return imports;
+    }
+
+    for (int32_t idx = 0; idx < import_count; idx++) {
+        wasm_import_t import_type;
+        wasm_runtime_get_import_type(m->module, idx, &import_type);
+
+        const char *kind_str = NULL;
+
+        switch (import_type.kind) {
+            case WASM_IMPORT_EXPORT_KIND_FUNC:
+                kind_str = "function";
+                break;
+            case WASM_IMPORT_EXPORT_KIND_MEMORY:
+                kind_str = "memory";
+                break;
+            case WASM_IMPORT_EXPORT_KIND_TABLE:
+                kind_str = "table";
+                break;
+            case WASM_IMPORT_EXPORT_KIND_GLOBAL:
+                kind_str = "global";
+                break;
+        }
+
+        if (kind_str) {
+            JSValue item = JS_NewObjectProto(ctx, JS_NULL);
+            JS_DefinePropertyValueStr(ctx, item, "module", JS_NewString(ctx, import_type.module_name), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, item, "name", JS_NewString(ctx, import_type.name), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, item, "kind", JS_NewString(ctx, kind_str), JS_PROP_C_W_E);
+            JS_DefinePropertyValueUint32(ctx, imports, idx, item, JS_PROP_C_W_E);
+        }
+    }
+
+    return imports;
+}
+
+static char tjs__wasm_valkind_to_sig(wasm_valkind_t kind) {
+    switch (kind) {
+        case WASM_I32:
+            return 'i';
+        case WASM_I64:
+            return 'I';
+        case WASM_F32:
+            return 'f';
+        case WASM_F64:
+            return 'F';
+        default:
+            return 'i';
+    }
+}
+
+/*
+ * resolveImports(module, instance, importDescs)
+ *
+ * importDescs is an array of { module: string, name: string, func: Function }
+ * Groups imports by module name, registers native trampolines, then resolves.
+ * Returns the import groups linked list head (stored on the instance for cleanup).
+ */
+static JSValue tjs_wasm_resolveimports(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSWasmModule *m = tjs_wasm_module_get(ctx, argv[0]);
+    if (!m) {
+        return JS_EXCEPTION;
+    }
+
+    /* argv[1] is the array of import descriptors */
+    JSValue arr = argv[1];
+    JSValue js_length = JS_GetPropertyStr(ctx, arr, "length");
+    uint64_t total;
+    if (JS_ToIndex(ctx, &total, js_length)) {
+        JS_FreeValue(ctx, js_length);
+        return JS_EXCEPTION;
+    }
+    JS_FreeValue(ctx, js_length);
+
+    if (total == 0) {
+        /* No imports to resolve, just resolve symbols (for WASI etc.) */
+        wasm_runtime_resolve_symbols(m->module);
+        return JS_UNDEFINED;
+    }
+
+    /* Get import type info from the module for signature building */
+    int32_t import_count = wasm_runtime_get_import_count(m->module);
+
+    /* First pass: count imports per module name */
+    /* We'll use a simple approach: collect all imports, group by module name */
+
+    /* Temporary storage for parsed import descriptors */
+    typedef struct {
+        const char *module_name;
+        const char *func_name;
+        JSValue js_module_name;
+        JSValue js_func_name;
+        JSValue func;
+        wasm_func_type_t func_type;
+    } ImportDesc;
+
+    ImportDesc *descs = js_mallocz(ctx, sizeof(ImportDesc) * total);
+    if (!descs) {
+        return JS_EXCEPTION;
+    }
+
+    /* Parse all descriptors and find matching WAMR import types */
+    for (uint64_t i = 0; i < total; i++) {
+        JSValue item = JS_GetPropertyUint32(ctx, arr, (uint32_t) i);
+        if (JS_IsException(item)) {
+            goto fail_descs;
+        }
+
+        descs[i].js_module_name = JS_GetPropertyStr(ctx, item, "module");
+        descs[i].js_func_name = JS_GetPropertyStr(ctx, item, "name");
+        descs[i].func = JS_GetPropertyStr(ctx, item, "func");
+        JS_FreeValue(ctx, item);
+
+        descs[i].module_name = JS_ToCString(ctx, descs[i].js_module_name);
+        descs[i].func_name = JS_ToCString(ctx, descs[i].js_func_name);
+
+        if (!descs[i].module_name || !descs[i].func_name) {
+            goto fail_descs;
+        }
+
+        /* Find matching import in the WAMR module to get the function type */
+        descs[i].func_type = NULL;
+        for (int32_t j = 0; j < import_count; j++) {
+            wasm_import_t imp;
+            wasm_runtime_get_import_type(m->module, j, &imp);
+            if (imp.kind == WASM_IMPORT_EXPORT_KIND_FUNC && strcmp(imp.module_name, descs[i].module_name) == 0 &&
+                strcmp(imp.name, descs[i].func_name) == 0) {
+                descs[i].func_type = imp.u.func_type;
+                break;
+            }
+        }
+
+        if (!descs[i].func_type) {
+            JS_FreeCString(ctx, descs[i].module_name);
+            JS_FreeCString(ctx, descs[i].func_name);
+            JS_FreeValue(ctx, descs[i].js_module_name);
+            JS_FreeValue(ctx, descs[i].js_func_name);
+            JS_FreeValue(ctx, descs[i].func);
+            js_free(ctx, descs);
+            return tjs_throw_wasm_error(ctx, "LinkError", "imported function not found in module");
+        }
+    }
+
+    /* Group by module name and register */
+    bool *processed = js_mallocz(ctx, sizeof(bool) * total);
+    if (!processed) {
+        goto fail_descs;
+    }
+
+    TJSWasmImportGroup *groups_head = NULL;
+
+    for (uint64_t i = 0; i < total; i++) {
+        if (processed[i]) {
+            continue;
+        }
+
+        /* Count how many imports share this module name */
+        uint32_t group_count = 0;
+        for (uint64_t j = i; j < total; j++) {
+            if (!processed[j] && strcmp(descs[i].module_name, descs[j].module_name) == 0) {
+                group_count++;
+            }
+        }
+
+        /* Allocate group */
+        TJSWasmImportGroup *group = js_mallocz(ctx, sizeof(TJSWasmImportGroup));
+        if (!group) {
+            goto fail_groups;
+        }
+        group->module_name = js_strdup(ctx, descs[i].module_name);
+        group->symbols = js_mallocz(ctx, sizeof(NativeSymbol) * group_count);
+        group->ctxs = js_mallocz(ctx, sizeof(TJSWasmImportCtx) * group_count);
+        group->count = group_count;
+        group->next = groups_head;
+        groups_head = group;
+
+        if (!group->module_name || !group->symbols || !group->ctxs) {
+            goto fail_groups;
+        }
+
+        /* Fill in the symbols */
+        uint32_t si = 0;
+        for (uint64_t j = i; j < total; j++) {
+            if (processed[j] || strcmp(descs[i].module_name, descs[j].module_name) != 0) {
+                continue;
+            }
+            processed[j] = true;
+
+            /* Build signature string, e.g., "(iI)f" */
+            wasm_func_type_t ft = descs[j].func_type;
+            uint32_t pc = wasm_func_type_get_param_count(ft);
+            uint32_t rc = wasm_func_type_get_result_count(ft);
+
+            /* sig: "(" + params + ")" + result (or nothing) + null */
+            char *sig = js_malloc(ctx, pc + rc + 3);
+            if (!sig) {
+                goto fail_groups;
+            }
+            uint32_t pos = 0;
+            sig[pos++] = '(';
+            for (uint32_t k = 0; k < pc; k++) {
+                sig[pos++] = tjs__wasm_valkind_to_sig(wasm_func_type_get_param_valkind(ft, k));
+            }
+            sig[pos++] = ')';
+            if (rc > 0) {
+                sig[pos++] = tjs__wasm_valkind_to_sig(wasm_func_type_get_result_valkind(ft, 0));
+            }
+            sig[pos] = '\0';
+
+            /* Set up the import context */
+            group->ctxs[si].ctx = ctx;
+            group->ctxs[si].func = JS_DupValue(ctx, descs[j].func);
+            group->ctxs[si].type = ft;
+
+            /* Set up the native symbol */
+            group->symbols[si].symbol = js_strdup(ctx, descs[j].func_name);
+            group->symbols[si].func_ptr = tjs__wasm_import_trampoline;
+            group->symbols[si].signature = sig;
+            group->symbols[si].attachment = &group->ctxs[si];
+
+            si++;
+        }
+
+        /* Register this group */
+        if (!wasm_runtime_register_natives_raw(group->module_name, group->symbols, group->count)) {
+            goto fail_groups;
+        }
+    }
+
+    /* Now resolve all symbols */
+    wasm_runtime_resolve_symbols(m->module);
+
+    /* Store groups on the module temporarily; buildInstance moves them to the instance */
+    m->pending_imports = groups_head;
+
+    /* Cleanup temporary data */
+    js_free(ctx, processed);
+    for (uint64_t i = 0; i < total; i++) {
+        JS_FreeCString(ctx, descs[i].module_name);
+        JS_FreeCString(ctx, descs[i].func_name);
+        JS_FreeValue(ctx, descs[i].js_module_name);
+        JS_FreeValue(ctx, descs[i].js_func_name);
+        JS_FreeValue(ctx, descs[i].func);
+    }
+    js_free(ctx, descs);
+
+    return JS_UNDEFINED;
+
+fail_groups:
+    /* Unregister and free any groups we already created */
+    while (groups_head) {
+        TJSWasmImportGroup *next = groups_head->next;
+        wasm_runtime_unregister_natives(groups_head->module_name, groups_head->symbols);
+        for (uint32_t j = 0; j < groups_head->count; j++) {
+            JS_FreeValue(ctx, groups_head->ctxs[j].func);
+            js_free(ctx, (char *) groups_head->symbols[j].symbol);
+            js_free(ctx, (char *) groups_head->symbols[j].signature);
+        }
+        js_free(ctx, groups_head->ctxs);
+        js_free(ctx, groups_head->symbols);
+        js_free(ctx, groups_head->module_name);
+        js_free(ctx, groups_head);
+        groups_head = next;
+    }
+    js_free(ctx, processed);
+
+fail_descs:
+    for (uint64_t i = 0; i < total; i++) {
+        JS_FreeCString(ctx, descs[i].module_name);
+        JS_FreeCString(ctx, descs[i].func_name);
+        JS_FreeValue(ctx, descs[i].js_module_name);
+        JS_FreeValue(ctx, descs[i].js_func_name);
+        JS_FreeValue(ctx, descs[i].func);
+    }
+    js_free(ctx, descs);
+    return tjs_throw_wasm_error(ctx, "LinkError", "failed to register imports");
+}
+
+/*
+ * resolveGlobalImports(module, globalDescs)
+ *
+ * globalDescs is an array of { module: string, name: string, value: number|bigint, type: string, mutable: bool }
+ * Directly sets the global value on the module's internal import structures.
+ */
+static JSValue tjs_wasm_resolveglobalimports(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSWasmModule *m = tjs_wasm_module_get(ctx, argv[0]);
+    if (!m) {
+        return JS_EXCEPTION;
+    }
+
+    JSValue arr = argv[1];
+    JSValue js_length = JS_GetPropertyStr(ctx, arr, "length");
+    uint64_t total;
+    if (JS_ToIndex(ctx, &total, js_length)) {
+        JS_FreeValue(ctx, js_length);
+        return JS_EXCEPTION;
+    }
+    JS_FreeValue(ctx, js_length);
+
+    if (total == 0) {
+        return JS_UNDEFINED;
+    }
+
+    WASMModule *wasm_module = (WASMModule *) m->module;
+
+    for (uint64_t i = 0; i < total; i++) {
+        JSValue item = JS_GetPropertyUint32(ctx, arr, (uint32_t) i);
+        if (JS_IsException(item)) {
+            return JS_EXCEPTION;
+        }
+
+        JSValue js_mod = JS_GetPropertyStr(ctx, item, "module");
+        JSValue js_name = JS_GetPropertyStr(ctx, item, "name");
+        JSValue js_value = JS_GetPropertyStr(ctx, item, "value");
+        JS_FreeValue(ctx, item);
+
+        const char *mod_name = JS_ToCString(ctx, js_mod);
+        const char *field_name = JS_ToCString(ctx, js_name);
+        JS_FreeValue(ctx, js_mod);
+        JS_FreeValue(ctx, js_name);
+
+        if (!mod_name || !field_name) {
+            JS_FreeCString(ctx, mod_name);
+            JS_FreeCString(ctx, field_name);
+            JS_FreeValue(ctx, js_value);
+            return JS_EXCEPTION;
+        }
+
+        /* Find matching import global in the module */
+        bool found = false;
+        for (uint32_t j = 0; j < wasm_module->import_global_count; j++) {
+            WASMGlobalImport *gi = &wasm_module->import_globals[j].u.global;
+            if (strcmp(gi->module_name, mod_name) == 0 && strcmp(gi->field_name, field_name) == 0) {
+                /* Set the value based on type */
+                switch (gi->type.val_type) {
+                    case VALUE_TYPE_I32: {
+                        int32_t v;
+                        JS_ToInt32(ctx, &v, js_value);
+                        gi->global_data_linked.i32 = v;
+                        break;
+                    }
+                    case VALUE_TYPE_I64: {
+                        int64_t v;
+                        if (JS_ToBigInt64(ctx, &v, js_value)) {
+                            JS_FreeValue(ctx, JS_GetException(ctx));
+                            int32_t i32;
+                            JS_ToInt32(ctx, &i32, js_value);
+                            v = i32;
+                        }
+                        gi->global_data_linked.i64 = v;
+                        break;
+                    }
+                    case VALUE_TYPE_F32: {
+                        double f64;
+                        JS_ToFloat64(ctx, &f64, js_value);
+                        gi->global_data_linked.f32 = (float) f64;
+                        break;
+                    }
+                    case VALUE_TYPE_F64: {
+                        double f64;
+                        JS_ToFloat64(ctx, &f64, js_value);
+                        gi->global_data_linked.f64 = f64;
+                        break;
+                    }
+                    default:
+                        break;
+                }
+                gi->is_linked = true;
+                found = true;
+                break;
+            }
+        }
+
+        JS_FreeCString(ctx, mod_name);
+        JS_FreeCString(ctx, field_name);
+        JS_FreeValue(ctx, js_value);
+
+        if (!found) {
+            return tjs_throw_wasm_error(ctx, "LinkError", "imported global not found in module");
+        }
+    }
+
+    return JS_UNDEFINED;
+}
+
 static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     size_t size;
     uint8_t *buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
@@ -621,7 +1223,9 @@ static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValue this_val, int argc, 
     m->data.size = size;
 
     char error_buf[TJS__WASM_ERROR_BUF_SIZE];
-    m->module = wasm_runtime_load(m->data.bytes, (uint32_t) size, error_buf, sizeof(error_buf));
+    LoadArgs load_args = { 0 };
+    load_args.no_resolve = true;
+    m->module = wasm_runtime_load_ex(m->data.bytes, (uint32_t) size, &load_args, error_buf, sizeof(error_buf));
     if (!m->module) {
         JS_FreeValue(ctx, obj);
         return tjs_throw_wasm_error(ctx, "CompileError", error_buf);
@@ -842,7 +1446,10 @@ static const JSCFunctionListEntry tjs_wasm_funcs[] = {
     TJS_CFUNC_DEF("getMemoryBuffer", 1, tjs_wasm_getmemorybuffer),
     TJS_CFUNC_DEF("growMemory", 2, tjs_wasm_growmemory),
     TJS_CFUNC_DEF("moduleExports", 1, tjs_wasm_moduleexports),
+    TJS_CFUNC_DEF("moduleImports", 1, tjs_wasm_moduleimports),
     TJS_CFUNC_DEF("parseModule", 1, tjs_wasm_parsemodule),
+    TJS_CFUNC_DEF("resolveGlobalImports", 2, tjs_wasm_resolveglobalimports),
+    TJS_CFUNC_DEF("resolveImports", 2, tjs_wasm_resolveimports),
     TJS_CFUNC_DEF("setGlobal", 3, tjs_wasm_setglobal),
     TJS_CFUNC_DEF("setWasiOptions", 4, tjs_wasm_setwasioptions),
 };

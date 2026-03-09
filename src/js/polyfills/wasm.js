@@ -96,13 +96,19 @@ class Module {
         return wasm.moduleExports(module[kWasmModule]);
     }
 
-    // eslint-disable-next-line no-unused-vars
     static imports(module) {
-        // TODO.
-        return {};
+        return wasm.moduleImports(module[kWasmModule]);
     }
 }
 
+/* Import support limitations:
+ * - Table imports are not supported.
+ * - Only numeric types (i32, i64, f32, f64) — no externref/funcref.
+ * - Instantiating the same Module with different importObjects reuses
+ *   the first set of imports (WAMR resolves imports at the module level).
+ *   Use WebAssembly.instantiate(bytes, imports) to get independent instances.
+ * - Multi-value returns from imported functions are not supported.
+ */
 class Instance {
     constructor(module, importObject = {}) {
         // Detect WASI in importObject via duck typing and configure it before instantiation
@@ -113,7 +119,91 @@ class Instance {
             }
         }
 
+        // Validate and collect imports from importObject
+        const moduleImports = Module.imports(module);
+        const funcDescs = [];
+        const globalDescs = [];
+        const memoryImports = [];
+
+        for (const imp of moduleImports) {
+            const ns = importObject[imp.module];
+
+            // Skip WASI imports (resolved by WAMR internally)
+            if (!ns || typeof ns !== 'object') {
+                if (imp.module.startsWith('wasi_')) {
+                    continue;
+                }
+
+                throw new LinkError(`WebAssembly.Instance(): Import #${imp.module}#${imp.name} module not found`);
+            }
+
+            // Skip WASI-like modules
+            if (typeof ns._configure === 'function') {
+                continue;
+            }
+
+            const value = ns[imp.name];
+
+            if (imp.kind === 'function') {
+                if (typeof value !== 'function') {
+                    throw new LinkError(`WebAssembly.Instance(): Import #${imp.module}#${imp.name} is not a function`);
+                }
+
+                funcDescs.push({ module: imp.module, name: imp.name, func: value });
+            } else if (imp.kind === 'global') {
+                let numValue;
+
+                if (value instanceof Global) {
+                    numValue = value.value;
+                } else if (typeof value === 'number' || typeof value === 'bigint') {
+                    numValue = value;
+                } else {
+                    throw new LinkError(`WebAssembly.Instance(): Import #${imp.module}#${imp.name} is not a global`);
+                }
+
+                globalDescs.push({ module: imp.module, name: imp.name, value: numValue });
+            } else if (imp.kind === 'memory') {
+                if (!(value instanceof Memory)) {
+                    throw new LinkError(`WebAssembly.Instance(): Import #${imp.module}#${imp.name} is not a memory`);
+                }
+
+                memoryImports.push(value);
+            }
+        }
+
+        // Register function imports before instantiation
+        if (funcDescs.length > 0) {
+            try {
+                wasm.resolveImports(module[kWasmModule], funcDescs);
+            } catch (e) {
+                if (e.wasmError) {
+                    throw getWasmError(e);
+                } else {
+                    throw e;
+                }
+            }
+        }
+
+        // Resolve global imports before instantiation
+        if (globalDescs.length > 0) {
+            try {
+                wasm.resolveGlobalImports(module[kWasmModule], globalDescs);
+            } catch (e) {
+                if (e.wasmError) {
+                    throw getWasmError(e);
+                } else {
+                    throw e;
+                }
+            }
+        }
+
         const instance = buildInstance(module[kWasmModule]);
+
+        // Wire up imported Memory objects to the WAMR instance
+        for (const mem of memoryImports) {
+            mem[kWasmMemoryInstance] = instance;
+            mem[kWasmMemoryBuffer] = null;
+        }
 
         const _exports = Module.exports(module);
         const exports = Object.create(null);
@@ -123,12 +213,14 @@ class Instance {
                 exports[item.name] = callWasmFunction.bind(instance, item.name);
             } else if (item.kind === 'memory') {
                 const mem = new Memory({ initial: 0 });
+
                 mem[kWasmMemoryInstance] = instance;
                 mem[kWasmMemoryBuffer] = null;
                 exports[item.name] = mem;
             } else if (item.kind === 'global') {
                 const info = wasm.getGlobalInfo(instance, item.name);
                 const g = new Global({ value: info.type, mutable: info.mutable }, 0);
+
                 g[kWasmGlobalInstance] = instance;
                 g[kWasmGlobalName] = item.name;
                 g[kWasmGlobalType] = info.type;
@@ -216,6 +308,7 @@ class Memory {
         }
 
         const newBuffer = new ArrayBuffer(newPages * WASM_PAGE_SIZE);
+
         new Uint8Array(newBuffer).set(new Uint8Array(this[kWasmMemoryBuffer]));
         this[kWasmMemoryBuffer] = newBuffer;
 
@@ -223,7 +316,7 @@ class Memory {
     }
 }
 
-const VALID_GLOBAL_TYPES = ['i32', 'i64', 'f32', 'f64'];
+const VALID_GLOBAL_TYPES = [ 'i32', 'i64', 'f32', 'f64' ];
 
 function coerceGlobalValue(type, v) {
     switch (type) {
@@ -256,7 +349,17 @@ class Global {
         this[kWasmGlobalName] = null;
         this[kWasmGlobalType] = type;
         this[kWasmGlobalMutable] = mutable;
-        this[kWasmGlobalValue] = coerceGlobalValue(type, value === undefined ? (type === 'i64' ? 0n : 0) : value);
+        let initialValue;
+
+        if (value !== undefined) {
+            initialValue = value;
+        } else if (type === 'i64') {
+            initialValue = 0n;
+        } else {
+            initialValue = 0;
+        }
+
+        this[kWasmGlobalValue] = coerceGlobalValue(type, initialValue);
     }
 
     get value() {
