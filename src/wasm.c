@@ -31,7 +31,6 @@
 
 #define TJS__WASM_MAX_ARGS       32
 #define TJS__WASM_ERROR_BUF_SIZE 256
-
 static JSClassID tjs_wasm_module_class_id;
 
 typedef struct {
@@ -420,65 +419,41 @@ fail:
     return JS_EXCEPTION;
 }
 
-static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSWasmInstance *i = tjs_wasm_instance_get(ctx, this_val);
-    if (!i) {
-        return JS_EXCEPTION;
-    }
-
-    const char *fname = JS_ToCString(ctx, argv[0]);
-    if (!fname) {
-        return JS_EXCEPTION;
-    }
-
-    // Lookup function
-    wasm_function_inst_t func = wasm_runtime_lookup_function(i->module_inst, fname);
-    if (!func) {
-        JS_FreeCString(ctx, fname);
-        return tjs_throw_wasm_error(ctx, "RuntimeError", "function not found");
-    }
-    JS_FreeCString(ctx, fname);
-
-    // Get function signature
-    uint32_t param_count = wasm_func_get_param_count(func, i->module_inst);
-    uint32_t result_count = wasm_func_get_result_count(func, i->module_inst);
+static JSValue tjs__call_wasm_func_inst(JSContext *ctx, TJSWasmInstance *inst,
+                                        wasm_function_inst_t func,
+                                        int argc, JSValue *argv) {
+    uint32_t param_count = wasm_func_get_param_count(func, inst->module_inst);
+    uint32_t result_count = wasm_func_get_result_count(func, inst->module_inst);
 
     if (param_count > TJS__WASM_MAX_ARGS || result_count > TJS__WASM_MAX_ARGS) {
         return tjs_throw_wasm_error(ctx, "RuntimeError", "too many parameters or results");
     }
 
-    // Get parameter types
     wasm_valkind_t param_types[TJS__WASM_MAX_ARGS];
     if (param_count > 0) {
-        wasm_func_get_param_types(func, i->module_inst, param_types);
+        wasm_func_get_param_types(func, inst->module_inst, param_types);
     }
 
-    // Convert JS arguments to wasm values
     wasm_val_t params[TJS__WASM_MAX_ARGS];
-    int nargs = argc - 1;
     for (uint32_t j = 0; j < param_count; j++) {
-        if ((int) j < nargs) {
-            if (!tjs__js_to_wasm_val(ctx, argv[j + 1], param_types[j], &params[j])) {
+        if ((int) j < argc) {
+            if (!tjs__js_to_wasm_val(ctx, argv[j], param_types[j], &params[j])) {
                 return JS_EXCEPTION;
             }
         } else {
-            // Default to 0 for missing arguments
             params[j].kind = param_types[j];
             params[j].of.i64 = 0;
         }
     }
 
-    // Prepare results
     wasm_val_t results[TJS__WASM_MAX_ARGS];
 
-    // Call the function
-    if (!wasm_runtime_call_wasm_a(i->exec_env, func, result_count, results, param_count, params)) {
-        const char *exception = wasm_runtime_get_exception(i->module_inst);
-        wasm_runtime_clear_exception(i->module_inst);
+    if (!wasm_runtime_call_wasm_a(inst->exec_env, func, result_count, results, param_count, params)) {
+        const char *exception = wasm_runtime_get_exception(inst->module_inst);
+        wasm_runtime_clear_exception(inst->module_inst);
         return tjs_throw_wasm_error(ctx, "RuntimeError", exception ? exception : "call failed");
     }
 
-    // Return results
     if (result_count == 0) {
         return JS_UNDEFINED;
     } else if (result_count == 1) {
@@ -490,6 +465,27 @@ static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValue this_val, int argc,
         }
         return rets;
     }
+}
+
+static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSWasmInstance *i = tjs_wasm_instance_get(ctx, this_val);
+    if (!i) {
+        return JS_EXCEPTION;
+    }
+
+    const char *fname = JS_ToCString(ctx, argv[0]);
+    if (!fname) {
+        return JS_EXCEPTION;
+    }
+
+    wasm_function_inst_t func = wasm_runtime_lookup_function(i->module_inst, fname);
+    if (!func) {
+        JS_FreeCString(ctx, fname);
+        return tjs_throw_wasm_error(ctx, "RuntimeError", "function not found");
+    }
+    JS_FreeCString(ctx, fname);
+
+    return tjs__call_wasm_func_inst(ctx, i, func, argc - 1, argv + 1);
 }
 
 static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -681,7 +677,7 @@ static JSValue tjs_wasm_growmemory(JSContext *ctx, JSValue this_val, int argc, J
     }
 
     if (!wasm_memory_enlarge(mem, delta)) {
-        return tjs_throw_wasm_error(ctx, "RangeError", "failed to grow memory");
+        return JS_ThrowRangeError(ctx, "failed to grow memory");
     }
 
     return JS_NewUint32(ctx, (uint32_t) old_pages);
