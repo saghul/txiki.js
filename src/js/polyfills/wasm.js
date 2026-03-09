@@ -12,6 +12,10 @@ const kWasmGlobalName = Symbol('kWasmGlobalName');
 const kWasmGlobalType = Symbol('kWasmGlobalType');
 const kWasmGlobalMutable = Symbol('kWasmGlobalMutable');
 const kWasmGlobalValue = Symbol('kWasmGlobalValue');
+const kWasmTableInstance = Symbol('kWasmTableInstance');
+const kWasmTableName = Symbol('kWasmTableName');
+const kWasmTableElement = Symbol('kWasmTableElement');
+const kWasmFuncIndex = Symbol('kWasmFuncIndex');
 
 
 class CompileError extends Error {
@@ -63,6 +67,18 @@ function callWasmFunction(name, ...args) {
     }
 }
 
+function callWasmFuncByIndex(instance, funcIndex, ...args) {
+    try {
+        return wasm.callFuncByIndex(instance, funcIndex, ...args);
+    } catch (e) {
+        if (e.wasmError) {
+            throw getWasmError(e);
+        } else {
+            throw e;
+        }
+    }
+}
+
 function buildInstance(mod) {
     try {
         return wasm.buildInstance(mod);
@@ -89,7 +105,7 @@ function parseModule(buf) {
 
 class Module {
     constructor(buf) {
-        this[kWasmModule] =  parseModule(buf);
+        this[kWasmModule] = parseModule(buf);
     }
 
     static exports(module) {
@@ -103,7 +119,9 @@ class Module {
 
 /* Import support limitations:
  * - Table imports are not supported.
- * - Only numeric types (i32, i64, f32, f64) — no externref/funcref.
+ * - externref/funcref params and returns in imported functions are not
+ *   supported due to WAMR bugs in invoke_native_raw for externref.
+ *   externref works fine for exported functions, globals, and tables.
  * - Instantiating the same Module with different importObjects reuses
  *   the first set of imports (WAMR resolves imports at the module level).
  *   Use WebAssembly.instantiate(bytes, imports) to get independent instances.
@@ -210,7 +228,14 @@ class Instance {
 
         for (const item of _exports) {
             if (item.kind === 'function') {
-                exports[item.name] = callWasmFunction.bind(instance, item.name);
+                const fn = callWasmFunction.bind(instance, item.name);
+                const funcIdx = wasm.getFuncIndex(instance, item.name);
+
+                if (funcIdx >= 0) {
+                    fn[kWasmFuncIndex] = funcIdx;
+                }
+
+                exports[item.name] = fn;
             } else if (item.kind === 'memory') {
                 const mem = new Memory({ initial: 0 });
 
@@ -219,7 +244,8 @@ class Instance {
                 exports[item.name] = mem;
             } else if (item.kind === 'global') {
                 const info = wasm.getGlobalInfo(instance, item.name);
-                const g = new Global({ value: info.type, mutable: info.mutable }, 0);
+                const gType = VALID_GLOBAL_TYPES.includes(info.type) ? info.type : 'i32';
+                const g = new Global({ value: gType, mutable: info.mutable }, 0);
 
                 g[kWasmGlobalInstance] = instance;
                 g[kWasmGlobalName] = item.name;
@@ -227,6 +253,14 @@ class Instance {
                 g[kWasmGlobalMutable] = info.mutable;
                 g[kWasmGlobalValue] = undefined;
                 exports[item.name] = g;
+            } else if (item.kind === 'table') {
+                const info = wasm.getTableInfo(instance, item.name);
+                const tbl = new Table({ element: info.element, initial: 0 });
+
+                tbl[kWasmTableInstance] = instance;
+                tbl[kWasmTableName] = item.name;
+                tbl[kWasmTableElement] = info.element;
+                exports[item.name] = tbl;
             }
         }
 
@@ -328,6 +362,8 @@ function coerceGlobalValue(type, v) {
             return Math.fround(v);
         case 'f64':
             return +v;
+        default:
+            return v;
     }
 }
 
@@ -338,8 +374,9 @@ class Global {
         }
 
         const type = descriptor.value;
+        const allTypes = [ ...VALID_GLOBAL_TYPES, 'externref', 'funcref' ];
 
-        if (!VALID_GLOBAL_TYPES.includes(type)) {
+        if (!allTypes.includes(type)) {
             throw new TypeError(`WebAssembly.Global(): Invalid type '${type}'`);
         }
 
@@ -355,6 +392,8 @@ class Global {
             initialValue = value;
         } else if (type === 'i64') {
             initialValue = 0n;
+        } else if (type === 'externref' || type === 'funcref') {
+            initialValue = null;
         } else {
             initialValue = 0;
         }
@@ -387,14 +426,130 @@ class Global {
     }
 }
 
+const VALID_TABLE_ELEMENTS = [ 'anyfunc', 'funcref', 'externref' ];
+
+class Table {
+    constructor(descriptor, _value) {
+        if (typeof descriptor !== 'object' || descriptor === null) {
+            throw new TypeError('WebAssembly.Table(): Argument 0 must be a table descriptor');
+        }
+
+        let element = descriptor.element;
+
+        if (!VALID_TABLE_ELEMENTS.includes(element)) {
+            throw new TypeError(`WebAssembly.Table(): Invalid element type '${element}'`);
+        }
+
+        // 'anyfunc' is the legacy name for 'funcref'
+        if (element === 'anyfunc') {
+            element = 'funcref';
+        }
+
+        const initial = descriptor.initial;
+
+        if (initial === undefined) {
+            throw new TypeError('WebAssembly.Table(): Property \'initial\' is required');
+        }
+
+        if (typeof initial !== 'number' || initial < 0 || initial !== (initial >>> 0)) {
+            throw new TypeError('WebAssembly.Table(): Property \'initial\' must be a non-negative integer');
+        }
+
+        const maximum = descriptor.maximum;
+
+        if (maximum !== undefined) {
+            if (typeof maximum !== 'number' || maximum < 0 || maximum !== (maximum >>> 0)) {
+                throw new TypeError('WebAssembly.Table(): Property \'maximum\' must be a non-negative integer');
+            }
+
+            if (maximum < initial) {
+                throw new RangeError('WebAssembly.Table(): Property \'maximum\' must be >= \'initial\'');
+            }
+        }
+
+        this[kWasmTableInstance] = null;
+        this[kWasmTableName] = null;
+        this[kWasmTableElement] = element;
+    }
+
+    get length() {
+        if (this[kWasmTableInstance]) {
+            return wasm.tableSize(this[kWasmTableInstance], this[kWasmTableName]);
+        }
+
+        return 0;
+    }
+
+    get(index) {
+        if (!this[kWasmTableInstance]) {
+            throw new RangeError('WebAssembly.Table.get(): Table is not backed by an instance');
+        }
+
+        const raw = wasm.tableGet(this[kWasmTableInstance], this[kWasmTableName], index);
+
+        if (this[kWasmTableElement] === 'funcref') {
+            if (raw === null) {
+                return null;
+            }
+
+            // raw is a function index; create a callable wrapper
+            const instance = this[kWasmTableInstance];
+            const funcIdx = raw;
+            const fn = (...args) => callWasmFuncByIndex(instance, funcIdx, ...args);
+
+            fn[kWasmFuncIndex] = funcIdx;
+
+            return fn;
+        }
+
+        // externref: raw is already the JS value or null
+        return raw;
+    }
+
+    set(index, value) {
+        if (!this[kWasmTableInstance]) {
+            throw new RangeError('WebAssembly.Table.set(): Table is not backed by an instance');
+        }
+
+        if (this[kWasmTableElement] === 'funcref') {
+            if (value === null) {
+                wasm.tableSet(this[kWasmTableInstance], this[kWasmTableName], index, null);
+            } else if (typeof value === 'function' && kWasmFuncIndex in value) {
+                wasm.tableSet(this[kWasmTableInstance], this[kWasmTableName], index, value[kWasmFuncIndex]);
+            } else {
+                throw new TypeError('WebAssembly.Table.set(): Argument 1 must be null or a WebAssembly function');
+            }
+        } else {
+            wasm.tableSet(this[kWasmTableInstance], this[kWasmTableName], index, value);
+        }
+    }
+
+    grow(delta) {
+        if (typeof delta !== 'number' || delta < 0 || delta !== (delta >>> 0)) {
+            throw new TypeError('WebAssembly.Table.grow(): Argument 0 must be a non-negative integer');
+        }
+
+        if (!this[kWasmTableInstance]) {
+            throw new RangeError('WebAssembly.Table.grow(): Table is not backed by an instance');
+        }
+
+        return wasm.tableGrow(this[kWasmTableInstance], this[kWasmTableName], delta);
+    }
+}
+
 class WebAssembly {
     Module = Module;
     Instance = Instance;
     Memory = Memory;
     Global = Global;
+    Table = Table;
     CompileError = CompileError;
     LinkError = LinkError;
     RuntimeError = RuntimeError;
+
+    validate(src) {
+        return wasm.validate(src);
+    }
 
     async compile(src) {
         return new Module(src);
