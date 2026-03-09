@@ -683,12 +683,167 @@ static JSValue tjs_wasm_growmemory(JSContext *ctx, JSValue this_val, int argc, J
     return JS_NewUint32(ctx, (uint32_t) old_pages);
 }
 
+static JSValue tjs_wasm_getglobal(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSWasmInstance *i = tjs_wasm_instance_get(ctx, argv[0]);
+    if (!i) {
+        return JS_EXCEPTION;
+    }
+
+    const char *name = JS_ToCString(ctx, argv[1]);
+    if (!name) {
+        return JS_EXCEPTION;
+    }
+
+    wasm_global_inst_t global_inst;
+    if (!wasm_runtime_get_export_global_inst(i->module_inst, name, &global_inst)) {
+        JS_FreeCString(ctx, name);
+        return tjs_throw_wasm_error(ctx, "RuntimeError", "global not found");
+    }
+    JS_FreeCString(ctx, name);
+
+    wasm_val_t val;
+    val.kind = global_inst.kind;
+    switch (global_inst.kind) {
+        case WASM_I32:
+            val.of.i32 = *(int32_t *) global_inst.global_data;
+            break;
+        case WASM_I64:
+            val.of.i64 = *(int64_t *) global_inst.global_data;
+            break;
+        case WASM_F32:
+            val.of.f32 = *(float *) global_inst.global_data;
+            break;
+        case WASM_F64:
+            val.of.f64 = *(double *) global_inst.global_data;
+            break;
+        default:
+            return JS_UNDEFINED;
+    }
+
+    return tjs__wasm_val_to_js(ctx, &val);
+}
+
+static JSValue tjs_wasm_setglobal(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSWasmInstance *i = tjs_wasm_instance_get(ctx, argv[0]);
+    if (!i) {
+        return JS_EXCEPTION;
+    }
+
+    const char *name = JS_ToCString(ctx, argv[1]);
+    if (!name) {
+        return JS_EXCEPTION;
+    }
+
+    wasm_global_inst_t global_inst;
+    if (!wasm_runtime_get_export_global_inst(i->module_inst, name, &global_inst)) {
+        JS_FreeCString(ctx, name);
+        return tjs_throw_wasm_error(ctx, "RuntimeError", "global not found");
+    }
+    JS_FreeCString(ctx, name);
+
+    if (!global_inst.is_mutable) {
+        return JS_ThrowTypeError(ctx, "cannot set an immutable global");
+    }
+
+    switch (global_inst.kind) {
+        case WASM_I32: {
+            int32_t v;
+            if (JS_ToInt32(ctx, &v, argv[2])) {
+                return JS_EXCEPTION;
+            }
+            *(int32_t *) global_inst.global_data = v;
+            break;
+        }
+        case WASM_I64: {
+            int64_t v;
+            if (!JS_ToBigInt64(ctx, &v, argv[2])) {
+                *(int64_t *) global_inst.global_data = v;
+                break;
+            }
+            JS_FreeValue(ctx, JS_GetException(ctx));
+            int32_t i32;
+            if (JS_ToInt32(ctx, &i32, argv[2])) {
+                return JS_EXCEPTION;
+            }
+            *(int64_t *) global_inst.global_data = i32;
+            break;
+        }
+        case WASM_F32: {
+            double f64;
+            if (JS_ToFloat64(ctx, &f64, argv[2])) {
+                return JS_EXCEPTION;
+            }
+            *(float *) global_inst.global_data = (float) f64;
+            break;
+        }
+        case WASM_F64: {
+            double f64;
+            if (JS_ToFloat64(ctx, &f64, argv[2])) {
+                return JS_EXCEPTION;
+            }
+            *(double *) global_inst.global_data = f64;
+            break;
+        }
+        default:
+            return JS_ThrowTypeError(ctx, "unsupported global type");
+    }
+
+    return JS_UNDEFINED;
+}
+
+static JSValue tjs_wasm_getglobalinfo(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSWasmInstance *i = tjs_wasm_instance_get(ctx, argv[0]);
+    if (!i) {
+        return JS_EXCEPTION;
+    }
+
+    const char *name = JS_ToCString(ctx, argv[1]);
+    if (!name) {
+        return JS_EXCEPTION;
+    }
+
+    wasm_global_inst_t global_inst;
+    if (!wasm_runtime_get_export_global_inst(i->module_inst, name, &global_inst)) {
+        JS_FreeCString(ctx, name);
+        return tjs_throw_wasm_error(ctx, "RuntimeError", "global not found");
+    }
+    JS_FreeCString(ctx, name);
+
+    const char *type_str;
+    switch (global_inst.kind) {
+        case WASM_I32:
+            type_str = "i32";
+            break;
+        case WASM_I64:
+            type_str = "i64";
+            break;
+        case WASM_F32:
+            type_str = "f32";
+            break;
+        case WASM_F64:
+            type_str = "f64";
+            break;
+        default:
+            type_str = "unknown";
+            break;
+    }
+
+    JSValue obj = JS_NewObject(ctx);
+    JS_DefinePropertyValueStr(ctx, obj, "type", JS_NewString(ctx, type_str), JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, obj, "mutable", JS_NewBool(ctx, global_inst.is_mutable), JS_PROP_C_W_E);
+
+    return obj;
+}
+
 static const JSCFunctionListEntry tjs_wasm_funcs[] = {
     TJS_CFUNC_DEF("buildInstance", 1, tjs_wasm_buildinstance),
+    TJS_CFUNC_DEF("getGlobal", 2, tjs_wasm_getglobal),
+    TJS_CFUNC_DEF("getGlobalInfo", 2, tjs_wasm_getglobalinfo),
     TJS_CFUNC_DEF("getMemoryBuffer", 1, tjs_wasm_getmemorybuffer),
     TJS_CFUNC_DEF("growMemory", 2, tjs_wasm_growmemory),
     TJS_CFUNC_DEF("moduleExports", 1, tjs_wasm_moduleexports),
     TJS_CFUNC_DEF("parseModule", 1, tjs_wasm_parsemodule),
+    TJS_CFUNC_DEF("setGlobal", 3, tjs_wasm_setglobal),
     TJS_CFUNC_DEF("setWasiOptions", 4, tjs_wasm_setwasioptions),
 };
 
