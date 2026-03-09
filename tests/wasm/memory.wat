@@ -1,0 +1,23 @@
+;; Memory operations
+
+(module
+  (memory (export "memory") 1 10)
+  (func (export "store_i32") (param $offset i32) (param $value i32)
+    (i32.store (local.get $offset) (local.get $value))
+  )
+  (func (export "load_i32") (param $offset i32) (result i32)
+    (i32.load (local.get $offset))
+  )
+  (func (export "store_i8") (param $offset i32) (param $value i32)
+    (i32.store8 (local.get $offset) (local.get $value))
+  )
+  (func (export "load_i8") (param $offset i32) (result i32)
+    (i32.load8_u (local.get $offset))
+  )
+  (func (export "mem_size") (result i32)
+    (memory.size)
+  )
+  (func (export "mem_grow") (param $pages i32) (result i32)
+    (memory.grow (local.get $pages))
+  )
+)
