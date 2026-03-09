@@ -807,7 +807,7 @@ static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc
 
     char error_buf[TJS__WASM_ERROR_BUF_SIZE];
 
-    uint32_t stack_size = 64 * 1024;
+    uint32_t stack_size = 512 * 1024;
 
     // Resolve any remaining symbols (WASI, etc.) if not already resolved
     wasm_runtime_resolve_symbols(m->module);
