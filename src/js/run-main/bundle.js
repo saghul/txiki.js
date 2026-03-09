@@ -103,7 +103,7 @@ async function ensureEsbuild(tjsHome) {
 }
 
 
-async function runEsbuild(esbuildPath, infile, outfile, minify) {
+async function runEsbuild(esbuildPath, infile, outfile, minify, extraArgs) {
     const args = [
         esbuildPath,
         infile,
@@ -118,6 +118,10 @@ async function runEsbuild(esbuildPath, infile, outfile, minify) {
 
     if (minify) {
         args.push('--minify', '--keep-names');
+    }
+
+    if (extraArgs.length > 0) {
+        args.push(...extraArgs);
     }
 
     const proc = tjs.spawn(args, {
@@ -137,6 +141,7 @@ export async function bundle(tjsHome, args) {
         infile: undefined,
         outfile: undefined,
         minify: false,
+        extraArgs: [],
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -144,6 +149,8 @@ export async function bundle(tjsHome, args) {
 
         if (arg === '--minify' || arg === '-m') {
             opts.minify = true;
+        } else if (arg.startsWith('-')) {
+            opts.extraArgs.push(arg);
         } else if (!opts.infile) {
             opts.infile = arg;
         } else if (!opts.outfile) {
@@ -163,7 +170,7 @@ export async function bundle(tjsHome, args) {
 
     const esbuildPath = await ensureEsbuild(tjsHome);
 
-    await runEsbuild(esbuildPath, opts.infile, opts.outfile, opts.minify);
+    await runEsbuild(esbuildPath, opts.infile, opts.outfile, opts.minify, opts.extraArgs);
 
     return true;
 }
