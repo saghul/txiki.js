@@ -36,7 +36,7 @@ configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h"
 )
 
-macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
+macro(xoption OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
     option(${OPTION_NAME} ${OPTION_TEXT} ${OPTION_DEFAULT})
     if(DEFINED ENV{${OPTION_NAME}})
         # Allow setting the option through an environment variable
@@ -48,7 +48,21 @@ macro(cpr_option OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
     message(STATUS "  ${OPTION_NAME}: ${${OPTION_NAME}}")
 endmacro()
 
-cpr_option(BUILD_WITH_MIMALLOC "If ON (default), build with mimalloc" ON)
+xoption(BUILD_WITH_MIMALLOC "If ON (default), build with mimalloc" ON)
+xoption(BUILD_WITH_ASAN "Build with AddressSanitizer" OFF)
+
+if(BUILD_WITH_ASAN)
+    message(STATUS "AddressSanitizer enabled")
+    if(BUILD_WITH_MIMALLOC)
+        message(FATAL_ERROR "BUILD_WITH_ASAN and BUILD_WITH_MIMALLOC cannot be used together")
+    endif()
+    if(MSVC)
+        add_compile_options(/fsanitize=address)
+    else()
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer -fno-sanitize-recover=all)
+        add_link_options(-fsanitize=address)
+    endif()
+endif()
 
 ###
 ### Core library / executables
@@ -337,3 +351,4 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU")
 endif()
 target_link_libraries(tjs PUBLIC websockets)
 target_include_directories(tjs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets/include)
+
