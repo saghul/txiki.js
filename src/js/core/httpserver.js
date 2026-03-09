@@ -9,13 +9,14 @@ const kWsUpgrade = Symbol('kWsUpgrade');
 class Server {
     #handle;
     #handler;
+    #isTLS;
 
     constructor(options) {
         if (typeof options === 'function') {
             options = { fetch: options };
         }
 
-        const { fetch: handler, port = 0, listenIp = '0.0.0.0', websocket } = options;
+        const { fetch: handler, port = 0, listenIp = '0.0.0.0', websocket, tls } = options;
 
         if (typeof handler !== 'function') {
             throw new TypeError('fetch handler must be a function');
@@ -23,10 +24,25 @@ class Server {
 
         this.#handler = handler;
 
-        const wsOpen = websocket?.open ?? null;
-        const wsMessage = websocket?.message ?? null;
-        const wsClose = websocket?.close ?? null;
-        const wsError = websocket?.error ?? null;
+        let certPem = null;
+        let keyPem = null;
+        let caPem = null;
+        let passphrase = null;
+        let requestCert = false;
+
+        if (tls) {
+            if (typeof tls.cert !== 'string' || typeof tls.key !== 'string') {
+                throw new TypeError('tls.cert and tls.key must be strings containing PEM data');
+            }
+
+            certPem = tls.cert;
+            keyPem = tls.key;
+            caPem = tls.ca ?? null;
+            passphrase = tls.passphrase ?? null;
+            requestCert = !!tls.requestCert;
+        }
+
+        this.#isTLS = !!tls;
 
         const onRequest = (requestId, method, url, headersArr, bodyBuffer, remoteAddr, isWsUpgrade) => {
             if (isWsUpgrade) {
@@ -36,7 +52,20 @@ class Server {
             }
         };
 
-        this.#handle = new HttpServer(port, listenIp, onRequest, wsOpen, wsMessage, wsClose, wsError);
+        this.#handle = new HttpServer({
+            port,
+            listenIp,
+            onRequest,
+            wsOpen: websocket?.open ?? null,
+            wsMessage: websocket?.message ?? null,
+            wsClose: websocket?.close ?? null,
+            wsError: websocket?.error ?? null,
+            certPem,
+            keyPem,
+            caPem,
+            passphrase,
+            requestCert,
+        });
     }
 
     get port() {
@@ -84,7 +113,8 @@ class Server {
     #handleWsUpgrade(upgradeId, method, url, headersArr, remoteAddr) {
         const headers = Server.#parseHeaders(headersArr);
         const host = headers.get('host') || 'localhost';
-        const fullUrl = `http://${host}${url}`;
+        const scheme = this.#isTLS ? 'https' : 'http';
+        const fullUrl = `${scheme}://${host}${url}`;
         const request = new Request(fullUrl, { method, headers });
 
         request[kWsUpgrade] = upgradeId;
@@ -100,7 +130,8 @@ class Server {
 
             // Build Request.
             const host = headers.get('host') || 'localhost';
-            const fullUrl = `http://${host}${url}`;
+            const scheme = this.#isTLS ? 'https' : 'http';
+            const fullUrl = `${scheme}://${host}${url}`;
             const requestInit = { method, headers };
 
             if (bodyBuffer && bodyBuffer.byteLength > 0 && method !== 'GET' && method !== 'HEAD') {

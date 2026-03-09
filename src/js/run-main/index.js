@@ -111,7 +111,11 @@ The file must default export an object with a fetch method:
 
 Options:
   -p, --port PORT
-        Port to listen on (default: 8000)`;
+        Port to listen on (default: 8000)
+  --tls-cert FILE
+        Path to TLS certificate PEM file
+  --tls-key FILE
+        Path to TLS private key PEM file`;
 
 // First, let's check if this is a standalone binary.
 await (async () => {
@@ -221,7 +225,7 @@ if (options.help) {
     } else if (command === 'serve') {
         const serveOpts = getopts(subargv, {
             alias: { port: 'p' },
-            string: [ 'p' ],
+            string: [ 'p', 'tls-cert', 'tls-key' ],
         });
 
         const [ filename ] = serveOpts._;
@@ -232,6 +236,24 @@ if (options.help) {
 
         const port = serveOpts.port ? parseNumberOption(serveOpts.port, 'port') : 8000;
 
+        const tlsCertPath = serveOpts['tls-cert'];
+        const tlsKeyPath = serveOpts['tls-key'];
+
+        if ((tlsCertPath && !tlsKeyPath) || (!tlsCertPath && tlsKeyPath)) {
+            throw 'Both --tls-cert and --tls-key must be specified';
+        }
+
+        let tls;
+
+        if (tlsCertPath && tlsKeyPath) {
+            const decoder = new TextDecoder();
+
+            tls = {
+                cert: decoder.decode(await tjs.readFile(tlsCertPath)),
+                key: decoder.decode(await tjs.readFile(tlsKeyPath)),
+            };
+        }
+
         const mod = await import(path.resolve(filename));
         const handler = mod.default?.fetch;
 
@@ -239,9 +261,11 @@ if (options.help) {
             throw 'Module must default export an object with a fetch method';
         }
 
-        const server = tjs.serve({ fetch: handler, port, websocket: mod.default.websocket });
+        const server = tjs.serve({ fetch: handler, port, tls, websocket: mod.default.websocket });
 
-        console.log(`Listening on http://localhost:${server.port}/`);
+        const scheme = tls ? 'https' : 'http';
+
+        console.log(`Listening on ${scheme}://localhost:${server.port}/`);
     } else if (command === 'bundle') {
         const ok = await bundle(TJS_HOME, subargv);
 

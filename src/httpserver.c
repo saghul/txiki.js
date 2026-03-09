@@ -25,6 +25,7 @@
 #include "../deps/quickjs/list.h"
 #include "hash.h"
 #include "private.h"
+#include "utils.h"
 
 #include <string.h>
 
@@ -133,6 +134,11 @@ typedef struct {
      * protocol matching and Sec-WebSocket-Protocol response header work
      * correctly.  Reset in LWS_CALLBACK_ESTABLISHED / rejection. */
     char ws_protocol_name[256];
+    /* TLS data, kept alive for the lifetime of the vhost. */
+    char *ssl_cert_mem;
+    char *ssl_key_mem;
+    char *ssl_ca_mem;
+    char *ssl_passphrase;
 } TJSHttpServer;
 
 static JSClassID tjs_httpserver_class_id;
@@ -227,6 +233,11 @@ static void tjs_httpserver_finalizer(JSRuntime *rt, JSValue val) {
             ws->this_val = JS_UNDEFINED;
             JS_FreeValueRT(rt, cls_val);
         }
+
+        js_free_rt(rt, s->ssl_cert_mem);
+        js_free_rt(rt, s->ssl_key_mem);
+        js_free_rt(rt, s->ssl_ca_mem);
+        js_free_rt(rt, s->ssl_passphrase);
 
         js_free_rt(rt, s);
     }
@@ -948,7 +959,21 @@ static JSValue tjs_httpserver_accept_upgrade(JSContext *ctx, JSValue this_val, i
 }
 
 /*
- * HttpServer constructor: new HttpServer(port, listenIp, callback, wsOpen, wsMessage, wsClose, wsError)
+ * HttpServer constructor: new HttpServer(options)
+ *
+ * Options object (constructed by JS layer, properties are guaranteed):
+ *   port: number
+ *   listenIp: string
+ *   onRequest: function
+ *   wsOpen: function | null
+ *   wsMessage: function | null
+ *   wsClose: function | null
+ *   wsError: function | null
+ *   certPem: string | null  (TLS certificate PEM)
+ *   keyPem: string | null   (TLS private key PEM)
+ *   caPem: string | null    (TLS CA certificate PEM, for client cert verification)
+ *   passphrase: string | null (passphrase for encrypted private key)
+ *   requestCert: boolean    (require client certificate)
  */
 static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
     JSValue obj = JS_NewObjectClass(ctx, tjs_httpserver_class_id);
@@ -969,39 +994,80 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         s->ws_callbacks[i] = JS_UNDEFINED;
     }
     s->active_requests = NULL;
+    s->ssl_cert_mem = NULL;
+    s->ssl_key_mem = NULL;
+    s->ssl_ca_mem = NULL;
+    s->ssl_passphrase = NULL;
 
-    /* Parse arguments. */
+    JSValue options = argv[0];
+
+    /* Required properties — JS layer guarantees these. */
+    JSValue js_port = JS_GetPropertyStr(ctx, options, "port");
     int port;
-    if (JS_ToInt32(ctx, &port, argv[0])) {
-        js_free(ctx, s);
-        JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
-    }
+    CHECK_EQ(JS_ToInt32(ctx, &port, js_port), 0);
+    JS_FreeValue(ctx, js_port);
 
-    const char *listen_ip = JS_ToCString(ctx, argv[1]);
-    if (!listen_ip) {
-        js_free(ctx, s);
-        JS_FreeValue(ctx, obj);
-        return JS_EXCEPTION;
-    }
+    JSValue js_listen_ip = JS_GetPropertyStr(ctx, options, "listenIp");
+    const char *listen_ip = JS_ToCString(ctx, js_listen_ip);
+    CHECK_NOT_NULL(listen_ip);
+    JS_FreeValue(ctx, js_listen_ip);
 
-    if (!JS_IsFunction(ctx, argv[2])) {
-        JS_FreeCString(ctx, listen_ip);
-        js_free(ctx, s);
-        JS_FreeValue(ctx, obj);
-        return JS_ThrowTypeError(ctx, "callback must be a function");
-    }
-
-    s->callback = JS_DupValue(ctx, argv[2]);
+    JSValue js_callback = JS_GetPropertyStr(ctx, options, "onRequest");
+    CHECK(JS_IsFunction(ctx, js_callback));
+    s->callback = js_callback; /* already a new reference from GetPropertyStr */
     s->port = port;
 
-    /* Store WS callbacks (argv[3..6]: open, message, close, error). */
+    /* WS callbacks (may be null). */
+    static const char *ws_prop_names[] = { "wsOpen", "wsMessage", "wsClose", "wsError" };
     for (int i = 0; i < WS_EVENT_MAX; i++) {
-        int arg_idx = 3 + i;
-        if (arg_idx < argc && JS_IsFunction(ctx, argv[arg_idx])) {
-            s->ws_callbacks[i] = JS_DupValue(ctx, argv[arg_idx]);
+        JSValue cb = JS_GetPropertyStr(ctx, options, ws_prop_names[i]);
+        if (JS_IsFunction(ctx, cb)) {
+            s->ws_callbacks[i] = cb;
+        } else {
+            JS_FreeValue(ctx, cb);
         }
     }
+
+    /* Optional TLS options. */
+    JSValue js_cert = JS_GetPropertyStr(ctx, options, "certPem");
+    JSValue js_key = JS_GetPropertyStr(ctx, options, "keyPem");
+
+    bool use_tls = JS_IsString(js_cert) && JS_IsString(js_key);
+
+    if (use_tls) {
+        const char *cert_str = JS_ToCString(ctx, js_cert);
+        const char *key_str = JS_ToCString(ctx, js_key);
+        CHECK_NOT_NULL(cert_str);
+        CHECK_NOT_NULL(key_str);
+
+        s->ssl_cert_mem = js_strdup(ctx, cert_str);
+        s->ssl_key_mem = js_strdup(ctx, key_str);
+        JS_FreeCString(ctx, cert_str);
+        JS_FreeCString(ctx, key_str);
+
+        /* CA certificate for client cert verification. */
+        JSValue js_ca = JS_GetPropertyStr(ctx, options, "caPem");
+        if (JS_IsString(js_ca)) {
+            const char *ca_str = JS_ToCString(ctx, js_ca);
+            CHECK_NOT_NULL(ca_str);
+            s->ssl_ca_mem = js_strdup(ctx, ca_str);
+            JS_FreeCString(ctx, ca_str);
+        }
+        JS_FreeValue(ctx, js_ca);
+
+        /* Passphrase for encrypted private key. */
+        JSValue js_passphrase = JS_GetPropertyStr(ctx, options, "passphrase");
+        if (JS_IsString(js_passphrase)) {
+            const char *pp_str = JS_ToCString(ctx, js_passphrase);
+            CHECK_NOT_NULL(pp_str);
+            s->ssl_passphrase = js_strdup(ctx, pp_str);
+            JS_FreeCString(ctx, pp_str);
+        }
+        JS_FreeValue(ctx, js_passphrase);
+    }
+
+    JS_FreeValue(ctx, js_cert);
+    JS_FreeValue(ctx, js_key);
 
     strncpy(s->ws_protocol_name, TJS_HTTP_PROTOCOL_NAME, sizeof(s->ws_protocol_name));
 
@@ -1030,6 +1096,31 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     vhost_info.user = s;
     vhost_info.vhost_name = "tjs-http-server";
     vhost_info.options = 0;
+
+    /* Configure TLS if cert/key were provided. */
+    if (use_tls) {
+        vhost_info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+        vhost_info.server_ssl_cert_mem = s->ssl_cert_mem;
+        vhost_info.server_ssl_cert_mem_len = (unsigned int) strlen(s->ssl_cert_mem);
+        vhost_info.server_ssl_private_key_mem = s->ssl_key_mem;
+        vhost_info.server_ssl_private_key_mem_len = (unsigned int) strlen(s->ssl_key_mem);
+
+        if (s->ssl_ca_mem) {
+            vhost_info.server_ssl_ca_mem = s->ssl_ca_mem;
+            vhost_info.server_ssl_ca_mem_len = (unsigned int) strlen(s->ssl_ca_mem);
+        }
+
+        if (s->ssl_passphrase) {
+            vhost_info.ssl_private_key_password = s->ssl_passphrase;
+        }
+
+        /* Client certificate requirement. */
+        JSValue js_request_cert = JS_GetPropertyStr(ctx, options, "requestCert");
+        if (JS_ToBool(ctx, js_request_cert)) {
+            vhost_info.options |= LWS_SERVER_OPTION_REQUIRE_VALID_OPENSSL_CLIENT_CERT;
+        }
+        JS_FreeValue(ctx, js_request_cert);
+    }
 
     s->vhost = lws_create_vhost(lws_ctx, &vhost_info);
 
@@ -1604,6 +1695,6 @@ void tjs__mod_httpserver_init(JSContext *ctx, JSValue ns) {
     JS_SetClassProto(ctx, tjs_httpserver_class_id, proto);
 
     /* HttpServer constructor */
-    obj = JS_NewCFunction2(ctx, tjs_httpserver_constructor, "HttpServer", 7, JS_CFUNC_constructor, 0);
+    obj = JS_NewCFunction2(ctx, tjs_httpserver_constructor, "HttpServer", 1, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx, ns, "HttpServer", obj, JS_PROP_C_W_E);
 }
