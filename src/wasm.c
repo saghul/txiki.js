@@ -507,12 +507,10 @@ static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc
 
     char error_buf[TJS__WASM_ERROR_BUF_SIZE];
 
-    // Set default stack and heap sizes
-    uint32_t stack_size = 64 * 1024;  // 64KB stack
-    uint32_t heap_size = 512 * 1024;  // 512KB heap
+    uint32_t stack_size = 64 * 1024;
 
     // Instantiate the module
-    i->module_inst = wasm_runtime_instantiate(m->module, stack_size, heap_size, error_buf, sizeof(error_buf));
+    i->module_inst = wasm_runtime_instantiate(m->module, stack_size, 0, error_buf, sizeof(error_buf));
     if (!i->module_inst) {
         JS_FreeValue(ctx, obj);
         return tjs_throw_wasm_error(ctx, "LinkError", error_buf);
@@ -551,16 +549,31 @@ static JSValue tjs_wasm_moduleexports(JSContext *ctx, JSValue this_val, int argc
         wasm_export_t export_type;
         wasm_runtime_get_export_type(m->module, idx, &export_type);
 
-        if (export_type.kind == WASM_IMPORT_EXPORT_KIND_FUNC) {
+        const char *kind_str = NULL;
+
+        switch (export_type.kind) {
+            case WASM_IMPORT_EXPORT_KIND_FUNC:
+                kind_str = "function";
+                break;
+            case WASM_IMPORT_EXPORT_KIND_MEMORY:
+                kind_str = "memory";
+                break;
+            case WASM_IMPORT_EXPORT_KIND_TABLE:
+                kind_str = "table";
+                break;
+            case WASM_IMPORT_EXPORT_KIND_GLOBAL:
+                kind_str = "global";
+                break;
+        }
+
+        if (kind_str) {
             JSValue item = JS_NewObjectProto(ctx, JS_NULL);
             JS_DefinePropertyValueStr(ctx, item, "name", JS_NewString(ctx, export_type.name), JS_PROP_C_W_E);
-            JS_DefinePropertyValueStr(ctx, item, "kind", JS_NewString(ctx, "function"), JS_PROP_C_W_E);
+            JS_DefinePropertyValueStr(ctx, item, "kind", JS_NewString(ctx, kind_str), JS_PROP_C_W_E);
             JS_DefinePropertyValueUint32(ctx, exports, j, item, JS_PROP_C_W_E);
             j++;
         }
     }
-
-    // TODO: other export types (memory, table, global)
 
     return exports;
 }
@@ -621,8 +634,63 @@ static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValue this_val, int argc, 
     return obj;
 }
 
+/* No-op free function: WAMR owns the memory, not JS */
+static void tjs__wasm_memory_free(JSRuntime *rt, void *opaque, void *ptr) {
+    /* intentionally empty */
+}
+
+static JSValue tjs_wasm_getmemorybuffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSWasmInstance *i = tjs_wasm_instance_get(ctx, argv[0]);
+    if (!i) {
+        return JS_EXCEPTION;
+    }
+
+    wasm_memory_inst_t mem = wasm_runtime_get_default_memory(i->module_inst);
+    if (!mem) {
+        return tjs_throw_wasm_error(ctx, "RuntimeError", "no memory instance");
+    }
+
+    void *base = wasm_memory_get_base_address(mem);
+    uint64_t page_count = wasm_memory_get_cur_page_count(mem);
+    uint64_t bytes_per_page = wasm_memory_get_bytes_per_page(mem);
+    size_t byte_length = (size_t) (page_count * bytes_per_page);
+
+    return JS_NewArrayBuffer(ctx, (uint8_t *) base, byte_length, tjs__wasm_memory_free, NULL, false);
+}
+
+static JSValue tjs_wasm_growmemory(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSWasmInstance *i = tjs_wasm_instance_get(ctx, argv[0]);
+    if (!i) {
+        return JS_EXCEPTION;
+    }
+
+    uint32_t delta;
+    if (JS_ToUint32(ctx, &delta, argv[1])) {
+        return JS_EXCEPTION;
+    }
+
+    wasm_memory_inst_t mem = wasm_runtime_get_default_memory(i->module_inst);
+    if (!mem) {
+        return tjs_throw_wasm_error(ctx, "RuntimeError", "no memory instance");
+    }
+
+    uint64_t old_pages = wasm_memory_get_cur_page_count(mem);
+
+    if (delta == 0) {
+        return JS_NewUint32(ctx, (uint32_t) old_pages);
+    }
+
+    if (!wasm_memory_enlarge(mem, delta)) {
+        return tjs_throw_wasm_error(ctx, "RangeError", "failed to grow memory");
+    }
+
+    return JS_NewUint32(ctx, (uint32_t) old_pages);
+}
+
 static const JSCFunctionListEntry tjs_wasm_funcs[] = {
     TJS_CFUNC_DEF("buildInstance", 1, tjs_wasm_buildinstance),
+    TJS_CFUNC_DEF("getMemoryBuffer", 1, tjs_wasm_getmemorybuffer),
+    TJS_CFUNC_DEF("growMemory", 2, tjs_wasm_growmemory),
     TJS_CFUNC_DEF("moduleExports", 1, tjs_wasm_moduleexports),
     TJS_CFUNC_DEF("parseModule", 1, tjs_wasm_parsemodule),
     TJS_CFUNC_DEF("setWasiOptions", 4, tjs_wasm_setwasioptions),

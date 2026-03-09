@@ -5,6 +5,8 @@ const kWasmModule = Symbol('kWasmModule');
 const kWasmModuleRef = Symbol('kWasmModuleRef');
 const kWasmExports = Symbol('kWasmExports');
 const kWasmInstance = Symbol('kWasmInstance');
+const kWasmMemoryInstance = Symbol('kWasmMemoryInstance');
+const kWasmMemoryBuffer = Symbol('kWasmMemoryBuffer');
 
 
 class CompileError extends Error {
@@ -114,6 +116,11 @@ class Instance {
         for (const item of _exports) {
             if (item.kind === 'function') {
                 exports[item.name] = callWasmFunction.bind(instance, item.name);
+            } else if (item.kind === 'memory') {
+                const mem = new Memory({ initial: 0 });
+                mem[kWasmMemoryInstance] = instance;
+                mem[kWasmMemoryBuffer] = null;
+                exports[item.name] = mem;
             }
         }
 
@@ -127,9 +134,85 @@ class Instance {
     }
 }
 
+const WASM_PAGE_SIZE = 65536;
+
+class Memory {
+    constructor(descriptor) {
+        if (typeof descriptor !== 'object' || descriptor === null) {
+            throw new TypeError('WebAssembly.Memory(): Argument 0 must be a memory descriptor');
+        }
+
+        const initial = descriptor.initial;
+
+        if (initial === undefined) {
+            throw new TypeError('WebAssembly.Memory(): Property \'initial\' is required');
+        }
+
+        if (typeof initial !== 'number' || initial < 0 || initial !== (initial >>> 0)) {
+            throw new TypeError('WebAssembly.Memory(): Property \'initial\' must be a non-negative integer');
+        }
+
+        const maximum = descriptor.maximum;
+
+        if (maximum !== undefined) {
+            if (typeof maximum !== 'number' || maximum < 0 || maximum !== (maximum >>> 0)) {
+                throw new TypeError('WebAssembly.Memory(): Property \'maximum\' must be a non-negative integer');
+            }
+
+            if (maximum < initial) {
+                throw new RangeError('WebAssembly.Memory(): Property \'maximum\' must be >= \'initial\'');
+            }
+        }
+
+        // Store the descriptor for standalone Memory objects (not yet backed by WASM instance).
+        // The actual WAMR memory is created when the module is instantiated.
+        // For standalone use, we create a plain ArrayBuffer.
+        this[kWasmMemoryInstance] = null;
+        this[kWasmMemoryBuffer] = new ArrayBuffer(initial * WASM_PAGE_SIZE);
+        this._initial = initial;
+        this._maximum = maximum;
+    }
+
+    get buffer() {
+        if (this[kWasmMemoryInstance]) {
+            // Backed by a WASM instance — get the live buffer
+            return wasm.getMemoryBuffer(this[kWasmMemoryInstance]);
+        }
+
+        return this[kWasmMemoryBuffer];
+    }
+
+    grow(delta) {
+        if (typeof delta !== 'number' || delta < 0 || delta !== (delta >>> 0)) {
+            throw new TypeError('WebAssembly.Memory.grow(): Argument 0 must be a non-negative integer');
+        }
+
+        if (this[kWasmMemoryInstance]) {
+            // Backed by a WASM instance
+            return wasm.growMemory(this[kWasmMemoryInstance], delta);
+        }
+
+        // Standalone memory
+        const oldByteLength = this[kWasmMemoryBuffer].byteLength;
+        const oldPages = oldByteLength / WASM_PAGE_SIZE;
+        const newPages = oldPages + delta;
+
+        if (this._maximum !== undefined && newPages > this._maximum) {
+            throw new RangeError('WebAssembly.Memory.grow(): Maximum memory size exceeded');
+        }
+
+        const newBuffer = new ArrayBuffer(newPages * WASM_PAGE_SIZE);
+        new Uint8Array(newBuffer).set(new Uint8Array(this[kWasmMemoryBuffer]));
+        this[kWasmMemoryBuffer] = newBuffer;
+
+        return oldPages;
+    }
+}
+
 class WebAssembly {
     Module = Module;
     Instance = Instance;
+    Memory = Memory;
     CompileError = CompileError;
     LinkError = LinkError;
     RuntimeError = RuntimeError;
