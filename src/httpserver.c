@@ -847,8 +847,9 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             /* lws is fully done with this vhost/protocol. Release the
              * GC-prevention self-reference so the object can be collected. */
             if (!JS_IsUndefined(s->this_val)) {
-                JS_FreeValue(s->ctx, s->this_val);
+                JSValue this_val = s->this_val;
                 s->this_val = JS_UNDEFINED;
+                JS_FreeValue(s->ctx, this_val);
             }
             return 0;
         }
