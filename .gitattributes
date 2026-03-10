@@ -1,3 +1,6 @@
 # Ignore changes in bundle files when doing git diff
 
 src/bundles/** -diff
+
+# Keep PEM files with LF line endings on all platforms
+*.pem text eol=lf

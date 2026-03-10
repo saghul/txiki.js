@@ -28,6 +28,14 @@ try {
 core.setCookieJarPath(path.join(TJS_HOME, 'cookies.txt'));
 
 /**
+ * CA bundle override.
+ * Precedence: --tls-ca > TJS_CA_BUNDLE > SSL_CERT_FILE > embedded bundle.
+ * The value is applied later in option parsing, but we resolve the env
+ * var fallback here so it's available regardless of subcommand.
+ */
+const TJS_CA_BUNDLE = tjs.env.TJS_CA_BUNDLE ?? tjs.env.SSL_CERT_FILE ?? null;
+
+/**
  * Trailer for standalone binaries. When some code gets bundled with the tjs
  * executable we add a 12 byte trailer. The first 8 bytes are the magic
  * string that helps us understand this is a standalone binary, and the
@@ -61,6 +69,10 @@ Options:
 
   --wasm-stack-size SIZE
         Set the WebAssembly stack size (default: 524288)
+
+  --tls-ca FILE
+        Path to a custom CA bundle PEM file
+        (env: TJS_CA_BUNDLE, SSL_CERT_FILE)
 
 Subcommands:
   run
@@ -158,7 +170,7 @@ const options = getopts(tjs.args.slice(1), {
         version: 'v'
     },
     boolean: [ 'h', 'v' ],
-    string: [ 'e' ],
+    string: [ 'e', 'tls-ca' ],
     stopEarly: true,
     unknown: option => {
         if (![ 'memory-limit', 'stack-size', 'wasm-stack-size' ].includes(option)) {
@@ -189,6 +201,12 @@ if (options.help) {
 
     if (typeof wasmStackSize !== 'undefined') {
         core.setWasmStackSize(parseNumberOption(wasmStackSize, 'wasm-stack-size'));
+    }
+
+    const caBundlePath = options['tls-ca'] || TJS_CA_BUNDLE;
+
+    if (caBundlePath) {
+        core.setCABundlePath(path.resolve(caBundlePath));
     }
 
     const [ command, ...subargv ] = options._;

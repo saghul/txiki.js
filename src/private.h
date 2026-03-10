@@ -75,6 +75,9 @@ struct TJSRuntime {
     struct {
         struct lws_context *ctx;
         char *cookie_jar_path;
+        char *ca_bundle_path;
+        uint8_t *ca_bundle_data;
+        unsigned int ca_bundle_len;
         uv_async_t keepalive;
         int active_conns;
     } lws;

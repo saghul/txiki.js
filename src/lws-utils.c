@@ -152,6 +152,34 @@ static void *tjs__lws_realloc(void *ptr, size_t size, const char *reason) {
     return tjs__realloc(ptr, size);
 }
 
+static void tjs__load_ca_bundle(TJSRuntime *qrt) {
+    if (qrt->lws.ca_bundle_data || !qrt->lws.ca_bundle_path) {
+        return;
+    }
+
+    TBuf dbuf;
+    tbuf_init(qrt->ctx, &dbuf);
+
+    if (tjs__load_file(qrt->ctx, &dbuf, qrt->lws.ca_bundle_path) == 0 && dbuf.size > 0) {
+        qrt->lws.ca_bundle_data = dbuf.buf;
+        qrt->lws.ca_bundle_len = (unsigned int) dbuf.size;
+    } else {
+        tbuf_free(&dbuf);
+    }
+}
+
+static void tjs__set_ca_info(TJSRuntime *qrt, struct lws_context_creation_info *info) {
+    tjs__load_ca_bundle(qrt);
+
+    if (qrt->lws.ca_bundle_data) {
+        info->client_ssl_ca_mem = qrt->lws.ca_bundle_data;
+        info->client_ssl_ca_mem_len = qrt->lws.ca_bundle_len;
+    } else {
+        info->client_ssl_ca_mem = tjs_cacert_pem;
+        info->client_ssl_ca_mem_len = TJS_CACERT_PEM_LEN;
+    }
+}
+
 void tjs__lws_init(TJSRuntime *qrt) {
     const struct lws_protocols protocols[] = {
         tjs_http_protocol,
@@ -170,9 +198,8 @@ void tjs__lws_init(TJSRuntime *qrt) {
     void *foreign_loops[1] = { &qrt->loop };
     info.foreign_loops = foreign_loops;
 
-    /* Embedded CA certificates for TLS. */
-    info.client_ssl_ca_mem = tjs_cacert_pem;
-    info.client_ssl_ca_mem_len = TJS_CACERT_PEM_LEN;
+    /* CA certificates for TLS. */
+    tjs__set_ca_info(qrt, &info);
 
     /* Cookie jar path is set from JS via core.setCookieJarPath. */
     CHECK_NOT_NULL(qrt->lws.cookie_jar_path);
@@ -278,8 +305,8 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
     info.port = CONTEXT_PORT_NO_LISTEN;
     info.protocols = protocols;
     info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
-    info.client_ssl_ca_mem = tjs_cacert_pem;
-    info.client_ssl_ca_mem_len = TJS_CACERT_PEM_LEN;
+
+    tjs__set_ca_info(qrt, &info);
 
     lws_set_log_level(0, NULL);
 
