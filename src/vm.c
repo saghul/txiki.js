@@ -140,6 +140,23 @@ static JSValue tjs__set_cookie_jar_path(JSContext *ctx, JSValue this_val, int ar
     return JS_UNDEFINED;
 }
 
+static JSValue tjs__set_ca_bundle_path(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+
+    CHECK_EQ(qrt->lws.ca_bundle_path, NULL);
+
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path) {
+        return JS_EXCEPTION;
+    }
+
+    qrt->lws.ca_bundle_path = js_strdup(ctx, path);
+    JS_FreeCString(ctx, path);
+
+    return JS_UNDEFINED;
+}
+
 static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
     tjs__mod_engine_init(ctx, ns);
@@ -174,6 +191,11 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
                               ns,
                               "setCookieJarPath",
                               JS_NewCFunction(ctx, tjs__set_cookie_jar_path, "setCookieJarPath", 1),
+                              JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx,
+                              ns,
+                              "setCABundlePath",
+                              JS_NewCFunction(ctx, tjs__set_ca_bundle_path, "setCABundlePath", 1),
                               JS_PROP_C_W_E);
 }
 
@@ -416,6 +438,10 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     }
     js_free(qrt->ctx, qrt->lws.cookie_jar_path);
     qrt->lws.cookie_jar_path = NULL;
+    js_free(qrt->ctx, qrt->lws.ca_bundle_path);
+    qrt->lws.ca_bundle_path = NULL;
+    js_free(qrt->ctx, qrt->lws.ca_bundle_data);
+    qrt->lws.ca_bundle_data = NULL;
 
     /* Drain any pending lws close callbacks. */
     uv_run(&qrt->loop, UV_RUN_NOWAIT);
