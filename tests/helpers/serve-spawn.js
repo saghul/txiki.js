@@ -4,9 +4,11 @@ import path from 'tjs:path';
 const helpersDir = import.meta.dirname;
 
 export async function spawnServe(filename, extraArgs = []) {
+    const hasPort = extraArgs.some(a => a === '-p' || a === '--port');
     const args = [
         tjs.exePath,
         'serve',
+        ...hasPort ? [] : [ '--port', '0' ],
         ...extraArgs,
         path.join(helpersDir, filename),
     ];
