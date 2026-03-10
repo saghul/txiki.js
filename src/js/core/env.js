@@ -4,6 +4,17 @@ const env = new Proxy({}, {
     ownKeys() {
         return core.envKeys();
     },
+    getOwnPropertyDescriptor(_, prop) {
+        if (typeof prop === 'string') {
+            try {
+                const val = core.getenv(prop);
+
+                return { value: val, writable: true, enumerable: true, configurable: true };
+            } catch (_) { /* Ignored. */ }
+        }
+
+        return undefined;
+    },
     get(_, prop) {
         if (prop === Symbol.toStringTag) {
             return JSON.stringify(core.environ(), null, 2);
@@ -28,7 +39,7 @@ const env = new Proxy({}, {
         return true;
     },
     has(_, key) {
-        return key in core.envKeys();
+        return core.envKeys().includes(key);
     }
 });
 
