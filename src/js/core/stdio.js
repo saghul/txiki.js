@@ -77,6 +77,10 @@ class StdioReadableStream extends ReadableStream {
 
                     handle.onread = null;
                     state.closed = true;
+
+                    // Don't let the handle keep the event loop alive
+                    // now that reading is done.
+                    handle.unref();
                 }
             });
         }

@@ -218,6 +218,30 @@ static JSValue tjs_stream_stop_read(JSContext *ctx, JSValue this_val, int argc, 
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_stream_ref(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    JSClassID class_id;
+    TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
+    if (!s) {
+        return JS_EXCEPTION;
+    }
+    if (!uv_is_closing(&s->h.handle)) {
+        uv_ref(&s->h.handle);
+    }
+    return JS_UNDEFINED;
+}
+
+static JSValue tjs_stream_unref(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    JSClassID class_id;
+    TJSStream *s = JS_GetAnyOpaque(this_val, &class_id);
+    if (!s) {
+        return JS_EXCEPTION;
+    }
+    if (!uv_is_closing(&s->h.handle)) {
+        uv_unref(&s->h.handle);
+    }
+    return JS_UNDEFINED;
+}
+
 static void uv__stream_write_cb(uv_write_t *req, int status) {
     TJSStream *s = req->handle->data;
     CHECK_NOT_NULL(s);
@@ -935,6 +959,8 @@ static const JSCFunctionListEntry tjs_stream_proto_funcs[] = {
     TJS_CFUNC_DEF("close", 0, tjs_stream_close),
     TJS_CFUNC_DEF("write", 1, tjs_stream_write),
     TJS_CFUNC_DEF("fileno", 0, tjs_stream_fileno),
+    TJS_CFUNC_DEF("ref", 0, tjs_stream_ref),
+    TJS_CFUNC_DEF("unref", 0, tjs_stream_unref),
 };
 /* clang-format on */
 
