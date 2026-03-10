@@ -829,6 +829,14 @@ static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc
         return JS_ThrowOutOfMemory(ctx);
     }
 
+#ifdef TJS__HAS_ASAN
+    // ASAN moves local variables to a fake stack, which breaks WAMR's
+    // native stack overflow check (it compares &local against the real
+    // thread stack boundary — addresses in completely different regions).
+    // Disable the check; OS guard pages still catch real overflows.
+    wasm_runtime_set_native_stack_boundary(i->exec_env, (uint8_t *) 1);
+#endif
+
     // Set user data so the import trampoline can find the instance
     wasm_runtime_set_user_data(i->exec_env, i);
 
