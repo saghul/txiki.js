@@ -70,6 +70,7 @@ struct TJSRuntime {
     bool freeing;
     struct {
         bool initialized;
+        uint32_t stack_size;
     } wasm_ctx;
     struct {
         struct lws_context *ctx;

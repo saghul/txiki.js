@@ -202,7 +202,7 @@ jobs:
     - name: Download esbuild
       run: ./build/tjs bundle tests/helpers/bundle-input.js /tmp/warm.js && rm -f /tmp/warm.js
     - name: Test
-      run: ./build/tjs --stack-size 8388608 test tests/
+      run: ./build/tjs --stack-size 8388608 --wasm-stack-size 2097152 test tests/
   asan-macos:
     name: ASAN (macOS)
     runs-on: macos-15
@@ -222,7 +222,7 @@ jobs:
     - name: Download esbuild
       run: ./build/tjs bundle tests/helpers/bundle-input.js /tmp/warm.js && rm -f /tmp/warm.js
     - name: Test
-      run: ./build/tjs --stack-size 8388608 test tests/
+      run: ./build/tjs --stack-size 8388608 --wasm-stack-size 2097152 test tests/
   asan-windows:
     name: ASAN (Windows)
     runs-on: windows-latest
@@ -254,8 +254,9 @@ jobs:
     - name: Test
       env:
         ASAN_OPTIONS: detect_leaks=0
+        TJS_TEST_TIMEOUT: "120000"
       run: |
         $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
         $clangDir = Get-ChildItem "$vsPath\VC\Tools\MSVC\*\bin\Hostx64\x64" -Directory | Select-Object -Last 1
         $env:PATH = "$clangDir;${{ github.workspace }}\build\RelWithDebInfo;${{ github.workspace }}\vcpkg\installed\x64-windows\bin;$env:PATH"
-        .\build\RelWithDebInfo\tjs.exe --stack-size 8388608 test tests/
+        .\build\RelWithDebInfo\tjs.exe --stack-size 8388608 --wasm-stack-size 2097152 test tests/
