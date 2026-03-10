@@ -561,6 +561,39 @@ class WebAssembly {
 
         return { module, instance };
     }
+
+    async compileStreaming(source) {
+        const response = await source;
+
+        if (!(response instanceof Response)) {
+            throw new TypeError(
+                'WebAssembly.compileStreaming requires a Response object or a promise resolving to one',
+            );
+        }
+
+        if (!response.ok) {
+            throw new TypeError(`WebAssembly.compileStreaming failed: HTTP status code ${response.status}`);
+        }
+
+        const contentType = response.headers.get('content-type');
+
+        if (contentType && !contentType.includes('application/wasm')) {
+            throw new TypeError(
+                `WebAssembly.compileStreaming requires content type application/wasm, got ${contentType}`,
+            );
+        }
+
+        const bytes = await response.arrayBuffer();
+
+        return this.compile(bytes);
+    }
+
+    async instantiateStreaming(source, importObject) {
+        const module = await this.compileStreaming(source);
+        const instance = new Instance(module, importObject);
+
+        return { module, instance };
+    }
 }
 
 
