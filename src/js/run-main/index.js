@@ -59,6 +59,9 @@ Options:
   --stack-size STACKSIZE
         Set the maximum JavaScript stack size
 
+  --wasm-stack-size SIZE
+        Set the WebAssembly stack size (default: 524288)
+
 Subcommands:
   run
         Run a JavaScript program
@@ -158,7 +161,7 @@ const options = getopts(tjs.args.slice(1), {
     string: [ 'e' ],
     stopEarly: true,
     unknown: option => {
-        if (![ 'memory-limit', 'stack-size' ].includes(option)) {
+        if (![ 'memory-limit', 'stack-size', 'wasm-stack-size' ].includes(option)) {
             throw `unrecognized option: ${option}`;
         }
 
@@ -180,6 +183,12 @@ if (options.help) {
 
     if (typeof stackSize !== 'undefined') {
         core.setMaxStackSize(parseNumberOption(stackSize, 'stack-size'));
+    }
+
+    const wasmStackSize = options['wasm-stack-size'];
+
+    if (typeof wasmStackSize !== 'undefined') {
+        core.setWasmStackSize(parseNumberOption(wasmStackSize, 'wasm-stack-size'));
     }
 
     const [ command, ...subargv ] = options._;

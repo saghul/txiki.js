@@ -382,6 +382,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     wasm_init_args.mem_alloc_option.allocator.free_func = tjs__free;
     CHECK_EQ(wasm_runtime_full_init(&wasm_init_args), true);
     qrt->wasm_ctx.initialized = true;
+    qrt->wasm_ctx.stack_size = 512 * 1024;
 
     /* Timers */
     qrt->timers.timers = NULL;

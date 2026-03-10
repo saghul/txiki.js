@@ -73,6 +73,16 @@ static JSValue tjs_setMaxStackSize(JSContext *ctx, JSValue this_val, int argc, J
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_setWasmStackSize(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    uint32_t v;
+    if (JS_ToUint32(ctx, &v, argv[0])) {
+        return JS_EXCEPTION;
+    }
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    qrt->wasm_ctx.stack_size = v;
+    return JS_UNDEFINED;
+}
+
 static JSValue tjs_compile(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     size_t len = 0;
     const uint8_t *tmp = JS_GetUint8Array(ctx, &len, argv[0]);
@@ -143,6 +153,7 @@ static JSValue tjs_evalBytecode(JSContext *ctx, JSValue this_val, int argc, JSVa
 static const JSCFunctionListEntry tjs_engine_funcs[] = {
     TJS_CFUNC_DEF("setMemoryLimit", 1, tjs_setMemoryLimit),
     TJS_CFUNC_DEF("setMaxStackSize", 1, tjs_setMaxStackSize),
+    TJS_CFUNC_DEF("setWasmStackSize", 1, tjs_setWasmStackSize),
     TJS_CFUNC_DEF("compile", 2, tjs_compile),
     TJS_CFUNC_DEF("serialize", 1, tjs_serialize),
     TJS_CFUNC_DEF("deserialize", 1, tjs_deserialize),
