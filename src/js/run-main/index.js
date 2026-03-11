@@ -8,6 +8,7 @@ import { bundle } from './bundle.js';
 import { evalStdin } from './eval-stdin.js';
 import { mkdirSync } from './mkdirSync.js';
 import { runTests } from './run-tests.js';
+import { TpkTrailer, runTpk, appInit, appPack, appCompile } from './tpk.js';
 
 const core = globalThis[Symbol.for('tjs.internal.core')];
 
@@ -91,7 +92,10 @@ Subcommands:
         Bundle a JavaScript/TypeScript file using esbuild
 
   compile infile [outfile]
-        Compile the given file into a standalone executable`;
+        Compile the given file into a standalone executable
+
+  app <subcommand>
+        Manage tpk app packages`;
 
 const helpBundle = `Usage: ${exeName} bundle [options] infile [outfile]
 
@@ -106,6 +110,18 @@ Any other --option flags are passed through to esbuild.`;
 const helpEval = `Usage: ${exeName} eval EXPRESSION`;
 
 const helpRun = `Usage: ${exeName} run FILE`;
+
+const helpApp = `Usage: ${exeName} app <subcommand>
+
+Subcommands:
+  init
+        Create a template app in the current directory
+
+  pack [outfile]
+        Package the app into a .tpk file
+
+  compile [outfile]
+        Compile the app into a standalone executable`;
 
 const helpServe = `Usage: ${exeName} serve [options] FILE
 
@@ -138,6 +154,17 @@ Options:
 await (async () => {
     const exef = await tjs.open(tjs.exePath, 'rb');
     const exeSize = (await exef.stat()).size;
+
+    // Check for TPK bundle first (4-byte magic at EOF).
+    const tpkMagicBuf = new Uint8Array(TpkTrailer.MagicSize);
+
+    await exef.read(tpkMagicBuf, exeSize - TpkTrailer.MagicSize);
+
+    if (new TextDecoder().decode(tpkMagicBuf) === TpkTrailer.Magic) {
+        await runTpk(exef, exeSize);
+    }
+
+    // Check for bytecode bundle (12-byte trailer).
     const trailerBuf = new Uint8Array(Trailer.Size);
 
     await exef.read(trailerBuf, exeSize - Trailer.Size);
@@ -333,15 +360,31 @@ if (options.help) {
             newFileName += '.exe';
         }
 
-        const newFile = await tjs.open(newFileName, 'w', 0o755);
+        await tjs.writeFile(newFileName, newExe, { mode: 0o755 });
+    } else if (command === 'app') {
+        const [ appCommand, ...appSubargv ] = subargv;
 
-        await newFile.write(newExe);
-        await newFile.close();
+        if (!appCommand) {
+            throw helpApp;
+        }
+
+        if (appCommand === 'init') {
+            await appInit();
+        } else if (appCommand === 'pack') {
+            const [ outfile ] = appSubargv;
+
+            await appPack(outfile);
+        } else if (appCommand === 'compile') {
+            const [ outfile ] = appSubargv;
+
+            await appCompile(outfile);
+        } else {
+            throw helpApp;
+        }
     } else {
         throw help;
     }
 }
-
 
 function parseNumberOption(num, option) {
     const n = Number.parseInt(num, 10);

@@ -2,7 +2,7 @@ const core = globalThis[Symbol.for('tjs.internal.core')];
 
 import engine from './engine.js';
 import env from './env.js';
-import { open, makeDir, makeTempFile, remove, symlink } from './fs.js';
+import { open, makeDir, makeTempFile, remove, symlink, writeFile } from './fs.js';
 import { serve } from './httpserver.js';
 import { lookup } from './lookup.js';
 import pathModule from './path.js';
@@ -111,6 +111,12 @@ Object.defineProperty(tjs, 'symlink', {
     configurable: false,
     writable: false,
     value: symlink
+});
+Object.defineProperty(tjs, 'writeFile', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: writeFile
 });
 
 // Signals.
