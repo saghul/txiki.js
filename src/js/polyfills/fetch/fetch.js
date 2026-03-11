@@ -4,10 +4,51 @@ import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
 import { Response } from './response.js';
 
+function fetchDataURI(url) {
+    // Format: data:[<mediatype>][;base64],<data>
+    const afterScheme = url.slice(5); // strip "data:"
+    const commaIdx = afterScheme.indexOf(',');
+
+    if (commaIdx === -1) {
+        return Promise.reject(new TypeError('Invalid data URI'));
+    }
+
+    const meta = afterScheme.slice(0, commaIdx);
+    const encoded = afterScheme.slice(commaIdx + 1);
+    const isBase64 = meta.endsWith(';base64');
+    const mimeType = (isBase64 ? meta.slice(0, -7) : meta) || 'text/plain;charset=US-ASCII';
+
+    let bytes;
+
+    if (isBase64) {
+        const binary = atob(encoded);
+
+        bytes = new Uint8Array(binary.length);
+
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+    } else {
+        bytes = new TextEncoder().encode(decodeURIComponent(encoded));
+    }
+
+    return Promise.resolve(new Response(bytes, {
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': mimeType },
+    }));
+}
+
 // Keep strong references to active clients to prevent premature GC
 const activeClients = new Set();
 
 export function fetch(input, init) {
+    const url = typeof input === 'string' ? input : input.url;
+
+    if (url && url.startsWith('data:')) {
+        return fetchDataURI(url);
+    }
+
     return new Promise(function(resolve, reject) {
         const request = new Request(input, init);
 
