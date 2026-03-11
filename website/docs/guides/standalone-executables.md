@@ -35,3 +35,7 @@ tjs compile bundle.js
 ```
 
 See the [Code Bundling](code-bundling.md) guide for more details.
+
+## Multi-file applications
+
+If your application spans multiple files and you want to preserve the directory structure without bundling, consider using [App Packages (TPK)](app-packages.md) instead. TPK packages your entire source tree into the executable as a ZIP archive.

@@ -29,6 +29,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'guides/standalone-executables',
         'guides/code-bundling',
+        'guides/app-packages',
       ],
     },
     'versioning',
@@ -64,6 +65,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'api/global.tjs.Function.open',
         'api/global.tjs.Function.readFile',
+        'api/global.tjs.Function.writeFile',
         'api/global.tjs.Function.readDir',
         'api/global.tjs.Function.readLink',
         'api/global.tjs.Function.stat',

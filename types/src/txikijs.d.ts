@@ -623,6 +623,24 @@ declare global {
         /**
         * @category Filesystem
         */
+        interface WriteFileOptions {
+            /** File mode (permissions) to set when creating the file. Defaults to `0o644`. */
+            mode?: number;
+        }
+
+        /**
+        * Writes data to a file, replacing the file if it already exists.
+        *
+        * @category Filesystem
+        * @param path File path.
+        * @param data Data to write. Strings are encoded as UTF-8.
+        * @param options Optional settings.
+        */
+        function writeFile(path: string, data: string | Uint8Array, options?: WriteFileOptions): Promise<void>;
+
+        /**
+        * @category Filesystem
+        */
         interface RemoveOptions {
             /* Amount of times to retry the operation in case it fails. Defaults to 0. */
             maxRetries?: number;
