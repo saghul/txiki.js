@@ -47,9 +47,14 @@ declare module 'tjs:ffi'{
     export class Lib{
         constructor(libname: string);
         symbol(name: string): DlSymbol;
+        /**
+         * Explicitly close the shared library handle. After calling this,
+         * any symbols obtained from this library must not be used.
+         */
+        close(): void;
         static LIBC_NAME: string;
         static LIBM_NAME: string;
-        
+
         registerType(name: string, type: SimpleType): void;
         getType(name: string): undefined|SimpleType;
         registerFunction(name: string, func: CFunction): void;
@@ -150,4 +155,77 @@ declare module 'tjs:ffi'{
         constructor(rtype: SimpleType<RT>, argtypes: Array<SimpleType<AT[0]>>, func: (...args: AT)=>RT);
         readonly addr: PointerAddr;
     }
+
+    /**
+     * String aliases for FFI types. Can be used in {@link dlopen} symbol definitions
+     * instead of type objects from {@link types}.
+     *
+     * Supports short (`i32`, `u8`, `f64`, `ptr`), C-style (`int`, `char`, `double`),
+     * and stdint-style (`uint32_t`, `int64_t`) names.
+     */
+    export type TypeAlias =
+        | 'void'
+        | 'u8' | 'uint8' | 'uint8_t'
+        | 'i8' | 'sint8' | 'int8_t'
+        | 'u16' | 'uint16' | 'uint16_t'
+        | 'i16' | 'sint16' | 'int16_t'
+        | 'u32' | 'uint32' | 'uint32_t' | 'int'
+        | 'i32' | 'sint32' | 'int32_t'
+        | 'u64' | 'uint64' | 'uint64_t'
+        | 'i64' | 'sint64' | 'int64_t'
+        | 'f32' | 'float'
+        | 'f64' | 'double'
+        | 'pointer' | 'ptr'
+        | 'string' | 'cstring'
+        | 'buffer'
+        | 'uchar' | 'schar' | 'char'
+        | 'ushort' | 'sshort'
+        | 'uint' | 'sint'
+        | 'ulong' | 'slong' | 'long'
+        | 'size_t' | 'ssize_t';
+
+    export type TypeOrAlias = SimpleType | TypeAlias;
+
+    /**
+     * Describes a native function symbol for use with {@link dlopen}.
+     */
+    export interface DlopenSymbol {
+        /** Argument types. Defaults to `[]` (no arguments) if omitted. */
+        args?: TypeOrAlias[];
+        /** Return type. Defaults to `'void'` if omitted. */
+        returns?: TypeOrAlias;
+        /** Number of fixed arguments for variadic functions. */
+        fixed?: number;
+    }
+
+    export interface DlopenResult<T extends Record<string, DlopenSymbol>> {
+        /** Object containing callable functions for each declared symbol. */
+        symbols: { [K in keyof T]: (...args: any[]) => any };
+        /** Close the shared library handle. */
+        close(): void;
+    }
+
+    /**
+     * Load a shared library and bind symbols as callable functions.
+     *
+     * Types can be specified as {@link SimpleType} objects or as string aliases
+     * (e.g. `'i32'`, `'string'`, `'ptr'`).
+     *
+     * ```js
+     * import { dlopen } from 'tjs:ffi';
+     *
+     * const { symbols, close } = dlopen('./libfoo.dylib', {
+     *     add: { args: ['i32', 'i32'], returns: 'i32' },
+     *     version: { args: [], returns: 'string' },
+     * });
+     *
+     * console.log(symbols.add(1, 2));
+     * console.log(symbols.version());
+     * close();
+     * ```
+     *
+     * @param path - Path to the shared library.
+     * @param symbols - Object mapping symbol names to their type signatures.
+     */
+    export function dlopen<T extends Record<string, DlopenSymbol>>(path: string, symbols: T): DlopenResult<T>;
 }

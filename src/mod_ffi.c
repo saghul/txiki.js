@@ -785,12 +785,23 @@ static JSValue js_uv_lib_dlsym(JSContext *ctx, JSValue this_val, int argc, JSVal
     return obj;
 }
 
+static JSValue js_uv_lib_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    uv_lib_t *u = JS_GetOpaque(this_val, js_uv_lib_classid);
+    if (u) {
+        uv_dlclose(u);
+        js_free(ctx, u);
+        JS_SetOpaque(this_val, NULL);
+    }
+    return JS_UNDEFINED;
+}
+
 JSClassDef js_uv_lib_class = {
     "UvLib",
     .finalizer = js_uv_lib_finalizer,
 };
 static const JSCFunctionListEntry js_uv_lib_proto_funcs[] = {
     TJS_CFUNC_DEF("symbol", 1, js_uv_lib_dlsym),
+    TJS_CFUNC_DEF("close", 0, js_uv_lib_close),
 };
 #pragma endregion "UvLib class definition"
 
