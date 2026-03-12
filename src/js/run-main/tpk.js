@@ -133,8 +133,6 @@ export async function runTpk(exef, exeSize) {
     tjs.env.TJS_HOME = cacheDir;
 
     await core.evalFile(mainFile);
-
-    tjs.exit(0);
 }
 
 export async function appInit() {

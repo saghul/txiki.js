@@ -38,7 +38,7 @@ $(TJS): $(BUILD_DIR)/CMakeCache.txt
 $(TJSC): $(BUILD_DIR)/CMakeCache.txt
 	cmake --build $(BUILD_DIR) --target tjsc -j $(JOBS)
 
-src/bundles/js/core/polyfills.js: src/js/polyfills/*.js src/js/stdlib/utils.js
+src/bundles/js/core/polyfills.js: src/js/polyfills/*.js src/js/polyfills/**/*.js src/js/stdlib/utils.js
 	$(ESBUILD) src/js/polyfills/index.js \
 		--bundle \
 		--metafile=$@.json \
