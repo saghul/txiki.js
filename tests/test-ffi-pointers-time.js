@@ -14,7 +14,7 @@ const tmT = new FFI.StructType([
 	['isdst', FFI.types.sint],
 ], 'tm');
 const timeF = new FFI.CFunction(libc.symbol('time'), FFI.types.sint64, [FFI.types.pointer]);
-const timestamp = timeF.call(BigInt('0'));
+const timestamp = timeF.call(0);
 assert.ok(Date.now()/1000 - timestamp < 2);
 
 const testTimestamp = 1658319387; // test with 2022-07-20T14:16:27+02:00
