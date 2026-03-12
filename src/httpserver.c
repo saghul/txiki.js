@@ -272,9 +272,19 @@ typedef struct {
 
 static void tjs_http_custom_header_cb(const char *name, int nlen, void *opaque) {
     TJSHeaderCollectCtx *hctx = (TJSHeaderCollectCtx *) opaque;
-    char val[4096];
 
-    int vlen = lws_hdr_custom_copy(hctx->wsi, val, sizeof(val), name, nlen);
+    int total_len = lws_hdr_custom_length(hctx->wsi, name, nlen);
+    if (total_len < 0) {
+        return;
+    }
+
+    size_t buf_size = (size_t) total_len + 1;
+    char *val = js_malloc(hctx->ctx, buf_size);
+    if (!val) {
+        return;
+    }
+
+    int vlen = lws_hdr_custom_copy(hctx->wsi, val, (int) buf_size, name, nlen);
     if (vlen >= 0) {
         /* name includes trailing ':', strip it. */
         int name_len = nlen;
@@ -284,10 +294,11 @@ static void tjs_http_custom_header_cb(const char *name, int nlen, void *opaque) 
         JS_SetPropertyUint32(hctx->ctx, hctx->arr, hctx->idx++, JS_NewStringLen(hctx->ctx, name, name_len));
         JS_SetPropertyUint32(hctx->ctx, hctx->arr, hctx->idx++, JS_NewStringLen(hctx->ctx, val, vlen));
     }
+
+    js_free(hctx->ctx, val);
 }
 
 static JSValue tjs_http_collect_headers(JSContext *ctx, struct lws *wsi) {
-    char val[4096];
     JSValue arr = JS_NewArray(ctx);
     uint32_t idx = 0;
 
@@ -302,15 +313,23 @@ static JSValue tjs_http_collect_headers(JSContext *ctx, struct lws *wsi) {
         if (tn_len == 0 || tn[tn_len - 1] != ':') {
             continue;
         }
-        if (lws_hdr_total_length(wsi, n) <= 0) {
+        int total_len = lws_hdr_total_length(wsi, n);
+        if (total_len <= 0) {
             continue;
         }
-        if (lws_hdr_copy(wsi, val, sizeof(val), n) < 0) {
+        size_t buf_size = (size_t) total_len + 1;
+        char *val = js_malloc(ctx, buf_size);
+        if (!val) {
+            continue;
+        }
+        if (lws_hdr_copy(wsi, val, (int) buf_size, n) < 0) {
+            js_free(ctx, val);
             continue;
         }
         /* Strip trailing colon from token name. */
         JS_SetPropertyUint32(ctx, arr, idx++, JS_NewStringLen(ctx, tn, tn_len - 1));
         JS_SetPropertyUint32(ctx, arr, idx++, JS_NewString(ctx, val));
+        js_free(ctx, val);
     }
 
     /* Collect custom (unknown) headers. */
@@ -1183,6 +1202,9 @@ static TJSHttpRequest *tjs_http_find_request(TJSHttpServer *s, uint64_t req_id) 
     return req;
 }
 
+/* Max size for response header buffer.  Matches Node.js / Deno default. */
+#define TJS_MAX_HEADER_SIZE 16384
+
 /*
  * HttpServer.prototype.sendResponse(requestId, status, headersArray, bodyBuffer)
  *
@@ -1215,13 +1237,18 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
         return JS_EXCEPTION;
     }
 
-    /* Build response headers with LWS_PRE padding for HTTP/2 compatibility. */
-    unsigned char header_buf[LWS_PRE + 4096];
+    /* Build response headers with LWS_PRE padding. */
+    size_t hdr_buf_size = LWS_PRE + TJS_MAX_HEADER_SIZE;
+    unsigned char *header_buf = js_malloc(ctx, hdr_buf_size);
+    if (!header_buf) {
+        return JS_ThrowOutOfMemory(ctx);
+    }
     unsigned char *start = &header_buf[LWS_PRE];
     unsigned char *p = start;
-    unsigned char *end = header_buf + sizeof(header_buf) - 1;
+    unsigned char *end = header_buf + hdr_buf_size - 1;
 
     if (lws_add_http_header_status(req->wsi, (unsigned int) status, &p, end)) {
+        js_free(ctx, header_buf);
         return JS_ThrowInternalError(ctx, "failed to add status header");
     }
 
@@ -1251,6 +1278,7 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
                     JS_FreeValue(ctx, name_val);
                     JS_FreeValue(ctx, value_val);
                     JS_FreeValue(ctx, pair);
+                    js_free(ctx, header_buf);
                     return JS_ThrowInternalError(ctx, "failed to add response header");
                 }
             }
@@ -1287,11 +1315,13 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
 
     /* Add content-length. */
     if (lws_add_http_header_content_length(req->wsi, (lws_filepos_t) body_len, &p, end)) {
+        js_free(ctx, header_buf);
         return JS_ThrowInternalError(ctx, "failed to add content-length header");
     }
 
     /* Finalize headers. */
     if (lws_finalize_http_header(req->wsi, &p, end)) {
+        js_free(ctx, header_buf);
         return JS_ThrowInternalError(ctx, "failed to finalize headers");
     }
 
@@ -1301,10 +1331,12 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
     req->response_data = js_malloc(ctx, LWS_PRE + hdr_len + body_len);
     if (!req->response_data) {
         JS_FreeValue(ctx, body_ab);
+        js_free(ctx, header_buf);
         return JS_ThrowOutOfMemory(ctx);
     }
 
     memcpy(req->response_data + LWS_PRE, start, hdr_len);
+    js_free(ctx, header_buf);
     if (body_data && body_len > 0) {
         memcpy(req->response_data + LWS_PRE + hdr_len, body_data, body_len);
     }
@@ -1364,13 +1396,18 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
     }
 
     /* Build headers with LWS_PRE padding. */
-    unsigned char header_buf[LWS_PRE + 4096];
+    size_t hdr_buf_size = LWS_PRE + TJS_MAX_HEADER_SIZE;
+    unsigned char *header_buf = js_malloc(ctx, hdr_buf_size);
+    if (!header_buf) {
+        return JS_ThrowOutOfMemory(ctx);
+    }
     unsigned char *start = &header_buf[LWS_PRE];
     unsigned char *p = start;
-    unsigned char *end = header_buf + sizeof(header_buf) - 1;
+    unsigned char *end = header_buf + hdr_buf_size - 1;
 
     /* Status line without Content-Length (streaming / unknown size). */
     if (lws_add_http_common_headers(req->wsi, (unsigned int) status, NULL, LWS_ILLEGAL_HTTP_CONTENT_LEN, &p, end)) {
+        js_free(ctx, header_buf);
         return JS_ThrowInternalError(ctx, "failed to add status header");
     }
 
@@ -1400,6 +1437,7 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
                     JS_FreeValue(ctx, name_val);
                     JS_FreeValue(ctx, value_val);
                     JS_FreeValue(ctx, pair);
+                    js_free(ctx, header_buf);
                     return JS_ThrowInternalError(ctx, "failed to add response header");
                 }
             }
@@ -1414,9 +1452,11 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
 
     /* Finalize and write headers in one call. */
     if (lws_finalize_write_http_header(req->wsi, start, &p, end)) {
+        js_free(ctx, header_buf);
         return JS_ThrowInternalError(ctx, "failed to write response headers");
     }
 
+    js_free(ctx, header_buf);
     return JS_UNDEFINED;
 }
 
