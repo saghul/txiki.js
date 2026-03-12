@@ -286,7 +286,7 @@ export class Pointer {
         return this._type;
     }
     get isNull() {
-        return this._addr === 0n;
+        return this._addr === 0;
     }
     deref() {
         if (this.level === 1) {

@@ -29,22 +29,27 @@ SOFTWARE.
 
 #define TJS_CONST_STRING_DEF(x) JS_PROP_STRING_DEF(#x, x, JS_PROP_ENUMERABLE)
 
-#define JS_PTR_TYPE       t_bigint
-#define JS_IS_PTR(ctx, x) JS_IsBigInt(x)
+#define JS_PTR_TYPE       t_double
+#define JS_IS_PTR(ctx, x) JS_IsNumber(x)
 
 #if UINTPTR_MAX == UINT32_MAX
 #define JS_TO_UINTPTR_T(ctx, pres, val)                                                                                \
     {                                                                                                                  \
-        uint64_t v;                                                                                                    \
-        JS_ToBigInt64(ctx, &v, val);                                                                                   \
+        double v;                                                                                                      \
+        JS_ToFloat64(ctx, &v, val);                                                                                    \
         *(uint32_t *) (pres) = (uint32_t) v;                                                                           \
     }
-#define JS_NEW_UINTPTR_T(ctx, val) JS_NewBigUint64(ctx, (int32_t) (val))
+#define JS_NEW_UINTPTR_T(ctx, val) JS_NewFloat64(ctx, (double) (uint32_t) (val))
 #define ffi_type_ptr               ffi_type_uint32
 #elif UINTPTR_MAX == UINT64_MAX
-#define JS_TO_UINTPTR_T(ctx, pres, val) JS_ToBigInt64(ctx, (int64_t *) (pres), val)
-#define JS_NEW_UINTPTR_T(ctx, val)      JS_NewBigUint64(ctx, (int64_t) (val))
-#define ffi_type_ptr                    ffi_type_uint64
+#define JS_TO_UINTPTR_T(ctx, pres, val)                                                                                \
+    {                                                                                                                  \
+        double v;                                                                                                      \
+        JS_ToFloat64(ctx, &v, val);                                                                                    \
+        *(uint64_t *) (pres) = (uint64_t) v;                                                                           \
+    }
+#define JS_NEW_UINTPTR_T(ctx, val) JS_NewFloat64(ctx, (double) (uintptr_t) (val))
+#define ffi_type_ptr               ffi_type_uint64
 #else
 #error "'uintptr_t' neither 32bit nor 64 bit, I don't know how to handle it."
 #endif
@@ -376,7 +381,7 @@ int ffi_type_to_buffer(JSContext *ctx, JSValue val, ffi_type *type, uint8_t *buf
                     *(void **) buf = NULL;
                     return sizeof(void *);
                 }
-                uint64_t bla;
+                uintptr_t bla;
                 JS_TO_UINTPTR_T(ctx, &bla, val);
                 JS_TO_UINTPTR_T(ctx, (void *) buf, val);
                 return sizeof(void *);
@@ -404,7 +409,7 @@ static JSValue js_ffi_type_to_buffer(JSContext *ctx, JSValue this_val, int argc,
     }
     size_t sz = ffi_type_get_sz(type->ffi_type);
     if (JS_IS_PTR(ctx, argv[0])) {
-        uint64_t bla;
+        uintptr_t bla;
         JS_TO_UINTPTR_T(ctx, &bla, argv[0]);
     }
     uint8_t *buf = js_malloc(ctx, sz);
@@ -821,7 +826,7 @@ static JSValue js_array_buffer_get_ptr(JSContext *ctx, JSValue this_val, int arg
     if (!buf) {
         return JS_EXCEPTION;
     }
-    return JS_NEW_UINTPTR_T(ctx, (uint64_t) buf);
+    return JS_NEW_UINTPTR_T(ctx, (uintptr_t) buf);
 }
 
 static JSValue js_get_cstring(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {

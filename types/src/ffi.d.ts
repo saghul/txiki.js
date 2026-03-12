@@ -16,7 +16,7 @@
  * @module tjs:ffi
  */
 declare module 'tjs:ffi'{
-    export type PointerAddr = bigint;
+    export type PointerAddr = number;
 
     export class DlSymbol{
         readonly addr: PointerAddr;
