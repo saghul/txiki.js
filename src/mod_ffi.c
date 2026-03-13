@@ -2,6 +2,7 @@
 MIT License
 
 Copyright (c) 2022-2024 lal12
+Copyright (c) 2026 Saúl Ibarra Corretgé
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,31 +26,36 @@ SOFTWARE.
 #include "private.h"
 
 #include <ffi.h>
+#include <inttypes.h>
 #include <stdint.h>
 
 #define TJS_CONST_STRING_DEF(x) JS_PROP_STRING_DEF(#x, x, JS_PROP_ENUMERABLE)
 
-#define JS_PTR_TYPE       t_double
-#define JS_IS_PTR(ctx, x) JS_IsNumber(x)
+static JSClassID js_ffi_pointer_classid;
+
+static JSValue js_ffi_pointer_new(JSContext *ctx, void *ptr) {
+    if (ptr == NULL) {
+        return JS_NULL;
+    }
+    JSValue obj = JS_NewObjectClass(ctx, js_ffi_pointer_classid);
+    if (JS_IsException(obj)) {
+        return obj;
+    }
+    JS_SetOpaque(obj, ptr);
+    return obj;
+}
+
+#define JS_IS_PTR(ctx, x) (JS_GetOpaque((x), js_ffi_pointer_classid) != NULL)
+#define JS_TO_UINTPTR_T(ctx, pres, val)                                                                                \
+    do {                                                                                                               \
+        *(void **) (pres) = JS_GetOpaque((val), js_ffi_pointer_classid);                                               \
+    } while (0)
+#define JS_NEW_UINTPTR_T(ctx, val) js_ffi_pointer_new((ctx), (void *) (uintptr_t) (val))
 
 #if UINTPTR_MAX == UINT32_MAX
-#define JS_TO_UINTPTR_T(ctx, pres, val)                                                                                \
-    {                                                                                                                  \
-        double v;                                                                                                      \
-        JS_ToFloat64(ctx, &v, val);                                                                                    \
-        *(uint32_t *) (pres) = (uint32_t) v;                                                                           \
-    }
-#define JS_NEW_UINTPTR_T(ctx, val) JS_NewFloat64(ctx, (double) (uint32_t) (val))
-#define ffi_type_ptr               ffi_type_uint32
+#define ffi_type_ptr ffi_type_uint32
 #elif UINTPTR_MAX == UINT64_MAX
-#define JS_TO_UINTPTR_T(ctx, pres, val)                                                                                \
-    {                                                                                                                  \
-        double v;                                                                                                      \
-        JS_ToFloat64(ctx, &v, val);                                                                                    \
-        *(uint64_t *) (pres) = (uint64_t) v;                                                                           \
-    }
-#define JS_NEW_UINTPTR_T(ctx, val) JS_NewFloat64(ctx, (double) (uintptr_t) (val))
-#define ffi_type_ptr               ffi_type_uint64
+#define ffi_type_ptr ffi_type_uint64
 #else
 #error "'uintptr_t' neither 32bit nor 64 bit, I don't know how to handle it."
 #endif
@@ -381,8 +387,6 @@ int ffi_type_to_buffer(JSContext *ctx, JSValue val, ffi_type *type, uint8_t *buf
                     *(void **) buf = NULL;
                     return sizeof(void *);
                 }
-                uintptr_t bla;
-                JS_TO_UINTPTR_T(ctx, &bla, val);
                 JS_TO_UINTPTR_T(ctx, (void *) buf, val);
                 return sizeof(void *);
                 break;
@@ -408,10 +412,6 @@ static JSValue js_ffi_type_to_buffer(JSContext *ctx, JSValue this_val, int argc,
         return JS_EXCEPTION;
     }
     size_t sz = ffi_type_get_sz(type->ffi_type);
-    if (JS_IS_PTR(ctx, argv[0])) {
-        uintptr_t bla;
-        JS_TO_UINTPTR_T(ctx, &bla, argv[0]);
-    }
     uint8_t *buf = js_malloc(ctx, sz);
     int ret = ffi_type_to_buffer(ctx, argv[0], type->ffi_type, buf);
     if (ret < 0) {
@@ -1047,6 +1047,173 @@ static const JSCFunctionListEntry js_ffi_closure_proto_funcs[] = {
 
 #pragma endregion "FfiClosure class definition"
 
+#pragma region "FfiPointer class definition"
+// =========================================
+
+static JSValue js_ffi_pointer_to_string(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    void *ptr = JS_GetOpaque(this_val, js_ffi_pointer_classid);
+    if (!ptr) {
+        JS_ThrowTypeError(ctx, "expected this to be Pointer");
+        return JS_EXCEPTION;
+    }
+    char buf[32];
+    snprintf(buf, sizeof(buf), "0x%" PRIxPTR, (uintptr_t) ptr);
+    return JS_NewString(ctx, buf);
+}
+
+static JSValue js_ffi_pointer_offset(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    void *ptr = JS_GetOpaque(this_val, js_ffi_pointer_classid);
+    if (!ptr) {
+        JS_ThrowTypeError(ctx, "expected this to be Pointer");
+        return JS_EXCEPTION;
+    }
+    int64_t off;
+    if (JS_ToInt64(ctx, &off, argv[0])) {
+        return JS_EXCEPTION;
+    }
+    return js_ffi_pointer_new(ctx, (uint8_t *) ptr + off);
+}
+
+static JSValue js_ffi_pointer_equals(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    void *ptr = JS_GetOpaque(this_val, js_ffi_pointer_classid);
+    if (!ptr) {
+        JS_ThrowTypeError(ctx, "expected this to be Pointer");
+        return JS_EXCEPTION;
+    }
+    if (JS_IsNull(argv[0])) {
+        return JS_FALSE;
+    }
+    void *other = JS_GetOpaque(argv[0], js_ffi_pointer_classid);
+    return JS_NewBool(ctx, ptr == other);
+}
+
+static JSClassDef js_ffi_pointer_class = { "Pointer" };
+static const JSCFunctionListEntry js_ffi_pointer_proto_funcs[] = {
+    TJS_CFUNC_DEF("toString", 0, js_ffi_pointer_to_string),
+    TJS_CFUNC_DEF("offset", 1, js_ffi_pointer_offset),
+    TJS_CFUNC_DEF("equals", 1, js_ffi_pointer_equals),
+};
+
+#pragma endregion "FfiPointer class definition"
+
+#pragma region "Read namespace"
+// ============================
+
+static void *js_ptr_read_get(JSContext *ctx, int argc, JSValue *argv) {
+    void *ptr = JS_GetOpaque(argv[0], js_ffi_pointer_classid);
+    if (!ptr) {
+        JS_ThrowTypeError(ctx, "argument 1 must be a pointer");
+        return NULL;
+    }
+    if (argc > 1) {
+        int64_t off;
+        if (JS_ToInt64(ctx, &off, argv[1])) {
+            return NULL;
+        }
+        return (uint8_t *) ptr + off;
+    }
+    return ptr;
+}
+
+static JSValue js_ptr_read_u8(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    uint8_t *p = js_ptr_read_get(ctx, argc, argv);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return JS_NewInt32(ctx, *p);
+}
+
+static JSValue js_ptr_read_i8(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    int8_t *p = js_ptr_read_get(ctx, argc, argv);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return JS_NewInt32(ctx, *p);
+}
+
+static JSValue js_ptr_read_u16(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    uint16_t *p = js_ptr_read_get(ctx, argc, argv);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return JS_NewInt32(ctx, *p);
+}
+
+static JSValue js_ptr_read_i16(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    int16_t *p = js_ptr_read_get(ctx, argc, argv);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return JS_NewInt32(ctx, *p);
+}
+
+static JSValue js_ptr_read_u32(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    uint32_t *p = js_ptr_read_get(ctx, argc, argv);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return JS_NewInt64(ctx, *p);
+}
+
+static JSValue js_ptr_read_i32(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    int32_t *p = js_ptr_read_get(ctx, argc, argv);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return JS_NewInt32(ctx, *p);
+}
+
+static JSValue js_ptr_read_u64(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    uint64_t *p = js_ptr_read_get(ctx, argc, argv);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return JS_NewInt64(ctx, *p);
+}
+
+static JSValue js_ptr_read_i64(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    int64_t *p = js_ptr_read_get(ctx, argc, argv);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return JS_NewInt64(ctx, *p);
+}
+
+static JSValue js_ptr_read_f32(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    float *p = js_ptr_read_get(ctx, argc, argv);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return JS_NewFloat64(ctx, (double) *p);
+}
+
+static JSValue js_ptr_read_f64(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    double *p = js_ptr_read_get(ctx, argc, argv);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return JS_NewFloat64(ctx, *p);
+}
+
+static JSValue js_ptr_read_ptr(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    void **p = js_ptr_read_get(ctx, argc, argv);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return js_ffi_pointer_new(ctx, *p);
+}
+
+static const JSCFunctionListEntry js_read_funcs[] = {
+    TJS_CFUNC_DEF("u8", 2, js_ptr_read_u8),   TJS_CFUNC_DEF("i8", 2, js_ptr_read_i8),
+    TJS_CFUNC_DEF("u16", 2, js_ptr_read_u16), TJS_CFUNC_DEF("i16", 2, js_ptr_read_i16),
+    TJS_CFUNC_DEF("u32", 2, js_ptr_read_u32), TJS_CFUNC_DEF("i32", 2, js_ptr_read_i32),
+    TJS_CFUNC_DEF("u64", 2, js_ptr_read_u64), TJS_CFUNC_DEF("i64", 2, js_ptr_read_i64),
+    TJS_CFUNC_DEF("f32", 2, js_ptr_read_f32), TJS_CFUNC_DEF("f64", 2, js_ptr_read_f64),
+    TJS_CFUNC_DEF("ptr", 2, js_ptr_read_ptr),
+};
+
+#pragma endregion "Read namespace"
+
 static const JSCFunctionListEntry funcs[] = {
     // basic functions from libc
     TJS_CFUNC_DEF("errno", 0, js_libc_errno),
@@ -1088,6 +1255,15 @@ static const JSCFunctionListEntry funcs[] = {
 static JSValue tjs__mod_ffi_init_js(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JSValue ffiobj = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, ffiobj, funcs, countof(funcs));
+
+    JS_NewClassID(JS_GetRuntime(ctx), &js_ffi_pointer_classid);
+    JS_NewClass(JS_GetRuntime(ctx), js_ffi_pointer_classid, &js_ffi_pointer_class);
+    JSValue js_ffi_pointer_proto = JS_NewObjectProto(ctx, JS_NULL);
+    JS_SetPropertyFunctionList(ctx,
+                               js_ffi_pointer_proto,
+                               js_ffi_pointer_proto_funcs,
+                               countof(js_ffi_pointer_proto_funcs));
+    JS_SetClassProto(ctx, js_ffi_pointer_classid, js_ffi_pointer_proto);
 
     REGISTER_CLASS(ctx, js_ffi_type);
     CLASS_CREATE_CONSTRUCTOR(ctx, js_ffi_type, ffiobj, js_ffi_type_create_struct);
@@ -1147,6 +1323,10 @@ static JSValue tjs__mod_ffi_init_js(JSContext *ctx, JSValue this_val, int argc, 
 #else
 #error("unhandled signed long long size")
 #endif
+
+    JSValue read_obj = JS_NewObject(ctx);
+    JS_SetPropertyFunctionList(ctx, read_obj, js_read_funcs, countof(js_read_funcs));
+    JS_SetPropertyStr(ctx, ffiobj, "read", read_obj);
 
     // ffi also supports some complex types, currently not implemented
     return ffiobj;

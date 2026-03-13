@@ -16,10 +16,39 @@
  * @module tjs:ffi
  */
 declare module 'tjs:ffi'{
-    export type PointerAddr = number;
+    /**
+     * Opaque pointer object. Stores a native `void*` with full precision.
+     * Null pointers are represented as JavaScript `null`.
+     */
+    export interface NativePointer {
+        /** Returns hex string representation, e.g. `"0x7fff5a2b3c00"`. */
+        toString(): string;
+        /** Returns a new pointer offset by `n` bytes. */
+        offset(n: number): NativePointer;
+        /** Returns `true` if both pointers refer to the same address. */
+        equals(other: NativePointer | null): boolean;
+    }
+
+    /**
+     * Direct memory reads from a pointer at a given byte offset.
+     * Faster than creating an intermediate buffer for one-off reads.
+     */
+    export const read: {
+        u8(ptr: NativePointer, offset?: number): number;
+        i8(ptr: NativePointer, offset?: number): number;
+        u16(ptr: NativePointer, offset?: number): number;
+        i16(ptr: NativePointer, offset?: number): number;
+        u32(ptr: NativePointer, offset?: number): number;
+        i32(ptr: NativePointer, offset?: number): number;
+        u64(ptr: NativePointer, offset?: number): number;
+        i64(ptr: NativePointer, offset?: number): number;
+        f32(ptr: NativePointer, offset?: number): number;
+        f64(ptr: NativePointer, offset?: number): number;
+        ptr(ptr: NativePointer, offset?: number): NativePointer | null;
+    };
 
     export class DlSymbol{
-        readonly addr: PointerAddr;
+        readonly addr: NativePointer;
     }
 
     interface SimpleType<T = any>{
@@ -80,7 +109,7 @@ declare module 'tjs:ffi'{
         sint64: SimpleType<number>,
         float: SimpleType<number>,
         double: SimpleType<number>,
-        pointer: SimpleType<PointerAddr>,
+        pointer: SimpleType<NativePointer>,
         longdouble: SimpleType<number>, 
         uchar: SimpleType<number>,
         schar: SimpleType<number>,
@@ -111,25 +140,26 @@ declare module 'tjs:ffi'{
 
     export function bufferToString(buf: Uint8Array): string;
     export function stringToBuffer(s: string): Uint8Array;
+    export function bufferToPointer(buf: Uint8Array): NativePointer;
 
     export class Pointer<T, N extends number>{
-        constructor(addr: PointerAddr, level: N, type: SimpleType<T>);
-        readonly addr: PointerAddr;
+        constructor(addr: NativePointer, level: N, type: SimpleType<T>);
+        readonly addr: NativePointer;
         readonly level: N;
         readonly type: T;
         readonly isNull: boolean;
-        
+
         deref(): N extends 1 ? T : Pointer<T, any>;
-        
+
         derefAll(): T;
-        
+
         static createRef<T>(type: SimpleType<T>, data: T): Pointer<T, 1>;
         static createRefFromBuf<T>(type: SimpleType<T>, buf: Uint8Array): Pointer<T, 1>;
     }
 
     export class PointerType<T, ST extends SimpleType<T>, N extends number> extends AdvancedType<Pointer<T, N>, PointerType<T, ST, N>>{
         constructor(type: ST , level: N);
-        toBuffer(data: Pointer<T, N>|PointerAddr, ctx?: {}): Uint8Array;
+        toBuffer(data: Pointer<T, N>|NativePointer, ctx?: {}): Uint8Array;
         fromBuffer(buf: Uint8Array, ctx?: {}): Pointer<T, N>;
         get type(): ST;
         get level(): N;
@@ -159,7 +189,7 @@ declare module 'tjs:ffi'{
     export function strerror(err?: number): string;
     export class JSCallback<RT, AT extends []>{ //TODO: better typing mechanism for Arg types
         constructor(rtype: SimpleType<RT>, argtypes: Array<SimpleType<AT[0]>>, func: (...args: AT)=>RT);
-        readonly addr: PointerAddr;
+        readonly addr: NativePointer;
     }
 
     /**
