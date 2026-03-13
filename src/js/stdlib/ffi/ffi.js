@@ -559,9 +559,43 @@ export function dlopen(path, symbols) {
     const result = {};
 
     for (const [ name, def ] of Object.entries(resolved)) {
-        const func = new CFunction(lib.symbol(name), def.returns, def.args, def.fixed);
+        const sym = lib.symbol(name);
 
-        result[name] = (...a) => func.call(...a);
+        // Check if all arg types are simple (scalar/pointer/string/buffer)
+        // and if so, use the fast call path.
+        const canFastCall = def.args.length <= 16 && def.args.every(t =>
+            t === types.string || t === types.buffer || !t.ffiType
+        ) && (def.returns === types.string || !def.returns.ffiType);
+
+        if (canFastCall) {
+            // Build bitmasks for string and buffer arguments.
+            let stringMask = 0;
+            let bufferMask = 0;
+
+            for (let i = 0; i < def.args.length; i++) {
+                if (def.args[i] === types.string) {
+                    stringMask |= (1 << i);
+                } else if (def.args[i] === types.buffer) {
+                    bufferMask |= (1 << i);
+                }
+            }
+
+            if (def.returns === types.string) {
+                stringMask |= (1 << 31);
+            }
+
+            const ffiArgTypes = def.args.map(t => t.ffiType ?? t);
+            const ffiRetType = def.returns.ffiType ?? def.returns;
+            const cif = new ffiInt.FfiCif(ffiRetType, ...ffiArgTypes, def.fixed);
+            const dlsym = sym._dlsym;
+
+            result[name] = (...a) => cif.fast_call(dlsym, stringMask, bufferMask, ...a);
+        } else {
+            // Fallback to CFunction for complex types (structs, etc.)
+            const func = new CFunction(sym, def.returns, def.args, def.fixed);
+
+            result[name] = (...a) => func.call(...a);
+        }
     }
 
     return {
