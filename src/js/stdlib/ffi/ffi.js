@@ -278,6 +278,10 @@ export function stringToBuffer(s) {
     return ffiInt.toCString(s);
 }
 
+export function bufferToPointer(buf) {
+    return ffiInt.getArrayBufPtr(buf);
+}
+
 export class Pointer {
     constructor(addr, level, type) {
         this._type = type;
@@ -294,7 +298,7 @@ export class Pointer {
         return this._type;
     }
     get isNull() {
-        return this._addr === 0;
+        return this._addr === null;
     }
     deref() {
         if (this.level === 1) {
@@ -462,6 +466,8 @@ export class StaticStringType extends ArrayType {
         return ffiInt.getCString(ffiInt.getArrayBufPtr(buf), buf.length);
     }
 }
+
+export const read = ffiInt.read;
 
 export function errno() {
     return ffiInt.errno();
