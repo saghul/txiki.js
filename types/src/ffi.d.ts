@@ -103,6 +103,12 @@ declare module 'tjs:ffi'{
         jscallback: SimpleType<(...args: any)=>any>
     }
 
+    /**
+     * Platform-specific shared library file extension: `'dylib'` on macOS,
+     * `'so'` on Linux, `'dll'` on Windows.
+     */
+    export const suffix: string;
+
     export function bufferToString(buf: Uint8Array): string;
     export function stringToBuffer(s: string): Uint8Array;
 
