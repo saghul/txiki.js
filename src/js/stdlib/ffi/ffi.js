@@ -3,6 +3,10 @@ const ffiInt = core.ffi_load_native();
 
 import buildCParser from './ffiutils.js';
 
+const suffixMap = { macOS: 'dylib', Windows: 'dll' };
+
+export const suffix = suffixMap[navigator.userAgentData.platform] ?? 'so';
+
 
 export class DlSymbol {
     constructor(name, uvlib, dlsym) {
