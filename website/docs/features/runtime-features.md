@@ -9,7 +9,7 @@ txiki.js provides support for the [ES2025](https://tc39.es/ecma262/) specificati
 
 ## Core features
 
-- [TCP](/docs/api/global.Class.TCPSocket) and [UDP](/docs/api/global.Class.UDPSocket) sockets
+- [TCP](/docs/api/global.Class.TCPSocket), [TLS](/docs/api/global.Class.TLSSocket) and [UDP](/docs/api/global.Class.UDPSocket) sockets
 - [Unix sockets / named pipes](/docs/api/global.Class.PipeSocket)
 - [Signal handling](/docs/api/global.tjs.Function.addSignalListener)
 - [File operations](/docs/api/global.tjs.Function.open)

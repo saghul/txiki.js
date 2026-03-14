@@ -57,10 +57,8 @@ export class BaseStreamSocket {
     }
 
     _doWrite(buf) {
-        const result = this[kHandle].write(buf);
-
-        if (typeof result === 'number') {
-            return Promise.resolve(result);
+        if (this[kHandle].write(buf)) {
+            return Promise.resolve();
         }
 
         const { promise, resolve, reject } = Promise.withResolvers();

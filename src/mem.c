@@ -25,6 +25,7 @@
 #include "mem.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #if defined(TJS__HAS_MIMALLOC)
 #include <mimalloc.h>
@@ -85,4 +86,16 @@ void *tjs__realloc(void *ptr, size_t size) {
 #else
     return realloc(ptr, size);
 #endif
+}
+
+char *tjs__strdup(const char *s) {
+    if (!s) {
+        return NULL;
+    }
+    size_t len = strlen(s) + 1;
+    char *p = tjs__malloc(len);
+    if (p) {
+        memcpy(p, s, len);
+    }
+    return p;
 }
