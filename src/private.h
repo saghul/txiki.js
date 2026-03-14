@@ -29,6 +29,9 @@
 #include "tjs.h"
 
 #include <libwebsockets.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/entropy.h>
+#include <mbedtls/x509_crt.h>
 #include <quickjs.h>
 #include <sqlite3.h>
 #include <stdbool.h>
@@ -86,6 +89,13 @@ struct TJSRuntime {
         int64_t next_timer;
     } timers;
     struct {
+        bool initialized;
+        mbedtls_entropy_context entropy;
+        mbedtls_ctr_drbg_context ctr_drbg;
+        mbedtls_x509_crt cacert;
+        char *ca_bundle_path;
+    } tls;
+    struct {
         JSValue promise_event_ctor;
         JSValue dispatch_event_func;
     } builtins;
@@ -113,6 +123,8 @@ void tjs__mod_process_init(JSContext *ctx, JSValue ns);
 void tjs__mod_signals_init(JSContext *ctx, JSValue ns);
 void tjs__mod_sqlite3_init(JSContext *ctx, JSValue ns);
 void tjs__mod_streams_init(JSContext *ctx, JSValue ns);
+void tjs__mod_tls_init(JSContext *ctx, JSValue ns);
+void tjs__mod_tls_cleanup(TJSRuntime *qrt);
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns);
 void tjs__mod_text_coding_init(JSContext *ctx, JSValue ns);
 void tjs__mod_timers_init(JSContext *ctx, JSValue ns);

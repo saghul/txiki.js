@@ -169,6 +169,7 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_signals_init(ctx, ns);
     tjs__mod_sqlite3_init(ctx, ns);
     tjs__mod_streams_init(ctx, ns);
+    tjs__mod_tls_init(ctx, ns);
     tjs__mod_sys_init(ctx, ns);
     tjs__mod_text_coding_init(ctx, ns);
     tjs__mod_timers_init(ctx, ns);
@@ -442,6 +443,9 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     qrt->lws.ca_bundle_path = NULL;
     js_free(qrt->ctx, qrt->lws.ca_bundle_data);
     qrt->lws.ca_bundle_data = NULL;
+
+    /* Destroy shared TLS context. */
+    tjs__mod_tls_cleanup(qrt);
 
     /* Drain any pending lws close callbacks. */
     uv_run(&qrt->loop, UV_RUN_NOWAIT);

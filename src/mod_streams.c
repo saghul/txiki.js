@@ -283,9 +283,8 @@ static JSValue tjs_stream_write(JSContext *ctx, JSValue this_val, int argc, JSVa
     r = uv_try_write(&s->h.stream, &b, 1);
 
     if (r == (int) buf_ref.size) {
-        size_t total = buf_ref.size;
         tjs_buf_ref_release(ctx, &buf_ref);
-        return JS_NewInt64(ctx, total);
+        return JS_TRUE;
     }
 
     /* Do an async write, pin the buffer. */
@@ -311,7 +310,7 @@ static JSValue tjs_stream_write(JSContext *ctx, JSValue this_val, int argc, JSVa
         return tjs_throw_errno(ctx, r);
     }
 
-    return JS_UNDEFINED;
+    return JS_FALSE;
 }
 
 static void uv__stream_shutdown_cb(uv_shutdown_t *req, int status) {
