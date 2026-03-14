@@ -1,11 +1,15 @@
 import { PipeSocket, PipeServerSocket } from './direct-sockets/pipe.js';
 import { TCPSocket, TCPServerSocket } from './direct-sockets/tcp.js';
+import { TLSSocket, TLSServerSocket } from './direct-sockets/tls.js';
 import { UDPSocket } from './direct-sockets/udp.js';
 import { isIP, lookup } from './lookup.js';
 
 
 async function resolveAddress(transport, host, port) {
     switch (transport) {
+        case 'tls':
+
+        // eslint-disable-next-line no-fallthrough
         case 'tcp':
 
         // eslint-disable-next-line no-fallthrough
@@ -42,6 +46,24 @@ export async function connect(transport, host, port, options = {}) {
                 noDelay: options.noDelay,
                 keepAliveDelay: options.keepAliveDelay,
                 dnsQueryType: options.dnsQueryType,
+            });
+
+            await socket.opened;
+
+            return socket;
+        }
+
+        case 'tls': {
+            const socket = new TLSSocket(host, port, {
+                noDelay: options.noDelay,
+                keepAliveDelay: options.keepAliveDelay,
+                dnsQueryType: options.dnsQueryType,
+                sni: options.sni ?? host,
+                alpn: options.alpn,
+                ca: options.ca,
+                cert: options.cert,
+                key: options.key,
+                verifyPeer: options.verifyPeer,
             });
 
             await socket.opened;
@@ -98,6 +120,25 @@ export async function listen(transport, host, port, options = {}) {
                 localPort: addr.port,
                 backlog: options.backlog,
                 ipv6Only: options.ipv6Only,
+            });
+
+            await server.opened;
+
+            return server;
+        }
+
+        case 'tls': {
+            const addr = await resolveAddress(transport, host, port);
+
+            const server = new TLSServerSocket(addr.ip, {
+                localPort: addr.port,
+                backlog: options.backlog,
+                ipv6Only: options.ipv6Only,
+                cert: options.cert,
+                key: options.key,
+                ca: options.ca,
+                verifyPeer: options.verifyPeer,
+                alpn: options.alpn,
             });
 
             await server.opened;
