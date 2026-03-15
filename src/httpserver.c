@@ -727,7 +727,16 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             if (uri_ptr && uri_len > 0) {
                 size_t copy_len = MIN((size_t) uri_len, sizeof(req->url) - 1);
                 memcpy(req->url, uri_ptr, copy_len);
-                req->url[copy_len] = '\0';
+
+                /* lws_hdr_copy includes the ending '\0' but lws_hdr_total_length does not. */
+                int uri_query_len = lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_URI_ARGS) + 1;
+                if (uri_query_len > 1) {
+                    size_t copy_query_len = MIN((size_t) uri_query_len, sizeof(req->url) - copy_len - 1);
+                    req->url[copy_len] = '?';
+                    lws_hdr_copy(wsi, req->url + copy_len + 1, copy_query_len, WSI_TOKEN_HTTP_URI_ARGS);
+                } else {
+                    req->url[copy_len] = '\0';
+                }
             } else if (in) {
                 strncpy(req->url, (const char *) in, sizeof(req->url) - 1);
             }
