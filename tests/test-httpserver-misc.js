@@ -116,18 +116,20 @@ async function testRequestInfo() {
             return new Response(JSON.stringify({
                 method: req.method,
                 pathname: url.pathname,
+                search: url.search
             }), {
                 headers: { 'content-type': 'application/json' },
             });
         },
     });
 
-    const resp = await fetch(`http://127.0.0.1:${server.port}/test/path`, {
+    const resp = await fetch(`http://127.0.0.1:${server.port}/test/path?key=value`, {
         method: 'PUT',
     });
     const info = await resp.json();
     assert.eq(info.method, 'PUT', 'method is PUT');
     assert.eq(info.pathname, '/test/path', 'pathname matches');
+    assert.eq(info.search, '?key=value', 'search matches');
 
     server.close();
 }
