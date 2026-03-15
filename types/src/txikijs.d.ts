@@ -860,6 +860,24 @@ declare global {
         }
 
         /**
+        * @category Networking
+        */
+        interface TLSConnectOptions extends ConnectOptions {
+            /** Server Name Indication hostname. Defaults to the host argument. */
+            sni?: string;
+            /** ALPN protocol list to negotiate. */
+            alpn?: string[];
+            /** PEM-encoded CA certificate(s) to trust. Defaults to the embedded Mozilla CA bundle. */
+            ca?: string;
+            /** PEM-encoded client certificate for mutual TLS. */
+            cert?: string;
+            /** PEM-encoded client private key for mutual TLS. */
+            key?: string;
+            /** Whether to verify the peer's certificate. Defaults to true for clients, false for servers. */
+            verifyPeer?: boolean;
+        }
+
+        /**
         * Creates a connection to the target host + port over the selected transport.
         * Returns the appropriate Direct Sockets object.
         *
@@ -870,6 +888,7 @@ declare global {
         * @param options Extra connection options.
         */
         function connect(transport: 'tcp', host: string, port: number, options?: ConnectOptions): Promise<TCPSocket>;
+        function connect(transport: 'tls', host: string, port: number, options?: TLSConnectOptions): Promise<TLSSocket>;
         function connect(transport: 'pipe', host: string): Promise<PipeSocket>;
         function connect(transport: 'udp', host: string, port: number, options?: ConnectOptions): Promise<UDPSocket>;
 
@@ -883,6 +902,22 @@ declare global {
         }
 
         /**
+        * @category Networking
+        */
+        interface TLSListenOptions extends ListenOptions {
+            /** PEM-encoded server certificate. Required. */
+            cert: string;
+            /** PEM-encoded server private key. Required. */
+            key: string;
+            /** PEM-encoded CA certificate(s) for client certificate verification (mutual TLS). */
+            ca?: string;
+            /** Whether to verify the peer's certificate. Defaults to true for clients, false for servers. */
+            verifyPeer?: boolean;
+            /** ALPN protocol list to offer. */
+            alpn?: string[];
+        }
+
+        /**
         * Listens for incoming connections on the selected transport.
         * Returns the appropriate Direct Sockets object.
         *
@@ -893,6 +928,7 @@ declare global {
         * @param options Extra listen options.
         */
         function listen(transport: 'tcp', host: string, port?: number, options?: ListenOptions): Promise<TCPServerSocket>;
+        function listen(transport: 'tls', host: string, port?: number, options?: TLSListenOptions): Promise<TLSServerSocket>;
         function listen(transport: 'pipe', host: string, options?: ListenOptions): Promise<PipeServerSocket>;
         function listen(transport: 'udp', host?: string, port?: number, options?: ListenOptions): Promise<UDPSocket>;
 
@@ -1236,6 +1272,104 @@ declare global {
     class TCPServerSocket {
         constructor(localAddress: string, options?: TCPServerSocketOptions);
         readonly opened: Promise<TCPServerSocketOpenInfo>;
+        readonly closed: Promise<void>;
+        close(): void;
+    }
+
+    /**
+    * Information about an opened TLS socket connection.
+    *
+    * @category Networking
+    */
+    interface TLSSocketOpenInfo {
+        readable: ReadableStream<Uint8Array>;
+        writable: WritableStream<Uint8Array>;
+        localAddress: string;
+        localPort: number;
+        remoteAddress: string;
+        remotePort: number;
+        /** The ALPN protocol negotiated during the TLS handshake, or null. */
+        alpn: string | null;
+    }
+
+    /**
+    * Options for creating a TLS client socket.
+    *
+    * @category Networking
+    */
+    interface TLSSocketOptions {
+        /** Server Name Indication hostname. Defaults to remoteAddress. */
+        sni?: string;
+        /** ALPN protocol list to negotiate. */
+        alpn?: string[];
+        /** PEM-encoded CA certificate(s) to trust. Defaults to the embedded Mozilla CA bundle. */
+        ca?: string;
+        /** PEM-encoded client certificate for mutual TLS. */
+        cert?: string;
+        /** PEM-encoded client private key for mutual TLS. */
+        key?: string;
+        /** Whether to verify the peer's certificate. Defaults to true for clients, false for servers. */
+        verifyPeer?: boolean;
+        noDelay?: boolean;
+        keepAliveDelay?: number;
+        dnsQueryType?: 'ipv4' | 'ipv6';
+    }
+
+    /**
+    * A TLS client socket. Wraps a TCP connection with TLS encryption.
+    * All data read from the readable stream and written to the writable stream is automatically
+    * encrypted/decrypted — JS only sees plaintext.
+    *
+    * @category Networking
+    */
+    class TLSSocket {
+        constructor(remoteAddress: string, remotePort: number, options?: TLSSocketOptions);
+        readonly opened: Promise<TLSSocketOpenInfo>;
+        readonly closed: Promise<void>;
+        close(): void;
+    }
+
+    /**
+    * Information about an opened TLS server socket.
+    *
+    * @category Networking
+    */
+    interface TLSServerSocketOpenInfo {
+        readable: ReadableStream<TLSSocket>;
+        localAddress: string;
+        localPort: number;
+    }
+
+    /**
+    * Options for creating a TLS server socket.
+    *
+    * @category Networking
+    */
+    interface TLSServerSocketOptions {
+        localPort?: number;
+        /** PEM-encoded server certificate. Required. */
+        cert: string;
+        /** PEM-encoded server private key. Required. */
+        key: string;
+        /** PEM-encoded CA certificate(s) for client certificate verification (mutual TLS). */
+        ca?: string;
+        /** Whether to verify the peer's certificate. Defaults to true for clients, false for servers. */
+        verifyPeer?: boolean;
+        /** ALPN protocol list to offer. */
+        alpn?: string[];
+        backlog?: number;
+        ipv6Only?: boolean;
+    }
+
+    /**
+    * A TLS server socket. Listens for incoming TLS connections.
+    * Accepted clients are {@link TLSSocket} instances with TLS already negotiated.
+    *
+    * @category Networking
+    */
+    class TLSServerSocket {
+        constructor(localAddress: string, options: TLSServerSocketOptions);
+        readonly opened: Promise<TLSServerSocketOpenInfo>;
         readonly closed: Promise<void>;
         close(): void;
     }

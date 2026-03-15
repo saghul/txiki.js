@@ -33,5 +33,6 @@ void *tjs__mallocz(size_t size);
 void *tjs__calloc(size_t count, size_t size);
 void tjs__free(void *ptr);
 void *tjs__realloc(void *ptr, size_t size);
+char *tjs__strdup(const char *s);
 
 #endif
