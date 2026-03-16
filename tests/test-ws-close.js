@@ -1,7 +1,10 @@
 import assert from 'tjs:assert';
 
-const url = 'wss://websocket-echo.com';
-const ws = new WebSocket(url);
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, wsUrl } = createEchoServer();
+
+const ws = new WebSocket(wsUrl);
 
 ws.addEventListener('open', () => {
     assert.throws(() => ws.close(1234), RangeError, 'Out of range');
@@ -12,4 +15,5 @@ ws.addEventListener('open', () => {
     assert.throws(() => ws.close(3000, bogusReason), SyntaxError, 'Too large reason');
 
     ws.close(3000, 'Good bye!');
+    server.close();
 });

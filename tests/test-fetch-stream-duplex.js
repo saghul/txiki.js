@@ -1,5 +1,9 @@
 import assert from 'tjs:assert';
 
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, baseUrl } = createEchoServer();
+
 // ReadableStream body without duplex option throws
 const stream = new ReadableStream({
     start(controller) {
@@ -11,7 +15,7 @@ const stream = new ReadableStream({
 let threw = false;
 
 try {
-    await fetch('https://postman-echo.com/post', {
+    await fetch(`${baseUrl}/post`, {
         method: 'POST',
         body: stream
         // Missing duplex: 'half'
@@ -23,3 +27,5 @@ try {
 }
 
 assert.ok(threw, 'should throw without duplex option');
+
+server.close();

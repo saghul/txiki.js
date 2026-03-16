@@ -1,5 +1,9 @@
 import assert from 'tjs:assert';
 
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, baseUrl } = createEchoServer();
+
 // Test 1: Abort before response (during fetch)
 async function testAbortBeforeResponse() {
     const controller = new AbortController();
@@ -11,7 +15,7 @@ async function testAbortBeforeResponse() {
     let errorName = null;
 
     try {
-        await fetch('https://postman-echo.com/delay/3', {
+        await fetch(`${baseUrl}/delay/3`, {
             signal: controller.signal
         });
     } catch (e) {
@@ -33,7 +37,7 @@ async function testAlreadyAborted() {
     let errorName = null;
 
     try {
-        await fetch('https://postman-echo.com/get', {
+        await fetch(`${baseUrl}/get`, {
             signal: controller.signal
         });
     } catch (e) {
@@ -47,3 +51,5 @@ async function testAlreadyAborted() {
 
 await testAbortBeforeResponse();
 await testAlreadyAborted();
+
+server.close();

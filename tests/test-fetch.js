@@ -1,8 +1,11 @@
 import assert from 'tjs:assert';
 
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, baseUrl } = createEchoServer();
 
 async function basicFetch() {
-    const r = await fetch('https://postman-echo.com/get');
+    const r = await fetch(`${baseUrl}/get`);
     assert.eq(r.status, 200, 'status is 200');
 };
 
@@ -13,7 +16,7 @@ async function abortFetch() {
         controller.abort();
     }, 500);
     try {
-        await fetch('https://postman-echo.com/delay/3', { signal });
+        await fetch(`${baseUrl}/delay/3`, { signal });
     } catch (e) {
         assert.eq(e.name, 'AbortError', 'fetch was aborted');
     }
@@ -21,7 +24,7 @@ async function abortFetch() {
 
 async function fetchWithPostAndBody() {
     const data = JSON.stringify({ foo: 'bar', bar: 'baz' });
-    const r = await fetch('https://postman-echo.com/post', {
+    const r = await fetch(`${baseUrl}/post`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -34,21 +37,22 @@ async function fetchWithPostAndBody() {
 };
 
 async function fetchWithBlobBody() {
-    const r = await fetch('https://picsum.photos/id/237/200/300.jpg');
+    const r = await fetch(`${baseUrl}/image.jpg`);
     assert.eq(r.status, 200, 'status is 200');
     const blob = await r.blob();
     assert.eq(blob.type, 'image/jpeg', 'response is jpeg image')
 }
 
 async function fetchWithRedirect() {
-    const url = 'https://wikipedia.com/';
+    const url = `${baseUrl}/redirect`;
+    const targetUrl = `${baseUrl}/redirect-target`;
 
     const r1 = await fetch(url, {
         method: 'GET',
         redirect: 'follow',
     });
     assert.eq(r1.status, 200, 'status is 200');
-    assert.ok(r1.url.startsWith('https://www.wikipedia.org/'), 'url has changed')
+    assert.ok(r1.url.startsWith(targetUrl), 'url has changed')
 
     const r2 = await fetch(url, {
         method: 'GET',
@@ -56,7 +60,7 @@ async function fetchWithRedirect() {
     });
     assert.eq(r2.status, 301, 'status is 301');
     assert.eq(r2.url, url, 'url is the same')
-    assert.ok(r2.headers.get('location').startsWith('https://www.wikipedia.org/'), 'location header is correct');
+    assert.ok(r2.headers.get('location').startsWith(targetUrl), 'location header is correct');
 
     let hasError = false;
     await fetch(url, {
@@ -73,3 +77,5 @@ await abortFetch();
 await fetchWithPostAndBody();
 await fetchWithBlobBody();
 await fetchWithRedirect();
+
+server.close();

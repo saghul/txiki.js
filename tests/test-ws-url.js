@@ -1,11 +1,15 @@
 import assert from 'tjs:assert';
 
-const url = 'wss://websocket-echo.com';
-const ws = new WebSocket(url);
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, wsUrl } = createEchoServer();
+
+const ws = new WebSocket(wsUrl);
 
 ws.addEventListener('open', () => {
     // The URL will end in /
-    assert.eq(ws.url.slice(0, -1), url, 'url is the same');
+    assert.eq(ws.url.slice(0, -1), wsUrl, 'url is the same');
 
     ws.close();
+    server.close();
 });
