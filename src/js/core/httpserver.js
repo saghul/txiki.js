@@ -10,6 +10,7 @@ class Server {
     #handle;
     #handler;
     #isTLS;
+    #streamControllers = new Map();
 
     constructor(options) {
         if (typeof options === 'function') {
@@ -44,11 +45,26 @@ class Server {
 
         this.#isTLS = !!tls;
 
-        const onRequest = (requestId, method, url, headersArr, bodyBuffer, remoteAddr, isWsUpgrade) => {
+        const onRequest = (requestId, method, url, headersArr, bodyBuffer, remoteAddr, isWsUpgrade, isStreaming) => {
             if (isWsUpgrade) {
                 this.#handleWsUpgrade(requestId, method, url, headersArr, remoteAddr);
             } else {
-                this.#handleRequest(requestId, method, url, headersArr, bodyBuffer, remoteAddr);
+                this.#handleRequest(requestId, method, url, headersArr, bodyBuffer, remoteAddr, isStreaming);
+            }
+        };
+
+        const onBodyChunk = (requestId, chunk) => {
+            const controller = this.#streamControllers.get(requestId);
+
+            if (!controller) {
+                return;
+            }
+
+            if (chunk) {
+                controller.enqueue(new Uint8Array(chunk));
+            } else {
+                controller.close();
+                this.#streamControllers.delete(requestId);
             }
         };
 
@@ -56,6 +72,7 @@ class Server {
             port,
             listenIp,
             onRequest,
+            onBodyChunk,
             wsOpen: websocket?.open ?? null,
             wsMessage: websocket?.message ?? null,
             wsClose: websocket?.close ?? null,
@@ -122,7 +139,7 @@ class Server {
         // server.upgrade(req) must have been called synchronously
     }
 
-    async #handleRequest(requestId, method, url, headersArr, bodyBuffer, remoteAddr) {
+    async #handleRequest(requestId, method, url, headersArr, bodyBuffer, remoteAddr, isStreaming) {
         let headersSent = false;
 
         try {
@@ -134,7 +151,16 @@ class Server {
             const fullUrl = `${scheme}://${host}${url}`;
             const requestInit = { method, headers };
 
-            if (bodyBuffer && bodyBuffer.byteLength > 0 && method !== 'GET' && method !== 'HEAD') {
+            if (isStreaming && method !== 'GET' && method !== 'HEAD') {
+                const stream = new ReadableStream({
+                    start: controller => {
+                        this.#streamControllers.set(requestId, controller);
+                    },
+                });
+
+                requestInit.body = stream;
+                requestInit.duplex = 'half';
+            } else if (bodyBuffer && bodyBuffer.byteLength > 0 && method !== 'GET' && method !== 'HEAD') {
                 requestInit.body = bodyBuffer;
             }
 
