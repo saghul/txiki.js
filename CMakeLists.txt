@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 
+cmake_policy(SET CMP0091 NEW)
+
 project(tjs LANGUAGES C CXX)
 
 include(ExternalProject)
@@ -19,6 +21,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     list(APPEND tjs_cflags /experimental:c11atomics)
 else()
     list(APPEND tjs_cflags -Wall -g)
@@ -262,6 +265,7 @@ option(ENABLE_PROGRAMS "" OFF)
 option(MBEDTLS_FATAL_WARNINGS "" OFF)
 set(MBEDTLS_AS_SUBPROJECT ON)
 set(MBEDTLS_USER_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/mbedtls_config.h" CACHE FILEPATH "" FORCE)
+set(MSVC_STATIC_RUNTIME ON CACHE BOOL "" FORCE)
 add_subdirectory(deps/mbedtls EXCLUDE_FROM_ALL)
 target_link_libraries(tjs PUBLIC mbedtls mbedx509 mbedcrypto)
 
@@ -289,6 +293,7 @@ set(LWS_WITHOUT_EXTENSIONS ON CACHE BOOL "" FORCE)
 set(LWS_WITHOUT_TESTAPPS ON CACHE BOOL "" FORCE)
 set(LWS_WITH_SHARED OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_STATIC ON CACHE BOOL "" FORCE)
+set(LWS_MSVC_STATIC_RUNTIME ON CACHE BOOL "" FORCE)
 set(LWS_WITH_MINIMAL_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_TLS_SESSIONS OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_EXPORT_LWSTARGETS OFF CACHE BOOL "" FORCE)
