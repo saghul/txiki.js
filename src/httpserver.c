@@ -59,6 +59,7 @@ typedef struct TJSHttpRequest {
     char url[2048];
     char remote_addr[64];
     bool body_complete;
+    bool chunked; /* true for Transfer-Encoding: chunked — body is streamed to JS */
 
     /* Response state. */
     bool responded;
@@ -119,6 +120,7 @@ typedef struct {
 typedef struct {
     JSContext *ctx;
     JSValue callback;                   /* JS onrequest handler */
+    JSValue body_chunk_callback;        /* JS onBodyChunk handler for streaming bodies */
     JSValue this_val;                   /* prevent GC while listening */
     JSValue ws_callbacks[WS_EVENT_MAX]; /* server-level: open, message, close, error */
     struct lws_vhost *vhost;
@@ -207,6 +209,7 @@ static void tjs_httpserver_finalizer(JSRuntime *rt, JSValue val) {
     TJSHttpServer *s = JS_GetOpaque(val, tjs_httpserver_class_id);
     if (s) {
         JS_FreeValueRT(rt, s->callback);
+        JS_FreeValueRT(rt, s->body_chunk_callback);
 
         for (int i = 0; i < WS_EVENT_MAX; i++) {
             JS_FreeValueRT(rt, s->ws_callbacks[i]);
@@ -247,6 +250,7 @@ static void tjs_httpserver_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_fu
     TJSHttpServer *s = JS_GetOpaque(val, tjs_httpserver_class_id);
     if (s) {
         JS_MarkValue(rt, s->callback, mark_func);
+        JS_MarkValue(rt, s->body_chunk_callback, mark_func);
         for (int i = 0; i < WS_EVENT_MAX; i++) {
             JS_MarkValue(rt, s->ws_callbacks[i], mark_func);
         }
@@ -365,7 +369,7 @@ static const char *tjs_http_method_name(int method_idx) {
 static void tjs_http_invoke_handler(TJSHttpServer *s, TJSHttpRequest *req) {
     JSContext *ctx = s->ctx;
 
-    JSValue args[7];
+    JSValue args[8];
     args[0] = JS_NewInt64(ctx, req->id);
     args[1] = JS_NewString(ctx, tjs_http_method_name(req->method));
     args[2] = JS_NewString(ctx, req->url);
@@ -377,6 +381,7 @@ static void tjs_http_invoke_handler(TJSHttpServer *s, TJSHttpRequest *req) {
     }
     args[5] = JS_NewString(ctx, req->remote_addr);
     args[6] = JS_FALSE; /* not a WS upgrade */
+    args[7] = JS_NewBool(ctx, req->chunked);
 
     tjs_call_handler(ctx, s->callback, countof(args), args);
 
@@ -751,8 +756,17 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             /* Check if this request has a body. */
             char cl[32];
             int has_cl = lws_hdr_copy(wsi, cl, sizeof(cl), WSI_TOKEN_HTTP_CONTENT_LENGTH);
-            if (has_cl > 0 && atoi(cl) > 0) {
+            int has_te = lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_TRANSFER_ENCODING);
+            if ((has_cl > 0 && atoi(cl) > 0) || has_te > 0) {
                 /* Body expected, wait for LWS_CALLBACK_HTTP_BODY. */
+                req->chunked = has_te > 0 && !(has_cl > 0 && atoi(cl) > 0);
+
+                /* For chunked requests, invoke the handler immediately so JS
+                 * can set up a ReadableStream for the request body. */
+                if (req->chunked) {
+                    tjs_http_invoke_handler(s, req);
+                }
+
                 return 0;
             }
 
@@ -768,8 +782,87 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 return -1;
             }
 
-            /* Accumulate body chunks. */
-            tbuf_put(&req->body_buf, in, len);
+            if (!req->chunked) {
+                /* Non-chunked: accumulate as-is. */
+                tbuf_put(&req->body_buf, in, len);
+                return 0;
+            }
+
+            /* Chunked: de-chunk the data and detect the terminator. */
+            const uint8_t *p = (const uint8_t *) in;
+            const uint8_t *end = p + len;
+            JSContext *ctx = s->ctx;
+
+            while (p < end) {
+                /* Parse chunk size (hex digits terminated by \r\n). */
+                const uint8_t *crlf = NULL;
+                for (const uint8_t *scan = p; scan + 1 < end; scan++) {
+                    if (scan[0] == '\r' && scan[1] == '\n') {
+                        crlf = scan;
+                        break;
+                    }
+                }
+                if (!crlf) {
+                    break;
+                }
+
+                /* Convert hex to size. */
+                size_t chunk_size = 0;
+                for (const uint8_t *h = p; h < crlf; h++) {
+                    chunk_size <<= 4;
+                    if (*h >= '0' && *h <= '9') {
+                        chunk_size += *h - '0';
+                    } else if (*h >= 'a' && *h <= 'f') {
+                        chunk_size += *h - 'a' + 10;
+                    } else if (*h >= 'A' && *h <= 'F') {
+                        chunk_size += *h - 'A' + 10;
+                    }
+                }
+
+                const uint8_t *data_start = crlf + 2; /* skip \r\n after size */
+
+                if (chunk_size == 0) {
+                    /* Terminal chunk. */
+                    req->body_complete = true;
+
+                    if (req->chunked) {
+                        /* Signal end-of-stream to JS. */
+                        JSValue cb_args[2];
+                        cb_args[0] = JS_NewInt64(ctx, req->id);
+                        cb_args[1] = JS_NULL;
+                        tjs_call_handler(ctx, s->body_chunk_callback, 2, cb_args);
+                        JS_FreeValue(ctx, cb_args[0]);
+                    } else {
+                        tjs_http_invoke_handler(s, req);
+                    }
+
+                    return 0;
+                }
+
+                /* Process chunk data. */
+                size_t avail = end - data_start;
+                size_t to_copy = chunk_size < avail ? chunk_size : avail;
+
+                if (req->chunked) {
+                    /* Stream chunk to JS via body_chunk_callback. */
+                    JSValue cb_args[2];
+                    cb_args[0] = JS_NewInt64(ctx, req->id);
+                    cb_args[1] = JS_NewArrayBufferCopy(ctx, data_start, to_copy);
+                    tjs_call_handler(ctx, s->body_chunk_callback, 2, cb_args);
+                    JS_FreeValue(ctx, cb_args[0]);
+                    JS_FreeValue(ctx, cb_args[1]);
+                } else {
+                    /* Accumulate for buffered path. */
+                    tbuf_put(&req->body_buf, data_start, to_copy);
+                }
+
+                /* Skip past chunk data + trailing \r\n. */
+                p = data_start + chunk_size;
+                if (p + 2 <= end) {
+                    p += 2; /* skip trailing \r\n */
+                }
+            }
+
             return 0;
         }
 
@@ -861,6 +954,16 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             TJSHttpRequest *req = (TJSHttpRequest *) lws_wsi_user(wsi);
             if (!req) {
                 return 0;
+            }
+
+            /* If streaming body was in progress, signal end-of-stream. */
+            if (req->chunked && !req->body_complete) {
+                req->body_complete = true;
+                JSValue cb_args[2];
+                cb_args[0] = JS_NewInt64(s->ctx, req->id);
+                cb_args[1] = JS_NULL;
+                tjs_call_handler(s->ctx, s->body_chunk_callback, 2, cb_args);
+                JS_FreeValue(s->ctx, cb_args[0]);
             }
 
             HASH_DEL(s->active_requests, req);
@@ -1016,6 +1119,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
 
     s->ctx = ctx;
     s->callback = JS_UNDEFINED;
+    s->body_chunk_callback = JS_UNDEFINED;
     s->this_val = JS_UNDEFINED;
     for (int i = 0; i < WS_EVENT_MAX; i++) {
         s->ws_callbacks[i] = JS_UNDEFINED;
@@ -1043,6 +1147,11 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     CHECK(JS_IsFunction(ctx, js_callback));
     s->callback = js_callback; /* already a new reference from GetPropertyStr */
     s->port = port;
+
+    /* Body chunk callback for streaming request bodies (required). */
+    JSValue js_body_chunk = JS_GetPropertyStr(ctx, options, "onBodyChunk");
+    CHECK(JS_IsFunction(ctx, js_body_chunk));
+    s->body_chunk_callback = js_body_chunk;
 
     /* WS callbacks (may be null). */
     static const char *ws_prop_names[] = { "wsOpen", "wsMessage", "wsClose", "wsError" };
@@ -1191,6 +1300,9 @@ static JSValue tjs_httpserver_close(JSContext *ctx, JSValue this_val, int argc, 
      * fires PROTOCOL_DESTROY, so we only release callbacks here. */
     JS_FreeValue(ctx, s->callback);
     s->callback = JS_UNDEFINED;
+
+    JS_FreeValue(ctx, s->body_chunk_callback);
+    s->body_chunk_callback = JS_UNDEFINED;
 
     for (int i = 0; i < WS_EVENT_MAX; i++) {
         JS_FreeValue(ctx, s->ws_callbacks[i]);

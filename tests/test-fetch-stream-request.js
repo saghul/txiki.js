@@ -1,5 +1,18 @@
 import assert from 'tjs:assert';
 
+// Echo server that reads the streaming request body and echoes it back.
+const server = tjs.serve({
+    async fetch(request) {
+        const body = await request.text();
+
+        return new Response(body, {
+            headers: { 'Content-Type': 'text/plain' },
+        });
+    },
+});
+
+const url = `http://127.0.0.1:${server.port}/post`;
+
 // Streaming request body with ReadableStream
 const chunks = [ 'hello', ' ', 'world' ];
 let chunkIndex = 0;
@@ -12,18 +25,20 @@ const stream = new ReadableStream({
         } else {
             controller.close();
         }
-    }
+    },
 });
 
-const response = await fetch('https://postman-echo.com/post', {
+const response = await fetch(url, {
     method: 'POST',
     body: stream,
     duplex: 'half',
-    headers: { 'Content-Type': 'text/plain' }
+    headers: { 'Content-Type': 'text/plain' },
 });
 
 assert.eq(response.status, 200, 'status is 200');
 
-const json = await response.json();
+const text = await response.text();
 
-assert.eq(json.data, 'hello world', 'streaming body was received correctly');
+assert.eq(text, 'hello world', 'streaming body was received correctly');
+
+server.close();
