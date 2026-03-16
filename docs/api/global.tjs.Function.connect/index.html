@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.9.2">
 <title data-rh="true">Function: connect() | txiki.js</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://txikijs.org/img/logo-heartonly.png"><meta data-rh="true" name="twitter:image" content="https://txikijs.org/img/logo-heartonly.png"><meta data-rh="true" property="og:url" content="https://txikijs.org/docs/api/global.tjs.Function.connect"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Function: connect() | txiki.js"><meta data-rh="true" name="description" content="Call Signature"><meta data-rh="true" property="og:description" content="Call Signature"><link data-rh="true" rel="icon" href="/img/favicon.png"><link data-rh="true" rel="canonical" href="https://txikijs.org/docs/api/global.tjs.Function.connect"><link data-rh="true" rel="alternate" href="https://txikijs.org/docs/api/global.tjs.Function.connect" hreflang="en"><link data-rh="true" rel="alternate" href="https://txikijs.org/docs/api/global.tjs.Function.connect" hreflang="x-default"><link data-rh="true" rel="preconnect" href="https://MK980B6DQ4-dsn.algolia.net" crossorigin="anonymous"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Function: connect()","item":"https://txikijs.org/docs/api/global.tjs.Function.connect"}]}</script><link rel="search" type="application/opensearchdescription+xml" title="txiki.js" href="/opensearch.xml"><link rel="stylesheet" href="/assets/css/styles.ad3b1d14.css">
-<script src="/assets/js/runtime~main.e2184161.js" defer="defer"></script>
-<script src="/assets/js/main.bd93a483.js" defer="defer"></script>
+<script src="/assets/js/runtime~main.7d9e64ba.js" defer="defer"></script>
+<script src="/assets/js/main.6d6e7cbb.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
 <svg style="display: none;"><defs>
@@ -35,39 +35,60 @@ Returns the appropriate Direct Sockets object.</p>
 <p><code>Promise</code>&lt;<a class="" href="/docs/api/global.Class.TCPSocket"><code>TCPSocket</code></a>&gt;</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="call-signature-1">Call Signature<a href="#call-signature-1" class="hash-link" aria-label="Direct link to Call Signature" title="Direct link to Call Signature" translate="no">​</a></h2>
 <blockquote>
-<p><strong>connect</strong>(<code>transport</code>, <code>host</code>): <code>Promise</code>&lt;<a class="" href="/docs/api/global.Class.PipeSocket"><code>PipeSocket</code></a>&gt;</p>
+<p><strong>connect</strong>(<code>transport</code>, <code>host</code>, <code>port</code>, <code>options?</code>): <code>Promise</code>&lt;<a class="" href="/docs/api/global.Class.TLSSocket"><code>TLSSocket</code></a>&gt;</p>
 </blockquote>
 <p>Creates a connection to the target host + port over the selected transport.
 Returns the appropriate Direct Sockets object.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-1">Parameters<a href="#parameters-1" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h3>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="transport-1">transport<a href="#transport-1" class="hash-link" aria-label="Direct link to transport" title="Direct link to transport" translate="no">​</a></h4>
-<p><code>&quot;pipe&quot;</code></p>
+<p><code>&quot;tls&quot;</code></p>
 <p>Type of transport for the connection.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="host-1">host<a href="#host-1" class="hash-link" aria-label="Direct link to host" title="Direct link to host" translate="no">​</a></h4>
-<p><code>string</code></p>
-<p>Hostname for the connection. Basic lookup using <a class="" href="/docs/api/global.tjs.Function.lookup">lookup</a> will be performed.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-1">Returns<a href="#returns-1" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h3>
-<p><code>Promise</code>&lt;<a class="" href="/docs/api/global.Class.PipeSocket"><code>PipeSocket</code></a>&gt;</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="call-signature-2">Call Signature<a href="#call-signature-2" class="hash-link" aria-label="Direct link to Call Signature" title="Direct link to Call Signature" translate="no">​</a></h2>
-<blockquote>
-<p><strong>connect</strong>(<code>transport</code>, <code>host</code>, <code>port</code>, <code>options?</code>): <code>Promise</code>&lt;<a class="" href="/docs/api/global.Class.UDPSocket"><code>UDPSocket</code></a>&gt;</p>
-</blockquote>
-<p>Creates a connection to the target host + port over the selected transport.
-Returns the appropriate Direct Sockets object.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-2">Parameters<a href="#parameters-2" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h3>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="transport-2">transport<a href="#transport-2" class="hash-link" aria-label="Direct link to transport" title="Direct link to transport" translate="no">​</a></h4>
-<p><code>&quot;udp&quot;</code></p>
-<p>Type of transport for the connection.</p>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="host-2">host<a href="#host-2" class="hash-link" aria-label="Direct link to host" title="Direct link to host" translate="no">​</a></h4>
 <p><code>string</code></p>
 <p>Hostname for the connection. Basic lookup using <a class="" href="/docs/api/global.tjs.Function.lookup">lookup</a> will be performed.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="port-1">port<a href="#port-1" class="hash-link" aria-label="Direct link to port" title="Direct link to port" translate="no">​</a></h4>
 <p><code>number</code></p>
 <p>Destination port (where applicable).</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="options-1">options?<a href="#options-1" class="hash-link" aria-label="Direct link to options?" title="Direct link to options?" translate="no">​</a></h4>
+<p><a class="" href="/docs/api/global.tjs.Interface.TLSConnectOptions"><code>TLSConnectOptions</code></a></p>
+<p>Extra connection options.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-1">Returns<a href="#returns-1" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h3>
+<p><code>Promise</code>&lt;<a class="" href="/docs/api/global.Class.TLSSocket"><code>TLSSocket</code></a>&gt;</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="call-signature-2">Call Signature<a href="#call-signature-2" class="hash-link" aria-label="Direct link to Call Signature" title="Direct link to Call Signature" translate="no">​</a></h2>
+<blockquote>
+<p><strong>connect</strong>(<code>transport</code>, <code>host</code>): <code>Promise</code>&lt;<a class="" href="/docs/api/global.Class.PipeSocket"><code>PipeSocket</code></a>&gt;</p>
+</blockquote>
+<p>Creates a connection to the target host + port over the selected transport.
+Returns the appropriate Direct Sockets object.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-2">Parameters<a href="#parameters-2" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="transport-2">transport<a href="#transport-2" class="hash-link" aria-label="Direct link to transport" title="Direct link to transport" translate="no">​</a></h4>
+<p><code>&quot;pipe&quot;</code></p>
+<p>Type of transport for the connection.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="host-2">host<a href="#host-2" class="hash-link" aria-label="Direct link to host" title="Direct link to host" translate="no">​</a></h4>
+<p><code>string</code></p>
+<p>Hostname for the connection. Basic lookup using <a class="" href="/docs/api/global.tjs.Function.lookup">lookup</a> will be performed.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-2">Returns<a href="#returns-2" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h3>
+<p><code>Promise</code>&lt;<a class="" href="/docs/api/global.Class.PipeSocket"><code>PipeSocket</code></a>&gt;</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="call-signature-3">Call Signature<a href="#call-signature-3" class="hash-link" aria-label="Direct link to Call Signature" title="Direct link to Call Signature" translate="no">​</a></h2>
+<blockquote>
+<p><strong>connect</strong>(<code>transport</code>, <code>host</code>, <code>port</code>, <code>options?</code>): <code>Promise</code>&lt;<a class="" href="/docs/api/global.Class.UDPSocket"><code>UDPSocket</code></a>&gt;</p>
+</blockquote>
+<p>Creates a connection to the target host + port over the selected transport.
+Returns the appropriate Direct Sockets object.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters-3">Parameters<a href="#parameters-3" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="transport-3">transport<a href="#transport-3" class="hash-link" aria-label="Direct link to transport" title="Direct link to transport" translate="no">​</a></h4>
+<p><code>&quot;udp&quot;</code></p>
+<p>Type of transport for the connection.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="host-3">host<a href="#host-3" class="hash-link" aria-label="Direct link to host" title="Direct link to host" translate="no">​</a></h4>
+<p><code>string</code></p>
+<p>Hostname for the connection. Basic lookup using <a class="" href="/docs/api/global.tjs.Function.lookup">lookup</a> will be performed.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="port-2">port<a href="#port-2" class="hash-link" aria-label="Direct link to port" title="Direct link to port" translate="no">​</a></h4>
+<p><code>number</code></p>
+<p>Destination port (where applicable).</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="options-2">options?<a href="#options-2" class="hash-link" aria-label="Direct link to options?" title="Direct link to options?" translate="no">​</a></h4>
 <p><a class="" href="/docs/api/global.tjs.Interface.ConnectOptions"><code>ConnectOptions</code></a></p>
 <p>Extra connection options.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-2">Returns<a href="#returns-2" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h3>
-<p><code>Promise</code>&lt;<a class="" href="/docs/api/global.Class.UDPSocket"><code>UDPSocket</code></a>&gt;</p></div><footer class="theme-doc-footer docusaurus-mt-lg"><div class="row margin-top--sm theme-doc-footer-edit-meta-row"><div class="col noPrint_WFHX"><a href="https://github.com/saghul/txiki.js/tree/master/website/docs/api/global.tjs.Function.connect.md" target="_blank" rel="noopener noreferrer" class="theme-edit-this-page"><svg fill="currentColor" height="20" width="20" viewBox="0 0 40 40" class="iconEdit_Z9Sw" aria-hidden="true"><g><path d="m34.5 11.7l-3 3.1-6.3-6.3 3.1-3q0.5-0.5 1.2-0.5t1.1 0.5l3.9 3.9q0.5 0.4 0.5 1.1t-0.5 1.2z m-29.5 17.1l18.4-18.5 6.3 6.3-18.4 18.4h-6.3v-6.2z"></path></g></svg>Edit this page</a></div><div class="col lastUpdated_JAkA"></div></div></footer></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href="/docs/api/global.tjs.TypeAlias.WatchEventHandler"><div class="pagination-nav__sublabel">Previous</div><div class="pagination-nav__label">Type Alias: WatchEventHandler()</div></a><a class="pagination-nav__link pagination-nav__link--next" href="/docs/api/global.tjs.Function.listen"><div class="pagination-nav__sublabel">Next</div><div class="pagination-nav__label">Function: listen()</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#call-signature" class="table-of-contents__link toc-highlight">Call Signature</a><ul><li><a href="#parameters" class="table-of-contents__link toc-highlight">Parameters</a></li><li><a href="#returns" class="table-of-contents__link toc-highlight">Returns</a></li></ul></li><li><a href="#call-signature-1" class="table-of-contents__link toc-highlight">Call Signature</a><ul><li><a href="#parameters-1" class="table-of-contents__link toc-highlight">Parameters</a></li><li><a href="#returns-1" class="table-of-contents__link toc-highlight">Returns</a></li></ul></li><li><a href="#call-signature-2" class="table-of-contents__link toc-highlight">Call Signature</a><ul><li><a href="#parameters-2" class="table-of-contents__link toc-highlight">Parameters</a></li><li><a href="#returns-2" class="table-of-contents__link toc-highlight">Returns</a></li></ul></li></ul></div></div></div></div></main></div></div></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-3">Returns<a href="#returns-3" class="hash-link" aria-label="Direct link to Returns" title="Direct link to Returns" translate="no">​</a></h3>
+<p><code>Promise</code>&lt;<a class="" href="/docs/api/global.Class.UDPSocket"><code>UDPSocket</code></a>&gt;</p></div><footer class="theme-doc-footer docusaurus-mt-lg"><div class="row margin-top--sm theme-doc-footer-edit-meta-row"><div class="col noPrint_WFHX"><a href="https://github.com/saghul/txiki.js/tree/master/website/docs/api/global.tjs.Function.connect.md" target="_blank" rel="noopener noreferrer" class="theme-edit-this-page"><svg fill="currentColor" height="20" width="20" viewBox="0 0 40 40" class="iconEdit_Z9Sw" aria-hidden="true"><g><path d="m34.5 11.7l-3 3.1-6.3-6.3 3.1-3q0.5-0.5 1.2-0.5t1.1 0.5l3.9 3.9q0.5 0.4 0.5 1.1t-0.5 1.2z m-29.5 17.1l18.4-18.5 6.3 6.3-18.4 18.4h-6.3v-6.2z"></path></g></svg>Edit this page</a></div><div class="col lastUpdated_JAkA"></div></div></footer></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href="/docs/api/global.tjs.TypeAlias.WatchEventHandler"><div class="pagination-nav__sublabel">Previous</div><div class="pagination-nav__label">Type Alias: WatchEventHandler()</div></a><a class="pagination-nav__link pagination-nav__link--next" href="/docs/api/global.tjs.Function.listen"><div class="pagination-nav__sublabel">Next</div><div class="pagination-nav__label">Function: listen()</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#call-signature" class="table-of-contents__link toc-highlight">Call Signature</a><ul><li><a href="#parameters" class="table-of-contents__link toc-highlight">Parameters</a></li><li><a href="#returns" class="table-of-contents__link toc-highlight">Returns</a></li></ul></li><li><a href="#call-signature-1" class="table-of-contents__link toc-highlight">Call Signature</a><ul><li><a href="#parameters-1" class="table-of-contents__link toc-highlight">Parameters</a></li><li><a href="#returns-1" class="table-of-contents__link toc-highlight">Returns</a></li></ul></li><li><a href="#call-signature-2" class="table-of-contents__link toc-highlight">Call Signature</a><ul><li><a href="#parameters-2" class="table-of-contents__link toc-highlight">Parameters</a></li><li><a href="#returns-2" class="table-of-contents__link toc-highlight">Returns</a></li></ul></li><li><a href="#call-signature-3" class="table-of-contents__link toc-highlight">Call Signature</a><ul><li><a href="#parameters-3" class="table-of-contents__link toc-highlight">Parameters</a></li><li><a href="#returns-3" class="table-of-contents__link toc-highlight">Returns</a></li></ul></li></ul></div></div></div></div></main></div></div></div></div>
 </body>
 </html>
