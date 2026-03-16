@@ -36,6 +36,10 @@ jobs:
           cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static
       - name: Build
         run: cmake --build build --config Release
+      - name: Show DLL dependencies
+        run: |
+          $dumpbin = (Resolve-Path "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe")[-1].Path
+          & $dumpbin /DEPENDENTS build/Release/tjs.exe
       - name: Package
         run: |
           mkdir txiki-windows-x86_64
