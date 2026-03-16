@@ -24,6 +24,8 @@
 
 #include "mem.h"
 
+#include "utils.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -79,6 +81,13 @@ void tjs__free(void *ptr) {
 }
 
 void *tjs__realloc(void *ptr, size_t size) {
+    if (size == 0) {
+        tjs__free(ptr);
+        return NULL;
+    }
+    if (!ptr) {
+        return tjs__malloc(size);
+    }
 #ifdef TJS__HAS_MIMALLOC
     return mi_realloc(ptr, size);
 #else
