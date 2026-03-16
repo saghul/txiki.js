@@ -1,7 +1,10 @@
 import assert from 'tjs:assert';
 
-const url = 'wss://websocket-echo.com';
-const ws = new WebSocket(url);
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, wsUrl } = createEchoServer();
+
+const ws = new WebSocket(wsUrl);
 
 assert.eq(ws.readyState, ws.CONNECTING, 'readyState is CONNECTING');
 
@@ -14,4 +17,5 @@ ws.addEventListener('open', () => {
 
 ws.addEventListener('close', () => {
     assert.eq(ws.readyState, ws.CLOSED, 'readyState is CLOSED');
+    server.close();
 });

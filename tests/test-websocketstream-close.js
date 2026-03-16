@@ -1,11 +1,13 @@
 import assert from 'tjs:assert';
 
-const echoUrl = 'wss://ws.postman-echo.com/raw';
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, wsUrl } = createEchoServer();
 
 // Test: close with custom code and reason.
 {
     console.log('[TEST] close: test 1 starting');
-    const wss = new WebSocketStream(echoUrl);
+    const wss = new WebSocketStream(wsUrl);
 
     await wss.opened;
     console.log('[TEST] close: test 1 opened');
@@ -23,7 +25,7 @@ const echoUrl = 'wss://ws.postman-echo.com/raw';
 // Test: close with reason only (code defaults to 1000).
 {
     console.log('[TEST] close: test 2 starting');
-    const wss = new WebSocketStream(echoUrl);
+    const wss = new WebSocketStream(wsUrl);
 
     await wss.opened;
     console.log('[TEST] close: test 2 opened');
@@ -41,7 +43,7 @@ const echoUrl = 'wss://ws.postman-echo.com/raw';
 // Test: close validation.
 {
     console.log('[TEST] close: test 3 starting');
-    const wss = new WebSocketStream(echoUrl);
+    const wss = new WebSocketStream(wsUrl);
 
     await wss.opened;
     console.log('[TEST] close: test 3 opened');
@@ -61,7 +63,7 @@ const echoUrl = 'wss://ws.postman-echo.com/raw';
 // Test: closing writable stream closes the WebSocket.
 {
     console.log('[TEST] close: test 4 starting');
-    const wss = new WebSocketStream(echoUrl);
+    const wss = new WebSocketStream(wsUrl);
     const { writable } = await wss.opened;
     console.log('[TEST] close: test 4 opened');
 
@@ -74,3 +76,5 @@ const echoUrl = 'wss://ws.postman-echo.com/raw';
     assert.eq(closeCode, 1005, 'closed via writable.close() (no status sent)');
     console.log('[TEST] close: test 4 done');
 }
+
+server.close();

@@ -1,6 +1,10 @@
 // tests/test-xhr-headers.js
 import assert from 'tjs:assert';
 
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, baseUrl } = createEchoServer();
+
 function doXhr(method, url, headers) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -16,6 +20,8 @@ function doXhr(method, url, headers) {
     });
 }
 
-const url = 'https://postman-echo.com/get';
+const url = `${baseUrl}/get`;
 await doXhr('GET', url, { 'Content-Type': 'application/json' });
 await doXhr('POST', url);
+
+server.close();

@@ -1,10 +1,13 @@
 import assert from 'tjs:assert';
 
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, baseUrl } = createEchoServer();
+
 // Test that fetch automatically handles compressed responses.
-// httpbin.org/gzip returns gzip-compressed data.
 
 async function testFetchGzip() {
-    const response = await fetch('https://httpbin.org/gzip');
+    const response = await fetch(`${baseUrl}/gzip`);
 
     assert.eq(response.status, 200, 'status should be 200');
 
@@ -15,7 +18,7 @@ async function testFetchGzip() {
 
 // Test that fetch handles deflate compressed responses.
 async function testFetchDeflate() {
-    const response = await fetch('https://httpbin.org/deflate');
+    const response = await fetch(`${baseUrl}/deflate`);
 
     assert.eq(response.status, 200, 'status should be 200');
 
@@ -26,3 +29,5 @@ async function testFetchDeflate() {
 
 await testFetchGzip();
 await testFetchDeflate();
+
+server.close();

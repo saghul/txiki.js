@@ -1,11 +1,13 @@
 import assert from 'tjs:assert';
 
-const echoUrl = 'wss://ws.postman-echo.com/raw';
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, wsUrl } = createEchoServer();
 
 // Test: aborting writable with WebSocketError sends close code.
 {
     console.log('[TEST] abort: test 1 starting');
-    const wss = new WebSocketStream(echoUrl);
+    const wss = new WebSocketStream(wsUrl);
     const { writable } = await wss.opened;
     console.log('[TEST] abort: opened');
 
@@ -25,7 +27,7 @@ const echoUrl = 'wss://ws.postman-echo.com/raw';
 // Test: clean close results in readable done, writable errored.
 {
     console.log('[TEST] abort: test 2 starting');
-    const wss = new WebSocketStream(echoUrl);
+    const wss = new WebSocketStream(wsUrl);
     const { readable, writable } = await wss.opened;
     console.log('[TEST] abort: test 2 opened');
 
@@ -60,7 +62,7 @@ const echoUrl = 'wss://ws.postman-echo.com/raw';
 
     controller.abort();
 
-    const wss = new WebSocketStream(echoUrl, { signal: controller.signal });
+    const wss = new WebSocketStream(wsUrl, { signal: controller.signal });
 
     try {
         await wss.opened;
@@ -70,3 +72,5 @@ const echoUrl = 'wss://ws.postman-echo.com/raw';
     }
     console.log('[TEST] abort: test 3 done');
 }
+
+server.close();

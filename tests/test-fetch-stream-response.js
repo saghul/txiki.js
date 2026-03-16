@@ -1,7 +1,11 @@
 import assert from 'tjs:assert';
 
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, baseUrl } = createEchoServer();
+
 // Response body streaming - read response body as stream
-const response = await fetch('https://postman-echo.com/bytes/10000');
+const response = await fetch(`${baseUrl}/bytes/10000`);
 
 assert.ok(response.body instanceof ReadableStream, 'response.body is a ReadableStream');
 
@@ -20,3 +24,5 @@ while (true) {
 }
 
 assert.ok(totalBytes > 0, 'received data from stream');
+
+server.close();

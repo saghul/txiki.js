@@ -1,5 +1,9 @@
 import assert from 'tjs:assert';
 
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, wsUrl } = createEchoServer();
+
 const ab = new ArrayBuffer(16);
 const u8 = new Uint8Array(ab, 8).fill(1);
 u8[7] = 2;
@@ -12,8 +16,7 @@ const msgs = [
     u8,
     new Blob([ab])
 ];
-const url = 'wss://websocket-echo.com';
-const ws = new WebSocket(url);
+const ws = new WebSocket(wsUrl);
 
 ws.addEventListener('open', () => sendNext());
 
@@ -47,6 +50,7 @@ function sendNext() {
             }, 0);
         } else {
             ws.close();
+            server.close();
         }
     } else {
         ws.send(msgs[cnt]);

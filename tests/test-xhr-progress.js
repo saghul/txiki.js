@@ -1,7 +1,10 @@
 import assert from 'tjs:assert';
 
+import { createEchoServer } from './helpers/echo-server.js';
 
-const url = 'https://httpbin.org/get';
+const { server, baseUrl } = createEchoServer();
+
+const url = `${baseUrl}/get`;
 
 const { lengthComputable, loaded, total } = await new Promise((resolve, reject) => {
     let lastEvt;
@@ -27,3 +30,5 @@ assert.eq(typeof loaded, 'number', 'final progress loaded size is a number');
 assert.eq(typeof total, 'number', 'final progress total size is a number');
 assert.ok(total >= 0, 'final progress total size is greater than 0');
 assert.eq(loaded, total, 'final progress loaded size equals total size');
+
+server.close();

@@ -1,12 +1,14 @@
 import assert from 'tjs:assert';
 
-const echoUrl = 'wss://ws.postman-echo.com/raw';
+import { createEchoServer } from './helpers/echo-server.js';
+
+const { server, wsUrl } = createEchoServer();
 
 // Test: basic open and close.
 {
-    const wss = new WebSocketStream(echoUrl);
+    const wss = new WebSocketStream(wsUrl);
 
-    assert.ok(wss.url.startsWith(echoUrl), 'url is set');
+    assert.ok(wss.url.startsWith(wsUrl), 'url is set');
     assert.ok(wss.opened instanceof Promise, 'opened is a Promise');
     assert.ok(wss.closed instanceof Promise, 'closed is a Promise');
 
@@ -23,3 +25,5 @@ const echoUrl = 'wss://ws.postman-echo.com/raw';
     assert.eq(closeCode, 1005, 'closeCode is 1005 (no status sent)');
     assert.eq(reason, '', 'reason is empty');
 }
+
+server.close();
