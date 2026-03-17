@@ -1,3 +1,4 @@
+import assert from 'tjs:assert';
 import path from 'tjs:path';
 
 
@@ -15,22 +16,17 @@ const server = tjs.serve({
     },
 });
 
-// Make an HTTPS request to the server.
-const resp = await fetch(`https://127.0.0.1:${server.port}/`, {
-    method: 'POST',
-    body: 'hello',
-});
+try {
+    const resp = await fetch(`https://127.0.0.1:${server.port}/`, {
+        method: 'POST',
+        body: 'hello',
+    });
 
-if (resp.status !== 200) {
+    assert.eq(resp.status, 200, 'echo response status');
+
+    const text = await resp.text();
+
+    assert.eq(text, 'echo: hello', 'echo response body');
+} finally {
     server.close();
-    throw new Error(`unexpected status: ${resp.status}`);
 }
-
-const text = await resp.text();
-
-if (text !== 'echo: hello') {
-    server.close();
-    throw new Error(`unexpected body: ${text}`);
-}
-
-server.close();
