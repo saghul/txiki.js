@@ -1,26 +1,55 @@
 diff --git a/lib/event-libs/libuv/libuv.c b/lib/event-libs/libuv/libuv.c
-index 23894df1..97ad407b 100644
+index 5bdd6241..f39d6174 100644
 --- a/lib/event-libs/libuv/libuv.c
 +++ b/lib/event-libs/libuv/libuv.c
-@@ -528,6 +528,17 @@ elops_accept_uv(struct lws *wsi)
+@@ -491,6 +491,12 @@ elops_close_handle_manually_uv(struct lws *wsi)
+ 	uv_close(h, lws_libuv_closewsi_m);
+ }
+ 
++static void
++lws_uv_close_cb_free(uv_handle_t *handle)
++{
++	lws_free(handle);
++}
++
+ static int
+ elops_accept_uv(struct lws *wsi)
+ {
+@@ -507,6 +513,17 @@ elops_accept_uv(struct lws *wsi)
+ 
+ 	w_read->context = wsi->a.context;
+ 
++	/*
++	 * If this wsi already has a poll handle (e.g. the underlying fd
++	 * was replaced), close the old one so it doesn't leak.
++	 */
++	if (w_read->pwatcher) {
++		uv_poll_stop(w_read->pwatcher);
++		uv_close((uv_handle_t *)w_read->pwatcher,
++			 lws_uv_close_cb_free);
++		ptpriv->extant_handles--;
++	}
++
+ 	w_read->pwatcher = lws_malloc(sizeof(*w_read->pwatcher), "uvh");
+ 	if (!w_read->pwatcher)
+ 		return -1;
+@@ -528,6 +545,15 @@ elops_accept_uv(struct lws *wsi)
  
  	((uv_handle_t *)w_read->pwatcher)->data = (void *)wsi;
  
 +	/*
-+	 * When using a foreign event loop, unref internal handles (event
-+	 * pipe, system vhost wsis like async-dns and stdin) so they don't
-+	 * prevent the loop from exiting when all real connections are
-+	 * closed.  Use vhost_list (first vhost == system vhost) instead
-+	 * of vhost_system, which may still be NULL during init.
++	 * When using a foreign event loop, unref all lws-internal poll
++	 * handles so they never prevent the loop from exiting.  The
++	 * embedder is responsible for keeping the loop alive while
++	 * connections are in flight (e.g. via a separate async handle).
 +	 */
-+	if (pt->event_loop_foreign && (wsi->event_pipe ||
-+	    wsi->a.vhost == pt->context->vhost_list))
++	if (pt->event_loop_foreign)
 +		uv_unref((uv_handle_t *)w_read->pwatcher);
 +
  	ptpriv->extant_handles++;
  
  	lwsl_wsi_debug(wsi, "thr %d: sa left %d: dyn left: %d",
-@@ -748,6 +759,8 @@ elops_init_pt_uv(struct lws_context *context, void *_loop, int tsi)
+@@ -748,6 +774,8 @@ elops_init_pt_uv(struct lws_context *context, void *_loop, int tsi)
  		uv_idle_init(loop, &ptpriv->idle);
  		LWS_UV_REFCOUNT_STATIC_HANDLE_NEW(&ptpriv->idle, pt);
  		uv_idle_start(&ptpriv->idle, lws_uv_idle);
@@ -29,7 +58,7 @@ index 23894df1..97ad407b 100644
  
  		ns = LWS_ARRAY_SIZE(sigs);
  		if (lws_check_opt(context->options,
-@@ -782,6 +795,8 @@ elops_init_pt_uv(struct lws_context *context, void *_loop, int tsi)
+@@ -782,6 +810,8 @@ elops_init_pt_uv(struct lws_context *context, void *_loop, int tsi)
  
  	uv_timer_init(ptpriv->io_loop, &ptpriv->sultimer);
  	LWS_UV_REFCOUNT_STATIC_HANDLE_NEW(&ptpriv->sultimer, pt);
