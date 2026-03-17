@@ -437,6 +437,7 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         qrt->lws.ctx = NULL;
         uv_close((uv_handle_t *) &qrt->lws.keepalive, NULL);
     }
+
     js_free(qrt->ctx, qrt->lws.cookie_jar_path);
     qrt->lws.cookie_jar_path = NULL;
     js_free(qrt->ctx, qrt->lws.ca_bundle_path);
@@ -446,9 +447,6 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
 
     /* Destroy shared TLS context. */
     tjs__mod_tls_cleanup(qrt);
-
-    /* Drain any pending lws close callbacks. */
-    uv_run(&qrt->loop, UV_RUN_NOWAIT);
 
     /* Destroy the JS engine. */
     JS_FreeValue(qrt->ctx, qrt->builtins.dispatch_event_func);
