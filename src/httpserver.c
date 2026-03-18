@@ -1372,6 +1372,8 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
     }
 
     /* Iterate headers array. */
+    bool has_content_length = false;
+
     if (JS_IsArray(argv[2])) {
         int64_t headers_len;
         JS_GetLength(ctx, argv[2], &headers_len);
@@ -1386,6 +1388,10 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
             const char *value = JS_ToCStringLen(ctx, &value_len, value_val);
 
             if (name && value) {
+                if (strcasecmp(name, "content-length") == 0) {
+                    has_content_length = true;
+                }
+
                 if (lws_add_http_header_by_name(req->wsi,
                                                 (const unsigned char *) name,
                                                 (const unsigned char *) value,
@@ -1432,10 +1438,12 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
         }
     }
 
-    /* Add content-length. */
-    if (lws_add_http_header_content_length(req->wsi, (lws_filepos_t) body_len, &p, end)) {
-        js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to add content-length header");
+    /* Add content-length unless the user already provided one. */
+    if (!has_content_length) {
+        if (lws_add_http_header_content_length(req->wsi, (lws_filepos_t) body_len, &p, end)) {
+            js_free(ctx, header_buf);
+            return JS_ThrowInternalError(ctx, "failed to add content-length header");
+        }
     }
 
     /* Finalize headers. */
