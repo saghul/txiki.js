@@ -274,14 +274,16 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
         case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER: {
             unsigned char **p = (unsigned char **) in, *end = (*p) + len;
 
-            /* Add User-Agent header. */
-            if (lws_add_http_header_by_name(wsi,
-                                            (const unsigned char *) "user-agent:",
-                                            (const unsigned char *) TJS__UA_STRING,
-                                            (int) strlen(TJS__UA_STRING),
-                                            p,
-                                            end)) {
-                return -1;
+            /* Add User-Agent header unless the user already set one. */
+            if (!has_request_header(&h->req_headers, "User-Agent")) {
+                if (lws_add_http_header_by_name(wsi,
+                                                (const unsigned char *) "user-agent:",
+                                                (const unsigned char *) TJS__UA_STRING,
+                                                (int) strlen(TJS__UA_STRING),
+                                                p,
+                                                end)) {
+                    return -1;
+                }
             }
 
             /* Add Accept-Encoding unless the user already set it. */
