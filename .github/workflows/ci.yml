@@ -260,3 +260,50 @@ jobs:
         $clangDir = Get-ChildItem "$vsPath\VC\Tools\MSVC\*\bin\Hostx64\x64" -Directory | Select-Object -Last 1
         $env:PATH = "$clangDir;${{ github.workspace }}\build\RelWithDebInfo;${{ github.workspace }}\vcpkg\installed\x64-windows\bin;$env:PATH"
         .\build\RelWithDebInfo\tjs.exe --stack-size 8388608 --wasm-stack-size 2097152 test tests/
+  ubsan-linux:
+    name: UBSAN (Linux)
+    runs-on: ubuntu-latest
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+    - uses: actions/setup-node@v6
+      with:
+        node-version-file: '.nvmrc'
+    - name: Dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y clang libffi-dev
+    - name: Build
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_WITH_UBSAN=ON
+        cmake --build build -j $(getconf _NPROCESSORS_ONLN)
+    - name: Download esbuild
+      run: ./build/tjs bundle tests/helpers/bundle-input.js /tmp/warm.js && rm -f /tmp/warm.js
+    - name: Test
+      env:
+        UBSAN_OPTIONS: halt_on_error=1:suppressions=${{ github.workspace }}/ubsan.supp
+      run: ./build/tjs test tests/
+  ubsan-macos:
+    name: UBSAN (macOS)
+    runs-on: macos-15
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+    - uses: actions/setup-node@v6
+      with:
+        node-version-file: '.nvmrc'
+    - name: Build
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_WITH_UBSAN=ON
+        cmake --build build -j $(sysctl -n hw.ncpu)
+    - name: Download esbuild
+      run: ./build/tjs bundle tests/helpers/bundle-input.js /tmp/warm.js && rm -f /tmp/warm.js
+    - name: Test
+      env:
+        UBSAN_OPTIONS: halt_on_error=1:suppressions=${{ github.workspace }}/ubsan.supp
+      run: ./build/tjs test tests/

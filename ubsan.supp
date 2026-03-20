@@ -1,0 +1,10 @@
+# UndefinedBehaviorSanitizer suppressions for third-party dependencies.
+# See https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html#runtime-suppressions
+
+# WAMR: misaligned pointer stores/loads throughout the interpreter and runtime
+alignment:wasm_loader.c
+alignment:wasm_interp_fast.c
+alignment:wasm_runtime_common.c
+alignment:wasm_runtime_common.h
+alignment:wasm_runtime.c
+

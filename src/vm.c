@@ -65,6 +65,16 @@ static void *tjs__mf_realloc(void *opaque, void *ptr, size_t size) {
     return tjs__realloc(ptr, size);
 }
 
+/* WAMR allocator wrappers — WAMR uses unsigned int, not size_t. */
+
+static void *tjs__wamr_malloc(unsigned int size) {
+    return tjs__malloc(size);
+}
+
+static void *tjs__wamr_realloc(void *ptr, unsigned int size) {
+    return tjs__realloc(ptr, size);
+}
+
 static const JSMallocFunctions tjs_mf = {
     .js_calloc = tjs__mf_calloc,
     .js_malloc = tjs__mf_malloc,
@@ -446,8 +456,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     RuntimeInitArgs wasm_init_args;
     memset(&wasm_init_args, 0, sizeof(wasm_init_args));
     wasm_init_args.mem_alloc_type = Alloc_With_Allocator;
-    wasm_init_args.mem_alloc_option.allocator.malloc_func = tjs__malloc;
-    wasm_init_args.mem_alloc_option.allocator.realloc_func = tjs__realloc;
+    wasm_init_args.mem_alloc_option.allocator.malloc_func = tjs__wamr_malloc;
+    wasm_init_args.mem_alloc_option.allocator.realloc_func = tjs__wamr_realloc;
     wasm_init_args.mem_alloc_option.allocator.free_func = tjs__free;
     CHECK_EQ(wasm_runtime_full_init(&wasm_init_args), true);
     qrt->wasm_ctx.initialized = true;
