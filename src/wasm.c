@@ -1435,16 +1435,16 @@ static JSValue tjs_wasm_getglobal(JSContext *ctx, JSValue this_val, int argc, JS
             val.kind = global_inst.kind;
             switch (global_inst.kind) {
                 case WASM_I32:
-                    val.of.i32 = *(int32_t *) global_inst.global_data;
+                    memcpy(&val.of.i32, global_inst.global_data, sizeof(val.of.i32));
                     break;
                 case WASM_I64:
-                    val.of.i64 = *(int64_t *) global_inst.global_data;
+                    memcpy(&val.of.i64, global_inst.global_data, sizeof(val.of.i64));
                     break;
                 case WASM_F32:
-                    val.of.f32 = *(float *) global_inst.global_data;
+                    memcpy(&val.of.f32, global_inst.global_data, sizeof(val.of.f32));
                     break;
                 case WASM_F64:
-                    val.of.f64 = *(double *) global_inst.global_data;
+                    memcpy(&val.of.f64, global_inst.global_data, sizeof(val.of.f64));
                     break;
                 default:
                     break;
@@ -1488,13 +1488,13 @@ static JSValue tjs_wasm_setglobal(JSContext *ctx, JSValue this_val, int argc, JS
             if (JS_ToInt32(ctx, &v, argv[2])) {
                 return JS_EXCEPTION;
             }
-            *(int32_t *) global_inst.global_data = v;
+            memcpy(global_inst.global_data, &v, sizeof(v));
             break;
         }
         case WASM_I64: {
             int64_t v;
             if (!JS_ToBigInt64(ctx, &v, argv[2])) {
-                *(int64_t *) global_inst.global_data = v;
+                memcpy(global_inst.global_data, &v, sizeof(v));
                 break;
             }
             JS_FreeValue(ctx, JS_GetException(ctx));
@@ -1502,7 +1502,8 @@ static JSValue tjs_wasm_setglobal(JSContext *ctx, JSValue this_val, int argc, JS
             if (JS_ToInt32(ctx, &i32, argv[2])) {
                 return JS_EXCEPTION;
             }
-            *(int64_t *) global_inst.global_data = i32;
+            int64_t i64 = i32;
+            memcpy(global_inst.global_data, &i64, sizeof(i64));
             break;
         }
         case WASM_F32: {
@@ -1510,7 +1511,8 @@ static JSValue tjs_wasm_setglobal(JSContext *ctx, JSValue this_val, int argc, JS
             if (JS_ToFloat64(ctx, &f64, argv[2])) {
                 return JS_EXCEPTION;
             }
-            *(float *) global_inst.global_data = (float) f64;
+            float f32 = (float) f64;
+            memcpy(global_inst.global_data, &f32, sizeof(f32));
             break;
         }
         case WASM_F64: {
@@ -1518,7 +1520,7 @@ static JSValue tjs_wasm_setglobal(JSContext *ctx, JSValue this_val, int argc, JS
             if (JS_ToFloat64(ctx, &f64, argv[2])) {
                 return JS_EXCEPTION;
             }
-            *(double *) global_inst.global_data = f64;
+            memcpy(global_inst.global_data, &f64, sizeof(f64));
             break;
         }
         case WASM_EXTERNREF: {
@@ -1526,7 +1528,7 @@ static JSValue tjs_wasm_setglobal(JSContext *ctx, JSValue this_val, int argc, JS
             if (!tjs__externref_box(i, ctx, argv[2], &idx)) {
                 return JS_ThrowInternalError(ctx, "failed to register externref");
             }
-            *(uint32_t *) global_inst.global_data = idx;
+            memcpy(global_inst.global_data, &idx, sizeof(idx));
             break;
         }
         default:
@@ -1677,8 +1679,9 @@ static JSValue tjs_wasm_tableget(JSContext *ctx, JSValue this_val, int argc, JSV
         return tjs_throw_wasm_error(ctx, "RangeError", "table index out of bounds");
     }
 
-    /* Access the internal table elements */
-    table_elem_type_t elem = ((table_elem_type_t *) tbl.elems)[index];
+    /* Access the internal table elements (use memcpy for potentially misaligned WAMR data) */
+    table_elem_type_t elem;
+    memcpy(&elem, (uint8_t *) tbl.elems + index * sizeof(table_elem_type_t), sizeof(elem));
 
     if (tbl.elem_kind == WASM_FUNCREF) {
         if ((uint32_t) elem == (uint32_t) NULL_REF) {
@@ -1725,27 +1728,31 @@ static JSValue tjs_wasm_tableset(JSContext *ctx, JSValue this_val, int argc, JSV
     }
 
     JSValue val = argv[3];
-    table_elem_type_t *elems = (table_elem_type_t *) tbl.elems;
+    uint8_t *elem_ptr = (uint8_t *) tbl.elems + index * sizeof(table_elem_type_t);
 
     if (tbl.elem_kind == WASM_FUNCREF) {
         if (JS_IsNull(val)) {
-            elems[index] = (table_elem_type_t) (uint32_t) NULL_REF;
+            table_elem_type_t null_elem = (table_elem_type_t) (uint32_t) NULL_REF;
+            memcpy(elem_ptr, &null_elem, sizeof(null_elem));
         } else {
             uint32_t func_idx;
             if (JS_ToUint32(ctx, &func_idx, val)) {
                 return JS_EXCEPTION;
             }
-            elems[index] = (table_elem_type_t) func_idx;
+            table_elem_type_t elem = (table_elem_type_t) func_idx;
+            memcpy(elem_ptr, &elem, sizeof(elem));
         }
     } else if (tbl.elem_kind == WASM_EXTERNREF) {
         if (JS_IsNull(val) || JS_IsUndefined(val)) {
-            elems[index] = (table_elem_type_t) (uint32_t) NULL_REF;
+            table_elem_type_t null_elem = (table_elem_type_t) (uint32_t) NULL_REF;
+            memcpy(elem_ptr, &null_elem, sizeof(null_elem));
         } else {
             uint32_t idx;
             if (!tjs__externref_box(i, ctx, val, &idx)) {
                 return JS_ThrowInternalError(ctx, "failed to register externref");
             }
-            elems[index] = (table_elem_type_t) idx;
+            table_elem_type_t elem = (table_elem_type_t) idx;
+            memcpy(elem_ptr, &elem, sizeof(elem));
         }
     }
 

@@ -53,6 +53,7 @@ endmacro()
 
 xoption(BUILD_WITH_MIMALLOC "If ON (default), build with mimalloc" ON)
 xoption(BUILD_WITH_ASAN "Build with AddressSanitizer" OFF)
+xoption(BUILD_WITH_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
 
 if(BUILD_WITH_ASAN)
     message(STATUS "AddressSanitizer enabled")
@@ -66,6 +67,15 @@ if(BUILD_WITH_ASAN)
         add_compile_options(-fsanitize=address -fno-omit-frame-pointer -fno-sanitize-recover=all)
         add_link_options(-fsanitize=address)
     endif()
+endif()
+
+if(BUILD_WITH_UBSAN)
+    message(STATUS "UndefinedBehaviorSanitizer enabled")
+    if(MSVC)
+        message(FATAL_ERROR "BUILD_WITH_UBSAN is not supported with MSVC")
+    endif()
+    add_compile_options(-fsanitize=undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=undefined)
 endif()
 
 ###
