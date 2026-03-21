@@ -77,6 +77,12 @@ struct TJSRuntime {
     } wasm_ctx;
     struct {
         struct lws_context *ctx;
+        struct lws_vhost *vh_direct;
+        struct lws_vhost *vh_http_proxy;
+        struct lws_vhost *vh_https_proxy;
+        char **no_proxy_entries;
+        int no_proxy_count;
+        bool no_proxy_wildcard;
         char *cookie_jar_path;
         char *ca_bundle_path;
         uint8_t *ca_bundle_data;
@@ -167,6 +173,7 @@ struct lws_context *tjs__lws_get_context(JSContext *ctx);
 void tjs__lws_init(TJSRuntime *qrt);
 void tjs__lws_conn_ref(JSContext *ctx);
 void tjs__lws_conn_unref(JSContext *ctx);
+struct lws_vhost *tjs__lws_select_vhost(JSContext *ctx, const char *scheme, const char *hostname, int port);
 int tjs__lws_load_http(TJSRuntime *qrt, TBuf *dbuf, const char *url);
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);

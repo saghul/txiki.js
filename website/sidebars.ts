@@ -30,6 +30,7 @@ const sidebars: SidebarsConfig = {
         'guides/standalone-executables',
         'guides/code-bundling',
         'guides/app-packages',
+        'guides/http-proxy',
       ],
     },
     'versioning',

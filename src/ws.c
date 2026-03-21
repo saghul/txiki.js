@@ -427,6 +427,7 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     cci.local_protocol_name = TJS_LWS_PROTOCOL_NAME;
     cci.userdata = w;
     cci.pwsi = &w->wsi;
+    cci.vhost = tjs__lws_select_vhost(ctx, prot_str, ads, port);
 
     struct lws *wsi = lws_client_connect_via_info(&cci);
 
