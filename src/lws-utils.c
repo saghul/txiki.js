@@ -180,6 +180,60 @@ static void tjs__set_ca_info(TJSRuntime *qrt, struct lws_context_creation_info *
     }
 }
 
+/*
+ * Work around a bug in lws_set_proxy() where the proxy address is not
+ * null-terminated after parsing the port, causing crashes in async DNS.
+ * We parse the env var ourselves and pass the host and port separately
+ * via lws_context_creation_info.  When http_proxy_address is set in the
+ * info struct, lws skips its own getenv("http_proxy") code path.
+ */
+typedef struct {
+    char address[256];
+    unsigned int port;
+} TJSProxyInfo;
+
+static bool tjs__try_proxy_env(const char *name, char *buf, size_t bufsize) {
+    size_t size = bufsize;
+
+    return uv_os_getenv(name, buf, &size) == 0 && size > 0;
+}
+
+static void tjs__parse_http_proxy(TJSProxyInfo *proxy) {
+    memset(proxy, 0, sizeof(*proxy));
+
+    char buf[512];
+
+    /*
+     * Check proxy env vars in order of specificity, lowercase first:
+     *  - http_proxy / HTTP_PROXY
+     *  - https_proxy / HTTPS_PROXY
+     *  - all_proxy / ALL_PROXY
+     */
+    if (!tjs__try_proxy_env("http_proxy", buf, sizeof(buf)) && !tjs__try_proxy_env("HTTP_PROXY", buf, sizeof(buf)) &&
+        !tjs__try_proxy_env("https_proxy", buf, sizeof(buf)) && !tjs__try_proxy_env("HTTPS_PROXY", buf, sizeof(buf)) &&
+        !tjs__try_proxy_env("all_proxy", buf, sizeof(buf)) && !tjs__try_proxy_env("ALL_PROXY", buf, sizeof(buf))) {
+        return;
+    }
+
+    /* lws_parse_uri modifies the string in-place. */
+    const char *prot, *ads, *path;
+    int port;
+
+    if (lws_parse_uri(buf, &prot, &ads, &port, &path)) {
+        return;
+    }
+
+    lws_strncpy(proxy->address, ads, sizeof(proxy->address));
+    proxy->port = (unsigned int) port;
+}
+
+static void tjs__set_proxy_info(struct lws_context_creation_info *info, const TJSProxyInfo *proxy) {
+    if (proxy->port && proxy->address[0]) {
+        info->http_proxy_address = proxy->address;
+        info->http_proxy_port = proxy->port;
+    }
+}
+
 void tjs__lws_init(TJSRuntime *qrt) {
     const struct lws_protocols protocols[] = {
         tjs_http_protocol,
@@ -207,6 +261,12 @@ void tjs__lws_init(TJSRuntime *qrt) {
     /* Cookie jar path is set from JS via core.setCookieJarPath. */
     CHECK_NOT_NULL(qrt->lws.cookie_jar_path);
     info.http_nsc_filepath = qrt->lws.cookie_jar_path;
+
+    /* Parse http_proxy env var ourselves to work around a bug in
+     * lws_set_proxy() that fails to null-terminate the address. */
+    TJSProxyInfo proxy;
+    tjs__parse_http_proxy(&proxy);
+    tjs__set_proxy_info(&info, &proxy);
 
     lws_set_log_level(0, NULL);
     lws_set_allocator(tjs__lws_realloc);
@@ -310,6 +370,10 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
     info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
 
     tjs__set_ca_info(qrt, &info);
+
+    TJSProxyInfo proxy;
+    tjs__parse_http_proxy(&proxy);
+    tjs__set_proxy_info(&info, &proxy);
 
     lws_set_log_level(0, NULL);
 
