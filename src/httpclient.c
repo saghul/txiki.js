@@ -731,6 +731,7 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
     cci.local_protocol_name = TJS_LWS_HTTP_PROTOCOL_NAME;
     cci.userdata = h;
     cci.pwsi = &h->wsi;
+    cci.vhost = tjs__lws_select_vhost(ctx, prot_str, ads, port);
 
     tjs__lws_conn_ref(ctx);
 

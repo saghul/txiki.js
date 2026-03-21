@@ -438,6 +438,13 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         uv_close((uv_handle_t *) &qrt->lws.keepalive, NULL);
     }
 
+    for (int i = 0; i < qrt->lws.no_proxy_count; i++) {
+        js_free(qrt->ctx, qrt->lws.no_proxy_entries[i]);
+    }
+    js_free(qrt->ctx, qrt->lws.no_proxy_entries);
+    qrt->lws.no_proxy_entries = NULL;
+    qrt->lws.no_proxy_count = 0;
+
     js_free(qrt->ctx, qrt->lws.cookie_jar_path);
     qrt->lws.cookie_jar_path = NULL;
     js_free(qrt->ctx, qrt->lws.ca_bundle_path);
