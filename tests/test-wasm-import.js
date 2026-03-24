@@ -1,8 +1,5 @@
 import assert from 'tjs:assert';
-import path from 'tjs:path';
-
-
-const data = await tjs.readFile(path.join(import.meta.dirname, 'wasm', 'import.wasm'));
+import data from './wasm/import.wasm' with { type: 'bytes' };
 
 // Track calls to the log function.
 const logCalls = [];

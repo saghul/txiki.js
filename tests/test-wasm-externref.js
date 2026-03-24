@@ -1,10 +1,9 @@
 import assert from 'tjs:assert';
-import path from 'tjs:path';
+import data from './wasm/externref.wasm' with { type: 'bytes' };
 
 
 // Test 1: externref passthrough via exported functions.
 {
-    const data = await tjs.readFile(path.join(import.meta.dirname, 'wasm', 'externref.wasm'));
     const { instance } = await WebAssembly.instantiate(data);
     const { exports } = instance;
 
@@ -25,7 +24,6 @@ import path from 'tjs:path';
 
 // Test 2: externref global.
 {
-    const data = await tjs.readFile(path.join(import.meta.dirname, 'wasm', 'externref.wasm'));
     const { instance } = await WebAssembly.instantiate(data);
     const { exports } = instance;
 
@@ -45,7 +43,6 @@ import path from 'tjs:path';
 
 // Test 3: externref table via JS Table API.
 {
-    const data = await tjs.readFile(path.join(import.meta.dirname, 'wasm', 'externref.wasm'));
     const { instance } = await WebAssembly.instantiate(data);
     const { exports } = instance;
 
@@ -87,8 +84,7 @@ import path from 'tjs:path';
 
 // Test 4: WebAssembly.validate().
 {
-    const validData = await tjs.readFile(path.join(import.meta.dirname, 'wasm', 'externref.wasm'));
-    assert.ok(WebAssembly.validate(validData), 'valid wasm returns true');
+    assert.ok(WebAssembly.validate(data), 'valid wasm returns true');
     assert.ok(!WebAssembly.validate(new Uint8Array([ 0, 1, 2, 3 ])), 'invalid wasm returns false');
     assert.ok(!WebAssembly.validate(new Uint8Array(0)), 'empty buffer returns false');
 }

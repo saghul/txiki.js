@@ -1,8 +1,5 @@
 import assert from 'tjs:assert';
-import path from 'tjs:path';
-
-
-const data = await tjs.readFile(path.join(import.meta.dirname, 'wasm', 'i32.wasm'));
+import data from './wasm/i32.wasm' with { type: 'bytes' };
 
 // compileStreaming with a Response.
 const response1 = new Response(data, {

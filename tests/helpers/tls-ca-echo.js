@@ -1,10 +1,6 @@
 import assert from 'tjs:assert';
-import path from 'tjs:path';
-
-
-const fixturesDir = path.join(import.meta.dirname, '..', 'fixtures');
-const cert = new TextDecoder().decode(await tjs.readFile(path.join(fixturesDir, 'server-cert.pem')));
-const key = new TextDecoder().decode(await tjs.readFile(path.join(fixturesDir, 'server-key.pem')));
+import cert from '../fixtures/server-cert.pem' with { type: 'text' };
+import key from '../fixtures/server-key.pem' with { type: 'text' };
 
 const server = tjs.serve({
     port: 0,

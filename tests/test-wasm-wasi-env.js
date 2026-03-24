@@ -2,9 +2,10 @@ import assert from 'tjs:assert';
 import path from 'tjs:path';
 import { WASI } from 'tjs:wasi';
 
+import bytes from './wasi/test.wasm' with { type: 'bytes' };
+
 // Test env variable passing via direct API
 const wasiDir = path.join(import.meta.dirname, 'wasi');
-const bytes = await tjs.readFile(path.join(wasiDir, 'test.wasm'));
 const module = new WebAssembly.Module(bytes);
 const wasi = new WASI({
     version: 'wasi_snapshot_preview1',
