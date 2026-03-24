@@ -1,11 +1,6 @@
 import assert from 'tjs:assert';
-import path from 'tjs:path';
-
-const decoder = new TextDecoder();
-
-const fixturesDir = path.join(import.meta.dirname, 'fixtures');
-const certPem = decoder.decode(await tjs.readFile(path.join(fixturesDir, 'server-cert.pem')));
-const keyPem = decoder.decode(await tjs.readFile(path.join(fixturesDir, 'server-key.pem')));
+import certPem from './fixtures/server-cert.pem' with { type: 'text' };
+import keyPem from './fixtures/server-key.pem' with { type: 'text' };
 
 const server = new TLSServerSocket('127.0.0.1', {
     localPort: 0,

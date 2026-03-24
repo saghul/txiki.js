@@ -1,8 +1,5 @@
 import assert from 'tjs:assert';
-import path from 'tjs:path';
-
-
-const data = await tjs.readFile(path.join(import.meta.dirname, 'wasm', 'import-global-memory.wasm'));
+import data from './wasm/import-global-memory.wasm' with { type: 'bytes' };
 
 // Test 1: Global imports with plain numbers.
 {

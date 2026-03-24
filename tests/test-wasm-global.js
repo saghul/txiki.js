@@ -1,8 +1,7 @@
 import assert from 'tjs:assert';
-import path from 'tjs:path';
+import data from './wasm/global.wasm' with { type: 'bytes' };
 
 
-const data = await tjs.readFile(path.join(import.meta.dirname, 'wasm', 'global.wasm'));
 const { instance } = await WebAssembly.instantiate(data);
 const { exports } = instance;
 

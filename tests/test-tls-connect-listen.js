@@ -1,13 +1,10 @@
 import assert from 'tjs:assert';
-import path from 'tjs:path';
+import certPem from './fixtures/server-cert.pem' with { type: 'text' };
+import keyPem from './fixtures/server-key.pem' with { type: 'text' };
+import caPem from './fixtures/ca.pem' with { type: 'text' };
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-
-const fixturesDir = path.join(import.meta.dirname, 'fixtures');
-const certPem = decoder.decode(await tjs.readFile(path.join(fixturesDir, 'server-cert.pem')));
-const keyPem = decoder.decode(await tjs.readFile(path.join(fixturesDir, 'server-key.pem')));
-const caPem = decoder.decode(await tjs.readFile(path.join(fixturesDir, 'ca.pem')));
 
 const server = await tjs.listen('tls', '127.0.0.1', 0, {
     cert: certPem,

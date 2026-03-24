@@ -2,8 +2,9 @@ import assert from 'tjs:assert';
 import path from 'tjs:path';
 import { WASI } from 'tjs:wasi';
 
+import bytes from './wasi/test.wasm' with { type: 'bytes' };
+
 // Test getImportObject() helper
-const bytes = await tjs.readFile(path.join(import.meta.dirname, 'wasi', 'test.wasm'));
 const module = new WebAssembly.Module(bytes);
 const wasiDir = path.join(import.meta.dirname, 'wasi');
 const wasi = new WASI({
