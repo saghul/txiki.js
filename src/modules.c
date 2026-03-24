@@ -23,6 +23,7 @@
  */
 
 #include "private.h"
+#include "quickjs.h"
 #include "tjs.h"
 #include "utils.h"
 
@@ -35,28 +36,35 @@ static int has_suffix(const char *str, const char *suffix) {
     return (len >= slen && !memcmp(str + len - slen, suffix, slen));
 }
 
-static int json_module_init(JSContext *ctx, JSModuleDef *m) {
+static int default_module_init(JSContext *ctx, JSModuleDef *m) {
     JSValue val;
     val = JS_GetModulePrivateValue(ctx, m);
     JS_SetModuleExport(ctx, m, "default", val);
     return 0;
 }
 
-static JSModuleDef *create_json_module(JSContext *ctx, const char *module_name, JSValue val) {
+static JSModuleDef *create_default_module(JSContext *ctx, const char *module_name, JSValue val) {
     JSModuleDef *m;
-    m = JS_NewCModule(ctx, module_name, json_module_init);
+    m = JS_NewCModule(ctx, module_name, default_module_init);
     if (!m) {
         JS_FreeValue(ctx, val);
         return NULL;
     }
-    /* only export the "default" symbol which will contain the JSON object */
+    /* only export the "default" symbol which will contain the val object */
     JS_AddModuleExport(ctx, m, "default");
     JS_SetModulePrivateValue(ctx, m, val);
     return m;
 }
 
+enum {
+    JS_IMPORT_TYPE_JS,
+    JS_IMPORT_TYPE_JSON,
+    JS_IMPORT_TYPE_TEXT,
+    JS_IMPORT_TYPE_BYTES,
+};
+
 /* return > 0 if the attributes indicate a JSON module, 0 otherwise, -1 on error */
-static int js_module_test_json(JSContext *ctx, JSValueConst attributes) {
+static int detect_module_type(JSContext *ctx, const char *module_name, JSValueConst attributes) {
     JSValue str;
     const char *cstr;
     size_t len;
@@ -71,7 +79,7 @@ static int js_module_test_json(JSContext *ctx, JSValueConst attributes) {
     }
     if (!JS_IsString(str)) {
         JS_FreeValue(ctx, str);
-        return 0;
+        return has_suffix(module_name, ".json") ? JS_IMPORT_TYPE_JSON : JS_IMPORT_TYPE_JS;
     }
     cstr = JS_ToCStringLen(ctx, &len, str);
     JS_FreeValue(ctx, str);
@@ -79,9 +87,15 @@ static int js_module_test_json(JSContext *ctx, JSValueConst attributes) {
         return -1;
     }
     if (len == 4 && !memcmp(cstr, "json", len)) {
-        res = 1;
+        res = JS_IMPORT_TYPE_JSON;
+    } else if (len == 4 && !memcmp(cstr, "text", len)) {
+        res = JS_IMPORT_TYPE_TEXT;
+    } else if (len == 5 && !memcmp(cstr, "bytes", len)) {
+        res = JS_IMPORT_TYPE_BYTES;
     } else {
-        res = 0;
+        /* unknown type - throw error */
+        JS_ThrowTypeError(ctx, "unsupported module type: '%s'", cstr);
+        res = -1;
     }
     JS_FreeCString(ctx, cstr);
     return res;
@@ -124,20 +138,21 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     static const char https[] = "https://";
     static const char tjs_prefix[] = "tjs:";
 
-    JSModuleDef *m = NULL;
+    JSModuleDef *m;
+    JSValue val;
     int r;
-    bool is_json, use_realpath;
+    int type;
+    bool use_realpath;
     TBuf dbuf;
 
     if (strncmp(tjs_prefix, module_name, strlen(tjs_prefix)) == 0) {
         return tjs__load_builtin(ctx, module_name);
     }
 
-    r = js_module_test_json(ctx, attributes);
-    if (r < 0) {
+    type = detect_module_type(ctx, module_name, attributes);
+    if (type < 0) {
         return NULL;
     }
-    is_json = has_suffix(module_name, ".json") || r > 0;
 
     tbuf_init(ctx, &dbuf);
 
@@ -146,21 +161,21 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
         r = tjs__lws_load_http(qrt, &dbuf, module_name);
         if (r != 200) {
             if (r == -2) {
-                JS_ThrowReferenceError(ctx, "could not load '%s': request timed out", module_name);
+                val = JS_ThrowReferenceError(ctx, "could not load '%s': request timed out", module_name);
             } else if (r < 0) {
-                JS_ThrowReferenceError(ctx, "could not load '%s': network error", module_name);
+                val = JS_ThrowReferenceError(ctx, "could not load '%s': network error", module_name);
             } else {
                 /* http error */
-                JS_ThrowReferenceError(ctx, "could not load '%s': %d", module_name, r);
+                val = JS_ThrowReferenceError(ctx, "could not load '%s': %d", module_name, r);
             }
-            goto end;
+            goto after_load;
         }
         use_realpath = false;
     } else {
         r = tjs__load_file(ctx, &dbuf, module_name);
         if (r != 0) {
-            JS_ThrowReferenceError(ctx, "could not load '%s'", module_name);
-            goto end;
+            val = JS_ThrowReferenceError(ctx, "could not load '%s'", module_name);
+            goto after_load;
         }
         use_realpath = true;
     }
@@ -169,36 +184,50 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     tbuf_putc(&dbuf, '\0');
 
     /* Now load the module for real. */
-    if (is_json) {
-        JSValue val;
-        val = JS_ParseJSON(ctx, (char *) dbuf.buf, dbuf.size - 1, module_name);
-        if (JS_IsException(val)) {
-            goto end;
-        }
-        m = create_json_module(ctx, module_name, val);
-    } else {
-        JSValue func_val = JS_Eval(ctx,
-                                   (char *) dbuf.buf,
-                                   dbuf.size - 1,
-                                   module_name,
-                                   JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
-        if (JS_IsException(func_val)) {
-            goto end;
-        }
+    switch (type) {
+        case JS_IMPORT_TYPE_JS:
+            val = JS_Eval(ctx,
+                          (char *) dbuf.buf,
+                          dbuf.size - 1,
+                          module_name,
+                          JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+            break;
+        case JS_IMPORT_TYPE_JSON:
+            val = JS_ParseJSON(ctx, (char *) dbuf.buf, dbuf.size - 1, module_name);
+            break;
+        case JS_IMPORT_TYPE_TEXT:
+            val = JS_NewStringLen(ctx, (char *) dbuf.buf, dbuf.size - 1);
+            break;
+        case JS_IMPORT_TYPE_BYTES:
+            val = TJS_NewUint8Array(ctx, dbuf.buf, dbuf.size - 1);
+            break;
+        default:
+            val = JS_ThrowInternalError(ctx, "unsupported import type");
+            break;
+    }
 
-        r = js_module_set_import_meta(ctx, func_val, use_realpath, false);
+after_load:
+    if (type != JS_IMPORT_TYPE_BYTES) {
+        tbuf_free(&dbuf);
+    }
+
+    if (JS_IsException(val)) {
+        return NULL;
+    }
+
+    if (type == JS_IMPORT_TYPE_JS) {
+        r = js_module_set_import_meta(ctx, val, use_realpath, false);
         if (r != 0) {
-            JS_FreeValue(ctx, func_val);
-            goto end;
+            JS_FreeValue(ctx, val);
+            return NULL;
         }
 
         /* the module is already referenced, so we must free it */
-        m = JS_VALUE_GET_PTR(func_val);
-        JS_FreeValue(ctx, func_val);
+        m = JS_VALUE_GET_PTR(val);
+        JS_FreeValue(ctx, val);
+    } else {
+        m = create_default_module(ctx, module_name, val);
     }
-
-end:
-    tbuf_free(&dbuf);
 
     return m;
 }
