@@ -77,9 +77,6 @@ static void uv__timer_cb(uv_timer_t *handle) {
     TJSTimer *th = handle->data;
     CHECK_NOT_NULL(th);
 
-    /* Micro-tasks should run before timers. */
-    tjs__execute_jobs(th->ctx);
-
     /* It's possible our timer was scheduled to run but was destroyed by another one. */
     if (uv_is_closing((uv_handle_t *) handle)) {
         return;

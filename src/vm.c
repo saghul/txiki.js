@@ -37,7 +37,11 @@
 #include <io.h>
 #endif
 
-#define TJS__DEFAULT_STACK_SIZE 1024 * 1024  // 1 MB
+#ifdef NDEBUG
+#define TJS__DEFAULT_STACK_SIZE (1024 * 1024)
+#else
+#define TJS__DEFAULT_STACK_SIZE (2 * 1024 * 1024)
+#endif
 
 /* JS malloc functions */
 
@@ -157,6 +161,25 @@ static JSValue tjs__set_ca_bundle_path(JSContext *ctx, JSValue this_val, int arg
     return JS_UNDEFINED;
 }
 
+static JSValue tjs__js_drain_microtasks(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+
+    /* Re-entrancy guard: mirrors the HTML spec's "performing a microtask
+     * checkpoint" flag.  Without this, draining microtasks inside
+     * dispatchEvent can cause unbounded nesting of JS_ExecutePendingJob
+     * when a microtask dispatches another event. */
+    if (qrt->draining_microtasks) {
+        return JS_UNDEFINED;
+    }
+
+    qrt->draining_microtasks = true;
+    tjs__drain_microtasks(ctx);
+    qrt->draining_microtasks = false;
+
+    return JS_UNDEFINED;
+}
+
 static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
     tjs__mod_engine_init(ctx, ns);
@@ -188,6 +211,11 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
 #endif
 
     /* Internal helpers. */
+    JS_DefinePropertyValueStr(ctx,
+                              ns,
+                              "drainMicrotasks",
+                              JS_NewCFunction(ctx, tjs__js_drain_microtasks, "drainMicrotasks", 0),
+                              JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx,
                               ns,
                               "setCookieJarPath",
@@ -535,11 +563,10 @@ static void uv__prepare_cb(uv_prepare_t *handle) {
     uv__maybe_idle(qrt);
 }
 
-void tjs__execute_jobs(JSContext *ctx) {
+void tjs__drain_microtasks(JSContext *ctx) {
     JSContext *ctx1;
     int err;
 
-    /* execute the pending jobs */
     for (;;) {
         err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
         if (err <= 0) {
@@ -552,6 +579,10 @@ void tjs__execute_jobs(JSContext *ctx) {
             break;
         }
     }
+}
+
+void tjs__execute_jobs(JSContext *ctx) {
+    tjs__drain_microtasks(ctx);
 
     /* Process deferred unhandled promise rejections.
      * The rejection tracker defers event dispatch to after all microtasks
