@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-#include "../deps/quickjs/list.h"
+#include "list.h"
 #include "private.h"
 
 #include <string.h>
