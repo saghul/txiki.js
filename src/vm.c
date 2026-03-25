@@ -223,6 +223,30 @@ static JSValue tjs__dispatch_event(JSContext *ctx, JSValue *event) {
     return ret;
 }
 
+static void tjs__pending_rejections_add(TJSRuntime *qrt, JSContext *ctx, JSValue promise, JSValue reason) {
+    TJSPendingRejection *pr = js_malloc(ctx, sizeof(*pr));
+    if (!pr) {
+        return;
+    }
+    pr->promise = JS_DupValue(ctx, promise);
+    pr->reason = JS_DupValue(ctx, reason);
+    list_add_tail(&pr->link, &qrt->pending_rejections);
+}
+
+static void tjs__pending_rejections_remove(TJSRuntime *qrt, JSContext *ctx, JSValue promise) {
+    struct list_head *el, *el1;
+    list_for_each_safe(el, el1, &qrt->pending_rejections) {
+        TJSPendingRejection *pr = list_entry(el, TJSPendingRejection, link);
+        if (JS_VALUE_GET_PTR(pr->promise) == JS_VALUE_GET_PTR(promise)) {
+            JS_FreeValue(ctx, pr->promise);
+            JS_FreeValue(ctx, pr->reason);
+            list_del(&pr->link);
+            js_free(ctx, pr);
+            return;
+        }
+    }
+}
+
 static void tjs__promise_rejection_tracker(JSContext *ctx,
                                            JSValue promise,
                                            JSValue reason,
@@ -236,50 +260,16 @@ static void tjs__promise_rejection_tracker(JSContext *ctx,
     }
 
     if (!is_handled) {
-        JSValue event_name = JS_NewString(ctx, "unhandledrejection");
-        JSValue args[3];
-        args[0] = event_name;
-        args[1] = promise;
-        args[2] = reason;
-
-        JSValue event = JS_CallConstructor(ctx, qrt->builtins.promise_event_ctor, countof(args), args);
-        CHECK_EQ(JS_IsException(event), 0);
-        JSValue ret = tjs__dispatch_event(ctx, &event);
-
-        JS_FreeValue(ctx, event);
-        JS_FreeValue(ctx, event_name);
-
-        bool should_abort = false;
-
-        if (JS_IsException(ret)) {
-            tjs_dump_error(ctx);
-            should_abort = true;
-        } else {
-            if (JS_ToBool(ctx, ret)) {
-                // The event wasn't cancelled, maybe abort.
-                should_abort = true;
-            }
-        }
-
-        JS_FreeValue(ctx, ret);
-
-        if (should_abort) {
-            /* Defer the throw/stop: calling JS_Throw from within promise
-             * machinery (fulfill_or_reject_promise) sets current_exception
-             * on the runtime while promise reactions are still being
-             * enqueued, corrupting subsequent job processing. Instead,
-             * record the rejection and handle it after all pending jobs
-             * have been processed. */
-            qrt->unhandled_rejection.count++;
-            JS_FreeValue(ctx, qrt->unhandled_rejection.reason);
-            qrt->unhandled_rejection.reason = JS_DupValue(ctx, reason);
-        }
+        /* Defer event dispatch: the promise may get a handler attached
+         * synchronously (e.g. Promise.reject(x).catch(fn)) before the
+         * current microtask batch completes. Record the rejection and
+         * process it after all pending jobs have been executed, matching
+         * browser/Node.js behavior. */
+        tjs__pending_rejections_add(qrt, ctx, promise, reason);
     } else {
-        /* The rejection is now handled (e.g. via await in try/catch).
-         * Cancel any pending deferred abort. */
-        if (qrt->unhandled_rejection.count > 0) {
-            qrt->unhandled_rejection.count--;
-        }
+        /* The rejection is now handled (e.g. via .catch() or await in
+         * try/catch). Remove it from the pending list so no event fires. */
+        tjs__pending_rejections_remove(qrt, ctx, promise);
     }
 }
 
@@ -411,9 +401,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     qrt->timers.timers = NULL;
     qrt->timers.next_timer = 1;
 
-    /* Unhandled rejection tracking */
-    qrt->unhandled_rejection.count = 0;
-    qrt->unhandled_rejection.reason = JS_UNDEFINED;
+    /* Pending rejection tracking */
+    init_list_head(&qrt->pending_rejections);
 
     return qrt;
 }
@@ -460,8 +449,16 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     qrt->builtins.dispatch_event_func = JS_UNDEFINED;
     JS_FreeValue(qrt->ctx, qrt->builtins.promise_event_ctor);
     qrt->builtins.promise_event_ctor = JS_UNDEFINED;
-    JS_FreeValue(qrt->ctx, qrt->unhandled_rejection.reason);
-    qrt->unhandled_rejection.reason = JS_UNDEFINED;
+    {
+        struct list_head *el, *el1;
+        list_for_each_safe(el, el1, &qrt->pending_rejections) {
+            TJSPendingRejection *pr = list_entry(el, TJSPendingRejection, link);
+            JS_FreeValue(qrt->ctx, pr->promise);
+            JS_FreeValue(qrt->ctx, pr->reason);
+            list_del(&pr->link);
+            js_free(qrt->ctx, pr);
+        }
+    }
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
 
@@ -556,17 +553,65 @@ void tjs__execute_jobs(JSContext *ctx) {
         }
     }
 
-    /* Check for deferred unhandled promise rejections.
-     * The rejection tracker defers JS_Throw to avoid corrupting
-     * promise machinery internals. If any rejections are still
-     * unhandled after all jobs have been processed, throw now. */
+    /* Process deferred unhandled promise rejections.
+     * The rejection tracker defers event dispatch to after all microtasks
+     * have been processed, so that synchronously-caught rejections
+     * (e.g. Promise.reject(x).catch(fn)) don't spuriously fire events. */
     TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
-    if (qrt->unhandled_rejection.count > 0) {
-        JS_Throw(ctx, qrt->unhandled_rejection.reason);
-        qrt->unhandled_rejection.reason = JS_UNDEFINED;
-        qrt->unhandled_rejection.count = 0;
-        TJS_Stop(qrt);
+    struct list_head *el, *el1;
+    list_for_each_safe(el, el1, &qrt->pending_rejections) {
+        TJSPendingRejection *pr = list_entry(el, TJSPendingRejection, link);
+
+        JSValue event_name = JS_NewString(ctx, "unhandledrejection");
+        JSValue args[3];
+        args[0] = event_name;
+        args[1] = pr->promise;
+        args[2] = pr->reason;
+
+        JSValue event = JS_CallConstructor(ctx, qrt->builtins.promise_event_ctor, countof(args), args);
+        CHECK_EQ(JS_IsException(event), 0);
+        JSValue ret = tjs__dispatch_event(ctx, &event);
+
+        JS_FreeValue(ctx, event);
+        JS_FreeValue(ctx, event_name);
+
+        bool should_abort = false;
+
+        if (JS_IsException(ret)) {
+            tjs_dump_error(ctx);
+            should_abort = true;
+        } else {
+            if (JS_ToBool(ctx, ret)) {
+                /* The event wasn't cancelled, abort. */
+                should_abort = true;
+            }
+        }
+
+        JS_FreeValue(ctx, ret);
+
+        if (should_abort) {
+            JSValue reason = pr->reason;
+            /* Free all pending rejections. */
+            struct list_head *el2, *el3;
+            list_for_each_safe(el2, el3, &qrt->pending_rejections) {
+                TJSPendingRejection *pr2 = list_entry(el2, TJSPendingRejection, link);
+                JS_FreeValue(ctx, pr2->promise);
+                if (pr2 != pr) {
+                    JS_FreeValue(ctx, pr2->reason);
+                }
+                list_del(&pr2->link);
+                js_free(ctx, pr2);
+            }
+            JS_Throw(ctx, reason);
+            TJS_Stop(qrt);
+            return;
+        }
+
+        list_del(&pr->link);
+        JS_FreeValue(ctx, pr->promise);
+        JS_FreeValue(ctx, pr->reason);
+        js_free(ctx, pr);
     }
 }
 

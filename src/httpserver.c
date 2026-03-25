@@ -22,8 +22,8 @@
  * THE SOFTWARE.
  */
 
-#include "../deps/quickjs/list.h"
 #include "hash.h"
+#include "list.h"
 #include "private.h"
 #include "utils.h"
 

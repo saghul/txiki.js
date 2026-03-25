@@ -25,6 +25,7 @@
 #ifndef TJS_PRIVATE_H
 #define TJS_PRIVATE_H
 
+#include "list.h"
 #include "tbuf.h"
 #include "tjs.h"
 
@@ -57,6 +58,12 @@
 #endif
 
 typedef struct TJSTimer TJSTimer;
+
+typedef struct {
+    struct list_head link;
+    JSValue promise;
+    JSValue reason;
+} TJSPendingRejection;
 
 struct TJSRuntime {
     TJSRunOptions options;
@@ -105,10 +112,7 @@ struct TJSRuntime {
         JSValue promise_event_ctor;
         JSValue dispatch_event_func;
     } builtins;
-    struct {
-        int count;
-        JSValue reason;
-    } unhandled_rejection;
+    struct list_head pending_rejections;
 };
 
 void tjs__mod_dns_init(JSContext *ctx, JSValue ns);
