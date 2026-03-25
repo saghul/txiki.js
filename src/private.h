@@ -78,6 +78,7 @@ struct TJSRuntime {
     uv_async_t stop;
     bool is_worker;
     bool freeing;
+    bool draining_microtasks;
     struct {
         bool initialized;
         uint32_t stack_size;
@@ -155,6 +156,7 @@ JSValue tjs_throw_errno(JSContext *ctx, int err);
 JSValue tjs_new_pipe(JSContext *ctx);
 uv_stream_t *tjs_pipe_get_stream(JSContext *ctx, JSValue obj);
 
+void tjs__drain_microtasks(JSContext *ctx);
 void tjs__execute_jobs(JSContext *ctx);
 JSModuleDef *tjs__load_builtin(JSContext *ctx, const char *name);
 int tjs__load_file(JSContext *ctx, TBuf *dbuf, const char *filename);

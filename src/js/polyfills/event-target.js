@@ -24,6 +24,7 @@
  * @type {WeakMap<Event, PrivateData>}
  * @private
  */
+const core = globalThis[Symbol.for('tjs.internal.core')];
 const privateData = new WeakMap();
 
 /**
@@ -592,6 +593,10 @@ class EventTarget {
             } else if (node.listenerType !== ATTRIBUTE && typeof node.listener.handleEvent === 'function') {
                 node.listener.handleEvent(event);
             }
+
+            // Microtask checkpoint: drain microtasks after each listener
+            // so that promises queued by listener N resolve before listener N+1.
+            core.drainMicrotasks();
 
             // Break if `event.stopImmediatePropagation` was called.
             if (isStopped(event)) {

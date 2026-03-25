@@ -170,6 +170,7 @@ void tjs_call_handler(JSContext *ctx, JSValue func, int argc, JSValue *argv) {
         TJS_Stop(qrt);
     }
     JS_FreeValue(ctx, ret);
+    tjs__drain_microtasks(ctx);
 }
 
 JSValue TJS_InitPromise(JSContext *ctx, TJSPromise *p) {
