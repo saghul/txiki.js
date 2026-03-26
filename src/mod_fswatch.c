@@ -30,6 +30,7 @@ typedef struct {
     JSContext *ctx;
     uv_fs_event_t handle;
     JSValue callback;
+    JSValue this_val;
     int closed;
     int finalized;
 } TJSFsWatch;
@@ -60,6 +61,7 @@ static void tjs_fswatch_finalizer(JSRuntime *rt, JSValue val) {
     TJSFsWatch *fw = tjs_fswatch_get(val);
     if (fw) {
         JS_FreeValueRT(rt, fw->callback);
+        JS_FreeValueRT(rt, fw->this_val);
         fw->finalized = 1;
         if (fw->closed) {
             tjs__free(fw);
@@ -88,6 +90,14 @@ static JSValue tjs_fswatch_close(JSContext *ctx, JSValue this_val, int argc, JSV
         return JS_EXCEPTION;
     }
     maybe_close(fw);
+
+    /* Release the GC-prevention self-reference so the object can be collected. */
+    if (!JS_IsUndefined(fw->this_val)) {
+        JSValue val = fw->this_val;
+        fw->this_val = JS_UNDEFINED;
+        JS_FreeValue(ctx, val);
+    }
+
     return JS_UNDEFINED;
 }
 
@@ -208,6 +218,10 @@ static JSValue tjs_fs_watch(JSContext *ctx, JSValue this_val, int argc, JSValue 
     fw->callback = JS_DupValue(ctx, argv[1]);
 
     JS_SetOpaque(obj, fw);
+
+    /* Prevent GC while the watcher is active. */
+    fw->this_val = JS_DupValue(ctx, obj);
+
     return obj;
 }
 
