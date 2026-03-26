@@ -655,6 +655,28 @@ static void uv__check_cb(uv_check_t *handle) {
     uv__maybe_idle(qrt);
 }
 
+static bool tjs__fire_beforeunload(TJSRuntime *qrt) {
+    static char code[] = "(function(){"
+                         "  const e = new Event('beforeunload', { cancelable: true });"
+                         "  return !window.dispatchEvent(e);"
+                         "})();";
+
+    JSContext *ctx = qrt->ctx;
+    JSValue ret = JS_Eval(ctx, code, strlen(code), "<beforeunload>", JS_EVAL_TYPE_GLOBAL);
+    bool prevented = false;
+
+    if (JS_IsException(ret)) {
+        tjs_dump_error(ctx);
+        goto end;
+    }
+
+    prevented = JS_ToBool(ctx, ret);
+
+end:
+    JS_FreeValue(ctx, ret);
+    return prevented;
+}
+
 /* main loop which calls the user JS callbacks */
 int TJS_Run(TJSRuntime *qrt) {
     int ret = 0;
@@ -677,10 +699,29 @@ int TJS_Run(TJSRuntime *qrt) {
     }
 
     int r;
-    do {
-        uv__maybe_idle(qrt);
-        r = uv_run(&qrt->loop, UV_RUN_DEFAULT);
-    } while (r == 0 && JS_IsJobPending(qrt->rt));
+    for (;;) {
+        do {
+            uv__maybe_idle(qrt);
+            r = uv_run(&qrt->loop, UV_RUN_DEFAULT);
+        } while (r == 0 && JS_IsJobPending(qrt->rt));
+
+        /* Only fire beforeunload for main runtime, not workers. */
+        if (qrt->is_worker) {
+            break;
+        }
+
+        /* If preventDefault() was not called, exit. */
+        if (!tjs__fire_beforeunload(qrt)) {
+            break;
+        }
+
+        /* preventDefault was called — let the loop deal with any new work
+         * the handler may have scheduled. If nothing was scheduled,
+         * uv_run will return immediately and we'd spin forever, so guard. */
+        if (!JS_IsJobPending(qrt->rt) && !uv_loop_alive(&qrt->loop)) {
+            break;
+        }
+    }
 
     if (JS_HasException(qrt->ctx)) {
         tjs_dump_error(qrt->ctx);

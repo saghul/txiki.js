@@ -173,6 +173,7 @@ EventTarget.prototype.__init.call(window);
 const windowProto = Object.getPrototypeOf(window);
 
 defineEventAttribute(windowProto, 'load');
+defineEventAttribute(windowProto, 'beforeunload');
 defineEventAttribute(windowProto, 'unhandledrejection');
 
 // Export it for worker-bootstrap.
