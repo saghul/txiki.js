@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["sourcemap-src/a.js", "sourcemap-src/main.js"],
+  "sourcesContent": ["export function throwFromA() {\n    throw new Error(\"error from a.js\");\n}\n", "import { throwFromA } from './a.js';\n\nthrowFromA();\n"],
+  "mappings": ";AAAO,SAAS,aAAa;AACzB,QAAM,IAAI,MAAM,iBAAiB;AACrC;;;ACAA,WAAW;",
+  "names": []
+}

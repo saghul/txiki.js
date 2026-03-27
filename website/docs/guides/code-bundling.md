@@ -59,6 +59,45 @@ Under the hood, `esbuild` is invoked with the following flags:
 | `--format=esm` | Output ES module format |
 | `--main-fields=main,module` | Prefer the `module` entry point in `package.json` |
 
+## Source maps
+
+txiki.js automatically detects and uses source maps to remap stack traces back to your original source files. This works with both inline and external source maps.
+
+### Generating source maps
+
+Add `--sourcemap=inline` to embed the source map directly in the bundle:
+
+```bash
+tjs bundle --sourcemap=inline my-app/index.ts bundle.js
+```
+
+Or use `--sourcemap` to generate a separate `.map` file:
+
+```bash
+tjs bundle --sourcemap my-app/index.ts bundle.js
+# produces bundle.js and bundle.js.map
+```
+
+### How it works
+
+When an error occurs, txiki.js reads the `//# sourceMappingURL` comment in the source file and uses the source map to translate bundled positions back to original file and line numbers. This happens lazily (only when an error is thrown) so there is no overhead during normal execution.
+
+For example, given an error in bundled code, instead of:
+
+```
+Error: something went wrong
+    at throwFromA (bundle.js:5:9)
+```
+
+You'll see the original source location:
+
+```
+Error: something went wrong
+    at throwFromA (src/a.ts:12:5)
+```
+
+Both inline source maps (`data:` URLs) and external `.map` files are supported.
+
 ## Using esbuild directly
 
 If you need more control over the bundling process, you can invoke esbuild directly:

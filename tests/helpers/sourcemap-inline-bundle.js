@@ -1,0 +1,8 @@
+// sourcemap-src/a.js
+function throwFromA() {
+  throw new Error("error from a.js");
+}
+
+// sourcemap-src/main.js
+throwFromA();
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsic291cmNlbWFwLXNyYy9hLmpzIiwgInNvdXJjZW1hcC1zcmMvbWFpbi5qcyJdLAogICJzb3VyY2VzQ29udGVudCI6IFsiZXhwb3J0IGZ1bmN0aW9uIHRocm93RnJvbUEoKSB7XG4gICAgdGhyb3cgbmV3IEVycm9yKFwiZXJyb3IgZnJvbSBhLmpzXCIpO1xufVxuIiwgImltcG9ydCB7IHRocm93RnJvbUEgfSBmcm9tICcuL2EuanMnO1xuXG50aHJvd0Zyb21BKCk7XG4iXSwKICAibWFwcGluZ3MiOiAiO0FBQU8sU0FBUyxhQUFhO0FBQ3pCLFFBQU0sSUFBSSxNQUFNLGlCQUFpQjtBQUNyQzs7O0FDQUEsV0FBVzsiLAogICJuYW1lcyI6IFtdCn0K
