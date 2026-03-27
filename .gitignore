@@ -1,6 +1,7 @@
 .vscode
 .idea
 .DS_Store
+.cache
 
 build/
 src/bundles/js/
