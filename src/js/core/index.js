@@ -12,6 +12,7 @@ import './direct-sockets/index.js';
 import { connect, listen } from './sockets.js';
 import { getStdin, getStdout, getStderr } from './stdio.js';
 import system from './system.js';
+import './sourcemap.js';
 
 
 // The "tjs" global.

@@ -180,6 +180,29 @@ static JSValue tjs__js_drain_microtasks(JSContext *ctx, JSValue this_val, int ar
     return JS_UNDEFINED;
 }
 
+static JSValue tjs__sync_read_file(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    const char *filename = JS_ToCString(ctx, argv[0]);
+    if (!filename) {
+        return JS_EXCEPTION;
+    }
+
+    TBuf dbuf;
+    tbuf_init(ctx, &dbuf);
+    int r = tjs__load_file(ctx, &dbuf, filename);
+    JS_FreeCString(ctx, filename);
+
+    if (r != 0) {
+        tbuf_free(&dbuf);
+        return JS_UNDEFINED;
+    }
+
+    JSValue ret = TJS_NewUint8Array(ctx, dbuf.buf, dbuf.size);
+    if (JS_IsException(ret)) {
+        tbuf_free(&dbuf);
+    }
+    return ret;
+}
+
 static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
     tjs__mod_engine_init(ctx, ns);
@@ -225,6 +248,11 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
                               ns,
                               "setCABundlePath",
                               JS_NewCFunction(ctx, tjs__set_ca_bundle_path, "setCABundlePath", 1),
+                              JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx,
+                              ns,
+                              "syncReadFile",
+                              JS_NewCFunction(ctx, tjs__sync_read_file, "syncReadFile", 1),
                               JS_PROP_C_W_E);
 }
 
