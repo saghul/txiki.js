@@ -152,9 +152,17 @@ class StdioWritableStream extends WritableStream {
                 },
                 close() {
                     state.closed = true;
+
+                    // Don't let the handle keep the event loop alive
+                    // now that writing is done.
+                    handle.unref();
                 },
                 abort() {
                     state.closed = true;
+
+                    // Don't let the handle keep the event loop alive
+                    // now that writing is done.
+                    handle.unref();
                 }
             });
         }
