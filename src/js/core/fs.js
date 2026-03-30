@@ -24,12 +24,17 @@ const fhProxyHandler = {
                                 if (nread === null) {
                                     controller.close();
                                     controller.byobRequest.respond(0);
+                                    await target.close();
                                 } else {
                                     controller.byobRequest.respond(nread);
                                 }
                             } catch (e) {
                                 controller.error(e);
+                                await target.close();
                             }
+                        },
+                        async cancel() {
+                            await target.close();
                         }
                     });
                 }
