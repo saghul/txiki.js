@@ -4,6 +4,7 @@ import engine from './engine.js';
 import env from './env.js';
 import { open, makeDir, makeTempFile, remove, symlink, writeFile } from './fs.js';
 import { serve } from './httpserver.js';
+import { parseImportMap } from './import-map.js';
 import { lookup } from './lookup.js';
 import pathModule from './path.js';
 import { spawn } from './process.js';
@@ -202,6 +203,14 @@ Object.defineProperty(tjs, 'system', {
     writable: false,
     value: system
 });
+
+// Import map support: internal bootstrap API.
+// baseDir is the directory relative paths in the map resolve against.
+core.setImportMap = function setImportMap(mapObj, baseDir) {
+    const resolver = parseImportMap(mapObj, baseDir);
+
+    core.setImportMapResolver(resolver);
+};
 
 // Internal stuff needed by the runtime.
 globalThis[Symbol.for('tjs.internal.modules.path')] = pathModule;

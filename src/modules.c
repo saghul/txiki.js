@@ -328,7 +328,31 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
     int len;
 
     if (name[0] != '.') {
-        /* if no initial dot, the module name is not modified */
+        /* Check import map resolver before passing bare specifiers through. */
+        TJSRuntime *qrt = opaque;
+        if (qrt && JS_IsFunction(ctx, qrt->builtins.import_map_resolver)) {
+            JSValue args[2] = { JS_NewString(ctx, name), JS_NewString(ctx, base_name) };
+            JSValue result = JS_Call(ctx, qrt->builtins.import_map_resolver, JS_UNDEFINED, 2, args);
+            JS_FreeValue(ctx, args[0]);
+            JS_FreeValue(ctx, args[1]);
+            if (JS_IsException(result)) {
+                return NULL;
+            }
+            if (JS_IsString(result)) {
+                const char *resolved = JS_ToCString(ctx, result);
+                char *ret = js_strdup(ctx, resolved);
+                JS_FreeCString(ctx, resolved);
+                JS_FreeValue(ctx, result);
+                return ret;
+            }
+            if (JS_IsNull(result)) {
+                JS_FreeValue(ctx, result);
+                JS_ThrowReferenceError(ctx, "import of '%s' was blocked by import map", name);
+                return NULL;
+            }
+            JS_FreeValue(ctx, result);
+        }
+        /* if no initial dot and no import map match, the module name is not modified */
         return js_strdup(ctx, name);
     }
 

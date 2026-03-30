@@ -7,6 +7,10 @@ title: Runtime Features
 
 txiki.js provides support for the [ES2025](https://tc39.es/ecma262/) specification (almost complete), along with a number of runtime features.
 
+## Modules
+
+txiki.js uses standard [ES modules](../guides/modules.md) with support for HTTP imports, import attributes (JSON, text, bytes), and import maps.
+
 ## Core features
 
 - [TCP](/docs/api/global.Class.TCPSocket), [TLS](/docs/api/global.Class.TLSSocket) and [UDP](/docs/api/global.Class.UDPSocket) sockets
@@ -18,11 +22,6 @@ txiki.js provides support for the [ES2025](https://tc39.es/ecma262/) specificati
 - [HTTP Server](/docs/api/global.tjs.Function.serve)
 - [WASI](/docs/api/tjs-wasi)
 - [Standalone executables](../guides/standalone-executables.md)
-
-## Extras
-
-- Import directly from HTTP(S) URLs
-- Import JSON files
 - Builtin test runner
 
 See the [API Reference](/docs/api-reference) for detailed documentation.

@@ -109,7 +109,11 @@ Any other --option flags are passed through to esbuild.`;
 
 const helpEval = `Usage: ${exeName} eval EXPRESSION`;
 
-const helpRun = `Usage: ${exeName} run FILE`;
+const helpRun = `Usage: ${exeName} run [options] FILE
+
+Options:
+  --import-map FILE
+        Path to an import map JSON file`;
 
 const helpApp = `Usage: ${exeName} app <subcommand>
 
@@ -258,7 +262,12 @@ if (!isBundled) {
 
             core.evalScript(expr);
         } else if (command === 'run') {
-            const [ filename ] = subargv;
+            const runOpts = getopts(subargv, {
+                string: [ 'import-map' ],
+                stopEarly: true,
+            });
+
+            const [ filename ] = runOpts._;
 
             if (!filename) {
                 throw helpRun;
@@ -271,7 +280,7 @@ if (!isBundled) {
                 const module = new WebAssembly.Module(bytes);
                 const wasi = new WASI({
                     version: 'wasi_snapshot_preview1',
-                    args: subargv,
+                    args: runOpts._,
                     preopens: {
                         '.': tjs.cwd,
                         '/': '/'
@@ -281,6 +290,16 @@ if (!isBundled) {
 
                 wasi.start(instance);
             } else {
+                const importMapPath = runOpts['import-map'];
+
+                if (importMapPath) {
+                    const resolvedMapPath = path.resolve(importMapPath);
+                    const mapData = await tjs.readFile(resolvedMapPath);
+                    const mapObj = JSON.parse(new TextDecoder().decode(mapData));
+
+                    core.setImportMap(mapObj, path.dirname(resolvedMapPath));
+                }
+
                 await core.evalFile(filename);
             }
         } else if (command === 'serve') {

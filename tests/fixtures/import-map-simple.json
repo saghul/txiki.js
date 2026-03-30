@@ -1,0 +1,6 @@
+{
+    "imports": {
+        "mylib": "../helpers/import-map-lib.js",
+        "myprefix/": "../helpers/import-map-prefix/"
+    }
+}
