@@ -58,6 +58,8 @@ The manifest describes the app and is updated automatically at build time:
 | `build.id` | — | UUIDv4, regenerated on every build. |
 | `build.timestamp` | — | ISO 8601 UTC timestamp of the build. |
 | `main` | No | Entry point relative to the app root. Defaults to `src/main.js`. |
+| `imports` | No | [Import map](modules.md#import-maps) mappings for bare specifiers. |
+| `scopes` | No | [Import map](modules.md#import-maps) scoped overrides. |
 
 ## CLI commands
 

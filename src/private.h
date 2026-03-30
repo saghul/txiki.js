@@ -112,6 +112,7 @@ struct TJSRuntime {
     struct {
         JSValue promise_event_ctor;
         JSValue dispatch_event_func;
+        JSValue import_map_resolver;
     } builtins;
     struct list_head pending_rejections;
 };

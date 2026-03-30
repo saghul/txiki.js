@@ -132,6 +132,13 @@ export async function runTpk(exef, exeSize) {
 
     tjs.env.TJS_HOME = cacheDir;
 
+    if (manifest.imports || manifest.scopes) {
+        core.setImportMap({
+            imports: manifest.imports ?? {},
+            scopes: manifest.scopes ?? {},
+        }, cacheDir);
+    }
+
     await core.evalFile(mainFile);
 }
 

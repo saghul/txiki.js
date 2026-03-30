@@ -213,6 +213,21 @@ static JSValue tjs__sync_read_file(JSContext *ctx, JSValue this_val, int argc, J
     return ret;
 }
 
+static JSValue tjs__set_import_map_resolver(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+
+    JS_FreeValue(ctx, qrt->builtins.import_map_resolver);
+
+    if (argc > 0 && JS_IsFunction(ctx, argv[0])) {
+        qrt->builtins.import_map_resolver = JS_DupValue(ctx, argv[0]);
+    } else {
+        qrt->builtins.import_map_resolver = JS_UNDEFINED;
+    }
+
+    return JS_UNDEFINED;
+}
+
 static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
     tjs__mod_engine_init(ctx, ns);
@@ -263,6 +278,11 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
                               ns,
                               "syncReadFile",
                               JS_NewCFunction(ctx, tjs__sync_read_file, "syncReadFile", 1),
+                              JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx,
+                              ns,
+                              "setImportMapResolver",
+                              JS_NewCFunction(ctx, tjs__set_import_map_resolver, "setImportMapResolver", 1),
                               JS_PROP_C_W_E);
 }
 
@@ -436,6 +456,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(JS_DefinePropertyValue(ctx, global_obj, core_atom, core, JS_PROP_C_W_E), true);
     CHECK_EQ(JS_DefinePropertyValueStr(ctx, core, "isWorker", JS_NewBool(ctx, is_worker), JS_PROP_C_W_E), true);
 
+    qrt->builtins.import_map_resolver = JS_UNDEFINED;
+
     tjs__bootstrap_core(ctx, core);
 
     CHECK_EQ(tjs__eval_bytecode(ctx, tjs__polyfills, tjs__polyfills_size, true), 0);
@@ -515,6 +537,8 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     qrt->builtins.dispatch_event_func = JS_UNDEFINED;
     JS_FreeValue(qrt->ctx, qrt->builtins.promise_event_ctor);
     qrt->builtins.promise_event_ctor = JS_UNDEFINED;
+    JS_FreeValue(qrt->ctx, qrt->builtins.import_map_resolver);
+    qrt->builtins.import_map_resolver = JS_UNDEFINED;
     {
         struct list_head *el, *el1;
         list_for_each_safe(el, el1, &qrt->pending_rejections) {
