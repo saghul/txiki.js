@@ -1,8 +1,30 @@
+/* global tjs */
+
 import { HttpClient } from '../http-client.js';
 
 import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
 import { Response } from './response.js';
+
+async function fetchFileURI(url) {
+    // Strip file:// prefix and decode. Handles both POSIX (file:///tmp/foo)
+    // and Windows (file://C:\foo) paths.
+    const filePath = decodeURIComponent(url.slice(7));
+
+    let fh;
+
+    try {
+        fh = await tjs.open(filePath, 'r');
+    } catch {
+        throw new TypeError(`File not found: ${filePath}`);
+    }
+
+    return new Response(fh.readable, {
+        status: 200,
+        statusText: 'OK',
+        url,
+    });
+}
 
 function fetchDataURI(url) {
     // Format: data:[<mediatype>][;base64],<data>
@@ -43,10 +65,28 @@ function fetchDataURI(url) {
 const activeClients = new Set();
 
 export function fetch(input, init) {
-    const url = typeof input === 'string' ? input : input.url;
+    const rawUrl = typeof input === 'string' ? input : input?.url;
 
-    if (url && url.startsWith('data:')) {
-        return fetchDataURI(url);
+    if (rawUrl?.startsWith('data:')) {
+        return fetchDataURI(rawUrl);
+    }
+
+    if (rawUrl?.startsWith('file:')) {
+        return fetchFileURI(rawUrl);
+    }
+
+    let tmpUrl;
+
+    try {
+        tmpUrl = new URL(rawUrl);
+    } catch (e) {
+        return Promise.reject(e);
+    }
+
+    const { protocol } = tmpUrl;
+
+    if (protocol !== 'http:' && protocol !== 'https:') {
+        return Promise.reject(new TypeError(`Unsupported protocol: ${protocol}`));
     }
 
     return new Promise(function(resolve, reject) {
