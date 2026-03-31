@@ -14,6 +14,52 @@ class TextEncoder {
     encode(input = '') {
         return utf8_encode(input);
     }
+    encodeInto(source, destination) {
+        const encoded = utf8_encode(source);
+        const destLen = destination.length;
+        let written = encoded.length;
+
+        if (written <= destLen) {
+            destination.set(encoded);
+
+            return { read: source.length, written };
+        }
+
+        // Find the largest prefix that doesn't split a multi-byte sequence.
+        written = destLen;
+
+        while (written > 0 && (encoded[written] & 0xC0) === 0x80) {
+            written--;
+        }
+
+        destination.set(encoded.subarray(0, written));
+
+        // Count UTF-16 code units (read) for the bytes we wrote.
+        let read = 0;
+
+        for (let i = 0; i < written;) {
+            const byte = encoded[i];
+            let seqLen;
+
+            if (byte < 0x80) {
+                seqLen = 1;
+                read += 1;
+            } else if (byte < 0xE0) {
+                seqLen = 2;
+                read += 1;
+            } else if (byte < 0xF0) {
+                seqLen = 3;
+                read += 1;
+            } else {
+                seqLen = 4;
+                read += 2; // astral codepoint = surrogate pair in UTF-16
+            }
+
+            i += seqLen;
+        }
+
+        return { read, written };
+    }
 }
 
 globalThis.TextEncoder = TextEncoder;
