@@ -17,54 +17,66 @@ if (navigator.userAgentData.platform === 'macOS' && tjs.env.GITHUB_ACTIONS) {
 }
 
 if (!skip) {
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+    let receiver;
 
-    const MULTICAST_ADDR = '239.255.0.1';
-    const PORT = 41234;
+    try {
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
 
-    // Create a receiver socket bound to 0.0.0.0 on a fixed port.
-    const receiver = new UDPSocket({
-        localAddress: '0.0.0.0',
-        localPort: PORT,
-        multicastAllowAddressSharing: true,
-        multicastLoopback: true,
-    });
+        const MULTICAST_ADDR = '239.255.0.1';
+        const PORT = 41234;
 
-    const receiverInfo = await receiver.opened;
+        // Create a receiver socket bound to 0.0.0.0 on a fixed port.
+        receiver = new UDPSocket({
+            localAddress: '0.0.0.0',
+            localPort: PORT,
+            multicastAllowAddressSharing: true,
+            multicastLoopback: true,
+        });
 
-    // Join the multicast group.
-    await receiverInfo.multicastController.joinGroup(MULTICAST_ADDR);
-    assert.eq(receiverInfo.multicastController.joinedGroups.length, 1, 'joinedGroups has one entry');
-    assert.eq(receiverInfo.multicastController.joinedGroups[0], MULTICAST_ADDR, 'group address matches');
+        const receiverInfo = await receiver.opened;
 
-    // Create a sender socket targeting the multicast group.
-    const sender = new UDPSocket({
-        remoteAddress: MULTICAST_ADDR,
-        remotePort: PORT,
-        multicastTimeToLive: 1,
-        multicastLoopback: true,
-    });
+        // Join the multicast group.
+        await receiverInfo.multicastController.joinGroup(MULTICAST_ADDR);
+        assert.eq(receiverInfo.multicastController.joinedGroups.length, 1, 'joinedGroups has one entry');
+        assert.eq(receiverInfo.multicastController.joinedGroups[0], MULTICAST_ADDR, 'group address matches');
 
-    const senderInfo = await sender.opened;
+        // Create a sender socket targeting the multicast group.
+        const sender = new UDPSocket({
+            remoteAddress: MULTICAST_ADDR,
+            remotePort: PORT,
+            multicastTimeToLive: 1,
+            multicastLoopback: true,
+        });
 
-    // Send a message.
-    const writer = senderInfo.writable.getWriter();
-    await writer.write({ data: encoder.encode('HELLO MULTICAST') });
+        const senderInfo = await sender.opened;
 
-    // Receive the message.
-    const reader = receiverInfo.readable.getReader();
-    const { value: msg } = await reader.read();
-    const dataStr = decoder.decode(msg.data);
-    assert.eq(dataStr, 'HELLO MULTICAST', 'multicast message received');
+        // Send a message.
+        const writer = senderInfo.writable.getWriter();
+        await writer.write({ data: encoder.encode('HELLO MULTICAST') });
 
-    // Leave the group.
-    await receiverInfo.multicastController.leaveGroup(MULTICAST_ADDR);
-    assert.eq(receiverInfo.multicastController.joinedGroups.length, 0, 'joinedGroups is empty');
+        // Receive the message.
+        const reader = receiverInfo.readable.getReader();
+        const { value: msg } = await reader.read();
+        const dataStr = decoder.decode(msg.data);
+        assert.eq(dataStr, 'HELLO MULTICAST', 'multicast message received');
 
-    // Cleanup.
-    reader.cancel();
-    writer.close();
-    receiver.close();
-    sender.close();
+        // Leave the group.
+        await receiverInfo.multicastController.leaveGroup(MULTICAST_ADDR);
+        assert.eq(receiverInfo.multicastController.joinedGroups.length, 0, 'joinedGroups is empty');
+
+        // Cleanup.
+        reader.cancel();
+        writer.close();
+        receiver.close();
+        sender.close();
+    } catch (e) {
+        // macOS may block multicast with ENOEXEC due to Local Network Privacy.
+        if (navigator.userAgentData.platform === 'macOS' && e.message.includes('ENOEXEC')) {
+            receiver.close();
+            console.log('Skipping test due to macOS blocking multicast (ENOEXEC)');
+        } else {
+            throw e;
+        }
+    }
 }
