@@ -285,7 +285,7 @@ jobs:
       run: ./build/tjs bundle tests/helpers/bundle-input.js /tmp/warm.js && rm -f /tmp/warm.js
     - name: Test
       env:
-        UBSAN_OPTIONS: halt_on_error=1:suppressions=${{ github.workspace }}/ubsan.supp
+        UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1:suppressions=${{ github.workspace }}/ubsan.supp
       run: ./build/tjs test tests/
   ubsan-macos:
     name: UBSAN (macOS)
@@ -305,5 +305,5 @@ jobs:
       run: ./build/tjs bundle tests/helpers/bundle-input.js /tmp/warm.js && rm -f /tmp/warm.js
     - name: Test
       env:
-        UBSAN_OPTIONS: halt_on_error=1:suppressions=${{ github.workspace }}/ubsan.supp
+        UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1:suppressions=${{ github.workspace }}/ubsan.supp
       run: ./build/tjs test tests/
