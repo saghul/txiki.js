@@ -1287,17 +1287,14 @@ static void tjs__readfile_after_work_cb(uv_work_t *req, int status) {
         is_reject = true;
     } else {
         /* The buffer was allocated with raw (untracked) realloc on the worker
-           thread to avoid a data race on QJS malloc_state.  We must copy it
+           thread to avoid a data race on QJS malloc_state. We must copy it
            into a QJS-tracked allocation here because ArrayBuffer.prototype.transfer
            calls js_realloc on the backing buffer, which would corrupt malloc_state
            if the buffer was never tracked. */
         size_t size = fr->dbuf.size;
         if (size == 0) {
-            uint8_t *buf = js_malloc(ctx, 1);
-            if (buf) {
-                arg = TJS_NewUint8Array(ctx, buf, 0);
-            } else {
-                arg = JS_EXCEPTION;
+            arg = TJS_NewUint8Array(ctx, NULL, 0);
+            if (JS_IsException(arg)) {
                 is_reject = true;
             }
         } else {

@@ -123,7 +123,11 @@ static JSValue tjs_sock_bind(JSContext *ctx, JSValue this_val, int argc, JSValue
         return JS_ThrowInternalError(ctx, "Socket closed");
     }
     size_t sz;
-    struct sockaddr *sockaddr = (struct sockaddr *) JS_GetUint8Array(ctx, &sz, argv[0]);
+    uint8_t *_sockaddr_buf = JS_GetUint8Array(ctx, &sz, argv[0]);
+    if (!_sockaddr_buf) {
+        return JS_EXCEPTION;
+    }
+    struct sockaddr *sockaddr = (struct sockaddr *) _sockaddr_buf;
     TJS_CHECK_ARG_RET(ctx, sockaddr, 0, "Uint8Array");
     int ret = bind(s->sock, sockaddr, sz);
     RET_THROW_ERRNO(ctx, ret == 0);
@@ -159,7 +163,11 @@ static JSValue tjs_sock_connect(JSContext *ctx, JSValue this_val, int argc, JSVa
     }
 
     size_t sz;
-    struct sockaddr *sockaddr = (struct sockaddr *) JS_GetUint8Array(ctx, &sz, argv[0]);
+    uint8_t *_sockaddr_buf2 = JS_GetUint8Array(ctx, &sz, argv[0]);
+    if (!_sockaddr_buf2) {
+        return JS_EXCEPTION;
+    }
+    struct sockaddr *sockaddr = (struct sockaddr *) _sockaddr_buf2;
     TJS_CHECK_ARG_RET(ctx, sockaddr, 0, "Uint8Array");
 
     int ret = connect(s->sock, sockaddr, sz);
@@ -179,7 +187,10 @@ static JSValue tjs_sock_setsockopt(JSContext *ctx, JSValue this_val, int argc, J
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &level, argv[0]), 0, "positive integer");
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &optname, argv[1]), 1, "positive integer");
     size_t optlen;
-    void *optval = JS_GetUint8Array(ctx, &optlen, argv[2]);
+    uint8_t *optval = JS_GetUint8Array(ctx, &optlen, argv[2]);
+    if (!optval) {
+        return JS_EXCEPTION;
+    }
     TJS_CHECK_ARG_RET(ctx, optval, 2, "Uint8Array");
 
     int ret = setsockopt(s->sock, level, optname, optval, optlen);
@@ -318,6 +329,9 @@ static JSValue tjs_sock_write(JSContext *ctx, JSValue this_val, int argc, JSValu
     }
     size_t sz;
     uint8_t *buf = JS_GetUint8Array(ctx, &sz, argv[0]);
+    if (!buf) {
+        return JS_EXCEPTION;
+    }
     TJS_CHECK_ARG_RET(ctx, buf, 0, "Uint8Array");
     int ret = write(s->sock, buf, sz);
     RET_THROW_ERRNO(ctx, ret >= 0);
@@ -412,6 +426,8 @@ static JSValue tjs_sock_send(JSContext *ctx, JSValue this_val, int argc, JSValue
     int flags;
     size_t sz;
     uint8_t* buf = JS_GetUint8Array(ctx, &sz, argv[0]);
+    if (!buf)
+        return JS_EXCEPTION;
     TJS_CHECK_ARG_RET(ctx, buf, 0, "Uint8Array");
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&flags, argv[1]), 1, "positive integer");
     int ret = send(s->sock, buf, sz, flags);
@@ -428,10 +444,15 @@ static JSValue tjs_sock_sendto(JSContext *ctx, JSValue this_val, int argc, JSVal
     int flags;
     size_t sz;
     uint8_t* buf = JS_GetUint8Array(ctx, &sz, argv[0]);
+    if (!buf)
+        return JS_EXCEPTION;
     TJS_CHECK_ARG_RET(ctx, buf, 0, "Uint8Array");
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned*)&flags, argv[1]), 1, "positive integer");
     size_t addrsz;
-    struct sockaddr* addr = JS_GetUint8Array(ctx, &addrsz, argv[2]);
+    uint8_t *_addr_buf = JS_GetUint8Array(ctx, &addrsz, argv[2]);
+    if (!_addr_buf)
+        return JS_EXCEPTION;
+    struct sockaddr* addr = (struct sockaddr*) _addr_buf;
     TJS_CHECK_ARG_RET(ctx, addr != NULL, 2, "Uint8Array");
     int ret = sendto(s->sock, buf, sz, flags, addr, addrsz);
     RET_THROW_ERRNO(ctx, ret >= 0);
@@ -455,7 +476,11 @@ static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValue this_val, int argc, JSVa
 
     if (!JS_IsUndefined(argv[0])) {
         size_t addrsz;
-        struct sockaddr *addr = (struct sockaddr *) JS_GetUint8Array(ctx, &addrsz, argv[0]);
+        uint8_t *_addr_buf3 = JS_GetUint8Array(ctx, &addrsz, argv[0]);
+        if (!_addr_buf3) {
+            return JS_EXCEPTION;
+        }
+        struct sockaddr *addr = (struct sockaddr *) _addr_buf3;
         TJS_CHECK_ARG_RET(ctx, addr != NULL, 0, "Uint8Array");
         msg.msg_name = addr;
         msg.msg_namelen = addrsz;
@@ -466,6 +491,9 @@ static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValue this_val, int argc, JSVa
     if (!JS_IsUndefined(argv[1])) {
         size_t ctrlsz;
         uint8_t *ctrl = JS_GetUint8Array(ctx, &ctrlsz, argv[1]);
+        if (!ctrl) {
+            return JS_EXCEPTION;
+        }
         TJS_CHECK_ARG_RET(ctx, ctrl != NULL, 1, "Uint8Array");
         msg.msg_control = ctrl;
         msg.msg_controllen = ctrlsz;
@@ -483,9 +511,9 @@ static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValue this_val, int argc, JSVa
     for (int i = 0; i < msg.msg_iovlen; i++) {
         size_t sz;
         uint8_t *buf = JS_GetUint8Array(ctx, &sz, argv[i + 3]);
-        if (buf == NULL) {
+        if (!buf) {
             js_free(ctx, msg.msg_iov);
-            return TJS_THROW_ARG_ERR(ctx, i + 3, "Uint8Array");
+            return JS_EXCEPTION;
         }
         msg.msg_iov[i].iov_base = buf;
         msg.msg_iov[i].iov_len = sz;
@@ -753,7 +781,10 @@ static uint16_t ip_checksum(void *vdata, size_t length) {
 
 static JSValue tjs_posix_checksum(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     size_t len;
-    uint8_t *data = (uint8_t *) JS_GetUint8Array(ctx, &len, argv[0]);
+    uint8_t *data = JS_GetUint8Array(ctx, &len, argv[0]);
+    if (!data) {
+        return JS_EXCEPTION;
+    }
     TJS_CHECK_ARG_RET(ctx, data != NULL, 0, "Uint8Array");
     uint16_t ret = ip_checksum(data, len);
     return JS_NewInt32(ctx, ret);
