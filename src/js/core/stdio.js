@@ -82,6 +82,11 @@ class StdioReadableStream extends ReadableStream {
                     // now that reading is done.
                     handle.unref();
                 }
+            }, {
+                // Don't eagerly pull: only start native I/O when the
+                // consumer actually calls read(), so accessing the
+                // stream doesn't keep the event loop alive.
+                highWaterMark: 0,
             });
         }
 
