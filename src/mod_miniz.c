@@ -219,14 +219,14 @@ static JSValue tjs_compressor_process(JSContext *ctx, JSValue this_val, int argc
         return JS_ThrowInternalError(ctx, "compressor is not initialized");
     }
 
-    size_t in_size = 0;
-    const uint8_t *in_data = NULL;
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "expected data argument");
+    }
 
-    if (argc > 0 && !JS_IsUndefined(argv[0]) && !JS_IsNull(argv[0])) {
-        in_data = JS_GetUint8Array(ctx, &in_size, argv[0]);
-        if (!in_data && in_size != 0) {
-            return JS_EXCEPTION;
-        }
+    size_t in_size;
+    uint8_t *in_data = JS_GetUint8Array(ctx, &in_size, argv[0]);
+    if (!in_data) {
+        return JS_EXCEPTION;
     }
 
     int flush = MZ_NO_FLUSH;
@@ -239,7 +239,7 @@ static JSValue tjs_compressor_process(JSContext *ctx, JSValue this_val, int argc
     }
 
     /* Track CRC32 and total input for gzip. */
-    if (c->format == FORMAT_GZIP && in_data && in_size > 0) {
+    if (c->format == FORMAT_GZIP && in_size > 0) {
         c->crc32 = mz_crc32(c->crc32, in_data, in_size);
         c->total_in += in_size;
     }
@@ -253,7 +253,6 @@ static JSValue tjs_compressor_process(JSContext *ctx, JSValue this_val, int argc
         c->header_written = true;
     }
 
-    /* Compress. */
     c->stream.next_in = in_data;
     c->stream.avail_in = (mz_uint32) in_size;
 
@@ -294,7 +293,7 @@ static JSValue tjs_compressor_process(JSContext *ctx, JSValue this_val, int argc
 
     if (out.size == 0) {
         tbuf_free(&out);
-        return JS_NewUint8ArrayCopy(ctx, NULL, 0);
+        return TJS_NewUint8Array(ctx, NULL, 0);
     }
 
     JSValue result = TJS_NewUint8Array(ctx, out.buf, out.size);
@@ -542,14 +541,14 @@ static JSValue tjs_decompressor_process(JSContext *ctx, JSValue this_val, int ar
         return JS_EXCEPTION;
     }
 
-    size_t in_size = 0;
-    const uint8_t *in_data = NULL;
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "expected data argument");
+    }
 
-    if (argc > 0 && !JS_IsUndefined(argv[0]) && !JS_IsNull(argv[0])) {
-        in_data = JS_GetUint8Array(ctx, &in_size, argv[0]);
-        if (!in_data && in_size != 0) {
-            return JS_EXCEPTION;
-        }
+    size_t in_size;
+    uint8_t *in_data = JS_GetUint8Array(ctx, &in_size, argv[0]);
+    if (!in_data) {
+        return JS_EXCEPTION;
     }
 
     TBuf out;
@@ -562,7 +561,7 @@ static JSValue tjs_decompressor_process(JSContext *ctx, JSValue this_val, int ar
 
     if (out.size == 0) {
         tbuf_free(&out);
-        return JS_NewUint8ArrayCopy(ctx, NULL, 0);
+        return TJS_NewUint8Array(ctx, NULL, 0);
     }
 
     JSValue result = TJS_NewUint8Array(ctx, out.buf, out.size);
@@ -637,9 +636,8 @@ static JSValue tjs_zip_create(JSContext *ctx, JSValue this_val, int argc, JSValu
 
         JSValue dataVal = JS_GetPropertyStr(ctx, entry, "data");
         size_t data_size;
-        const uint8_t *data = JS_GetUint8Array(ctx, &data_size, dataVal);
-
-        if (!data && data_size != 0) {
+        uint8_t *data = JS_GetUint8Array(ctx, &data_size, dataVal);
+        if (!data) {
             JS_FreeCString(ctx, name);
             JS_FreeValue(ctx, dataVal);
             JS_FreeValue(ctx, entry);
@@ -682,8 +680,7 @@ static JSValue tjs_zip_extract(JSContext *ctx, JSValue this_val, int argc, JSVal
     }
 
     size_t zip_size;
-    const uint8_t *zip_data = JS_GetUint8Array(ctx, &zip_size, argv[0]);
-
+    uint8_t *zip_data = JS_GetUint8Array(ctx, &zip_size, argv[0]);
     if (!zip_data) {
         return JS_EXCEPTION;
     }

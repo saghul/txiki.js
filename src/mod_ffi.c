@@ -700,9 +700,8 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValue this_val, int argc, JSVal
         } else {
             size_t sz;
             ptr = JS_GetUint8Array(ctx, &sz, func_argv[i]);
-            if (ptr == NULL) {
+            if (!ptr) {
                 js_free(ctx, aval);
-                JS_ThrowTypeError(ctx, "argument %d expected to be ptr or buffer", i + 1);
                 return JS_EXCEPTION;
             }
         }
@@ -795,12 +794,11 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
 
         if (buffer_mask & (1u << i)) {
             size_t sz;
-            void *ptr = JS_GetUint8Array(ctx, &sz, val);
+            uint8_t *ptr = JS_GetUint8Array(ctx, &sz, val);
             if (!ptr) {
                 for (unsigned j = 0; j < n_cstrings; j++) {
                     JS_FreeCString(ctx, cstrings[j]);
                 }
-                JS_ThrowTypeError(ctx, "argument %d: expected Uint8Array for buffer type", i + 1);
                 return JS_EXCEPTION;
             }
             *(void **) &arg_storage[i] = ptr;
@@ -871,16 +869,14 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
                         *(void **) &arg_storage[i] = p;
                     } else {
                         size_t sz;
-                        void *bp = JS_GetUint8Array(ctx, &sz, val);
-                        if (bp) {
-                            *(void **) &arg_storage[i] = bp;
-                        } else {
+                        uint8_t *bp = JS_GetUint8Array(ctx, &sz, val);
+                        if (!bp) {
                             for (unsigned j = 0; j < n_cstrings; j++) {
                                 JS_FreeCString(ctx, cstrings[j]);
                             }
-                            JS_ThrowTypeError(ctx, "argument %d: expected pointer, null, or buffer", i + 1);
                             return JS_EXCEPTION;
                         }
+                        *(void **) &arg_storage[i] = bp;
                     }
                 }
                 break;
@@ -1193,7 +1189,7 @@ void js_ffi_closure_invoke(ffi_cif *cif, void *ret, void **args, void *userptr) 
     }
     size_t sz;
     uint8_t *buf = JS_GetUint8Array(ctx, &sz, jsret);
-    if (buf == NULL) {
+    if (!buf) {
         fprintf(stderr, "js_ffi_closure_invoke: function returned non-buffer\n");
         tjs_dump_error(ctx);
         abort();

@@ -1776,7 +1776,7 @@ static JSValue tjs_webcrypto_rsa_generate_key(JSContext *ctx, JSValue this_val, 
 
     /* Convert public exponent from big-endian Uint8Array to int. */
     size_t exp_len;
-    const uint8_t *exp_buf = JS_GetUint8Array(ctx, &exp_len, argv[1]);
+    uint8_t *exp_buf = JS_GetUint8Array(ctx, &exp_len, argv[1]);
     if (!exp_buf) {
         return JS_EXCEPTION;
     }
@@ -2485,7 +2485,7 @@ static JSValue tjs_webcrypto_ec_parse_key(JSContext *ctx, JSValue this_val, int 
     }
 
     size_t der_len;
-    const uint8_t *der = JS_GetUint8Array(ctx, &der_len, argv[0]);
+    uint8_t *der = JS_GetUint8Array(ctx, &der_len, argv[0]);
     if (!der) {
         return JS_EXCEPTION;
     }
@@ -2594,7 +2594,7 @@ static JSValue tjs_webcrypto_ec_key_to_der(JSContext *ctx, JSValue this_val, int
     }
 
     size_t raw_len;
-    const uint8_t *raw = JS_GetUint8Array(ctx, &raw_len, argv[0]);
+    uint8_t *raw = JS_GetUint8Array(ctx, &raw_len, argv[0]);
     if (!raw) {
         return JS_EXCEPTION;
     }
@@ -2699,7 +2699,7 @@ static JSValue tjs_webcrypto_rsa_parse_key(JSContext *ctx, JSValue this_val, int
     }
 
     size_t der_len;
-    const uint8_t *der = JS_GetUint8Array(ctx, &der_len, argv[0]);
+    uint8_t *der = JS_GetUint8Array(ctx, &der_len, argv[0]);
     if (!der) {
         return JS_EXCEPTION;
     }
@@ -2793,7 +2793,7 @@ static JSValue tjs_webcrypto_rsa_export_jwk(JSContext *ctx, JSValue this_val, in
     }
 
     size_t der_len;
-    const uint8_t *der = JS_GetUint8Array(ctx, &der_len, argv[0]);
+    uint8_t *der = JS_GetUint8Array(ctx, &der_len, argv[0]);
     if (!der) {
         return JS_EXCEPTION;
     }
@@ -2900,11 +2900,11 @@ static JSValue tjs_webcrypto_rsa_import_jwk(JSContext *ctx, JSValue this_val, in
     }
 
     size_t n_len, e_len;
-    const uint8_t *n = JS_GetUint8Array(ctx, &n_len, argv[0]);
+    uint8_t *n = JS_GetUint8Array(ctx, &n_len, argv[0]);
     if (!n) {
         return JS_EXCEPTION;
     }
-    const uint8_t *e = JS_GetUint8Array(ctx, &e_len, argv[1]);
+    uint8_t *e = JS_GetUint8Array(ctx, &e_len, argv[1]);
     if (!e) {
         return JS_EXCEPTION;
     }
@@ -2924,14 +2924,14 @@ static JSValue tjs_webcrypto_rsa_import_jwk(JSContext *ctx, JSValue this_val, in
 
     if (is_private) {
         size_t d_len, p_len = 0, q_len = 0;
-        const uint8_t *d = JS_GetUint8Array(ctx, &d_len, argv[2]);
+        uint8_t *d = JS_GetUint8Array(ctx, &d_len, argv[2]);
         if (!d) {
             mbedtls_pk_free(&pk);
             return JS_EXCEPTION;
         }
 
-        const uint8_t *p = NULL;
-        const uint8_t *q = NULL;
+        uint8_t *p = NULL;
+        uint8_t *q = NULL;
         if (argc >= 5 && !JS_IsUndefined(argv[3]) && !JS_IsUndefined(argv[4])) {
             p = JS_GetUint8Array(ctx, &p_len, argv[3]);
             if (!p) {
@@ -2997,7 +2997,7 @@ static JSValue tjs_webcrypto_ec_get_public_key(JSContext *ctx, JSValue this_val,
     }
 
     size_t priv_len;
-    const uint8_t *priv = JS_GetUint8Array(ctx, &priv_len, argv[0]);
+    uint8_t *priv = JS_GetUint8Array(ctx, &priv_len, argv[0]);
     if (!priv) {
         return JS_EXCEPTION;
     }
@@ -3453,8 +3453,11 @@ static JSValue tjs_webcrypto_ed25519_get_public_key(JSContext *ctx, JSValue this
     }
 
     size_t privkey_len;
-    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[0]);
-    if (!privkey || privkey_len != 32) {
+    uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[0]);
+    if (!privkey) {
+        return JS_EXCEPTION;
+    }
+    if (privkey_len != 32) {
         return JS_ThrowTypeError(ctx, "privkey must be 32 bytes");
     }
 
@@ -3603,14 +3606,20 @@ static JSValue tjs_webcrypto_x25519_derive_bits(JSContext *ctx, JSValue this_val
     }
 
     size_t privkey_len;
-    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[0]);
-    if (!privkey || privkey_len != 32) {
+    uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[0]);
+    if (!privkey) {
+        return JS_EXCEPTION;
+    }
+    if (privkey_len != 32) {
         return JS_ThrowTypeError(ctx, "privkey must be 32 bytes");
     }
 
     size_t pubkey_len;
-    const uint8_t *pubkey = JS_GetUint8Array(ctx, &pubkey_len, argv[1]);
-    if (!pubkey || pubkey_len != 32) {
+    uint8_t *pubkey = JS_GetUint8Array(ctx, &pubkey_len, argv[1]);
+    if (!pubkey) {
+        return JS_EXCEPTION;
+    }
+    if (pubkey_len != 32) {
         return JS_ThrowTypeError(ctx, "pubkey must be 32 bytes");
     }
 
@@ -3657,7 +3666,7 @@ static JSValue tjs_webcrypto_aes_kw(JSContext *ctx, JSValue this_val, int argc, 
     }
 
     size_t key_len;
-    const uint8_t *key = JS_GetUint8Array(ctx, &key_len, argv[1]);
+    uint8_t *key = JS_GetUint8Array(ctx, &key_len, argv[1]);
     if (!key) {
         return JS_EXCEPTION;
     }
@@ -3667,7 +3676,7 @@ static JSValue tjs_webcrypto_aes_kw(JSContext *ctx, JSValue this_val, int argc, 
     }
 
     size_t data_len;
-    const uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[2]);
+    uint8_t *data = JS_GetUint8Array(ctx, &data_len, argv[2]);
     if (!data) {
         return JS_EXCEPTION;
     }
@@ -3716,8 +3725,11 @@ static JSValue tjs_webcrypto_x25519_get_public_key(JSContext *ctx, JSValue this_
     }
 
     size_t privkey_len;
-    const uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[0]);
-    if (!privkey || privkey_len != 32) {
+    uint8_t *privkey = JS_GetUint8Array(ctx, &privkey_len, argv[0]);
+    if (!privkey) {
+        return JS_EXCEPTION;
+    }
+    if (privkey_len != 32) {
         return JS_ThrowTypeError(ctx, "privkey must be 32 bytes");
     }
 

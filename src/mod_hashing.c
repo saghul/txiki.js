@@ -256,7 +256,7 @@ static JSValue tjs_hash_update(JSContext *ctx, JSValue this_val, int argc, JSVal
         return JS_ThrowTypeError(ctx, "expected data argument");
     }
 
-    const uint8_t *data;
+    uint8_t *data;
     size_t len;
     const char *str = NULL;
     int ret;
@@ -270,7 +270,7 @@ static JSValue tjs_hash_update(JSContext *ctx, JSValue this_val, int argc, JSVal
         JS_FreeCString(ctx, str);
     } else {
         data = JS_GetUint8Array(ctx, &len, argv[0]);
-        if (!data && len != 0) {
+        if (!data) {
             return JS_EXCEPTION;
         }
         ret = tjs_hash_do_update(h, data, len);

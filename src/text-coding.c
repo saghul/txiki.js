@@ -226,7 +226,7 @@ static JSValue tjs_utf8_decoder_decode(JSContext *ctx, JSValueConst this_val, in
     size_t bufsz = 0;
     uint8_t *buf = JS_GetUint8Array(ctx, &bufsz, argv[0]);
     if (!buf) {
-        return JS_ThrowTypeError(ctx, "invalid arguments");
+        return JS_EXCEPTION;
     }
 
     uint32_t opts = 0;
@@ -254,6 +254,20 @@ static JSValue tjs_utf8_decoder_decode(JSContext *ctx, JSValueConst this_val, in
     tbuf_init(ctx, &s);
     if (tbuf_claim(&s, bufsz) < 0) {
         return JS_ThrowOutOfMemory(ctx);
+    }
+    if (bufsz == 0) {
+        if (!(opts & TJS_TEXT_CODING_OPTION_STREAM) && d->bytes_needed != 0) {
+            d->bytes_needed = 0;
+            if (opts & TJS_TEXT_CODING_OPTION_FATAL) {
+                JSValue err = JS_ThrowTypeError(ctx, "decoding error");
+                tbuf_free(&s);
+                return err;
+            } else if (string_buffer_putc(&s, 0xfffd)) {
+                tbuf_free(&s);
+                return JS_ThrowOutOfMemory(ctx);
+            }
+        }
+        goto end_ok;
     }
     uint8_t *ptr = buf - 1;
     uint8_t *end = buf + bufsz;

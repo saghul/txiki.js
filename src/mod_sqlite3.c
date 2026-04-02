@@ -401,7 +401,7 @@ static JSValue tjs__sqlite3_bind_param(JSContext *ctx, sqlite3_stmt *stmt, int i
         }
         case JS_TAG_OBJECT: {
             size_t len = 0;
-            const uint8_t *x = JS_GetUint8Array(ctx, &len, v);
+            uint8_t *x = JS_GetUint8Array(ctx, &len, v);
             if (!x) {
                 return JS_EXCEPTION;
             }
