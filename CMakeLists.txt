@@ -369,3 +369,7 @@ endif()
 target_link_libraries(tjs PUBLIC websockets)
 target_include_directories(tjs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets/include)
 
+if(WIN32 AND CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_link_libraries(tjs PUBLIC dbghelp)
+endif()
+

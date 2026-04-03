@@ -37,6 +37,11 @@
 #include <io.h>
 #endif
 
+#if defined(_WIN32) && !defined(NDEBUG)
+#include <windows.h>
+#include <dbghelp.h>
+#endif
+
 #ifdef NDEBUG
 #define TJS__DEFAULT_STACK_SIZE (1024 * 1024)
 #else
@@ -661,6 +666,36 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     tjs__free(qrt);
 }
 
+#if defined(_WIN32) && !defined(NDEBUG)
+static LONG WINAPI tjs__crash_handler(EXCEPTION_POINTERS *ep) {
+    fprintf(stderr, "\nFatal exception 0x%08lX at %p\nBacktrace:\n",
+            ep->ExceptionRecord->ExceptionCode,
+            ep->ExceptionRecord->ExceptionAddress);
+
+    void *frames[64];
+    USHORT n = CaptureStackBackTrace(0, 64, frames, NULL);
+
+    HANDLE proc = GetCurrentProcess();
+    SymInitialize(proc, NULL, TRUE);
+
+    char buf[sizeof(SYMBOL_INFO) + 256];
+    SYMBOL_INFO *sym = (SYMBOL_INFO *) buf;
+    sym->MaxNameLen = 255;
+    sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+
+    for (USHORT i = 0; i < n; i++) {
+        if (SymFromAddr(proc, (DWORD64) frames[i], NULL, sym))
+            fprintf(stderr, "  %2u: %s + 0x%llx\n", i, sym->Name,
+                    (unsigned long long) ((DWORD64) frames[i] - sym->Address));
+        else
+            fprintf(stderr, "  %2u: %p\n", i, frames[i]);
+    }
+
+    fflush(stderr);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+#endif
+
 void TJS_Initialize(int argc, char **argv) {
     CHECK_EQ(0, uv_replace_allocator(tjs__malloc, tjs__realloc, tjs__calloc, tjs__free));
 
@@ -673,6 +708,9 @@ void TJS_Initialize(int argc, char **argv) {
 #ifdef _WIN32
     _setmode(_fileno(stdout), _O_BINARY);
     _setmode(_fileno(stderr), _O_BINARY);
+#ifndef NDEBUG
+    SetUnhandledExceptionFilter(tjs__crash_handler);
+#endif
 #endif
 
 #ifdef SIGPIPE
