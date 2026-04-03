@@ -45,24 +45,106 @@
 
 /* JS malloc functions */
 
+#ifndef NDEBUG
+/*
+ * Debug tracing allocator.
+ *
+ * Keeps a hash-set of every pointer returned through the JSMallocFunctions
+ * interface (i.e. pointers that QuickJS tracks in malloc_state).  On free we
+ * verify the pointer was previously registered — an unregistered pointer means
+ * a mismatched allocator (allocated with tjs__malloc but freed through
+ * js_free_rt) which silently corrupts malloc_state and eventually triggers
+ * the "malloc_size underflow" abort.
+ */
+
+#include "hash.h"
+
+typedef struct {
+    void *ptr;
+    size_t usable_size;
+    UT_hash_handle hh;
+} TJSAllocEntry;
+
+static _Thread_local TJSAllocEntry *tjs__alloc_map;
+
+static void tjs__alloc_map_add(void *ptr) {
+    if (!ptr) {
+        return;
+    }
+    TJSAllocEntry *entry = tjs__malloc(sizeof(*entry));
+    CHECK_NOT_NULL(entry);
+    entry->ptr = ptr;
+    entry->usable_size = tjs__malloc_usable_size(ptr);
+    HASH_ADD_PTR(tjs__alloc_map, ptr, entry);
+}
+
+static void tjs__alloc_map_check_and_remove(void *ptr, const char *caller) {
+    if (!ptr) {
+        return;
+    }
+    TJSAllocEntry *entry = NULL;
+    HASH_FIND_PTR(tjs__alloc_map, &ptr, entry);
+    if (!entry) {
+        fprintf(stderr,
+                "%s: pointer %p was never allocated through "
+                "JSMallocFunctions — mismatched allocator!\n",
+                caller,
+                ptr);
+        abort();
+    }
+    size_t current_size = tjs__malloc_usable_size(ptr);
+    if (current_size != entry->usable_size) {
+        fprintf(stderr,
+                "%s: pointer %p usable size changed: %zu at alloc, %zu now\n",
+                caller,
+                ptr,
+                entry->usable_size,
+                current_size);
+        abort();
+    }
+    HASH_DEL(tjs__alloc_map, entry);
+    tjs__free(entry);
+}
+#endif /* !NDEBUG */
+
 static void *tjs__mf_calloc(void *opaque, size_t count, size_t size) {
     (void) opaque;
-    return tjs__calloc(count, size);
+    void *ptr = tjs__calloc(count, size);
+#ifndef NDEBUG
+    tjs__alloc_map_add(ptr);
+#endif
+    return ptr;
 }
 
 static void *tjs__mf_malloc(void *opaque, size_t size) {
     (void) opaque;
-    return tjs__malloc(size);
+    void *ptr = tjs__malloc(size);
+#ifndef NDEBUG
+    tjs__alloc_map_add(ptr);
+#endif
+    return ptr;
 }
 
 static void tjs__mf_free(void *opaque, void *ptr) {
     (void) opaque;
+#ifndef NDEBUG
+    tjs__alloc_map_check_and_remove(ptr, "tjs__mf_free");
+#endif
     tjs__free(ptr);
 }
 
 static void *tjs__mf_realloc(void *opaque, void *ptr, size_t size) {
     (void) opaque;
-    return tjs__realloc(ptr, size);
+#ifndef NDEBUG
+    if (ptr) {
+        tjs__alloc_map_check_and_remove(ptr, "tjs__mf_realloc");
+    }
+#endif
+    void *new_ptr = tjs__realloc(ptr, size);
+#ifndef NDEBUG
+    tjs__alloc_map_add(new_ptr);
+#endif
+    return new_ptr;
 }
 
 /* WAMR allocator wrappers — WAMR uses unsigned int, not size_t. */
