@@ -40,6 +40,7 @@ typedef struct {
     int closed;
     int finalized;
     uv_udp_t udp;
+    JSValue obj; /* prevent GC while receiving */
     JSValue callbacks[UDP_CB_MAX];
     struct {
         uint8_t *buf;
@@ -88,6 +89,7 @@ static void maybe_invoke_callback(TJSUdp *u, int callback, int argc, JSValue *ar
 static void tjs_udp_finalizer(JSRuntime *rt, JSValue val) {
     TJSUdp *u = JS_GetOpaque(val, tjs_udp_class_id);
     if (u) {
+        JS_FreeValueRT(rt, u->obj);
         for (int i = 0; i < UDP_CB_MAX; i++) {
             JS_FreeValueRT(rt, u->callbacks[i]);
         }
@@ -146,6 +148,10 @@ static JSValue tjs_udp_close(JSContext *ctx, JSValue this_val, int argc, JSValue
     if (!u) {
         return JS_EXCEPTION;
     }
+
+    JS_FreeValue(ctx, u->obj);
+    u->obj = JS_UNDEFINED;
+
     maybe_close(u);
     return JS_UNDEFINED;
 }
@@ -211,6 +217,10 @@ static JSValue tjs_udp_start_recv(JSContext *ctx, JSValue this_val, int argc, JS
         return tjs_throw_errno(ctx, r);
     }
 
+    if (JS_IsUndefined(u->obj)) {
+        u->obj = JS_DupValue(ctx, this_val);
+    }
+
     return JS_UNDEFINED;
 }
 
@@ -223,6 +233,9 @@ static JSValue tjs_udp_stop_recv(JSContext *ctx, JSValue this_val, int argc, JSV
 
     js_free(ctx, u->read.buf);
     u->read.buf = NULL;
+
+    JS_FreeValue(ctx, u->obj);
+    u->obj = JS_UNDEFINED;
 
     return JS_UNDEFINED;
 }
@@ -354,6 +367,7 @@ static JSValue tjs_new_udp(JSContext *ctx, int af) {
 
     u->ctx = ctx;
     u->udp.data = u;
+    u->obj = JS_UNDEFINED;
     u->read.buf = NULL;
 
     for (int i = 0; i < UDP_CB_MAX; i++) {

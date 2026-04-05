@@ -505,6 +505,8 @@ static void uv__tls_connect_cb(uv_connect_t *req, int status) {
     if (status != 0) {
         JSValue arg = tjs_new_error(ctx, status);
         maybe_invoke_tls_callback(s, TLS_CB_CONNECT, 1, &arg);
+        JS_FreeValue(ctx, s->obj);
+        s->obj = JS_UNDEFINED;
         return;
     }
 
@@ -515,6 +517,8 @@ static void uv__tls_connect_cb(uv_connect_t *req, int status) {
         s->tls_state = TLS_STATE_ERROR;
         JSValue arg = tjs_new_error(ctx, r);
         maybe_invoke_tls_callback(s, TLS_CB_CONNECT, 1, &arg);
+        JS_FreeValue(ctx, s->obj);
+        s->obj = JS_UNDEFINED;
         return;
     }
     tjs_tls_handshake(s);
@@ -541,6 +545,10 @@ static JSValue tjs_tls_connect(JSContext *ctx, JSValue this_val, int argc, JSVal
     if (r != 0) {
         js_free(ctx, req);
         return tjs_throw_errno(ctx, r);
+    }
+
+    if (JS_IsUndefined(s->obj)) {
+        s->obj = JS_DupValue(ctx, this_val);
     }
 
     return JS_UNDEFINED;
@@ -661,6 +669,11 @@ static JSValue tjs_tls_start_read(JSContext *ctx, JSValue this_val, int argc, JS
     if (r != 0 && r != UV_EALREADY) {
         return tjs_throw_errno(ctx, r);
     }
+
+    if (JS_IsUndefined(s->obj)) {
+        s->obj = JS_DupValue(ctx, this_val);
+    }
+
     return JS_UNDEFINED;
 }
 
@@ -673,6 +686,10 @@ static JSValue tjs_tls_stop_read(JSContext *ctx, JSValue this_val, int argc, JSV
         return JS_UNDEFINED;
     }
     uv_read_stop((uv_stream_t *) &s->tcp);
+
+    JS_FreeValue(ctx, s->obj);
+    s->obj = JS_UNDEFINED;
+
     return JS_UNDEFINED;
 }
 
@@ -976,7 +993,9 @@ static void tjs_tls_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
         for (int i = 0; i < TLS_CB_MAX; i++) {
             JS_MarkValue(rt, s->callbacks[i], mark_func);
         }
-        JS_MarkValue(rt, s->obj, mark_func);
+        /* s->obj is intentionally NOT marked: it is a GC-invisible
+           self-reference that keeps the JS object alive while the libuv
+           handle is active (reading / listening). */
         JS_MarkValue(rt, s->server, mark_func);
     }
 }

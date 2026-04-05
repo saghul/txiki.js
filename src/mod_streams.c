@@ -55,6 +55,7 @@ typedef struct {
         uv_tty_t tty;
         uv_pipe_t pipe;
     } h;
+    JSValue obj; /* prevent GC while the handle is active (reading / listening) */
     JSValue callbacks[STREAM_CB_MAX];
     struct {
         uint8_t *buf;
@@ -135,6 +136,9 @@ static JSValue tjs_stream_close(JSContext *ctx, JSValue this_val, int argc, JSVa
         maybe_invoke_callback(s, STREAM_CB_CONNECTION, 2, args);
     }
 
+    JS_FreeValue(ctx, s->obj);
+    s->obj = JS_UNDEFINED;
+
     maybe_close(s);
     return JS_UNDEFINED;
 }
@@ -198,6 +202,13 @@ static JSValue tjs_stream_start_read(JSContext *ctx, JSValue this_val, int argc,
         return tjs_throw_errno(ctx, r);
     }
 
+    /* Pin the JS object so the GC cannot collect it while the handle is
+       actively reading.  The reference is intentionally NOT marked in gc_mark
+       so the cycle-collector cannot account for it. */
+    if (JS_IsUndefined(s->obj)) {
+        s->obj = JS_DupValue(ctx, this_val);
+    }
+
     return JS_UNDEFINED;
 }
 
@@ -214,6 +225,9 @@ static JSValue tjs_stream_stop_read(JSContext *ctx, JSValue this_val, int argc, 
 
     js_free(ctx, s->read.buf);
     s->read.buf = NULL;
+
+    JS_FreeValue(ctx, s->obj);
+    s->obj = JS_UNDEFINED;
 
     return JS_UNDEFINED;
 }
@@ -389,6 +403,14 @@ static void uv__stream_connect_cb(uv_connect_t *req, int status) {
 
     maybe_invoke_callback(s, STREAM_CB_CONNECT, 1, &arg);
 
+    /* Unpin unless start_read (or listen) has re-pinned in the meantime.
+       We check uv_is_active: if the user called startRead inside the connect
+       callback the handle is active and obj was already re-pinned there. */
+    if (!uv_is_active(&s->h.handle)) {
+        JS_FreeValue(ctx, s->obj);
+        s->obj = JS_UNDEFINED;
+    }
+
     js_free(ctx, req);
 }
 
@@ -449,6 +471,11 @@ static JSValue tjs_stream_listen(JSContext *ctx, JSValue this_val, int argc, JSV
     if (r != 0) {
         return tjs_throw_errno(ctx, r);
     }
+
+    if (JS_IsUndefined(s->obj)) {
+        s->obj = JS_DupValue(ctx, this_val);
+    }
+
     return JS_UNDEFINED;
 }
 
@@ -474,6 +501,7 @@ static JSValue tjs_stream_set_blocking(JSContext *ctx, JSValue this_val, int arg
 static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
     s->ctx = ctx;
     s->h.handle.data = s;
+    s->obj = JS_UNDEFINED;
     s->read.buf = NULL;
 
     for (int i = 0; i < STREAM_CB_MAX; i++) {
@@ -486,6 +514,7 @@ static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
 
 static void tjs_stream_finalizer(JSRuntime *rt, TJSStream *s) {
     if (s) {
+        JS_FreeValueRT(rt, s->obj);
         for (int i = 0; i < STREAM_CB_MAX; i++) {
             JS_FreeValueRT(rt, s->callbacks[i]);
         }
@@ -612,6 +641,10 @@ static JSValue tjs_tcp_connect(JSContext *ctx, JSValue this_val, int argc, JSVal
     if (r != 0) {
         js_free(ctx, req);
         return tjs_throw_errno(ctx, r);
+    }
+
+    if (JS_IsUndefined(t->obj)) {
+        t->obj = JS_DupValue(ctx, this_val);
     }
 
     return JS_UNDEFINED;
@@ -894,6 +927,10 @@ static JSValue tjs_pipe_connect(JSContext *ctx, JSValue this_val, int argc, JSVa
     if (r != 0) {
         js_free(ctx, req);
         return tjs_throw_errno(ctx, r);
+    }
+
+    if (JS_IsUndefined(t->obj)) {
+        t->obj = JS_DupValue(ctx, this_val);
     }
 
     return JS_UNDEFINED;
