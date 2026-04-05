@@ -31,8 +31,8 @@ else()
 endif()
 
 set(TJS__VERSION_MAJOR 26)
-set(TJS__VERSION_MINOR 3)
-set(TJS__VERSION_PATCH 1)
+set(TJS__VERSION_MINOR 4)
+set(TJS__VERSION_PATCH 0)
 set(TJS__VERSION_SUFFIX "")
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.in"
