@@ -47,7 +47,7 @@ export function pbkdf2DeriveBits(algorithm, baseKey, length, requiredUsage = 'de
             new DOMException(`Key does not support the "${requiredUsage}" operation`, 'InvalidAccessError'));
     }
 
-    if (length === 0 || length % 8 !== 0) {
+    if (length === null || length === undefined || !Number.isInteger(length) || length === 0 || length % 8 !== 0) {
         return Promise.reject(new DOMException('length must be a non-zero multiple of 8', 'OperationError'));
     }
 
