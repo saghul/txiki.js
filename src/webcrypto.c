@@ -3696,10 +3696,21 @@ static JSValue tjs_webcrypto_aes_kw(JSContext *ctx, JSValue this_val, int argc, 
         return JS_EXCEPTION;
     }
 
+    int is_wrap = (operation == AES_KW_OP_WRAP);
+
+    if (data_len % 8 != 0) {
+        return JS_ThrowTypeError(ctx, "AES-KW input length must be a multiple of 8 bytes");
+    }
+    if (is_wrap && data_len < 16) {
+        return JS_ThrowTypeError(ctx, "AES-KW wrap input must be at least 16 bytes");
+    }
+    if (!is_wrap && data_len < 24) {
+        return JS_ThrowTypeError(ctx, "AES-KW unwrap input must be at least 24 bytes");
+    }
+
     mbedtls_nist_kw_context kw_ctx;
     mbedtls_nist_kw_init(&kw_ctx);
 
-    int is_wrap = (operation == AES_KW_OP_WRAP);
     int ret = mbedtls_nist_kw_setkey(&kw_ctx, MBEDTLS_CIPHER_ID_AES, key, (unsigned int) (key_len * 8), is_wrap);
     if (ret != 0) {
         mbedtls_nist_kw_free(&kw_ctx);
