@@ -1,8 +1,11 @@
 import { digestAlgorithms, nativeDigest, toUint8Array } from './helpers.js';
 
 export function digest(algorithm, data) {
-    const name = typeof algorithm === 'string' ? algorithm : algorithm?.name;
-    const typeId = digestAlgorithms[name];
+    const rawName = typeof algorithm === 'string' ? algorithm : algorithm?.name;
+    const name = rawName
+        ? Object.keys(digestAlgorithms).find(k => k.toUpperCase() === rawName.toUpperCase())
+        : undefined;
+    const typeId = name !== undefined ? digestAlgorithms[name] : undefined;
 
     if (typeId === undefined) {
         return Promise.reject(new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError'));
