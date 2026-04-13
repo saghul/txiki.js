@@ -27,9 +27,16 @@
 #include "private.h"
 #include "tjs.h"
 
+#include <mbedtls/entropy.h>
 #include <stdlib.h>
 #include <string.h>
 
+
+int tjs__entropy_uv(void *ctx, unsigned char *output, size_t len) {
+    (void) ctx;
+    int r = uv_random(NULL, NULL, output, len, 0, NULL);
+    return r == 0 ? 0 : MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
+}
 
 void tjs_assert(const struct AssertionInfo info) {
     fprintf(stderr,

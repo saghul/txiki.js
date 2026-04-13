@@ -25,12 +25,12 @@
 #include "ed25519.h"
 #include "mem.h"
 #include "private.h"
+#include "utils.h"
 
 #include <mbedtls/cipher.h>
 #include <mbedtls/ecdh.h>
 #include <mbedtls/ecdsa.h>
 #include <mbedtls/ecp.h>
-#include <mbedtls/entropy.h>
 #include <mbedtls/hkdf.h>
 #include <mbedtls/md.h>
 #include <mbedtls/nist_kw.h>
@@ -41,12 +41,6 @@
 #include <mbedtls/sha256.h>
 #include <mbedtls/sha512.h>
 #include <string.h>
-
-static int tjs__entropy_uv(void *ctx, unsigned char *output, size_t len) {
-    (void) ctx;
-    int r = uv_random(NULL, NULL, output, len, 0, NULL);
-    return r == 0 ? 0 : MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
-}
 
 enum {
     DIGEST_SHA1 = 0,
