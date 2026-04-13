@@ -11,10 +11,13 @@ function getRandomValues(obj) {
     switch (type) {
         case 'Int8Array':
         case 'Uint8Array':
+        case 'Uint8ClampedArray':
         case 'Int16Array':
         case 'Uint16Array':
         case 'Int32Array':
         case 'Uint32Array':
+        case 'BigInt64Array':
+        case 'BigUint64Array':
             break;
         default:
             throw new TypeError('Argument 1 of Crypto.getRandomValues does not implement interface ArrayBufferView');
