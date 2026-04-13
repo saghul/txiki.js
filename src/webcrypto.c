@@ -1458,6 +1458,11 @@ static JSValue tjs_webcrypto_ecdsa_verify(JSContext *ctx, JSValue this_val, int 
         goto fail;
     }
 
+    if (vr->sig_ref.size < (size_t) (2 * curve_byte_sizes[vr->curve])) {
+        JS_ThrowTypeError(ctx, "signature too short for curve");
+        goto fail;
+    }
+
     if (tjs_buf_ref_get(ctx, argv[4], &vr->data_ref) != 0) {
         goto fail;
     }
