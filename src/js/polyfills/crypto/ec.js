@@ -178,8 +178,12 @@ export function ecdhDeriveBits(algorithm, baseKey, length, requiredUsage = 'deri
         return Promise.reject(new DOMException('Curve mismatch between keys', 'InvalidAccessError'));
     }
 
-    if (length === 0 || length % 8 !== 0) {
-        return Promise.reject(new DOMException('length must be a non-zero multiple of 8', 'OperationError'));
+    if (length % 8 !== 0) {
+        return Promise.reject(new DOMException('length must be a multiple of 8', 'OperationError'));
+    }
+
+    if (length === 0) {
+        return Promise.resolve(new ArrayBuffer(0));
     }
 
     const namedCurve = baseKey.algorithm.namedCurve;
@@ -343,7 +347,7 @@ export function ecExportKey(format, key) {
             throw new DOMException('Cannot export private key in raw format', 'InvalidAccessError');
         }
 
-        return key[kKeyData].buffer.slice(0);
+        return key[kKeyData].slice().buffer;
     }
 
     if (format === 'spki') {

@@ -74,8 +74,12 @@ export function x25519DeriveBits(algorithm, baseKey, length, requiredUsage = 'de
         return Promise.reject(new DOMException('Public key algorithm mismatch', 'InvalidAccessError'));
     }
 
-    if (length !== null && (length === 0 || length % 8 !== 0)) {
-        return Promise.reject(new DOMException('length must be null or a non-zero multiple of 8', 'OperationError'));
+    if (length !== null && length % 8 !== 0) {
+        return Promise.reject(new DOMException('length must be null or a multiple of 8', 'OperationError'));
+    }
+
+    if (length === 0) {
+        return Promise.resolve(new ArrayBuffer(0));
     }
 
     if (length !== null && length > 256) {
@@ -220,7 +224,7 @@ export function x25519ExportKey(format, key) {
             throw new DOMException('Cannot export private key in raw format', 'InvalidAccessError');
         }
 
-        return key[kKeyData].buffer.slice(0);
+        return key[kKeyData].slice().buffer;
     }
 
     if (format === 'spki') {

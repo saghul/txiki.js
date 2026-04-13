@@ -398,5 +398,5 @@ export function rsaExportKey(format, key) {
         }
     }
 
-    return key[kKeyData].buffer.slice(0);
+    return key[kKeyData].slice().buffer;
 }
