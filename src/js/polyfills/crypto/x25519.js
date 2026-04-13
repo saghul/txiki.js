@@ -137,10 +137,8 @@ export function x25519ImportKey(format, keyData, algorithm, extractable, keyUsag
             return new CryptoKey('private', extractable, { name: 'X25519' }, keyUsages, d);
         }
 
-        for (const usage of keyUsages) {
-            if (usage !== undefined) {
-                throw new DOMException('X25519 public keys must have empty usages', 'SyntaxError');
-            }
+        if (keyUsages.length > 0) {
+            throw new DOMException('X25519 public keys must have empty usages', 'SyntaxError');
         }
 
         return new CryptoKey('public', extractable, { name: 'X25519' }, keyUsages, x);
