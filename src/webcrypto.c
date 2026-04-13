@@ -3246,6 +3246,10 @@ static void tjs__ed25519_sign_work_cb(uv_work_t *req) {
 
     /* crypto_sign produces combined sig || msg; extract the 64-byte signature. */
     unsigned char *sm = tjs__malloc(64 + sr->message_ref.size);
+    if (!sm) {
+        sr->r = -1;
+        return;
+    }
     crypto_sign_ed25519(sm, &smlen, sr->message_ref.data, sr->message_ref.size, sk);
     memcpy(sr->signature, sm, 64);
     tjs__free(sm);
