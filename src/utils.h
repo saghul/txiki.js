@@ -70,6 +70,8 @@
 void tjs__pstrcpy(char *buf, int buf_size, const char *str);
 char *tjs__pstrcat(char *buf, int buf_size, const char *s);
 
+int tjs__entropy_uv(void *ctx, unsigned char *output, size_t len);
+
 struct AssertionInfo {
     const char *file_line;  // filename:line
     const char *message;

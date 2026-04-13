@@ -30,8 +30,6 @@
 #include "tjs.h"
 
 #include <libwebsockets.h>
-#include <mbedtls/ctr_drbg.h>
-#include <mbedtls/entropy.h>
 #include <mbedtls/x509_crt.h>
 #include <quickjs.h>
 #include <sqlite3.h>
@@ -104,8 +102,6 @@ struct TJSRuntime {
     } timers;
     struct {
         bool initialized;
-        mbedtls_entropy_context entropy;
-        mbedtls_ctr_drbg_context ctr_drbg;
         mbedtls_x509_crt cacert;
         char *ca_bundle_path;
     } tls;
