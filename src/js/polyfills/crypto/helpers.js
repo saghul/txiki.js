@@ -66,21 +66,29 @@ export const curveAlgorithms = {
 };
 
 export function normalizeCurve(namedCurve) {
-    if (!(namedCurve in curveAlgorithms)) {
+    const canonical = Object.keys(curveAlgorithms).find(k => k.toUpperCase() === namedCurve.toUpperCase());
+
+    if (!canonical) {
         throw new DOMException(`Unrecognized named curve: ${namedCurve}`, 'NotSupportedError');
     }
 
-    return namedCurve;
+    return canonical;
 }
 
 export function normalizeHashAlgorithm(hash) {
     const name = typeof hash === 'string' ? hash : hash?.name;
 
-    if (!name || !(name in digestAlgorithms)) {
+    if (!name) {
         throw new DOMException(`Unrecognized hash algorithm: ${name}`, 'NotSupportedError');
     }
 
-    return name;
+    const canonical = Object.keys(digestAlgorithms).find(k => k.toUpperCase() === name.toUpperCase());
+
+    if (!canonical) {
+        throw new DOMException(`Unrecognized hash algorithm: ${name}`, 'NotSupportedError');
+    }
+
+    return canonical;
 }
 
 export function base64urlEncode(bytes) {

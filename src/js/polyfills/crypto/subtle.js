@@ -11,13 +11,34 @@ import {
 } from './rsa.js';
 import { x25519GenerateKey, x25519DeriveBits, x25519ImportKey, x25519ExportKey } from './x25519.js';
 
+const canonicalNames = [
+    'AES-CBC', 'AES-CTR', 'AES-GCM', 'AES-KW',
+    'RSA-OAEP', 'RSASSA-PKCS1-v1_5', 'RSA-PSS',
+    'HMAC', 'ECDSA', 'ECDH',
+    'Ed25519', 'X25519',
+    'PBKDF2', 'HKDF',
+    'SHA-1', 'SHA-256', 'SHA-384', 'SHA-512',
+];
+const canonicalNameMap = Object.fromEntries(canonicalNames.map(n => [ n.toUpperCase(), n ]));
+
+function normalizeAlgorithm(algorithm) {
+    const raw = typeof algorithm === 'string' ? algorithm : algorithm?.name;
+    const canonical = raw ? (canonicalNameMap[raw.toUpperCase()] ?? raw) : raw;
+
+    if (canonical && typeof algorithm === 'object' && algorithm !== null && algorithm.name !== canonical) {
+        algorithm.name = canonical;
+    }
+
+    return canonical;
+}
+
 export class SubtleCrypto {
     digest(algorithm, data) {
         return digest(algorithm, data);
     }
 
     encrypt(algorithm, key, data) {
-        const name = typeof algorithm === 'string' ? algorithm : algorithm?.name;
+        const name = normalizeAlgorithm(algorithm);
 
         switch (name) {
             case 'AES-CBC':
@@ -32,7 +53,7 @@ export class SubtleCrypto {
     }
 
     decrypt(algorithm, key, data) {
-        const name = typeof algorithm === 'string' ? algorithm : algorithm?.name;
+        const name = normalizeAlgorithm(algorithm);
 
         switch (name) {
             case 'AES-CBC':
@@ -47,7 +68,7 @@ export class SubtleCrypto {
     }
 
     sign(algorithm, key, data) {
-        const name = typeof algorithm === 'string' ? algorithm : algorithm?.name;
+        const name = normalizeAlgorithm(algorithm);
 
         switch (name) {
             case 'HMAC':
@@ -65,7 +86,7 @@ export class SubtleCrypto {
     }
 
     verify(algorithm, key, signature, data) {
-        const name = typeof algorithm === 'string' ? algorithm : algorithm?.name;
+        const name = normalizeAlgorithm(algorithm);
 
         switch (name) {
             case 'HMAC':
@@ -83,7 +104,7 @@ export class SubtleCrypto {
     }
 
     deriveBits(algorithm, baseKey, length) {
-        const name = typeof algorithm === 'string' ? algorithm : algorithm?.name;
+        const name = normalizeAlgorithm(algorithm);
 
         switch (name) {
             case 'PBKDF2':
@@ -100,7 +121,7 @@ export class SubtleCrypto {
     }
 
     deriveKey(algorithm, baseKey, derivedKeyType, extractable, keyUsages) {
-        const dktName = typeof derivedKeyType === 'string' ? derivedKeyType : derivedKeyType?.name;
+        const dktName = normalizeAlgorithm(derivedKeyType);
         let length;
 
         try {
@@ -127,7 +148,7 @@ export class SubtleCrypto {
             return Promise.reject(e);
         }
 
-        const algoName = typeof algorithm === 'string' ? algorithm : algorithm?.name;
+        const algoName = normalizeAlgorithm(algorithm);
         let bitsPromise;
 
         switch (algoName) {
@@ -153,7 +174,7 @@ export class SubtleCrypto {
     }
 
     generateKey(algorithm, extractable, keyUsages) {
-        const name = typeof algorithm === 'string' ? algorithm : algorithm?.name;
+        const name = normalizeAlgorithm(algorithm);
 
         try {
             switch (name) {
@@ -185,7 +206,7 @@ export class SubtleCrypto {
     }
 
     importKey(format, keyData, algorithm, extractable, keyUsages) {
-        const name = typeof algorithm === 'string' ? algorithm : algorithm?.name;
+        const name = normalizeAlgorithm(algorithm);
 
         try {
             switch (name) {
@@ -242,7 +263,7 @@ export class SubtleCrypto {
                 ? new TextEncoder().encode(JSON.stringify(exported))
                 : new Uint8Array(exported);
 
-            const name = typeof wrapAlgorithm === 'string' ? wrapAlgorithm : wrapAlgorithm?.name;
+            const name = normalizeAlgorithm(wrapAlgorithm);
 
             switch (name) {
                 case 'AES-CBC':
@@ -265,7 +286,7 @@ export class SubtleCrypto {
                 new DOMException('Key does not support the "unwrapKey" operation', 'InvalidAccessError'));
         }
 
-        const name = typeof unwrapAlgorithm === 'string' ? unwrapAlgorithm : unwrapAlgorithm?.name;
+        const name = normalizeAlgorithm(unwrapAlgorithm);
         let decryptPromise;
 
         switch (name) {
