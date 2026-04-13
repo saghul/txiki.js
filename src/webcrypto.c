@@ -1786,7 +1786,11 @@ static JSValue tjs_webcrypto_rsa_generate_key(JSContext *ctx, JSValue this_val, 
         return JS_EXCEPTION;
     }
 
-    int exponent = 0;
+    if (exp_len > 4) {
+        return JS_ThrowTypeError(ctx, "RSA public exponent must be at most 4 bytes");
+    }
+
+    uint32_t exponent = 0;
     for (size_t i = 0; i < exp_len; i++) {
         exponent = (exponent << 8) | exp_buf[i];
     }
