@@ -3131,6 +3131,12 @@ static void tjs__ed25519_generate_key_work_cb(uv_work_t *req) {
     TJSEd25519GenerateKeyReq *er = req->data;
     uint8_t sk[64];
 
+    int ret = uv_random(NULL, NULL, er->seed, 32, 0, NULL);
+    if (ret != 0) {
+        er->r = ret;
+        return;
+    }
+
     crypto_sign_ed25519_seed_keypair(er->pubkey, sk, er->seed);
     memcpy(er->privkey, er->seed, 32);
     er->r = 0;
@@ -3180,22 +3186,6 @@ static JSValue tjs_webcrypto_ed25519_generate_key(JSContext *ctx, JSValue this_v
     er->ctx = ctx;
     er->callback = JS_DupValue(ctx, argv[0]);
     er->r = -1;
-
-    /* Generate random seed. */
-    mbedtls_ctr_drbg_context ctr_drbg;
-    int ret = tjs__setup_rng(&ctr_drbg);
-    if (ret != 0) {
-        JS_FreeValue(ctx, er->callback);
-        js_free(ctx, er);
-        return JS_ThrowInternalError(ctx, "RNG setup failed");
-    }
-    ret = mbedtls_ctr_drbg_random(&ctr_drbg, er->seed, 32);
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-    if (ret != 0) {
-        JS_FreeValue(ctx, er->callback);
-        js_free(ctx, er);
-        return JS_ThrowInternalError(ctx, "random generation failed");
-    }
 
     er->req.data = er;
 
@@ -3478,18 +3468,8 @@ typedef struct {
 
 static void tjs__x25519_generate_key_work_cb(uv_work_t *req) {
     TJSX25519GenerateKeyReq *xr = req->data;
-    mbedtls_ctr_drbg_context ctr_drbg;
 
-    int ret = tjs__setup_rng(&ctr_drbg);
-    if (ret != 0) {
-        xr->r = ret;
-        mbedtls_ctr_drbg_free(&ctr_drbg);
-        return;
-    }
-
-    ret = mbedtls_ctr_drbg_random(&ctr_drbg, xr->privkey, 32);
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-
+    int ret = uv_random(NULL, NULL, xr->privkey, 32, 0, NULL);
     if (ret != 0) {
         xr->r = ret;
         return;
