@@ -3352,6 +3352,12 @@ static void tjs__ed25519_verify_work_cb(uv_work_t *req) {
     /* Build combined sig || msg for crypto_sign_open. */
     unsigned char *sm = tjs__malloc(combined_len);
     unsigned char *tmp = tjs__malloc(combined_len);
+    if (!sm || !tmp) {
+        tjs__free(sm);
+        tjs__free(tmp);
+        vr->r = -1;
+        return;
+    }
     memcpy(sm, vr->sig_ref.data, 64);
     memcpy(sm + 64, vr->message_ref.data, vr->message_ref.size);
 
