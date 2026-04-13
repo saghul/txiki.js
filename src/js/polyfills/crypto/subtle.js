@@ -258,14 +258,19 @@ export class SubtleCrypto {
                 new DOMException('Key is not extractable', 'InvalidAccessError'));
         }
 
+        const wrapName = normalizeAlgorithm(wrapAlgorithm);
+
+        if (wrappingKey.algorithm.name !== wrapName) {
+            return Promise.reject(
+                new DOMException('Wrapping key algorithm mismatch', 'InvalidAccessError'));
+        }
+
         return this.exportKey(format, key).then(exported => {
             const data = format === 'jwk'
                 ? new TextEncoder().encode(JSON.stringify(exported))
                 : new Uint8Array(exported);
 
-            const name = normalizeAlgorithm(wrapAlgorithm);
-
-            switch (name) {
+            switch (wrapName) {
                 case 'AES-CBC':
                 case 'AES-CTR':
                 case 'AES-GCM':
@@ -275,7 +280,7 @@ export class SubtleCrypto {
                 case 'RSA-OAEP':
                     return rsaOaepEncrypt(wrapAlgorithm, wrappingKey, data, 'wrapKey');
                 default:
-                    throw new DOMException(`Unrecognized algorithm name: ${name}`, 'NotSupportedError');
+                    throw new DOMException(`Unrecognized algorithm name: ${wrapName}`, 'NotSupportedError');
             }
         });
     }
@@ -287,6 +292,12 @@ export class SubtleCrypto {
         }
 
         const name = normalizeAlgorithm(unwrapAlgorithm);
+
+        if (unwrappingKey.algorithm.name !== name) {
+            return Promise.reject(
+                new DOMException('Unwrapping key algorithm mismatch', 'InvalidAccessError'));
+        }
+
         let decryptPromise;
 
         switch (name) {
