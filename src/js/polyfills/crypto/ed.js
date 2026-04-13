@@ -248,7 +248,7 @@ export function ed25519ExportKey(format, key) {
             throw new DOMException('Cannot export private key in raw format', 'InvalidAccessError');
         }
 
-        return key[kKeyData].buffer.slice(0);
+        return key[kKeyData].slice().buffer;
     }
 
     if (format === 'spki') {

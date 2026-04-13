@@ -341,7 +341,7 @@ export function aesExportKey(format, key) {
         };
     }
 
-    return key[kKeyData].buffer.slice(0);
+    return key[kKeyData].slice().buffer;
 }
 
 export function aesKwWrap(key, data) {
