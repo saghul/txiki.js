@@ -14,7 +14,7 @@ The txiki.js build depends on a number of git submodules. If you didn't already 
 ## GNU/Linux
 
 Install dependencies (`build-essential`, `cmake`, `libffi-dev`):
-
+- Note: If using Ubuntu, version >= 24.04 required
 ```bash
 # On Debian / Ubuntu
 sudo apt install build-essential cmake libffi-dev
@@ -38,8 +38,6 @@ make
 # Run the REPL
 ./build/tjs
 ```
-- ✅ compile passed in Docker container `ubuntu:24.04`
-- ❌ compile failed on 22.04, on 2026-04-20
 
 ## Windows
 
