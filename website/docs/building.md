@@ -38,6 +38,8 @@ make
 # Run the REPL
 ./build/tjs
 ```
+- ✅ compile passed in Docker container `ubuntu:24.04`
+- ❌ compile failed on 22.04, on 2026-04-20
 
 ## Windows
 
