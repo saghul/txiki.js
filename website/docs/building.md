@@ -17,7 +17,15 @@ Install dependencies (`build-essential`, `cmake`, `libffi-dev`):
 
 ```bash
 # On Debian / Ubuntu
+# version `>= 24.04` required
 sudo apt install build-essential cmake libffi-dev
+```
+
+```bash
+# Amazon Linux, al.2023
+dnf install -y git gcc14 gcc14-c++ cmake libffi-devel libatomic
+ln -s /usr/bin/gcc14-gcc /usr/bin/cc
+ln -s /usr/bin/gcc14-c++ /usr/bin/c++
 ```
 
 ## macOS
