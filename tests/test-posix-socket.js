@@ -100,6 +100,20 @@ async function testPoll(){
 	sock.close();
 }
 
+async function testPollFinalizerClose(){
+	function make(){
+		const sock = new PosixSocket(PosixSocket.defines.AF_INET, PosixSocket.defines.SOCK_DGRAM, 0);
+		sock.bind(PosixSocket.createSockaddrIn('127.0.0.1', 0));
+		sock.poll({ read: () => {} });
+	}
+
+	make();
+	tjs.engine.gc.run();
+	tjs.engine.gc.run();
+	await new Promise(res=>setTimeout(res, 50));
+	assert.ok(true);
+}
+
 function testHelpers(){
 	const nis = tjs.system.networkInterfaces;
 	for(const ni of nis){
@@ -122,6 +136,7 @@ async function run(){
 	testUdpSock();
 	testTcpSock();
 	testPoll();
+	await testPollFinalizerClose();
 	testHelpers();
 }
 run();

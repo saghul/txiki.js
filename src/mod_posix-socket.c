@@ -17,6 +17,8 @@ typedef struct {
     int sock;
     bool closed;
     bool poll_init;
+    bool poll_closed;
+    bool finalized;
     JSValue callback;
     JSValue this;
     JSContext *jsctx;
@@ -40,6 +42,8 @@ static JSValue tjs_sock_new_from_fd(JSContext *ctx, int fd) {
     tjs_sock->sock = fd;
     tjs_sock->closed = false;
     tjs_sock->poll_init = false;
+    tjs_sock->poll_closed = true;
+    tjs_sock->finalized = false;
     tjs_sock->callback = JS_UNDEFINED;
     tjs_sock->this = JS_DupValue(ctx, obj);
     tjs_sock->jsctx = ctx;
@@ -85,6 +89,14 @@ static void tjs_uv_socket_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_fun
     }
 }
 
+static void tjs_sock_uv_close_cb(uv_handle_t *handle) {
+    tjs_sock_t *s = uv_handle_get_data(handle);
+    s->poll_closed = true;
+    if (s->finalized) {
+        js_free(s->jsctx, s);
+    }
+}
+
 static void close_sock(tjs_sock_t *s) {
     if (!s->closed) {
         if (s->poll_init) {
@@ -92,7 +104,7 @@ static void close_sock(tjs_sock_t *s) {
                 uv_poll_stop(&s->poll);
             }
             if (!uv_is_closing((uv_handle_t *) &s->poll)) {
-                uv_close((uv_handle_t *) &s->poll, NULL);
+                uv_close((uv_handle_t *) &s->poll, tjs_sock_uv_close_cb);
             }
             if (!JS_IsUndefined(s->callback)) {
                 JS_FreeValue(s->jsctx, s->callback);
@@ -110,7 +122,10 @@ static void tjs_sock_finalizer(JSRuntime *rt, JSValue val) {
     if (u) {
         close_sock(u);
         JS_FreeValueRT(rt, u->this);
-        js_free_rt(rt, u);
+        u->finalized = true;
+        if (u->poll_closed) {
+            js_free_rt(rt, u);
+        }
     }
 }
 
@@ -549,6 +564,7 @@ static JSValue tjs_sock_poll(JSContext *ctx, JSValue this_val, int argc, JSValue
             tjs_throw_errno(ctx, ret);
         }
         s->poll_init = true;
+        s->poll_closed = false;
         uv_handle_set_data((uv_handle_t *) &s->poll, s);
     }
 
