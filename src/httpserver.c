@@ -33,6 +33,15 @@
 #ifndef MIN
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #endif
+#define TJS_HTTP_MAX_CHUNK_SIZE        (64 * 1024 * 1024)
+#define TJS_HTTP_MAX_CHUNK_SIZE_DIGITS 16
+#define TJS_HTTP_MAX_CHUNK_HEADER_SIZE 1024
+
+typedef enum {
+    TJS_HTTP_CHUNK_STATE_SIZE,
+    TJS_HTTP_CHUNK_STATE_DATA,
+    TJS_HTTP_CHUNK_STATE_DATA_CRLF,
+} TJSHttpChunkState;
 
 /*
  * Pending write for streaming responses (modeled after TJSWsPendingWrite in ws.c).
@@ -60,6 +69,14 @@ typedef struct TJSHttpRequest {
     char remote_addr[64];
     bool body_complete;
     bool chunked; /* true for Transfer-Encoding: chunked — body is streamed to JS */
+    TJSHttpChunkState chunk_state;
+    size_t chunk_size;
+    size_t chunk_remaining;
+    size_t chunk_header_len;
+    uint8_t chunk_size_digits;
+    uint8_t chunk_crlf_seen;
+    bool chunk_size_extension;
+    bool chunk_size_cr;
 
     /* Response state. */
     bool responded;
@@ -265,6 +282,30 @@ static JSClassDef tjs_httpserver_class = {
 
 static TJSHttpServer *tjs_httpserver_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_httpserver_class_id);
+}
+
+static int tjs_http_chunk_hex_value(uint8_t c) {
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    if (c >= 'a' && c <= 'f') {
+        return c - 'a' + 10;
+    }
+    if (c >= 'A' && c <= 'F') {
+        return c - 'A' + 10;
+    }
+    return -1;
+}
+
+static int tjs_http_emit_body_chunk(TJSHttpServer *s, TJSHttpRequest *req, const uint8_t *data, size_t len) {
+    JSContext *ctx = s->ctx;
+    JSValue cb_args[2];
+    cb_args[0] = JS_NewInt64(ctx, req->id);
+    cb_args[1] = JS_NewArrayBufferCopy(ctx, data, len);
+    tjs_call_handler(ctx, s->body_chunk_callback, 2, cb_args);
+    JS_FreeValue(ctx, cb_args[0]);
+    JS_FreeValue(ctx, cb_args[1]);
+    return 0;
 }
 
 typedef struct {
@@ -794,72 +835,122 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             JSContext *ctx = s->ctx;
 
             while (p < end) {
-                /* Parse chunk size (hex digits terminated by \r\n). */
-                const uint8_t *crlf = NULL;
-                for (const uint8_t *scan = p; scan + 1 < end; scan++) {
-                    if (scan[0] == '\r' && scan[1] == '\n') {
-                        crlf = scan;
+                if (req->chunk_state == TJS_HTTP_CHUNK_STATE_SIZE) {
+                    bool size_complete = false;
+
+                    while (p < end) {
+                        uint8_t c = *p++;
+
+                        if (++req->chunk_header_len > TJS_HTTP_MAX_CHUNK_HEADER_SIZE) {
+                            return -1;
+                        }
+
+                        if (req->chunk_size_cr) {
+                            if (c != '\n' || req->chunk_size_digits == 0) {
+                                return -1;
+                            }
+
+                            req->chunk_size_cr = false;
+                            req->chunk_size_extension = false;
+                            req->chunk_size_digits = 0;
+                            req->chunk_header_len = 0;
+                            size_complete = true;
+                            break;
+                        }
+
+                        if (c == '\r') {
+                            req->chunk_size_cr = true;
+                            continue;
+                        }
+
+                        if (c == '\n') {
+                            return -1;
+                        }
+
+                        if (req->chunk_size_extension) {
+                            continue;
+                        }
+
+                        if (c == ';') {
+                            req->chunk_size_extension = true;
+                            continue;
+                        }
+
+                        int digit = tjs_http_chunk_hex_value(c);
+                        if (digit < 0 || req->chunk_size_digits >= TJS_HTTP_MAX_CHUNK_SIZE_DIGITS) {
+                            return -1;
+                        }
+
+                        if (req->chunk_size > (((size_t) -1) - (size_t) digit) / 16) {
+                            return -1;
+                        }
+
+                        req->chunk_size = req->chunk_size * 16 + (size_t) digit;
+                        req->chunk_size_digits++;
+
+                        if (req->chunk_size > TJS_HTTP_MAX_CHUNK_SIZE) {
+                            return -1;
+                        }
+                    }
+
+                    if (!size_complete) {
                         break;
                     }
-                }
-                if (!crlf) {
-                    break;
-                }
 
-                /* Convert hex to size. */
-                size_t chunk_size = 0;
-                for (const uint8_t *h = p; h < crlf; h++) {
-                    chunk_size <<= 4;
-                    if (*h >= '0' && *h <= '9') {
-                        chunk_size += *h - '0';
-                    } else if (*h >= 'a' && *h <= 'f') {
-                        chunk_size += *h - 'a' + 10;
-                    } else if (*h >= 'A' && *h <= 'F') {
-                        chunk_size += *h - 'A' + 10;
-                    }
-                }
+                    size_t chunk_size = req->chunk_size;
+                    req->chunk_size = 0;
 
-                const uint8_t *data_start = crlf + 2; /* skip \r\n after size */
+                    if (chunk_size == 0) {
+                        /* Terminal chunk. */
+                        req->body_complete = true;
 
-                if (chunk_size == 0) {
-                    /* Terminal chunk. */
-                    req->body_complete = true;
-
-                    if (req->chunked) {
                         /* Signal end-of-stream to JS. */
                         JSValue cb_args[2];
                         cb_args[0] = JS_NewInt64(ctx, req->id);
                         cb_args[1] = JS_NULL;
                         tjs_call_handler(ctx, s->body_chunk_callback, 2, cb_args);
                         JS_FreeValue(ctx, cb_args[0]);
-                    } else {
-                        tjs_http_invoke_handler(s, req);
+                        return 0;
                     }
 
-                    return 0;
+                    req->chunk_remaining = chunk_size;
+                    req->chunk_state = TJS_HTTP_CHUNK_STATE_DATA;
                 }
 
-                /* Process chunk data. */
-                size_t avail = end - data_start;
-                size_t to_copy = chunk_size < avail ? chunk_size : avail;
+                if (req->chunk_state == TJS_HTTP_CHUNK_STATE_DATA) {
+                    size_t avail = end - p;
+                    size_t to_copy = MIN(req->chunk_remaining, avail);
+                    if (to_copy == 0) {
+                        break;
+                    }
 
-                if (req->chunked) {
-                    /* Stream chunk to JS via body_chunk_callback. */
-                    JSValue cb_args[2];
-                    cb_args[0] = JS_NewInt64(ctx, req->id);
-                    cb_args[1] = JS_NewArrayBufferCopy(ctx, data_start, to_copy);
-                    tjs_call_handler(ctx, s->body_chunk_callback, 2, cb_args);
-                    JS_FreeValue(ctx, cb_args[0]);
-                    JS_FreeValue(ctx, cb_args[1]);
-                } else {
-                    /* Accumulate for buffered path. */
-                    tbuf_put(&req->body_buf, data_start, to_copy);
+                    tjs_http_emit_body_chunk(s, req, p, to_copy);
+                    p += to_copy;
+                    req->chunk_remaining -= to_copy;
+
+                    if (req->chunk_remaining > 0) {
+                        break;
+                    }
+
+                    req->chunk_state = TJS_HTTP_CHUNK_STATE_DATA_CRLF;
+                    req->chunk_crlf_seen = 0;
                 }
 
-                /* Skip past chunk data + trailing \r\n. */
-                p = data_start + chunk_size;
-                if (p + 2 <= end) {
-                    p += 2; /* skip trailing \r\n */
+                if (req->chunk_state == TJS_HTTP_CHUNK_STATE_DATA_CRLF) {
+                    while (p < end && req->chunk_crlf_seen < 2) {
+                        uint8_t expected = req->chunk_crlf_seen == 0 ? '\r' : '\n';
+                        if (*p++ != expected) {
+                            return -1;
+                        }
+                        req->chunk_crlf_seen++;
+                    }
+
+                    if (req->chunk_crlf_seen < 2) {
+                        break;
+                    }
+
+                    req->chunk_state = TJS_HTTP_CHUNK_STATE_SIZE;
+                    req->chunk_crlf_seen = 0;
                 }
             }
 
