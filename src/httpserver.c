@@ -798,9 +798,29 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             char cl[32];
             int has_cl = lws_hdr_copy(wsi, cl, sizeof(cl), WSI_TOKEN_HTTP_CONTENT_LENGTH);
             int has_te = lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_TRANSFER_ENCODING);
+
+            /* RFC 9112 § 6.1: reject messages that carry both Content-Length and
+             * Transfer-Encoding so upstream/backend parsers cannot disagree about
+             * framing (HTTP request smuggling). */
+            if (has_cl > 0 && has_te > 0) {
+                lws_return_http_status(wsi, HTTP_STATUS_BAD_REQUEST, NULL);
+                return -1;
+            }
+
+            /* Only "chunked" is a recognized transfer coding; reject anything else
+             * per RFC 9112 § 6.1. */
+            if (has_te > 0) {
+                char te[32];
+                int te_len = lws_hdr_copy(wsi, te, sizeof(te), WSI_TOKEN_HTTP_TRANSFER_ENCODING);
+                if (te_len <= 0 || strcasecmp(te, "chunked") != 0) {
+                    lws_return_http_status(wsi, HTTP_STATUS_BAD_REQUEST, NULL);
+                    return -1;
+                }
+            }
+
             if ((has_cl > 0 && atoi(cl) > 0) || has_te > 0) {
                 /* Body expected, wait for LWS_CALLBACK_HTTP_BODY. */
-                req->chunked = has_te > 0 && !(has_cl > 0 && atoi(cl) > 0);
+                req->chunked = has_te > 0;
 
                 /* For chunked requests, invoke the handler immediately so JS
                  * can set up a ReadableStream for the request body. */
