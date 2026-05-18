@@ -24,7 +24,7 @@
     "globals": "^17.3.0",
     "ipaddr.js": "^2.3.0",
     "urlpattern-polyfill": "^10.1.0",
-    "uuid": "13.0.0",
+    "uuid": "14.0.0",
     "web-streams-polyfill": "^4.2.0"
   },
   "devDependencies": {
