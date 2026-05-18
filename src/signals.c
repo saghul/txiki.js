@@ -119,7 +119,9 @@ static JSValue tjs_signal(JSContext *ctx, JSValue this_val, int argc, JSValue *a
     r = uv_signal_start(&sh->handle, uv__signal_cb, sig_num);
     if (r != 0) {
         JS_FreeValue(ctx, obj);
-        tjs__free(sh);
+        sh->finalized = 1;
+        sh->handle.data = sh;
+        uv_close((uv_handle_t *) &sh->handle, uv__signal_close_cb);
         return tjs_throw_errno(ctx, r);
     }
     uv_unref((uv_handle_t *) &sh->handle);

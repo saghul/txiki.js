@@ -183,7 +183,7 @@ jobs:
     env:
       CC: clang
       CXX: clang++
-      ASAN_OPTIONS: detect_leaks=0
+      ASAN_OPTIONS: detect_leaks=0:abort_on_error=1:halt_on_error=1
     steps:
     - uses: actions/checkout@v6
       with:
@@ -207,7 +207,7 @@ jobs:
     name: ASAN (macOS)
     runs-on: macos-15
     env:
-      ASAN_OPTIONS: detect_leaks=0
+      ASAN_OPTIONS: detect_leaks=0:abort_on_error=1:halt_on_error=1
     steps:
     - uses: actions/checkout@v6
       with:
@@ -253,7 +253,7 @@ jobs:
         Remove-Item $env:TEMP\warm.js -ErrorAction SilentlyContinue
     - name: Test
       env:
-        ASAN_OPTIONS: detect_leaks=0
+        ASAN_OPTIONS: detect_leaks=0:abort_on_error=1:halt_on_error=1
         TJS_TEST_TIMEOUT: "120000"
       run: |
         $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
