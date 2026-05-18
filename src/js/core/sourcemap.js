@@ -1,8 +1,8 @@
 import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
+import core from 'tjs:internal/core';
 
 import path from './path.js';
 
-const core = globalThis[Symbol.for('tjs.internal.core')];
 const registry = new Map();
 const decoder = new TextDecoder();
 

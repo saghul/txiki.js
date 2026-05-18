@@ -24,7 +24,7 @@
  * @type {WeakMap<Event, PrivateData>}
  * @private
  */
-const core = globalThis[Symbol.for('tjs.internal.core')];
+import core from 'tjs:internal/core';
 const privateData = new WeakMap();
 
 /**

@@ -386,14 +386,9 @@ static void worker_entry(void *arg) {
     JSContext *ctx = TJS_GetJSContext(wrt);
 
     /* Bootstrap the worker scope. */
-    JSValue global_obj = JS_GetGlobalObject(ctx);
     JSValue message_pipe = tjs_new_msgpipe(ctx, wd->channel_fd);
-    JSValue sym = JS_NewSymbol(ctx, "tjs.internal.worker.messagePipe", true);
-    JSAtom atom = JS_ValueToAtom(ctx, sym);
-    JS_DefinePropertyValue(ctx, global_obj, atom, message_pipe, JS_PROP_C_W_E);
-    JS_FreeAtom(ctx, atom);
-    JS_FreeValue(ctx, sym);
-    JS_FreeValue(ctx, global_obj);
+    JS_FreeValue(ctx, wrt->builtins.internal_message_pipe);
+    wrt->builtins.internal_message_pipe = message_pipe;
 
     CHECK_EQ(tjs__eval_bytecode(ctx, tjs__worker_bootstrap, tjs__worker_bootstrap_size, true), 0);
 

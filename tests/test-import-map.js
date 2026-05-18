@@ -3,10 +3,8 @@ import path from 'tjs:path';
 
 const helperDir = path.join(import.meta.dirname, 'helpers');
 
-const core = globalThis[Symbol.for('tjs.internal.core')];
-
 // Test 1: exact match in imports.
-core.setImportMap({
+tjs.setImportMap({
     imports: {
         'mylib': './import-map-lib.js',
     }
@@ -17,7 +15,7 @@ const { value } = await import('mylib');
 assert.eq(value, 'from-import-map', 'exact import map match works');
 
 // Test 2: prefix match.
-core.setImportMap({
+tjs.setImportMap({
     imports: {
         'myprefix/': './import-map-prefix/',
     }
@@ -28,7 +26,7 @@ const { util } = await import('myprefix/utils.js');
 assert.eq(util, 'prefix-util', 'prefix import map match works');
 
 // Test 3: null target blocks an import.
-core.setImportMap({
+tjs.setImportMap({
     imports: {
         'blocked': null,
     }
@@ -45,7 +43,7 @@ try {
 assert.ok(threw, 'null target in import map blocks the import');
 
 // Test 4: unmatched specifier falls through (no import map interference).
-core.setImportMap({
+tjs.setImportMap({
     imports: {
         'something-else': './import-map-lib.js',
     }

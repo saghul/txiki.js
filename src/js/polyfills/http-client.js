@@ -1,4 +1,4 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
+import core from 'tjs:internal/core';
 const NativeHttpClient = core.HttpClient;
 
 const kMaxRedirects = 20;

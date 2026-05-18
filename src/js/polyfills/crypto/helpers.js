@@ -1,4 +1,4 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
+import core from 'tjs:internal/core';
 
 export const nativeDigest = core.webcrypto.digest;
 export const nativeHmacSign = core.webcrypto.hmacSign;

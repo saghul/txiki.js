@@ -1,4 +1,4 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
+import core from 'tjs:internal/core';
 
 /**
  * A somewhat naive implementation. It will always copy array buffers, but this drawback

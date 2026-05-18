@@ -1212,6 +1212,54 @@ declare global {
         * @returns The server instance.
         */
         function serve(options: ServeOptions | FetchHandler): Server;
+
+        /**
+        * Mapping from a bare specifier (or a `/`-terminated prefix) to a path
+        * or URL the specifier should resolve to. Paths starting with `./` or
+        * `../` are resolved against the `baseDir` argument passed to
+        * `tjs.setImportMap()`. Mapping a key to `null` blocks the import.
+        *
+        * @category Modules
+        */
+        interface ImportMap {
+            imports?: Record<string, string | null>;
+            scopes?: Record<string, Record<string, string | null>>;
+        }
+
+        /**
+        * Install an [import map](https://github.com/WICG/import-maps) that
+        * remaps bare specifiers (e.g. `"lodash"`) and prefixes (e.g.
+        * `"lodash/"`) to file paths or URLs. Equivalent to running with
+        * `--import-map`, but driven from JavaScript.
+        *
+        * Must be called before the affected `import` / dynamic `import()` runs
+        * — modules already loaded into the runtime are not retroactively
+        * remapped. Only one import map is active at a time; calling
+        * `setImportMap()` again replaces the previous one.
+        *
+        * @example
+        * ```js
+        * tjs.setImportMap({
+        *     imports: {
+        *         'lodash': './vendor/lodash/index.js',
+        *         'lodash/': './vendor/lodash/',
+        *         'blocked': null,
+        *     },
+        *     scopes: {
+        *         './legacy/': {
+        *             'pkg': './vendor/pkg-v1/index.js',
+        *         },
+        *     },
+        * }, import.meta.dirname);
+        *
+        * const _ = await import('lodash');
+        * ```
+        *
+        * @category Modules
+        * @param map The import map. Relative targets resolve against `baseDir`.
+        * @param baseDir Directory used to resolve relative paths in `map`.
+        */
+        function setImportMap(map: ImportMap, baseDir: string): void;
     }
 
     // Direct Sockets API

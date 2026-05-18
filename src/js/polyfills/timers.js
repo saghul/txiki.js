@@ -1,4 +1,4 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
+import core from 'tjs:internal/core';
 
 globalThis.setTimeout = core.setTimeout;
 globalThis.clearTimeout = core.clearTimeout;

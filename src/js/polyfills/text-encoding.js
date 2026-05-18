@@ -1,4 +1,6 @@
-const { Utf8Decoder, utf8_encode } = globalThis[Symbol.for('tjs.internal.core')].textCoding;
+import core from 'tjs:internal/core';
+
+const { Utf8Decoder, utf8_encode } = core.textCoding;
 
 class TextEncoder {
     constructor(label = 'utf-8') {

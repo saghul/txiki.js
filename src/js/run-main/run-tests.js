@@ -1,6 +1,6 @@
 /* global tjs */
 
-const pathModule = globalThis[Symbol.for('tjs.internal.modules.path')];
+import pathModule from 'tjs:internal/path';
 
 const verbose = Boolean(tjs.env.VERBOSE_TESTS);
 const TIMEOUT = Number(tjs.env.TJS_TEST_TIMEOUT) || 30 * 1000;

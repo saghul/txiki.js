@@ -102,6 +102,28 @@ For [TPK app packages](app-packages.md), add `imports` and `scopes` directly to 
 }
 ```
 
+### Programmatic
+
+Use `tjs.setImportMap(map, baseDir)` to install a map from JavaScript — handy when the map is computed at runtime or shipped in a non-JSON form. Relative targets in `map` are resolved against `baseDir`:
+
+```javascript
+tjs.setImportMap({
+    imports: {
+        'lodash': './vendor/lodash/index.js',
+        'lodash/': './vendor/lodash/',
+    },
+    scopes: {
+        './legacy/': {
+            'pkg': './vendor/pkg-v1/index.js',
+        },
+    },
+}, import.meta.dirname);
+
+const _ = await import('lodash');
+```
+
+`tjs.setImportMap()` must be called *before* the affected `import` / `import()` runs — already-resolved modules are not retroactively remapped. Calling it again replaces the previous map.
+
 ### Format
 
 An import map is a JSON object with two optional fields: `imports` and `scopes`. Paths are resolved relative to the import map file (or `app.json` for TPK apps).
