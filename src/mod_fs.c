@@ -59,9 +59,9 @@ static JSClassID tjs_dir_class_id;
 typedef struct {
     JSContext *ctx;
     uv_dir_t *dir;
-    uv_dirent_t dirent;  // TODO: Use an array and an index.
     JSValue path;
     bool done;
+    bool reading;
 } TJSDir;
 
 static void tjs_dir_finalizer(JSRuntime *rt, JSValue val) {
@@ -117,6 +117,8 @@ typedef struct {
     JSValue obj;
     TJSPromise result;
     TJSBufferRef buf_ref;
+    /* Per-request storage so concurrent readdir requests don't share a slot. */
+    uv_dirent_t dirent;
 } TJSFsReq;
 
 typedef struct {
@@ -174,6 +176,7 @@ static JSValue tjs_new_dir(JSContext *ctx, uv_dir_t *dir, const char *path) {
     d->ctx = ctx;
     d->dir = dir;
     d->done = false;
+    d->reading = false;
 
     JS_SetOpaque(obj, d);
     return obj;
@@ -296,6 +299,15 @@ static void uv__fs_req_cb(uv_fs_t *req) {
     TJSDir *d;
     bool is_reject = false;
 
+    /* Clear the reading flag on every readdir completion (success and error)
+     * so the next dir.next() can proceed. */
+    if (req->fs_type == UV_FS_READDIR) {
+        d = tjs_dir_get(ctx, fr->obj);
+        if (d) {
+            d->reading = false;
+        }
+    }
+
     if (req->result < 0) {
         arg = tjs_new_error(ctx, fr->req.result);
         is_reject = true;
@@ -384,7 +396,7 @@ static void uv__fs_req_cb(uv_fs_t *req) {
             arg = JS_NewObjectProto(ctx, JS_NULL);
             JS_DefinePropertyValueStr(ctx, arg, "done", JS_NewBool(ctx, d->done), JS_PROP_C_W_E);
             if (fr->req.result != 0) {
-                JSValue item = tjs_new_dirent(ctx, &d->dirent);
+                JSValue item = tjs_new_dirent(ctx, &fr->dirent);
                 JS_DefinePropertyValueStr(ctx, arg, "value", item, JS_PROP_C_W_E);
             }
             break;
@@ -697,12 +709,17 @@ static JSValue tjs_dir_next(JSContext *ctx, JSValue this_val, int argc, JSValue 
         return JS_UNDEFINED;
     }
 
+    if (d->reading) {
+        return JS_ThrowTypeError(ctx, "directory iteration already in progress");
+    }
+
     TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr) {
         return JS_EXCEPTION;
     }
 
-    d->dir->dirents = &d->dirent;
+    memset(&fr->dirent, 0, sizeof(fr->dirent));
+    d->dir->dirents = &fr->dirent;
     d->dir->nentries = 1;
 
     int r = uv_fs_readdir(tjs_get_loop(ctx), &fr->req, d->dir, uv__fs_req_cb);
@@ -710,6 +727,8 @@ static JSValue tjs_dir_next(JSContext *ctx, JSValue this_val, int argc, JSValue 
         js_free(ctx, fr);
         return tjs_throw_errno(ctx, r);
     }
+
+    d->reading = true;
 
     return tjs_fsreq_init(ctx, fr, this_val);
 }
