@@ -1,3 +1,3 @@
-const pathModule = globalThis[Symbol.for('tjs.internal.modules.path')];
+import pathModule from 'tjs:internal/path';
 
 export default pathModule;

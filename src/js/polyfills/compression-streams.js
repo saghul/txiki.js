@@ -1,4 +1,4 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
+import core from 'tjs:internal/core';
 const NativeCompressor = core.Compressor;
 const NativeDecompressor = core.Decompressor;
 

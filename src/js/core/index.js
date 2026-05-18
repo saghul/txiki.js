@@ -1,4 +1,5 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
+import core from 'tjs:internal/core';
+import internalPathHolder from 'tjs:internal/path';
 
 import engine from './engine.js';
 import env from './env.js';
@@ -204,16 +205,23 @@ Object.defineProperty(tjs, 'system', {
     value: system
 });
 
-// Import map support: internal bootstrap API.
+// Import map support: public API.
 // baseDir is the directory relative paths in the map resolve against.
-core.setImportMap = function setImportMap(mapObj, baseDir) {
+function setImportMap(mapObj, baseDir) {
     const resolver = parseImportMap(mapObj, baseDir);
 
     core.setImportMapResolver(resolver);
-};
+}
+
+Object.defineProperty(tjs, 'setImportMap', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: setImportMap
+});
 
 // Internal stuff needed by the runtime.
-globalThis[Symbol.for('tjs.internal.modules.path')] = pathModule;
+Object.assign(internalPathHolder, pathModule);
 
 // tjs global.
 Object.defineProperty(globalThis, 'tjs', {

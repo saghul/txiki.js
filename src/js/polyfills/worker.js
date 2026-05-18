@@ -1,9 +1,10 @@
-const core = globalThis[Symbol.for('tjs.internal.core')];
-const urlGetObjectURL = Symbol.for('tjs.internal.url.getObjectURL');
-const blobGetParts = Symbol.for('tjs.internal.blob.getParts');
-const _Worker = core.Worker;
+import core from 'tjs:internal/core';
 
+import { getBlobParts } from './blob.js';
 import { defineEventAttribute } from './event-target';
+import { getObjectURL } from './url.js';
+
+const _Worker = core.Worker;
 
 const kWorker = Symbol('kWorker');
 
@@ -15,7 +16,7 @@ function blobTextSync(blob) {
     const decoder = new TextDecoder();
     const partsStr = [];
 
-    for (const part of blob[blobGetParts]) {
+    for (const part of getBlobParts(blob)) {
         if (part instanceof Blob) {
             partsStr.push(blobTextSync(part));
         } else {
@@ -42,7 +43,7 @@ class Worker extends EventTarget {
         }
 
         if (url && url.protocol === 'blob:') {
-            const blob = URL[urlGetObjectURL](specifier);
+            const blob = getObjectURL(specifier);
 
             source = blobTextSync(blob);
         }

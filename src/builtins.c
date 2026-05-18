@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "bundles/c/internal/path.c"
 #include "bundles/c/stdlib/assert.c"
 #include "bundles/c/stdlib/ffi.c"
 #include "bundles/c/stdlib/getopts.c"
@@ -48,6 +49,7 @@ static tjs_builtin_t builtins[] = {
     { "tjs:ffi", tjs__ffi, sizeof(tjs__ffi) },
     { "tjs:getopts", tjs__getopts, sizeof(tjs__getopts) },
     { "tjs:hashing", tjs__hashing, sizeof(tjs__hashing) },
+    { "tjs:internal/path", tjs__internal_path, sizeof(tjs__internal_path) },
     { "tjs:ipaddr", tjs__ipaddr, sizeof(tjs__ipaddr) },
     { "tjs:path", tjs__path, sizeof(tjs__path) },
     { "tjs:posix-socket", tjs__posix_socket, sizeof(tjs__posix_socket) },

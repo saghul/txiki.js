@@ -2,6 +2,11 @@
 const POOL_SIZE = 65536;
 const { isView } = ArrayBuffer;
 
+// Internal helper for trusted polyfills (e.g. Worker) that need to read raw
+// parts. Module-private — installed by the class static block so it can reach
+// the #parts private field. User code cannot reach this.
+let getBlobParts;
+
 /**
  * @param {(Blob | Uint8Array)[]} parts
  * @returns {AsyncIterableIterator<Uint8Array>}
@@ -229,10 +234,12 @@ class Blob {
         return 'Blob';
     }
 
-    get [Symbol.for('tjs.internal.blob.getParts')] () {
-        return this.#parts;
+    static {
+        getBlobParts = blob => blob.#parts;
     }
 }
+
+export { getBlobParts };
 
 Object.defineProperties(Blob.prototype, {
     size: { enumerable: true },

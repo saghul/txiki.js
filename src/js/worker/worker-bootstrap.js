@@ -1,19 +1,17 @@
-(function () {
-    const messagePipe = globalThis[Symbol.for('tjs.internal.worker.messagePipe')];
+import messagePipe from 'tjs:internal/worker';
 
-    messagePipe.onmessage = msg => {
-        self.dispatchEvent(new MessageEvent('message', msg));
-    };
+messagePipe.onmessage = msg => {
+    self.dispatchEvent(new MessageEvent('message', msg));
+};
 
-    messagePipe.onmessageerror = msgerror => {
-        self.dispatchEvent(new MessageEvent('messageerror', msgerror));
-    };
+messagePipe.onmessageerror = msgerror => {
+    self.dispatchEvent(new MessageEvent('messageerror', msgerror));
+};
 
-    self.postMessage = message => messagePipe.postMessage(message);
+self.postMessage = message => messagePipe.postMessage(message);
 
-    const defineEventAttribute = EventTarget.__defineEventAttribute;
+const defineEventAttribute = EventTarget.__defineEventAttribute;
 
-    defineEventAttribute(Object.getPrototypeOf(self), 'message');
-    defineEventAttribute(Object.getPrototypeOf(self), 'messageerror');
-    defineEventAttribute(Object.getPrototypeOf(self), 'error');
-})();
+defineEventAttribute(Object.getPrototypeOf(self), 'message');
+defineEventAttribute(Object.getPrototypeOf(self), 'messageerror');
+defineEventAttribute(Object.getPrototypeOf(self), 'error');

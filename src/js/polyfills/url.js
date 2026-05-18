@@ -1,6 +1,6 @@
+import core from 'tjs:internal/core';
 import { URLPattern } from 'urlpattern-polyfill';
 
-const core = globalThis[Symbol.for('tjs.internal.core')];
 
 const NativeURL = core.URL;
 const NativeURLSearchParams = core.URLSearchParams;
@@ -22,7 +22,12 @@ NativeURL.createObjectURL = object => {
 };
 
 NativeURL.revokeObjectURL = url => objectURLs.delete(url);
-NativeURL[Symbol.for('tjs.internal.url.getObjectURL')] = url => objectURLs.get(url);
+
+// Internal helper for trusted polyfills (e.g. Worker) that need to resolve a
+// blob: URL back to its Blob. Module-private — user code cannot reach this.
+export function getObjectURL(url) {
+    return objectURLs.get(url);
+}
 
 // Add Symbol.iterator to URLSearchParams.
 // entries() returns an Array from native code, so wrap it in a generator

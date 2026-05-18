@@ -137,6 +137,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     static const char http[] = "http://";
     static const char https[] = "https://";
     static const char tjs_prefix[] = "tjs:";
+    static const char tjs_internal_prefix[] = "tjs:internal/";
 
     JSModuleDef *m;
     JSValue val;
@@ -144,6 +145,18 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     int type;
     bool use_realpath;
     TBuf dbuf;
+
+    if (strncmp(tjs_internal_prefix, module_name, strlen(tjs_internal_prefix)) == 0) {
+        TJSRuntime *qrt = TJS_GetRuntime(ctx);
+        CHECK_NOT_NULL(qrt);
+        if (strcmp(module_name, "tjs:internal/core") == 0) {
+            return create_default_module(ctx, module_name, JS_DupValue(ctx, qrt->builtins.internal_core));
+        }
+        if (strcmp(module_name, "tjs:internal/worker") == 0) {
+            return create_default_module(ctx, module_name, JS_DupValue(ctx, qrt->builtins.internal_message_pipe));
+        }
+        return tjs__load_builtin(ctx, module_name);
+    }
 
     if (strncmp(tjs_prefix, module_name, strlen(tjs_prefix)) == 0) {
         return tjs__load_builtin(ctx, module_name);
@@ -326,6 +339,16 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
     char *filename, *p;
     const char *r;
     int len;
+
+    /* Modules under the tjs:internal/ namespace are only importable from
+     * other tjs: modules (the bundled polyfills/bootstrap/run-main/
+     * run-repl/worker-bootstrap bundles, the stdlib tjs: modules, and the
+     * synthesized internal modules — all of which carry a 'tjs:' module
+     * name). User files have file:// or http(s):// URLs and never match. */
+    if (strncmp(name, "tjs:internal/", 13) == 0 && base_name && strncmp(base_name, "tjs:", 4) != 0) {
+        JS_ThrowReferenceError(ctx, "module '%s' is not exposed to user code", name);
+        return NULL;
+    }
 
     if (name[0] != '.') {
         /* Check import map resolver before passing bare specifiers through. */

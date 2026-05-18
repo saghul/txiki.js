@@ -3,12 +3,10 @@ import path from 'tjs:path';
 
 const helperDir = path.join(import.meta.dirname, 'helpers');
 
-const core = globalThis[Symbol.for('tjs.internal.core')];
-
 // Set up a scoped import map.
 // Top-level: 'pkg' → import-map-lib.js (exports { value: 'from-import-map' })
 // Inside helpers/: 'pkg' → import-map-prefix/utils.js (exports { util: 'prefix-util' })
-core.setImportMap({
+tjs.setImportMap({
     imports: {
         'pkg': './import-map-lib.js',
     },

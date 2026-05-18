@@ -3,7 +3,7 @@
  * @module tjs:wasi
  */
 
-const core = globalThis[Symbol.for('tjs.internal.core')];
+import core from 'tjs:internal/core';
 const wasm = core.wasm;
 
 const kWasiStarted = Symbol('kWasiStarted');

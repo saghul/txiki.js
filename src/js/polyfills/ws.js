@@ -1,6 +1,7 @@
+import core from 'tjs:internal/core';
+
 import { defineEventAttribute } from './event-target.js';
 
-const core = globalThis[Symbol.for('tjs.internal.core')];
 const WS = core.WebSocket;
 const kWS = Symbol('kWS');
 const kWsBinaryType = Symbol('kWsBinaryType');

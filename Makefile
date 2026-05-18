@@ -43,6 +43,7 @@ src/bundles/js/core/polyfills.js: src/js/polyfills/*.js src/js/polyfills/**/*.js
 		--bundle \
 		--metafile=$@.json \
 		--outfile=$@ \
+		--external:tjs:* \
 		$(ESBUILD_PARAMS_MINIFY) \
 		$(ESBUILD_PARAMS_COMMON)
 
@@ -51,7 +52,7 @@ src/bundles/c/core/polyfills.c: $(TJSC) src/bundles/js/core/polyfills.js
 	$(TJSC) -m \
 		$(TJSC_PARAMS_STIP) \
 		-o $@ \
-		-n "polyfills.js" \
+		-n "tjs:internal/polyfills" \
 		-p tjs__ \
 		src/bundles/js/core/polyfills.js
 
@@ -60,6 +61,7 @@ src/bundles/js/core/core.js: src/js/core/*.js
 		--bundle \
 		--metafile=$@.json \
 		--outfile=$@ \
+		--external:tjs:* \
 		$(ESBUILD_PARAMS_MINIFY) \
 		$(ESBUILD_PARAMS_COMMON)
 
@@ -68,7 +70,7 @@ src/bundles/c/core/core.c: $(TJSC) src/bundles/js/core/core.js
 	$(TJSC) -m \
 		$(TJSC_PARAMS_STIP) \
 		-o $@ \
-		-n "core.js" \
+		-n "tjs:internal/bootstrap" \
 		-p tjs__ \
 		src/bundles/js/core/core.js
 
@@ -86,7 +88,7 @@ src/bundles/c/core/run-main.c: $(TJSC) src/bundles/js/core/run-main.js
 	$(TJSC) -m \
 		$(TJSC_PARAMS_STIP) \
 		-o $@ \
-		-n "run-main.js" \
+		-n "tjs:internal/run-main" \
 		-p tjs__ \
 		src/bundles/js/core/run-main.js
 
@@ -105,20 +107,29 @@ src/bundles/c/core/run-repl.c: $(TJSC) src/bundles/js/core/run-repl.js
 	$(TJSC) -m \
 		$(TJSC_PARAMS_STIP) \
 		-o $@ \
-		-n "run-repl.js" \
+		-n "tjs:internal/run-repl" \
 		-p tjs__ \
 		src/bundles/js/core/run-repl.js
 
 src/bundles/c/core/worker-bootstrap.c: $(TJSC) src/js/worker/worker-bootstrap.js
 	@mkdir -p $(basename $(dir $@))
-	$(TJSC) \
+	$(TJSC) -m \
 		$(TJSC_PARAMS_STIP) \
 		-o $@ \
-		-n "worker-bootstrap.js" \
+		-n "tjs:internal/worker-bootstrap" \
 		-p tjs__ \
 		src/js/worker/worker-bootstrap.js
 
-core: src/bundles/c/core/polyfills.c src/bundles/c/core/core.c src/bundles/c/core/run-main.c src/bundles/c/core/run-repl.c src/bundles/c/core/worker-bootstrap.c
+src/bundles/c/internal/path.c: $(TJSC) src/js/internal/path.js
+	@mkdir -p $(dir $@)
+	$(TJSC) -m \
+		$(TJSC_PARAMS_STIP) \
+		-o $@ \
+		-n "tjs:internal/path" \
+		-p tjs__internal_ \
+		src/js/internal/path.js
+
+core: src/bundles/c/core/polyfills.c src/bundles/c/core/core.c src/bundles/c/core/run-main.c src/bundles/c/core/run-repl.c src/bundles/c/core/worker-bootstrap.c src/bundles/c/internal/path.c
 
 src/bundles/c/stdlib/%.c: $(TJSC) src/bundles/js/stdlib/%.js
 	@mkdir -p $(basename $(dir $@))
@@ -133,6 +144,7 @@ src/bundles/js/stdlib/%.js: src/js/stdlib/*.js src/js/stdlib/ffi/*.js src/js/std
 	$(ESBUILD) src/js/stdlib/$(notdir $@) \
 		--bundle \
 		--outfile=$@ \
+		--external:tjs:* \
 		--external:buffer \
 		--external:crypto \
 		$(ESBUILD_PARAMS_MINIFY) \

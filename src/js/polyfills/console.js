@@ -1,6 +1,8 @@
 /* global tjs */
 /** console implementation according to https://console.spec.whatwg.org/ and otherwise inspired by nodejs behavior */
 
+import core from 'tjs:internal/core';
+
 import { format as utilFormat, inspect as utilInspect } from '../stdlib/utils.js';
 
 function createConsole({
@@ -292,7 +294,6 @@ function createConsole({
 }
 
 
-const core = globalThis[Symbol.for('tjs.internal.core')];
 const encoder = new TextEncoder();
 
 class CSI {
@@ -332,4 +333,4 @@ Object.defineProperty(window, 'console', {
     })
 });
 
-globalThis[Symbol.for('tjs.internal.core')].createConsole = createConsole;
+core.createConsole = createConsole;

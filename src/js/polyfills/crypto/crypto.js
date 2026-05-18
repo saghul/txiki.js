@@ -1,6 +1,7 @@
+import core from 'tjs:internal/core';
+
 import { SubtleCrypto } from './subtle.js';
 
-const core = globalThis[Symbol.for('tjs.internal.core')];
 
 const TypedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
 const TypedArrayProto_toStringTag = Object.getOwnPropertyDescriptor(TypedArrayPrototype, Symbol.toStringTag).get;

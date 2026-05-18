@@ -449,14 +449,13 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     /* start bootstrap */
     JSValue global_obj = JS_GetGlobalObject(ctx);
-    JSValue core_sym = JS_NewSymbol(ctx, "tjs.internal.core", true);
-    JSAtom core_atom = JS_ValueToAtom(ctx, core_sym);
     JSValue core = JS_NewObjectProto(ctx, JS_NULL);
 
-    CHECK_EQ(JS_DefinePropertyValue(ctx, global_obj, core_atom, core, JS_PROP_C_W_E), true);
     CHECK_EQ(JS_DefinePropertyValueStr(ctx, core, "isWorker", JS_NewBool(ctx, is_worker), JS_PROP_C_W_E), true);
 
     qrt->builtins.import_map_resolver = JS_UNDEFINED;
+    qrt->builtins.internal_message_pipe = JS_UNDEFINED;
+    qrt->builtins.internal_core = core;
 
     tjs__bootstrap_core(ctx, core);
 
@@ -470,8 +469,6 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(JS_IsUndefined(qrt->builtins.promise_event_ctor), 0);
 
     /* end bootstrap */
-    JS_FreeAtom(ctx, core_atom);
-    JS_FreeValue(ctx, core_sym);
     JS_FreeValue(ctx, global_obj);
 
     /* WASM */
@@ -539,6 +536,10 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     qrt->builtins.promise_event_ctor = JS_UNDEFINED;
     JS_FreeValue(qrt->ctx, qrt->builtins.import_map_resolver);
     qrt->builtins.import_map_resolver = JS_UNDEFINED;
+    JS_FreeValue(qrt->ctx, qrt->builtins.internal_core);
+    qrt->builtins.internal_core = JS_UNDEFINED;
+    JS_FreeValue(qrt->ctx, qrt->builtins.internal_message_pipe);
+    qrt->builtins.internal_message_pipe = JS_UNDEFINED;
     {
         struct list_head *el, *el1;
         list_for_each_safe(el, el1, &qrt->pending_rejections) {
