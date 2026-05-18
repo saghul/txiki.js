@@ -68,6 +68,19 @@ function testNewDbNoCreate() {
 
 }
 
+function testCloseWithLiveStatement() {
+    const db = new Database();
+
+    db.exec('CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)');
+    db.exec("INSERT INTO test (value) VALUES ('hello')");
+
+    const stmt = db.prepare('SELECT * FROM test');
+    assert.eq(stmt.all()[0].value, 'hello');
+
+    db.close();
+    stmt.finalize();
+}
+
 testTypes();
 testExistingDB();
 
@@ -82,6 +95,7 @@ assert.ok(result.isFile, 'file was created ok');
 await tjs.remove(newDb);
 
 testNewDbNoCreate();
+testCloseWithLiveStatement();
 
 function testTransactions() {
     const db = new Database();
