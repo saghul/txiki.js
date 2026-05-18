@@ -44,6 +44,14 @@ tjs bundle --minify my-app/index.ts bundle.js
 
 This is especially useful when creating [standalone executables](standalone-executables.md), as the bundled code is embedded in the resulting binary.
 
+### Other esbuild options
+
+Any other cli option of esbuild is also available in `tjs bundle`:
+
+```bash
+tjs bundle --minify --define:DEBUG=true --drop:debugger my-app/index.ts
+```
+
 ### How it works
 
 The first time you run `tjs bundle`, the esbuild binary is downloaded from the npm registry and cached in `~/.tjs/esbuild/<version>/`. Subsequent runs reuse the cached binary. The download requires no system tools since it uses the built-in `fetch` API and `DecompressionStream` to stream the tarball directly to disk.
@@ -97,20 +105,3 @@ Error: something went wrong
 ```
 
 Both inline source maps (`data:` URLs) and external `.map` files are supported.
-
-## Using esbuild directly
-
-If you need more control over the bundling process, you can invoke esbuild directly:
-
-```bash
-npx esbuild my-app/index.ts \
-    --bundle \
-    --outfile=bundle.js \
-    --external:tjs:* \
-    --target=esnext \
-    --platform=neutral \
-    --format=esm \
-    --main-fields=main,module
-```
-
-There are other interesting options available, check the [API documentation](https://esbuild.github.io/api/).
