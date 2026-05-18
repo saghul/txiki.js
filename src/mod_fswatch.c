@@ -207,7 +207,10 @@ static JSValue tjs_fs_watch(JSContext *ctx, JSValue this_val, int argc, JSValue 
     if (r != 0) {
         JS_FreeCString(ctx, path);
         JS_FreeValue(ctx, obj);
-        tjs__free(fw);
+        /* The handle is already in the loop. Close it and let the close callback free fw. */
+        fw->handle.data = fw;
+        fw->finalized = 1;
+        uv_close((uv_handle_t *) &fw->handle, uv__fsevent_close_cb);
         return tjs_throw_errno(ctx, r);
     }
 
