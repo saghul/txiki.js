@@ -1,4 +1,4 @@
-import { CryptoKey, kKeyData } from './crypto-key.js';
+import { CryptoKey, getKeyData } from './crypto-key.js';
 import {
     digestAlgorithms, nativeHmacSign, normalizeHashAlgorithm,
     hashBlockSizes, toUint8Array, base64urlEncode, base64urlDecode,
@@ -37,7 +37,7 @@ export function hmacSign(algorithm, key, data) {
         return Promise.reject(e);
     }
 
-    return hmacCompute(hashName, key[kKeyData], bytes).then(result => result.buffer);
+    return hmacCompute(hashName, getKeyData(key), bytes).then(result => result.buffer);
 }
 
 export function hmacVerify(algorithm, key, signature, data) {
@@ -59,7 +59,7 @@ export function hmacVerify(algorithm, key, signature, data) {
         return Promise.reject(e);
     }
 
-    return hmacCompute(hashName, key[kKeyData], dataBytes).then(result => {
+    return hmacCompute(hashName, getKeyData(key), dataBytes).then(result => {
         const computed = new Uint8Array(result.buffer);
 
         if (computed.byteLength !== sigBytes.byteLength) {
@@ -158,12 +158,12 @@ export function hmacExportKey(format, key) {
     if (format === 'jwk') {
         return {
             kty: 'oct',
-            k: base64urlEncode(key[kKeyData]),
+            k: base64urlEncode(getKeyData(key)),
             alg: hmacJwkAlg[key.algorithm.hash.name],
             ext: key.extractable,
             key_ops: [ ...key.usages ],
         };
     }
 
-    return key[kKeyData].slice().buffer;
+    return getKeyData(key).slice().buffer;
 }

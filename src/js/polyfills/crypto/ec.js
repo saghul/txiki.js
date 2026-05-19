@@ -1,4 +1,4 @@
-import { CryptoKey, kKeyData } from './crypto-key.js';
+import { CryptoKey, getKeyData } from './crypto-key.js';
 import {
     curveAlgorithms,
     curveIdToName,
@@ -93,7 +93,7 @@ export function ecdsaSign(algorithm, key, data) {
     const hashTypeId = digestAlgorithms[hashName];
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativeEcdsaSign(curveId, hashTypeId, key[kKeyData], bytes, (err, result) => {
+    nativeEcdsaSign(curveId, hashTypeId, getKeyData(key), bytes, (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {
@@ -135,7 +135,7 @@ export function ecdsaVerify(algorithm, key, signature, data) {
     const hashTypeId = digestAlgorithms[hashName];
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativeEcdsaVerify(curveId, hashTypeId, key[kKeyData], sigBytes, dataBytes, (err, result) => {
+    nativeEcdsaVerify(curveId, hashTypeId, getKeyData(key), sigBytes, dataBytes, (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {
@@ -196,7 +196,7 @@ export function ecdhDeriveBits(algorithm, baseKey, length, requiredUsage = 'deri
     const curveId = curveAlgorithms[namedCurve];
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativeEcdhDeriveBits(curveId, baseKey[kKeyData], pubKey[kKeyData], (err, result) => {
+    nativeEcdhDeriveBits(curveId, getKeyData(baseKey), getKeyData(pubKey), (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {
@@ -347,7 +347,7 @@ export function ecExportKey(format, key) {
             throw new DOMException('Cannot export private key in raw format', 'InvalidAccessError');
         }
 
-        return key[kKeyData].slice().buffer;
+        return getKeyData(key).slice().buffer;
     }
 
     if (format === 'spki') {
@@ -356,7 +356,7 @@ export function ecExportKey(format, key) {
         }
 
         const curveId = curveAlgorithms[key.algorithm.namedCurve];
-        const der = nativeEcKeyToDer(key[kKeyData], curveId, false);
+        const der = nativeEcKeyToDer(getKeyData(key), curveId, false);
 
         return der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength);
     }
@@ -367,7 +367,7 @@ export function ecExportKey(format, key) {
         }
 
         const curveId = curveAlgorithms[key.algorithm.namedCurve];
-        const der = nativeEcKeyToDer(key[kKeyData], curveId, true);
+        const der = nativeEcKeyToDer(getKeyData(key), curveId, true);
 
         return der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength);
     }
@@ -379,9 +379,9 @@ export function ecExportKey(format, key) {
         let pubBytes;
 
         if (key.type === 'private') {
-            pubBytes = nativeEcGetPublicKey(key[kKeyData], curveId);
+            pubBytes = nativeEcGetPublicKey(getKeyData(key), curveId);
         } else {
-            pubBytes = key[kKeyData];
+            pubBytes = getKeyData(key);
         }
 
         const x = base64urlEncode(pubBytes.slice(1, 1 + size));
@@ -397,7 +397,7 @@ export function ecExportKey(format, key) {
         };
 
         if (key.type === 'private') {
-            jwk.d = base64urlEncode(key[kKeyData]);
+            jwk.d = base64urlEncode(getKeyData(key));
         }
 
         return jwk;

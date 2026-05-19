@@ -2,11 +2,12 @@ import { resolveAddress } from '../lookup.js';
 
 import {
     core,
-    kHandle,
-    kOpened,
     silentClose,
     BaseStreamSocket,
-    BaseStreamServerSocket
+    BaseStreamServerSocket,
+    kSetOpened,
+    kGetHandle,
+    kRejectClosed
 } from './utils.js';
 
 
@@ -32,11 +33,11 @@ export class TCPSocket extends BaseStreamSocket {
 
         super(new core.TCP());
 
-        this[kOpened] = this._setup(remoteAddress, remotePort, options);
+        this[kSetOpened](this.#setup(remoteAddress, remotePort, options));
     }
 
-    async _setup(remoteAddress, remotePort, options) {
-        const handle = this[kHandle];
+    async #setup(remoteAddress, remotePort, options) {
+        const handle = this[kGetHandle]();
 
         try {
             const addr = await resolveAddress(remoteAddress, remotePort, options.dnsQueryType);
@@ -60,7 +61,7 @@ export class TCPSocket extends BaseStreamSocket {
             };
         } catch (error) {
             silentClose(handle);
-            this._closedReject(error);
+            this[kRejectClosed](error);
             throw error;
         }
     }
@@ -75,11 +76,11 @@ export class TCPServerSocket extends BaseStreamServerSocket {
 
         super(new core.TCP());
 
-        this[kOpened] = this._bind(localAddress, options);
+        this[kSetOpened](this.#bind(localAddress, options));
     }
 
-    async _bind(localAddress, options) {
-        const handle = this[kHandle];
+    async #bind(localAddress, options) {
+        const handle = this[kGetHandle]();
 
         try {
             const addr = await resolveAddress(localAddress, options.localPort ?? 0);
@@ -94,7 +95,7 @@ export class TCPServerSocket extends BaseStreamServerSocket {
             handle.listen(options.backlog);
 
             const createSocket = clientHandle =>
-                this._createAcceptedSocket(TCPSocket.prototype, clientHandle, formatTCPAddress);
+                this._createAcceptedSocket(TCPSocket, clientHandle, formatTCPAddress);
 
             const readable = this._createAcceptStream(createSocket);
 
@@ -107,7 +108,7 @@ export class TCPServerSocket extends BaseStreamServerSocket {
             };
         } catch (error) {
             silentClose(handle);
-            this._closedReject(error);
+            this[kRejectClosed](error);
             throw error;
         }
     }

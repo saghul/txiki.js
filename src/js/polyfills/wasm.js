@@ -1,21 +1,17 @@
 import core from 'tjs:internal/core';
 const wasm = core.wasm;
 
-const kWasmModule = Symbol('kWasmModule');
-const kWasmModuleRef = Symbol('kWasmModuleRef');
-const kWasmExports = Symbol('kWasmExports');
-const kWasmInstance = Symbol('kWasmInstance');
-const kWasmMemoryInstance = Symbol('kWasmMemoryInstance');
-const kWasmMemoryBuffer = Symbol('kWasmMemoryBuffer');
-const kWasmGlobalInstance = Symbol('kWasmGlobalInstance');
-const kWasmGlobalName = Symbol('kWasmGlobalName');
-const kWasmGlobalType = Symbol('kWasmGlobalType');
-const kWasmGlobalMutable = Symbol('kWasmGlobalMutable');
-const kWasmGlobalValue = Symbol('kWasmGlobalValue');
-const kWasmTableInstance = Symbol('kWasmTableInstance');
-const kWasmTableName = Symbol('kWasmTableName');
-const kWasmTableElement = Symbol('kWasmTableElement');
-const kWasmFuncIndex = Symbol('kWasmFuncIndex');
+// Track the WAMR function index for callable wrappers returned from exports /
+// table reads. We cannot add a `#private` field to a plain function, so a
+// WeakMap keyed by the wrapper function is used instead.
+const funcIndexMap = new WeakMap();
+
+// Module-private invokers, captured from inside each class so Instance can
+// reach the corresponding `#private` method without exposing it.
+let getNativeModule;
+let bindMemory;
+let bindGlobal;
+let bindTable;
 
 
 class CompileError extends Error {
@@ -104,16 +100,22 @@ function parseModule(buf) {
 }
 
 class Module {
+    #module;
+
     constructor(buf) {
-        this[kWasmModule] = parseModule(buf);
+        this.#module = parseModule(buf);
+    }
+
+    static {
+        getNativeModule = m => m.#module;
     }
 
     static exports(module) {
-        return wasm.moduleExports(module[kWasmModule]);
+        return wasm.moduleExports(module.#module);
     }
 
     static imports(module) {
-        return wasm.moduleImports(module[kWasmModule]);
+        return wasm.moduleImports(module.#module);
     }
 }
 
@@ -128,11 +130,17 @@ class Module {
  * - Multi-value returns from imported functions are not supported.
  */
 class Instance {
+    #instance;
+    #exports;
+    #moduleRef;
+
     constructor(module, importObject = {}) {
+        const nativeModule = getNativeModule(module);
+
         // Detect WASI in importObject via duck typing and configure it before instantiation
         for (const ns of Object.values(importObject)) {
             if (ns && typeof ns === 'object' && typeof ns._configure === 'function') {
-                ns._configure(module[kWasmModule]);
+                ns._configure(nativeModule);
                 break;
             }
         }
@@ -192,7 +200,7 @@ class Instance {
         // Register function imports before instantiation
         if (funcDescs.length > 0) {
             try {
-                wasm.resolveImports(module[kWasmModule], funcDescs);
+                wasm.resolveImports(nativeModule, funcDescs);
             } catch (e) {
                 if (e.wasmError) {
                     throw getWasmError(e);
@@ -205,7 +213,7 @@ class Instance {
         // Resolve global imports before instantiation
         if (globalDescs.length > 0) {
             try {
-                wasm.resolveGlobalImports(module[kWasmModule], globalDescs);
+                wasm.resolveGlobalImports(nativeModule, globalDescs);
             } catch (e) {
                 if (e.wasmError) {
                     throw getWasmError(e);
@@ -215,12 +223,11 @@ class Instance {
             }
         }
 
-        const instance = buildInstance(module[kWasmModule]);
+        const instance = buildInstance(nativeModule);
 
         // Wire up imported Memory objects to the WAMR instance
         for (const mem of memoryImports) {
-            mem[kWasmMemoryInstance] = instance;
-            mem[kWasmMemoryBuffer] = null;
+            bindMemory(mem, instance);
         }
 
         const _exports = Module.exports(module);
@@ -232,51 +239,49 @@ class Instance {
                 const funcIdx = wasm.getFuncIndex(instance, item.name);
 
                 if (funcIdx >= 0) {
-                    fn[kWasmFuncIndex] = funcIdx;
+                    funcIndexMap.set(fn, funcIdx);
                 }
 
                 exports[item.name] = fn;
             } else if (item.kind === 'memory') {
                 const mem = new Memory({ initial: 0 });
 
-                mem[kWasmMemoryInstance] = instance;
-                mem[kWasmMemoryBuffer] = null;
+                bindMemory(mem, instance);
                 exports[item.name] = mem;
             } else if (item.kind === 'global') {
                 const info = wasm.getGlobalInfo(instance, item.name);
                 const gType = VALID_GLOBAL_TYPES.includes(info.type) ? info.type : 'i32';
                 const g = new Global({ value: gType, mutable: info.mutable }, 0);
 
-                g[kWasmGlobalInstance] = instance;
-                g[kWasmGlobalName] = item.name;
-                g[kWasmGlobalType] = info.type;
-                g[kWasmGlobalMutable] = info.mutable;
-                g[kWasmGlobalValue] = undefined;
+                bindGlobal(g, instance, item.name, info.type, info.mutable);
                 exports[item.name] = g;
             } else if (item.kind === 'table') {
                 const info = wasm.getTableInfo(instance, item.name);
                 const tbl = new Table({ element: info.element, initial: 0 });
 
-                tbl[kWasmTableInstance] = instance;
-                tbl[kWasmTableName] = item.name;
-                tbl[kWasmTableElement] = info.element;
+                bindTable(tbl, instance, item.name);
                 exports[item.name] = tbl;
             }
         }
 
-        this[kWasmInstance] = instance;
-        this[kWasmExports] = Object.freeze(exports);
-        this[kWasmModuleRef] = module;
+        this.#instance = instance;
+        this.#exports = Object.freeze(exports);
+        this.#moduleRef = module;
     }
 
     get exports() {
-        return this[kWasmExports];
+        return this.#exports;
     }
 }
 
 const WASM_PAGE_SIZE = 65536;
 
 class Memory {
+    #instance = null;
+    #buffer;
+    #initial;
+    #maximum;
+
     constructor(descriptor) {
         if (typeof descriptor !== 'object' || descriptor === null) {
             throw new TypeError('WebAssembly.Memory(): Argument 0 must be a memory descriptor');
@@ -304,22 +309,27 @@ class Memory {
             }
         }
 
-        // Store the descriptor for standalone Memory objects (not yet backed by WASM instance).
-        // The actual WAMR memory is created when the module is instantiated.
-        // For standalone use, we create a plain ArrayBuffer.
-        this[kWasmMemoryInstance] = null;
-        this[kWasmMemoryBuffer] = new ArrayBuffer(initial * WASM_PAGE_SIZE);
-        this._initial = initial;
-        this._maximum = maximum;
+        // For standalone Memory objects (not yet backed by a WASM instance),
+        // back it with a plain ArrayBuffer. bindMemory() flips it over to
+        // using the WAMR-managed memory.
+        this.#buffer = new ArrayBuffer(initial * WASM_PAGE_SIZE);
+        this.#initial = initial;
+        this.#maximum = maximum;
+    }
+
+    static {
+        bindMemory = (mem, instance) => {
+            mem.#instance = instance;
+            mem.#buffer = null;
+        };
     }
 
     get buffer() {
-        if (this[kWasmMemoryInstance]) {
-            // Backed by a WASM instance — get the live buffer
-            return wasm.getMemoryBuffer(this[kWasmMemoryInstance]);
+        if (this.#instance) {
+            return wasm.getMemoryBuffer(this.#instance);
         }
 
-        return this[kWasmMemoryBuffer];
+        return this.#buffer;
     }
 
     grow(delta) {
@@ -327,24 +337,23 @@ class Memory {
             throw new TypeError('WebAssembly.Memory.grow(): Argument 0 must be a non-negative integer');
         }
 
-        if (this[kWasmMemoryInstance]) {
-            // Backed by a WASM instance
-            return wasm.growMemory(this[kWasmMemoryInstance], delta);
+        if (this.#instance) {
+            return wasm.growMemory(this.#instance, delta);
         }
 
         // Standalone memory
-        const oldByteLength = this[kWasmMemoryBuffer].byteLength;
+        const oldByteLength = this.#buffer.byteLength;
         const oldPages = oldByteLength / WASM_PAGE_SIZE;
         const newPages = oldPages + delta;
 
-        if (this._maximum !== undefined && newPages > this._maximum) {
+        if (this.#maximum !== undefined && newPages > this.#maximum) {
             throw new RangeError('WebAssembly.Memory.grow(): Maximum memory size exceeded');
         }
 
         const newBuffer = new ArrayBuffer(newPages * WASM_PAGE_SIZE);
 
-        new Uint8Array(newBuffer).set(new Uint8Array(this[kWasmMemoryBuffer]));
-        this[kWasmMemoryBuffer] = newBuffer;
+        new Uint8Array(newBuffer).set(new Uint8Array(this.#buffer));
+        this.#buffer = newBuffer;
 
         return oldPages;
     }
@@ -368,6 +377,12 @@ function coerceGlobalValue(type, v) {
 }
 
 class Global {
+    #instance = null;
+    #name = null;
+    #type;
+    #mutable;
+    #value;
+
     constructor(descriptor, value) {
         if (typeof descriptor !== 'object' || descriptor === null) {
             throw new TypeError('WebAssembly.Global(): Argument 0 must be a global descriptor');
@@ -382,10 +397,8 @@ class Global {
 
         const mutable = Boolean(descriptor.mutable);
 
-        this[kWasmGlobalInstance] = null;
-        this[kWasmGlobalName] = null;
-        this[kWasmGlobalType] = type;
-        this[kWasmGlobalMutable] = mutable;
+        this.#type = type;
+        this.#mutable = mutable;
         let initialValue;
 
         if (value !== undefined) {
@@ -398,26 +411,36 @@ class Global {
             initialValue = 0;
         }
 
-        this[kWasmGlobalValue] = coerceGlobalValue(type, initialValue);
+        this.#value = coerceGlobalValue(type, initialValue);
+    }
+
+    static {
+        bindGlobal = (g, instance, name, type, mutable) => {
+            g.#instance = instance;
+            g.#name = name;
+            g.#type = type;
+            g.#mutable = mutable;
+            g.#value = undefined;
+        };
     }
 
     get value() {
-        if (this[kWasmGlobalInstance]) {
-            return wasm.getGlobal(this[kWasmGlobalInstance], this[kWasmGlobalName]);
+        if (this.#instance) {
+            return wasm.getGlobal(this.#instance, this.#name);
         }
 
-        return this[kWasmGlobalValue];
+        return this.#value;
     }
 
     set value(v) {
-        if (!this[kWasmGlobalMutable]) {
+        if (!this.#mutable) {
             throw new TypeError('WebAssembly.Global.set(): Cannot set value of an immutable global');
         }
 
-        if (this[kWasmGlobalInstance]) {
-            wasm.setGlobal(this[kWasmGlobalInstance], this[kWasmGlobalName], v);
+        if (this.#instance) {
+            wasm.setGlobal(this.#instance, this.#name, v);
         } else {
-            this[kWasmGlobalValue] = coerceGlobalValue(this[kWasmGlobalType], v);
+            this.#value = coerceGlobalValue(this.#type, v);
         }
     }
 
@@ -429,6 +452,10 @@ class Global {
 const VALID_TABLE_ELEMENTS = [ 'anyfunc', 'funcref', 'externref' ];
 
 class Table {
+    #instance = null;
+    #name = null;
+    #element;
+
     constructor(descriptor, _value) {
         if (typeof descriptor !== 'object' || descriptor === null) {
             throw new TypeError('WebAssembly.Table(): Argument 0 must be a table descriptor');
@@ -467,37 +494,42 @@ class Table {
             }
         }
 
-        this[kWasmTableInstance] = null;
-        this[kWasmTableName] = null;
-        this[kWasmTableElement] = element;
+        this.#element = element;
+    }
+
+    static {
+        bindTable = (t, instance, name) => {
+            t.#instance = instance;
+            t.#name = name;
+        };
     }
 
     get length() {
-        if (this[kWasmTableInstance]) {
-            return wasm.tableSize(this[kWasmTableInstance], this[kWasmTableName]);
+        if (this.#instance) {
+            return wasm.tableSize(this.#instance, this.#name);
         }
 
         return 0;
     }
 
     get(index) {
-        if (!this[kWasmTableInstance]) {
+        if (!this.#instance) {
             throw new RangeError('WebAssembly.Table.get(): Table is not backed by an instance');
         }
 
-        const raw = wasm.tableGet(this[kWasmTableInstance], this[kWasmTableName], index);
+        const raw = wasm.tableGet(this.#instance, this.#name, index);
 
-        if (this[kWasmTableElement] === 'funcref') {
+        if (this.#element === 'funcref') {
             if (raw === null) {
                 return null;
             }
 
             // raw is a function index; create a callable wrapper
-            const instance = this[kWasmTableInstance];
+            const instance = this.#instance;
             const funcIdx = raw;
             const fn = (...args) => callWasmFuncByIndex(instance, funcIdx, ...args);
 
-            fn[kWasmFuncIndex] = funcIdx;
+            funcIndexMap.set(fn, funcIdx);
 
             return fn;
         }
@@ -507,20 +539,20 @@ class Table {
     }
 
     set(index, value) {
-        if (!this[kWasmTableInstance]) {
+        if (!this.#instance) {
             throw new RangeError('WebAssembly.Table.set(): Table is not backed by an instance');
         }
 
-        if (this[kWasmTableElement] === 'funcref') {
+        if (this.#element === 'funcref') {
             if (value === null) {
-                wasm.tableSet(this[kWasmTableInstance], this[kWasmTableName], index, null);
-            } else if (typeof value === 'function' && kWasmFuncIndex in value) {
-                wasm.tableSet(this[kWasmTableInstance], this[kWasmTableName], index, value[kWasmFuncIndex]);
+                wasm.tableSet(this.#instance, this.#name, index, null);
+            } else if (typeof value === 'function' && funcIndexMap.has(value)) {
+                wasm.tableSet(this.#instance, this.#name, index, funcIndexMap.get(value));
             } else {
                 throw new TypeError('WebAssembly.Table.set(): Argument 1 must be null or a WebAssembly function');
             }
         } else {
-            wasm.tableSet(this[kWasmTableInstance], this[kWasmTableName], index, value);
+            wasm.tableSet(this.#instance, this.#name, index, value);
         }
     }
 
@@ -529,11 +561,11 @@ class Table {
             throw new TypeError('WebAssembly.Table.grow(): Argument 0 must be a non-negative integer');
         }
 
-        if (!this[kWasmTableInstance]) {
+        if (!this.#instance) {
             throw new RangeError('WebAssembly.Table.grow(): Table is not backed by an instance');
         }
 
-        return wasm.tableGrow(this[kWasmTableInstance], this[kWasmTableName], delta);
+        return wasm.tableGrow(this.#instance, this.#name, delta);
     }
 }
 

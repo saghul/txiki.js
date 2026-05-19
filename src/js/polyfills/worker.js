@@ -6,8 +6,6 @@ import { getObjectURL } from './url.js';
 
 const _Worker = core.Worker;
 
-const kWorker = Symbol('kWorker');
-
 function blobTextSync(blob) {
     if (!(blob instanceof Blob)) {
         return undefined;
@@ -30,6 +28,8 @@ function blobTextSync(blob) {
 }
 
 class Worker extends EventTarget {
+    #worker;
+
     constructor(specifier) {
         super();
 
@@ -59,7 +59,7 @@ class Worker extends EventTarget {
             this.dispatchEvent(new MessageEvent('messageerror', msgerror));
         };
 
-        this[kWorker] = worker;
+        this.#worker = worker;
     }
 
     postMessage(message, transferOrOptions) {
@@ -82,7 +82,7 @@ class Worker extends EventTarget {
             }
         }
 
-        this[kWorker].messagePipe.postMessage(message);
+        this.#worker.messagePipe.postMessage(message);
 
         for (const t of transfers) {
             core.detachArrayBuffer(t);
@@ -90,7 +90,7 @@ class Worker extends EventTarget {
     }
 
     terminate() {
-        this[kWorker].terminate();
+        this.#worker.terminate();
     }
 
     get [Symbol.toStringTag]() {

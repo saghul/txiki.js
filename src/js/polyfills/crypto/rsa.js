@@ -1,4 +1,4 @@
-import { CryptoKey, kKeyData } from './crypto-key.js';
+import { CryptoKey, getKeyData } from './crypto-key.js';
 import {
     digestAlgorithms,
     nativeRsaGenerateKey,
@@ -96,7 +96,7 @@ export function rsaOaepEncrypt(algorithm, key, data, requiredUsage = 'encrypt') 
     const hashTypeId = digestAlgorithms[hashName];
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativeRsaOaepEncrypt(hashTypeId, key[kKeyData], bytes, labelBytes, (err, result) => {
+    nativeRsaOaepEncrypt(hashTypeId, getKeyData(key), bytes, labelBytes, (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {
@@ -138,7 +138,7 @@ export function rsaOaepDecrypt(algorithm, key, data, requiredUsage = 'decrypt') 
     const hashTypeId = digestAlgorithms[hashName];
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativeRsaOaepDecrypt(hashTypeId, key[kKeyData], bytes, labelBytes, (err, result) => {
+    nativeRsaOaepDecrypt(hashTypeId, getKeyData(key), bytes, labelBytes, (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {
@@ -184,7 +184,7 @@ export function rsaSign(algorithm, key, data) {
     const saltLength = algoName === 'RSA-PSS' ? algorithm.saltLength : 0;
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativeRsaSign(paddingMode, hashTypeId, saltLength, key[kKeyData], bytes, (err, result) => {
+    nativeRsaSign(paddingMode, hashTypeId, saltLength, getKeyData(key), bytes, (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {
@@ -231,7 +231,7 @@ export function rsaVerify(algorithm, key, signature, data) {
     const saltLength = algoName === 'RSA-PSS' ? algorithm.saltLength : 0;
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativeRsaVerify(paddingMode, hashTypeId, saltLength, key[kKeyData], sigBytes, dataBytes, (err, result) => {
+    nativeRsaVerify(paddingMode, hashTypeId, saltLength, getKeyData(key), sigBytes, dataBytes, (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {
@@ -364,7 +364,7 @@ export function rsaExportKey(format, key) {
 
     if (format === 'jwk') {
         const isPrivate = key.type === 'private';
-        const components = nativeRsaExportJwk(key[kKeyData], isPrivate);
+        const components = nativeRsaExportJwk(getKeyData(key), isPrivate);
         const hashName = key.algorithm.hash.name;
 
         const jwk = {
@@ -398,5 +398,5 @@ export function rsaExportKey(format, key) {
         }
     }
 
-    return key[kKeyData].slice().buffer;
+    return getKeyData(key).slice().buffer;
 }

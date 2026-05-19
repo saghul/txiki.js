@@ -17,58 +17,70 @@
 // Polyfill for TextEncoderStream and TextDecoderStream
 
 
-// These symbols end up being different for every realm, so mixing objects
-// created in one realm with methods created in another fails.
-const codec = Symbol('codec');
-const transform = Symbol('transform');
-
 class TextEncoderStream {
+    #codec;
+    #transform;
+
     constructor() {
-        this[codec] = new TextEncoder();
-        this[transform] =
-            new TransformStream(new TextEncodeTransformer(this[codec]));
+        this.#codec = new TextEncoder();
+        this.#transform = new TransformStream(new TextEncodeTransformer(this.#codec));
+    }
+
+    get readable() {
+        return this.#transform.readable;
+    }
+
+    get writable() {
+        return this.#transform.writable;
+    }
+
+    get encoding() {
+        return this.#codec.encoding;
     }
 }
 
 class TextDecoderStream {
+    #codec;
+    #transform;
+
     constructor(label = undefined, options = undefined) {
-        this[codec] = new TextDecoder(label, options);
-        this[transform] = new TransformStream(
-            new TextDecodeTransformer(this[codec]));
+        this.#codec = new TextDecoder(label, options);
+        this.#transform = new TransformStream(new TextDecodeTransformer(this.#codec));
+    }
+
+    get readable() {
+        return this.#transform.readable;
+    }
+
+    get writable() {
+        return this.#transform.writable;
+    }
+
+    get encoding() {
+        return this.#codec.encoding;
+    }
+
+    get fatal() {
+        return this.#codec.fatal;
+    }
+
+    get ignoreBOM() {
+        return this.#codec.ignoreBOM;
     }
 }
 
-// ECMAScript class syntax will create getters that are non-enumerable, but we
-// need them to be enumerable in WebIDL-style, so we add them manually.
-// "readable" and "writable" are always delegated to the TransformStream
-// object. Properties specified in |properties| are delegated to the
-// underlying TextEncoder or TextDecoder.
-function addDelegatingProperties(prototype, properties) {
-    for (const transformProperty of [ 'readable', 'writable' ]) {
-        addGetter(prototype, transformProperty, function() {
-            return this[transform][transformProperty];
-        });
-    }
+// ECMAScript class syntax creates non-enumerable getters, but WebIDL requires
+// them to be enumerable. Make them enumerable post-hoc.
+function makeAccessorsEnumerable(prototype, names) {
+    for (const name of names) {
+        const desc = Object.getOwnPropertyDescriptor(prototype, name);
 
-    for (const codecProperty of properties) {
-        addGetter(prototype, codecProperty, function() {
-            return this[codec][codecProperty];
-        });
+        Object.defineProperty(prototype, name, { ...desc, enumerable: true });
     }
 }
 
-function addGetter(prototype, property, getter) {
-    Object.defineProperty(prototype, property,
-        {
-            configurable: true,
-            enumerable: true,
-            get: getter
-        });
-}
-
-addDelegatingProperties(TextEncoderStream.prototype, [ 'encoding' ]);
-addDelegatingProperties(TextDecoderStream.prototype,
-    [ 'encoding', 'fatal', 'ignoreBOM' ]);
+makeAccessorsEnumerable(TextEncoderStream.prototype, [ 'readable', 'writable', 'encoding' ]);
+makeAccessorsEnumerable(TextDecoderStream.prototype, [ 'readable', 'writable', 'encoding', 'fatal', 'ignoreBOM' ]);
 
 class TextEncodeTransformer {
     constructor() {

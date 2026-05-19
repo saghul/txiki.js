@@ -1,4 +1,4 @@
-import { CryptoKey, kKeyData } from './crypto-key.js';
+import { CryptoKey, getKeyData } from './crypto-key.js';
 import {
     nativeEd25519GenerateKey,
     nativeEd25519Sign,
@@ -75,7 +75,7 @@ export function ed25519Sign(algorithm, key, data) {
 
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativeEd25519Sign(key[kKeyData], bytes, (err, result) => {
+    nativeEd25519Sign(getKeyData(key), bytes, (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {
@@ -114,7 +114,7 @@ export function ed25519Verify(algorithm, key, signature, data) {
 
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativeEd25519Verify(key[kKeyData], sigBytes, dataBytes, (err, result) => {
+    nativeEd25519Verify(getKeyData(key), sigBytes, dataBytes, (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {
@@ -248,7 +248,7 @@ export function ed25519ExportKey(format, key) {
             throw new DOMException('Cannot export private key in raw format', 'InvalidAccessError');
         }
 
-        return key[kKeyData].slice().buffer;
+        return getKeyData(key).slice().buffer;
     }
 
     if (format === 'spki') {
@@ -259,7 +259,7 @@ export function ed25519ExportKey(format, key) {
         const result = new Uint8Array(44);
 
         result.set(SPKI_HEADER, 0);
-        result.set(key[kKeyData], SPKI_HEADER.length);
+        result.set(getKeyData(key), SPKI_HEADER.length);
 
         return result.buffer;
     }
@@ -272,7 +272,7 @@ export function ed25519ExportKey(format, key) {
         const result = new Uint8Array(48);
 
         result.set(PKCS8_HEADER, 0);
-        result.set(key[kKeyData], PKCS8_HEADER.length);
+        result.set(getKeyData(key), PKCS8_HEADER.length);
 
         return result.buffer;
     }
@@ -281,9 +281,9 @@ export function ed25519ExportKey(format, key) {
         let pubBytes;
 
         if (key.type === 'private') {
-            pubBytes = nativeEd25519GetPublicKey(key[kKeyData]);
+            pubBytes = nativeEd25519GetPublicKey(getKeyData(key));
         } else {
-            pubBytes = key[kKeyData];
+            pubBytes = getKeyData(key);
         }
 
         const jwk = {
@@ -295,7 +295,7 @@ export function ed25519ExportKey(format, key) {
         };
 
         if (key.type === 'private') {
-            jwk.d = base64urlEncode(key[kKeyData]);
+            jwk.d = base64urlEncode(getKeyData(key));
         }
 
         return jwk;

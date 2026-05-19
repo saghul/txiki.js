@@ -4,15 +4,30 @@ import pathModule from './path.js';
 
 const CHUNK_SIZE = 16640;
 
-const kReadable = Symbol('kReadable');
-const kWritable = Symbol('kWritable');
+// Cache lazily-created Readable/Writable streams keyed by the native file
+// handle (Proxy target). The handle is a native object we don't own, so we
+// can't add `#private` fields to it.
+const fhStreams = new WeakMap();
+
+function getStreams(target) {
+    let entry = fhStreams.get(target);
+
+    if (!entry) {
+        entry = {};
+        fhStreams.set(target, entry);
+    }
+
+    return entry;
+}
 
 const fhProxyHandler = {
     get (target, prop) {
         switch (prop) {
             case 'readable': {
-                if (!target[kReadable]) {
-                    target[kReadable] = new ReadableStream({
+                const streams = getStreams(target);
+
+                if (!streams.readable) {
+                    streams.readable = new ReadableStream({
                         autoAllocateChunkSize: CHUNK_SIZE,
                         type: 'bytes',
                         async pull(controller) {
@@ -39,12 +54,14 @@ const fhProxyHandler = {
                     });
                 }
 
-                return target[kReadable];
+                return streams.readable;
             }
 
             case 'writable': {
-                if (!target[kWritable]) {
-                    target[kWritable] = new WritableStream({
+                const streams = getStreams(target);
+
+                if (!streams.writable) {
+                    streams.writable = new WritableStream({
                         async write(chunk) {
                             await target.write(chunk);
                         },
@@ -57,7 +74,7 @@ const fhProxyHandler = {
                     });
                 }
 
-                return target[kWritable];
+                return streams.writable;
             }
 
             default: {

@@ -1,10 +1,6 @@
 import core from 'tjs:internal/core';
 const uname = core.uname();
 
-const kBrands = Symbol('kBrands');
-const kMobile = Symbol('kMobile');
-const kPlatform = Symbol('kPlatform');
-
 
 function getNavigatorPlatform(machine, platform) {
     if (platform === 'darwin') {
@@ -93,22 +89,26 @@ function getPlatformVersion(release) {
 const majorVersion = core.version.split('.')[0];
 
 class NavigatorUAData {
+    #brands;
+    #mobile;
+    #platform;
+
     constructor() {
-        this[kBrands] = Object.freeze([ Object.freeze({ brand: 'txiki.js', version: majorVersion }) ]);
-        this[kMobile] = false;
-        this[kPlatform] = getUADataPlatform(core.platform);
+        this.#brands = Object.freeze([ Object.freeze({ brand: 'txiki.js', version: majorVersion }) ]);
+        this.#mobile = false;
+        this.#platform = getUADataPlatform(core.platform);
     }
 
     get brands() {
-        return this[kBrands];
+        return this.#brands;
     }
 
     get mobile() {
-        return this[kMobile];
+        return this.#mobile;
     }
 
     get platform() {
-        return this[kPlatform];
+        return this.#platform;
     }
 
     getHighEntropyValues(hints) {
@@ -117,9 +117,9 @@ class NavigatorUAData {
         }
 
         const result = {
-            brands: this[kBrands],
-            mobile: this[kMobile],
-            platform: this[kPlatform],
+            brands: this.#brands,
+            mobile: this.#mobile,
+            platform: this.#platform,
         };
 
         for (const hint of hints) {
@@ -155,9 +155,9 @@ class NavigatorUAData {
 
     toJSON() {
         return {
-            brands: this[kBrands],
-            mobile: this[kMobile],
-            platform: this[kPlatform],
+            brands: this.#brands,
+            mobile: this.#mobile,
+            platform: this.#platform,
         };
     }
 

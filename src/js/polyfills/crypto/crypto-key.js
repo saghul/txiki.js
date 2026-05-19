@@ -1,4 +1,11 @@
-export const kKeyData = Symbol('CryptoKey.keyData');
+// Raw key bytes live in a module-private WeakMap so that algorithm modules can
+// reach them via getKeyData(key) without exposing them on the public API of
+// CryptoKey.
+const keyDataMap = new WeakMap();
+
+export function getKeyData(key) {
+    return keyDataMap.get(key);
+}
 
 export class CryptoKey {
     #type;
@@ -11,7 +18,7 @@ export class CryptoKey {
         this.#extractable = extractable;
         this.#algorithm = Object.freeze({ ...algorithm });
         this.#usages = Object.freeze([ ...usages ]);
-        this[kKeyData] = keyData;
+        keyDataMap.set(this, keyData);
     }
 
     get type() {

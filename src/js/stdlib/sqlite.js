@@ -1,10 +1,11 @@
 import core from 'tjs:internal/core';
 const sqlite3 = core.sqlite3;
 
-const kSqlite3Handle = Symbol('kSqlite3Handle');
 let controllers;
 
 class Database {
+    #handle;
+
     constructor(dbName = ':memory:', options = { create: true, readOnly: false }) {
         let flags = 0;
 
@@ -18,30 +19,30 @@ class Database {
             flags |= sqlite3.SQLITE_OPEN_READWRITE;
         }
 
-        this[kSqlite3Handle] = sqlite3.open(dbName, flags);
+        this.#handle = sqlite3.open(dbName, flags);
     }
 
     close() {
-        if (this[kSqlite3Handle]) {
-            sqlite3.close(this[kSqlite3Handle]);
-            this[kSqlite3Handle] = null;
+        if (this.#handle) {
+            sqlite3.close(this.#handle);
+            this.#handle = null;
         }
     }
 
     exec(sql) {
-        if (!this[kSqlite3Handle]) {
+        if (!this.#handle) {
             throw new Error('Invalid DB');
         }
 
-        sqlite3.exec(this[kSqlite3Handle], sql);
+        sqlite3.exec(this.#handle, sql);
     }
 
     prepare(sql) {
-        if (!this[kSqlite3Handle]) {
+        if (!this.#handle) {
             throw new Error('Invalid DB');
         }
 
-        return new Statement(sqlite3.prepare(this[kSqlite3Handle], sql));
+        return new Statement(sqlite3.prepare(this.#handle, sql));
     }
 
     // Code for transactions is largely copied from better-sqlite3 and Bun
@@ -49,11 +50,11 @@ class Database {
     // https://github.com/oven-sh/bun/blob/main/src/js/bun/sqlite.ts
 
     get inTransaction() {
-        if (!this[kSqlite3Handle]) {
+        if (!this.#handle) {
             return false;
         }
 
-        return sqlite3.in_transaction(this[kSqlite3Handle]);
+        return sqlite3.in_transaction(this.#handle);
     }
 
     transaction(fn) {
@@ -82,7 +83,7 @@ class Database {
     }
 
     loadExtension(file, entrypoint=undefined) {
-        return sqlite3.load_extension(this[kSqlite3Handle],file,entrypoint);
+        return sqlite3.load_extension(this.#handle,file,entrypoint);
     }
 }
 
@@ -148,19 +149,19 @@ const wrapTransaction = (fn, db, { begin, commit, rollback, savepoint, release, 
         }
     };
 
-const kSqlite3Stmt = Symbol('kSqlite3Stmt');
-
 class Statement {
+    #stmt;
+
     constructor(stmt) {
-        this[kSqlite3Stmt] = stmt;
+        this.#stmt = stmt;
     }
 
     finalize() {
-        sqlite3.stmt_finalize(this[kSqlite3Stmt]);
+        sqlite3.stmt_finalize(this.#stmt);
     }
 
     toString() {
-        return sqlite3.stmt_expand(this[kSqlite3Stmt]);
+        return sqlite3.stmt_expand(this.#stmt);
     }
 
     all(...args) {
@@ -168,7 +169,7 @@ class Statement {
             args = args[0];
         }
 
-        return sqlite3.stmt_all(this[kSqlite3Stmt], args);
+        return sqlite3.stmt_all(this.#stmt, args);
     }
 
     run(...args) {
@@ -176,7 +177,7 @@ class Statement {
             args = args[0];
         }
 
-        sqlite3.stmt_run(this[kSqlite3Stmt], args);
+        sqlite3.stmt_run(this.#stmt, args);
     }
 }
 
