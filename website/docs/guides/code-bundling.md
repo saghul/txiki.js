@@ -46,11 +46,13 @@ This is especially useful when creating [standalone executables](standalone-exec
 
 ### Other esbuild options
 
-Any other cli option of esbuild is also available in `tjs bundle`:
+Any other cli option of esbuild is also available via `tjs bundle`:
 
 ```bash
 tjs bundle --minify --define:DEBUG=true --drop:debugger my-app/index.ts
 ```
+
+There are other interesting options available, check the [API documentation](https://esbuild.github.io/api/).
 
 ### How it works
 
@@ -105,3 +107,18 @@ Error: something went wrong
 ```
 
 Both inline source maps (`data:` URLs) and external `.map` files are supported.
+
+## Using esbuild directly
+
+If you want to use esbuild directly, that's possible:
+
+```bash
+npx esbuild my-app/index.ts \
+    --bundle \
+    --outfile=bundle.js \
+    --external:tjs:* \
+    --target=esnext \
+    --platform=neutral \
+    --format=esm \
+    --main-fields=main,module
+```
