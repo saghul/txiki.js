@@ -6,17 +6,15 @@
 import core from 'tjs:internal/core';
 const wasm = core.wasm;
 
-const kWasiStarted = Symbol('kWasiStarted');
-const kWasiOptions = Symbol('kWasiOptions');
-const kWasiVersion = Symbol('kWasiVersion');
-const kWasiImport = Symbol('kWasiImport');
-
 const SUPPORTED_WASI_VERSIONS = [ 'wasi_unstable', 'wasi_snapshot_preview1' ];
 
 export class WASI {
-    constructor(options = {}) {
-        this[kWasiStarted] = false;
+    #started = false;
+    #options;
+    #version;
+    #wasiImport;
 
+    constructor(options = {}) {
         if (options === null || typeof options !== 'object') {
             throw new TypeError('options must be an object');
         }
@@ -34,9 +32,9 @@ export class WASI {
                 `Unsupported WASI version "${version}". Supported versions: ${SUPPORTED_WASI_VERSIONS.join(', ')}`);
         }
 
-        this[kWasiVersion] = version;
+        this.#version = version;
 
-        this[kWasiOptions] = JSON.parse(JSON.stringify({
+        this.#options = JSON.parse(JSON.stringify({
             args: options.args ?? [],
             env: options.env ?? {},
             preopens: options.preopens ?? {}
@@ -44,11 +42,11 @@ export class WASI {
 
         // wasiImport is used to identify this as a WASI instance
         // The actual WASI functions are handled by WAMR internally
-        this[kWasiImport] = { _configure: nativeModule => this._configure(nativeModule) };
+        this.#wasiImport = { _configure: nativeModule => this._configure(nativeModule) };
     }
 
     get wasiImport() {
-        return this[kWasiImport];
+        return this.#wasiImport;
     }
 
     // Called by WebAssembly.Instance via duck typing
@@ -56,7 +54,7 @@ export class WASI {
     _configure(nativeModule) {
         // Pass WASI options to the native layer
         // This must be called before instantiation
-        const opts = this[kWasiOptions];
+        const opts = this.#options;
 
         wasm.setWasiOptions(
             nativeModule,
@@ -67,11 +65,11 @@ export class WASI {
     }
 
     getImportObject() {
-        return { [this[kWasiVersion]]: this.wasiImport };
+        return { [this.#version]: this.wasiImport };
     }
 
     start(instance) {
-        if (this[kWasiStarted]) {
+        if (this.#started) {
             throw new Error('WASI instance has already started');
         }
 
@@ -79,7 +77,7 @@ export class WASI {
             throw new TypeError('WASI entrypoint not found');
         }
 
-        this[kWasiStarted] = true;
+        this.#started = true;
 
         instance.exports._start();
     }

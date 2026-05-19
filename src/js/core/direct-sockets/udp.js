@@ -2,9 +2,6 @@ import { resolveAddress } from '../lookup.js';
 
 import {
     core,
-    kHandle,
-    kOpened,
-    kClosed,
     silentClose,
 } from './utils.js';
 
@@ -48,6 +45,13 @@ class MulticastController {
 
 
 export class UDPSocket {
+    #handle;
+    #opened;
+    #closed;
+    #closedResolve;
+    #closedReject;
+    #pendingSend = null;
+
     constructor(options = {}) {
         const hasRemote = options.remoteAddress !== undefined && options.remotePort !== undefined;
         const hasLocal = options.localAddress !== undefined;
@@ -58,14 +62,13 @@ export class UDPSocket {
 
         const handle = new core.UDP();
 
-        this[kHandle] = handle;
-        this._pendingSend = null;
+        this.#handle = handle;
 
         handle.onsend = error => {
-            const pending = this._pendingSend;
+            const pending = this.#pendingSend;
 
             if (pending) {
-                this._pendingSend = null;
+                this.#pendingSend = null;
 
                 if (error) {
                     pending.reject(error);
@@ -77,18 +80,18 @@ export class UDPSocket {
 
         const { promise: closedPromise, resolve: closedResolve, reject: closedReject } = Promise.withResolvers();
 
-        this[kClosed] = closedPromise;
+        this.#closed = closedPromise;
         // Prevent unhandled rejection if the socket fails to open and
         // nobody observes the closed promise.
         closedPromise.catch(() => {});
-        this._closedResolve = closedResolve;
-        this._closedReject = closedReject;
+        this.#closedResolve = closedResolve;
+        this.#closedReject = closedReject;
 
-        this[kOpened] = this._setup(options, hasRemote);
+        this.#opened = this.#setup(options, hasRemote);
     }
 
-    _createReadableStream(isConnected) {
-        const handle = this[kHandle];
+    #createReadableStream(isConnected) {
+        const handle = this.#handle;
         let receiving = false;
 
         return new ReadableStream({
@@ -136,8 +139,8 @@ export class UDPSocket {
         });
     }
 
-    _createWritableStream(isConnected) {
-        const handle = this[kHandle];
+    #createWritableStream(isConnected) {
+        const handle = this.#handle;
 
         return new WritableStream({
             write: async (chunk, controller) => {
@@ -158,7 +161,7 @@ export class UDPSocket {
                     if (typeof result !== 'number') {
                         const { promise, resolve, reject } = Promise.withResolvers();
 
-                        this._pendingSend = { resolve, reject };
+                        this.#pendingSend = { resolve, reject };
                         await promise;
                     }
                 } catch (e) {
@@ -168,8 +171,8 @@ export class UDPSocket {
         });
     }
 
-    async _setup(options, isConnected) {
-        const handle = this[kHandle];
+    async #setup(options, isConnected) {
+        const handle = this.#handle;
 
         try {
             if (options.localAddress !== undefined) {
@@ -217,8 +220,8 @@ export class UDPSocket {
                 handle.setMulticastTTL(options.multicastTimeToLive);
             }
 
-            openedInfo.readable = this._createReadableStream(isConnected);
-            openedInfo.writable = this._createWritableStream(isConnected);
+            openedInfo.readable = this.#createReadableStream(isConnected);
+            openedInfo.writable = this.#createWritableStream(isConnected);
 
             const localAddr = handle.getsockname();
 
@@ -230,21 +233,21 @@ export class UDPSocket {
             return openedInfo;
         } catch (error) {
             silentClose(handle);
-            this._closedReject(error);
+            this.#closedReject(error);
             throw error;
         }
     }
 
     get opened() {
-        return this[kOpened];
+        return this.#opened;
     }
 
     get closed() {
-        return this[kClosed];
+        return this.#closed;
     }
 
     close() {
-        silentClose(this[kHandle]);
-        this._closedResolve();
+        silentClose(this.#handle);
+        this.#closedResolve();
     }
 }

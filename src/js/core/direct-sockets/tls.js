@@ -2,11 +2,12 @@ import { resolveAddress } from '../lookup.js';
 
 import {
     core,
-    kHandle,
-    kOpened,
     silentClose,
     BaseStreamSocket,
-    BaseStreamServerSocket
+    BaseStreamServerSocket,
+    kSetOpened,
+    kGetHandle,
+    kRejectClosed
 } from './utils.js';
 
 
@@ -42,11 +43,11 @@ export class TLSSocket extends BaseStreamSocket {
 
         super(new core.TLSTcp(tlsOptions));
 
-        this[kOpened] = this._setup(remoteAddress, remotePort, options);
+        this[kSetOpened](this.#setup(remoteAddress, remotePort, options));
     }
 
-    async _setup(remoteAddress, remotePort, options) {
-        const handle = this[kHandle];
+    async #setup(remoteAddress, remotePort, options) {
+        const handle = this[kGetHandle]();
 
         try {
             const addr = await resolveAddress(remoteAddress, remotePort, options.dnsQueryType);
@@ -71,7 +72,7 @@ export class TLSSocket extends BaseStreamSocket {
             };
         } catch (error) {
             silentClose(handle);
-            this._closedReject(error);
+            this[kRejectClosed](error);
             throw error;
         }
     }
@@ -99,11 +100,11 @@ export class TLSServerSocket extends BaseStreamServerSocket {
 
         super(new core.TLSTcp(tlsOptions));
 
-        this[kOpened] = this._bind(localAddress, options);
+        this[kSetOpened](this.#bind(localAddress, options));
     }
 
-    async _bind(localAddress, options) {
-        const handle = this[kHandle];
+    async #bind(localAddress, options) {
+        const handle = this[kGetHandle]();
 
         try {
             const addr = await resolveAddress(localAddress, options.localPort ?? 0);
@@ -118,7 +119,7 @@ export class TLSServerSocket extends BaseStreamServerSocket {
             handle.listen(options.backlog);
 
             const createSocket = clientHandle =>
-                this._createAcceptedSocket(TLSSocket.prototype, clientHandle, formatTLSAddress);
+                this._createAcceptedSocket(TLSSocket, clientHandle, formatTLSAddress);
 
             const readable = this._createAcceptStream(createSocket);
 
@@ -131,7 +132,7 @@ export class TLSServerSocket extends BaseStreamServerSocket {
             };
         } catch (error) {
             silentClose(handle);
-            this._closedReject(error);
+            this[kRejectClosed](error);
             throw error;
         }
     }

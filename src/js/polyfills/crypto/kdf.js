@@ -1,4 +1,4 @@
-import { CryptoKey, kKeyData } from './crypto-key.js';
+import { CryptoKey, getKeyData } from './crypto-key.js';
 import { digestAlgorithms, nativePbkdf2, nativeHkdf, normalizeHashAlgorithm, toUint8Array } from './helpers.js';
 
 const validKdfUsages = [ 'deriveBits', 'deriveKey' ];
@@ -74,7 +74,7 @@ export function pbkdf2DeriveBits(algorithm, baseKey, length, requiredUsage = 'de
     const byteLength = length / 8;
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativePbkdf2(typeId, baseKey[kKeyData], salt, iterations, byteLength, (err, result) => {
+    nativePbkdf2(typeId, getKeyData(baseKey), salt, iterations, byteLength, (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {
@@ -121,7 +121,7 @@ export function hkdfDeriveBits(algorithm, baseKey, length, requiredUsage = 'deri
     const byteLength = length / 8;
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativeHkdf(typeId, baseKey[kKeyData], salt, info, byteLength, (err, result) => {
+    nativeHkdf(typeId, getKeyData(baseKey), salt, info, byteLength, (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {

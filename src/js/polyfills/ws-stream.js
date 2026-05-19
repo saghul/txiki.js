@@ -1,12 +1,7 @@
-const kWebSocket = Symbol('kWebSocket');
-const kOpened = Symbol('kOpened');
-const kClosed = Symbol('kClosed');
-const kURL = Symbol('kURL');
-const kCloseCode = Symbol('kCloseCode');
-const kReason = Symbol('kReason');
-const kCloseInfo = Symbol('kCloseInfo');
-
 class WebSocketError extends DOMException {
+    #closeCode;
+    #reason;
+
     constructor(message = '', init = {}) {
         super(message, 'WebSocketError');
 
@@ -34,16 +29,16 @@ class WebSocketError extends DOMException {
             }
         }
 
-        this[kCloseCode] = code;
-        this[kReason] = reason;
+        this.#closeCode = code;
+        this.#reason = reason;
     }
 
     get closeCode() {
-        return this[kCloseCode];
+        return this.#closeCode;
     }
 
     get reason() {
-        return this[kReason];
+        return this.#reason;
     }
 }
 
@@ -73,6 +68,12 @@ function closeWebSocket(ws, code, reason) {
 }
 
 class WebSocketStream {
+    #ws;
+    #opened;
+    #closed;
+    #url;
+    #closeInfo = null;
+
     constructor(url, options = {}) {
         let urlStr;
 
@@ -86,7 +87,7 @@ class WebSocketStream {
             throw new DOMException(`The URL '${url}' is not valid.`, 'SyntaxError');
         }
 
-        this[kURL] = urlStr;
+        this.#url = urlStr;
 
         const protocols = options.protocols || [];
         const headers = options.headers || [];
@@ -95,10 +96,10 @@ class WebSocketStream {
         if (signal && signal.aborted) {
             const error = signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
 
-            this[kOpened] = Promise.reject(error);
-            this[kClosed] = Promise.reject(error);
-            this[kOpened].catch(() => {});
-            this[kClosed].catch(() => {});
+            this.#opened = Promise.reject(error);
+            this.#closed = Promise.reject(error);
+            this.#opened.catch(() => {});
+            this.#closed.catch(() => {});
 
             return;
         }
@@ -109,8 +110,8 @@ class WebSocketStream {
         let closedSettled = false;
         let hadError = false;
 
-        this[kOpened] = opened.promise;
-        this[kClosed] = closed.promise;
+        this.#opened = opened.promise;
+        this.#closed = closed.promise;
 
         const wsOptions = {
             headers,
@@ -120,8 +121,7 @@ class WebSocketStream {
         const ws = new WebSocket(urlStr, wsOptions);
 
         ws.binaryType = 'arraybuffer';
-        this[kWebSocket] = ws;
-        this[kCloseInfo] = null;
+        this.#ws = ws;
 
         const self = this;
 
@@ -135,7 +135,7 @@ class WebSocketStream {
             cancel(reason) {
                 const info = extractCloseInfo(reason);
 
-                self[kCloseInfo] = { closeCode: info.code, reason: info.reason };
+                self.#closeInfo = { closeCode: info.code, reason: info.reason };
                 closeWebSocket(ws, info.code, info.reason);
             }
         });
@@ -157,7 +157,7 @@ class WebSocketStream {
             abort(reason) {
                 const info = extractCloseInfo(reason);
 
-                self[kCloseInfo] = { closeCode: info.code, reason: info.reason };
+                self.#closeInfo = { closeCode: info.code, reason: info.reason };
                 closeWebSocket(ws, info.code, info.reason);
             }
         });
@@ -282,7 +282,7 @@ class WebSocketStream {
                     // Use the close info we explicitly sent rather than what the
                     // server echoed back, since server behavior varies across
                     // platforms. When no code was sent, report 1005 (No Status).
-                    const info = self[kCloseInfo];
+                    const info = self.#closeInfo;
 
                     closed.resolve({
                         closeCode: info ? info.closeCode : 1005,
@@ -326,15 +326,15 @@ class WebSocketStream {
     }
 
     get url() {
-        return this[kURL];
+        return this.#url;
     }
 
     get opened() {
-        return this[kOpened];
+        return this.#opened;
     }
 
     get closed() {
-        return this[kClosed];
+        return this.#closed;
     }
 
     close(options = {}) {
@@ -362,14 +362,14 @@ class WebSocketStream {
             }
         }
 
-        const ws = this[kWebSocket];
+        const ws = this.#ws;
 
         if (!ws) {
             return;
         }
 
         if (closeCode !== undefined) {
-            this[kCloseInfo] = { closeCode, reason };
+            this.#closeInfo = { closeCode, reason };
             closeWebSocket(ws, closeCode, reason);
         } else {
             closeWebSocket(ws, undefined, undefined);

@@ -1,10 +1,11 @@
 import {
     core,
-    kHandle,
-    kOpened,
     silentClose,
     BaseStreamSocket,
-    BaseStreamServerSocket
+    BaseStreamServerSocket,
+    kSetOpened,
+    kGetHandle,
+    kRejectClosed
 } from './utils.js';
 
 
@@ -24,11 +25,11 @@ export class PipeSocket extends BaseStreamSocket {
 
         super(new core.Pipe());
 
-        this[kOpened] = this._setup(path);
+        this[kSetOpened](this.#setup(path));
     }
 
-    async _setup(path) {
-        const handle = this[kHandle];
+    async #setup(path) {
+        const handle = this[kGetHandle]();
 
         try {
             await this._connect(path);
@@ -42,7 +43,7 @@ export class PipeSocket extends BaseStreamSocket {
             };
         } catch (error) {
             silentClose(handle);
-            this._closedReject(error);
+            this[kRejectClosed](error);
             throw error;
         }
     }
@@ -57,18 +58,18 @@ export class PipeServerSocket extends BaseStreamServerSocket {
 
         super(new core.Pipe());
 
-        this[kOpened] = this._bind(path, options);
+        this[kSetOpened](this.#bind(path, options));
     }
 
-    async _bind(path, options) {
-        const handle = this[kHandle];
+    async #bind(path, options) {
+        const handle = this[kGetHandle]();
 
         try {
             handle.bind(path);
             handle.listen(options.backlog);
 
             const createSocket = clientHandle =>
-                this._createAcceptedSocket(PipeSocket.prototype, clientHandle, formatPipeAddress);
+                this._createAcceptedSocket(PipeSocket, clientHandle, formatPipeAddress);
 
             const readable = this._createAcceptStream(createSocket);
 
@@ -80,7 +81,7 @@ export class PipeServerSocket extends BaseStreamServerSocket {
             };
         } catch (error) {
             silentClose(handle);
-            this._closedReject(error);
+            this[kRejectClosed](error);
             throw error;
         }
     }

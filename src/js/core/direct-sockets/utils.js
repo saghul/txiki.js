@@ -2,13 +2,12 @@ import core from 'tjs:internal/core';
 
 export { core };
 
-// Shared symbols.
-export const kHandle = Symbol('kHandle');
-export const kOpened = Symbol('kOpened');
-export const kClosed = Symbol('kClosed');
-
-// Module-local symbol (only used within BaseStreamSocket).
-const kPendingWrite = Symbol('kPendingWrite');
+// Symbol-keyed hooks for subclasses in sibling files. Exported only from
+// this module-internal utils.js (not from the package barrel), so external
+// callers can't reach them.
+export const kSetOpened = Symbol('setOpened');
+export const kGetHandle = Symbol('getHandle');
+export const kRejectClosed = Symbol('rejectClosed');
 
 export function silentClose(handle) {
     try {
@@ -20,23 +19,34 @@ export function silentClose(handle) {
 
 
 export class BaseStreamSocket {
+    #handle;
+    #opened;
+    #closed;
+    #closedResolve;
+    #closedReject;
+    #pendingWrite = null;
+    #readableActive = true;
+    #writableActive = true;
+    #readableError = null;
+    #writableError = null;
+
     constructor(handle) {
         this._init(handle);
     }
 
     _init(handle) {
-        this[kHandle] = handle;
-        this[kPendingWrite] = null;
-        this._readableActive = true;
-        this._writableActive = true;
-        this._readableError = null;
-        this._writableError = null;
+        this.#handle = handle;
+        this.#pendingWrite = null;
+        this.#readableActive = true;
+        this.#writableActive = true;
+        this.#readableError = null;
+        this.#writableError = null;
 
         handle.onwrite = error => {
-            const pending = this[kPendingWrite];
+            const pending = this.#pendingWrite;
 
             if (pending) {
-                this[kPendingWrite] = null;
+                this.#pendingWrite = null;
 
                 if (error) {
                     pending.reject(error);
@@ -48,28 +58,41 @@ export class BaseStreamSocket {
 
         const { promise, resolve, reject } = Promise.withResolvers();
 
-        this[kClosed] = promise;
+        this.#closed = promise;
         // Prevent unhandled rejection if the socket fails to open and
         // nobody observes the closed promise.
         promise.catch(() => {});
-        this._closedResolve = resolve;
-        this._closedReject = reject;
+        this.#closedResolve = resolve;
+        this.#closedReject = reject;
+    }
+
+    // Subclasses set their opened promise via this internal hook.
+    [kSetOpened](promise) {
+        this.#opened = promise;
+    }
+
+    [kGetHandle]() {
+        return this.#handle;
+    }
+
+    [kRejectClosed](error) {
+        this.#closedReject(error);
     }
 
     _doWrite(buf) {
-        if (this[kHandle].write(buf)) {
+        if (this.#handle.write(buf)) {
             return Promise.resolve();
         }
 
         const { promise, resolve, reject } = Promise.withResolvers();
 
-        this[kPendingWrite] = { resolve, reject };
+        this.#pendingWrite = { resolve, reject };
 
         return promise;
     }
 
     _connect(addr) {
-        const handle = this[kHandle];
+        const handle = this.#handle;
         const { promise, resolve, reject } = Promise.withResolvers();
 
         handle.onconnect = error => {
@@ -87,52 +110,52 @@ export class BaseStreamSocket {
         return promise;
     }
 
-    _handleClosingReadable(error) {
-        if (!this._readableActive) {
+    #handleClosingReadable(error) {
+        if (!this.#readableActive) {
             return;
         }
 
-        this._readableActive = false;
+        this.#readableActive = false;
 
         if (error) {
-            this._readableError = error;
+            this.#readableError = error;
         }
 
-        this._maybeClose();
+        this.#maybeClose();
     }
 
-    _handleClosingWritable(error) {
-        if (!this._writableActive) {
+    #handleClosingWritable(error) {
+        if (!this.#writableActive) {
             return;
         }
 
-        this._writableActive = false;
+        this.#writableActive = false;
 
         if (error) {
-            this._writableError = error;
+            this.#writableError = error;
         }
 
-        this._maybeClose();
+        this.#maybeClose();
     }
 
-    _maybeClose() {
-        if (this._readableActive || this._writableActive) {
+    #maybeClose() {
+        if (this.#readableActive || this.#writableActive) {
             return;
         }
 
-        silentClose(this[kHandle]);
+        silentClose(this.#handle);
 
-        const error = this._writableError || this._readableError;
+        const error = this.#writableError || this.#readableError;
 
         if (error) {
-            this._closedReject(error);
+            this.#closedReject(error);
         } else {
-            this._closedResolve();
+            this.#closedResolve();
         }
     }
 
     _createReadableStream() {
-        const handle = this[kHandle];
+        const handle = this.#handle;
         let reading = false;
 
         return new ReadableStream({
@@ -143,13 +166,13 @@ export class BaseStreamSocket {
                         reading = false;
                         handle.onread = null;
                         controller.error(error);
-                        this._handleClosingReadable(error);
+                        this.#handleClosingReadable(error);
                     } else if (data === null) {
                         handle.stopRead();
                         reading = false;
                         handle.onread = null;
                         controller.close();
-                        this._handleClosingReadable();
+                        this.#handleClosingReadable();
                     } else {
                         controller.enqueue(data);
 
@@ -176,7 +199,7 @@ export class BaseStreamSocket {
                 }
 
                 handle.onread = null;
-                this._handleClosingReadable();
+                this.#handleClosingReadable();
             }
         });
     }
@@ -186,21 +209,21 @@ export class BaseStreamSocket {
             write: chunk => this._doWrite(chunk),
             close: () => {
                 try {
-                    this[kHandle].shutdown();
+                    this.#handle.shutdown();
                 } catch {
                     // Handle may already be closed.
                 }
 
-                this._handleClosingWritable();
+                this.#handleClosingWritable();
             },
             abort: reason => {
                 try {
-                    this[kHandle].shutdown();
+                    this.#handle.shutdown();
                 } catch {
                     // Handle may already be closed.
                 }
 
-                this._handleClosingWritable(reason);
+                this.#handleClosingWritable(reason);
             }
         });
     }
@@ -213,38 +236,56 @@ export class BaseStreamSocket {
     }
 
     get opened() {
-        return this[kOpened];
+        return this.#opened;
     }
 
     get closed() {
-        return this[kClosed];
+        return this.#closed;
     }
 
     close() {
-        this._readableActive = false;
-        this._writableActive = false;
-        silentClose(this[kHandle]);
-        this._closedResolve();
+        this.#readableActive = false;
+        this.#writableActive = false;
+        silentClose(this.#handle);
+        this.#closedResolve();
     }
 }
 
 
 export class BaseStreamServerSocket {
+    #handle;
+    #opened;
+    #closed;
+    #closedResolve;
+    #closedReject;
+
     constructor(handle) {
-        this[kHandle] = handle;
+        this.#handle = handle;
 
         const { promise, resolve, reject } = Promise.withResolvers();
 
-        this[kClosed] = promise;
+        this.#closed = promise;
         // Prevent unhandled rejection if the server fails to bind and
         // nobody observes the closed promise.
         promise.catch(() => {});
-        this._closedResolve = resolve;
-        this._closedReject = reject;
+        this.#closedResolve = resolve;
+        this.#closedReject = reject;
+    }
+
+    [kSetOpened](promise) {
+        this.#opened = promise;
+    }
+
+    [kGetHandle]() {
+        return this.#handle;
+    }
+
+    [kRejectClosed](error) {
+        this.#closedReject(error);
     }
 
     _createAcceptStream(createSocket) {
-        const handle = this[kHandle];
+        const handle = this.#handle;
 
         return new ReadableStream({
             start(controller) {
@@ -269,32 +310,32 @@ export class BaseStreamServerSocket {
         });
     }
 
-    _createAcceptedSocket(proto, clientHandle, formatAddress) {
-        const socket = Object.create(proto);
-
-        BaseStreamSocket.prototype._init.call(socket, clientHandle);
+    _createAcceptedSocket(SocketClass, clientHandle, formatAddress) {
+        // Construct using BaseStreamSocket's constructor so the private fields
+        // are properly installed, while ending up as an instance of SocketClass.
+        const socket = Reflect.construct(BaseStreamSocket, [ clientHandle ], SocketClass);
 
         const localAddr = clientHandle.getsockname();
         const remoteAddr = clientHandle.getpeername();
 
-        socket[kOpened] = Promise.resolve({
+        socket[kSetOpened](Promise.resolve({
             ...socket._buildOpenedInfo(),
             ...formatAddress(localAddr, remoteAddr),
-        });
+        }));
 
         return socket;
     }
 
     get opened() {
-        return this[kOpened];
+        return this.#opened;
     }
 
     get closed() {
-        return this[kClosed];
+        return this.#closed;
     }
 
     close() {
-        silentClose(this[kHandle]);
-        this._closedResolve();
+        silentClose(this.#handle);
+        this.#closedResolve();
     }
 }

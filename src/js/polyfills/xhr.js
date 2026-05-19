@@ -1,6 +1,5 @@
 import { defineEventAttribute } from './event-target.js';
 import { HttpClient } from './http-client.js';
-const kClient = Symbol('kClient');
 
 
 function statusTextForCode(code) {
@@ -62,10 +61,10 @@ class XMLHttpRequest extends EventTarget {
     #withCredentials = false;
     #method = '';
     #url = '';
+    #client = null;
 
     constructor() {
         super();
-        this[kClient] = null;
     }
 
     #createClient() {
@@ -146,7 +145,7 @@ class XMLHttpRequest extends EventTarget {
 
         client.setEnableCookies(this.withCredentials);
 
-        this[kClient] = client;
+        this.#client = client;
     }
 
     #setReadyState(state) {
@@ -217,8 +216,8 @@ class XMLHttpRequest extends EventTarget {
     set timeout(value) {
         this.#timeout = value;
 
-        if (this[kClient]) {
-            this[kClient].timeout = value;
+        if (this.#client) {
+            this.#client.timeout = value;
         }
     }
 
@@ -240,9 +239,9 @@ class XMLHttpRequest extends EventTarget {
     }
 
     abort() {
-        if (this[kClient]) {
-            this[kClient].abort();
-            this[kClient] = null;
+        if (this.#client) {
+            this.#client.abort();
+            this.#client = null;
         }
     }
 
@@ -346,16 +345,16 @@ class XMLHttpRequest extends EventTarget {
             throw new Error('Unsupported payload type');
         } else if (payload instanceof Blob) {
             payload.arrayBuffer().then(buffer => {
-                this[kClient].open(this.#method, this.#url, new Uint8Array(buffer));
+                this.#client.open(this.#method, this.#url, new Uint8Array(buffer));
             });
         } else {
             this.dispatchEvent(new Event('loadstart'));
-            this[kClient].open(this.#method, this.#url, payload);
+            this.#client.open(this.#method, this.#url, payload);
         }
     }
 
     setRequestHeader(name, value) {
-        return this[kClient].setRequestHeader(name, value);
+        return this.#client.setRequestHeader(name, value);
     }
 }
 

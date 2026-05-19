@@ -2,11 +2,11 @@ import core from 'tjs:internal/core';
 
 const CHUNK_SIZE = 16640;
 
-const kHandle = Symbol('kHandle');
-const kType = Symbol('kType');
-const kClosed = Symbol('kClosed');
-
 class StdioReadableStream extends ReadableStream {
+    #handle;
+    #type;
+    #closedState;
+
     constructor(handle, type) {
         // Shared state object so source callbacks can mark the stream as closed.
         const state = { closed: false };
@@ -90,21 +90,21 @@ class StdioReadableStream extends ReadableStream {
             });
         }
 
-        this[kHandle] = handle;
-        this[kType] = type;
-        this[kClosed] = state;
+        this.#handle = handle;
+        this.#type = type;
+        this.#closedState = state;
     }
 
     get isClosed() {
-        return this[kClosed].closed;
+        return this.#closedState.closed;
     }
 
     get isTerminal() {
-        return this[kType] === 'tty';
+        return this.#type === 'tty';
     }
 
     get type() {
-        return this[kType];
+        return this.#type;
     }
 
     setRawMode(rawMode) {
@@ -114,11 +114,15 @@ class StdioReadableStream extends ReadableStream {
 
         const ttyMode = rawMode ? core.TTY_MODE_RAW : core.TTY_MODE_NORMAL;
 
-        this[kHandle].setMode(ttyMode);
+        this.#handle.setMode(ttyMode);
     }
 }
 
 class StdioWritableStream extends WritableStream {
+    #handle;
+    #type;
+    #closedState;
+
     constructor(handle, type) {
         // Shared state object so sink callbacks can mark the stream as closed.
         const state = { closed: false };
@@ -172,21 +176,21 @@ class StdioWritableStream extends WritableStream {
             });
         }
 
-        this[kHandle] = handle;
-        this[kType] = type;
-        this[kClosed] = state;
+        this.#handle = handle;
+        this.#type = type;
+        this.#closedState = state;
     }
 
     get isClosed() {
-        return this[kClosed].closed;
+        return this.#closedState.closed;
     }
 
     get isTerminal() {
-        return this[kType] === 'tty';
+        return this.#type === 'tty';
     }
 
     get type() {
-        return this[kType];
+        return this.#type;
     }
 
     get width() {
@@ -194,7 +198,7 @@ class StdioWritableStream extends WritableStream {
             throw new Error('not a terminal');
         }
 
-        return this[kHandle].getWinSize().width;
+        return this.#handle.getWinSize().width;
     }
 
     get height() {
@@ -202,7 +206,7 @@ class StdioWritableStream extends WritableStream {
             throw new Error('not a terminal');
         }
 
-        return this[kHandle].getWinSize().height;
+        return this.#handle.getWinSize().height;
     }
 }
 

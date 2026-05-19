@@ -1,42 +1,42 @@
 import { defineEventAttribute, EventTarget, Event, CustomEvent } from './event-target.js';
 
-const kCloseEventCode = Symbol('kCloseEventCode');
-const kCloseEventReason = Symbol('kCloseEventReason');
-const kCloseEventWasClean = Symbol('kCloseEventWasClean');
-
 class CloseEvent extends Event {
+    #code;
+    #reason;
+    #wasClean;
+
     constructor(eventTye, init) {
         super(eventTye, init);
 
-        this[kCloseEventCode] = init?.code ?? 0;
-        this[kCloseEventReason] = init?.reason ?? '';
-        this[kCloseEventWasClean] = init?.wasClean ?? false;
+        this.#code = init?.code ?? 0;
+        this.#reason = init?.reason ?? '';
+        this.#wasClean = init?.wasClean ?? false;
     }
 
     get code() {
-        return this[kCloseEventCode];
+        return this.#code;
     }
 
     get reason() {
-        return this[kCloseEventReason];
+        return this.#reason;
     }
 
     get wasClean() {
-        return this[kCloseEventWasClean];
+        return this.#wasClean;
     }
 }
 
-const kErrorEventData = Symbol('kErrorEventData');
-
 class ErrorEvent extends Event {
+    #error;
+
     constructor(error) {
         super('error');
 
-        this[kErrorEventData] = error;
+        this.#error = error;
     }
 
     get message() {
-        return String(this[kErrorEventData]);
+        return String(this.#error);
     }
 
     get filename() {
@@ -52,67 +52,67 @@ class ErrorEvent extends Event {
     }
 
     get error() {
-        return this[kErrorEventData];
+        return this.#error;
     }
 }
 
-const kMessageEventData = Symbol('kMessageEventData');
-
 class MessageEvent extends Event {
+    #data;
+
     constructor(eventTye, data) {
         super(eventTye);
 
-        this[kMessageEventData] = data;
+        this.#data = data;
     }
 
     get data() {
-        return this[kMessageEventData];
+        return this.#data;
     }
 }
 
-const kPromise = Symbol('kPromise');
-const kPromiseRejectionReason = Symbol('kPromiseRejectionReason');
-
 class PromiseRejectionEvent extends Event {
+    #promise;
+    #reason;
+
     constructor(eventTye, promise, reason) {
         super(eventTye, { cancelable: true });
 
-        this[kPromise] = promise;
-        this[kPromiseRejectionReason] = reason;
+        this.#promise = promise;
+        this.#reason = reason;
     }
 
     get promise() {
-        return this[kPromise];
+        return this.#promise;
     }
 
     get reason() {
-        return this[kPromiseRejectionReason];
+        return this.#reason;
     }
 }
 
-const kProgressEventLengthComputable = Symbol('kProgressEventLengthComputable');
-const kProgressEventLoaded = Symbol('kProgressEventLoaded');
-const kProgressEventTotal = Symbol('kProgressEventTotal');
-
 class ProgressEvent extends Event {
+    #lengthComputable;
+    #loaded;
+    #total;
+
     constructor(eventTye, init) {
         super(eventTye, init);
 
-        this[kProgressEventLengthComputable] = init?.lengthComputable || false;
-        this[kProgressEventLoaded] = init?.loaded || 0;
-        this[kProgressEventTotal] = init?.total || 0;
+        this.#lengthComputable = init?.lengthComputable || false;
+        this.#loaded = init?.loaded || 0;
+        this.#total = init?.total || 0;
     }
 
     get lengthComputable() {
-        return this[kProgressEventLengthComputable];
+        return this.#lengthComputable;
     }
 
     get loaded() {
-        return this[kProgressEventLoaded];
+        return this.#loaded;
     }
 
     get total() {
-        return this[kProgressEventTotal];
+        return this.#total;
     }
 }
 

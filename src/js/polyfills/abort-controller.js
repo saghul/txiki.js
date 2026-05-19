@@ -1,38 +1,56 @@
 import { defineEventAttribute, EventTarget, Event } from './event-target.js';
 
-const kAborted = Symbol('kAborted');
-const kReason = Symbol('kReason');
-
 function defaultAbortReason() {
     return new DOMException('This operation was aborted', 'AbortError');
 }
 
+// Module-private invoker, captured from inside the class so it can reach the
+// `#signalAbort` private method without exposing it.
+let signalAbort;
+
 class AbortSignal extends EventTarget {
-    constructor() {
-        super();
-        this[kAborted] = false;
-        this[kReason] = undefined;
-    }
+    #aborted = false;
+    #reason;
 
     get aborted() {
-        return this[kAborted];
+        return this.#aborted;
     }
 
     get reason() {
-        return this[kReason];
+        return this.#reason;
     }
 
     throwIfAborted() {
-        if (this[kAborted]) {
-            throw this[kReason];
+        if (this.#aborted) {
+            throw this.#reason;
         }
+    }
+
+    // Flip to aborted state. Returns true if the signal transitioned, false
+    // if it was already aborted. Reachable only via `signalAbort()` below.
+    #signalAbort(reason, dispatch = true) {
+        if (this.#aborted) {
+            return false;
+        }
+
+        this.#aborted = true;
+        this.#reason = reason !== undefined ? reason : defaultAbortReason();
+
+        if (dispatch) {
+            this.dispatchEvent(new Event('abort'));
+        }
+
+        return true;
+    }
+
+    static {
+        signalAbort = (signal, reason, dispatch) => signal.#signalAbort(reason, dispatch);
     }
 
     static abort(reason) {
         const signal = new AbortSignal();
 
-        signal[kAborted] = true;
-        signal[kReason] = reason !== undefined ? reason : defaultAbortReason();
+        signal.#signalAbort(reason, false);
 
         return signal;
     }
@@ -41,11 +59,7 @@ class AbortSignal extends EventTarget {
         const signal = new AbortSignal();
 
         setTimeout(() => {
-            if (!signal[kAborted]) {
-                signal[kAborted] = true;
-                signal[kReason] = new DOMException('The operation was aborted due to timeout', 'TimeoutError');
-                signal.dispatchEvent(new Event('abort'));
-            }
+            signal.#signalAbort(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
         }, ms);
 
         return signal;
@@ -55,28 +69,21 @@ class AbortSignal extends EventTarget {
         const signal = new AbortSignal();
 
         for (const s of signals) {
-            if (s[kAborted]) {
-                signal[kAborted] = true;
-                signal[kReason] = s[kReason];
+            if (s.aborted) {
+                signal.#signalAbort(s.reason, false);
 
                 return signal;
             }
         }
 
         const onAbort = () => {
-            if (signal[kAborted]) {
-                return;
-            }
-
             for (const s of signals) {
-                if (s[kAborted]) {
-                    signal[kAborted] = true;
-                    signal[kReason] = s[kReason];
-                    signal.dispatchEvent(new Event('abort'));
-
-                    // Clean up all listeners.
-                    for (const s2 of signals) {
-                        s2.removeEventListener('abort', onAbort);
+                if (s.aborted) {
+                    if (signal.#signalAbort(s.reason)) {
+                        // Clean up all listeners.
+                        for (const s2 of signals) {
+                            s2.removeEventListener('abort', onAbort);
+                        }
                     }
 
                     break;
@@ -102,15 +109,7 @@ class AbortController {
     }
 
     abort(reason) {
-        const signal = this.signal;
-
-        if (signal[kAborted]) {
-            return;
-        }
-
-        signal[kAborted] = true;
-        signal[kReason] = reason !== undefined ? reason : defaultAbortReason();
-        signal.dispatchEvent(new Event('abort'));
+        signalAbort(this.signal, reason);
     }
 }
 

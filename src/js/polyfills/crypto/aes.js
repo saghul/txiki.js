@@ -1,4 +1,4 @@
-import { CryptoKey, kKeyData } from './crypto-key.js';
+import { CryptoKey, getKeyData } from './crypto-key.js';
 import { nativeCipher, nativeAesKw, toUint8Array, base64urlEncode, base64urlDecode } from './helpers.js';
 
 const CIPHER_AES_CBC = nativeCipher.CIPHER_AES_CBC;
@@ -73,7 +73,7 @@ export function aesEncrypt(algorithm, key, data, requiredUsage = 'encrypt') {
             return Promise.reject(new DOMException('AES-CBC IV must be 16 bytes', 'OperationError'));
         }
 
-        return cipherOp(cipherType, CIPHER_OP_ENCRYPT, key[kKeyData], iv, bytes, undefined, 0)
+        return cipherOp(cipherType, CIPHER_OP_ENCRYPT, getKeyData(key), iv, bytes, undefined, 0)
             .then(r => r.buffer);
     }
 
@@ -96,7 +96,7 @@ export function aesEncrypt(algorithm, key, data, requiredUsage = 'encrypt') {
             return Promise.reject(new DOMException('AES-CTR length must be between 1 and 128', 'OperationError'));
         }
 
-        return cipherOp(cipherType, CIPHER_OP_ENCRYPT, key[kKeyData], counter, bytes, undefined, 0)
+        return cipherOp(cipherType, CIPHER_OP_ENCRYPT, getKeyData(key), counter, bytes, undefined, 0)
             .then(r => r.buffer);
     }
 
@@ -127,7 +127,7 @@ export function aesEncrypt(algorithm, key, data, requiredUsage = 'encrypt') {
 
         const tagLengthBytes = tagLengthBits / 8;
 
-        return cipherOp(cipherType, CIPHER_OP_ENCRYPT, key[kKeyData], iv, bytes, aad, tagLengthBytes)
+        return cipherOp(cipherType, CIPHER_OP_ENCRYPT, getKeyData(key), iv, bytes, aad, tagLengthBytes)
             .then(r => r.buffer);
     }
 }
@@ -171,7 +171,7 @@ export function aesDecrypt(algorithm, key, data, requiredUsage = 'decrypt') {
             return Promise.reject(new DOMException('AES-CBC IV must be 16 bytes', 'OperationError'));
         }
 
-        return cipherOp(cipherType, CIPHER_OP_DECRYPT, key[kKeyData], iv, bytes, undefined, 0)
+        return cipherOp(cipherType, CIPHER_OP_DECRYPT, getKeyData(key), iv, bytes, undefined, 0)
             .then(r => r.buffer);
     }
 
@@ -194,7 +194,7 @@ export function aesDecrypt(algorithm, key, data, requiredUsage = 'decrypt') {
             return Promise.reject(new DOMException('AES-CTR length must be between 1 and 128', 'OperationError'));
         }
 
-        return cipherOp(cipherType, CIPHER_OP_DECRYPT, key[kKeyData], counter, bytes, undefined, 0)
+        return cipherOp(cipherType, CIPHER_OP_DECRYPT, getKeyData(key), counter, bytes, undefined, 0)
             .then(r => r.buffer);
     }
 
@@ -225,7 +225,7 @@ export function aesDecrypt(algorithm, key, data, requiredUsage = 'decrypt') {
 
         const tagLengthBytes = tagLengthBits / 8;
 
-        return cipherOp(cipherType, CIPHER_OP_DECRYPT, key[kKeyData], iv, bytes, aad, tagLengthBytes)
+        return cipherOp(cipherType, CIPHER_OP_DECRYPT, getKeyData(key), iv, bytes, aad, tagLengthBytes)
             .then(r => r.buffer);
     }
 }
@@ -334,14 +334,14 @@ export function aesExportKey(format, key) {
     if (format === 'jwk') {
         return {
             kty: 'oct',
-            k: base64urlEncode(key[kKeyData]),
+            k: base64urlEncode(getKeyData(key)),
             alg: aesJwkAlg(key.algorithm.name, key.algorithm.length),
             ext: key.extractable,
             key_ops: [ ...key.usages ],
         };
     }
 
-    return key[kKeyData].slice().buffer;
+    return getKeyData(key).slice().buffer;
 }
 
 export function aesKwWrap(key, data) {
@@ -378,7 +378,7 @@ export function aesKwWrap(key, data) {
     }
 
     try {
-        const result = nativeAesKw(AES_KW_OP_WRAP, key[kKeyData], bytes);
+        const result = nativeAesKw(AES_KW_OP_WRAP, getKeyData(key), bytes);
 
         return Promise.resolve(result.buffer);
     } catch (_e) {
@@ -411,7 +411,7 @@ export function aesKwUnwrap(key, data) {
     }
 
     try {
-        const result = nativeAesKw(AES_KW_OP_UNWRAP, key[kKeyData], bytes);
+        const result = nativeAesKw(AES_KW_OP_UNWRAP, getKeyData(key), bytes);
 
         return Promise.resolve(result.buffer);
     } catch (_e) {
