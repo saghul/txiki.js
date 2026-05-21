@@ -183,6 +183,23 @@ static void tjs_http_req_free(JSRuntime *rt, TJSHttpRequest *req) {
     js_free_rt(rt, req);
 }
 
+/*
+ * Detach a completed request from its wsi and free it.  Used once the
+ * response is fully transmitted: on a keep-alive connection lws may reuse
+ * the wsi for another transaction (a new req via LWS_CALLBACK_HTTP), and
+ * without this cleanup the previous req leaks until the connection closes.
+ */
+static void tjs_http_req_complete(TJSHttpServer *s, TJSHttpRequest *req) {
+    if (!req) {
+        return;
+    }
+    HASH_DEL(s->active_requests, req);
+    if (req->wsi && lws_wsi_user(req->wsi) == req) {
+        lws_set_wsi_user(req->wsi, NULL);
+    }
+    tjs_http_req_free(JS_GetRuntime(s->ctx), req);
+}
+
 static void tjs_wsconn_finalizer(JSRuntime *rt, JSValue val) {
     TJSWsConnection *ws = JS_GetOpaque(val, tjs_wsconn_class_id);
     if (ws) {
@@ -1015,10 +1032,12 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 }
 
                 if (is_final) {
-                    if (lws_http_transaction_completed(wsi)) {
-                        return -1;
-                    }
-                } else if (!list_empty(&req->pending_writes)) {
+                    int must_close = lws_http_transaction_completed(wsi);
+                    tjs_http_req_complete(s, req);
+                    return must_close ? -1 : 0;
+                }
+
+                if (!list_empty(&req->pending_writes)) {
                     lws_callback_on_writable(wsi);
                 }
 
@@ -1051,13 +1070,12 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             req->response_offset += n;
 
             if (req->response_offset >= total_payload) {
-                if (lws_http_transaction_completed(wsi)) {
-                    return -1;
-                }
-            } else {
-                lws_callback_on_writable(wsi);
+                int must_close = lws_http_transaction_completed(wsi);
+                tjs_http_req_complete(s, req);
+                return must_close ? -1 : 0;
             }
 
+            lws_callback_on_writable(wsi);
             return 0;
         }
 
@@ -1595,10 +1613,13 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
     if (body_len > 0) {
         lws_callback_on_writable(req->wsi);
     } else {
-        /* No body, complete the transaction. */
-        if (lws_http_transaction_completed(req->wsi)) {
-            return JS_UNDEFINED;
-        }
+        /* No body, complete the transaction now and release the request so
+         * a subsequent keep-alive transaction on this wsi doesn't accumulate
+         * the previous request's state.  The return value indicates whether
+         * lws will close the connection; either way we drop our state here
+         * and let lws handle the wsi lifecycle. */
+        (void) lws_http_transaction_completed(req->wsi);
+        tjs_http_req_complete(s, req);
     }
 
     return JS_UNDEFINED;
