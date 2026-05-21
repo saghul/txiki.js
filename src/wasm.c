@@ -120,11 +120,19 @@ typedef struct {
     JSValue *externrefs;
     uint32_t externref_count;
     uint32_t externref_capacity;
+    /* Cached ArrayBuffer aliasing WAMR linear memory. Detached and replaced
+     * whenever WAMR moves or resizes the underlying memory. */
+    JSValue memory_buffer;
+    void *memory_buffer_data;
+    size_t memory_buffer_size;
 } TJSWasmInstance;
 
 static void tjs_wasm_instance_finalizer(JSRuntime *rt, JSValue val) {
     TJSWasmInstance *i = JS_GetOpaque(val, tjs_wasm_instance_class_id);
     if (i) {
+        if (!JS_IsUndefined(i->memory_buffer)) {
+            JS_FreeValueRT(rt, i->memory_buffer);
+        }
         if (i->exec_env) {
             wasm_runtime_destroy_exec_env(i->exec_env);
         }
@@ -171,6 +179,9 @@ static void tjs_wasm_instance_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark
         }
         for (uint32_t j = 0; j < i->externref_count; j++) {
             JS_MarkValue(rt, i->externrefs[j], mark_func);
+        }
+        if (!JS_IsUndefined(i->memory_buffer)) {
+            JS_MarkValue(rt, i->memory_buffer, mark_func);
         }
     }
 }
@@ -219,6 +230,8 @@ static JSValue tjs_new_wasm_instance(JSContext *ctx) {
         return JS_EXCEPTION;
     }
 
+    i->memory_buffer = JS_UNDEFINED;
+
     JS_SetOpaque(obj, i);
     return obj;
 }
@@ -254,6 +267,44 @@ static JSValue tjs__wasm_val_to_js(JSContext *ctx, const wasm_val_t *val) {
             return JS_NewFloat64(ctx, val->of.f64);
         default:
             return JS_UNDEFINED;
+    }
+}
+
+/* Detach the cached memory.buffer ArrayBuffer (if any) and clear the cache. */
+static void tjs__wasm_drop_memory_buffer(JSContext *ctx, TJSWasmInstance *i) {
+    if (JS_IsUndefined(i->memory_buffer)) {
+        return;
+    }
+
+    JS_DetachArrayBuffer(ctx, i->memory_buffer);
+    JS_FreeValue(ctx, i->memory_buffer);
+    i->memory_buffer = JS_UNDEFINED;
+    i->memory_buffer_data = NULL;
+    i->memory_buffer_size = 0;
+}
+
+/* Drop the cached ArrayBuffer if WAMR linear memory has moved or resized
+ * since we handed it out. Must be called after any operation that could
+ * trigger growth — both the JS-side grow API and the WASM `memory.grow`
+ * instruction executed inside a wasm_runtime_call_wasm_a call. */
+static void tjs__wasm_drop_memory_buffer_if_changed(JSContext *ctx, TJSWasmInstance *i) {
+    if (JS_IsUndefined(i->memory_buffer)) {
+        return;
+    }
+
+    wasm_memory_inst_t mem = wasm_runtime_get_default_memory(i->module_inst);
+    if (!mem) {
+        tjs__wasm_drop_memory_buffer(ctx, i);
+        return;
+    }
+
+    void *base = wasm_memory_get_base_address(mem);
+    uint64_t page_count = wasm_memory_get_cur_page_count(mem);
+    uint64_t bytes_per_page = wasm_memory_get_bytes_per_page(mem);
+    size_t byte_length = (size_t) (page_count * bytes_per_page);
+
+    if (base != i->memory_buffer_data || byte_length != i->memory_buffer_size) {
+        tjs__wasm_drop_memory_buffer(ctx, i);
     }
 }
 
@@ -728,7 +779,13 @@ static JSValue tjs__call_wasm_func_inst(JSContext *ctx,
 
     wasm_val_t results[TJS__WASM_MAX_ARGS];
 
-    if (!wasm_runtime_call_wasm_a(inst->exec_env, func, result_count, results, param_count, params)) {
+    bool ok = wasm_runtime_call_wasm_a(inst->exec_env, func, result_count, results, param_count, params);
+    /* WASM code may have run `memory.grow` while we were inside the call,
+     * invalidating any ArrayBuffer we previously handed out. Detach now so
+     * stale views can no longer dereference moved-or-freed storage. */
+    tjs__wasm_drop_memory_buffer_if_changed(ctx, inst);
+
+    if (!ok) {
         /* If an imported JS function threw, re-throw the original JS exception */
         if (inst->has_pending_exception) {
             JSValue exc = inst->pending_exception;
@@ -1376,7 +1433,26 @@ static JSValue tjs_wasm_getmemorybuffer(JSContext *ctx, JSValue this_val, int ar
     uint64_t bytes_per_page = wasm_memory_get_bytes_per_page(mem);
     size_t byte_length = (size_t) (page_count * bytes_per_page);
 
-    return JS_NewArrayBuffer(ctx, (uint8_t *) base, byte_length, tjs__wasm_memory_free, NULL, false);
+    /* Reuse the cached ArrayBuffer while the underlying storage has not moved
+     * or resized — WebAssembly.Memory.prototype.buffer must return the same
+     * object across calls until a successful grow. */
+    if (!JS_IsUndefined(i->memory_buffer)) {
+        if (base == i->memory_buffer_data && byte_length == i->memory_buffer_size) {
+            return JS_DupValue(ctx, i->memory_buffer);
+        }
+        tjs__wasm_drop_memory_buffer(ctx, i);
+    }
+
+    JSValue buffer = JS_NewArrayBuffer(ctx, (uint8_t *) base, byte_length, tjs__wasm_memory_free, NULL, false);
+    if (JS_IsException(buffer)) {
+        return buffer;
+    }
+
+    i->memory_buffer = JS_DupValue(ctx, buffer);
+    i->memory_buffer_data = base;
+    i->memory_buffer_size = byte_length;
+
+    return buffer;
 }
 
 static JSValue tjs_wasm_growmemory(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -1398,12 +1474,17 @@ static JSValue tjs_wasm_growmemory(JSContext *ctx, JSValue this_val, int argc, J
     uint64_t old_pages = wasm_memory_get_cur_page_count(mem);
 
     if (delta == 0) {
+        /* Per the JS API spec, a successful grow (including delta == 0)
+         * detaches the existing buffer. */
+        tjs__wasm_drop_memory_buffer(ctx, i);
         return JS_NewUint32(ctx, (uint32_t) old_pages);
     }
 
     if (!wasm_memory_enlarge(mem, delta)) {
         return JS_ThrowRangeError(ctx, "failed to grow memory");
     }
+
+    tjs__wasm_drop_memory_buffer(ctx, i);
 
     return JS_NewUint32(ctx, (uint32_t) old_pages);
 }
