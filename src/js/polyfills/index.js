@@ -5,7 +5,6 @@ import './timers.js';
 import './event-target-polyfill.js';
 import './structured-clone.js';
 
-import './abba.js';
 import './text-encoding.js';
 import './text-encode-transform.js';
 import './url.js';
