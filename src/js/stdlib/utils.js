@@ -331,8 +331,24 @@ function formatPrimitive(ctx, value) {
 }
 
 
-function formatError(value) {
-    return value.toString() + '\n' + value.stack;
+function formatError(value, depth = 0) {
+    if (depth > 10) {
+        return 'Caused by: <error chain too deep>';
+    }
+
+    let out = (depth > 0 ? 'Caused by: ' : '') + String(value);
+
+    if (isError(value)) {
+        if (value.stack) {
+            out += '\n' + value.stack;
+        }
+
+        if (value.cause !== undefined) {
+            out += '\n' + formatError(value.cause, depth + 1);
+        }
+    }
+
+    return out;
 }
 
 
