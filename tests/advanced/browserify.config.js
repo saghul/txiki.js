@@ -11,7 +11,6 @@ function createGeneratorInput(generatorName) {
 }
 
 [
-  'cheerio',
   'global-jsdom',
   'jsdom'
 ].map(createGeneratorInput)

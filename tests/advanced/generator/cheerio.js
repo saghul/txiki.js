@@ -1,1 +1,3 @@
-global.cheerio = require('cheerio') // workaround for qjs, there is no module.exports available
+import * as cheerio from 'cheerio';
+
+globalThis.cheerio = cheerio;

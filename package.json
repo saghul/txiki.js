@@ -12,25 +12,25 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@eslint/js": "^9.39.3",
-    "@jridgewell/trace-mapping": "^0.3.31",
-    "@jsr/std__tar": "^0.1.10",
-    "@stylistic/eslint-plugin": "^5.9.0",
-    "esbuild": "^0.27.0",
-    "eslint": "^9.39.3",
-    "eslint-plugin-import-x": "^4.16.1",
-    "getopts": "^2.3.0",
-    "gh-pages": "^6.3.0",
-    "globals": "^17.3.0",
-    "ipaddr.js": "^2.3.0",
-    "urlpattern-polyfill": "^10.1.0",
-    "uuid": "13.0.0",
-    "web-streams-polyfill": "^4.2.0"
+    "@eslint/js": "10.0.1",
+    "@jridgewell/trace-mapping": "0.3.31",
+    "@jsr/std__tar": "0.1.10",
+    "@stylistic/eslint-plugin": "5.10.0",
+    "esbuild": "0.28.0",
+    "eslint": "10.4.0",
+    "eslint-plugin-import-x": "4.16.2",
+    "getopts": "2.3.0",
+    "gh-pages": "6.3.0",
+    "globals": "17.6.0",
+    "ipaddr.js": "2.4.0",
+    "urlpattern-polyfill": "10.1.0",
+    "uuid": "14.0.0",
+    "web-streams-polyfill": "4.3.0"
   },
   "devDependencies": {
-    "typedoc": "^0.28.17"
+    "typedoc": "0.28.19"
   },
   "overrides": {
-    "minimatch": "^10.2.2"
+    "minimatch": "10.2.5"
   }
 }
