@@ -1,3 +1,5 @@
+import core from 'tjs:internal/core';
+
 import { defineEventAttribute, EventTarget, Event, CustomEvent } from './event-target.js';
 
 class CloseEvent extends Event {
@@ -176,5 +178,7 @@ defineEventAttribute(globalProto, 'load');
 defineEventAttribute(globalProto, 'beforeunload');
 defineEventAttribute(globalProto, 'unhandledrejection');
 
-// Export it for worker-bootstrap.
-EventTarget.__defineEventAttribute = defineEventAttribute;
+// Stash on the internal core object so the worker bootstrap (which has no
+// other way to reach this module) can pick it up without exposing it to
+// user code via the global EventTarget.
+core.defineEventAttribute = defineEventAttribute;

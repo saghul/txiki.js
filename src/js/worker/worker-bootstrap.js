@@ -1,3 +1,4 @@
+import core from 'tjs:internal/core';
 import messagePipe from 'tjs:internal/worker';
 
 messagePipe.onmessage = msg => {
@@ -10,8 +11,6 @@ messagePipe.onmessageerror = msgerror => {
 
 self.postMessage = message => messagePipe.postMessage(message);
 
-const defineEventAttribute = EventTarget.__defineEventAttribute;
-
-defineEventAttribute(Object.getPrototypeOf(self), 'message');
-defineEventAttribute(Object.getPrototypeOf(self), 'messageerror');
-defineEventAttribute(Object.getPrototypeOf(self), 'error');
+core.defineEventAttribute(Object.getPrototypeOf(self), 'message');
+core.defineEventAttribute(Object.getPrototypeOf(self), 'messageerror');
+core.defineEventAttribute(Object.getPrototypeOf(self), 'error');
