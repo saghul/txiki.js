@@ -97,7 +97,7 @@ export async function runTpk(exef, exeSize) {
                 // Ignore cleanup error.
             }
 
-            throw new Error(`TPK extraction failed: ${e.message}`);
+            throw new Error(`TPK extraction failed: ${e.message}`, { cause: e });
         }
 
         // Atomic rename.
@@ -178,8 +178,8 @@ async function readAppDir() {
 
     try {
         manifestData = await tjs.readFile(manifestPath);
-    } catch (_) {
-        throw new Error(`'${manifestPath}' not found. Run 'tjs app init' first.`);
+    } catch (e) {
+        throw new Error(`'${manifestPath}' not found. Run 'tjs app init' first.`, { cause: e });
     }
 
     const manifest = JSON.parse(new TextDecoder().decode(manifestData));

@@ -2,7 +2,8 @@ const esbuild = require('esbuild');
 const path = require('path');
 
 const modules = [
-    { entry: 'generator/hono.js', out: 'generated/hono.js' },
+    { entry: 'generator/cheerio.js', out: 'generated/cheerio.js', platform: 'browser' },
+    { entry: 'generator/hono.js', out: 'generated/hono.js', platform: 'neutral' },
 ];
 
 for (const mod of modules) {
@@ -12,7 +13,7 @@ for (const mod of modules) {
         bundle: true,
         outfile: path.join(__dirname, mod.out),
         format: 'esm',
-        platform: 'neutral',
+        platform: mod.platform,
         target: 'esnext',
         minify: false,
     });
