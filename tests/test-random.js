@@ -9,7 +9,7 @@ const buf = new ArrayBuffer(256);
 
 for (const type of types) {
     const ta = new type(buf);
-    window.crypto.getRandomValues(ta);
+    globalThis.crypto.getRandomValues(ta);
     const taStr = TypedArrayProto_toStringTag.call(ta);
     assert.ok(ta, `getRandomValues works for ${taStr}`);
 }
@@ -17,9 +17,9 @@ for (const type of types) {
 const badTypes = [null, undefined, {}, '', NaN, 123];
 
 for (const type of badTypes) {
-    assert.throws(() => { window.crypto.getRandomValues(type) }, TypeError, `throws TypeError for ${type}`);
+    assert.throws(() => { globalThis.crypto.getRandomValues(type) }, TypeError, `throws TypeError for ${type}`);
 }
 
-assert.throws(() => { window.crypto.getRandomValues(new Uint8Array(largeBuf)) }, Error, 'large buffer length throws');
+assert.throws(() => { globalThis.crypto.getRandomValues(new Uint8Array(largeBuf)) }, Error, 'large buffer length throws');
 const largeBuf = new ArrayBuffer(128 * 1024);
-assert.throws(() => { window.crypto.getRandomValues(new Uint8Array(largeBuf)) }, Error, 'large buffer length throws');
+assert.throws(() => { globalThis.crypto.getRandomValues(new Uint8Array(largeBuf)) }, Error, 'large buffer length throws');

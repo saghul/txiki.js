@@ -1,6 +1,6 @@
 let count = 0;
 
-window.addEventListener('beforeunload', (e) => {
+globalThis.addEventListener('beforeunload', (e) => {
     count++;
     console.log(`beforeunload count=${count}`);
 

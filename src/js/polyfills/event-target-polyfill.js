@@ -116,7 +116,7 @@ class ProgressEvent extends Event {
     }
 }
 
-Object.defineProperties(window, {
+Object.defineProperties(globalThis, {
     CloseEvent: {
         enumerable: true,
         configurable: true,
@@ -167,14 +167,14 @@ Object.defineProperties(window, {
     }
 });
 
-Object.setPrototypeOf(window, EventTarget.prototype);
-EventTarget.prototype.__init.call(window);
+Object.setPrototypeOf(globalThis, EventTarget.prototype);
+EventTarget.prototype.__init.call(globalThis);
 
-const windowProto = Object.getPrototypeOf(window);
+const globalProto = Object.getPrototypeOf(globalThis);
 
-defineEventAttribute(windowProto, 'load');
-defineEventAttribute(windowProto, 'beforeunload');
-defineEventAttribute(windowProto, 'unhandledrejection');
+defineEventAttribute(globalProto, 'load');
+defineEventAttribute(globalProto, 'beforeunload');
+defineEventAttribute(globalProto, 'unhandledrejection');
 
 // Export it for worker-bootstrap.
 EventTarget.__defineEventAttribute = defineEventAttribute;

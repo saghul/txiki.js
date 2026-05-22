@@ -1,3 +1,3 @@
-window.addEventListener('beforeunload', () => {
+globalThis.addEventListener('beforeunload', () => {
     console.log('beforeunload fired');
 });

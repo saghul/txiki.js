@@ -247,7 +247,7 @@ Object.defineProperties(Blob.prototype, {
     slice: { enumerable: true }
 });
 
-Object.defineProperty(window, 'Blob', {
+Object.defineProperty(globalThis, 'Blob', {
     enumerable: true,
     configurable: true,
     writable: true,

@@ -721,7 +721,7 @@ static void uv__check_cb(uv_check_t *handle) {
 static bool tjs__fire_beforeunload(TJSRuntime *qrt) {
     static char code[] = "(function(){"
                          "  const e = new Event('beforeunload', { cancelable: true });"
-                         "  return !window.dispatchEvent(e);"
+                         "  return !globalThis.dispatchEvent(e);"
                          "})();";
 
     JSContext *ctx = qrt->ctx;
@@ -851,10 +851,10 @@ JSValue TJS_EvalModuleContent(JSContext *ctx,
         ret = JS_EvalFunction(ctx, ret);
     }
 
-    /* Emit window 'load' event. */
+    /* Emit 'load' event. */
     if (!JS_IsException(ret) && is_main) {
-        static char emit_window_load[] = "window.dispatchEvent(new Event('load'));";
-        JSValue ret1 = JS_Eval(ctx, emit_window_load, strlen(emit_window_load), "<global>", JS_EVAL_TYPE_GLOBAL);
+        static char emit_load[] = "globalThis.dispatchEvent(new Event('load'));";
+        JSValue ret1 = JS_Eval(ctx, emit_load, strlen(emit_load), "<global>", JS_EVAL_TYPE_GLOBAL);
         if (JS_IsException(ret1)) {
             tjs_dump_error(ctx);
         }

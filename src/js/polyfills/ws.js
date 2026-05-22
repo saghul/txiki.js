@@ -244,7 +244,7 @@ defineEventAttribute(xhrProto, 'error');
 defineEventAttribute(xhrProto, 'message');
 defineEventAttribute(xhrProto, 'open');
 
-Object.defineProperty(window, 'WebSocket', {
+Object.defineProperty(globalThis, 'WebSocket', {
     enumerable: true,
     configurable: true,
     writable: true,
