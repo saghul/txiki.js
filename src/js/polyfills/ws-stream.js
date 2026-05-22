@@ -377,14 +377,14 @@ class WebSocketStream {
     }
 }
 
-Object.defineProperty(window, 'WebSocketError', {
+Object.defineProperty(globalThis, 'WebSocketError', {
     enumerable: true,
     configurable: true,
     writable: true,
     value: WebSocketError
 });
 
-Object.defineProperty(window, 'WebSocketStream', {
+Object.defineProperty(globalThis, 'WebSocketStream', {
     enumerable: true,
     configurable: true,
     writable: true,

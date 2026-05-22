@@ -104,7 +104,7 @@ defineEventAttribute(workerProto, 'message');
 defineEventAttribute(workerProto, 'messageerror');
 defineEventAttribute(workerProto, 'error');
 
-Object.defineProperty(window, 'Worker', {
+Object.defineProperty(globalThis, 'Worker', {
     enumerable: true,
     configurable: true,
     writable: true,

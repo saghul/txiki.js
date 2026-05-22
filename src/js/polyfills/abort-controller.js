@@ -115,7 +115,7 @@ class AbortController {
 
 AbortController.prototype[Symbol.toStringTag] = 'AbortController';
 
-Object.defineProperties(window, {
+Object.defineProperties(globalThis, {
     AbortController: {
         enumerable: true,
         configurable: true,

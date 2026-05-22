@@ -303,7 +303,7 @@ class CSI {
 
 const kConsoleClear = CSI.kHome + CSI.kClearScreenDown;
 
-Object.defineProperty(window, 'console', {
+Object.defineProperty(globalThis, 'console', {
     enumerable: false,
     configurable: true,
     writable: true,

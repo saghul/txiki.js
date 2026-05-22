@@ -369,7 +369,7 @@ defineEventAttribute(xhrProto, 'progress');
 defineEventAttribute(xhrProto, 'readystatechange');
 defineEventAttribute(xhrProto, 'timeout');
 
-Object.defineProperty(window, 'XMLHttpRequest', {
+Object.defineProperty(globalThis, 'XMLHttpRequest', {
     enumerable: true,
     configurable: true,
     writable: true,

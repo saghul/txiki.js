@@ -3,7 +3,7 @@
 
 let unhandledCount = 0;
 
-window.addEventListener('unhandledrejection', event => {
+globalThis.addEventListener('unhandledrejection', event => {
     unhandledCount++;
     event.preventDefault();
 });

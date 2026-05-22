@@ -1,4 +1,4 @@
-window.addEventListener('beforeunload', (e) => {
+globalThis.addEventListener('beforeunload', (e) => {
     e.preventDefault();
     console.log('prevented but no work');
 });

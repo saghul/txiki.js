@@ -572,7 +572,7 @@ function getPrompt() {
 // --- Main loop ---
 
 // Avoid aborting in unhandled promises on the REPL.
-window.addEventListener('unhandledrejection', event => {
+globalThis.addEventListener('unhandledrejection', event => {
     event.preventDefault();
 });
 

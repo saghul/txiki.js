@@ -44,7 +44,7 @@ class File extends Blob {
     }
 }
 
-Object.defineProperty(window, 'File', {
+Object.defineProperty(globalThis, 'File', {
     enumerable: true,
     configurable: true,
     writable: true,

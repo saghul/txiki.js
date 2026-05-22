@@ -1,6 +1,6 @@
 // Order is important!
 
-import './global.js';
+import './self.js';
 import './timers.js';
 import './event-target-polyfill.js';
 import './structured-clone.js';

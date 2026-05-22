@@ -45,7 +45,7 @@ const crypto = Object.freeze({
     subtle,
 });
 
-Object.defineProperty(window, 'crypto', {
+Object.defineProperty(globalThis, 'crypto', {
     enumerable: true,
     configurable: true,
     writable: true,

@@ -4,18 +4,18 @@ import path from 'tjs:path';
 
 if (tjs.env.TJS_HOME) {
     // This is the second test.
-    assert.eq(window.localStorage.getItem('foo'), '123');
+    assert.eq(globalThis.localStorage.getItem('foo'), '123');
 
     tjs.exit(0);
 }
 
-window.localStorage.clear();
+globalThis.localStorage.clear();
 
-assert.eq(window.localStorage.getItem('foo'), null);
+assert.eq(globalThis.localStorage.getItem('foo'), null);
 
-window.localStorage.setItem('foo', 123);
+globalThis.localStorage.setItem('foo', 123);
 
-assert.eq(window.localStorage.getItem('foo'), '123');
+assert.eq(globalThis.localStorage.getItem('foo'), '123');
 
 const args = [
     tjs.exePath,
