@@ -248,6 +248,10 @@ export class UDPSocket {
     }
 
     close() {
+        if (!this.#active) {
+            return;
+        }
+
         this.#active = false;
         silentClose(this.#handle);
         this.#closedResolve();

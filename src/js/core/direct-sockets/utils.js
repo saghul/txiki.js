@@ -345,6 +345,10 @@ export class BaseStreamServerSocket {
     }
 
     close() {
+        if (!this.#active) {
+            return;
+        }
+
         this.#active = false;
         silentClose(this.#handle);
         this.#closedResolve();
