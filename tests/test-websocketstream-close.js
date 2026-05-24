@@ -77,4 +77,4 @@ const { server, wsUrl } = createEchoServer();
     console.log('[TEST] close: test 4 done');
 }
 
-server.close();
+await server.close();

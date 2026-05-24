@@ -51,6 +51,7 @@ export class UDPSocket {
     #closedResolve;
     #closedReject;
     #pendingSend = null;
+    #active = true;
 
     constructor(options = {}) {
         const hasRemote = options.remoteAddress !== undefined && options.remotePort !== undefined;
@@ -247,7 +248,17 @@ export class UDPSocket {
     }
 
     close() {
+        this.#active = false;
         silentClose(this.#handle);
         this.#closedResolve();
+    }
+
+    async [Symbol.asyncDispose]() {
+        if (!this.#active) {
+            return;
+        }
+
+        this.close();
+        await this.#closed;
     }
 }

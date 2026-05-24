@@ -8,9 +8,9 @@ const proto = 'echo1234';
 const ws = new WebSocket(wsUrl, [ proto ]);
 
 
-ws.addEventListener('open', () => {
+ws.addEventListener('open', async () => {
     assert.eq(ws.protocol, proto, 'protocol is the same');
 
     ws.close();
-    server.close();
+    await server.close();
 });

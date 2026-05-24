@@ -138,6 +138,7 @@ typedef struct {
     JSContext *ctx;
     JSValue callback;                   /* JS onrequest handler */
     JSValue body_chunk_callback;        /* JS onBodyChunk handler for streaming bodies */
+    JSValue close_callback;             /* JS onClose, invoked when lws fires PROTOCOL_DESTROY */
     JSValue this_val;                   /* prevent GC while listening */
     JSValue ws_callbacks[WS_EVENT_MAX]; /* server-level: open, message, close, error */
     struct lws_vhost *vhost;
@@ -244,6 +245,7 @@ static void tjs_httpserver_finalizer(JSRuntime *rt, JSValue val) {
     if (s) {
         JS_FreeValueRT(rt, s->callback);
         JS_FreeValueRT(rt, s->body_chunk_callback);
+        JS_FreeValueRT(rt, s->close_callback);
 
         for (int i = 0; i < WS_EVENT_MAX; i++) {
             JS_FreeValueRT(rt, s->ws_callbacks[i]);
@@ -285,6 +287,7 @@ static void tjs_httpserver_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_fu
     if (s) {
         JS_MarkValue(rt, s->callback, mark_func);
         JS_MarkValue(rt, s->body_chunk_callback, mark_func);
+        JS_MarkValue(rt, s->close_callback, mark_func);
         for (int i = 0; i < WS_EVENT_MAX; i++) {
             JS_MarkValue(rt, s->ws_callbacks[i], mark_func);
         }
@@ -1102,8 +1105,12 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
         }
 
         case LWS_CALLBACK_PROTOCOL_DESTROY: {
-            /* lws is fully done with this vhost/protocol. Release the
-             * GC-prevention self-reference so the object can be collected. */
+            if (JS_IsFunction(s->ctx, s->close_callback)) {
+                JSValue cb = s->close_callback;
+                s->close_callback = JS_UNDEFINED;
+                tjs_call_handler(s->ctx, cb, 0, NULL);
+                JS_FreeValue(s->ctx, cb);
+            }
             if (!JS_IsUndefined(s->this_val)) {
                 JSValue this_val = s->this_val;
                 s->this_val = JS_UNDEFINED;
@@ -1249,6 +1256,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     s->ctx = ctx;
     s->callback = JS_UNDEFINED;
     s->body_chunk_callback = JS_UNDEFINED;
+    s->close_callback = JS_UNDEFINED;
     s->this_val = JS_UNDEFINED;
     for (int i = 0; i < WS_EVENT_MAX; i++) {
         s->ws_callbacks[i] = JS_UNDEFINED;
@@ -1281,6 +1289,15 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     JSValue js_body_chunk = JS_GetPropertyStr(ctx, options, "onBodyChunk");
     CHECK(JS_IsFunction(ctx, js_body_chunk));
     s->body_chunk_callback = js_body_chunk;
+
+    /* Close callback, fired once lws is fully done draining the vhost
+     * (i.e. LWS_CALLBACK_PROTOCOL_DESTROY). */
+    JSValue js_close = JS_GetPropertyStr(ctx, options, "onClose");
+    if (JS_IsFunction(ctx, js_close)) {
+        s->close_callback = js_close;
+    } else {
+        JS_FreeValue(ctx, js_close);
+    }
 
     /* WS callbacks (may be null). */
     static const char *ws_prop_names[] = { "wsOpen", "wsMessage", "wsClose", "wsError" };

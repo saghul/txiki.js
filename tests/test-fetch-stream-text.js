@@ -11,4 +11,4 @@ const text = await response.text();
 assert.eq(typeof text, 'string', 'text() returns string');
 assert.ok(text.length > 0, 'text has content');
 
-server.close();
+await server.close();

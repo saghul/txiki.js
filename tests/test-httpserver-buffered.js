@@ -14,7 +14,7 @@ async function testBufferedString() {
     const text = await resp.text();
     assert.eq(text, 'hello world', 'body matches');
 
-    server.close();
+    await server.close();
 }
 
 // Buffered response with custom status and headers.
@@ -35,7 +35,7 @@ async function testBufferedHeaders() {
     const text = await resp.text();
     assert.eq(text, 'not found', 'body matches');
 
-    server.close();
+    await server.close();
 }
 
 // Buffered response with empty body.
@@ -48,7 +48,7 @@ async function testBufferedEmpty() {
     const resp = await fetch(`http://127.0.0.1:${server.port}/`);
     assert.eq(resp.status, 204, 'status is 204');
 
-    server.close();
+    await server.close();
 }
 
 // Buffered response with JSON body.
@@ -68,7 +68,7 @@ async function testBufferedJSON() {
     assert.eq(json.message, 'hello', 'message field');
     assert.eq(json.number, 42, 'number field');
 
-    server.close();
+    await server.close();
 }
 
 // POST request with body echoed back.
@@ -92,7 +92,7 @@ async function testPostRequest() {
     const text = await resp.text();
     assert.eq(text, 'echo: hello from client', 'body echoed back');
 
-    server.close();
+    await server.close();
 }
 
 await testBufferedString();

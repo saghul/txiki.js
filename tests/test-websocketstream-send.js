@@ -85,4 +85,4 @@ const echoUrl = `ws://127.0.0.1:${server.port}`;
     console.log('[TEST] send: binary test done');
 }
 
-server.close();
+await server.close();

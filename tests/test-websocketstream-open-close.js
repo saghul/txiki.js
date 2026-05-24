@@ -26,4 +26,4 @@ const { server, wsUrl } = createEchoServer();
     assert.eq(reason, '', 'reason is empty');
 }
 
-server.close();
+await server.close();

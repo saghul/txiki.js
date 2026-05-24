@@ -99,4 +99,4 @@ if (bodies.length > beforeMalformed) {
     assert.notEqual(bodies[beforeMalformed], 'HELLO', 'malformed chunk is not delivered');
 }
 
-server.close();
+await server.close();

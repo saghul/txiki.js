@@ -178,6 +178,16 @@ class Subprocess {
     wait() {
         return this.#waitPromise;
     }
+
+    async [Symbol.asyncDispose]() {
+        try {
+            this.#proc.kill('SIGTERM');
+        } catch {
+            // Already exited or no longer killable.
+        }
+
+        await this.#waitPromise;
+    }
 }
 
 export function spawn(args, options) {

@@ -20,4 +20,4 @@ try {
 assert.ok(threw, 'reading body twice throws');
 assert.ok(response.bodyUsed, 'bodyUsed is true');
 
-server.close();
+await server.close();

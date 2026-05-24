@@ -30,4 +30,4 @@ const protocol = await new Promise((resolve, reject) => {
 });
 
 assert.eq(protocol, '', 'protocol must be empty when none requested');
-server.close();
+await server.close();

@@ -19,7 +19,7 @@
  * @module tjs:sqlite
  */
 declare module 'tjs:sqlite'{
-    export interface IStatement {
+    export interface IStatement extends Disposable {
         /**
          * Runs the SQL statement, ignoring the result. This is commonly used for
          * CREATE, INSERT and statement of that sort.
@@ -38,7 +38,10 @@ declare module 'tjs:sqlite'{
 
         /**
          * Free all resources associated with this statement. No other function
-         * can be called on it afterwards.
+         * can be called on it afterwards. Idempotent.
+         *
+         * Aliased as `Symbol.dispose`, so `using stmt = db.prepare(...)`
+         * finalizes the statement at scope exit.
          */
         finalize(): void;
 
@@ -133,6 +136,10 @@ declare module 'tjs:sqlite'{
 
         /**
          * Closes the database. No further operations can be performed afterwards.
+         * Idempotent.
+         *
+         * Aliased as `Symbol.dispose`, so `using db = new Database(...)`
+         * closes the database at scope exit.
          */
         close(): void;
 
@@ -144,4 +151,5 @@ declare module 'tjs:sqlite'{
         loadExtension(file:string, entrypoint?:string): undefined;
 
     }
+    export interface Database extends Disposable {}
 }

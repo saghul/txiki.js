@@ -232,6 +232,7 @@ static const JSCFunctionListEntry tjs_fswatch_proto_funcs[] = {
     TJS_CFUNC_DEF("close", 0, tjs_fswatch_close),
     JS_CGETSET_DEF("path", tjs_fswatch_path_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "FsWatcher", JS_PROP_CONFIGURABLE),
+    JS_CFUNC_DEF("[Symbol.dispose]", 0, tjs_fswatch_close),
 };
 
 static const JSCFunctionListEntry tjs_fswatch_funcs[] = {

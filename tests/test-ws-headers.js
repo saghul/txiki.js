@@ -147,4 +147,4 @@ function getHeaders(ws) {
     await wss.closed;
 }
 
-server.close();
+await server.close();

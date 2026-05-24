@@ -126,4 +126,4 @@ await testWsChat();
 await testNotFound();
 await testHttpAfterWs();
 
-server.close();
+await server.close();

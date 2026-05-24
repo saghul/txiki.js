@@ -47,4 +47,4 @@ const j3 = await r3.json();
 
 assert.eq(j3.data, 'hello uint8');
 
-server.close();
+await server.close();

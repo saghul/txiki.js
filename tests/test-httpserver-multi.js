@@ -40,7 +40,7 @@ async function testMultipleServers() {
     assert.eq(r3, 'server3-stream', 'server3 streaming response');
 
     server1.close();
-    server2.close();
+    await server2.close();
     server3.close();
 }
 
@@ -111,7 +111,7 @@ async function testConcurrentRequests() {
     const unique = new Set(results);
     assert.eq(unique.size, 5, 'all responses unique');
 
-    server.close();
+    await server.close();
 }
 
 await testMultipleServers();

@@ -46,4 +46,4 @@ for (let i = 0; i < N; i++) {
     assert.ok(results.includes(`echo: msg-${i}`), `got echo for msg-${i}`);
 }
 
-server.close();
+await server.close();

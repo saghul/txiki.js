@@ -26,4 +26,4 @@ assert.eq(xhr2.readyState, xhr2.DONE, 'readyState is DONE');
 assert.eq(xhr2.responseURL, url, 'url is the same');
 assert.eq(xhr2.status, 200, 'status is 200');
 
-server.close();
+await server.close();

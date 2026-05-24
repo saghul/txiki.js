@@ -93,6 +93,10 @@ class Worker extends EventTarget {
         this.#worker.terminate();
     }
 
+    [Symbol.dispose]() {
+        this.#worker.terminate();
+    }
+
     get [Symbol.toStringTag]() {
         return 'Worker';
     }

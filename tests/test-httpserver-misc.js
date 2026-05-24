@@ -29,7 +29,7 @@ async function testRouting() {
     const r2 = await fetch(`http://127.0.0.1:${server.port}/stream`);
     assert.eq(await r2.text(), 'streamed', 'streaming path');
 
-    server.close();
+    await server.close();
 }
 
 // Server close: fetch works before, fails after.
@@ -42,7 +42,7 @@ async function testServerClose() {
     const resp = await fetch(`http://127.0.0.1:${server.port}/`);
     assert.eq(await resp.text(), 'ok', 'response before close');
 
-    server.close();
+    await server.close();
 
     let fetchFailed = false;
     const controller = new AbortController();
@@ -68,7 +68,7 @@ async function testNonResponseHandler() {
     const resp = await fetch(`http://127.0.0.1:${server.port}/`);
     assert.eq(resp.status, 500, 'status is 500');
 
-    server.close();
+    await server.close();
 }
 
 // Handler throwing error returns 500.
@@ -86,7 +86,7 @@ async function testErrorHandler() {
     const text = await resp.text();
     assert.eq(text, 'Internal Server Error', 'body is error message');
 
-    server.close();
+    await server.close();
 }
 
 // Async handler with delay.
@@ -103,7 +103,7 @@ async function testAsyncHandler() {
     const resp = await fetch(`http://127.0.0.1:${server.port}/`);
     assert.eq(await resp.text(), 'async result', 'body matches');
 
-    server.close();
+    await server.close();
 }
 
 // Request method and URL pathname are correct.
@@ -131,7 +131,7 @@ async function testRequestInfo() {
     assert.eq(info.pathname, '/test/path', 'pathname matches');
     assert.eq(info.search, '?key=value', 'search matches');
 
-    server.close();
+    await server.close();
 }
 
 await testRouting();

@@ -34,6 +34,12 @@ declare module 'tjs:posix-socket' {
         recv(size: number): Uint8Array;
         recvmsg(size: number): {data: Uint8Array, addr: Uint8Array};
         recvmsg(size: number, controllen: number): {data: Uint8Array, addr: Uint8Array, control: Uint8Array};
+        /**
+         * Closes the socket. Idempotent.
+         *
+         * Aliased as `Symbol.dispose`, so `using sock = new PosixSocket(...)`
+         * closes the socket at scope exit.
+         */
         close(): void;
         setopt(level: number, name: number, value: Uint8Array): void;
         /**
@@ -115,8 +121,9 @@ declare module 'tjs:posix-socket' {
         /**
         * Caculates internet checksum: the 16-bit ones' complement of the ones' complement sum of all 16-bit words in the buffer.
         * Used in ipv4, udp, tcp, icmp...
-        * @param buf 
+        * @param buf
         */
         static checksum(buf: Uint8Array): number;
     }
+    export interface PosixSocket extends Disposable {}
 }

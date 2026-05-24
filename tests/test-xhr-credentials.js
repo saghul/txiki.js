@@ -42,4 +42,4 @@ assert.eq(result.cookies.key, cookieValue, 'cookies is same');
 const cookies = new TextDecoder().decode(await tjs.readFile(cookieJarPath));
 assert.ok(cookies.includes(cookieValue), 'cookies has wrote to disk');
 
-server.close();
+await server.close();

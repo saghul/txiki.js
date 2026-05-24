@@ -40,4 +40,4 @@ const wsResult = await new Promise((resolve, reject) => {
 });
 
 assert.eq(wsResult, 'ws: test', 'WS echo works alongside HTTP');
-server.close();
+await server.close();

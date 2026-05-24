@@ -24,5 +24,5 @@ try {
 } finally {
     clearTimeout(timeout);
     clearInterval(gcInterval);
-    server.close();
+    await server.close();
 }

@@ -164,4 +164,4 @@ await testStreaming();
 await testSSE();
 await testGroupedRoutes();
 
-server.close();
+await server.close();

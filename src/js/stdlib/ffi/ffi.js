@@ -96,6 +96,10 @@ export class Lib {
         this._uvlib.close();
     }
 
+    [Symbol.dispose]() {
+        this.close();
+    }
+
     parseCProto(header) {
         const ast = parseCProto(header);
 

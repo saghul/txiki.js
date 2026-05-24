@@ -90,4 +90,4 @@ const clOnly = await raw(server.port,
 assert.ok(clOnly.includes('HTTP/1.1 200'), 'plain Content-Length request is accepted');
 assert.eq(bodies[0], 'hello', 'plain Content-Length body is delivered');
 
-server.close();
+await server.close();

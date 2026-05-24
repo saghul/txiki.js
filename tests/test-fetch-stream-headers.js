@@ -17,4 +17,4 @@ const data = await response.json();
 
 assert.ok(data, 'body is readable');
 
-server.close();
+await server.close();

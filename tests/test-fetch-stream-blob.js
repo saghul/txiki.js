@@ -11,4 +11,4 @@ const blob = await response.blob();
 assert.ok(blob instanceof Blob, 'blob() returns Blob');
 assert.ok(blob.size > 0, 'blob has data');
 
-server.close();
+await server.close();

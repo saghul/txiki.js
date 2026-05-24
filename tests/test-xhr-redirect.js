@@ -9,11 +9,11 @@ const targetUrl = `${baseUrl}/redirect-target`;
 
 const xhr = new XMLHttpRequest();
 xhr.open('GET', url);
-xhr.onloadend = () => {
+xhr.onloadend = async () => {
     assert.eq(xhr.readyState, xhr.DONE, 'readyState is DONE');
     assert.eq(xhr.status, 200, 'status is 200');
     assert.ok(xhr.responseURL.startsWith(targetUrl), 'url was redirected');
     assert.ok(xhr.responseText.length > 0, 'response body is not empty');
-    server.close();
+    await server.close();
 };
 xhr.send();

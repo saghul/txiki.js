@@ -256,6 +256,10 @@ class ReadlineInterface {
         }
     }
 
+    [Symbol.dispose]() {
+        this.close();
+    }
+
     async readline() {
         if (this.#lineQueue.length > 0) {
             return this.#lineQueue.shift();

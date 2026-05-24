@@ -26,4 +26,4 @@ async function testDefaultUserAgent() {
 await testCustomUserAgent();
 await testDefaultUserAgent();
 
-server.close();
+await server.close();

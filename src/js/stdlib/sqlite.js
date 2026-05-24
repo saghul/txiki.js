@@ -29,6 +29,10 @@ class Database {
         }
     }
 
+    [Symbol.dispose]() {
+        this.close();
+    }
+
     exec(sql) {
         if (!this.#handle) {
             throw new Error('Invalid DB');
@@ -158,6 +162,10 @@ class Statement {
 
     finalize() {
         sqlite3.stmt_finalize(this.#stmt);
+    }
+
+    [Symbol.dispose]() {
+        this.finalize();
     }
 
     toString() {
