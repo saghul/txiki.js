@@ -6,10 +6,10 @@ const { server, wsUrl } = createEchoServer();
 
 const ws = new WebSocket(wsUrl);
 
-ws.addEventListener('open', () => {
+ws.addEventListener('open', async () => {
     // The URL will end in /
     assert.eq(ws.url.slice(0, -1), wsUrl, 'url is the same');
 
     ws.close();
-    server.close();
+    await server.close();
 });

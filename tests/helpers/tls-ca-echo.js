@@ -24,5 +24,5 @@ try {
 
     assert.eq(text, 'echo: hello', 'echo response body');
 } finally {
-    server.close();
+    await server.close();
 }

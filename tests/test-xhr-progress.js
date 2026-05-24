@@ -31,4 +31,4 @@ assert.eq(typeof total, 'number', 'final progress total size is a number');
 assert.ok(total >= 0, 'final progress total size is greater than 0');
 assert.eq(loaded, total, 'final progress loaded size equals total size');
 
-server.close();
+await server.close();

@@ -30,4 +30,4 @@ await new Promise((resolve) => {
 
 assert.ok(addr, 'remoteAddress is set');
 assert.ok(addr.includes('127.0.0.1'), 'remoteAddress contains 127.0.0.1');
-server.close();
+await server.close();

@@ -52,4 +52,4 @@ async function testAlreadyAborted() {
 await testAbortBeforeResponse();
 await testAlreadyAborted();
 
-server.close();
+await server.close();

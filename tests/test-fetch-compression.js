@@ -30,4 +30,4 @@ async function testFetchDeflate() {
 await testFetchGzip();
 await testFetchDeflate();
 
-server.close();
+await server.close();

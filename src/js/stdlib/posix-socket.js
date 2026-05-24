@@ -11,6 +11,8 @@ if (posixSocketInt) {
             } else {
                 this._psock = new posixSocketInt.PosixSocket(domain, type, protocol);
             }
+
+            this._closed = false;
         }
 
         get info() {
@@ -52,7 +54,17 @@ if (posixSocketInt) {
             return this._psock.recvmsg(...args);
         }
         close(...args) {
+            if (this._closed) {
+                return;
+            }
+
+            this._closed = true;
+
             return this._psock.close(...args);
+        }
+
+        [Symbol.dispose]() {
+            this.close();
         }
         setopt(...args) {
             return this._psock.setopt(...args);

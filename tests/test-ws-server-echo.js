@@ -30,4 +30,4 @@ const result = await new Promise((resolve, reject) => {
 });
 
 assert.eq(result, 'echo: hello', 'echo message matches');
-server.close();
+await server.close();

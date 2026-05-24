@@ -42,4 +42,4 @@ ws.close();
 assert.eq(messages[0], '1: a', 'first message');
 assert.eq(messages[1], '2: b', 'second message');
 assert.eq(messages[2], '3: c', 'third message');
-server.close();
+await server.close();

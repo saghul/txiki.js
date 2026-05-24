@@ -24,4 +24,4 @@ const url = `${baseUrl}/get`;
 await doXhr('GET', url, { 'Content-Type': 'application/json' });
 await doXhr('POST', url);
 
-server.close();
+await server.close();

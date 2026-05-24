@@ -79,6 +79,9 @@ declare module 'tjs:ffi'{
         /**
          * Explicitly close the shared library handle. After calling this,
          * any symbols obtained from this library must not be used.
+         *
+         * Aliased as `Symbol.dispose`, so `using lib = new Lib(...)` closes
+         * the handle at scope exit.
          */
         close(): void;
         static LIBC_NAME: string;
@@ -91,6 +94,7 @@ declare module 'tjs:ffi'{
         call(funcname: string, ...args: any[]): any;
         parseCProto(header: string): void;
     }
+    export interface Lib extends Disposable {}
 
     export class CFunction<JRT = any, JAT extends Array<any> = any[]>{ //TODO: better typing mechanism for Arg types
         constructor(symbol: DlSymbol, rtype: SimpleType<JRT>, argtypes: SimpleType[], fixed?: number);

@@ -78,4 +78,4 @@ await fetchWithPostAndBody();
 await fetchWithBlobBody();
 await fetchWithRedirect();
 
-server.close();
+await server.close();

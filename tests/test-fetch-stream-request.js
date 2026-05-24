@@ -41,4 +41,4 @@ const text = await response.text();
 
 assert.eq(text, 'hello world', 'streaming body was received correctly');
 
-server.close();
+await server.close();

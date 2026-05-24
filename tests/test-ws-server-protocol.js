@@ -89,4 +89,4 @@ const url = `ws://127.0.0.1:${server.port}`;
     assert.eq(protocol, '', 'no protocol when none requested');
 }
 
-server.close();
+await server.close();

@@ -249,6 +249,15 @@ export class BaseStreamSocket {
         silentClose(this.#handle);
         this.#closedResolve();
     }
+
+    async [Symbol.asyncDispose]() {
+        if (!this.#readableActive && !this.#writableActive) {
+            return;
+        }
+
+        this.close();
+        await this.#closed;
+    }
 }
 
 
@@ -258,6 +267,7 @@ export class BaseStreamServerSocket {
     #closed;
     #closedResolve;
     #closedReject;
+    #active = true;
 
     constructor(handle) {
         this.#handle = handle;
@@ -335,7 +345,17 @@ export class BaseStreamServerSocket {
     }
 
     close() {
+        this.#active = false;
         silentClose(this.#handle);
         this.#closedResolve();
+    }
+
+    async [Symbol.asyncDispose]() {
+        if (!this.#active) {
+            return;
+        }
+
+        this.close();
+        await this.#closed;
     }
 }

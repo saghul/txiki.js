@@ -25,4 +25,4 @@ while (true) {
 
 assert.ok(totalBytes > 0, 'received data from stream');
 
-server.close();
+await server.close();

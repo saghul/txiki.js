@@ -15,7 +15,7 @@ ws.addEventListener('open', () => {
     assert.eq(ws.readyState, ws.CLOSING, 'readyState is CLOSING');
 });
 
-ws.addEventListener('close', () => {
+ws.addEventListener('close', async () => {
     assert.eq(ws.readyState, ws.CLOSED, 'readyState is CLOSED');
-    server.close();
+    await server.close();
 });

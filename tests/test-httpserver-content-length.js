@@ -18,7 +18,7 @@ async function testUserContentLength() {
     const text = await resp.text();
     assert.eq(text, body, 'body matches');
 
-    server.close();
+    await server.close();
 }
 
 // When a handler does not set content-length, it should be auto-added.
@@ -36,7 +36,7 @@ async function testAutoContentLength() {
     const text = await resp.text();
     assert.eq(text, body, 'body matches');
 
-    server.close();
+    await server.close();
 }
 
 await testUserContentLength();

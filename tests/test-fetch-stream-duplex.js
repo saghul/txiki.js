@@ -28,4 +28,4 @@ try {
 
 assert.ok(threw, 'should throw without duplex option');
 
-server.close();
+await server.close();

@@ -11,4 +11,4 @@ const json = await response.json();
 assert.eq(typeof json, 'object', 'json() returns object');
 assert.ok(json.url, 'json has url property');
 
-server.close();
+await server.close();

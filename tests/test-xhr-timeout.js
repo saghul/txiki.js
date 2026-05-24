@@ -8,9 +8,9 @@ const url = `${baseUrl}/delay/3`;
 const xhr = new XMLHttpRequest();
 xhr.open('GET', url);
 xhr.timeout = 200;
-xhr.ontimeout = () => {
+xhr.ontimeout = async () => {
     assert.ok(true, 'ontimeout was called');
     assert.eq(xhr.readyState, xhr.DONE, 'readyState is DONE');
-    server.close();
+    await server.close();
 };
 xhr.send();

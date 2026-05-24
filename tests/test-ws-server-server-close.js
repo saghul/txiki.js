@@ -35,4 +35,4 @@ await new Promise((resolve) => {
 
 const result = await serverClosed;
 assert.ok(result, 'server close callback fired');
-server.close();
+await server.close();

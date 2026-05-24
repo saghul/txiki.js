@@ -102,7 +102,7 @@ async function testBufferedKeepAlive() {
         con.close();
     } catch {}
 
-    server.close();
+    await server.close();
 }
 
 // Empty-body buffered responses on a keep-alive connection.  The no-body
@@ -173,7 +173,7 @@ async function testEmptyBodyKeepAlive() {
         con.close();
     } catch {}
 
-    server.close();
+    await server.close();
 }
 
 await testBufferedKeepAlive();

@@ -467,6 +467,10 @@ static JSValue tjs_file_close(JSContext *ctx, JSValue this_val, int argc, JSValu
         return JS_EXCEPTION;
     }
 
+    if (f->fd == -1) {
+        return JS_NewSettledPromise(ctx, false, JS_UNDEFINED);
+    }
+
     TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr) {
         return JS_EXCEPTION;
@@ -677,6 +681,10 @@ static JSValue tjs_dir_close(JSContext *ctx, JSValue this_val, int argc, JSValue
         return JS_EXCEPTION;
     }
 
+    if (!d->dir) {
+        return JS_NewSettledPromise(ctx, false, JS_UNDEFINED);
+    }
+
     TJSFsReq *fr = js_malloc(ctx, sizeof(*fr));
     if (!fr) {
         return JS_EXCEPTION;
@@ -703,6 +711,10 @@ static JSValue tjs_dir_next(JSContext *ctx, JSValue this_val, int argc, JSValue 
     TJSDir *d = tjs_dir_get(ctx, this_val);
     if (!d) {
         return JS_EXCEPTION;
+    }
+
+    if (!d->dir) {
+        return JS_ThrowTypeError(ctx, "directory is closed");
     }
 
     if (d->done) {
@@ -1620,6 +1632,7 @@ static const JSCFunctionListEntry tjs_file_proto_funcs[] = {
     TJS_CFUNC_DEF("utime", 2, tjs_file_utime),
     TJS_CGETSET_DEF("path", tjs_file_path_get, NULL),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "FileHandle", JS_PROP_C_W_E),
+    JS_CFUNC_DEF("[Symbol.asyncDispose]", 0, tjs_file_close),
 };
 
 static const JSCFunctionListEntry tjs_dir_proto_funcs[] = {
@@ -1628,6 +1641,7 @@ static const JSCFunctionListEntry tjs_dir_proto_funcs[] = {
     TJS_CFUNC_DEF("next", 0, tjs_dir_next),
     JS_PROP_STRING_DEF("[Symbol.toStringTag]", "DirHandle", JS_PROP_C_W_E),
     TJS_CFUNC_DEF("[Symbol.asyncIterator]", 0, tjs_dir_iterator),
+    JS_CFUNC_DEF("[Symbol.asyncDispose]", 0, tjs_dir_close),
 };
 
 static const JSCFunctionListEntry tjs_dirent_proto_funcs[] = {

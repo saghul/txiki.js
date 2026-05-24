@@ -13,6 +13,8 @@ class Server {
     #handle;
     #handler;
     #isTLS;
+    #closed = false;
+    #closedPromise;
     #streamControllers = new Map();
 
     constructor(options) {
@@ -27,6 +29,10 @@ class Server {
         }
 
         this.#handler = handler;
+
+        const { promise, resolve } = Promise.withResolvers();
+
+        this.#closedPromise = promise;
 
         let certPem = null;
         let keyPem = null;
@@ -76,6 +82,7 @@ class Server {
             listenIp,
             onRequest,
             onBodyChunk,
+            onClose: resolve,
             wsOpen: websocket?.open ?? null,
             wsMessage: websocket?.message ?? null,
             wsClose: websocket?.close ?? null,
@@ -92,8 +99,17 @@ class Server {
         return this.#handle.port;
     }
 
-    close() {
-        this.#handle.close();
+    async close() {
+        if (!this.#closed) {
+            this.#closed = true;
+            this.#handle.close();
+        }
+
+        await this.#closedPromise;
+    }
+
+    [Symbol.asyncDispose]() {
+        return this.close();
     }
 
     upgrade(request, options) {

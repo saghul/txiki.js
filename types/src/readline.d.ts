@@ -124,12 +124,16 @@ declare module 'tjs:readline' {
          *
          * Restores terminal mode, releases stream locks, and resolves any pending
          * readline with `null`. Ends async iteration.
+         *
+         * Aliased as `Symbol.dispose`, so `using rl = createInterface(...)`
+         * closes the interface at scope exit.
          */
         close(): void;
 
         /** Async iterator that yields lines until EOF or close. */
         [Symbol.asyncIterator](): AsyncIterableIterator<string>;
     }
+    export interface ReadlineInterface extends Disposable {}
 
     /**
      * A chainable ANSI color/style function.

@@ -11,4 +11,4 @@ const buffer = await response.arrayBuffer();
 assert.ok(buffer instanceof ArrayBuffer, 'arrayBuffer() returns ArrayBuffer');
 assert.ok(buffer.byteLength > 0, 'buffer has data');
 
-server.close();
+await server.close();

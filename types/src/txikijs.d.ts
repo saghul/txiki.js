@@ -310,7 +310,7 @@ declare global {
         /**
         * @category Filesystem
         */
-        interface FileHandle {
+        interface FileHandle extends AsyncDisposable {
             /**
             * Reads data into the given buffer at the given file offset. Returns
             * the amount of read data or null for EOF.
@@ -330,7 +330,12 @@ declare global {
             write(buffer: Uint8Array, offset?: number): Promise<number>;
 
             /**
-            * Closes the file.
+            * Closes the file. Idempotent: closing an already-closed handle
+            * resolves successfully.
+            *
+            * Aliased as `Symbol.asyncDispose`, so
+            * `await using f = await tjs.open(...)` closes the handle at scope
+            * exit.
             */
             close(): Promise<void>;
 
@@ -581,10 +586,15 @@ declare global {
         *
         * @category Filesystem
         */
-        interface DirHandle extends AsyncIterableIterator<DirEnt> {
+        interface DirHandle extends AsyncIterableIterator<DirEnt>, AsyncDisposable {
 
             /**
-            * Closes the directory handle.
+            * Closes the directory handle. Idempotent: closing an already-closed
+            * handle resolves successfully.
+            *
+            * Aliased as `Symbol.asyncDispose`, so
+            * `await using d = await tjs.readDir(...)` closes the handle at
+            * scope exit.
             */
             close(): Promise<void>;
 
@@ -696,9 +706,12 @@ declare global {
         /**
         * @category Filesystem
         */
-        interface FileWatcher {
+        interface FileWatcher extends Disposable {
             /**
             * Closes the watcher.
+            *
+            * Aliased as `Symbol.dispose`, so `using w = tjs.watch(...)` closes
+            * the watcher at scope exit.
             */
             close(): void;
 
@@ -796,8 +809,15 @@ declare global {
         /**
         * @category Process
         */
-        interface Process {
+        interface Process extends AsyncDisposable {
             kill(signal?: Signal): void;
+            /**
+            * Resolves once the subprocess has exited.
+            *
+            * The interface is also async-disposable: at the end of an
+            * `await using p = tjs.spawn(...)` scope, `SIGTERM` is sent (best
+            * effort) and {@link wait} is awaited.
+            */
             wait(): Promise<ProcessStatus>;
             pid: number;
             stdin: WritableStream<Uint8Array> | null;
@@ -1158,11 +1178,19 @@ declare global {
         *
         * @category HTTP Server
         */
-        interface Server {
+        interface Server extends AsyncDisposable {
             /** The port the server is listening on. */
             readonly port: number;
-            /** Close the server. */
-            close(): void;
+            /**
+            * Stop accepting new connections and close the server. The returned
+            * promise resolves once the listening socket has been fully torn
+            * down. Idempotent; subsequent calls return the same promise.
+            *
+            * Aliased as `Symbol.asyncDispose`, so
+            * `await using server = tjs.serve(...)` closes it automatically at
+            * scope exit.
+            */
+            close(): Promise<void>;
             /**
             * Upgrade an HTTP request to a WebSocket connection. Must be called
             * synchronously inside the fetch handler.
@@ -1205,6 +1233,16 @@ declare global {
         *     port: 8443,
         *     tls: { cert, key },
         * });
+        * ```
+        *
+        * `close()` returns a promise that resolves once the server has fully
+        * shut down; prefer `await server.close()` (or `await using`) when you
+        * need to wait for the listening socket to be released:
+        *
+        * ```js
+        * await using server = tjs.serve(request => new Response('ok'));
+        * // ...use server...
+        * // server.close() runs automatically at scope exit.
         * ```
         *
         * @category HTTP Server
@@ -1293,8 +1331,16 @@ declare global {
         constructor(remoteAddress: string, remotePort: number, options?: TCPSocketOptions);
         readonly opened: Promise<TCPSocketOpenInfo>;
         readonly closed: Promise<void>;
+        /**
+        * Initiates close. Use {@link closed} to await full teardown.
+        *
+        * The class is also async-disposable: at the end of an
+        * `await using s = new TCPSocket(...)` scope the socket is closed and
+        * {@link closed} is awaited.
+        */
         close(): void;
     }
+    interface TCPSocket extends AsyncDisposable {}
 
     /**
     * @category Networking
@@ -1321,8 +1367,16 @@ declare global {
         constructor(localAddress: string, options?: TCPServerSocketOptions);
         readonly opened: Promise<TCPServerSocketOpenInfo>;
         readonly closed: Promise<void>;
+        /**
+        * Initiates close. Use {@link closed} to await full teardown.
+        *
+        * Also async-disposable: at the end of an
+        * `await using s = new TCPServerSocket(...)` scope the listener is
+        * closed and {@link closed} is awaited.
+        */
         close(): void;
     }
+    interface TCPServerSocket extends AsyncDisposable {}
 
     /**
     * Information about an opened TLS socket connection.
@@ -1374,8 +1428,16 @@ declare global {
         constructor(remoteAddress: string, remotePort: number, options?: TLSSocketOptions);
         readonly opened: Promise<TLSSocketOpenInfo>;
         readonly closed: Promise<void>;
+        /**
+        * Initiates close. Use {@link closed} to await full teardown.
+        *
+        * Also async-disposable: at the end of an
+        * `await using s = new TLSSocket(...)` scope the socket is closed and
+        * {@link closed} is awaited.
+        */
         close(): void;
     }
+    interface TLSSocket extends AsyncDisposable {}
 
     /**
     * Information about an opened TLS server socket.
@@ -1419,8 +1481,16 @@ declare global {
         constructor(localAddress: string, options: TLSServerSocketOptions);
         readonly opened: Promise<TLSServerSocketOpenInfo>;
         readonly closed: Promise<void>;
+        /**
+        * Initiates close. Use {@link closed} to await full teardown.
+        *
+        * Also async-disposable: at the end of an
+        * `await using s = new TLSServerSocket(...)` scope the listener is
+        * closed and {@link closed} is awaited.
+        */
         close(): void;
     }
+    interface TLSServerSocket extends AsyncDisposable {}
 
     /**
     * @category Networking
@@ -1494,8 +1564,16 @@ declare global {
         constructor(options: UDPSocketOptions);
         readonly opened: Promise<UDPSocketOpenInfo>;
         readonly closed: Promise<void>;
+        /**
+        * Initiates close. Use {@link closed} to await full teardown.
+        *
+        * Also async-disposable: at the end of an
+        * `await using s = new UDPSocket(...)` scope the socket is closed and
+        * {@link closed} is awaited.
+        */
         close(): void;
     }
+    interface UDPSocket extends AsyncDisposable {}
 
     /**
     * @category Networking
@@ -1514,8 +1592,16 @@ declare global {
         constructor(path: string);
         readonly opened: Promise<PipeSocketOpenInfo>;
         readonly closed: Promise<void>;
+        /**
+        * Initiates close. Use {@link closed} to await full teardown.
+        *
+        * Also async-disposable: at the end of an
+        * `await using s = new PipeSocket(...)` scope the socket is closed and
+        * {@link closed} is awaited.
+        */
         close(): void;
     }
+    interface PipeSocket extends AsyncDisposable {}
 
     /**
     * @category Networking
@@ -1539,8 +1625,22 @@ declare global {
         constructor(path: string, options?: PipeServerSocketOptions);
         readonly opened: Promise<PipeServerSocketOpenInfo>;
         readonly closed: Promise<void>;
+        /**
+        * Initiates close. Use {@link closed} to await full teardown.
+        *
+        * Also async-disposable: at the end of an
+        * `await using s = new PipeServerSocket(...)` scope the listener is
+        * closed and {@link closed} is awaited.
+        */
         close(): void;
     }
+    interface PipeServerSocket extends AsyncDisposable {}
+
+    /**
+    * txiki.js adds `Symbol.dispose` to {@link Worker}, so
+    * `using w = new Worker(url)` terminates the worker at scope exit.
+    */
+    interface Worker extends Disposable {}
 }
 
 export {};

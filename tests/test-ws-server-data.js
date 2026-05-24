@@ -32,4 +32,4 @@ const result = await new Promise((resolve, reject) => {
 });
 
 assert.eq(result, 'your id is 42', 'ws.data available in open callback');
-server.close();
+await server.close();

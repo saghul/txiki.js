@@ -39,7 +39,7 @@ ws.addEventListener('message', async ev => {
     sendNext();
 });
 
-function sendNext() {
+async function sendNext() {
     if (cnt > msgs.length - 1) {
         if (round === 0) {
             ws.binaryType = 'arraybuffer';
@@ -50,7 +50,7 @@ function sendNext() {
             }, 0);
         } else {
             ws.close();
-            server.close();
+            await server.close();
         }
     } else {
         ws.send(msgs[cnt]);

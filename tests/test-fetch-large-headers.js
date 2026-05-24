@@ -30,7 +30,7 @@ async function testLargeRequestHeaders() {
     assert.eq(data.cookie, longCookie, 'large cookie header preserved');
     assert.eq(data.custom, longCustom, 'large custom header preserved');
 
-    server.close();
+    await server.close();
 }
 
 // Server sends large response headers back to the client.
@@ -53,7 +53,7 @@ async function testLargeResponseHeaders() {
     assert.eq(resp.headers.get('set-cookie'), longCookie, 'large set-cookie header preserved');
     assert.eq(await resp.text(), 'ok', 'body is readable');
 
-    server.close();
+    await server.close();
 }
 
 await testLargeRequestHeaders();

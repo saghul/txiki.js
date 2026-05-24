@@ -73,4 +73,4 @@ const { server, wsUrl } = createEchoServer();
     console.log('[TEST] abort: test 3 done');
 }
 
-server.close();
+await server.close();

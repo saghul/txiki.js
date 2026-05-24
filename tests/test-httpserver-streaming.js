@@ -26,7 +26,7 @@ async function testStreamingChunks() {
     const text = await resp.text();
     assert.eq(text, 'chunk1\nchunk2\nchunk3\n', 'all chunks received');
 
-    server.close();
+    await server.close();
 }
 
 // Streaming response delivers chunks progressively.
@@ -60,7 +60,7 @@ async function testStreamingProgressive() {
     assert.ok(chunks.length >= 2, `got ${chunks.length} chunks, expected >= 2`);
     assert.eq(chunks.join(''), 'firstsecond', 'content matches');
 
-    server.close();
+    await server.close();
 }
 
 // Empty streaming response.
@@ -78,7 +78,7 @@ async function testStreamingEmpty() {
     const text = await resp.text();
     assert.eq(text, '', 'body is empty');
 
-    server.close();
+    await server.close();
 }
 
 // Streaming response with custom headers (SSE-style).
@@ -107,7 +107,7 @@ async function testStreamingHeaders() {
     const text = await resp.text();
     assert.eq(text, 'data: hello\n\n', 'body matches');
 
-    server.close();
+    await server.close();
 }
 
 // POST request with streaming response.
@@ -134,7 +134,7 @@ async function testPostStreaming() {
     const text = await resp.text();
     assert.eq(text, 'received: test data', 'body echoed');
 
-    server.close();
+    await server.close();
 }
 
 // Large streaming response (64KB in 1KB chunks).
@@ -167,7 +167,7 @@ async function testStreamingLarge() {
         assert.eq(actual, expected, `chunk ${i} content matches`);
     }
 
-    server.close();
+    await server.close();
 }
 
 await testStreamingChunks();
