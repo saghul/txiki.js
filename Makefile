@@ -56,7 +56,7 @@ src/bundles/c/core/polyfills.c: $(TJSC) src/bundles/js/core/polyfills.js
 		-p tjs__ \
 		src/bundles/js/core/polyfills.js
 
-src/bundles/js/core/core.js: src/js/core/*.js
+src/bundles/js/core/core.js: src/js/core/*.js src/js/core/**/*.js
 	$(ESBUILD) src/js/core/index.js \
 		--bundle \
 		--metafile=$@.json \
