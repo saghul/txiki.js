@@ -298,11 +298,23 @@ export class BaseStreamServerSocket {
         const handle = this.#handle;
 
         return new ReadableStream({
-            start(controller) {
+            start: controller => {
                 handle.onconnection = (error, clientHandle) => {
                     if (typeof error === 'undefined' && typeof clientHandle === 'undefined') {
                         // Server handle closed.
                         controller.close();
+
+                        return;
+                    }
+
+                    // After close(), an in-flight accept (e.g. a TLS handshake
+                    // completing post-close) may still fire this callback. The
+                    // controller is already closed at that point, so drop the
+                    // result instead of throwing.
+                    if (!this.#active) {
+                        if (clientHandle) {
+                            silentClose(clientHandle);
+                        }
 
                         return;
                     }
