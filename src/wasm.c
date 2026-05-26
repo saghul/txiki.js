@@ -549,6 +549,42 @@ static void tjs__wasm_import_trampoline(wasm_exec_env_t exec_env, uint64_t *args
     JS_FreeValue(ctx, ret);
 }
 
+/* Convert a non-negative integer fd from JS into a raw host handle for WAMR.
+ * Returns true on success; *handle is set to -1 to mean "use the embedder's
+ * default stdio" when js_fd is undefined (WAMR reads that as STDIN_FILENO/etc.
+ * on POSIX and INVALID_HANDLE_VALUE on Windows). */
+static bool tjs__wasi_fd_to_handle(JSContext *ctx, JSValue js_fd, int64_t *handle) {
+    if (JS_IsUndefined(js_fd)) {
+        *handle = -1;
+        return true;
+    }
+
+    int32_t fd;
+    if (JS_ToInt32(ctx, &fd, js_fd)) {
+        return false;
+    }
+    if (fd < 0) {
+        JS_ThrowTypeError(ctx, "WASI stdio fd must be a non-negative integer");
+        return false;
+    }
+
+    /* Our fds are libuv uv_file descriptors. uv_get_osfhandle is the documented
+     * inverse of how libuv mints them and yields exactly WAMR's
+     * os_raw_file_handle type: the int fd on POSIX, the OS HANDLE on Windows. */
+    uv_os_fd_t os_handle = uv_get_osfhandle(fd);
+
+    /* INVALID_HANDLE_VALUE is (HANDLE)-1 on Windows; on POSIX uv_get_osfhandle
+     * returns the fd unchanged (always >= 0 here), so this only trips on a bad
+     * Windows handle. */
+    if ((intptr_t) os_handle == -1) {
+        JS_ThrowTypeError(ctx, "WASI stdio fd does not map to a valid OS handle");
+        return false;
+    }
+
+    *handle = (int64_t) (intptr_t) os_handle;
+    return true;
+}
+
 static JSValue tjs_wasm_setwasioptions(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWasmModule *m = tjs_wasm_module_get(ctx, argv[0]);
     if (!m) {
@@ -558,6 +594,12 @@ static JSValue tjs_wasm_setwasioptions(JSContext *ctx, JSValue this_val, int arg
     JSValue js_args = argv[1];
     JSValue js_env = argv[2];
     JSValue js_preopens = argv[3];
+
+    int64_t stdin_handle, stdout_handle, stderr_handle;
+    if (!tjs__wasi_fd_to_handle(ctx, argv[4], &stdin_handle) || !tjs__wasi_fd_to_handle(ctx, argv[5], &stdout_handle) ||
+        !tjs__wasi_fd_to_handle(ctx, argv[6], &stderr_handle)) {
+        return JS_EXCEPTION;
+    }
 
     char **wasi_argv = NULL;
     uint32_t wasi_argc = 0;
@@ -692,15 +734,18 @@ static JSValue tjs_wasm_setwasioptions(JSContext *ctx, JSValue this_val, int arg
     }
 
     /* Call WAMR to set WASI args - must happen before instantiate */
-    wasm_runtime_set_wasi_args(m->module,
-                               NULL,
-                               0, /* dir_list - not used, we use map_dir_list */
-                               (const char **) wasi_map_dir_list,
-                               wasi_map_dir_count,
-                               (const char **) wasi_env,
-                               wasi_env_count,
-                               wasi_argv,
-                               (int) wasi_argc);
+    wasm_runtime_set_wasi_args_ex(m->module,
+                                  NULL,
+                                  0, /* dir_list - not used, we use map_dir_list */
+                                  (const char **) wasi_map_dir_list,
+                                  wasi_map_dir_count,
+                                  (const char **) wasi_env,
+                                  wasi_env_count,
+                                  wasi_argv,
+                                  (int) wasi_argc,
+                                  stdin_handle,
+                                  stdout_handle,
+                                  stderr_handle);
 
     /* Store allocations in module struct for cleanup */
     m->wasi.argv = wasi_argv;
@@ -1945,6 +1990,44 @@ static JSValue tjs_wasm_callfuncbyindex(JSContext *ctx, JSValue this_val, int ar
     return tjs__call_wasm_func_inst(ctx, i, func, argc - 2, argv + 2);
 }
 
+static JSValue tjs_wasm_runwasistart(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSWasmInstance *i = tjs_wasm_instance_get(ctx, argv[0]);
+    if (!i) {
+        return JS_EXCEPTION;
+    }
+
+    wasm_function_inst_t start = wasm_runtime_lookup_wasi_start_function(i->module_inst);
+    if (!start) {
+        return tjs_throw_wasm_error(ctx, "RuntimeError", "WASI entrypoint not found");
+    }
+
+    bool ok = wasm_runtime_call_wasm_a(i->exec_env, start, 0, NULL, 0, NULL);
+    tjs__wasm_drop_memory_buffer_if_changed(ctx, i);
+
+    if (ok) {
+        return JS_NewUint32(ctx, 0);
+    }
+
+    /* An imported JS function may have thrown — surface its exception verbatim. */
+    if (i->has_pending_exception) {
+        JSValue exc = i->pending_exception;
+        i->has_pending_exception = false;
+        wasm_runtime_clear_exception(i->module_inst);
+        return JS_Throw(ctx, exc);
+    }
+
+    const char *exception = wasm_runtime_get_exception(i->module_inst);
+    if (exception && strstr(exception, "wasi proc exit")) {
+        uint32_t code = wasm_runtime_get_wasi_exit_code(i->module_inst);
+        wasm_runtime_clear_exception(i->module_inst);
+        return JS_NewUint32(ctx, code);
+    }
+
+    JSValue err = tjs_throw_wasm_error(ctx, "RuntimeError", exception ? exception : "_start failed");
+    wasm_runtime_clear_exception(i->module_inst);
+    return err;
+}
+
 static JSValue tjs_wasm_validate(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     size_t buf_len;
     uint8_t *buf = JS_GetUint8Array(ctx, &buf_len, argv[0]);
@@ -1990,8 +2073,9 @@ static const JSCFunctionListEntry tjs_wasm_funcs[] = {
     TJS_CFUNC_DEF("parseModule", 1, tjs_wasm_parsemodule),
     TJS_CFUNC_DEF("resolveGlobalImports", 2, tjs_wasm_resolveglobalimports),
     TJS_CFUNC_DEF("resolveImports", 2, tjs_wasm_resolveimports),
+    TJS_CFUNC_DEF("runWasiStart", 1, tjs_wasm_runwasistart),
     TJS_CFUNC_DEF("setGlobal", 3, tjs_wasm_setglobal),
-    TJS_CFUNC_DEF("setWasiOptions", 4, tjs_wasm_setwasioptions),
+    TJS_CFUNC_DEF("setWasiOptions", 7, tjs_wasm_setwasioptions),
     TJS_CFUNC_DEF("tableGet", 3, tjs_wasm_tableget),
     TJS_CFUNC_DEF("tableGrow", 3, tjs_wasm_tablegrow),
     TJS_CFUNC_DEF("tableSet", 4, tjs_wasm_tableset),

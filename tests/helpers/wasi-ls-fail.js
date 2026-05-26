@@ -17,10 +17,11 @@ const module = new WebAssembly.Module(bytes);
 const wasi = new WASI({
     version: 'wasi_snapshot_preview1',
     args: [ 'test.wasm', 'ls', '/nonexistent/directory' ],
-    preopens: { [wasiDir]: wasiDir }
+    preopens: { [wasiDir]: wasiDir },
+    // Mirror the guest's non-zero exit code onto this process.
+    returnOnExit: false
 });
 
 const instance = new WebAssembly.Instance(module, wasi.getImportObject());
 
-// This should throw RuntimeError when WASM program exits with non-zero
 wasi.start(instance);

@@ -284,7 +284,10 @@ if (!isBundled) {
                     preopens: {
                         '.': tjs.cwd,
                         '/': '/'
-                    }
+                    },
+                    // As a WASI runner, mirror the guest's exit code onto our
+                    // own process instead of returning it.
+                    returnOnExit: false
                 });
                 const instance = new WebAssembly.Instance(module, wasi.getImportObject());
 

@@ -1,6 +1,14 @@
 import core from 'tjs:internal/core';
 const wasm = core.wasm;
 
+// Symbol-keyed hook table that tjs:wasi attaches to its import namespace. Shared
+// via the global registry since the WASI implementation lives in another bundle.
+const kWasiHooks = Symbol.for('tjs.wasi.hooks');
+
+function getWasiHooks(ns) {
+    return ns && typeof ns === 'object' ? ns[kWasiHooks] : undefined;
+}
+
 // Track the WAMR function index for callable wrappers returned from exports /
 // table reads. We cannot add a `#private` field to a plain function, so a
 // WeakMap keyed by the wrapper function is used instead.
@@ -137,10 +145,16 @@ class Instance {
     constructor(module, importObject = {}) {
         const nativeModule = getNativeModule(module);
 
-        // Detect WASI in importObject via duck typing and configure it before instantiation
+        // Detect a WASI import via its symbol-keyed hook table and configure it
+        // before instantiation.
+        let wasiHooks = null;
+
         for (const ns of Object.values(importObject)) {
-            if (ns && typeof ns === 'object' && typeof ns._configure === 'function') {
-                ns._configure(nativeModule);
+            const hooks = getWasiHooks(ns);
+
+            if (hooks) {
+                hooks.configure(nativeModule);
+                wasiHooks = hooks;
                 break;
             }
         }
@@ -163,8 +177,8 @@ class Instance {
                 throw new LinkError(`WebAssembly.Instance(): Import #${imp.module}#${imp.name} module not found`);
             }
 
-            // Skip WASI-like modules
-            if (typeof ns._configure === 'function') {
+            // Skip WASI namespaces (resolved by WAMR internally)
+            if (getWasiHooks(ns)) {
                 continue;
             }
 
@@ -228,6 +242,10 @@ class Instance {
         // Wire up imported Memory objects to the WAMR instance
         for (const mem of memoryImports) {
             bindMemory(mem, instance);
+        }
+
+        if (wasiHooks) {
+            wasiHooks.postInstantiate(instance);
         }
 
         const _exports = Module.exports(module);
