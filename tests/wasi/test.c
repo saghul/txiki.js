@@ -136,6 +136,21 @@ void test_env(void) {
   }
 }
 
+void test_stdin(void) {
+  char buf[256];
+  ssize_t n;
+  while ((n = read(0, buf, sizeof(buf))) > 0) {
+    ssize_t off = 0;
+    while (off < n) {
+      ssize_t w = write(1, buf + off, n - off);
+      if (w <= 0) {
+        return;
+      }
+      off += w;
+    }
+  }
+}
+
 int test_ls(char* dir) {
   DIR *d = opendir(dir);
   if (d) {
@@ -158,6 +173,11 @@ int test_ls(char* dir) {
 
 int main(int argc, char **argv)
 {
+  if (argc > 1 && argv[1] != NULL && 0 == strcmp(argv[1], "stdin")) {
+    test_stdin();
+    return 0;
+  }
+
   test_write();
   test_constructor();
   test_printf();
