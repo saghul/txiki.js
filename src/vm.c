@@ -309,6 +309,8 @@ static JSValue tjs__dispatch_event(JSContext *ctx, JSValue *event) {
     return ret;
 }
 
+static void uv__maybe_idle(TJSRuntime *qrt);
+
 static void tjs__pending_rejections_add(TJSRuntime *qrt, JSContext *ctx, JSValue promise, JSValue reason) {
     TJSPendingRejection *pr = js_malloc(ctx, sizeof(*pr));
     if (!pr) {
@@ -317,6 +319,11 @@ static void tjs__pending_rejections_add(TJSRuntime *qrt, JSContext *ctx, JSValue
     pr->promise = JS_DupValue(ctx, promise);
     pr->reason = JS_DupValue(ctx, reason);
     list_add_tail(&pr->link, &qrt->pending_rejections);
+    /* The tracker can fire from inside a libuv callback (e.g. when an
+     * async finally completes during the close phase).  Make sure the loop
+     * runs at least one more iteration so the check phase can dispatch the
+     * 'unhandledrejection' event; otherwise the rejection would be lost. */
+    uv__maybe_idle(qrt);
 }
 
 static void tjs__pending_rejections_remove(TJSRuntime *qrt, JSContext *ctx, JSValue promise) {
@@ -612,7 +619,7 @@ static void uv__idle_cb(uv_idle_t *handle) {
 }
 
 static void uv__maybe_idle(TJSRuntime *qrt) {
-    if (JS_IsJobPending(qrt->rt)) {
+    if (JS_IsJobPending(qrt->rt) || !list_empty(&qrt->pending_rejections)) {
         CHECK_EQ(uv_idle_start(&qrt->jobs.idle, uv__idle_cb), 0);
     } else {
         CHECK_EQ(uv_idle_stop(&qrt->jobs.idle), 0);
