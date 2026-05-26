@@ -5,13 +5,13 @@ import assert from 'tjs:assert';
 // See: https://github.com/actions/runner-images/issues/10924
 let skip = false;
 
-if (navigator.userAgentData.platform === 'macOS' && tjs.env.GITHUB_ACTIONS) {
+if (navigator.userAgentData.platform === 'macOS') {
     const { platformVersion } = await navigator.userAgentData.getHighEntropyValues([ 'platformVersion' ]);
     const darwinMajor = parseInt(platformVersion.split('.')[0]);
 
     // Darwin 24+ = macOS 15+ (Sequoia).
     if (darwinMajor >= 24) {
-        console.log('Skipping test due to macOS 15+ in GHA not working properly');
+        console.log('Skipping test due to macOS 15+ not working properly');
         skip = true;
     }
 }
