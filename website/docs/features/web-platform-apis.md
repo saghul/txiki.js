@@ -26,7 +26,7 @@ txiki.js implements a number of Web Platform APIs to provide a familiar environm
 | [URL](https://developer.mozilla.org/en-US/docs/Web/API/URL) | |
 | [URLPattern](https://developer.mozilla.org/en-US/docs/Web/API/URLPattern) | |
 | [URLSearchParams](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) | |
-| [WebAssembly](https://developer.mozilla.org/en-US/docs/WebAssembly) | No tables, globals or memory support |
+| [WebAssembly](https://developer.mozilla.org/en-US/docs/WebAssembly) | Interpreter-based ([WAMR](https://github.com/bytecodealliance/wasm-micro-runtime)); some [limitations](#webassembly) |
 | [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) | [Extensions](#websocket--websocketstream-headers) |
 | [WebSocketStream](https://developer.mozilla.org/en-US/docs/Web/API/WebSocketStream) | [Extensions](#websocket--websocketstream-headers) |
 | [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Worker) | |
@@ -69,6 +69,24 @@ const wss = new WebSocketStream('wss://example.com/ws', {
 
 const { readable, writable } = await wss.opened;
 ```
+
+## WebAssembly
+
+WebAssembly is powered by the [WAMR](https://github.com/bytecodealliance/wasm-micro-runtime) interpreter. Most of the JavaScript API is implemented:
+
+- `WebAssembly.validate()`, `compile()`, `instantiate()`, and the `compileStreaming()` / `instantiateStreaming()` variants.
+- `Module` (including `Module.exports()` and `Module.imports()`), `Instance`, `Memory`, `Table`, `Global`, and the `CompileError` / `LinkError` / `RuntimeError` types.
+- Function, global, and memory imports.
+- The reference-types, SIMD, and bulk-memory proposals. `externref` / `funcref` work for exported functions, globals, and tables.
+
+The following are **not** currently supported:
+
+- **Table imports** — a `Table` cannot be supplied through the import object. Table *exports* work.
+- **Reference types in imported functions** — `externref` / `funcref` as parameters or results of JS-backed imported functions.
+- **Multi-value returns from imported functions** — multi-value returns from *exported* functions work.
+- **Re-instantiating a `Module` with different imports** — imports are resolved at the module level, so passing a new import object to a second `new WebAssembly.Instance(module, ...)` reuses the first set. Use `WebAssembly.instantiate(bytes, importObject)` to get independent instances.
+
+To run WASI modules, see [`tjs:wasi`](../api/tjs-wasi.md).
 
 ## WinterTC compliance
 
