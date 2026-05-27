@@ -149,9 +149,10 @@ declare global {
                 readonly quickjs: string;
                 readonly tjs: string;
                 readonly uv: string;
-                readonly wasm3: string;
+                readonly lws: string;
+                readonly wamr: string;
                 readonly sqlite3: string;
-                readonly mimalloc?: string;
+                readonly mimalloc?: number;
             };
         }
 
