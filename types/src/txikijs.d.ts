@@ -199,7 +199,7 @@ declare global {
         * @category Process
         * @param code Program exit code.
         */
-        function exit(code: number): void;
+        function exit(code: number): never;
 
         /**
         * Changes the current working directory.
