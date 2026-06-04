@@ -126,7 +126,7 @@ add_library(tjs STATIC
 )
 
 if(UNIX)
-    target_sources(tjs PUBLIC src/mod_posix-socket.c)
+    target_sources(tjs PRIVATE src/mod_posix-socket.c)
 endif()
 
 set_target_properties(tjs PROPERTIES
@@ -238,6 +238,22 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(WAMR_BUILD_PLATFORM "windows")
 else()
     set(WAMR_BUILD_PLATFORM "linux")
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND NOT DEFINED WAMR_BUILD_TARGET AND CMAKE_OSX_ARCHITECTURES)
+    set(TJS_OSX_ARCHITECTURES ${CMAKE_OSX_ARCHITECTURES})
+    list(LENGTH TJS_OSX_ARCHITECTURES TJS_OSX_ARCHITECTURE_COUNT)
+
+    if(TJS_OSX_ARCHITECTURE_COUNT EQUAL 1)
+        list(GET TJS_OSX_ARCHITECTURES 0 TJS_OSX_ARCHITECTURE)
+        string(TOLOWER "${TJS_OSX_ARCHITECTURE}" TJS_OSX_ARCHITECTURE)
+
+        if(TJS_OSX_ARCHITECTURE MATCHES "^(arm64|aarch64)$")
+            set(WAMR_BUILD_TARGET "AARCH64")
+        elseif(TJS_OSX_ARCHITECTURE STREQUAL "x86_64")
+            set(WAMR_BUILD_TARGET "X86_64")
+        endif()
+    endif()
 endif()
 
 # Configure WAMR build options
@@ -368,4 +384,3 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU")
 endif()
 target_link_libraries(tjs PUBLIC websockets)
 target_include_directories(tjs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets/include)
-
