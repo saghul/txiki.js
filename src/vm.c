@@ -35,6 +35,7 @@
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
+#include <windows.h>
 #endif
 
 #ifdef NDEBUG
@@ -587,6 +588,24 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     tjs__free(qrt);
 }
 
+#ifdef _WIN32
+static void tjs__invalid_parameter_handler(const wchar_t *expression,
+                                           const wchar_t *function,
+                                           const wchar_t *file,
+                                           unsigned int line,
+                                           uintptr_t reserved) {
+    /* The default UCRT handler terminates the process (and may pop a Windows
+     * Error Reporting dialog) when a CRT function receives an invalid
+     * parameter. Override it with a no-op so the CRT function returns an error
+     * instead, matching what other CLI runtimes (e.g. Node.js) do. */
+    (void) expression;
+    (void) function;
+    (void) file;
+    (void) line;
+    (void) reserved;
+}
+#endif
+
 void TJS_Initialize(int argc, char **argv) {
     CHECK_EQ(0, uv_replace_allocator(tjs__malloc, tjs__realloc, tjs__calloc, tjs__free));
 
@@ -599,6 +618,11 @@ void TJS_Initialize(int argc, char **argv) {
 #ifdef _WIN32
     _setmode(_fileno(stdout), _O_BINARY);
     _setmode(_fileno(stderr), _O_BINARY);
+
+    /* CLI tool: never block on GUI error dialogs. Suppress the WER crash dialog
+     * and the OS critical-error message box (e.g. device-not-ready). */
+    SetErrorMode(GetErrorMode() | SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+    _set_invalid_parameter_handler(tjs__invalid_parameter_handler);
 #endif
 
 #ifdef SIGPIPE
