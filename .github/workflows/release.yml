@@ -109,7 +109,13 @@ jobs:
       - name: compress
         run: |
           cd dist
-          for dir in */; do zip -r "${dir%/}.zip" "$dir"; done
+          for dir in */; do
+            # actions/upload-artifact strips the executable bit, so restore it on the
+            # Unix binary before zipping (Info-ZIP preserves Unix permissions, so the
+            # bit then survives all the way to the downloaded zip).
+            [ -f "${dir}tjs" ] && chmod +x "${dir}tjs"
+            zip -r "${dir%/}.zip" "$dir"
+          done
 
       - name: Release
         uses: softprops/action-gh-release@v3
