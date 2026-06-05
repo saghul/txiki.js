@@ -1,7 +1,6 @@
 /* global tjs */
 
 import path from 'tjs:path';
-import { Database } from 'tjs:sqlite';
 
 
 const encoder = new TextEncoder();
@@ -36,6 +35,15 @@ export async function loadHistory(rl) {
         await tjs.makeDir(path.dirname(historyDbPath), { recursive: true });
     } catch (_) {
         // Ignore.
+    }
+
+    let Database;
+
+    try {
+        ({ Database } = await import('tjs:sqlite'));
+    } catch (_) {
+        // sqlite not available in this build; history disabled
+        return;
     }
 
     try {

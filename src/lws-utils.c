@@ -156,6 +156,7 @@ static void *tjs__lws_realloc(void *ptr, size_t size, const char *reason) {
     return tjs__realloc(ptr, size);
 }
 
+#ifndef TJS_NO_TLS
 static void tjs__load_ca_bundle(TJSRuntime *qrt) {
     if (qrt->lws.ca_bundle_data || !qrt->lws.ca_bundle_path) {
         return;
@@ -183,6 +184,7 @@ static void tjs__set_ca_info(TJSRuntime *qrt, struct lws_context_creation_info *
         info->client_ssl_ca_mem_len = TJS_CACERT_PEM_LEN;
     }
 }
+#endif
 
 /*
  * Per-scheme proxy configuration.
@@ -308,12 +310,13 @@ static struct lws_vhost *tjs__create_client_vhost(TJSRuntime *qrt, const char *n
 
     vinfo.port = CONTEXT_PORT_NO_LISTEN;
     vinfo.protocols = protocols;
-    vinfo.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
     vinfo.vhost_name = name;
     vinfo.pt_serv_buf_size = 16384;
     vinfo.max_http_header_data2 = 16384;
-
+#ifndef TJS_NO_TLS
+    vinfo.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
     tjs__set_ca_info(qrt, &vinfo);
+#endif
 
     if (proxy) {
         vinfo.http_proxy_address = proxy->auth_address;
@@ -333,7 +336,11 @@ void tjs__lws_init(TJSRuntime *qrt) {
     memset(&info, 0, sizeof(info));
 
     info.port = CONTEXT_PORT_NO_LISTEN;
+#ifndef TJS_NO_TLS
     info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_LIBUV | LWS_SERVER_OPTION_EXPLICIT_VHOSTS;
+#else
+    info.options = LWS_SERVER_OPTION_LIBUV | LWS_SERVER_OPTION_EXPLICIT_VHOSTS;
+#endif
     /* Match Node.js / Deno default max header size (16 KiB). */
     info.pt_serv_buf_size = 16384;
     info.max_http_header_data2 = 16384;
@@ -504,7 +511,11 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
         return -1;
     }
 
+#ifdef TJS_NO_TLS
+    bool use_ssl = false;
+#else
     bool use_ssl = !strcmp(prot_str, "https");
+#endif
 
     /* lws_parse_uri strips the leading '/' from path, restore it. */
     char full_path[TJS_PATH_MAX];
@@ -543,9 +554,10 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
 
     info.port = CONTEXT_PORT_NO_LISTEN;
     info.protocols = protocols;
+#ifndef TJS_NO_TLS
     info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
-
     tjs__set_ca_info(qrt, &info);
+#endif
 
     /* Parse per-scheme proxy for this one-shot context. */
     TJSProxyConfig proxy_cfg;

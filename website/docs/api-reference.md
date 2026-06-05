@@ -11,7 +11,7 @@ The `tjs` global object provides the following groups of APIs:
 - **HTTP Server** — High-performance HTTP server with WebSocket support via `tjs.serve()`.
 - **Process** — Spawn child processes, handle signals, and manage the current process.
 - **System** — Environment variables, OS information, and runtime metadata.
-- **Engine** — Low-level access to the JavaScript engine: bytecode compilation, serialization, and garbage collection.
+- **Engine** — Low-level access to the JavaScript engine: bytecode compilation, serialization, garbage collection, and build-time feature flags (`tjs.engine.features`).
 - **Utilities** — Console helpers and interactive prompts.
 
 ## Standard Library
@@ -32,5 +32,9 @@ Additional functionality is available as ES modules that can be imported using t
 | [`tjs:utils`](api/tjs-utils.md) | Utility functions for formatting and inspecting values |
 | [`tjs:uuid`](api/tjs-uuid.md) | UUID generation and validation |
 | [`tjs:wasi`](api/tjs-wasi.md) | WebAssembly System Interface |
+
+> **Note:** `tjs:sqlite` requires `BUILD_WITH_SQLITE=ON` (default). `tjs:wasi` requires
+> `BUILD_WITH_WASM=ON` (default). Importing either module on a build where the feature is
+> disabled throws a module-not-found error.
 
 In addition, txiki.js supports many [Web Platform APIs](/docs/features/web-platform-apis) such as `fetch`, `WebSocket`, `setTimeout`, `TextEncoder`, and more.

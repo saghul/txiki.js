@@ -1,5 +1,5 @@
 diff --git a/lib/event-libs/libuv/libuv.c b/lib/event-libs/libuv/libuv.c
-index 5bdd6241..f39d6174 100644
+index 5bdd62419..da61706a1 100644
 --- a/lib/event-libs/libuv/libuv.c
 +++ b/lib/event-libs/libuv/libuv.c
 @@ -491,6 +491,12 @@ elops_close_handle_manually_uv(struct lws *wsi)
@@ -67,8 +67,31 @@ index 5bdd6241..f39d6174 100644
  
  	return status;
  }
+@@ -889,6 +919,22 @@ lws_libuv_closehandle(struct lws *wsi)
+ 	uv_close(handle, lws_libuv_closewsi);
+ }
+ 
++/*
++ * Called by the embedder after lws_vhost_destroy() to ensure any 0-second
++ * suls inserted for remaining WSIs are serviced on the next event loop
++ * iteration.  Without this the idle handle may be stopped, leaving those suls
++ * orphaned and count_bound_wsi stuck > 0.
++ */
++void
++lws_libuv_kick_idle(struct lws_context *ctx)
++{
++	struct lws_context_per_thread *pt = &ctx->pt[0];
++	struct lws_pt_eventlibs_libuv *ptpriv = pt_to_priv_uv(pt);
++
++	if (ptpriv && ptpriv->io_loop)
++		uv_idle_start(&ptpriv->idle, lws_uv_idle);
++}
++
+ static int
+ elops_foreign_thread_uv(struct lws_context *cx, int tsi)
+ {
 diff --git a/lib/misc/cache-ttl/file.c b/lib/misc/cache-ttl/file.c
-index 7c8d3536..ef29abc2 100644
+index 7c8d35369..ef29abc22 100644
 --- a/lib/misc/cache-ttl/file.c
 +++ b/lib/misc/cache-ttl/file.c
 @@ -685,6 +685,17 @@ nsc_regen(lws_cache_nscookiejar_t *cache, const char *wc_delete,

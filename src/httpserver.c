@@ -1317,6 +1317,13 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     bool use_tls = JS_IsString(js_cert) && JS_IsString(js_key);
 
     if (use_tls) {
+#ifdef TJS_NO_TLS
+        JS_FreeValue(ctx, js_cert);
+        JS_FreeValue(ctx, js_key);
+        JS_FreeCString(ctx, listen_ip);
+        JS_FreeValue(ctx, obj);
+        return JS_ThrowTypeError(ctx, "TLS not supported in this build");
+#else
         const char *cert_str = JS_ToCString(ctx, js_cert);
         const char *key_str = JS_ToCString(ctx, js_key);
         CHECK_NOT_NULL(cert_str);
@@ -1346,6 +1353,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
             JS_FreeCString(ctx, pp_str);
         }
         JS_FreeValue(ctx, js_passphrase);
+#endif
     }
 
     JS_FreeValue(ctx, js_cert);
@@ -1379,6 +1387,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     vhost_info.vhost_name = "tjs-http-server";
     vhost_info.options = 0;
 
+#ifndef TJS_NO_TLS
     /* Configure TLS if cert/key were provided. */
     if (use_tls) {
         vhost_info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
@@ -1403,6 +1412,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         }
         JS_FreeValue(ctx, js_request_cert);
     }
+#endif
 
     s->vhost = lws_create_vhost(lws_ctx, &vhost_info);
 
@@ -1437,8 +1447,18 @@ static JSValue tjs_httpserver_close(JSContext *ctx, JSValue this_val, int argc, 
     s->closed = true;
 
     if (s->vhost) {
+        struct lws_context *lws_ctx = tjs__lws_get_context(ctx);
         lws_vhost_destroy(s->vhost);
         s->vhost = NULL;
+        /*
+         * lws_vhost_destroy inserts 0-second suls (via LWS_TO_KILL_ASYNC) for
+         * the listen WSI and any remaining connections. The LWS libuv idle
+         * that services those suls may have stopped since the last I/O event.
+         * Re-arm it so the suls fire on the very next event-loop iteration,
+         * decrement count_bound_wsi to 0, and trigger PROTOCOL_DESTROY.
+         */
+        if (lws_ctx)
+            lws_libuv_kick_idle(lws_ctx);
     }
 
     /* Release callback references to break reference cycles.

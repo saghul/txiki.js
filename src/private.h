@@ -30,15 +30,21 @@
 #include "tjs.h"
 
 #include <libwebsockets.h>
+#ifndef TJS_NO_TLS
 #include <mbedtls/x509_crt.h>
+#endif
 #include <quickjs.h>
+#ifndef TJS_NO_SQLITE
 #include <sqlite3.h>
+#endif
 #include <stdbool.h>
 #ifndef _WIN32
 #include <unistd.h>
 #endif
 #include <uv.h>
+#ifndef TJS_NO_WASM
 #include <wasm_export.h>
+#endif
 
 #ifndef STDIN_FILENO
 #define STDIN_FILENO 0
@@ -77,10 +83,12 @@ struct TJSRuntime {
     bool is_worker;
     bool freeing;
     bool draining_microtasks;
+#ifndef TJS_NO_WASM
     struct {
         bool initialized;
         uint32_t stack_size;
     } wasm_ctx;
+#endif
     struct {
         struct lws_context *ctx;
         struct lws_vhost *vh_direct;
@@ -100,11 +108,13 @@ struct TJSRuntime {
         TJSTimer *timers;
         int64_t next_timer;
     } timers;
+#ifndef TJS_NO_TLS
     struct {
         bool initialized;
         mbedtls_x509_crt cacert;
         char *ca_bundle_path;
     } tls;
+#endif
     struct {
         JSValue promise_event_ctor;
         JSValue dispatch_event_func;
@@ -131,15 +141,21 @@ void tjs__decompressor_destroy(TJSDecompressor *d, JSRuntime *rt);
 void tjs__mod_os_init(JSContext *ctx, JSValue ns);
 void tjs__mod_process_init(JSContext *ctx, JSValue ns);
 void tjs__mod_signals_init(JSContext *ctx, JSValue ns);
+#ifndef TJS_NO_SQLITE
 void tjs__mod_sqlite3_init(JSContext *ctx, JSValue ns);
+#endif
 void tjs__mod_streams_init(JSContext *ctx, JSValue ns);
+#ifndef TJS_NO_TLS
 void tjs__mod_tls_init(JSContext *ctx, JSValue ns);
 void tjs__mod_tls_cleanup(TJSRuntime *qrt);
+#endif
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns);
 void tjs__mod_text_coding_init(JSContext *ctx, JSValue ns);
 void tjs__mod_timers_init(JSContext *ctx, JSValue ns);
 void tjs__mod_udp_init(JSContext *ctx, JSValue ns);
+#ifndef TJS_NO_WASM
 void tjs__mod_wasm_init(JSContext *ctx, JSValue ns);
+#endif
 void tjs__mod_worker_init(JSContext *ctx, JSValue ns);
 void tjs__webcrypto_init(JSContext *ctx, JSValue ns);
 void tjs__mod_ws_init(JSContext *ctx, JSValue ns);
@@ -180,6 +196,10 @@ void tjs__lws_conn_ref(JSContext *ctx);
 void tjs__lws_conn_unref(JSContext *ctx);
 struct lws_vhost *tjs__lws_select_vhost(JSContext *ctx, const char *scheme, const char *hostname, int port);
 int tjs__lws_load_http(TJSRuntime *qrt, TBuf *dbuf, const char *url);
+
+/* After lws_vhost_destroy(), re-arm the libuv idle so any 0-second suls
+ * inserted for remaining WSIs are processed on the next loop iteration. */
+void lws_libuv_kick_idle(struct lws_context *ctx);
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);

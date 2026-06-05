@@ -75,6 +75,13 @@ Object.defineProperty(engine, 'gc', {
     }
 });
 
+Object.defineProperty(engine, 'features', {
+    enumerable: true,
+    configurable: false,
+    writable: false,
+    value: Object.freeze(core.features)
+});
+
 Object.defineProperty(engine, 'versions', {
     enumerable: true,
     configurable: false,

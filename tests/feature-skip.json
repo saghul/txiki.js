@@ -1,0 +1,16 @@
+{
+  "wasm": [
+    "test-wasm-*.js",
+    "test-app-compile.js"
+  ],
+  "sqlite": [
+    "test-sqlite.js",
+    "test-dispose-database.js",
+    "test-dispose-statement.js",
+    "test-storage.js"
+  ],
+  "tls": [
+    "test-tls-*.js",
+    "test-dispose-tls.js"
+  ]
+}

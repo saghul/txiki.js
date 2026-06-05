@@ -24,6 +24,22 @@ make
 
 See [Building](https://txikijs.org/docs/building) for detailed instructions including Windows support.
 
+## Slim builds
+
+Build with subsets of the standard feature set to produce smaller binaries:
+
+```bash
+BUILD_WITH_WASM=OFF make      # ~0.4 MB smaller — removes WebAssembly/WASI
+BUILD_WITH_SQLITE=OFF make    # ~1.6 MB smaller — removes SQLite and REPL history
+BUILD_WITH_TLS=OFF make       # ~0.7 MB smaller — removes HTTPS/WSS (WebCrypto stays)
+BUILD_WITH_STRIP=ON make      # ~0.3–0.5 MB smaller — strip debug symbols
+BUILD_WITH_LTO=ON make        # ~0.3 MB smaller — link-time optimisation
+BUILDTYPE=MinSizeRel make     # ~0.2–0.4 MB smaller — -Os optimisation
+```
+
+Flags are independent and composable. See [Building](https://txikijs.org/docs/building)
+for the full reference.
+
 ## Features
 
 - Web Platform APIs: `fetch`, `WebSocket`, `Console`, `setTimeout`, `Crypto`, Web Workers, and more
