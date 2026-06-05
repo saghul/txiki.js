@@ -1,5 +1,18 @@
 import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 
+// The hand-curated `global` API groups below (Filesystem, Networking, …) stay
+// manual because TypeDoc can't reproduce that functional grouping. The
+// standard-library modules, however, are sourced straight from the sidebar
+// TypeDoc generates, so adding a stdlib symbol never requires editing this file.
+let stdlibModules: any[] = [];
+try {
+  const typedocSidebar = require('./docs/api/typedoc-sidebar.cjs') as Array<{ label?: string }>;
+  stdlibModules = typedocSidebar.filter((c) => c.label?.startsWith('tjs:'));
+} catch {
+  // typedoc-sidebar.cjs is produced by `npm run generate-api`; until that runs
+  // the Standard Library section is simply empty.
+}
+
 const sidebars: SidebarsConfig = {
   docsSidebar: [
     {
@@ -31,6 +44,7 @@ const sidebars: SidebarsConfig = {
         'guides/code-bundling',
         'guides/app-packages',
         'guides/http-proxy',
+        'guides/ffi',
       ],
     },
     'versioning',
@@ -228,199 +242,10 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Standard Library',
       collapsed: false,
-      items: [
-        {
-          type: 'category',
-          label: 'tjs:assert',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-assert' },
-          items: [
-            'api/tjs-assert.Variable.Assert',
-            'api/tjs-assert.Interface.IAssert',
-            'api/tjs-assert.Interface.IAssertionResult',
-            'api/tjs-assert.Interface.IAssertOptions',
-            'api/tjs-assert.Interface.ComparatorAssertionFunction',
-            'api/tjs-assert.Interface.BooleanAssertionFunction',
-            'api/tjs-assert.Interface.MessageAssertionFunction',
-            'api/tjs-assert.TypeAlias.ErrorAssertionFunction',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'tjs:ffi',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-ffi' },
-          items: [
-            'api/tjs-ffi.Class.Lib',
-            'api/tjs-ffi.Class.CFunction',
-            'api/tjs-ffi.Class.DlSymbol',
-            'api/tjs-ffi.Class.Pointer',
-            'api/tjs-ffi.Class.PointerType',
-            'api/tjs-ffi.Class.StructType',
-            'api/tjs-ffi.Class.ArrayType',
-            'api/tjs-ffi.Class.AdvancedType',
-            'api/tjs-ffi.Class.StaticStringType',
-            'api/tjs-ffi.Class.JSCallback',
-            'api/tjs-ffi.Interface.SimpleType',
-            'api/tjs-ffi.Interface.NativePointer',
-            'api/tjs-ffi.Interface.DlopenSymbol',
-            'api/tjs-ffi.Interface.DlopenResult',
-            'api/tjs-ffi.Variable.types',
-            'api/tjs-ffi.Variable.read',
-            'api/tjs-ffi.Variable.suffix',
-            'api/tjs-ffi.TypeAlias.TypeAlias',
-            'api/tjs-ffi.TypeAlias.TypeOrAlias',
-            'api/tjs-ffi.Function.dlopen',
-            'api/tjs-ffi.Function.bufferToString',
-            'api/tjs-ffi.Function.stringToBuffer',
-            'api/tjs-ffi.Function.bufferToPointer',
-            'api/tjs-ffi.Function.errno',
-            'api/tjs-ffi.Function.strerror',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'tjs:getopts',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-getopts' },
-          items: [
-            'api/tjs-getopts.Function.default',
-            'api/tjs-getopts.Interface.Options',
-            'api/tjs-getopts.Interface.ParsedOptions',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'tjs:hashing',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-hashing' },
-          items: [
-            'api/tjs-hashing.Function.createHash',
-            'api/tjs-hashing.Interface.HashObj',
-            'api/tjs-hashing.TypeAlias.HashType',
-            'api/tjs-hashing.Variable.SUPPORTED_TYPES',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'tjs:ipaddr',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-ipaddr' },
-          items: [
-            'api/tjs-ipaddr.Class.IPv4',
-            'api/tjs-ipaddr.Class.IPv6',
-            'api/tjs-ipaddr.Class.IP',
-            'api/tjs-ipaddr.Function.parse',
-            'api/tjs-ipaddr.Function.parseCIDR',
-            'api/tjs-ipaddr.Function.isValid',
-            'api/tjs-ipaddr.Function.process',
-            'api/tjs-ipaddr.Function.fromByteArray',
-            'api/tjs-ipaddr.Function.subnetMatch',
-            'api/tjs-ipaddr.Interface.RangeList',
-            'api/tjs-ipaddr.TypeAlias.IPv4Range',
-            'api/tjs-ipaddr.TypeAlias.IPv6Range',
-            'api/tjs-ipaddr.TypeAlias.IPvXRangeDefaults',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'tjs:path',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-path' },
-          items: [
-            'api/tjs-path.Variable.default',
-            'api/tjs-path.Variable.posix',
-            'api/tjs-path.Variable.win32',
-            'api/tjs-path.Interface.IPath',
-            'api/tjs-path.Interface.IPathObject',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'tjs:posix-socket',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-posix-socket' },
-          items: [
-            'api/tjs-posix-socket.Class.PosixSocket',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'tjs:readline',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-readline' },
-          items: [
-            'api/tjs-readline.Function.createInterface',
-            'api/tjs-readline.Class.ReadlineInterface',
-            'api/tjs-readline.Interface.InterfaceOptions',
-            'api/tjs-readline.Interface.CompleterResult',
-            'api/tjs-readline.Interface.ColorToken',
-            'api/tjs-readline.Variable.c',
-            'api/tjs-readline.Interface.StyleFunction',
-            'api/tjs-readline.Function.isColorSupported',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'tjs:sqlite',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-sqlite' },
-          items: [
-            'api/tjs-sqlite.Class.Database',
-            'api/tjs-sqlite.Interface.IDatabaseOptions',
-            'api/tjs-sqlite.Interface.IStatement',
-            'api/tjs-sqlite.Interface.ITransaction',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'tjs:utils',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-utils' },
-          items: [
-            'api/tjs-utils.Function.format',
-            'api/tjs-utils.Function.inspect',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'tjs:uuid',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-uuid' },
-          items: [
-            'api/tjs-uuid.Function.v1',
-            'api/tjs-uuid.Function.v3',
-            'api/tjs-uuid.Function.v4',
-            'api/tjs-uuid.Function.v5',
-            'api/tjs-uuid.Function.v6',
-            'api/tjs-uuid.Function.v7',
-            'api/tjs-uuid.Function.v1ToV6',
-            'api/tjs-uuid.Function.v6ToV1',
-            'api/tjs-uuid.Function.validate',
-            'api/tjs-uuid.Function.parse',
-            'api/tjs-uuid.Function.stringify',
-            'api/tjs-uuid.Function.version',
-            'api/tjs-uuid.Variable.NIL',
-            'api/tjs-uuid.Variable.MAX',
-            'api/tjs-uuid.TypeAlias.UUIDTypes',
-            'api/tjs-uuid.TypeAlias.Version1Options',
-            'api/tjs-uuid.TypeAlias.Version4Options',
-            'api/tjs-uuid.TypeAlias.Version6Options',
-            'api/tjs-uuid.TypeAlias.Version7Options',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'tjs:wasi',
-          collapsed: true,
-          link: { type: 'doc', id: 'api/tjs-wasi' },
-          items: [
-            'api/tjs-wasi.Class.WASI',
-            'api/tjs-wasi.Interface.WASIOptions',
-            'api/tjs-wasi.TypeAlias.WASIVersion',
-          ],
-        },
-      ],
+      // The standard-library API sidebar is generated by TypeDoc
+      // (`npm run generate-api`), so new symbols appear automatically and never
+      // need to be listed here by hand.
+      items: stdlibModules,
     },
   ],
 };

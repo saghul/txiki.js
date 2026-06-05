@@ -32,6 +32,7 @@ SOFTWARE.
 #define TJS_CONST_STRING_DEF(x) JS_PROP_STRING_DEF(#x, x, JS_PROP_ENUMERABLE)
 
 static JSClassID js_ffi_pointer_classid;
+static JSClassID js_ffi_external_ab_classid;
 
 static JSValue js_ffi_pointer_new(JSContext *ctx, void *ptr) {
     if (ptr == NULL) {
@@ -1107,6 +1108,77 @@ static JSValue TJS_NewUint8ArrayExternal(JSContext *ctx, uint8_t *data, size_t s
     return JS_NewUint8Array(ctx, data, size, NULL, NULL, false);
 }
 
+// Compute the base address and length for a zero-copy view created from a
+// (byteLength, byteOffset?) pair. Returns false (with a pending exception) when
+// the arguments are invalid.
+static bool js_ffi_view_range(JSContext *ctx,
+                              void *ptr,
+                              JSValue length_val,
+                              JSValue offset_val,
+                              uint8_t **pbase,
+                              size_t *psize) {
+    int64_t length;
+    if (JS_ToInt64(ctx, &length, length_val)) {
+        return false;
+    }
+    if (length < 0) {
+        JS_ThrowRangeError(ctx, "byteLength must not be negative");
+        return false;
+    }
+    int64_t offset = 0;
+    if (!JS_IsUndefined(offset_val) && JS_ToInt64(ctx, &offset, offset_val)) {
+        return false;
+    }
+    *pbase = (uint8_t *) ptr + offset;
+    *psize = (size_t) length;
+    return true;
+}
+
+// ExternalArrayBuffer: a zero-copy ArrayBuffer (created with a NULL free
+// callback, so the runtime never owns or frees the aliased memory) whose
+// prototype adds a detach() method. Everything else (byteLength, detached,
+// transfer, ...) is inherited from ArrayBuffer.prototype.
+
+// detach() neutralizes the buffer and every view over it by flipping the
+// detached bit. Because the backing store has a NULL free callback this neither
+// reads nor frees the aliased native memory, so it is safe to call even after
+// that memory has been freed: a potential use-after-free becomes a harmless
+// empty buffer.
+static JSValue js_external_arraybuffer_detach(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (!JS_IsArrayBuffer(this_val)) {
+        JS_ThrowTypeError(ctx, "Method ExternalArrayBuffer.prototype.detach called on incompatible receiver");
+        return JS_EXCEPTION;
+    }
+    JS_DetachArrayBuffer(ctx, this_val);
+    return JS_UNDEFINED;
+}
+
+static const JSCFunctionListEntry js_ffi_external_ab_proto_funcs[] = {
+    TJS_CFUNC_DEF("detach", 0, js_external_arraybuffer_detach),
+    JS_PROP_STRING_DEF("[Symbol.toStringTag]", "ExternalArrayBuffer", JS_PROP_CONFIGURABLE),
+};
+
+static JSClassDef js_ffi_external_ab_class = { "ExternalArrayBuffer" };
+
+// Instances are only produced by the pointer view methods below; constructing
+// one from JS makes no sense.
+static JSValue js_external_arraybuffer_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
+    return JS_ThrowTypeError(ctx, "ExternalArrayBuffer is not constructible");
+}
+
+// Wrap a (base, size) span in a zero-copy ArrayBuffer reparented to
+// ExternalArrayBuffer.prototype. The runtime takes no ownership of the memory.
+static JSValue js_ffi_new_external_arraybuffer(JSContext *ctx, uint8_t *base, size_t size) {
+    JSValue ab = JS_NewArrayBuffer(ctx, base, size, NULL, NULL, false);
+    if (JS_IsException(ab)) {
+        return ab;
+    }
+    JSValue proto = JS_GetClassProto(ctx, js_ffi_external_ab_classid);
+    JS_SetPrototype(ctx, ab, proto);
+    JS_FreeValue(ctx, proto);
+    return ab;
+}
+
 static JSValue js_ptr_to_buffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IS_PTR(ctx, argv[0]), 0, "pointer");
     TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[1]), 1, "number");
@@ -1307,11 +1379,45 @@ static JSValue js_ffi_pointer_equals(JSContext *ctx, JSValue this_val, int argc,
     return JS_NewBool(ctx, ptr == other);
 }
 
+// Create a zero-copy ExternalArrayBuffer over `byteLength` bytes starting at
+// this pointer plus an optional `byteOffset`. The buffer aliases the native
+// memory; no copy is made and the runtime does not take ownership of it.
+static JSValue js_ffi_pointer_to_arraybuffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    void *ptr = JS_GetOpaque(this_val, js_ffi_pointer_classid);
+    if (!ptr) {
+        JS_ThrowTypeError(ctx, "expected this to be Pointer");
+        return JS_EXCEPTION;
+    }
+    uint8_t *base;
+    size_t size;
+    if (!js_ffi_view_range(ctx, ptr, argv[0], argc > 1 ? argv[1] : JS_UNDEFINED, &base, &size)) {
+        return JS_EXCEPTION;
+    }
+    return js_ffi_new_external_arraybuffer(ctx, base, size);
+}
+
+// Like js_ffi_pointer_to_arraybuffer, but returns a Uint8Array view over the
+// ExternalArrayBuffer, so `view.buffer` is detachable.
+static JSValue js_ffi_pointer_to_uint8array(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    JSValue ab = js_ffi_pointer_to_arraybuffer(ctx, this_val, argc, argv);
+    if (JS_IsException(ab)) {
+        return ab;
+    }
+    // new Uint8Array(ab): the constructor reads offset/length from argv[1..2],
+    // so pass them explicitly as undefined (whole-buffer view).
+    JSValue ta_args[3] = { ab, JS_UNDEFINED, JS_UNDEFINED };
+    JSValue u8 = JS_NewTypedArray(ctx, 3, ta_args, JS_TYPED_ARRAY_UINT8);
+    JS_FreeValue(ctx, ab);
+    return u8;
+}
+
 static JSClassDef js_ffi_pointer_class = { "Pointer" };
 static const JSCFunctionListEntry js_ffi_pointer_proto_funcs[] = {
     TJS_CFUNC_DEF("toString", 0, js_ffi_pointer_to_string),
     TJS_CFUNC_DEF("offset", 1, js_ffi_pointer_offset),
     TJS_CFUNC_DEF("equals", 1, js_ffi_pointer_equals),
+    TJS_CFUNC_DEF("toUint8Array", 2, js_ffi_pointer_to_uint8array),
+    TJS_CFUNC_DEF("toArrayBuffer", 2, js_ffi_pointer_to_arraybuffer),
 };
 
 #pragma endregion "FfiPointer class definition"
@@ -1484,6 +1590,35 @@ static JSValue tjs__mod_ffi_init_js(JSContext *ctx, JSValue this_val, int argc, 
                                js_ffi_pointer_proto_funcs,
                                countof(js_ffi_pointer_proto_funcs));
     JS_SetClassProto(ctx, js_ffi_pointer_classid, js_ffi_pointer_proto);
+
+    // ExternalArrayBuffer: prototype chains to ArrayBuffer.prototype and adds
+    // detach(). The class id is used purely to stash the prototype so the view
+    // methods can reparent the buffers they create; the constructor exists only
+    // to back `instanceof` (it throws if actually called).
+    JS_NewClassID(JS_GetRuntime(ctx), &js_ffi_external_ab_classid);
+    JS_NewClass(JS_GetRuntime(ctx), js_ffi_external_ab_classid, &js_ffi_external_ab_class);
+    {
+        JSValue global = JS_GetGlobalObject(ctx);
+        JSValue ab_ctor = JS_GetPropertyStr(ctx, global, "ArrayBuffer");
+        JSValue ab_proto = JS_GetPropertyStr(ctx, ab_ctor, "prototype");
+        JSValue ext_proto = JS_NewObjectProto(ctx, ab_proto);
+        JS_SetPropertyFunctionList(ctx,
+                                   ext_proto,
+                                   js_ffi_external_ab_proto_funcs,
+                                   countof(js_ffi_external_ab_proto_funcs));
+        JSValue ext_ctor = JS_NewCFunction2(ctx,
+                                            js_external_arraybuffer_constructor,
+                                            "ExternalArrayBuffer",
+                                            0,
+                                            JS_CFUNC_constructor,
+                                            0);
+        JS_SetConstructor(ctx, ext_ctor, ext_proto);
+        JS_SetClassProto(ctx, js_ffi_external_ab_classid, ext_proto);  // consumes ext_proto
+        JS_DefinePropertyValueStr(ctx, ffiobj, "ExternalArrayBuffer", ext_ctor, JS_PROP_C_W_E);
+        JS_FreeValue(ctx, ab_proto);
+        JS_FreeValue(ctx, ab_ctor);
+        JS_FreeValue(ctx, global);
+    }
 
     REGISTER_CLASS(ctx, js_ffi_type);
     CLASS_CREATE_CONSTRUCTOR(ctx, js_ffi_type, ffiobj, js_ffi_type_create_struct);

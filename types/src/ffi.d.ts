@@ -27,7 +27,53 @@ declare module 'tjs:ffi'{
         offset(n: number): NativePointer;
         /** Returns `true` if both pointers refer to the same address. */
         equals(other: NativePointer | null): boolean;
+        /**
+         * Returns a **zero-copy** `Uint8Array` of `byteLength` bytes that aliases
+         * the native memory starting at this pointer (plus an optional
+         * `byteOffset`). No data is copied: reads and writes go straight to the
+         * underlying memory. Its `.buffer` is an {@link ExternalArrayBuffer}, so
+         * the view can be invalidated with `view.buffer.detach()`.
+         *
+         * The view does **not** keep the memory alive and the runtime never
+         * frees it. The caller is responsible for ensuring the memory outlives
+         * every view over it; accessing a view after the memory has been freed,
+         * moved or reallocated is undefined behaviour and can crash the process.
+         */
+        toUint8Array(byteLength: number, byteOffset?: number): Uint8Array;
+        /**
+         * Like {@link NativePointer.toUint8Array}, but returns a zero-copy
+         * {@link ExternalArrayBuffer}. The same lifetime caveats apply.
+         */
+        toArrayBuffer(byteLength: number, byteOffset?: number): ExternalArrayBuffer;
     }
+
+    /**
+     * A **zero-copy** `ArrayBuffer` that aliases native memory, returned by
+     * {@link NativePointer.toArrayBuffer} (and backing the `Uint8Array` from
+     * {@link NativePointer.toUint8Array}). It is a real `ArrayBuffer` — accepted
+     * anywhere one is — with one extra method.
+     */
+    export interface ExternalArrayBuffer extends ArrayBuffer {
+        /**
+         * Detach the buffer, invalidating it and every view over it: afterwards
+         * its `byteLength` is `0`, `detached` is `true`, and any `TypedArray`
+         * backed by it reads as empty.
+         *
+         * Use this to make a view safe to keep after you free the native memory
+         * it aliased — it turns a potential use-after-free into a harmless empty
+         * buffer. Unlike `ArrayBuffer.prototype.transfer()`, it does **not** read
+         * or copy the underlying bytes, so it is safe to call once the memory is
+         * gone.
+         */
+        detach(): void;
+    }
+
+    /**
+     * The {@link ExternalArrayBuffer} constructor, exposed for `instanceof`
+     * checks. Not constructible — instances come from {@link NativePointer}
+     * views.
+     */
+    export const ExternalArrayBuffer: Function & { readonly prototype: ExternalArrayBuffer };
 
     /**
      * Direct memory reads from a pointer at a given byte offset.

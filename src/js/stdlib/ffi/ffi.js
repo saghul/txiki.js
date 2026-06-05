@@ -286,6 +286,11 @@ export function bufferToPointer(buf) {
     return ffiInt.getArrayBufPtr(buf);
 }
 
+// The zero-copy ArrayBuffer subtype returned by NativePointer.toArrayBuffer()
+// (and backing the Uint8Array from NativePointer.toUint8Array()). It is a real
+// ArrayBuffer with an extra detach() method; see src/mod_ffi.c.
+export const ExternalArrayBuffer = ffiInt.ExternalArrayBuffer;
+
 export class Pointer {
     constructor(addr, level, type) {
         this._type = type;
