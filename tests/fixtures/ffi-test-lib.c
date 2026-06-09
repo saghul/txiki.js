@@ -75,6 +75,12 @@ FFI_TEST_EXPORT char* sprint_struct_test(struct test* t){
 	return str;
 }
 
+FFI_TEST_EXPORT char* sprint_struct_byval_test(struct test t){
+	static char str[255];
+	snprintf(str, 255, "a: %d, b: %u, c: %" PRIu64, t.a, t.b, t.c);
+	return str;
+}
+
 struct test_handle_entry{
 	int a;
 };

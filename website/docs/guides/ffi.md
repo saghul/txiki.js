@@ -55,11 +55,15 @@ aliases or as objects from the [`types`](/docs/api/tjs-ffi.Variable.types) table
 | `'f32'`, `'f64'` | `float`, `double` |
 | `'ptr'` | `void *` |
 | `'string'` | `char *` (auto-converted to/from a JS string) |
-| `'buffer'` | `void *` backed by a `Uint8Array` |
+| `'buffer'` | `void *` backed by a `Uint8Array` (argument only) |
 | `'void'` | `void` (return only) |
 
 See [`TypeAlias`](/docs/api/tjs-ffi.TypeAlias.TypeAlias.md) for the full list.
 `returns` defaults to `'void'` and `args` to `[]`.
+
+`'buffer'` can only be used as an argument: a returned `void *` has no known
+length, so use `'ptr'` and create a view over it (see
+[Working with native memory](#working-with-native-memory-zero-copy)).
 
 ## Strings and buffers
 
@@ -79,6 +83,11 @@ const out = new Uint8Array(64);
 symbols.snprintf(out, out.length, 'hello');
 console.log(bufferToString(out)); // "hello"
 ```
+
+[`bufferToString`](/docs/api/tjs-ffi.Function.bufferToString) reads a
+NUL-terminated `char *` out of a buffer; its inverse,
+[`stringToBuffer`](/docs/api/tjs-ffi.Function.stringToBuffer), encodes a JS
+string into a `Uint8Array` you can pass as a `'buffer'`.
 
 ### Variadic functions
 
@@ -105,6 +114,46 @@ const makePoint = new CFunction(lib.symbol('make_point'), Point, [types.sint, ty
 
 console.log(makePoint.call(3, 4)); // { x: 3, y: 4 }
 ```
+
+### Passing a struct by value
+
+When a parameter *is* a struct (passed by value), use the `StructType` as the
+argument type and pass a plain object:
+
+```javascript
+// double point_len(struct point p);
+const pointLen = new CFunction(lib.symbol('point_len'), types.double, [Point]);
+
+console.log(pointLen.call({ x: 3, y: 4 })); // 5
+```
+
+### Passing a struct by reference
+
+The common C idiom takes a pointer to a struct (`struct point *`). Wrap the
+object with [`Pointer.createRef`](/docs/api/tjs-ffi.Class.Pointer) to pass a
+pointer to its bytes — passing a bare object would be a type error:
+
+```javascript
+import { Pointer } from 'tjs:ffi';
+
+// void scale_point(struct point *p, double f);
+const scalePoint = new CFunction(lib.symbol('scale_point'), types.void, [new PointerType(Point), types.double]);
+
+const ref = Pointer.createRef(Point, { x: 3, y: 4 });
+scalePoint.call(ref, 2);
+console.log(ref.deref()); // { x: 6, y: 8 } — read the mutated value back
+```
+
+`createRef` keeps the backing buffer alive for as long as the `Pointer` is
+reachable; [`deref`](/docs/api/tjs-ffi.Class.Pointer) reads the (possibly
+mutated) value back.
+
+### Arrays and fixed-size strings
+
+For fixed-length array fields, use [`ArrayType`](/docs/api/tjs-ffi.Class.ArrayType)
+(`new ArrayType(types.sint32, 4, 'int4')`), and for `char[N]` fields that hold a
+string use [`StaticStringType`](/docs/api/tjs-ffi.Class.StaticStringType), which
+converts to/from a JS string.
 
 ## Callbacks
 
@@ -143,8 +192,38 @@ const second = read.i32(p, 4);   // read an int32 at p + 4 bytes
 const inner = read.ptr(p, 8);    // read a pointer field
 ```
 
+`read.u64` / `read.i64` return a JS `number`, which can't represent every 64-bit
+value: results above `Number.MAX_SAFE_INTEGER` (2⁵³−1) lose precision, and a
+`u64` with its high bit set reads back negative. For exact 64-bit values, read
+the raw bytes with `toUint8Array` instead.
+
 To go the other way, [`bufferToPointer`](/docs/api/tjs-ffi.Function.bufferToPointer)
 gives you a pointer to a `Uint8Array`'s memory.
+
+### Typed pointers
+
+[`Pointer`](/docs/api/tjs-ffi.Class.Pointer) pairs an address with the type it
+points at, so you can pass values by reference and read them back without
+juggling offsets. [`Pointer.createRef(type, value)`](/docs/api/tjs-ffi.Class.Pointer)
+allocates a buffer holding `value` and returns a pointer to it (it keeps the
+buffer alive while the `Pointer` is reachable); `createRefFromBuf(type, buf)`
+wraps an existing buffer. Use a [`PointerType`](/docs/api/tjs-ffi.Class.PointerType)
+as the argument/return type to declare a `T *` parameter:
+
+```javascript
+import { Lib, CFunction, PointerType, Pointer, types } from 'tjs:ffi';
+
+const libc = new Lib(Lib.LIBC_NAME);
+
+// struct tm *localtime(const time_t *timep);
+const localtime = new CFunction(libc.symbol('localtime'), new PointerType(Tm), [new PointerType(types.sint64)]);
+
+const tmPtr = localtime.call(Pointer.createRef(types.sint64, 1658319387));
+console.log(tmPtr.deref()); // { sec, min, hour, ... } — deref reads the struct
+```
+
+`deref()` reads one level of indirection; `derefAll()` follows a multi-level
+pointer all the way down.
 
 ## Working with native memory (zero-copy)
 
@@ -236,6 +315,47 @@ buf.detach(); // buf.byteLength is now 0, buf.detached is true
 Unlike `ArrayBuffer.prototype.transfer()`, `detach()` does not read or copy the
 bytes, so it is safe to call *after* the memory is gone. For a view returned as a
 `Uint8Array`, call `view.buffer.detach()`.
+
+## Declaring symbols from C prototypes
+
+Instead of describing each symbol by hand, you can paste C declarations and let
+[`Lib.parseCProto`](/docs/api/tjs-ffi.Class.Lib) register the structs, typedefs
+and functions for you. Functions then become callable by name with
+`lib.call(name, ...)`, and types are retrievable with `lib.getType(name)`:
+
+```javascript
+import { Lib, Pointer } from 'tjs:ffi';
+
+const lib = new Lib(`./libmystuff.${suffix}`);
+
+lib.parseCProto(`
+    struct point { int x; int y; };
+    int point_sum(struct point *p);
+`);
+
+const Point = lib.getType('struct point');
+console.log(lib.call('point_sum', Pointer.createRef(Point, { x: 3, y: 4 }))); // 7
+```
+
+The parser understands scalar types, pointers, fixed-size array members,
+structs, typedefs and function pointers (registered as callbacks). `lib.call`
+pairs with `lib.getFunc(name)` / `lib.registerFunction(name, fn)` and
+`lib.getType` / `lib.registerType(name, type)` if you want to inspect or extend
+the registry.
+
+## Error handling
+
+Many libc-style functions report failure by setting `errno`. Read it with
+[`errno()`](/docs/api/tjs-ffi.Function.errno) and turn a code into a message
+with [`strerror()`](/docs/api/tjs-ffi.Function.strerror):
+
+```javascript
+import { errno, strerror } from 'tjs:ffi';
+
+if (symbols.some_call() < 0) {
+    console.log('failed:', strerror(errno()));
+}
+```
 
 ## Closing libraries
 

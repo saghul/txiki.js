@@ -78,6 +78,13 @@ declare module 'tjs:ffi'{
     /**
      * Direct memory reads from a pointer at a given byte offset.
      * Faster than creating an intermediate buffer for one-off reads.
+     *
+     * Note: `u64`/`i64` return a JavaScript `number`, which cannot represent
+     * every 64-bit value. Magnitudes above `Number.MAX_SAFE_INTEGER` (2**53 - 1)
+     * lose precision, and `u64` values with the high bit set read back as a
+     * negative number (the bytes are interpreted as a signed `int64`). Use the
+     * low 53 bits only, or read the raw bytes via `toUint8Array` if you need the
+     * exact value.
      */
     export const read: {
         u8(ptr: NativePointer, offset?: number): number;
@@ -86,7 +93,9 @@ declare module 'tjs:ffi'{
         i16(ptr: NativePointer, offset?: number): number;
         u32(ptr: NativePointer, offset?: number): number;
         i32(ptr: NativePointer, offset?: number): number;
+        /** Lossy above 2**53 - 1; high-bit-set values read back negative. */
         u64(ptr: NativePointer, offset?: number): number;
+        /** Lossy above 2**53 - 1. */
         i64(ptr: NativePointer, offset?: number): number;
         f32(ptr: NativePointer, offset?: number): number;
         f64(ptr: NativePointer, offset?: number): number;
@@ -94,6 +103,8 @@ declare module 'tjs:ffi'{
     };
 
     export class DlSymbol{
+        /** Instances come only from {@link Lib.symbol}; not user-constructible. */
+        private constructor();
         readonly addr: NativePointer;
     }
 
@@ -108,7 +119,8 @@ declare module 'tjs:ffi'{
         constructor(type: ST, conf: {
             toBuffer?: (data: T, ctx?: {}) => Uint8Array,
             fromBuffer?: (buf: Uint8Array, ctx?: {}) => T,
-            getFfiTypeStruct?: () => SimpleType<T>
+            getFfiTypeStruct?: () => SimpleType<T>,
+            name?: string
         });
         readonly ffiType: ST;
         readonly ffiTypeStruct: SimpleType<T>
@@ -196,7 +208,7 @@ declare module 'tjs:ffi'{
         constructor(addr: NativePointer, level: N, type: SimpleType<T>);
         readonly addr: NativePointer;
         readonly level: N;
-        readonly type: T;
+        readonly type: SimpleType<T>;
         readonly isNull: boolean;
 
         deref(): N extends 1 ? T : Pointer<T, any>;
@@ -229,7 +241,7 @@ declare module 'tjs:ffi'{
         readonly size: number;
     }
 
-    export class StaticStringType extends AdvancedType<string, StaticStringType>{
+    export class StaticStringType extends ArrayType<number>{
         constructor(length: number, name: string);
         toBuffer(str: string, ctx?: {}): Uint8Array;
         fromBuffer(buf: Uint8Array, ctx?: {}): string;
@@ -237,8 +249,8 @@ declare module 'tjs:ffi'{
 
     export function errno(): number;
     export function strerror(err?: number): string;
-    export class JSCallback<RT, AT extends []>{ //TODO: better typing mechanism for Arg types
-        constructor(rtype: SimpleType<RT>, argtypes: Array<SimpleType<AT[0]>>, func: (...args: AT)=>RT);
+    export class JSCallback<RT, AT extends any[]>{
+        constructor(rtype: SimpleType<RT>, argtypes: { [K in keyof AT]: SimpleType<AT[K]> }, func: (...args: AT)=>RT);
         readonly addr: NativePointer;
     }
 
@@ -314,4 +326,33 @@ declare module 'tjs:ffi'{
      * @param symbols - Object mapping symbol names to their type signatures.
      */
     export function dlopen<T extends Record<string, DlopenSymbol>>(path: string, symbols: T): DlopenResult<T>;
+
+    /**
+     * Default export: the module namespace object, with every named export as a
+     * property. Both `import ffi from 'tjs:ffi'` (then `ffi.dlopen(...)`) and
+     * `import { dlopen } from 'tjs:ffi'` are supported.
+     */
+    const _default: {
+        DlSymbol: typeof DlSymbol;
+        Lib: typeof Lib;
+        AdvancedType: typeof AdvancedType;
+        CFunction: typeof CFunction;
+        Pointer: typeof Pointer;
+        PointerType: typeof PointerType;
+        StructType: typeof StructType;
+        ArrayType: typeof ArrayType;
+        StaticStringType: typeof StaticStringType;
+        JSCallback: typeof JSCallback;
+        ExternalArrayBuffer: typeof ExternalArrayBuffer;
+        types: typeof types;
+        read: typeof read;
+        suffix: typeof suffix;
+        errno: typeof errno;
+        strerror: typeof strerror;
+        bufferToString: typeof bufferToString;
+        stringToBuffer: typeof stringToBuffer;
+        bufferToPointer: typeof bufferToPointer;
+        dlopen: typeof dlopen;
+    };
+    export default _default;
 }
