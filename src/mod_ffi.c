@@ -126,17 +126,15 @@ typedef struct {
 } js_ffi_type;
 
 size_t ffi_type_get_sz(ffi_type *type) {
-    if (type->type == FFI_TYPE_STRUCT) {
-        size_t sz = 0;
-        unsigned i = 0;
-        while (type->elements[i] != NULL) {
-            sz += FFI_ALIGN(ffi_type_get_sz(type->elements[i]), type->alignment);
-            i++;
-        }
-        return sz;
-    } else {
-        return type->size;
-    }
+    // libffi computes the real size of a struct (correct per-member alignment
+    // plus tail padding) into type->size when the type is prepared, which for
+    // our dynamic structs happens in js_ffi_type_create_struct via
+    // ffi_get_struct_offsets (and explicitly for the array case). Trust that
+    // value instead of a home-grown sum: the old code aligned every member up
+    // to the whole struct's alignment, over-reporting the size (e.g. 24 instead
+    // of 16 for `struct { int a; char b; uint64_t c; }`), which in turn gave
+    // arrays-of-struct the wrong stride.
+    return type->size;
 }
 
 static JSClassID js_ffi_type_classid;
@@ -717,6 +715,13 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValue this_val, int argc, JSVal
     if (aval != NULL) {
         js_free(ctx, aval);
     }
+    // A JSCallback invoked during the call may have left a pending exception
+    // (see js_ffi_closure_invoke). Propagate it instead of returning a bogus
+    // result built from the zeroed return slot.
+    if (JS_HasException(ctx)) {
+        js_free(ctx, rptr);
+        return JS_EXCEPTION;
+    }
     return TJS_NewUint8Array(ctx, rptr, retsz);
 }
 
@@ -897,6 +902,11 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
         JS_FreeCString(ctx, cstrings[j]);
     }
 
+    // Propagate any exception a JSCallback left pending during the call.
+    if (JS_HasException(ctx)) {
+        return JS_EXCEPTION;
+    }
+
     if (return_is_string) {
         const char *rptr = (const char *) (uintptr_t) ret_storage;
         return rptr ? JS_NewString(ctx, rptr) : JS_NULL;
@@ -1047,6 +1057,10 @@ static JSValue js_libc_strerror(JSContext *ctx, JSValue this_val, int argc, JSVa
 
 #pragma region "other helpers"
 // ============================
+
+static JSValue js_is_pointer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    return JS_NewBool(ctx, argc > 0 && JS_IS_PTR(ctx, argv[0]));
+}
 
 static JSValue js_array_buffer_get_ptr(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     if (argc <= 0) {
@@ -1254,19 +1268,30 @@ void js_ffi_closure_invoke(ffi_cif *cif, void *ret, void **args, void *userptr) 
         JS_FreeValue(ctx, jsargs[i]);
     }
     js_free(ctx, jsargs);
+
+    // If the JS callback threw, or its return value could not be marshalled
+    // back to the native return type, leave the exception pending on the
+    // context and hand the C caller a zeroed return value. The enclosing FFI
+    // call (js_ffi_cif_call / js_ffi_cif_fast_call) checks for a pending
+    // exception once ffi_call returns and propagates it, so the error is
+    // catchable from JS instead of aborting the whole process.
+    //
+    // (We cannot unwind out of native code mid-call, so the C function still
+    // runs to completion with a zeroed result; this only makes the failure
+    // observable and recoverable at the JS boundary.)
+    size_t retsz = ffi_type_get_sz(cif->rtype);
     if (JS_IsException(jsret)) {
-        fprintf(stderr, "js_ffi_closure_invoke: function returned exception\n");
-        tjs_dump_error(ctx);
-        abort();
+        memset(ret, 0, retsz);
+        return;
     }
     size_t sz;
     uint8_t *buf = JS_GetUint8Array(ctx, &sz, jsret);
     if (!buf) {
-        fprintf(stderr, "js_ffi_closure_invoke: function returned non-buffer\n");
-        tjs_dump_error(ctx);
-        abort();
+        memset(ret, 0, retsz);
+        JS_FreeValue(ctx, jsret);
+        return;
     }
-    memcpy(ret, buf, sz);
+    memcpy(ret, buf, sz < retsz ? sz : retsz);
     JS_FreeValue(ctx, jsret);
 }
 
@@ -1546,6 +1571,7 @@ static const JSCFunctionListEntry funcs[] = {
     TJS_CFUNC_DEF("strerror", 1, js_libc_strerror),
 
     // other helpers
+    TJS_CFUNC_DEF("isPointer", 1, js_is_pointer),
     TJS_CFUNC_DEF("getArrayBufPtr", 1, js_array_buffer_get_ptr),
     TJS_CFUNC_DEF("getCString", 1, js_get_cstring),
     TJS_CFUNC_DEF("toCString", 1, js_to_cstring),
