@@ -333,12 +333,13 @@ void tjs__lws_init(TJSRuntime *qrt) {
     memset(&info, 0, sizeof(info));
 
     info.port = CONTEXT_PORT_NO_LISTEN;
-    info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_LIBUV | LWS_SERVER_OPTION_EXPLICIT_VHOSTS;
+    info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_EXPLICIT_VHOSTS;
     /* Match Node.js / Deno default max header size (16 KiB). */
     info.pt_serv_buf_size = 16384;
     info.max_http_header_data2 = 16384;
 
-    /* Use the existing libuv event loop. */
+    /* Use the existing libuv event loop via our own event lib. */
+    info.event_lib_custom = &tjs_lws_evlib;
     void *foreign_loops[1] = { &qrt->loop };
     info.foreign_loops = foreign_loops;
 

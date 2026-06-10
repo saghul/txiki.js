@@ -89,6 +89,7 @@ endif()
 add_library(tjs STATIC
     src/builtins.c
     src/error.c
+    src/lws-evlib.c
     src/lws-utils.c
     src/eval.c
     src/mem.c
@@ -316,7 +317,7 @@ set(LWS_WITH_JSONRPC OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_LWSAC OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_CONMON OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_WOL OFF CACHE BOOL "" FORCE)
-set(LWS_WITH_LIBUV ON CACHE BOOL "" FORCE)
+set(LWS_WITH_LIBUV OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_MBEDTLS ON CACHE BOOL "" FORCE)
 set(LWS_WITH_SSL ON CACHE BOOL "" FORCE)
 set(LWS_WITHOUT_EXTENSIONS ON CACHE BOOL "" FORCE)
@@ -352,8 +353,6 @@ set(LWS_HAVE_MBEDTLS_NET_SOCKETS 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_MBEDTLS_SSL_NEW_SESSION_TICKET 1 CACHE BOOL "" FORCE)
 set(LWS_MBEDTLS_LIBRARIES mbedtls mbedx509 mbedcrypto CACHE STRING "" FORCE)
 set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" CACHE STRING "" FORCE)
-set(LWS_LIBUV_LIBRARIES uv_a CACHE STRING "" FORCE)
-set(LWS_LIBUV_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/libuv/include" CACHE STRING "" FORCE)
 # Apply lws patches.
 execute_process(
     COMMAND git apply --reverse --check ${CMAKE_CURRENT_SOURCE_DIR}/patches/lws.patch
