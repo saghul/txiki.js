@@ -742,6 +742,26 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValue this_val, int argc, JSVal
  */
 #define MAX_FAST_ARGS 16
 
+/* Storage for a single scalar FFI argument or return value.  A union keeps each
+ * access within its active member — satisfying strict aliasing where a raw
+ * ffi_arg would otherwise be type-punned — and is wide enough for every
+ * supported type, notably long double, which is larger than ffi_arg. */
+typedef union {
+    ffi_arg u;
+    uint8_t u8;
+    int8_t i8;
+    uint16_t u16;
+    int16_t i16;
+    uint32_t u32;
+    int32_t i32;
+    uint64_t u64;
+    int64_t i64;
+    float f;
+    double d;
+    long double ld;
+    void *p;
+} tjs_ffi_value;
+
 static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     js_ffi_cif *cif = JS_GetOpaque(this_val, js_ffi_cif_classid);
     if (!cif) {
@@ -775,7 +795,7 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
         return JS_EXCEPTION;
     }
 
-    ffi_arg arg_storage[MAX_FAST_ARGS];
+    tjs_ffi_value arg_storage[MAX_FAST_ARGS];
     void *aval[MAX_FAST_ARGS];
     const char *cstrings[MAX_FAST_ARGS]; /* track strings to free after call */
     unsigned n_cstrings = 0;
@@ -794,7 +814,7 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
                 return JS_EXCEPTION;
             }
             cstrings[n_cstrings++] = s;
-            *(void **) &arg_storage[i] = (void *) s;
+            arg_storage[i].p = (void *) s;
             continue;
         }
 
@@ -807,7 +827,7 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
                 }
                 return JS_EXCEPTION;
             }
-            *(void **) &arg_storage[i] = ptr;
+            arg_storage[i].p = ptr;
             continue;
         }
 
@@ -815,64 +835,64 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
             case FFI_TYPE_UINT8: {
                 uint32_t v;
                 JS_ToUint32(ctx, &v, val);
-                *(uint8_t *) &arg_storage[i] = (uint8_t) v;
+                arg_storage[i].u8 = (uint8_t) v;
                 break;
             }
             case FFI_TYPE_SINT8: {
                 int32_t v;
                 JS_ToInt32(ctx, &v, val);
-                *(int8_t *) &arg_storage[i] = (int8_t) v;
+                arg_storage[i].i8 = (int8_t) v;
                 break;
             }
             case FFI_TYPE_UINT16: {
                 uint32_t v;
                 JS_ToUint32(ctx, &v, val);
-                *(uint16_t *) &arg_storage[i] = (uint16_t) v;
+                arg_storage[i].u16 = (uint16_t) v;
                 break;
             }
             case FFI_TYPE_SINT16: {
                 int32_t v;
                 JS_ToInt32(ctx, &v, val);
-                *(int16_t *) &arg_storage[i] = (int16_t) v;
+                arg_storage[i].i16 = (int16_t) v;
                 break;
             }
             case FFI_TYPE_UINT32:
-                JS_ToUint32(ctx, (uint32_t *) &arg_storage[i], val);
+                JS_ToUint32(ctx, &arg_storage[i].u32, val);
                 break;
             case FFI_TYPE_SINT32:
             case FFI_TYPE_INT:
-                JS_ToInt32(ctx, (int32_t *) &arg_storage[i], val);
+                JS_ToInt32(ctx, &arg_storage[i].i32, val);
                 break;
             case FFI_TYPE_UINT64:
-                JS_ToIndex(ctx, (uint64_t *) &arg_storage[i], val);
+                JS_ToIndex(ctx, &arg_storage[i].u64, val);
                 break;
             case FFI_TYPE_SINT64:
-                JS_ToInt64(ctx, (int64_t *) &arg_storage[i], val);
+                JS_ToInt64(ctx, &arg_storage[i].i64, val);
                 break;
             case FFI_TYPE_FLOAT: {
                 double v;
                 JS_ToFloat64(ctx, &v, val);
-                *(float *) &arg_storage[i] = (float) v;
+                arg_storage[i].f = (float) v;
                 break;
             }
             case FFI_TYPE_DOUBLE:
-                JS_ToFloat64(ctx, (double *) &arg_storage[i], val);
+                JS_ToFloat64(ctx, &arg_storage[i].d, val);
                 break;
 #if FFI_TYPE_LONGDOUBLE != FFI_TYPE_DOUBLE
             case FFI_TYPE_LONGDOUBLE: {
                 double v;
                 JS_ToFloat64(ctx, &v, val);
-                *(long double *) &arg_storage[i] = (long double) v;
+                arg_storage[i].ld = (long double) v;
                 break;
             }
 #endif
             case FFI_TYPE_POINTER:
                 if (JS_IsNull(val)) {
-                    *(void **) &arg_storage[i] = NULL;
+                    arg_storage[i].p = NULL;
                 } else {
                     void *p = JS_GetOpaque(val, js_ffi_pointer_classid);
                     if (p) {
-                        *(void **) &arg_storage[i] = p;
+                        arg_storage[i].p = p;
                     } else {
                         size_t sz;
                         uint8_t *bp = JS_GetUint8Array(ctx, &sz, val);
@@ -882,7 +902,7 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
                             }
                             return JS_EXCEPTION;
                         }
-                        *(void **) &arg_storage[i] = bp;
+                        arg_storage[i].p = bp;
                     }
                 }
                 break;
@@ -895,7 +915,7 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
         }
     }
 
-    ffi_arg ret_storage;
+    tjs_ffi_value ret_storage;
     ffi_call(&cif->ffi_cif, func, &ret_storage, nargs > 0 ? aval : NULL);
 
     for (unsigned j = 0; j < n_cstrings; j++) {
@@ -908,7 +928,7 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
     }
 
     if (return_is_string) {
-        const char *rptr = (const char *) (uintptr_t) ret_storage;
+        const char *rptr = (const char *) ret_storage.p;
         return rptr ? JS_NewString(ctx, rptr) : JS_NULL;
     }
 
@@ -917,32 +937,32 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
         case FFI_TYPE_VOID:
             return JS_UNDEFINED;
         case FFI_TYPE_UINT8:
-            return JS_NewInt32(ctx, (uint8_t) ret_storage);
+            return JS_NewInt32(ctx, (uint8_t) ret_storage.u);
         case FFI_TYPE_SINT8:
-            return JS_NewInt32(ctx, (int8_t) ret_storage);
+            return JS_NewInt32(ctx, (int8_t) ret_storage.u);
         case FFI_TYPE_UINT16:
-            return JS_NewInt32(ctx, (uint16_t) ret_storage);
+            return JS_NewInt32(ctx, (uint16_t) ret_storage.u);
         case FFI_TYPE_SINT16:
-            return JS_NewInt32(ctx, (int16_t) ret_storage);
+            return JS_NewInt32(ctx, (int16_t) ret_storage.u);
         case FFI_TYPE_UINT32:
-            return JS_NewInt64(ctx, (uint32_t) ret_storage);
+            return JS_NewInt64(ctx, (uint32_t) ret_storage.u);
         case FFI_TYPE_SINT32:
         case FFI_TYPE_INT:
-            return JS_NewInt32(ctx, (int32_t) ret_storage);
+            return JS_NewInt32(ctx, (int32_t) ret_storage.u);
         case FFI_TYPE_UINT64:
-            return JS_NewInt64(ctx, (uint64_t) ret_storage);
+            return JS_NewInt64(ctx, (uint64_t) ret_storage.u);
         case FFI_TYPE_SINT64:
-            return JS_NewInt64(ctx, (int64_t) ret_storage);
+            return JS_NewInt64(ctx, (int64_t) ret_storage.u);
         case FFI_TYPE_FLOAT:
-            return JS_NewFloat64(ctx, (double) *(float *) &ret_storage);
+            return JS_NewFloat64(ctx, (double) ret_storage.f);
         case FFI_TYPE_DOUBLE:
-            return JS_NewFloat64(ctx, *(double *) &ret_storage);
+            return JS_NewFloat64(ctx, ret_storage.d);
 #if FFI_TYPE_LONGDOUBLE != FFI_TYPE_DOUBLE
         case FFI_TYPE_LONGDOUBLE:
-            return JS_NewFloat64(ctx, (double) *(long double *) &ret_storage);
+            return JS_NewFloat64(ctx, (double) ret_storage.ld);
 #endif
         case FFI_TYPE_POINTER:
-            return js_ffi_pointer_new(ctx, (void *) (uintptr_t) ret_storage);
+            return js_ffi_pointer_new(ctx, ret_storage.p);
         default:
             JS_ThrowInternalError(ctx, "fast_call: unsupported return type %d", rtype->type);
             return JS_EXCEPTION;
