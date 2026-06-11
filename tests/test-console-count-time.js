@@ -1,5 +1,12 @@
 import { runTest, checkResult } from './helpers.js';
 
+// Skipped under GC stress: forcing a full GC before every allocation starves
+// the event loop, so the console.time() durations this test asserts on no
+// longer fit the expected "0ms"/single-digit-ms format.
+if (tjs.env.TJS_GC_STRESS) {
+	tjs.exit(0);
+}
+
 const tests = [
 
 	// Test console.count()

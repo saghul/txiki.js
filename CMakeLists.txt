@@ -58,6 +58,15 @@ endmacro()
 xoption(BUILD_WITH_MIMALLOC "If ON (default), build with mimalloc" ON)
 xoption(BUILD_WITH_ASAN "Build with AddressSanitizer" OFF)
 xoption(BUILD_WITH_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
+xoption(BUILD_WITH_GC_STRESS "Force a full GC before every JS allocation (QuickJS FORCE_GC_AT_MALLOC)" OFF)
+
+if(BUILD_WITH_GC_STRESS)
+    message(STATUS "GC stress mode enabled (FORCE_GC_AT_MALLOC)")
+    # quickjs.c only runs a GC when this is defined; the definition is set at
+    # directory scope here so it propagates to the deps/quickjs subdirectory
+    # added below.
+    add_compile_definitions(FORCE_GC_AT_MALLOC)
+endif()
 
 if(BUILD_WITH_ASAN)
     message(STATUS "AddressSanitizer enabled")

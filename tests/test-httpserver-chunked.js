@@ -1,5 +1,12 @@
 import assert from 'tjs:assert';
 
+// Skipped under GC stress: forcing a full GC before every allocation starves
+// the event loop, so the per-chunk delays and the read-timeout race this test
+// relies on no longer hold.
+if (tjs.env.TJS_GC_STRESS) {
+    tjs.exit(0);
+}
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
