@@ -1447,18 +1447,8 @@ static JSValue tjs_httpserver_close(JSContext *ctx, JSValue this_val, int argc, 
     s->closed = true;
 
     if (s->vhost) {
-        struct lws_context *lws_ctx = tjs__lws_get_context(ctx);
         lws_vhost_destroy(s->vhost);
         s->vhost = NULL;
-        /*
-         * lws_vhost_destroy inserts 0-second suls (via LWS_TO_KILL_ASYNC) for
-         * the listen WSI and any remaining connections. The LWS libuv idle
-         * that services those suls may have stopped since the last I/O event.
-         * Re-arm it so the suls fire on the very next event-loop iteration,
-         * decrement count_bound_wsi to 0, and trigger PROTOCOL_DESTROY.
-         */
-        if (lws_ctx)
-            lws_libuv_kick_idle(lws_ctx);
     }
 
     /* Release callback references to break reference cycles.

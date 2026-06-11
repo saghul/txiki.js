@@ -55,38 +55,6 @@ macro(xoption OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
     message(STATUS "  ${OPTION_NAME}: ${${OPTION_NAME}}")
 endmacro()
 
-macro(apply_dep_patch)
-    cmake_parse_arguments(_P "" "DEPDIR;PATCH" "" ${ARGN})
-    set(_dep_dir "${CMAKE_CURRENT_SOURCE_DIR}/${_P_DEPDIR}")
-    set(_patch   "${CMAKE_CURRENT_SOURCE_DIR}/${_P_PATCH}")
-    get_filename_component(_patch_name "${_patch}" NAME)
-    execute_process(
-        COMMAND git apply --reverse --check "${_patch}"
-        WORKING_DIRECTORY "${_dep_dir}"
-        RESULT_VARIABLE _patch_already_applied
-        OUTPUT_QUIET ERROR_QUIET
-    )
-    if(_patch_already_applied EQUAL 0)
-        message(STATUS "Already applied ${_patch_name}")
-    else()
-        execute_process(
-            COMMAND git apply "${_patch}"
-            WORKING_DIRECTORY "${_dep_dir}"
-            RESULT_VARIABLE _patch_result
-        )
-        if(_patch_result EQUAL 0)
-            message(STATUS "Applied ${_patch_name}")
-        else()
-            message(FATAL_ERROR "Failed to apply ${_patch_name} to ${_P_DEPDIR}")
-        endif()
-    endif()
-    unset(_dep_dir)
-    unset(_patch)
-    unset(_patch_name)
-    unset(_patch_already_applied)
-    unset(_patch_result)
-endmacro()
-
 xoption(BUILD_WITH_MIMALLOC "If ON (default), build with mimalloc" ON)
 xoption(BUILD_WITH_ASAN "Build with AddressSanitizer" OFF)
 xoption(BUILD_WITH_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
@@ -523,7 +491,6 @@ set(ZLIB_LIBRARIES miniz CACHE STRING "" FORCE)
 set(LWS_HAVE_ZLIB_H 1 CACHE BOOL "" FORCE)
 set(LWS_LIBUV_LIBRARIES uv_a CACHE STRING "" FORCE)
 set(LWS_LIBUV_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/libuv/include" CACHE STRING "" FORCE)
-apply_dep_patch(DEPDIR deps/libwebsockets PATCH patches/lws.patch)
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
 # Work around mbedtls ssl.h using #if instead of #ifdef on
 # MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT (undefined when DTLS is disabled).

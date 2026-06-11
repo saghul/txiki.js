@@ -199,10 +199,6 @@ void tjs__lws_conn_unref(JSContext *ctx);
 struct lws_vhost *tjs__lws_select_vhost(JSContext *ctx, const char *scheme, const char *hostname, int port);
 int tjs__lws_load_http(TJSRuntime *qrt, TBuf *dbuf, const char *url);
 
-/* After lws_vhost_destroy(), re-arm the libuv idle so any 0-second suls
- * inserted for remaining WSIs are processed on the next loop iteration. */
-void lws_libuv_kick_idle(struct lws_context *ctx);
-
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options);

@@ -66,6 +66,7 @@ static void *tjs__mf_realloc(void *opaque, void *ptr, size_t size) {
     return tjs__realloc(ptr, size);
 }
 
+#ifndef TJS_NO_WASM
 /* WAMR allocator wrappers — WAMR uses unsigned int, not size_t. */
 
 static void *tjs__wamr_malloc(unsigned int size) {
@@ -75,6 +76,7 @@ static void *tjs__wamr_malloc(unsigned int size) {
 static void *tjs__wamr_realloc(void *ptr, unsigned int size) {
     return tjs__realloc(ptr, size);
 }
+#endif
 
 static const JSMallocFunctions tjs_mf = {
     .js_calloc = tjs__mf_calloc,

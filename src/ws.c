@@ -378,8 +378,9 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     }
 
 #ifdef TJS_NO_TLS
-    if (!strcmp(prot_str, "wss") || !strcmp(prot_str, "https")) {
-        js_free(ctx, url_copy);
+    if (!strcmp(uri->scheme, "wss") || !strcmp(uri->scheme, "https")) {
+        JS_FreeCString(ctx, protocols);
+        lws_parse_uri_destroy(&uri);
         js_free(ctx, w);
         JS_FreeValue(ctx, obj);
         return JS_ThrowTypeError(ctx, "WSS not supported in this build");
