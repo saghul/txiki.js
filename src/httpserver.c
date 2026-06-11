@@ -1653,9 +1653,11 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
         /* No body, complete the transaction now and release the request so
          * a subsequent keep-alive transaction on this wsi doesn't accumulate
          * the previous request's state.  The return value indicates whether
-         * lws will close the connection; either way we drop our state here
+         * lws will close the connection; we can't propagate that from here (we
+         * are not in the protocol callback), so we drop our state either way
          * and let lws handle the wsi lifecycle. */
-        (void) lws_http_transaction_completed(req->wsi);
+        int must_close = lws_http_transaction_completed(req->wsi);
+        (void) must_close;
         tjs_http_req_complete(s, req);
     }
 

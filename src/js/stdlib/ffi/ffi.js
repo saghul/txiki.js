@@ -116,14 +116,14 @@ export class AdvancedType {
         if (this._conf.toBuffer) {
             return this._conf.toBuffer(data, ctx);
         } else {
-            return this._type.toBuffer(data, ctx);
+            return this._ffiType.toBuffer(data, ctx);
         }
     }
     fromBuffer(buf, ctx = {}) {
         if (this._conf.fromBuffer) {
             return this._conf.fromBuffer(buf, ctx);
         } else {
-            return this._type.fromBuffer(buf, ctx);
+            return this._ffiType.fromBuffer(buf, ctx);
         }
     }
     get ffiType() {
@@ -225,7 +225,7 @@ export const types = {
         fromBuffer: () =>{
             throw new Error('type buffer cannot be used as a return type, since the size is not known!');
         },
-        name: 'string'
+        name: 'buffer'
     }),
 
     jscallback: new AdvancedType(ffiInt.type_pointer, {
@@ -285,6 +285,11 @@ export function stringToBuffer(s) {
 export function bufferToPointer(buf) {
     return ffiInt.getArrayBufPtr(buf);
 }
+
+// The zero-copy ArrayBuffer subtype returned by NativePointer.toArrayBuffer()
+// (and backing the Uint8Array from NativePointer.toUint8Array()). It is a real
+// ArrayBuffer with an extra detach() method; see src/mod_ffi.c.
+export const ExternalArrayBuffer = ffiInt.ExternalArrayBuffer;
 
 export class Pointer {
     constructor(addr, level, type) {
@@ -348,12 +353,23 @@ export class PointerType extends AdvancedType {
     toBuffer(data, ctx = {}) {
         if (data instanceof Pointer) {
             return types.pointer.toBuffer(data.addr, ctx);
-        } else {
+        }
+
+        // Only a native pointer (NativePointer) or null can be marshalled as a
+        // raw pointer. Anything else — most commonly a plain object a caller
+        // expects to be passed by reference — would otherwise be coerced to a
+        // NULL pointer silently (a likely crash in C). Fail loudly and point at
+        // the supported idiom instead.
+        if (data === null || ffiInt.isPointer(data)) {
             return types.pointer.toBuffer(data, ctx);
         }
+
+        throw new TypeError(
+            'PointerType expects a Pointer, a native pointer, or null; ' +
+            'to pass a value by reference use Pointer.createRef(type, value)');
     }
-    fromBuffer(buf) {
-        return new Pointer(types.pointer.fromBuffer(buf), this._level, this._type);
+    fromBuffer(buf, ctx = {}) {
+        return new Pointer(types.pointer.fromBuffer(buf, ctx), this._level, this._type);
     }
     get type() {
         return this._type;
@@ -421,7 +437,7 @@ export class ArrayType extends AdvancedType {
                 const buf = new Uint8Array(ffisz*length);
 
                 for (let i=0; i<arr.length; i++) {
-                    let sbuf = type.fromBuffer(arr[i], ctx);
+                    let sbuf = type.toBuffer(arr[i], ctx);
 
                     buf.set(sbuf, i*ffisz);
                 }
@@ -508,7 +524,7 @@ export class JSCallback {
     }
 }
 
-const { parseCProto, astToLib } = buildCParser({ StructType, CFunction, PointerType, types });
+const { parseCProto, astToLib } = buildCParser({ StructType, ArrayType, CFunction, PointerType, types });
 
 const typeAliases = {
     void: types.void,

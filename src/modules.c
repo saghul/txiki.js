@@ -143,7 +143,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     JSValue val;
     int r;
     int type;
-    bool use_realpath;
+    bool use_realpath = false;
     TBuf dbuf;
 
     if (strncmp(tjs_internal_prefix, module_name, strlen(tjs_internal_prefix)) == 0) {

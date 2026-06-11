@@ -1,20 +1,46 @@
 import assert from 'tjs:assert';
 import { PosixSocket } from 'tjs:posix-socket';
 
+// Skipped under GC stress: forcing a full GC before every allocation starves
+// the event loop, so the setTimeout-based synchronization delays this test
+// relies on no longer hold.
+if (tjs.env.TJS_GC_STRESS) {
+	tjs.exit(0);
+}
 
-const fromHexString = (hexString) =>
-  Uint8Array.from(hexString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
+
+// Pick a random port in the dynamic/private range to avoid clashes with
+// lingering sockets (e.g. TIME_WAIT) from previous runs on the CI machine.
+function randomPort(){
+	return 49152 + Math.floor(Math.random() * (65535 - 49152));
+}
+
+// Build the sockaddr_in bytes we expect createSockaddrIn() to produce, so the
+// assertions stay valid for any port. macOS and Linux lay out the struct
+// differently (sin_len byte vs. 16-bit sin_family).
+function expectedSockaddrIn(ip, port){
+	const buf = new Uint8Array(16);
+	if(navigator.userAgentData.platform == 'macOS'){
+		buf[1] = 0x02; // sin_len left 0, sin_family = AF_INET
+	}else{
+		buf[0] = 0x02; // sin_family = AF_INET (16-bit, little-endian)
+	}
+	buf[2] = (port >> 8) & 0xff; // sin_port, network byte order (big-endian)
+	buf[3] = port & 0xff;
+	const octets = ip.split('.');
+	for(let i = 0; i < 4; i++){
+		buf[4 + i] = parseInt(octets[i], 10);
+	}
+	return buf;
+}
 
 function testUdpSock(){
+	const port = randomPort();
 	const sock = new PosixSocket(PosixSocket.defines.AF_INET, PosixSocket.defines.SOCK_DGRAM, 0);
-	const sockaddr_bind = PosixSocket.createSockaddrIn('0.0.0.0', 12345);
-	if(navigator.userAgentData.platform == 'macOS'){ // macos has a slightly different sockaddr definition
-		assert.eq(sockaddr_bind, fromHexString('00023039000000000000000000000000'));
-	}else{
-		assert.eq(sockaddr_bind, fromHexString('02003039000000000000000000000000'));
-	}
+	const sockaddr_bind = PosixSocket.createSockaddrIn('0.0.0.0', port);
+	assert.eq(sockaddr_bind, expectedSockaddrIn('0.0.0.0', port));
 	sock.bind(sockaddr_bind);
-	const sockaddr_rem = PosixSocket.createSockaddrIn('127.0.0.1', 12345)
+	const sockaddr_rem = PosixSocket.createSockaddrIn('127.0.0.1', port)
 	const sendbuf = (new TextEncoder).encode('Hello, world!');
 	const sendsz = sock.sendmsg(sockaddr_rem, undefined, 0, sendbuf);
 	assert.eq(sendsz, sendbuf.length);
@@ -29,13 +55,10 @@ function testUdpSock(){
 }
 
 async function testTcpSock(){
+	const port = randomPort();
 	const sock = new PosixSocket(PosixSocket.defines.AF_INET, PosixSocket.defines.SOCK_STREAM, 0);
-	const sockaddr_bind = PosixSocket.createSockaddrIn('0.0.0.0', 55678);
-	if(navigator.userAgentData.platform == 'macOS'){ // macos has a slightly different sockaddr definition
-		assert.eq(sockaddr_bind, fromHexString('0002d97e000000000000000000000000'));
-	}else{
-		assert.eq(sockaddr_bind, fromHexString('0200d97e000000000000000000000000'));
-	}
+	const sockaddr_bind = PosixSocket.createSockaddrIn('0.0.0.0', port);
+	assert.eq(sockaddr_bind, expectedSockaddrIn('0.0.0.0', port));
 
 	const optval = new Uint8Array(4);
 	(new DataView(optval.buffer)).setUint32(0, 1, true);
@@ -53,7 +76,7 @@ async function testTcpSock(){
 	const sendbuf = (new TextEncoder).encode('Hello, world!');	
 
 	let clientRecv = 0;
-	tjs.connect('tcp', '127.0.0.1', 55678).then(async con=>{
+	tjs.connect('tcp', '127.0.0.1', port).then(async con=>{
 		const { readable } = await con.opened;
 		const reader = readable.getReader();
 		const { value } = await reader.read();
@@ -73,13 +96,14 @@ async function testTcpSock(){
 }
 
 async function testPoll(){
+	const port = randomPort();
 	const sock = new PosixSocket(PosixSocket.defines.AF_INET, PosixSocket.defines.SOCK_DGRAM, 0);
 	const info = sock.info;
 	assert.eq(info.socket.domain, PosixSocket.defines.AF_INET);
 	assert.eq(info.socket.type, PosixSocket.defines.SOCK_DGRAM);
 	assert.eq(info.socket.protocol, PosixSocket.defines.IPPROTO_UDP); // automatically determined by SOCK_DGRAM
-	sock.bind(PosixSocket.createSockaddrIn('0.0.0.0', 12345));
-	const sockaddr_rem = PosixSocket.createSockaddrIn('127.0.0.1', 12345);
+	sock.bind(PosixSocket.createSockaddrIn('0.0.0.0', port));
+	const sockaddr_rem = PosixSocket.createSockaddrIn('127.0.0.1', port);
 	function send(buf){
 		return sock.sendmsg(sockaddr_rem, undefined, 0, buf);
 	}

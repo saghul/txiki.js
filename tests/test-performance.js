@@ -1,5 +1,11 @@
 import assert from 'tjs:assert';
 
+// Skipped under GC stress: forcing a full GC before every allocation starves
+// the event loop, so the wall-clock timing this test relies on no longer holds.
+if (tjs.env.TJS_GC_STRESS) {
+    tjs.exit(0);
+}
+
 const LIMIT = 2000;
 const THRESHOLD = 25;
 

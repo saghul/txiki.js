@@ -1,4 +1,4 @@
-export default function buildCParser({ StructType, CFunction, PointerType, types }) {
+export default function buildCParser({ StructType, ArrayType, CFunction, PointerType, types }) {
     function parseCProto(header) {
         function tokenize(str) {
             const words = str.split(/[ \t]+/);
@@ -372,6 +372,19 @@ export default function buildCParser({ StructType, CFunction, PointerType, types
                         t = getType('struct '+m.type.struct.name, m.type.ptr);
                     } else {
                         t = getType(m.type.name, m.type.ptr);
+                    }
+
+                    // Array members (e.g. `char name[16]`) must keep their full
+                    // width; otherwise the struct size and every following
+                    // offset are computed as if the field were a single element.
+                    const arr = m.arr ?? m.type.arr;
+
+                    if (arr !== undefined) {
+                        if (arr === true) {
+                            throw new Error(`unsized array member '${m.name}' is not supported`);
+                        }
+
+                        t = new ArrayType(t, arr, `${t.name ?? m.type.name}[${arr}]`);
                     }
 
                     fields.push([ m.name, t ]);

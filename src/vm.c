@@ -505,6 +505,9 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     /* Pending rejection tracking */
     init_list_head(&qrt->pending_rejections);
 
+    /* libwebsockets initializtion */
+    tjs__lws_setup();
+
     return qrt;
 }
 

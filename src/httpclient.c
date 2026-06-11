@@ -694,26 +694,19 @@ static int tjs_httpclient_buffer_data(TJSHttpClient *h, JSValue arg) {
 static int tjs_httpclient_connect(TJSHttpClient *h) {
     JSContext *ctx = h->ctx;
 
-    char *url_copy = js_strdup(ctx, h->url_str);
-    if (!url_copy) {
+    lws_parse_uri_t *uri = lws_parse_uri_create(h->url_str);
+    if (!uri) {
         return -1;
     }
 
-    const char *prot_str, *ads, *path_str;
-    int port;
-    if (lws_parse_uri(url_copy, &prot_str, &ads, &port, &path_str)) {
-        js_free(ctx, url_copy);
-        return -1;
-    }
-
-    bool use_ssl = !strcmp(prot_str, "https");
+    bool use_ssl = !strcmp(uri->scheme, "https");
 
     char full_path[TJS_PATH_MAX];
-    snprintf(full_path, sizeof(full_path), "/%s", path_str);
+    snprintf(full_path, sizeof(full_path), "/%s", uri->path);
 
     struct lws_context *lws_ctx = tjs__lws_get_context(ctx);
     if (!lws_ctx) {
-        js_free(ctx, url_copy);
+        lws_parse_uri_destroy(&uri);
         return -1;
     }
 
@@ -721,23 +714,23 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
     memset(&cci, 0, sizeof(cci));
 
     cci.context = lws_ctx;
-    cci.address = ads;
-    cci.port = port;
+    cci.address = uri->host;
+    cci.port = uri->port;
     cci.path = full_path;
-    cci.host = ads;
-    cci.origin = ads;
+    cci.host = uri->host;
+    cci.origin = uri->host;
     cci.ssl_connection = (use_ssl ? LCCSCF_USE_SSL : 0) | h->ssl_flags | LCCSCF_HTTP_NO_FOLLOW_REDIRECT;
     cci.method = h->method;
     cci.local_protocol_name = TJS_LWS_HTTP_PROTOCOL_NAME;
     cci.userdata = h;
     cci.pwsi = &h->wsi;
-    cci.vhost = tjs__lws_select_vhost(ctx, prot_str, ads, port);
+    cci.vhost = tjs__lws_select_vhost(ctx, uri->scheme, uri->host, uri->port);
 
     tjs__lws_conn_ref(ctx);
 
     struct lws *wsi = lws_client_connect_via_info(&cci);
 
-    js_free(ctx, url_copy);
+    lws_parse_uri_destroy(&uri);
 
     if (!wsi) {
         tjs__lws_conn_unref(ctx);

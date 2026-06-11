@@ -25,6 +25,10 @@ if(MSVC)
     list(APPEND tjs_cflags /experimental:c11atomics)
 else()
     list(APPEND tjs_cflags -Wall -g)
+    if(UNIX)
+        # Treat warnings as errors, but only on Unix; Windows toolchains warn differently.
+        list(APPEND tjs_cflags -Werror)
+    endif()
     if (CMAKE_BUILD_TYPE MATCHES "Debug")
         list(APPEND tjs_cflags -ggdb -O0 -fno-omit-frame-pointer)
     endif()
@@ -86,6 +90,15 @@ endmacro()
 xoption(BUILD_WITH_MIMALLOC "If ON (default), build with mimalloc" ON)
 xoption(BUILD_WITH_ASAN "Build with AddressSanitizer" OFF)
 xoption(BUILD_WITH_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
+xoption(BUILD_WITH_GC_STRESS "Force a full GC before every JS allocation (QuickJS FORCE_GC_AT_MALLOC)" OFF)
+
+if(BUILD_WITH_GC_STRESS)
+    message(STATUS "GC stress mode enabled (FORCE_GC_AT_MALLOC)")
+    # quickjs.c only runs a GC when this is defined; the definition is set at
+    # directory scope here so it propagates to the deps/quickjs subdirectory
+    # added below.
+    add_compile_definitions(FORCE_GC_AT_MALLOC)
+endif()
 xoption(BUILD_WITH_STRIP "If ON, strip the tjs binary after linking" OFF)
 xoption(BUILD_WITH_LTO "If ON, enable link-time optimization" OFF)
 xoption(BUILD_WITH_WASM "If ON (default), build with WASM/WAMR support" ON)
@@ -151,6 +164,7 @@ endif()
 add_library(tjs STATIC
     src/builtins.c
     src/error.c
+    src/lws-evlib.c
     src/lws-utils.c
     src/eval.c
     src/mem.c
@@ -366,21 +380,21 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND NOT DEFINED WAMR_BUILD_TARGET AND CMA
     endif()
 endif()
 
-    # Configure WAMR build options
-    set(WAMR_BUILD_INTERP 1)
-    set(WAMR_BUILD_FAST_INTERP 1)
-    set(WAMR_BUILD_AOT 0)
-    set(WAMR_BUILD_JIT 0)
-    set(WAMR_BUILD_LIBC_BUILTIN 1)
-    set(WAMR_BUILD_LIBC_WASI 1)
-    set(WAMR_BUILD_MULTI_MODULE 1)
-    set(WAMR_BUILD_SIMD 1)
-    set(WAMR_BUILD_REF_TYPES 1)
-    set(WAMR_BUILD_BULK_MEMORY 1)
-    set(WAMR_BUILD_LIB_PTHREAD 0)
-    set(WAMR_BUILD_MINI_LOADER 0)
-    set(WAMR_DISABLE_HW_BOUND_CHECK 1)
-    set(WAMR_DISABLE_STACK_HW_BOUND_CHECK 1)
+# Configure WAMR build options
+set(WAMR_BUILD_INTERP 1)
+set(WAMR_BUILD_FAST_INTERP 1)
+set(WAMR_BUILD_AOT 0)
+set(WAMR_BUILD_JIT 0)
+set(WAMR_BUILD_LIBC_BUILTIN 1)
+set(WAMR_BUILD_LIBC_WASI 1)
+set(WAMR_BUILD_MULTI_MODULE 1)
+set(WAMR_BUILD_SIMD 1)
+set(WAMR_BUILD_REF_TYPES 1)
+set(WAMR_BUILD_BULK_MEMORY 1)
+set(WAMR_BUILD_LIB_PTHREAD 0)
+set(WAMR_BUILD_MINI_LOADER 0)
+set(WAMR_DISABLE_HW_BOUND_CHECK 1)
+set(WAMR_DISABLE_STACK_HW_BOUND_CHECK 1)
 
     # Include WAMR build scripts
     include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
@@ -414,6 +428,8 @@ if (NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     set(LWS_WITH_NO_LOGS ON CACHE BOOL "" FORCE)
 endif()
 set(LWS_WITH_HTTP2 OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_HTTP3 OFF CACHE BOOL "" FORCE)
+set(LWS_ROLE_QUIC OFF CACHE BOOL "" FORCE)
 set(LWS_ROLE_RAW_FILE OFF CACHE BOOL "" FORCE)
 set(LWS_UNIX_SOCK OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_SYS_STATE OFF CACHE BOOL "" FORCE)
@@ -427,7 +443,27 @@ set(LWS_WITH_JSONRPC OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_LWSAC OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_CONMON OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_WOL OFF CACHE BOOL "" FORCE)
-set(LWS_WITH_LIBUV ON CACHE BOOL "" FORCE)
+set(LWS_WITH_STUB OFF CACHE BOOL "" FORCE)
+# BASIC_AUTH must stay ON: it gates the client-side "Proxy-Authorization:
+# basic" header (connect4.c), without which authenticated proxy URLs
+# (http_proxy=http://user:pass@host:port) route through the proxy but never
+# send credentials.
+set(LWS_WITH_HTTP_BASIC_AUTH ON CACHE BOOL "" FORCE)
+set(LWS_WITH_HTTP_DIGEST_AUTH OFF CACHE BOOL "" FORCE)
+# GENCRYPTO must stay ON: lws compiles tls/lws-gencrypto-common.c (HKDF)
+# unconditionally, which needs the genhmac API.
+set(LWS_WITH_GENCRYPTO ON CACHE BOOL "" FORCE)
+# Note: LWS_WITH_HTTP_UNCOMMON_HEADERS must stay ON: it selects the full
+# pre-generated header lexer table; without it headers like
+# Transfer-Encoding are not parsed and requests fail with 400.
+set(LWS_WITH_JPEG OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_GZINFLATE OFF CACHE BOOL "" FORCE)
+# Note: LWS_WITH_FILE_OPS must stay ON: lws_create_adopt_udp2 (async DNS)
+# needs lws_plat_apply_FD_CLOEXEC from plat/unix/unix-file.c.
+set(LWS_WITH_LIBCAP OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_BINDTODEVICE OFF CACHE BOOL "" FORCE)
+set(LWS_SSL_CLIENT_USE_OS_CA_CERTS OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_LIBUV OFF CACHE BOOL "" FORCE)
 if(BUILD_WITH_TLS)
     set(LWS_WITH_MBEDTLS ON CACHE BOOL "" FORCE)
     set(LWS_WITH_SSL ON CACHE BOOL "" FORCE)
@@ -462,6 +498,23 @@ set(LWS_WITH_EXPORT_LWSTARGETS OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_NETLINK OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_SYS_ASYNC_DNS ON CACHE BOOL "" FORCE)
 set(LWS_WITH_CACHE_NSCOOKIEJAR ON CACHE BOOL "" FORCE)
+# Tell lws about mbedtls capabilities (CHECK_FUNCTION_EXISTS fails for static libs)
+set(LWS_HAVE_mbedtls_md_setup 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_ssl_conf_ciphersuites 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_rsa_complete 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_net_init 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_ssl_conf_alpn_protocols 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_ssl_get_alpn_protocol 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_ssl_conf_sni 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_ssl_set_hs_ca_chain 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_ssl_set_hs_own_cert 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_ssl_set_hs_authmode 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_x509_crt_parse_file 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_internal_aes_encrypt 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_MBEDTLS_NET_SOCKETS 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_MBEDTLS_SSL_NEW_SESSION_TICKET 1 CACHE BOOL "" FORCE)
+set(LWS_MBEDTLS_LIBRARIES mbedtls mbedx509 mbedcrypto CACHE STRING "" FORCE)
+set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" CACHE STRING "" FORCE)
 set(LWS_WITH_MINIZ ON CACHE BOOL "" FORCE)
 # Pre-set ZLIB variables so lws skips find_package(Miniz)
 set(ZLIB_FOUND TRUE)

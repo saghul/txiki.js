@@ -190,8 +190,10 @@ void tjs__destroy_timers(TJSRuntime *qrt);
 void tjs__sab_free(void *opaque, void *ptr);
 void tjs__sab_dup(void *opaque, void *ptr);
 
+extern const lws_plugin_evlib_t tjs_lws_evlib;
+
 struct lws_context *tjs__lws_get_context(JSContext *ctx);
-void tjs__lws_init(TJSRuntime *qrt);
+void tjs__lws_setup(void);
 void tjs__lws_conn_ref(JSContext *ctx);
 void tjs__lws_conn_unref(JSContext *ctx);
 struct lws_vhost *tjs__lws_select_vhost(JSContext *ctx, const char *scheme, const char *hostname, int port);

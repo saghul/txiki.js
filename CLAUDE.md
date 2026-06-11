@@ -29,6 +29,7 @@ BUILDTYPE=Debug make          # Debug build
 MIMALLOC=OFF make             # Disable mimalloc (required for ASAN)
 BUILD_WITH_ASAN=ON MIMALLOC=OFF make  # Enable AddressSanitizer (must disable mimalloc)
 BUILD_WITH_UBSAN=ON make      # Enable UndefinedBehaviorSanitizer (Linux/macOS only)
+BUILD_WITH_GC_STRESS=ON make  # Force a full GC before every JS allocation (GC stress)
 BUILD_WITH_WASM=OFF make      # Disable WebAssembly / WAMR (saves ~0.4 MB)
 BUILD_WITH_SQLITE=OFF make    # Disable SQLite (saves ~1.6 MB)
 BUILD_WITH_TLS=OFF make       # Disable TLS/HTTPS/WSS (saves ~0.7 MB; WebCrypto unaffected)
@@ -56,6 +57,19 @@ UBSAN_OPTIONS="halt_on_error=1:suppressions=$(pwd)/ubsan.supp" ./build-ubsan/tjs
 ```
 
 UBSAN requires a suppressions file (`ubsan.supp`) for known issues in vendored dependencies (WAMR alignment). Fix UBSan issues in our own code (`src/`) rather than adding suppression rules.
+
+### GC Stress Testing
+
+`BUILD_WITH_GC_STRESS=ON` defines QuickJS's `FORCE_GC_AT_MALLOC`, which runs a full garbage collection before *every* JS object allocation. This surfaces GC bugs — objects that are collected while still referenced (missing GC roots / mark hooks). Such premature frees usually only manifest as use-after-free, so combine it with ASAN to actually catch them:
+```bash
+cmake -B build-gcstress -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_WITH_GC_STRESS=ON -DBUILD_WITH_ASAN=ON -DBUILD_WITH_MIMALLOC=OFF
+cmake --build build-gcstress
+TJS_GC_STRESS=1 ./build-gcstress/tjs test tests/
+```
+
+Set `TJS_GC_STRESS=1` when running the test suite against a GC-stress build: a full GC before every allocation starves the event loop, so a handful of timing-sensitive tests (e.g. `test-performance`) skip themselves when that variable is set rather than failing on wall-clock assertions. The first `tjs bundle` call (esbuild download) is implemented in JS and is pathologically slow under GC stress, so the CI job warms the shared `~/.tjs` esbuild cache with a normal build first.
+
+GC stress is orthogonal to the allocator and the sanitizers; it just changes the GC trigger threshold. It makes execution drastically slower (a full GC per allocation), so the CI job runs it on Linux only.
 
 ## Running Tests
 
