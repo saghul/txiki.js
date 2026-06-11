@@ -3,7 +3,6 @@
 import getopts from 'tjs:getopts';
 import core from 'tjs:internal/core';
 import path from 'tjs:path';
-import { WASI } from 'tjs:wasi';
 
 import { bundle } from './bundle.js';
 import { evalStdin } from './eval-stdin.js';
@@ -278,6 +277,7 @@ if (!isBundled) {
             if (ext === '.wasm') {
                 const bytes = await tjs.readFile(filename);
                 const module = new WebAssembly.Module(bytes);
+                const { WASI } = await import('tjs:wasi');
                 const wasi = new WASI({
                     version: 'wasi_snapshot_preview1',
                     args: runOpts._,

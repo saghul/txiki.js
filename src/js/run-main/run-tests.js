@@ -2,6 +2,8 @@
 
 import pathModule from 'tjs:internal/path';
 
+import { buildSkipFilter } from './skip.js';
+
 const verbose = Boolean(tjs.env.VERBOSE_TESTS);
 const TIMEOUT = Number(tjs.env.TJS_TEST_TIMEOUT) || 30 * 1000;
 
@@ -87,15 +89,24 @@ function printResult(result) {
 
 export async function runTests(d) {
     const dir = await tjs.realPath(d || tjs.cwd);
+
+    const shouldSkip = await buildSkipFilter(dir);
     const dirIter = await tjs.readDir(dir);
     const tests = [];
 
     for await (const item of dirIter) {
         const { name } = item;
 
-        if (name.startsWith('test-') && name.endsWith('.js')) {
-            tests.push(new Test(pathModule.join(dir, name)));
+        if (!name.startsWith('test-') || !name.endsWith('.js')) {
+            continue;
         }
+
+        if (shouldSkip(name)) {
+            console.log(`${name.padEnd(40, ' ')} ${colors.grey}SKIP${colors.none}`);
+            continue;
+        }
+
+        tests.push(new Test(pathModule.join(dir, name)));
     }
 
     let failed = 0;

@@ -1317,6 +1317,13 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     bool use_tls = JS_IsString(js_cert) && JS_IsString(js_key);
 
     if (use_tls) {
+#ifdef TJS_NO_TLS
+        JS_FreeValue(ctx, js_cert);
+        JS_FreeValue(ctx, js_key);
+        JS_FreeCString(ctx, listen_ip);
+        JS_FreeValue(ctx, obj);
+        return JS_ThrowTypeError(ctx, "TLS not supported in this build");
+#else
         const char *cert_str = JS_ToCString(ctx, js_cert);
         const char *key_str = JS_ToCString(ctx, js_key);
         CHECK_NOT_NULL(cert_str);
@@ -1346,6 +1353,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
             JS_FreeCString(ctx, pp_str);
         }
         JS_FreeValue(ctx, js_passphrase);
+#endif
     }
 
     JS_FreeValue(ctx, js_cert);
@@ -1379,6 +1387,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     vhost_info.vhost_name = "tjs-http-server";
     vhost_info.options = 0;
 
+#ifndef TJS_NO_TLS
     /* Configure TLS if cert/key were provided. */
     if (use_tls) {
         vhost_info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
@@ -1403,6 +1412,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         }
         JS_FreeValue(ctx, js_request_cert);
     }
+#endif
 
     s->vhost = lws_create_vhost(lws_ctx, &vhost_info);
 

@@ -87,6 +87,41 @@ The executable will be at `build\Release\tjs.exe`.
 .\build\Release\tjs.exe test tests/
 ```
 
+## Optional features
+
+Several subsystems can be disabled at build time to produce smaller binaries.
+Flags are independent and composable.
+
+| CMake option                | Default | Effect                               | Approx savings |
+|-----------------------------|---------|--------------------------------------|----------------|
+| `BUILD_WITH_WASM=OFF`       | ON      | Remove WebAssembly / WASI            | ~0.4 MB        |
+| `BUILD_WITH_SQLITE=OFF`     | ON      | Remove SQLite and REPL history       | ~1.6 MB        |
+| `BUILD_WITH_TLS=OFF`        | ON      | Remove HTTPS / WSS (WebCrypto stays) | ~0.7 MB        |
+| `BUILD_WITH_STRIP=ON`       | OFF     | Strip debug symbols after linking    | ~0.3-0.5 MB    |
+| `BUILD_WITH_LTO=ON`         | OFF     | Link-time optimisation               | ~0.3 MB        |
+| `BUILD_WITH_GC_SECTIONS=ON` | OFF     | Dead-code elimination via section GC | ~0.3-0.9 MB    |
+| `BUILDTYPE=MinSizeRel`      | —       | Optimise for size (`-Os`)            | ~0.2-0.4 MB    |
+
+Unix/macOS example:
+
+```bash
+BUILD_WITH_WASM=OFF BUILD_WITH_SQLITE=OFF make
+```
+
+Direct CMake example:
+
+```bash
+cmake -B build-slim \
+  -DCMAKE_BUILD_TYPE=MinSizeRel \
+  -DBUILD_WITH_WASM=OFF \
+  -DBUILD_WITH_SQLITE=OFF \
+  -DBUILD_WITH_TLS=OFF \
+  -DBUILD_WITH_STRIP=ON
+cmake --build build-slim
+```
+
+Combining all flags reduces the default ~6.1 MB binary to ~2.1 MB (macOS arm64).
+
 ## Customizing the build
 
 If you are making a custom build and are modifying any of the JS files that are part of the runtime, you'll need to regenerate the C code for them, so your changes become part of the build.

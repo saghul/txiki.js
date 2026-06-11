@@ -647,9 +647,11 @@ class WebAssembly {
 }
 
 
-Object.defineProperty(globalThis, 'WebAssembly', {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: new WebAssembly()
-});
+if (wasm) {
+    Object.defineProperty(globalThis, 'WebAssembly', {
+        enumerable: true,
+        configurable: true,
+        writable: true,
+        value: new WebAssembly()
+    });
+}

@@ -30,6 +30,12 @@ MIMALLOC=OFF make             # Disable mimalloc (required for ASAN)
 BUILD_WITH_ASAN=ON MIMALLOC=OFF make  # Enable AddressSanitizer (must disable mimalloc)
 BUILD_WITH_UBSAN=ON make      # Enable UndefinedBehaviorSanitizer (Linux/macOS only)
 BUILD_WITH_GC_STRESS=ON make  # Force a full GC before every JS allocation (GC stress)
+BUILD_WITH_WASM=OFF make      # Disable WebAssembly / WAMR (saves ~0.4 MB)
+BUILD_WITH_SQLITE=OFF make    # Disable SQLite (saves ~1.6 MB)
+BUILD_WITH_TLS=OFF make       # Disable TLS/HTTPS/WSS (saves ~0.7 MB; WebCrypto unaffected)
+BUILD_WITH_STRIP=ON make      # Strip symbol table from binary after linking (saves ~0.3–0.5 MB)
+BUILD_WITH_LTO=ON make        # Enable link-time optimization (saves ~0.3 MB, slower link)
+BUILDTYPE=MinSizeRel make     # Optimize for size instead of speed (-Os, saves ~0.2–0.4 MB)
 ```
 
 ASAN and mimalloc are mutually exclusive. UBSAN is not supported on MSVC.
@@ -75,6 +81,14 @@ VERBOSE_TESTS=1 ./build/tjs test tests/    # Verbose output
 
 Test files must be named `test-*.js` and live in `tests/`. They use `tjs:assert` for assertions.
 
+### Feature-gated tests
+
+When a test file requires a feature that can be compiled out
+(`BUILD_WITH_WASM=OFF`, `BUILD_WITH_SQLITE=OFF`, `BUILD_WITH_TLS=OFF`), add its
+filename or glob to the appropriate key in `tests/feature-skip.json`. The test
+runner reads this file and skips matched tests on builds where the feature is
+absent. Only `*` wildcards at a single position are supported (no `**`, no `?`).
+
 ## Architecture
 
 ### Two-Layer Design: C modules + JS polyfills
@@ -105,6 +119,23 @@ Generated files live in `src/bundles/` (git-ignored). The Makefile `js` target r
 ### Dependencies (deps/)
 
 All vendored as git submodules: quickjs, libuv, mimalloc, sqlite3, libwebsockets, mbedtls, wamr, miniz, tweetnacl, ada.
+
+### Patching vendored dependencies
+
+All modifications to `deps/` must be committed as `.patch` files in `patches/`
+and applied via the `apply_dep_patch` CMake macro. Patches are applied idempotently
+at configure time — submodule resets are self-healing.
+
+To patch a dep:
+```bash
+cd deps/<dep>
+# make edits
+git diff > ../../patches/<dep>.patch
+```
+Then add `apply_dep_patch(DEPDIR deps/<dep> PATCH patches/<dep>.patch)` immediately
+before the dep's `add_subdirectory` line in `CMakeLists.txt`.
+
+Never edit `deps/` files directly without a corresponding patch file.
 
 ## Code Conventions
 

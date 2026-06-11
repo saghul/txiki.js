@@ -66,6 +66,7 @@ static void *tjs__mf_realloc(void *opaque, void *ptr, size_t size) {
     return tjs__realloc(ptr, size);
 }
 
+#ifndef TJS_NO_WASM
 /* WAMR allocator wrappers — WAMR uses unsigned int, not size_t. */
 
 static void *tjs__wamr_malloc(unsigned int size) {
@@ -75,6 +76,7 @@ static void *tjs__wamr_malloc(unsigned int size) {
 static void *tjs__wamr_realloc(void *ptr, unsigned int size) {
     return tjs__realloc(ptr, size);
 }
+#endif
 
 static const JSMallocFunctions tjs_mf = {
     .js_calloc = tjs__mf_calloc,
@@ -239,15 +241,21 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_os_init(ctx, ns);
     tjs__mod_process_init(ctx, ns);
     tjs__mod_signals_init(ctx, ns);
+#ifndef TJS_NO_SQLITE
     tjs__mod_sqlite3_init(ctx, ns);
+#endif
     tjs__mod_streams_init(ctx, ns);
+#ifndef TJS_NO_TLS
     tjs__mod_tls_init(ctx, ns);
+#endif
     tjs__mod_sys_init(ctx, ns);
     tjs__mod_text_coding_init(ctx, ns);
     tjs__mod_timers_init(ctx, ns);
     tjs__mod_udp_init(ctx, ns);
     tjs__mod_url_init(ctx, ns);
+#ifndef TJS_NO_WASM
     tjs__mod_wasm_init(ctx, ns);
+#endif
     tjs__mod_worker_init(ctx, ns);
     tjs__mod_hashing_init(ctx, ns);
     tjs__mod_httpclient_init(ctx, ns);
@@ -479,6 +487,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     /* end bootstrap */
     JS_FreeValue(ctx, global_obj);
 
+#ifndef TJS_NO_WASM
     /* WASM */
     RuntimeInitArgs wasm_init_args;
     memset(&wasm_init_args, 0, sizeof(wasm_init_args));
@@ -489,6 +498,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(wasm_runtime_full_init(&wasm_init_args), true);
     qrt->wasm_ctx.initialized = true;
     qrt->wasm_ctx.stack_size = 512 * 1024;
+#endif
 
     /* Timers */
     qrt->timers.timers = NULL;
@@ -538,7 +548,9 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     qrt->lws.ca_bundle_data = NULL;
 
     /* Destroy shared TLS context. */
+#ifndef TJS_NO_TLS
     tjs__mod_tls_cleanup(qrt);
+#endif
 
     /* Destroy the JS engine. */
     JS_FreeValue(qrt->ctx, qrt->builtins.dispatch_event_func);
@@ -564,11 +576,13 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
 
+#ifndef TJS_NO_WASM
     /* Destroy WASM runtime. */
     if (qrt->wasm_ctx.initialized) {
         wasm_runtime_destroy();
         qrt->wasm_ctx.initialized = false;
     }
+#endif
 
     /* Cleanup loop. All handles should be closed. */
     int closed = 0;

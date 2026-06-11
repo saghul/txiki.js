@@ -67,6 +67,20 @@ if(BUILD_WITH_GC_STRESS)
     # added below.
     add_compile_definitions(FORCE_GC_AT_MALLOC)
 endif()
+xoption(BUILD_WITH_STRIP "If ON, strip the tjs binary after linking" OFF)
+xoption(BUILD_WITH_LTO "If ON, enable link-time optimization" OFF)
+xoption(BUILD_WITH_WASM "If ON (default), build with WASM/WAMR support" ON)
+if(NOT BUILD_WITH_WASM)
+    add_compile_definitions(TJS_NO_WASM)
+endif()
+xoption(BUILD_WITH_SQLITE "If ON (default), build with SQLite support" ON)
+if(NOT BUILD_WITH_SQLITE)
+    add_compile_definitions(TJS_NO_SQLITE)
+endif()
+xoption(BUILD_WITH_TLS "If ON (default), build with TLS support (HTTPS/WSS/tjs:tls)" ON)
+if(NOT BUILD_WITH_TLS)
+    add_compile_definitions(TJS_NO_TLS)
+endif()
 
 if(BUILD_WITH_ASAN)
     message(STATUS "AddressSanitizer enabled")
@@ -91,6 +105,26 @@ if(BUILD_WITH_UBSAN)
     add_link_options(-fsanitize=undefined)
 endif()
 
+if(BUILD_WITH_LTO)
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT _ipo_supported OUTPUT _ipo_output)
+    if(_ipo_supported)
+        message(STATUS "LTO enabled")
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    else()
+        message(WARNING "LTO requested but not supported: ${_ipo_output}")
+    endif()
+endif()
+
+xoption(BUILD_WITH_GC_SECTIONS "If ON, compile with per-function/data sections and link with dead-code stripping" OFF)
+if(BUILD_WITH_GC_SECTIONS)
+    if(MSVC)
+        add_compile_options(/Gy)
+    else()
+        add_compile_options(-ffunction-sections -fdata-sections)
+    endif()
+endif()
+
 ###
 ### Core library / executables
 ###
@@ -110,7 +144,6 @@ add_library(tjs STATIC
     src/utils.c
     src/version.c
     src/vm.c
-    src/wasm.c
     src/worker.c
     src/ws.c
     src/httpclient.c
@@ -123,11 +156,14 @@ add_library(tjs STATIC
     src/mod_hashing.c
     src/mod_os.c
     src/mod_process.c
-    src/mod_sqlite3.c
     src/mod_miniz.c
     src/mod_streams.c
-    src/mod_tls.c
     src/ed25519.c
+)
+if(BUILD_WITH_TLS)
+    target_sources(tjs PRIVATE src/mod_tls.c)
+endif()
+target_sources(tjs PRIVATE
     src/webcrypto.c
     src/mod_sys.c
     src/mod_udp.c
@@ -141,6 +177,12 @@ add_library(tjs STATIC
 
 if(UNIX)
     target_sources(tjs PRIVATE src/mod_posix-socket.c)
+endif()
+if(BUILD_WITH_WASM)
+    target_sources(tjs PRIVATE src/wasm.c)
+endif()
+if(BUILD_WITH_SQLITE)
+    target_sources(tjs PRIVATE src/mod_sqlite3.c)
 endif()
 
 set_target_properties(tjs PROPERTIES
@@ -170,6 +212,23 @@ set_target_properties(tjs-cli
 # Bump it up to 8MB.
 if(WIN32)
     target_link_options(tjs-cli PRIVATE "/STACK:8388608")
+endif()
+
+if(BUILD_WITH_STRIP AND CMAKE_STRIP)
+    add_custom_command(TARGET tjs-cli POST_BUILD
+        COMMAND ${CMAKE_STRIP} $<TARGET_FILE:tjs-cli>
+        COMMENT "Stripping tjs"
+    )
+endif()
+
+if(BUILD_WITH_GC_SECTIONS)
+    if(MSVC)
+        target_link_options(tjs-cli PRIVATE /OPT:REF /OPT:ICF)
+    elseif(APPLE)
+        target_link_options(tjs-cli PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(tjs-cli PRIVATE -Wl,--gc-sections)
+    endif()
 endif()
 
 add_executable(tjsc EXCLUDE_FROM_ALL
@@ -202,12 +261,14 @@ option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 target_link_libraries(tjs PUBLIC uv_a)
 
-add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
-target_link_libraries(tjs PUBLIC sqlite3)
-add_library(sqlite-test SHARED
-    tests/fixtures/sqlite-test-ext.c
-)
-target_link_libraries(sqlite-test sqlite3)
+if(BUILD_WITH_SQLITE)
+    add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
+    target_link_libraries(tjs PUBLIC sqlite3)
+    add_library(sqlite-test SHARED
+        tests/fixtures/sqlite-test-ext.c
+    )
+    target_link_libraries(sqlite-test sqlite3)
+endif()
 
 if (WIN32)
     find_package(unofficial-libffi CONFIG REQUIRED)
@@ -224,7 +285,7 @@ add_library(ffi-test SHARED
 )
 
 # Set consistent output for test libraries across all platforms (including MSVC multi-config)
-set_target_properties(ffi-test sqlite-test PROPERTIES
+set_target_properties(ffi-test PROPERTIES
     PREFIX "lib"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
@@ -238,21 +299,38 @@ set_target_properties(ffi-test sqlite-test PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
     LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
 )
+if(BUILD_WITH_SQLITE)
+    set_target_properties(sqlite-test PROPERTIES
+        PREFIX "lib"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+        # For multi-config generators (Visual Studio, Xcode)
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}"
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}"
+        RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
+        RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
+        LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}"
+        LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}"
+        LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}"
+        LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}"
+    )
+endif()
 
 add_subdirectory(deps/ada EXCLUDE_FROM_ALL)
 target_link_libraries(tjs PUBLIC ada)
 
-# WAMR Configuration (interpreter only for maximum portability)
-set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/wamr)
+if(BUILD_WITH_WASM)
+    # WAMR Configuration (interpreter only for maximum portability)
+    set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/wamr)
 
-# Detect platform for WAMR
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set(WAMR_BUILD_PLATFORM "darwin")
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    set(WAMR_BUILD_PLATFORM "windows")
-else()
-    set(WAMR_BUILD_PLATFORM "linux")
-endif()
+    # Detect platform for WAMR
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        set(WAMR_BUILD_PLATFORM "darwin")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        set(WAMR_BUILD_PLATFORM "windows")
+    else()
+        set(WAMR_BUILD_PLATFORM "linux")
+    endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND NOT DEFINED WAMR_BUILD_TARGET AND CMAKE_OSX_ARCHITECTURES)
     set(TJS_OSX_ARCHITECTURES ${CMAKE_OSX_ARCHITECTURES})
@@ -286,16 +364,17 @@ set(WAMR_BUILD_MINI_LOADER 0)
 set(WAMR_DISABLE_HW_BOUND_CHECK 1)
 set(WAMR_DISABLE_STACK_HW_BOUND_CHECK 1)
 
-# Include WAMR build scripts
-include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+    # Include WAMR build scripts
+    include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
-target_include_directories(vmlib PUBLIC ${WAMR_ROOT_DIR}/core/iwasm/include)
-if(WIN32)
-    target_link_libraries(vmlib PUBLIC ntdll)
+    add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
+    target_include_directories(vmlib PUBLIC ${WAMR_ROOT_DIR}/core/iwasm/include)
+    if(WIN32)
+        target_link_libraries(vmlib PUBLIC ntdll)
+    endif()
+    target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
+    target_link_libraries(tjs PUBLIC vmlib)
 endif()
-target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
-target_link_libraries(tjs PUBLIC vmlib)
 
 add_subdirectory(deps/miniz EXCLUDE_FROM_ALL)
 target_link_libraries(tjs PUBLIC miniz)
@@ -307,7 +386,11 @@ set(MBEDTLS_AS_SUBPROJECT ON)
 set(MBEDTLS_USER_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/mbedtls_config.h" CACHE FILEPATH "" FORCE)
 set(MSVC_STATIC_RUNTIME ON CACHE BOOL "" FORCE)
 add_subdirectory(deps/mbedtls EXCLUDE_FROM_ALL)
-target_link_libraries(tjs PUBLIC mbedtls mbedx509 mbedcrypto)
+if(BUILD_WITH_TLS)
+    target_link_libraries(tjs PUBLIC mbedtls mbedx509 mbedcrypto)
+else()
+    target_link_libraries(tjs PUBLIC mbedcrypto)
+endif()
 
 if (NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     set(LWS_WITH_NO_LOGS ON CACHE BOOL "" FORCE)
@@ -349,8 +432,29 @@ set(LWS_WITH_LIBCAP OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_BINDTODEVICE OFF CACHE BOOL "" FORCE)
 set(LWS_SSL_CLIENT_USE_OS_CA_CERTS OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_LIBUV OFF CACHE BOOL "" FORCE)
-set(LWS_WITH_MBEDTLS ON CACHE BOOL "" FORCE)
-set(LWS_WITH_SSL ON CACHE BOOL "" FORCE)
+if(BUILD_WITH_TLS)
+    set(LWS_WITH_MBEDTLS ON CACHE BOOL "" FORCE)
+    set(LWS_WITH_SSL ON CACHE BOOL "" FORCE)
+    # Tell lws about mbedtls capabilities (CHECK_FUNCTION_EXISTS fails for static libs)
+    set(LWS_HAVE_mbedtls_md_setup 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_mbedtls_rsa_complete 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_mbedtls_net_init 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_mbedtls_ssl_conf_alpn_protocols 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_mbedtls_ssl_get_alpn_protocol 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_mbedtls_ssl_conf_sni 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_mbedtls_ssl_set_hs_ca_chain 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_mbedtls_ssl_set_hs_own_cert 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_mbedtls_ssl_set_hs_authmode 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_mbedtls_x509_crt_parse_file 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_mbedtls_internal_aes_encrypt 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_MBEDTLS_NET_SOCKETS 1 CACHE BOOL "" FORCE)
+    set(LWS_HAVE_MBEDTLS_SSL_NEW_SESSION_TICKET 1 CACHE BOOL "" FORCE)
+    set(LWS_MBEDTLS_LIBRARIES mbedtls mbedx509 mbedcrypto CACHE STRING "" FORCE)
+    set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" CACHE STRING "" FORCE)
+else()
+    set(LWS_WITH_MBEDTLS OFF CACHE BOOL "" FORCE)
+    set(LWS_WITH_SSL OFF CACHE BOOL "" FORCE)
+endif()
 set(LWS_WITHOUT_EXTENSIONS ON CACHE BOOL "" FORCE)
 set(LWS_WITHOUT_TESTAPPS ON CACHE BOOL "" FORCE)
 set(LWS_WITH_SHARED OFF CACHE BOOL "" FORCE)
@@ -379,6 +483,14 @@ set(LWS_HAVE_MBEDTLS_NET_SOCKETS 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_MBEDTLS_SSL_NEW_SESSION_TICKET 1 CACHE BOOL "" FORCE)
 set(LWS_MBEDTLS_LIBRARIES mbedtls mbedx509 mbedcrypto CACHE STRING "" FORCE)
 set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" CACHE STRING "" FORCE)
+set(LWS_WITH_MINIZ ON CACHE BOOL "" FORCE)
+# Pre-set ZLIB variables so lws skips find_package(Miniz)
+set(ZLIB_FOUND TRUE)
+set(ZLIB_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/miniz" CACHE STRING "" FORCE)
+set(ZLIB_LIBRARIES miniz CACHE STRING "" FORCE)
+set(LWS_HAVE_ZLIB_H 1 CACHE BOOL "" FORCE)
+set(LWS_LIBUV_LIBRARIES uv_a CACHE STRING "" FORCE)
+set(LWS_LIBUV_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/libuv/include" CACHE STRING "" FORCE)
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
 # Work around mbedtls ssl.h using #if instead of #ifdef on
 # MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT (undefined when DTLS is disabled).
