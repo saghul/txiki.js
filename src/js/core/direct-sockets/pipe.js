@@ -18,21 +18,21 @@ function formatPipeAddress(localAddr, remoteAddr) {
 
 
 export class PipeSocket extends BaseStreamSocket {
-    constructor(path) {
+    constructor(path, options = {}) {
         if (typeof path !== 'string') {
             throw new TypeError('path must be a string');
         }
 
         super(new core.Pipe());
 
-        this[kSetOpened](this.#setup(path));
+        this[kSetOpened](this.#setup(path, options));
     }
 
-    async #setup(path) {
+    async #setup(path, options) {
         const handle = this[kGetHandle]();
 
         try {
-            await this._connect(path);
+            await this._connect(path, options.signal);
 
             const localAddr = handle.getsockname();
             const remoteAddr = handle.getpeername();

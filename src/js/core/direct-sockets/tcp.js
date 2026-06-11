@@ -50,7 +50,7 @@ export class TCPSocket extends BaseStreamSocket {
                 handle.setKeepAlive(true, options.keepAliveDelay);
             }
 
-            await this._connect(addr);
+            await this._connect(addr, options.signal);
 
             const localAddr = handle.getsockname();
             const remoteAddr = handle.getpeername();
