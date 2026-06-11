@@ -320,11 +320,14 @@ set(LWS_WITH_LWSAC OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_CONMON OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_WOL OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_STUB OFF CACHE BOOL "" FORCE)
-set(LWS_WITH_HTTP_BASIC_AUTH OFF CACHE BOOL "" FORCE)
+# BASIC_AUTH must stay ON: it gates the client-side "Proxy-Authorization:
+# basic" header (connect4.c), without which authenticated proxy URLs
+# (http_proxy=http://user:pass@host:port) route through the proxy but never
+# send credentials.
+set(LWS_WITH_HTTP_BASIC_AUTH ON CACHE BOOL "" FORCE)
 set(LWS_WITH_HTTP_DIGEST_AUTH OFF CACHE BOOL "" FORCE)
 # GENCRYPTO must stay ON: lws compiles tls/lws-gencrypto-common.c (HKDF)
-# unconditionally, which needs the genhmac API. Unused objects are not
-# linked into the final binary anyway.
+# unconditionally, which needs the genhmac API.
 set(LWS_WITH_GENCRYPTO ON CACHE BOOL "" FORCE)
 # Note: LWS_WITH_HTTP_UNCOMMON_HEADERS must stay ON: it selects the full
 # pre-generated header lexer table; without it headers like
