@@ -195,15 +195,29 @@ static void tjs__set_ca_info(TJSRuntime *qrt, struct lws_context_creation_info *
 /*
  * Per-scheme proxy configuration.
  *
- * Work around a bug in lws_set_proxy() where the proxy address is not
- * null-terminated after parsing the port, causing crashes in async DNS.
- * We parse the env vars ourselves and pass the host and port separately
- * via lws_context_creation_info.  When http_proxy_address is set in the
- * info struct, lws skips its own getenv("http_proxy") code path.
+ * We parse the proxy env vars ourselves and pass the host and port to lws as
+ * separate fields (http_proxy_address + http_proxy_port) via
+ * lws_context_creation_info, rather than letting lws read the env var itself.
+ * Two lws limitations make this necessary:
+ *
+ *   1. lws_set_proxy() does not truncate the address at the ':' before the
+ *      port (the historical "*p = '\0'" was dropped upstream), so handing it a
+ *      "host:port" string leaves the ":port" suffix in http_proxy_address,
+ *      which is then used verbatim as the DNS peer address and breaks
+ *      resolution.  Passing the port separately keeps the address clean.
+ *
+ *   2. lws_parse_uri_create() does not understand userinfo: its host scan
+ *      stops at the first ':', so "user:pass@host" would parse as host="user".
+ *      We therefore split any "userinfo@" prefix off ourselves before parsing,
+ *      and hand it back to lws_set_proxy() (which base64-encodes it for the
+ *      Proxy-Authorization header) as part of http_proxy_address.
+ *
+ * Setting http_proxy_address in the info struct also makes lws skip its own
+ * getenv("http_proxy") code path.
  */
 typedef struct {
-    char auth_address[512]; /* "user:pass@host" or "host" (for lws_set_proxy) */
-    char hostname[256];     /* just host (for no_proxy matching) */
+    char auth_address[512]; /* "userinfo@host" or "host", never a port (for lws_set_proxy) */
+    char hostname[256];     /* just host, no userinfo/port (for no_proxy matching) */
     unsigned int port;
 } TJSProxyConfig;
 
@@ -223,25 +237,65 @@ static bool tjs__parse_proxy_url(const char *env_name1, const char *env_name2, T
         return false;
     }
 
-    lws_parse_uri_t *uri = lws_parse_uri_create(buf);
+    /*
+     * Split off any "userinfo@" prefix before handing the URL to
+     * lws_parse_uri_create() (see the note above on why it can't parse
+     * userinfo itself).  userinfo ends at the last '@' within the authority.
+     */
+    const char *authority = buf;
+    const char *scheme_sep = strstr(buf, "://");
+    if (scheme_sep) {
+        authority = scheme_sep + 3;
+    }
+
+    const char *path = authority + strcspn(authority, "/?");
+    const char *userinfo_end = NULL;
+    for (const char *p = authority; p < path; p++) {
+        if (*p == '@') {
+            userinfo_end = p;
+        }
+    }
+
+    char userinfo[256] = { 0 };
+    char clean[512];
+
+    if (userinfo_end) {
+        size_t ulen = (size_t) (userinfo_end - authority);
+        lws_strncpy(userinfo, authority, ulen + 1 < sizeof(userinfo) ? ulen + 1 : sizeof(userinfo));
+
+        /* Rebuild the URL without the userinfo: scheme + host[:port][/...]. */
+        size_t prefix = (size_t) (authority - buf);
+        if (prefix >= sizeof(clean)) {
+            return false;
+        }
+        memcpy(clean, buf, prefix);
+        lws_strncpy(clean + prefix, userinfo_end + 1, sizeof(clean) - prefix);
+    } else {
+        lws_strncpy(clean, buf, sizeof(clean));
+    }
+
+    lws_parse_uri_t *uri = lws_parse_uri_create(clean);
     if (!uri) {
         return false;
     }
 
-    lws_strncpy(out->auth_address, uri->host, sizeof(out->auth_address));
+    /* hostname (no userinfo, no port) is used for no_proxy matching. */
+    lws_strncpy(out->hostname, uri->host, sizeof(out->hostname));
     out->port = uri->port;
 
-    /* If the host contains '@', auth is present — extract just the hostname. */
-    const char *at = strchr(uri->host, '@');
-    if (at) {
-        lws_strncpy(out->hostname, at + 1, sizeof(out->hostname));
+    /*
+     * auth_address is handed to lws_set_proxy() via http_proxy_address: the
+     * host plus any userinfo (for Proxy-Authorization), but never the port.
+     */
+    if (userinfo[0]) {
+        lws_snprintf(out->auth_address, sizeof(out->auth_address), "%s@%s", userinfo, uri->host);
     } else {
-        lws_strncpy(out->hostname, uri->host, sizeof(out->hostname));
+        lws_strncpy(out->auth_address, uri->host, sizeof(out->auth_address));
     }
 
     lws_parse_uri_destroy(&uri);
 
-    return out->port > 0 && out->auth_address[0];
+    return out->port > 0 && out->hostname[0];
 }
 
 static void tjs__parse_no_proxy(TJSRuntime *qrt) {
