@@ -11,6 +11,7 @@ class HttpClient {
     #body = null;
     #headers = [];
     #cookies = false;
+    #allowInsecure = false;
     #client = null;
 
     get onstatus() {
@@ -119,6 +120,14 @@ class HttpClient {
         }
     }
 
+    setAllowInsecure(allow) {
+        this.#allowInsecure = !!allow;
+
+        if (this.#client) {
+            this.#client.setAllowInsecure(allow);
+        }
+    }
+
     sendData(data) {
         if (this.#client) {
             this.#client.sendData(data);
@@ -151,6 +160,10 @@ class HttpClient {
 
         if (this.#cookies) {
             client.setEnableCookies(true);
+        }
+
+        if (this.#allowInsecure) {
+            client.setAllowInsecure(true);
         }
 
         if (this._streaming) {

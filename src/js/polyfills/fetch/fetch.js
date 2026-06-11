@@ -98,6 +98,10 @@ export function fetch(input, init) {
 
         const client = new HttpClient();
 
+        if (init?.allowInsecure) {
+            client.setAllowInsecure(true);
+        }
+
         activeClients.add(client);
 
         let responseResolved = false;
