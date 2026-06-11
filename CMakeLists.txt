@@ -56,6 +56,7 @@ macro(xoption OPTION_NAME OPTION_TEXT OPTION_DEFAULT)
 endmacro()
 
 xoption(BUILD_WITH_MIMALLOC "If ON (default), build with mimalloc" ON)
+xoption(BUILD_WITH_FFI "If ON (default), build with libffi (the tjs:ffi module)" ON)
 xoption(BUILD_WITH_ASAN "Build with AddressSanitizer" OFF)
 xoption(BUILD_WITH_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
 xoption(BUILD_WITH_GC_STRESS "Force a full GC before every JS allocation (QuickJS FORCE_GC_AT_MALLOC)" OFF)
@@ -117,7 +118,6 @@ add_library(tjs STATIC
     src/httpserver.c
     src/mod_dns.c
     src/mod_engine.c
-    src/mod_ffi.c
     src/mod_fs.c
     src/mod_fswatch.c
     src/mod_hashing.c
@@ -209,14 +209,18 @@ add_library(sqlite-test SHARED
 )
 target_link_libraries(sqlite-test sqlite3)
 
-if (WIN32)
-    find_package(unofficial-libffi CONFIG REQUIRED)
-    target_link_libraries(tjs PUBLIC unofficial::libffi::libffi)
-else()
-    find_library(FFI_LIB NAMES libffi ffi REQUIRED)
-    find_path(FFI_INCLUDE_DIR NAMES ffi.h PATH_SUFFIXES ffi REQUIRED)
-    target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
-    target_link_libraries(tjs PUBLIC ${FFI_LIB})
+if(BUILD_WITH_FFI)
+    target_sources(tjs PRIVATE src/mod_ffi.c)
+    target_compile_definitions(tjs PRIVATE TJS_HAVE_FFI)
+    if (WIN32)
+        find_package(unofficial-libffi CONFIG REQUIRED)
+        target_link_libraries(tjs PUBLIC unofficial::libffi::libffi)
+    else()
+        find_library(FFI_LIB NAMES libffi ffi REQUIRED)
+        find_path(FFI_INCLUDE_DIR NAMES ffi.h PATH_SUFFIXES ffi REQUIRED)
+        target_include_directories(tjs PRIVATE ${FFI_INCLUDE_DIR})
+        target_link_libraries(tjs PUBLIC ${FFI_LIB})
+    endif()
 endif()
 
 add_library(ffi-test SHARED
@@ -250,6 +254,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     set(WAMR_BUILD_PLATFORM "darwin")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(WAMR_BUILD_PLATFORM "windows")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+    set(WAMR_BUILD_PLATFORM "android")
 else()
     set(WAMR_BUILD_PLATFORM "linux")
 endif()
@@ -267,6 +273,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND NOT DEFINED WAMR_BUILD_TARGET AND CMA
         elseif(TJS_OSX_ARCHITECTURE STREQUAL "x86_64")
             set(WAMR_BUILD_TARGET "X86_64")
         endif()
+    endif()
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Android" AND NOT DEFINED WAMR_BUILD_TARGET)
+    if(ANDROID_ABI STREQUAL "arm64-v8a")
+        set(WAMR_BUILD_TARGET "AARCH64")
+    elseif(ANDROID_ABI STREQUAL "x86_64")
+        set(WAMR_BUILD_TARGET "X86_64")
     endif()
 endif()
 
@@ -293,6 +307,10 @@ add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
 target_include_directories(vmlib PUBLIC ${WAMR_ROOT_DIR}/core/iwasm/include)
 if(WIN32)
     target_link_libraries(vmlib PUBLIC ntdll)
+endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+    # WAMR's android platform logs via bionic liblog (__android_log_*).
+    target_link_libraries(vmlib PUBLIC log)
 endif()
 target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
 target_link_libraries(tjs PUBLIC vmlib)
