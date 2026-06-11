@@ -304,6 +304,8 @@ if (NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     set(LWS_WITH_NO_LOGS ON CACHE BOOL "" FORCE)
 endif()
 set(LWS_WITH_HTTP2 OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_HTTP3 OFF CACHE BOOL "" FORCE)
+set(LWS_ROLE_QUIC OFF CACHE BOOL "" FORCE)
 set(LWS_ROLE_RAW_FILE OFF CACHE BOOL "" FORCE)
 set(LWS_UNIX_SOCK OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_SYS_STATE OFF CACHE BOOL "" FORCE)
@@ -317,6 +319,23 @@ set(LWS_WITH_JSONRPC OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_LWSAC OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_CONMON OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_WOL OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_STUB OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_HTTP_BASIC_AUTH OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_HTTP_DIGEST_AUTH OFF CACHE BOOL "" FORCE)
+# GENCRYPTO must stay ON: lws compiles tls/lws-gencrypto-common.c (HKDF)
+# unconditionally, which needs the genhmac API. Unused objects are not
+# linked into the final binary anyway.
+set(LWS_WITH_GENCRYPTO ON CACHE BOOL "" FORCE)
+# Note: LWS_WITH_HTTP_UNCOMMON_HEADERS must stay ON: it selects the full
+# pre-generated header lexer table; without it headers like
+# Transfer-Encoding are not parsed and requests fail with 400.
+set(LWS_WITH_JPEG OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_GZINFLATE OFF CACHE BOOL "" FORCE)
+# Note: LWS_WITH_FILE_OPS must stay ON: lws_create_adopt_udp2 (async DNS)
+# needs lws_plat_apply_FD_CLOEXEC from plat/unix/unix-file.c.
+set(LWS_WITH_LIBCAP OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_BINDTODEVICE OFF CACHE BOOL "" FORCE)
+set(LWS_SSL_CLIENT_USE_OS_CA_CERTS OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_LIBUV OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_MBEDTLS ON CACHE BOOL "" FORCE)
 set(LWS_WITH_SSL ON CACHE BOOL "" FORCE)
@@ -331,14 +350,9 @@ set(LWS_WITH_EXPORT_LWSTARGETS OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_NETLINK OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_SYS_ASYNC_DNS ON CACHE BOOL "" FORCE)
 set(LWS_WITH_CACHE_NSCOOKIEJAR ON CACHE BOOL "" FORCE)
-set(LWS_WITH_MINIZ ON CACHE BOOL "" FORCE)
-# Pre-set ZLIB variables so lws skips find_package(Miniz)
-set(ZLIB_FOUND TRUE)
-set(ZLIB_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/miniz" CACHE STRING "" FORCE)
-set(ZLIB_LIBRARIES miniz CACHE STRING "" FORCE)
-set(LWS_HAVE_ZLIB_H 1 CACHE BOOL "" FORCE)
 # Tell lws about mbedtls capabilities (CHECK_FUNCTION_EXISTS fails for static libs)
 set(LWS_HAVE_mbedtls_md_setup 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_ssl_conf_ciphersuites 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_mbedtls_rsa_complete 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_mbedtls_net_init 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_mbedtls_ssl_conf_alpn_protocols 1 CACHE BOOL "" FORCE)
@@ -353,27 +367,6 @@ set(LWS_HAVE_MBEDTLS_NET_SOCKETS 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_MBEDTLS_SSL_NEW_SESSION_TICKET 1 CACHE BOOL "" FORCE)
 set(LWS_MBEDTLS_LIBRARIES mbedtls mbedx509 mbedcrypto CACHE STRING "" FORCE)
 set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" CACHE STRING "" FORCE)
-# Apply lws patches.
-execute_process(
-    COMMAND git apply --reverse --check ${CMAKE_CURRENT_SOURCE_DIR}/patches/lws.patch
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets
-    RESULT_VARIABLE _lws_patch_applied
-    OUTPUT_QUIET ERROR_QUIET
-)
-if(_lws_patch_applied EQUAL 0)
-    message(STATUS "Already applied lws.patch")
-else()
-    execute_process(
-        COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/lws.patch
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets
-        RESULT_VARIABLE _lws_patch_result
-    )
-    if(_lws_patch_result EQUAL 0)
-        message(STATUS "Applied lws.patch")
-    else()
-        message(FATAL_ERROR "Failed to apply lws.patch")
-    endif()
-endif()
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
 # Work around mbedtls ssl.h using #if instead of #ifdef on
 # MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT (undefined when DTLS is disabled).
