@@ -177,6 +177,32 @@ jobs:
         $env:PATH = "${{ github.workspace }}\build\${{ matrix.buildType }};${{ github.workspace }}\vcpkg\installed\x64-windows\bin;$env:PATH"
         if ("${{ matrix.buildType }}" -eq "Debug") { $env:TJS_TEST_TIMEOUT = "120000" }
         .\build\${{ matrix.buildType }}\tjs.exe test tests/
+  build-android:
+    name: Android (${{ matrix.abi }}, ${{ matrix.buildType }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, x86_64]
+        buildType: [Debug, Release]
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+    # Cross-compile only: the runner can't execute an arm64 binary, so this
+    # guards against the Android build regressing, not against runtime behaviour.
+    # API 28 is the floor (libuv uses posix_spawn); FFI is off (the NDK ships no
+    # libffi).
+    - name: Configure
+      run: |
+        cmake -B build-android \
+          -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake" \
+          -DANDROID_ABI=${{ matrix.abi }} \
+          -DANDROID_PLATFORM=android-28 \
+          -DCMAKE_BUILD_TYPE=${{ matrix.buildType }} \
+          -DBUILD_WITH_FFI=OFF
+    - name: Build
+      run: cmake --build build-android
   asan-linux:
     name: ASAN (Linux)
     runs-on: ubuntu-latest
