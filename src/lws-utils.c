@@ -156,6 +156,14 @@ static void *tjs__lws_realloc(void *ptr, size_t size, const char *reason) {
     return tjs__realloc(ptr, size);
 }
 
+void tjs__lws_setup(void) {
+    /* Must run before any lws call that allocates (e.g. lws_parse_uri_create)
+     * so every lws allocation is paired with the same allocator. Setting it
+     * later would free early allocations with the wrong free function. */
+    lws_set_allocator(tjs__lws_realloc);
+    lws_set_log_level(0, NULL);
+}
+
 static void tjs__load_ca_bundle(TJSRuntime *qrt) {
     if (qrt->lws.ca_bundle_data || !qrt->lws.ca_bundle_path) {
         return;
@@ -215,24 +223,23 @@ static bool tjs__parse_proxy_url(const char *env_name1, const char *env_name2, T
         return false;
     }
 
-    /* lws_parse_uri modifies the string in-place. */
-    const char *prot, *ads, *path;
-    int port;
-
-    if (lws_parse_uri(buf, &prot, &ads, &port, &path)) {
+    lws_parse_uri_t *uri = lws_parse_uri_create(buf);
+    if (!uri) {
         return false;
     }
 
-    lws_strncpy(out->auth_address, ads, sizeof(out->auth_address));
-    out->port = (unsigned int) port;
+    lws_strncpy(out->auth_address, uri->host, sizeof(out->auth_address));
+    out->port = uri->port;
 
-    /* If ads contains '@', auth is present — extract just the hostname. */
-    const char *at = strchr(ads, '@');
+    /* If the host contains '@', auth is present — extract just the hostname. */
+    const char *at = strchr(uri->host, '@');
     if (at) {
         lws_strncpy(out->hostname, at + 1, sizeof(out->hostname));
     } else {
-        lws_strncpy(out->hostname, ads, sizeof(out->hostname));
+        lws_strncpy(out->hostname, uri->host, sizeof(out->hostname));
     }
+
+    lws_parse_uri_destroy(&uri);
 
     return out->port > 0 && out->auth_address[0];
 }
@@ -328,7 +335,7 @@ static struct lws_vhost *tjs__create_client_vhost(TJSRuntime *qrt, const char *n
     return lws_create_vhost(qrt->lws.ctx, &vinfo);
 }
 
-void tjs__lws_init(TJSRuntime *qrt) {
+static void tjs__lws_init(TJSRuntime *qrt) {
     struct lws_context_creation_info info;
     memset(&info, 0, sizeof(info));
 
@@ -346,9 +353,6 @@ void tjs__lws_init(TJSRuntime *qrt) {
     /* Cookie jar is context-level in lws, must be set here. */
     CHECK_NOT_NULL(qrt->lws.cookie_jar_path);
     info.http_nsc_filepath = qrt->lws.cookie_jar_path;
-
-    lws_set_log_level(0, NULL);
-    lws_set_allocator(tjs__lws_realloc);
 
     qrt->lws.ctx = lws_create_context(&info);
 
@@ -486,30 +490,21 @@ struct lws_vhost *tjs__lws_select_vhost(JSContext *ctx, const char *scheme, cons
 }
 
 static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, const char *url) {
-    JSContext *ctx = qrt->ctx;
-
     load_ctx->status = -1;
     load_ctx->done = false;
     load_ctx->redirect_url[0] = '\0';
 
-    /* Parse URL. lws_parse_uri modifies the string in-place. */
-    char *url_copy = js_strdup(ctx, url);
-    if (!url_copy) {
+    /* Parse URL. */
+    lws_parse_uri_t *uri = lws_parse_uri_create(url);
+    if (!uri) {
         return -1;
     }
 
-    const char *prot_str, *ads, *path;
-    int port;
-    if (lws_parse_uri(url_copy, &prot_str, &ads, &port, &path)) {
-        js_free(ctx, url_copy);
-        return -1;
-    }
+    bool use_ssl = !strcmp(uri->scheme, "https");
 
-    bool use_ssl = !strcmp(prot_str, "https");
-
-    /* lws_parse_uri strips the leading '/' from path, restore it. */
+    /* The parsed path has the leading '/' stripped, restore it. */
     char full_path[TJS_PATH_MAX];
-    snprintf(full_path, sizeof(full_path), "/%s", path);
+    snprintf(full_path, sizeof(full_path), "/%s", uri->path);
 
     /* Resolve DNS synchronously.  The lws async DNS resolver is
      * unreliable in a temporary poll-based context. */
@@ -519,8 +514,8 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
     hints.ai_socktype = SOCK_STREAM;
 
     uv_getaddrinfo_t dns_req;
-    if (uv_getaddrinfo(&qrt->loop, &dns_req, NULL, ads, NULL, &hints)) {
-        js_free(ctx, url_copy);
+    if (uv_getaddrinfo(&qrt->loop, &dns_req, NULL, uri->host, NULL, &hints)) {
+        lws_parse_uri_destroy(&uri);
         return -1;
     }
 
@@ -589,7 +584,7 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
                 if (tlen < sizeof(entry)) {
                     memcpy(entry, token, tlen);
                     entry[tlen] = '\0';
-                    if (tjs__hostname_matches_no_proxy(ads, port, entry)) {
+                    if (tjs__hostname_matches_no_proxy(uri->host, uri->port, entry)) {
                         have_proxy = false;
                         break;
                     }
@@ -605,11 +600,9 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
         info.http_proxy_port = proxy_cfg.port;
     }
 
-    lws_set_log_level(0, NULL);
-
     struct lws_context *lws_ctx = lws_create_context(&info);
     if (!lws_ctx) {
-        js_free(ctx, url_copy);
+        lws_parse_uri_destroy(&uri);
         return -1;
     }
 
@@ -618,10 +611,10 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
 
     cci.context = lws_ctx;
     cci.address = ip_str;
-    cci.port = port;
+    cci.port = uri->port;
     cci.path = full_path;
-    cci.host = ads;
-    cci.origin = ads;
+    cci.host = uri->host;
+    cci.origin = uri->host;
     cci.ssl_connection = (use_ssl ? LCCSCF_USE_SSL : 0);
     cci.method = "GET";
     cci.local_protocol_name = TJS_LWS_HTTP_LOAD_PROTOCOL_NAME;
@@ -631,7 +624,7 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
 
     if (!wsi) {
         lws_context_destroy(lws_ctx);
-        js_free(ctx, url_copy);
+        lws_parse_uri_destroy(&uri);
         return -1;
     }
 
@@ -647,9 +640,9 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
 
     lws_context_destroy(lws_ctx);
 
-    /* Free after the context is destroyed. lws may reference strings
-     * from url_copy during the connection handshake. */
-    js_free(ctx, url_copy);
+    /* Free after the context is destroyed. lws may reference the parsed
+     * URI strings during the connection handshake. */
+    lws_parse_uri_destroy(&uri);
 
     return load_ctx->status;
 }
