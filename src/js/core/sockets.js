@@ -46,6 +46,7 @@ export async function connect(transport, host, port, options = {}) {
                 noDelay: options.noDelay,
                 keepAliveDelay: options.keepAliveDelay,
                 dnsQueryType: options.dnsQueryType,
+                signal: options.signal,
             });
 
             await socket.opened;
@@ -58,6 +59,7 @@ export async function connect(transport, host, port, options = {}) {
                 noDelay: options.noDelay,
                 keepAliveDelay: options.keepAliveDelay,
                 dnsQueryType: options.dnsQueryType,
+                signal: options.signal,
                 sni: options.sni ?? host,
                 alpn: options.alpn,
                 ca: options.ca,
@@ -76,7 +78,7 @@ export async function connect(transport, host, port, options = {}) {
                 throw new TypeError('pipe path must be a string');
             }
 
-            const socket = new PipeSocket(host);
+            const socket = new PipeSocket(host, { signal: options.signal });
 
             await socket.opened;
 

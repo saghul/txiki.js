@@ -91,9 +91,15 @@ export class BaseStreamSocket {
         return promise;
     }
 
-    _connect(addr) {
+    _connect(addr, signal) {
         const handle = this.#handle;
         const { promise, resolve, reject } = Promise.withResolvers();
+
+        if (signal) {
+            if (signal.aborted) {
+                return Promise.reject(signal.reason);
+            }
+        }
 
         handle.onconnect = error => {
             handle.onconnect = null;
@@ -106,6 +112,21 @@ export class BaseStreamSocket {
         };
 
         handle.connect(addr);
+
+        if (signal) {
+            const onAbort = () => {
+                handle.onconnect = null;
+                silentClose(handle);
+                reject(signal.reason);
+            };
+
+            signal.addEventListener('abort', onAbort, { once: true });
+
+            // Return the cleanup chain itself so the caller observes the
+            // connect rejection through it — a detached `.finally()` would
+            // otherwise surface as an unhandled rejection.
+            return promise.finally(() => signal.removeEventListener('abort', onAbort));
+        }
 
         return promise;
     }
