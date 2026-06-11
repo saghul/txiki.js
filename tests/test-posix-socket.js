@@ -1,6 +1,13 @@
 import assert from 'tjs:assert';
 import { PosixSocket } from 'tjs:posix-socket';
 
+// Skipped under GC stress: forcing a full GC before every allocation starves
+// the event loop, so the setTimeout-based synchronization delays this test
+// relies on no longer hold.
+if (tjs.env.TJS_GC_STRESS) {
+	tjs.exit(0);
+}
+
 
 // Pick a random port in the dynamic/private range to avoid clashes with
 // lingering sockets (e.g. TIME_WAIT) from previous runs on the CI machine.
