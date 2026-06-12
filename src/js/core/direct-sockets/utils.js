@@ -301,8 +301,13 @@ export class BaseStreamServerSocket {
             start: controller => {
                 handle.onconnection = (error, clientHandle) => {
                     if (typeof error === 'undefined' && typeof clientHandle === 'undefined') {
-                        // Server handle closed.
-                        controller.close();
+                        // Server handle closed. The stream may already be
+                        // closed if the consumer cancelled its reader (cancel
+                        // calls close(), which closes the handle and re-enters
+                        // here), so closing again must not throw.
+                        try {
+                            controller.close();
+                        } catch (_e) { /* already closed */ }
 
                         return;
                     }
@@ -320,10 +325,20 @@ export class BaseStreamServerSocket {
                     }
 
                     if (error) {
-                        controller.error(error);
-                    } else {
-                        controller.enqueue(createSocket(clientHandle));
+                        // A failed connection is scoped to that one client —
+                        // e.g. a TLS handshake the peer rejected or abandoned,
+                        // which any internet-facing server sees routinely.
+                        // Erroring the stream here would permanently kill the
+                        // accept loop (and make a later enqueue/close throw),
+                        // so drop the connection and keep accepting.
+                        if (clientHandle) {
+                            silentClose(clientHandle);
+                        }
+
+                        return;
                     }
+
+                    controller.enqueue(createSocket(clientHandle));
                 };
             },
             cancel: () => {

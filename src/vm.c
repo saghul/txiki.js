@@ -233,7 +233,9 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
     tjs__mod_engine_init(ctx, ns);
     tjs__mod_error_init(ctx, ns);
+#ifdef TJS_HAVE_FFI
     tjs__mod_ffi_init(ctx, ns);
+#endif
     tjs__mod_fs_init(ctx, ns);
     tjs__mod_fswatch_init(ctx, ns);
     tjs__mod_os_init(ctx, ns);
