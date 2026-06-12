@@ -255,7 +255,7 @@ declare module 'tjs:ffi'{
     }
 
     /** Type conversion map (FFI type alias -> JS type) */
-    type TypeAliasMap = {
+    export type TypeAliasMap = {
         readonly 'void': void;
         readonly 'u8': number;
         readonly 'uint8': number;
