@@ -98,6 +98,7 @@ endif()
 
 add_library(tjs STATIC
     src/builtins.c
+    src/cacert.c
     src/error.c
     src/lws-evlib.c
     src/lws-utils.c

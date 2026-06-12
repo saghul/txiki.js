@@ -1,14 +1,15 @@
 #!/bin/bash
 #
 # Downloads the Mozilla CA certificate bundle from curl.se and converts it
-# to a C header with a static const char array for embedding in the binary.
+# to a C source file with a const char array for embedding in the binary.
+# The declarations live in src/cacert.h (hand-written).
 #
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-OUTPUT="$PROJECT_DIR/src/cacert.h"
+OUTPUT="$PROJECT_DIR/src/cacert.c"
 
 URL="https://curl.se/ca/cacert.pem"
 
@@ -26,10 +27,9 @@ cat > "$OUTPUT" <<'HEADER'
  * Source: https://curl.se/ca/cacert.pem
  */
 
-#ifndef TJS_CACERT_H
-#define TJS_CACERT_H
+#include "cacert.h"
 
-static const char tjs_cacert_pem[] =
+const char tjs_cacert_pem[] =
 HEADER
 
 # Convert PEM to C string literal (each line becomes "line\n")
@@ -42,9 +42,7 @@ done
 cat >> "$OUTPUT" <<'FOOTER'
 ;
 
-#define TJS_CACERT_PEM_LEN (sizeof(tjs_cacert_pem) - 1)
-
-#endif /* TJS_CACERT_H */
+const size_t tjs_cacert_pem_len = sizeof(tjs_cacert_pem) - 1;
 FOOTER
 
 echo "Done. $(wc -l < "$OUTPUT" | tr -d ' ') lines written."

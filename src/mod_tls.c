@@ -196,7 +196,7 @@ static int tjs_tls_ctx_init(JSContext *ctx) {
     }
 
     /* Always also parse the embedded bundle. */
-    mbedtls_x509_crt_parse(&qrt->tls.cacert, (const unsigned char *) tjs_cacert_pem, TJS_CACERT_PEM_LEN + 1);
+    mbedtls_x509_crt_parse(&qrt->tls.cacert, (const unsigned char *) tjs_cacert_pem, tjs_cacert_pem_len + 1);
 
     qrt->tls.initialized = true;
     return 0;
