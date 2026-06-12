@@ -188,7 +188,7 @@ static void tjs__set_ca_info(TJSRuntime *qrt, struct lws_context_creation_info *
         info->client_ssl_ca_mem_len = qrt->lws.ca_bundle_len;
     } else {
         info->client_ssl_ca_mem = tjs_cacert_pem;
-        info->client_ssl_ca_mem_len = TJS_CACERT_PEM_LEN;
+        info->client_ssl_ca_mem_len = tjs_cacert_pem_len;
     }
 }
 
