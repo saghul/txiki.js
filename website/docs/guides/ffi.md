@@ -165,10 +165,10 @@ import { Lib, CFunction, JSCallback, types } from 'tjs:ffi';
 
 const lib = new Lib(`./libmystuff.${suffix}`);
 
-// int call_it(int (*fn)(int), int arg);
-const callIt = new CFunction(lib.symbol('call_it'), types.sint, [types.jscallback, types.sint]);
-
 const cb = new JSCallback(types.sint, [types.sint], (n) => n * 2);
+
+// int call_it(int (*fn)(int), int arg);
+const callIt = new CFunction(lib.symbol('call_it'), types.sint, [types.jscallback(cb), types.sint]);
 
 console.log(callIt.call(cb, 21)); // 42
 ```
