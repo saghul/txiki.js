@@ -4,12 +4,11 @@ import { FFI, sopath } from './helpers/ffi.js';
 // A JSCallback that throws must surface a catchable error to the caller instead
 // of aborting the whole process.
 const lib = new FFI.Lib(sopath);
+const callCallback = new FFI.CFunction(lib.symbol('call_callback'), FFI.types.sint, [ FFI.types.jscallback(), FFI.types.sint ]);
 
 const throwing = new FFI.JSCallback(FFI.types.sint, [ FFI.types.sint ], () => {
     throw new Error('boom from callback');
 });
-
-const callCallback = new FFI.CFunction(lib.symbol('call_callback'), FFI.types.sint, [ FFI.types.jscallback(throwing), FFI.types.sint ]);
 
 let caught;
 

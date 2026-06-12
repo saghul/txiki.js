@@ -191,7 +191,7 @@ declare module 'tjs:ffi'{
         
         buffer: SimpleType<Uint8Array>,
         
-        jscallback: <RT, AT extends unknown[], CB extends JSCallback<RT, AT>>(cb: CB) => SimpleType<CB>,
+        jscallback: <T extends JSCallback>() => SimpleType<T>,
     }
 
     /**
@@ -249,7 +249,7 @@ declare module 'tjs:ffi'{
 
     export function errno(): number;
     export function strerror(err?: number): string;
-    export class JSCallback<RT, AT extends unknown[]>{
+    export class JSCallback<RT = unknown, AT extends unknown[] = unknown[]>{
         constructor(rtype: SimpleType<RT>, argtypes: { [key in keyof AT]: SimpleType<AT[key]> }, func: (...args: AT) => RT);
         readonly addr: NativePointer;
     }
