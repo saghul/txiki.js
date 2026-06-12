@@ -98,6 +98,15 @@ export function fetch(input, init) {
 
         const client = new HttpClient();
 
+        // A connection deadline armed on lws' own scheduled-event timer. Unlike
+        // AbortSignal (driven by a JS timer and torn down from outside the lws
+        // callback), the lws timer fires LWS_CALLBACK_TIMER from the service
+        // pass itself, so it reliably settles a connection that is stuck
+        // mid-handshake (e.g. a proxy whose upstream is dead).
+        if (init && init.timeout > 0) {
+            client.timeout = init.timeout;
+        }
+
         activeClients.add(client);
 
         let responseResolved = false;
