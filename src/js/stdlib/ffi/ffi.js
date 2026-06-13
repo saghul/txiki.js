@@ -228,7 +228,7 @@ export const types = {
         name: 'buffer'
     }),
 
-    jscallback: new AdvancedType(ffiInt.type_pointer, {
+    jscallback: () => new AdvancedType(ffiInt.type_pointer, {
         toBuffer: jsc => {
             if (!(jsc instanceof JSCallback)) {
                 throw new Error('not a JSCallback');

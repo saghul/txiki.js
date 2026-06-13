@@ -154,8 +154,8 @@ declare module 'tjs:ffi'{
     }
     export interface Lib extends Disposable {}
 
-    export class CFunction<JRT = any, JAT extends Array<any> = any[]>{ //TODO: better typing mechanism for Arg types
-        constructor(symbol: DlSymbol, rtype: SimpleType<JRT>, argtypes: SimpleType[], fixed?: number);
+    export class CFunction<JRT = unknown, JAT extends unknown[] = unknown[]>{
+        constructor(symbol: DlSymbol, rtype: SimpleType<JRT>, argtypes: { [key in keyof JAT]: SimpleType<JAT[key]> }, fixed?: number);
         call(...argsJs: JAT): JRT;
     }
 
@@ -187,11 +187,11 @@ declare module 'tjs:ffi'{
         size: SimpleType<number>,
         ssize: SimpleType<number>,
 
-        string: SimpleType<string>
+        string: SimpleType<string>,
         
-        buffer: SimpleType<Uint8Array>
+        buffer: SimpleType<Uint8Array>,
         
-        jscallback: SimpleType<(...args: any)=>any>
+        jscallback: <T extends JSCallback>() => SimpleType<T>,
     }
 
     /**
@@ -249,10 +249,61 @@ declare module 'tjs:ffi'{
 
     export function errno(): number;
     export function strerror(err?: number): string;
-    export class JSCallback<RT, AT extends any[]>{
-        constructor(rtype: SimpleType<RT>, argtypes: { [K in keyof AT]: SimpleType<AT[K]> }, func: (...args: AT)=>RT);
+    export class JSCallback<RT = unknown, AT extends unknown[] = unknown[]>{
+        constructor(rtype: SimpleType<RT>, argtypes: { [key in keyof AT]: SimpleType<AT[key]> }, func: (...args: AT) => RT);
         readonly addr: NativePointer;
     }
+
+    /** Type conversion map (FFI type alias -> JS type) */
+    export type TypeAliasMap = {
+        readonly 'void': void;
+        readonly 'u8': number;
+        readonly 'uint8': number;
+        readonly 'uint8_t': number;
+        readonly 'i8': number;
+        readonly 'sint8': number;
+        readonly 'int8_t': number;
+        readonly 'u16': number;
+        readonly 'uint16': number;
+        readonly 'uint16_t': number;
+        readonly 'i16': number;
+        readonly 'sint16': number;
+        readonly 'int16_t': number;
+        readonly 'u32': number;
+        readonly 'uint32': number;
+        readonly 'uint32_t': number;
+        readonly 'int': number;
+        readonly 'i32': number;
+        readonly 'sint32': number;
+        readonly 'int32_t': number;
+        readonly 'u64': number;
+        readonly 'uint64': number;
+        readonly 'uint64_t': number;
+        readonly 'i64': number;
+        readonly 'sint64': number;
+        readonly 'int64_t': number;
+        readonly 'f32': number;
+        readonly 'float': number;
+        readonly 'f64': number;
+        readonly 'double': number;
+        readonly 'pointer': NativePointer | null;
+        readonly 'ptr': NativePointer | null;
+        readonly 'string': string;
+        readonly 'cstring': string;
+        readonly 'buffer': Uint8Array;
+        readonly 'uchar': string;
+        readonly 'schar': string;
+        readonly 'char': string;
+        readonly 'ushort': number;
+        readonly 'sshort': number;
+        readonly 'uint': number;
+        readonly 'sint': number;
+        readonly 'ulong': number;
+        readonly 'slong': number;
+        readonly 'long': number;
+        readonly 'size_t': number;
+        readonly 'ssize_t': number;
+    };
 
     /**
      * String aliases for FFI types. Can be used in {@link dlopen} symbol definitions
@@ -261,27 +312,7 @@ declare module 'tjs:ffi'{
      * Supports short (`i32`, `u8`, `f64`, `ptr`), C-style (`int`, `char`, `double`),
      * and stdint-style (`uint32_t`, `int64_t`) names.
      */
-    export type TypeAlias =
-        | 'void'
-        | 'u8' | 'uint8' | 'uint8_t'
-        | 'i8' | 'sint8' | 'int8_t'
-        | 'u16' | 'uint16' | 'uint16_t'
-        | 'i16' | 'sint16' | 'int16_t'
-        | 'u32' | 'uint32' | 'uint32_t' | 'int'
-        | 'i32' | 'sint32' | 'int32_t'
-        | 'u64' | 'uint64' | 'uint64_t'
-        | 'i64' | 'sint64' | 'int64_t'
-        | 'f32' | 'float'
-        | 'f64' | 'double'
-        | 'pointer' | 'ptr'
-        | 'string' | 'cstring'
-        | 'buffer'
-        | 'uchar' | 'schar' | 'char'
-        | 'ushort' | 'sshort'
-        | 'uint' | 'sint'
-        | 'ulong' | 'slong' | 'long'
-        | 'size_t' | 'ssize_t';
-
+    export type TypeAlias = keyof TypeAliasMap;
     export type TypeOrAlias = SimpleType | TypeAlias;
 
     /**
@@ -296,9 +327,23 @@ declare module 'tjs:ffi'{
         fixed?: number;
     }
 
+    type MapToJsType<T extends TypeOrAlias | undefined> = T extends TypeAlias
+        ? TypeAliasMap[T]
+        : T extends SimpleType
+            ? ReturnType<T["fromBuffer"]>
+            : void;
+
+    type MapArrayToJsType<T extends TypeOrAlias[]> = {
+        [key in keyof T]: MapToJsType<T[key]>;
+    };
+
     export interface DlopenResult<T extends Record<string, DlopenSymbol>> {
         /** Object containing callable functions for each declared symbol. */
-        symbols: { [K in keyof T]: (...args: any[]) => any };
+        symbols: {
+            [K in keyof T]: T[K]["args"] extends TypeOrAlias[]
+                ? (...args: MapArrayToJsType<T[K]["args"]>) => MapToJsType<T[K]["returns"]>
+                : () => MapToJsType<T[K]["returns"]>;
+        };
         /** Close the shared library handle. */
         close(): void;
     }

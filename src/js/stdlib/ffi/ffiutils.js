@@ -415,7 +415,7 @@ export default function buildCParser({ StructType, ArrayType, CFunction, Pointer
                             lib.registerType(e.name, getType(e.child.name));
                         }
                     } else if (e.child.kind === 'function') {
-                        lib.registerType(e.name || e.child.name, types.jscallback);
+                        lib.registerType(e.name || e.child.name, types.jscallback());
                     } else {
                         throw new Error('unsupported typedef: ' + JSON.stringify(e));
                     }
