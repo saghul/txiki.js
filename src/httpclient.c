@@ -783,6 +783,11 @@ static JSValue tjs_httpclient_open(JSContext *ctx, JSValue this_val, int argc, J
     }
 
     /* Prevent GC while request is in flight. */
+#ifndef TJS_HAVE_TLS
+    if (strncmp(h->url_str, "https://", 8) == 0) {
+        return JS_ThrowTypeError(ctx, "HTTPS not supported in this build");
+    }
+#endif
     h->this_val = JS_DupValue(ctx, this_val);
     h->sent = true;
 
