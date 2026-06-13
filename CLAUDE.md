@@ -33,6 +33,22 @@ BUILD_WITH_GC_STRESS=ON make  # Force a full GC before every JS allocation (GC s
 BUILD_WITH_WASM=OFF make      # Disable WebAssembly / WAMR (drops the WebAssembly global and tjs:wasi)
 ```
 
+#### Size-optimized builds
+
+These flags shrink the binary; they are orthogonal to one another and can be combined.
+
+```bash
+BUILD_WITH_STRIP=ON make        # Strip the symbol table from the binary after linking
+BUILD_WITH_LTO=ON make          # Enable link-time optimization (slower link, smaller/faster binary)
+BUILD_WITH_GC_SECTIONS=ON make  # Per-function/data sections + linker dead-code stripping
+BUILDTYPE=MinSizeRel make       # Optimize for size instead of speed (-Os)
+```
+
+`BUILD_WITH_STRIP` runs `${CMAKE_STRIP}` as a post-build step (skipped when `CMAKE_STRIP` is
+unset, e.g. MSVC). `BUILD_WITH_LTO` falls back to a warning if the toolchain can't do IPO.
+`BUILD_WITH_GC_SECTIONS` maps to `-Wl,--gc-sections` (GNU/lld), `-Wl,-dead_strip` (Apple), or
+`/OPT:REF /OPT:ICF` (MSVC). `BUILDTYPE=MinSizeRel` is a standard CMake build type (no extra flag).
+
 ASAN and mimalloc are mutually exclusive. UBSAN is not supported on MSVC.
 
 ### Sanitizer Builds

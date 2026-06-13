@@ -33,6 +33,16 @@ but can be disabled to produce a smaller binary:
 BUILD_WITH_WASM=OFF make      # ~0.4 MB smaller — removes WebAssembly/WASI
 ```
 
+The binary can also be shrunk without dropping any feature, via compiler/linker
+optimizations (combinable):
+
+```bash
+BUILD_WITH_STRIP=ON make        # strip the symbol table after linking
+BUILD_WITH_LTO=ON make          # link-time optimization
+BUILD_WITH_GC_SECTIONS=ON make  # dead-code stripping (per-function/data sections)
+BUILDTYPE=MinSizeRel make       # optimize for size (-Os) instead of speed
+```
+
 See [Building](https://txikijs.org/docs/building) for the full reference.
 
 ## Features

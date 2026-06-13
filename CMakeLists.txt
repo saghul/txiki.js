@@ -61,6 +61,8 @@ xoption(BUILD_WITH_ASAN "Build with AddressSanitizer" OFF)
 xoption(BUILD_WITH_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
 xoption(BUILD_WITH_GC_STRESS "Force a full GC before every JS allocation (QuickJS FORCE_GC_AT_MALLOC)" OFF)
 xoption(BUILD_WITH_WASM "If ON (default), build with WASM/WAMR support" ON)
+xoption(BUILD_WITH_STRIP "If ON, strip the tjs binary after linking" OFF)
+xoption(BUILD_WITH_LTO "If ON, enable link-time optimization" OFF)
 
 if(BUILD_WITH_GC_STRESS)
     message(STATUS "GC stress mode enabled (FORCE_GC_AT_MALLOC)")
@@ -91,6 +93,26 @@ if(BUILD_WITH_UBSAN)
     endif()
     add_compile_options(-fsanitize=undefined -fno-omit-frame-pointer)
     add_link_options(-fsanitize=undefined)
+endif()
+
+if(BUILD_WITH_LTO)
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT _ipo_supported OUTPUT _ipo_output)
+    if(_ipo_supported)
+        message(STATUS "LTO enabled")
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    else()
+        message(WARNING "LTO requested but not supported: ${_ipo_output}")
+    endif()
+endif()
+
+xoption(BUILD_WITH_GC_SECTIONS "If ON, compile with per-function/data sections and link with dead-code stripping" OFF)
+if(BUILD_WITH_GC_SECTIONS)
+    if(MSVC)
+        add_compile_options(/Gy)
+    else()
+        add_compile_options(-ffunction-sections -fdata-sections)
+    endif()
 endif()
 
 ###
@@ -176,6 +198,23 @@ set_target_properties(tjs-cli
 # Bump it up to 8MB.
 if(WIN32)
     target_link_options(tjs-cli PRIVATE "/STACK:8388608")
+endif()
+
+if(BUILD_WITH_STRIP AND CMAKE_STRIP)
+    add_custom_command(TARGET tjs-cli POST_BUILD
+        COMMAND ${CMAKE_STRIP} $<TARGET_FILE:tjs-cli>
+        COMMENT "Stripping tjs"
+    )
+endif()
+
+if(BUILD_WITH_GC_SECTIONS)
+    if(MSVC)
+        target_link_options(tjs-cli PRIVATE /OPT:REF /OPT:ICF)
+    elseif(APPLE)
+        target_link_options(tjs-cli PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(tjs-cli PRIVATE -Wl,--gc-sections)
+    endif()
 endif()
 
 add_executable(tjsc EXCLUDE_FROM_ALL
