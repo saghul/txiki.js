@@ -87,6 +87,31 @@ The executable will be at `build\Release\tjs.exe`.
 .\build\Release\tjs.exe test tests/
 ```
 
+## Optional features
+
+WebAssembly support can be disabled at build time to produce a smaller binary.
+
+| CMake option          | Default | Effect                    | Approx savings |
+|-----------------------|---------|---------------------------|----------------|
+| `BUILD_WITH_WASM=OFF` | ON      | Remove WebAssembly / WASI | ~0.4 MB        |
+
+When disabled, the `WebAssembly` global is not installed and the `tjs:wasi` module is
+not available. The active set of feature flags is exposed to JS via `tjs.engine.features`
+(e.g. `tjs.engine.features.wasm`).
+
+Unix/macOS example:
+
+```bash
+BUILD_WITH_WASM=OFF make
+```
+
+Direct CMake example:
+
+```bash
+cmake -B build-nowasm -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_WASM=OFF
+cmake --build build-nowasm
+```
+
 ## Customizing the build
 
 If you are making a custom build and are modifying any of the JS files that are part of the runtime, you'll need to regenerate the C code for them, so your changes become part of the build.

@@ -24,6 +24,17 @@ make
 
 See [Building](https://txikijs.org/docs/building) for detailed instructions including Windows support.
 
+## Slim builds
+
+WebAssembly support (the `WebAssembly` global and `tjs:wasi`) is built in by default,
+but can be disabled to produce a smaller binary:
+
+```bash
+BUILD_WITH_WASM=OFF make      # ~0.4 MB smaller — removes WebAssembly/WASI
+```
+
+See [Building](https://txikijs.org/docs/building) for the full reference.
+
 ## Features
 
 - Web Platform APIs: `fetch`, `WebSocket`, `Console`, `setTimeout`, `Crypto`, Web Workers, and more
