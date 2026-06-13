@@ -89,27 +89,32 @@ The executable will be at `build\Release\tjs.exe`.
 
 ## Optional features
 
-WebAssembly support can be disabled at build time to produce a smaller binary.
+Some subsystems are built in by default but can be disabled at build time to produce a
+smaller binary.
 
-| CMake option          | Default | Effect                    | Approx savings |
-|-----------------------|---------|---------------------------|----------------|
-| `BUILD_WITH_WASM=OFF` | ON      | Remove WebAssembly / WASI | ~0.4 MB        |
+| CMake option            | Default | Effect                         | Approx savings |
+|-------------------------|---------|--------------------------------|----------------|
+| `BUILD_WITH_WASM=OFF`   | ON      | Remove WebAssembly / WASI      | ~0.4 MB        |
+| `BUILD_WITH_SQLITE=OFF` | ON      | Remove the `tjs:sqlite` module | ~1.5 MB        |
 
-When disabled, the `WebAssembly` global is not installed and the `tjs:wasi` module is
-not available. The active set of feature flags is exposed to JS via `tjs.engine.features`
-(e.g. `tjs.engine.features.wasm`).
+When WebAssembly is disabled, the `WebAssembly` global is not installed and the `tjs:wasi`
+module is not available. When SQLite is disabled, the `tjs:sqlite` module is not available
+and `localStorage` falls back to a non-persistent, in-memory store (`sessionStorage` is
+unaffected). The active set of feature flags is exposed to JS via `tjs.engine.features`
+(e.g. `tjs.engine.features.wasm`, `tjs.engine.features.sqlite`).
 
 Unix/macOS example:
 
 ```bash
 BUILD_WITH_WASM=OFF make
+BUILD_WITH_SQLITE=OFF make
 ```
 
-Direct CMake example:
+Direct CMake example (the flags can be combined):
 
 ```bash
-cmake -B build-nowasm -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_WASM=OFF
-cmake --build build-nowasm
+cmake -B build-slim -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_WASM=OFF -DBUILD_WITH_SQLITE=OFF
+cmake --build build-slim
 ```
 
 ## Size-optimized builds

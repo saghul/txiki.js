@@ -198,7 +198,11 @@ Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
     get: () => {
         if (!_localStorage) {
-            _localStorage = new Proxy(new PersistentStorage(), storageProxyHandler);
+            // Persistence is backed by SQLite; on builds without it (BUILD_WITH_SQLITE=OFF)
+            // fall back to an in-memory store so localStorage stays usable (non-persistent).
+            const storage = sqlite3 ? new PersistentStorage() : new Storage();
+
+            _localStorage = new Proxy(storage, storageProxyHandler);
         }
 
         return _localStorage;
