@@ -60,6 +60,7 @@ xoption(BUILD_WITH_FFI "If ON (default), build with libffi (the tjs:ffi module)"
 xoption(BUILD_WITH_ASAN "Build with AddressSanitizer" OFF)
 xoption(BUILD_WITH_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
 xoption(BUILD_WITH_GC_STRESS "Force a full GC before every JS allocation (QuickJS FORCE_GC_AT_MALLOC)" OFF)
+xoption(BUILD_WITH_WASM "If ON (default), build with WASM/WAMR support" ON)
 
 if(BUILD_WITH_GC_STRESS)
     message(STATUS "GC stress mode enabled (FORCE_GC_AT_MALLOC)")
@@ -112,7 +113,6 @@ add_library(tjs STATIC
     src/utils.c
     src/version.c
     src/vm.c
-    src/wasm.c
     src/worker.c
     src/ws.c
     src/httpclient.c
@@ -142,6 +142,11 @@ add_library(tjs STATIC
 
 if(UNIX)
     target_sources(tjs PRIVATE src/mod_posix-socket.c)
+endif()
+
+if(BUILD_WITH_WASM)
+    target_sources(tjs PRIVATE src/wasm.c)
+    target_compile_definitions(tjs PRIVATE TJS_HAVE_WASM)
 endif()
 
 set_target_properties(tjs PROPERTIES
@@ -247,6 +252,7 @@ set_target_properties(ffi-test sqlite-test PROPERTIES
 add_subdirectory(deps/ada EXCLUDE_FROM_ALL)
 target_link_libraries(tjs PUBLIC ada)
 
+if(BUILD_WITH_WASM)
 # WAMR Configuration (interpreter only for maximum portability)
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/wamr)
 
@@ -315,6 +321,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Android")
 endif()
 target_include_directories(tjs PRIVATE ${WAMR_ROOT_DIR}/core/iwasm/include)
 target_link_libraries(tjs PUBLIC vmlib)
+endif()
 
 add_subdirectory(deps/miniz EXCLUDE_FROM_ALL)
 target_link_libraries(tjs PUBLIC miniz)

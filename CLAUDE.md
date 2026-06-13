@@ -30,6 +30,7 @@ MIMALLOC=OFF make             # Disable mimalloc (required for ASAN)
 BUILD_WITH_ASAN=ON MIMALLOC=OFF make  # Enable AddressSanitizer (must disable mimalloc)
 BUILD_WITH_UBSAN=ON make      # Enable UndefinedBehaviorSanitizer (Linux/macOS only)
 BUILD_WITH_GC_STRESS=ON make  # Force a full GC before every JS allocation (GC stress)
+BUILD_WITH_WASM=OFF make      # Disable WebAssembly / WAMR (drops the WebAssembly global and tjs:wasi)
 ```
 
 ASAN and mimalloc are mutually exclusive. UBSAN is not supported on MSVC.
@@ -74,6 +75,14 @@ VERBOSE_TESTS=1 ./build/tjs test tests/    # Verbose output
 ```
 
 Test files must be named `test-*.js` and live in `tests/`. They use `tjs:assert` for assertions.
+
+### Feature-gated tests
+
+When a test file requires a feature that can be compiled out (e.g. `BUILD_WITH_WASM=OFF`),
+add its filename or glob to the matching feature key in `tests/feature-skip.json`. The test
+runner reads this file and skips matched tests on builds where the feature is absent
+(detected via `tjs.engine.features`). Only `*` wildcards at a single position are supported
+(no `**`, no `?`).
 
 ## Architecture
 

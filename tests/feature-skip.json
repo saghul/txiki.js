@@ -1,0 +1,6 @@
+{
+  "wasm": [
+    "test-wasm-*.js",
+    "test-app-compile.js"
+  ]
+}
