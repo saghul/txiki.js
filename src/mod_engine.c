@@ -187,7 +187,9 @@ void tjs__mod_engine_init(JSContext *ctx, JSValue ns) {
     snprintf(wamr_version, sizeof(wamr_version), "%u.%u.%u", wamr_major, wamr_minor, wamr_patch);
     JS_DefinePropertyValueStr(ctx, versions, "wamr", JS_NewString(ctx, wamr_version), JS_PROP_C_W_E);
 #endif
+#ifdef TJS_HAVE_SQLITE
     JS_DefinePropertyValueStr(ctx, versions, "sqlite3", JS_NewString(ctx, sqlite3_libversion()), JS_PROP_C_W_E);
+#endif
 #ifdef TJS__HAS_MIMALLOC
     JS_DefinePropertyValueStr(ctx, versions, "mimalloc", JS_NewInt32(ctx, mi_version()), JS_PROP_C_W_E);
 #endif
@@ -197,6 +199,11 @@ void tjs__mod_engine_init(JSContext *ctx, JSValue ns) {
     JS_DefinePropertyValueStr(ctx, features, "wasm", JS_TRUE, JS_PROP_C_W_E);
 #else
     JS_DefinePropertyValueStr(ctx, features, "wasm", JS_FALSE, JS_PROP_C_W_E);
+#endif
+#ifdef TJS_HAVE_SQLITE
+    JS_DefinePropertyValueStr(ctx, features, "sqlite", JS_TRUE, JS_PROP_C_W_E);
+#else
+    JS_DefinePropertyValueStr(ctx, features, "sqlite", JS_FALSE, JS_PROP_C_W_E);
 #endif
 
     JSValue gc = JS_NewObjectProto(ctx, JS_NULL);

@@ -32,7 +32,9 @@
 #include <libwebsockets.h>
 #include <mbedtls/x509_crt.h>
 #include <quickjs.h>
+#ifdef TJS_HAVE_SQLITE
 #include <sqlite3.h>
+#endif
 #include <stdbool.h>
 #ifndef _WIN32
 #include <unistd.h>
@@ -135,7 +137,9 @@ void tjs__decompressor_destroy(TJSDecompressor *d, JSRuntime *rt);
 void tjs__mod_os_init(JSContext *ctx, JSValue ns);
 void tjs__mod_process_init(JSContext *ctx, JSValue ns);
 void tjs__mod_signals_init(JSContext *ctx, JSValue ns);
+#ifdef TJS_HAVE_SQLITE
 void tjs__mod_sqlite3_init(JSContext *ctx, JSValue ns);
+#endif
 void tjs__mod_streams_init(JSContext *ctx, JSValue ns);
 void tjs__mod_tls_init(JSContext *ctx, JSValue ns);
 void tjs__mod_tls_cleanup(TJSRuntime *qrt);

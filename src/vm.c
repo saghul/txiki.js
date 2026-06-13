@@ -243,7 +243,9 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_os_init(ctx, ns);
     tjs__mod_process_init(ctx, ns);
     tjs__mod_signals_init(ctx, ns);
+#ifdef TJS_HAVE_SQLITE
     tjs__mod_sqlite3_init(ctx, ns);
+#endif
     tjs__mod_streams_init(ctx, ns);
     tjs__mod_tls_init(ctx, ns);
     tjs__mod_sys_init(ctx, ns);

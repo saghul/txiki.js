@@ -33,7 +33,9 @@
 #include "bundles/c/stdlib/path.c"
 #include "bundles/c/stdlib/posix-socket.c"
 #include "bundles/c/stdlib/readline.c"
+#ifdef TJS_HAVE_SQLITE
 #include "bundles/c/stdlib/sqlite.c"
+#endif
 #include "bundles/c/stdlib/utils.c"
 #include "bundles/c/stdlib/uuid.c"
 #ifdef TJS_HAVE_WASM
@@ -60,7 +62,9 @@ static tjs_builtin_t builtins[] = {
     { "tjs:path", tjs__path, sizeof(tjs__path) },
     { "tjs:posix-socket", tjs__posix_socket, sizeof(tjs__posix_socket) },
     { "tjs:readline", tjs__readline, sizeof(tjs__readline) },
+#ifdef TJS_HAVE_SQLITE
     { "tjs:sqlite", tjs__sqlite, sizeof(tjs__sqlite) },
+#endif
     { "tjs:utils", tjs__utils, sizeof(tjs__utils) },
     { "tjs:uuid", tjs__uuid, sizeof(tjs__uuid) },
 #ifdef TJS_HAVE_WASM
