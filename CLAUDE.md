@@ -31,6 +31,7 @@ BUILD_WITH_ASAN=ON MIMALLOC=OFF make  # Enable AddressSanitizer (must disable mi
 BUILD_WITH_UBSAN=ON make      # Enable UndefinedBehaviorSanitizer (Linux/macOS only)
 BUILD_WITH_GC_STRESS=ON make  # Force a full GC before every JS allocation (GC stress)
 BUILD_WITH_WASM=OFF make      # Disable WebAssembly / WAMR (drops the WebAssembly global and tjs:wasi)
+BUILD_WITH_SQLITE=OFF make    # Disable SQLite (drops the tjs:sqlite module; localStorage falls back to in-memory)
 ```
 
 ASAN and mimalloc are mutually exclusive. UBSAN is not supported on MSVC.

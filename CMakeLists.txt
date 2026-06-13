@@ -61,6 +61,7 @@ xoption(BUILD_WITH_ASAN "Build with AddressSanitizer" OFF)
 xoption(BUILD_WITH_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
 xoption(BUILD_WITH_GC_STRESS "Force a full GC before every JS allocation (QuickJS FORCE_GC_AT_MALLOC)" OFF)
 xoption(BUILD_WITH_WASM "If ON (default), build with WASM/WAMR support" ON)
+xoption(BUILD_WITH_SQLITE "If ON (default), build with SQLite (the tjs:sqlite module)" ON)
 
 if(BUILD_WITH_GC_STRESS)
     message(STATUS "GC stress mode enabled (FORCE_GC_AT_MALLOC)")
@@ -124,7 +125,6 @@ add_library(tjs STATIC
     src/mod_hashing.c
     src/mod_os.c
     src/mod_process.c
-    src/mod_sqlite3.c
     src/mod_miniz.c
     src/mod_streams.c
     src/mod_tls.c
@@ -147,6 +147,11 @@ endif()
 if(BUILD_WITH_WASM)
     target_sources(tjs PRIVATE src/wasm.c)
     target_compile_definitions(tjs PRIVATE TJS_HAVE_WASM)
+endif()
+
+if(BUILD_WITH_SQLITE)
+    target_sources(tjs PRIVATE src/mod_sqlite3.c)
+    target_compile_definitions(tjs PRIVATE TJS_HAVE_SQLITE)
 endif()
 
 set_target_properties(tjs PROPERTIES
@@ -208,12 +213,14 @@ option(libuv_buildtests "" OFF)
 add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 target_link_libraries(tjs PUBLIC uv_a)
 
-add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
-target_link_libraries(tjs PUBLIC sqlite3)
-add_library(sqlite-test SHARED
-    tests/fixtures/sqlite-test-ext.c
-)
-target_link_libraries(sqlite-test sqlite3)
+if(BUILD_WITH_SQLITE)
+    add_subdirectory(deps/sqlite3 EXCLUDE_FROM_ALL)
+    target_link_libraries(tjs PUBLIC sqlite3)
+    add_library(sqlite-test SHARED
+        tests/fixtures/sqlite-test-ext.c
+    )
+    target_link_libraries(sqlite-test sqlite3)
+endif()
 
 if(BUILD_WITH_FFI)
     target_sources(tjs PRIVATE src/mod_ffi.c)
@@ -234,7 +241,11 @@ add_library(ffi-test SHARED
 )
 
 # Set consistent output for test libraries across all platforms (including MSVC multi-config)
-set_target_properties(ffi-test sqlite-test PROPERTIES
+set(_tjs_test_libs ffi-test)
+if(BUILD_WITH_SQLITE)
+    list(APPEND _tjs_test_libs sqlite-test)
+endif()
+set_target_properties(${_tjs_test_libs} PROPERTIES
     PREFIX "lib"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
