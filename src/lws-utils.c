@@ -216,9 +216,10 @@ static void tjs__set_ca_info(TJSRuntime *qrt, struct lws_context_creation_info *
  * getenv("http_proxy") code path.
  */
 typedef struct {
-    char auth_address[512]; /* "userinfo@host" or "host", never a port (for lws_set_proxy) */
+    char auth_address[512]; /* "userinfo@host" or "host", never a port (for lws_set_proxy / lws_set_socks) */
     char hostname[256];     /* just host, no userinfo/port (for no_proxy matching) */
     unsigned int port;
+    bool is_socks5; /* proxy URL used a socks5/socks5h/socks scheme */
 } TJSProxyConfig;
 
 static bool tjs__try_proxy_env(const char *name, char *buf, size_t bufsize) {
@@ -278,6 +279,9 @@ static bool tjs__parse_proxy_url(const char *env_name1, const char *env_name2, T
     if (!uri) {
         return false;
     }
+
+    /* Detect SOCKS5 scheme (socks5, socks5h, or bare socks). */
+    out->is_socks5 = !strcmp(uri->scheme, "socks5") || !strcmp(uri->scheme, "socks5h") || !strcmp(uri->scheme, "socks");
 
     /* hostname (no userinfo, no port) is used for no_proxy matching. */
     lws_strncpy(out->hostname, uri->host, sizeof(out->hostname));
@@ -354,7 +358,7 @@ static void tjs__parse_no_proxy(TJSRuntime *qrt) {
 }
 
 static bool tjs__proxy_configs_equal(const TJSProxyConfig *a, const TJSProxyConfig *b) {
-    return a->port == b->port && !strcmp(a->auth_address, b->auth_address);
+    return a->port == b->port && a->is_socks5 == b->is_socks5 && !strcmp(a->auth_address, b->auth_address);
 }
 
 static struct lws_vhost *tjs__create_client_vhost(TJSRuntime *qrt, const char *name, const TJSProxyConfig *proxy) {
@@ -376,14 +380,26 @@ static struct lws_vhost *tjs__create_client_vhost(TJSRuntime *qrt, const char *n
 
     tjs__set_ca_info(qrt, &vinfo);
 
-    if (proxy) {
-        vinfo.http_proxy_address = proxy->auth_address;
-        vinfo.http_proxy_port = proxy->port;
-    } else {
-        /* Force no proxy: set empty address so lws_set_proxy fails
-         * silently and the vhost has no proxy configured. */
+    /*
+     * Configure exactly one proxy kind per vhost and pin the other to ""
+     * so lws does not silently fall back to its own getenv() of http_proxy /
+     * socks_proxy (lws reads those when the corresponding info field is NULL).
+     */
+    if (proxy && proxy->is_socks5) {
+        vinfo.socks_proxy_address = proxy->auth_address;
+        vinfo.socks_proxy_port = proxy->port;
         vinfo.http_proxy_address = "";
         vinfo.http_proxy_port = 0;
+    } else if (proxy) {
+        vinfo.http_proxy_address = proxy->auth_address;
+        vinfo.http_proxy_port = proxy->port;
+        vinfo.socks_proxy_address = "";
+    } else {
+        /* Force no proxy: empty addresses make lws_set_proxy / lws_set_socks
+         * fail silently and the vhost talks directly. */
+        vinfo.http_proxy_address = "";
+        vinfo.http_proxy_port = 0;
+        vinfo.socks_proxy_address = "";
     }
 
     return lws_create_vhost(qrt->lws.ctx, &vinfo);
@@ -649,9 +665,18 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
         }
     }
 
-    if (have_proxy) {
+    if (have_proxy && proxy_cfg.is_socks5) {
+        info.socks_proxy_address = proxy_cfg.auth_address;
+        info.socks_proxy_port = proxy_cfg.port;
+        info.http_proxy_address = "";
+    } else if (have_proxy) {
         info.http_proxy_address = proxy_cfg.auth_address;
         info.http_proxy_port = proxy_cfg.port;
+        info.socks_proxy_address = "";
+    } else {
+        /* No proxy: pin both so lws does not read http_proxy/socks_proxy env. */
+        info.http_proxy_address = "";
+        info.socks_proxy_address = "";
     }
 
     struct lws_context *lws_ctx = lws_create_context(&info);
