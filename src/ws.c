@@ -377,7 +377,18 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
         return JS_ThrowTypeError(ctx, "invalid WebSocket URL");
     }
 
+#ifndef TJS_HAVE_TLS
+    if (!strcmp(uri->scheme, "wss") || !strcmp(uri->scheme, "https")) {
+        JS_FreeCString(ctx, protocols);
+        lws_parse_uri_destroy(&uri);
+        js_free(ctx, w);
+        JS_FreeValue(ctx, obj);
+        return JS_ThrowTypeError(ctx, "WSS not supported in this build");
+    }
+    bool use_ssl = false;
+#else
     bool use_ssl = !strcmp(uri->scheme, "wss") || !strcmp(uri->scheme, "https");
+#endif
 
     /* Build the path with leading slash (the parsed path has it stripped). */
     size_t path_len = strlen(uri->path);

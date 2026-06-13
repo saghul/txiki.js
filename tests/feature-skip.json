@@ -8,5 +8,10 @@
     "test-dispose-database.js",
     "test-dispose-statement.js",
     "test-storage.js"
+  ],
+  "tls": [
+    "test-tls-*.js",
+    "test-dispose-tls.js",
+    "test-fetch-allow-insecure.js"
   ]
 }

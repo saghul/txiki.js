@@ -26,12 +26,14 @@ See [Building](https://txikijs.org/docs/building) for detailed instructions incl
 
 ## Slim builds
 
-WebAssembly (the `WebAssembly` global and `tjs:wasi`) and SQLite (the `tjs:sqlite`
-module) are built in by default, but either can be disabled to produce a smaller binary:
+WebAssembly (the `WebAssembly` global and `tjs:wasi`), SQLite (the `tjs:sqlite`
+module) and TLS (HTTPS/WSS and `TLSSocket`) are built in by default, but each can be
+disabled to produce a smaller binary:
 
 ```bash
 BUILD_WITH_WASM=OFF make      # ~0.4 MB smaller — removes WebAssembly/WASI
 BUILD_WITH_SQLITE=OFF make    # ~1.5 MB smaller — removes the tjs:sqlite module
+BUILD_WITH_TLS=OFF make       # removes HTTPS/WSS and TLSSocket (WebCrypto stays)
 ```
 
 See [Building](https://txikijs.org/docs/building) for the full reference.
