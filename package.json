@@ -16,7 +16,7 @@
     "@jridgewell/trace-mapping": "0.3.31",
     "@jsr/std__tar": "0.1.10",
     "@stylistic/eslint-plugin": "5.10.0",
-    "esbuild": "0.28.0",
+    "esbuild": "0.28.1",
     "eslint": "10.4.0",
     "eslint-plugin-import-x": "4.16.2",
     "getopts": "2.3.0",
