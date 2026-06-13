@@ -7,7 +7,7 @@
   },
   "devDependencies": {
     "browserify": "17.0.1",
-    "esbuild": "0.28.0"
+    "esbuild": "0.28.1"
   },
   "scripts": {
     "build": "node browserify.config.js && node esbuild.config.js",
