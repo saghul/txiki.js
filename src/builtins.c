@@ -36,7 +36,9 @@
 #include "bundles/c/stdlib/sqlite.c"
 #include "bundles/c/stdlib/utils.c"
 #include "bundles/c/stdlib/uuid.c"
+#ifdef TJS_HAVE_WASM
 #include "bundles/c/stdlib/wasi.c"
+#endif
 #include "private.h"
 
 
@@ -61,7 +63,9 @@ static tjs_builtin_t builtins[] = {
     { "tjs:sqlite", tjs__sqlite, sizeof(tjs__sqlite) },
     { "tjs:utils", tjs__utils, sizeof(tjs__utils) },
     { "tjs:uuid", tjs__uuid, sizeof(tjs__uuid) },
+#ifdef TJS_HAVE_WASM
     { "tjs:wasi", tjs__wasi, sizeof(tjs__wasi) },
+#endif
     { NULL, NULL, 0 },
 };
 

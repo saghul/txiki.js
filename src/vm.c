@@ -66,6 +66,7 @@ static void *tjs__mf_realloc(void *opaque, void *ptr, size_t size) {
     return tjs__realloc(ptr, size);
 }
 
+#ifdef TJS_HAVE_WASM
 /* WAMR allocator wrappers — WAMR uses unsigned int, not size_t. */
 
 static void *tjs__wamr_malloc(unsigned int size) {
@@ -75,6 +76,7 @@ static void *tjs__wamr_malloc(unsigned int size) {
 static void *tjs__wamr_realloc(void *ptr, unsigned int size) {
     return tjs__realloc(ptr, size);
 }
+#endif
 
 static const JSMallocFunctions tjs_mf = {
     .js_calloc = tjs__mf_calloc,
@@ -249,7 +251,9 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_timers_init(ctx, ns);
     tjs__mod_udp_init(ctx, ns);
     tjs__mod_url_init(ctx, ns);
+#ifdef TJS_HAVE_WASM
     tjs__mod_wasm_init(ctx, ns);
+#endif
     tjs__mod_worker_init(ctx, ns);
     tjs__mod_hashing_init(ctx, ns);
     tjs__mod_httpclient_init(ctx, ns);
@@ -481,6 +485,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     /* end bootstrap */
     JS_FreeValue(ctx, global_obj);
 
+#ifdef TJS_HAVE_WASM
     /* WASM */
     RuntimeInitArgs wasm_init_args;
     memset(&wasm_init_args, 0, sizeof(wasm_init_args));
@@ -491,6 +496,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(wasm_runtime_full_init(&wasm_init_args), true);
     qrt->wasm_ctx.initialized = true;
     qrt->wasm_ctx.stack_size = 512 * 1024;
+#endif
 
     /* Timers */
     qrt->timers.timers = NULL;
@@ -566,11 +572,13 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     JS_FreeContext(qrt->ctx);
     JS_FreeRuntime(qrt->rt);
 
+#ifdef TJS_HAVE_WASM
     /* Destroy WASM runtime. */
     if (qrt->wasm_ctx.initialized) {
         wasm_runtime_destroy();
         qrt->wasm_ctx.initialized = false;
     }
+#endif
 
     /* Cleanup loop. All handles should be closed. */
     int closed = 0;

@@ -73,6 +73,7 @@ static JSValue tjs_setMaxStackSize(JSContext *ctx, JSValue this_val, int argc, J
     return JS_UNDEFINED;
 }
 
+#ifdef TJS_HAVE_WASM
 static JSValue tjs_setWasmStackSize(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     uint32_t v;
     if (JS_ToUint32(ctx, &v, argv[0])) {
@@ -82,6 +83,7 @@ static JSValue tjs_setWasmStackSize(JSContext *ctx, JSValue this_val, int argc, 
     qrt->wasm_ctx.stack_size = v;
     return JS_UNDEFINED;
 }
+#endif
 
 static JSValue tjs_compile(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     size_t len = 0;
@@ -153,7 +155,9 @@ static JSValue tjs_evalBytecode(JSContext *ctx, JSValue this_val, int argc, JSVa
 static const JSCFunctionListEntry tjs_engine_funcs[] = {
     TJS_CFUNC_DEF("setMemoryLimit", 1, tjs_setMemoryLimit),
     TJS_CFUNC_DEF("setMaxStackSize", 1, tjs_setMaxStackSize),
+#ifdef TJS_HAVE_WASM
     TJS_CFUNC_DEF("setWasmStackSize", 1, tjs_setWasmStackSize),
+#endif
     TJS_CFUNC_DEF("compile", 2, tjs_compile),
     TJS_CFUNC_DEF("serialize", 1, tjs_serialize),
     TJS_CFUNC_DEF("deserialize", 1, tjs_deserialize),
@@ -176,19 +180,29 @@ void tjs__mod_engine_init(JSContext *ctx, JSValue ns) {
     JS_DefinePropertyValueStr(ctx, versions, "tjs", JS_NewString(ctx, tjs_version()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "uv", JS_NewString(ctx, uv_version_string()), JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, versions, "lws", JS_NewString(ctx, lws_get_library_version()), JS_PROP_C_W_E);
+#ifdef TJS_HAVE_WASM
     uint32_t wamr_major, wamr_minor, wamr_patch;
     wasm_runtime_get_version(&wamr_major, &wamr_minor, &wamr_patch);
     char wamr_version[32];
     snprintf(wamr_version, sizeof(wamr_version), "%u.%u.%u", wamr_major, wamr_minor, wamr_patch);
     JS_DefinePropertyValueStr(ctx, versions, "wamr", JS_NewString(ctx, wamr_version), JS_PROP_C_W_E);
+#endif
     JS_DefinePropertyValueStr(ctx, versions, "sqlite3", JS_NewString(ctx, sqlite3_libversion()), JS_PROP_C_W_E);
 #ifdef TJS__HAS_MIMALLOC
     JS_DefinePropertyValueStr(ctx, versions, "mimalloc", JS_NewInt32(ctx, mi_version()), JS_PROP_C_W_E);
+#endif
+
+    JSValue features = JS_NewObjectProto(ctx, JS_NULL);
+#ifdef TJS_HAVE_WASM
+    JS_DefinePropertyValueStr(ctx, features, "wasm", JS_TRUE, JS_PROP_C_W_E);
+#else
+    JS_DefinePropertyValueStr(ctx, features, "wasm", JS_FALSE, JS_PROP_C_W_E);
 #endif
 
     JSValue gc = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyFunctionList(ctx, gc, tjs_gc_funcs, countof(tjs_gc_funcs));
     JS_DefinePropertyValueStr(ctx, ns, "gc", gc, JS_PROP_C_W_E);
 
+    JS_DefinePropertyValueStr(ctx, ns, "features", features, JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, ns, "versions", versions, JS_PROP_C_W_E);
 }

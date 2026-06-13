@@ -8,4 +8,7 @@ assert.ok(tjs.engine.versions.lws, 'lws is defined');
 assert.ok(tjs.engine.versions.quickjs, 'quickjs is defined');
 assert.ok(tjs.engine.versions.uv, 'uv is defined');
 assert.ok(tjs.engine.versions.sqlite3, 'sqlite3 is defined');
-assert.ok(tjs.engine.versions.wamr, 'wamr is defined');
+assert.ok(typeof tjs.engine.features.wasm === 'boolean', 'features.wasm is boolean');
+if (tjs.engine.features.wasm) {
+    assert.ok(tjs.engine.versions.wamr, 'wamr is defined');
+}

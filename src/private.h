@@ -38,7 +38,9 @@
 #include <unistd.h>
 #endif
 #include <uv.h>
+#ifdef TJS_HAVE_WASM
 #include <wasm_export.h>
+#endif
 
 #ifndef STDIN_FILENO
 #define STDIN_FILENO 0
@@ -77,10 +79,12 @@ struct TJSRuntime {
     bool is_worker;
     bool freeing;
     bool draining_microtasks;
+#ifdef TJS_HAVE_WASM
     struct {
         bool initialized;
         uint32_t stack_size;
     } wasm_ctx;
+#endif
     struct {
         struct lws_context *ctx;
         struct lws_vhost *vh_direct;
@@ -139,7 +143,9 @@ void tjs__mod_sys_init(JSContext *ctx, JSValue ns);
 void tjs__mod_text_coding_init(JSContext *ctx, JSValue ns);
 void tjs__mod_timers_init(JSContext *ctx, JSValue ns);
 void tjs__mod_udp_init(JSContext *ctx, JSValue ns);
+#ifdef TJS_HAVE_WASM
 void tjs__mod_wasm_init(JSContext *ctx, JSValue ns);
+#endif
 void tjs__mod_worker_init(JSContext *ctx, JSValue ns);
 void tjs__webcrypto_init(JSContext *ctx, JSValue ns);
 void tjs__mod_ws_init(JSContext *ctx, JSValue ns);
