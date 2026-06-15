@@ -433,15 +433,6 @@ endif()
 if(CMAKE_C_COMPILER_ID MATCHES "GNU")
     target_compile_options(websockets PRIVATE -Wno-discarded-qualifiers)
 endif()
-# Upstream lws (commit 2c14cf18c "tcp tls: avoid building if h3 only") added the
-# LWS_WITH_TCP_TLS option and gated all TCP TLS code behind
-# `#if defined(LWS_WITH_TCP_TLS)`, but never added a matching entry to
-# lws_config.h.in. The option defaults ON for our build, yet without that entry
-# it never reaches the compiler as a define, so all TCP TLS read/write/handshake
-# code is silently compiled out and TLS stops working. Define it ourselves to
-# match the (ON) option value.
-if(LWS_WITH_TCP_TLS)
-    target_compile_definitions(websockets PRIVATE LWS_WITH_TCP_TLS)
-endif()
 target_link_libraries(tjs PUBLIC websockets)
 target_include_directories(tjs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets/include)
+
