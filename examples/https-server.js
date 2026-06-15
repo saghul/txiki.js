@@ -4,7 +4,7 @@
 //
 //   openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj '/CN=localhost'
 //
-// Run with: tjs serve --tls-cert cert.pem --tls-key key.pem examples/https-server.js
+// Run with: tjs serve --tls-cert cert.pem --tls-key key.pem examples/http-server.js
 //
 // Or programmatically:
 //
