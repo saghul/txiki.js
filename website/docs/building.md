@@ -122,6 +122,43 @@ cmake -B build-slim -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_WASM=OFF -DBUILD_WIT
 cmake --build build-slim
 ```
 
+## Size-optimized builds
+
+These flags shrink the binary **without removing any feature** — they only change how the
+code is compiled and linked. They are independent of one another and can be combined.
+
+| CMake option                | Default | Effect                                                           |
+|-----------------------------|---------|------------------------------------------------------------------|
+| `BUILD_WITH_STRIP=ON`       | OFF     | Strip the symbol table from the binary after linking             |
+| `BUILD_WITH_LTO=ON`         | OFF     | Enable link-time optimization (smaller/faster code, slower link) |
+| `BUILD_WITH_GC_SECTIONS=ON` | OFF     | Per-function/data sections plus linker dead-code stripping       |
+| `BUILDTYPE=MinSizeRel`      | —       | Standard CMake build type that optimizes for size                |
+
+Notes:
+
+- `BUILD_WITH_STRIP` runs the toolchain's `strip` as a post-build step. It is skipped where
+  `CMAKE_STRIP` is unset (e.g. MSVC).
+- `BUILD_WITH_LTO` falls back to a warning (not an error) if the toolchain cannot do
+  interprocedural optimization.
+- `BUILD_WITH_GC_SECTIONS` maps to `-Wl,--gc-sections` (GNU/lld), `-Wl,-dead_strip` (Apple), or
+  `/OPT:REF /OPT:ICF` (MSVC).
+- `BUILDTYPE=MinSizeRel` needs no extra flag; it is a standard CMake build type. It compiles with
+  `-Os` on GCC/Clang and `/O1` on MSVC.
+
+:::warning[Performance trade-off]
+`BUILDTYPE=MinSizeRel` optimizes for size (`-Os` on GCC/Clang), which favors small code over fast 
+code. Compared to the default `Release` build (`-O2`), compute-heavy JavaScript can run measurably 
+slower, so prefer it only when binary size matters more than throughput.
+:::
+
+Direct CMake example:
+
+```bash
+cmake -B build-min -DCMAKE_BUILD_TYPE=MinSizeRel \
+  -DBUILD_WITH_STRIP=ON -DBUILD_WITH_LTO=ON -DBUILD_WITH_GC_SECTIONS=ON
+cmake --build build-min
+```
+
 ## Customizing the build
 
 If you are making a custom build and are modifying any of the JS files that are part of the runtime, you'll need to regenerate the C code for them, so your changes become part of the build.

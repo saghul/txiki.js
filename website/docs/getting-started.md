@@ -13,6 +13,26 @@ It's built on the shoulders of giants: it uses [QuickJS-ng](https://github.com/q
 
 ## Installation
 
+### [Homebrew](https://brew.sh/) (macOS and Linux)
+
+```bash
+brew install saghul/tap/txikijs
+```
+
+### [WinGet](https://learn.microsoft.com/windows/package-manager/) (Windows)
+
+```powershell
+winget install Saghul.TxikiJS
+```
+
+### [Scoop](https://scoop.sh/) (Windows)
+
+```powershell
+scoop install txikijs
+```
+
+### Prebuilt binaries
+
 Prebuilt binaries are available for macOS and Windows from the [GitHub Releases](https://github.com/saghul/txiki.js/releases) page:
 
 | Platform | Architecture |
@@ -21,6 +41,8 @@ Prebuilt binaries are available for macOS and Windows from the [GitHub Releases]
 | Windows | x86_64 |
 
 Download the zip for your platform, extract it, and add the `tjs` binary to your `PATH`.
+
+### Build from source
 
 On Linux (and other Unixes), you'll need to [build from source](building.md).
 
