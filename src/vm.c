@@ -231,6 +231,21 @@ static JSValue tjs__set_import_map_resolver(JSContext *ctx, JSValue this_val, in
     return JS_UNDEFINED;
 }
 
+static JSValue tjs__set_typescript_transpiler(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+
+    JS_FreeValue(ctx, qrt->builtins.typescript_transpiler);
+
+    if (argc > 0 && JS_IsFunction(ctx, argv[0])) {
+        qrt->builtins.typescript_transpiler = JS_DupValue(ctx, argv[0]);
+    } else {
+        qrt->builtins.typescript_transpiler = JS_UNDEFINED;
+    }
+
+    return JS_UNDEFINED;
+}
+
 static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
     tjs__mod_dns_init(ctx, ns);
     tjs__mod_engine_init(ctx, ns);
@@ -292,6 +307,11 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
                               ns,
                               "setImportMapResolver",
                               JS_NewCFunction(ctx, tjs__set_import_map_resolver, "setImportMapResolver", 1),
+                              JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx,
+                              ns,
+                              "setTypescriptTranspiler",
+                              JS_NewCFunction(ctx, tjs__set_typescript_transpiler, "setTypescriptTranspiler", 1),
                               JS_PROP_C_W_E);
 }
 
@@ -470,6 +490,7 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(JS_DefinePropertyValueStr(ctx, core, "isWorker", JS_NewBool(ctx, is_worker), JS_PROP_C_W_E), true);
 
     qrt->builtins.import_map_resolver = JS_UNDEFINED;
+    qrt->builtins.typescript_transpiler = JS_UNDEFINED;
     qrt->builtins.internal_message_pipe = JS_UNDEFINED;
     qrt->builtins.internal_core = core;
 
@@ -557,6 +578,8 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     qrt->builtins.promise_event_ctor = JS_UNDEFINED;
     JS_FreeValue(qrt->ctx, qrt->builtins.import_map_resolver);
     qrt->builtins.import_map_resolver = JS_UNDEFINED;
+    JS_FreeValue(qrt->ctx, qrt->builtins.typescript_transpiler);
+    qrt->builtins.typescript_transpiler = JS_UNDEFINED;
     JS_FreeValue(qrt->ctx, qrt->builtins.internal_core);
     qrt->builtins.internal_core = JS_UNDEFINED;
     JS_FreeValue(qrt->ctx, qrt->builtins.internal_message_pipe);
@@ -934,6 +957,14 @@ JSValue TJS_EvalScript(JSContext *ctx, const char *filename) {
     return ret;
 }
 
+static bool tjs__has_ts_suffix(const char *str) {
+    size_t len = strlen(str);
+    return (len >= 3 && memcmp(str + len - 3, ".ts", 3) == 0) ||
+           (len >= 4 && (memcmp(str + len - 4, ".tsx", 4) == 0 ||
+                         memcmp(str + len - 4, ".mts", 4) == 0 ||
+                         memcmp(str + len - 4, ".cts", 4) == 0));
+}
+
 JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     TBuf dbuf;
     size_t dbuf_size;
@@ -953,7 +984,36 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     /* Add null termination, required by JS_Eval. */
     tbuf_putc(&dbuf, '\0');
 
-    ret = TJS_EvalModuleContent(ctx, filename, is_main, true, (char *) dbuf.buf, dbuf_size - 1);
+    /* TypeScript transpilation for the main entry point. */
+    if (tjs__has_ts_suffix(filename)) {
+        TJSRuntime *qrt = TJS_GetRuntime(ctx);
+        if (JS_IsFunction(ctx, qrt->builtins.typescript_transpiler)) {
+            JSValue args[2] = {
+                JS_NewString(ctx, filename),
+                JS_NewStringLen(ctx, (char *)dbuf.buf, dbuf_size)
+            };
+            JSValue result = JS_Call(ctx, qrt->builtins.typescript_transpiler,
+                                      JS_UNDEFINED, 2, args);
+            JS_FreeValue(ctx, args[0]);
+            JS_FreeValue(ctx, args[1]);
+            if (!JS_IsException(result)) {
+                const char *tsrc;
+                size_t tlen;
+                tsrc = JS_ToCStringLen(ctx, &tlen, result);
+                if (tsrc) {
+                    tbuf_free(&dbuf);
+                    tbuf_init(ctx, &dbuf);
+                    tbuf_put(&dbuf, (const uint8_t *)tsrc, tlen);
+                    tbuf_putc(&dbuf, '\0');
+                    dbuf_size = tlen;
+                    JS_FreeCString(ctx, tsrc);
+                }
+            }
+            JS_FreeValue(ctx, result);
+        }
+    }
+
+    ret = TJS_EvalModuleContent(ctx, filename, is_main, true, (char *) dbuf.buf, dbuf_size);
 
     tbuf_free(&dbuf);
     return ret;

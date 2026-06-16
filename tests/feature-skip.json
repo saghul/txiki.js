@@ -8,5 +8,8 @@
     "test-dispose-database.js",
     "test-dispose-statement.js",
     "test-storage.js"
+  ],
+  "typescript": [
+    "test-typescript*.js"
   ]
 }
