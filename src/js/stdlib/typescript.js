@@ -1,3 +1,4 @@
+/* global tjs */
 import core from 'tjs:internal/core';
 
 let transpilerInstance = null;
@@ -5,9 +6,11 @@ let transpilerModule = null;
 
 async function loadEmbedded() {
     const bytes = core.typescriptEmbedded;
+
     if (bytes) {
         return compileAndInstantiate(bytes);
     }
+
     return false;
 }
 
@@ -18,10 +21,14 @@ async function loadFromCache() {
 
     try {
         const data = await tjs.readFile(wasmPath);
+
         if (data) {
             return await compileAndInstantiate(data);
         }
-    } catch (_) {}
+    } catch (_) {
+        // File not cached.
+    }
+
     return false;
 }
 
@@ -32,6 +39,7 @@ async function downloadAndCache() {
     const wasmPath = cacheDir + '/oxc_transpiler.wasm';
 
     const res = await fetch(downloadUrl);
+
     if (!res.ok) {
         throw new Error(
             'Failed to download TypeScript transpiler for tjs v' + tjs.version +
@@ -54,15 +62,24 @@ async function compileAndInstantiate(wasmBytes) {
 
     const wasiImport = {
         'wasi_snapshot_preview1': {
-            random_get: function(buf, bufLen) { return 0; },
-            environ_get: function(environ, environBuf) { return 0; },
-            environ_sizes_get: function(count, bufSize) { return 0; },
-            fd_write: function(fd, iovs, iovsLen, nwritten) { return 0; },
-            proc_exit: function(code) { /* ignore */ },
+            random_get: function(_buf, _bufLen) {
+                return 0;
+            },
+            environ_get: function(_environ, _environBuf) {
+                return 0;
+            },
+            environ_sizes_get: function(_count, _bufSize) {
+                return 0;
+            },
+            fd_write: function(_fd, _iovs, _iovsLen, _nwritten) {
+                return 0;
+            },
+            proc_exit: function(_code) { /* ignore */ },
         }
     };
 
     transpilerInstance = new WebAssembly.Instance(transpilerModule, wasiImport);
+
     return true;
 }
 
@@ -71,8 +88,14 @@ async function ensureTranspiler() {
         return true;
     }
 
-    if (await loadEmbedded()) return true;
-    if (await loadFromCache()) return true;
+    if (await loadEmbedded()) {
+        return true;
+    }
+
+    if (await loadFromCache()) {
+        return true;
+    }
+
     return await downloadAndCache();
 }
 
@@ -96,6 +119,7 @@ export function transpile(filename, source, options) {
     const pageSize = 65536;
     const neededPages = Math.ceil(neededBytes / pageSize);
     const currentPages = mem.buffer.byteLength / pageSize;
+
     if (neededPages > currentPages) {
         mem.grow(neededPages - currentPages);
     }

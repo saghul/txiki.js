@@ -9,6 +9,7 @@ export default [
             '.claude/**',
             'benchmark/**',
             'build/**',
+            'build-*/**',
             'deps/**',
             'docs/**',
             'types/api/**',
