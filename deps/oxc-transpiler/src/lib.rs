@@ -66,9 +66,9 @@ fn do_transpile(
     let filename = input.filename.unwrap_or_default();
 
     let source_type = if filename.ends_with(".tsx") {
-        SourceType::tsx()
+        SourceType::tsx().with_module(true)
     } else {
-        SourceType::ts()
+        SourceType::ts().with_module(true)
     };
 
     let allocator = Allocator::default();
@@ -87,6 +87,10 @@ fn do_transpile(
         typescript: oxc_transformer::TypeScriptOptions {
             allow_namespaces: true,
             allow_declare_fields: true,
+            ..Default::default()
+        },
+        jsx: oxc_transformer::JsxOptions {
+            runtime: oxc_transformer::JsxRuntime::Automatic,
             ..Default::default()
         },
         ..Default::default()

@@ -136,9 +136,9 @@ Building the TypeScript transpiler from source requires Rust:
 
 ```bash
 rustup target add wasm32-wasip1
-make wasm-install        # build & cache locally
+make oxc-install        # build & cache locally
 # or
-make wasm-embed          # build & generate embed file for EMBED mode
+make oxc-embed          # build & generate embed file for EMBED mode
 ```
 
 The transpiler binary is also available as a release asset on GitHub, downloaded

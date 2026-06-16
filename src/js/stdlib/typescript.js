@@ -44,7 +44,7 @@ async function downloadAndCache() {
         throw new Error(
             'Failed to download TypeScript transpiler for tjs v' + tjs.version +
             ': ' + res.status + ' ' + res.statusText + '\n' +
-            'Build it locally with: make wasm'
+            'Build it locally with: make oxc'
         );
     }
 
