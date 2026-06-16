@@ -41,6 +41,7 @@ const sidebars: SidebarsConfig = {
       label: 'Guides',
       collapsed: false,
       items: [
+        'guides/mise',
         'guides/modules',
         'guides/networking',
         'guides/serve',
