@@ -92,16 +92,30 @@ The executable will be at `build\Release\tjs.exe`.
 Some subsystems are built in by default but can be disabled at build time to produce a
 smaller binary.
 
-| CMake option            | Default | Effect                         | Approx savings |
-|-------------------------|---------|--------------------------------|----------------|
-| `BUILD_WITH_WASM=OFF`   | ON      | Remove WebAssembly / WASI      | ~0.4 MB        |
-| `BUILD_WITH_SQLITE=OFF` | ON      | Remove the `tjs:sqlite` module | ~1.5 MB        |
+| CMake option                       | Default | Effect                                         | Approx savings |
+|------------------------------------|---------|------------------------------------------------|----------------|
+| `BUILD_WITH_WASM=OFF`              | ON      | Remove WebAssembly / WASI                      | ~0.4 MB        |
+| `BUILD_WITH_SQLITE=OFF`            | ON      | Remove the `tjs:sqlite` module                 | ~1.5 MB        |
+| `BUILD_WITH_TYPESCRIPT=OFF`        | ON      | Remove the TypeScript transpiler support       | —              |
+| `BUILD_WITH_TYPESCRIPT=EMBED`      | ON      | Embed the WASM transpiler into the binary      | ~1.3 MB        |
+| `BUILD_WITH_WAMR_FAST_JIT=ON`      | OFF     | JIT-compile WASM for 4-8× faster transpilation | —              |
 
 When WebAssembly is disabled, the `WebAssembly` global is not installed and the `tjs:wasi`
 module is not available. When SQLite is disabled, the `tjs:sqlite` module is not available
 and `localStorage` falls back to a non-persistent, in-memory store (`sessionStorage` is
 unaffected). The active set of feature flags is exposed to JS via `tjs.engine.features`
 (e.g. `tjs.engine.features.wasm`, `tjs.engine.features.sqlite`).
+
+**TypeScript**: When enabled (default), the WASM transpiler is downloaded on first use and
+cached in `~/.tjs/typescript/<version>/`.  `BUILD_WITH_TYPESCRIPT=EMBED` compiles it
+directly into the binary at the cost of ~1.3 MB.  Set `BUILD_WITH_TYPESCRIPT=OFF` to
+disable TypeScript support entirely.
+
+**WAMR Fast JIT**: The WAMR WebAssembly runtime ships with a lightweight JIT compiler
+(no LLVM needed — it uses [asmjit](https://asmjit.com/)).  Enabling it compiles hot WASM
+functions to native x86-64 code on the fly, accelerating the TypeScript transpiler by
+4-8×.  The JIT is off by default because it increases the binary size (~500KB) and is
+only beneficial for WASM-heavy workloads.
 
 Unix/macOS example:
 
@@ -114,8 +128,21 @@ Direct CMake example (the flags can be combined):
 
 ```bash
 cmake -B build-slim -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_WASM=OFF -DBUILD_WITH_SQLITE=OFF
-cmake --build build-slim
 ```
+
+### WASM transpiler build
+
+Building the TypeScript transpiler from source requires Rust:
+
+```bash
+rustup target add wasm32-wasip1
+make wasm-install        # build & cache locally
+# or
+make wasm-embed          # build & generate embed file for EMBED mode
+```
+
+The transpiler binary is also available as a release asset on GitHub, downloaded
+automatically on first use when `BUILD_WITH_TYPESCRIPT=ON` (default).
 
 ## Size-optimized builds
 

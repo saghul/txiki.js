@@ -5,7 +5,7 @@ title: Code Bundling
 
 # Code Bundling
 
-txiki.js supports ES modules natively, but when deploying applications you may want to bundle all your source files into a single JavaScript file. This is especially useful for [standalone executables](standalone-executables.md) and for projects written in TypeScript.
+txiki.js supports ES modules natively and **runs TypeScript directly** — no separate compilation step needed for development. When deploying applications, you may want to bundle all your source files into a single JavaScript file for distribution. This is especially useful for [standalone executables](standalone-executables.md).
 
 [esbuild](https://esbuild.github.io/) is the recommended bundler for txiki.js projects. It's fast and handles both bundling and TypeScript type stripping in a single step.
 
@@ -28,7 +28,9 @@ tjs bundle my-app/index.js
 
 ### TypeScript support
 
-esbuild natively strips TypeScript types during bundling, so `.ts` and `.tsx` files work as input without any extra configuration. Note that esbuild does **not** perform type checking. You should use `tsc --noEmit` separately if you need that.
+txiki.js runs `.ts` and `.tsx` files natively — no bundling required for development. The built-in WASM transpiler strips types at module load time.
+
+For production deployment, `tjs bundle` also works with TypeScript input:
 
 ```bash
 tjs bundle my-app/index.ts bundle.js

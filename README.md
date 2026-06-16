@@ -31,6 +31,7 @@ See [Building](https://txikijs.org/docs/building) for detailed instructions incl
 - HTTP server with WebSocket support
 - File I/O, child processes, signal handling
 - Standard library: `tjs:sqlite`, `tjs:ffi`, `tjs:path`, `tjs:hashing`, and more
+- **Native TypeScript support** — runs `.ts` / `.tsx` files directly via a built-in WASM transpiler (oxc)
 - Standalone executables via `tjs compile`
 
 ## Documentation
