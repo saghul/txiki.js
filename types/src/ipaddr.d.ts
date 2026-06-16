@@ -6,12 +6,12 @@
  * Based on the [ipaddr.js](https://github.com/whitequark/ipaddr.js) library.
  *
  * ```js
- * import { parse, isValid } from 'tjs:ipaddr';
+ * import ipaddr from 'tjs:ipaddr';
  *
- * const addr = parse('192.168.1.1');
+ * const addr = ipaddr.parse('192.168.1.1');
  * console.log(addr.kind());  // 'ipv4'
  * console.log(addr.range()); // 'private'
- * console.log(isValid('::1')); // true
+ * console.log(ipaddr.isValid('::1')); // true
  * ```
  *
  * @module tjs:ipaddr
@@ -34,14 +34,12 @@ declare module 'tjs:ipaddr'{
         toString(): string;
     }
 
-    export function fromByteArray(bytes: number[]): IPv4 | IPv6;
-    export function isValid(addr: string): boolean;
-    export function parse(addr: string): IPv4 | IPv6;
-    export function parseCIDR(mask: string): [IPv4 | IPv6, number];
-    export function process(addr: string): IPv4 | IPv6;
-    export function subnetMatch(addr: IPv4 | IPv6, rangeList: RangeList<IPv4 | IPv6>, defaultName?: string): string;
+    // NOTE: `tjs:ipaddr` exposes a single default export (the ipaddr.js object).
+    // The functions and classes below are declared without `export` because they
+    // are reachable as members of that default object, not as named module
+    // exports (importing them by name throws at runtime).
 
-    export class IPv4 extends IP {
+    class IPv4 extends IP {
         static broadcastAddressFromCIDR(addr: string): IPv4;
         static isIPv4(addr: string): boolean;
         static isValidFourPartDecimal(addr: string): boolean;
@@ -60,7 +58,7 @@ declare module 'tjs:ipaddr'{
         toIPv4MappedAddress(): IPv6;
     }
 
-    export class IPv6 extends IP {
+    class IPv6 extends IP {
         static broadcastAddressFromCIDR(addr: string): IPv6;
         static isIPv6(addr: string): boolean;
         static isValid(addr: string): boolean;
@@ -80,4 +78,32 @@ declare module 'tjs:ipaddr'{
         toIPv4Address(): IPv4;
         toRFC5952String(): string;
     }
+
+    /**
+     * The module's default export: the [ipaddr.js](https://github.com/whitequark/ipaddr.js)
+     * object, exposing the parsing/validation helpers and the {@link IPv4} / {@link IPv6} classes.
+     */
+    const ipaddr: {
+        /** Build an address from a byte array (4 bytes for IPv4, 16 for IPv6). */
+        fromByteArray(bytes: number[]): IPv4 | IPv6;
+        /** Returns `true` if the string is a valid IPv4 or IPv6 address. */
+        isValid(addr: string): boolean;
+        /** Parse an IPv4 or IPv6 address, throwing on invalid input. */
+        parse(addr: string): IPv4 | IPv6;
+        /** Parse an address in CIDR notation, returning `[address, prefixLength]`. */
+        parseCIDR(mask: string): [IPv4 | IPv6, number];
+        /** Parse an address, converting IPv4-mapped IPv6 addresses to IPv4. */
+        process(addr: string): IPv4 | IPv6;
+        /** Match an address against a list of named ranges. */
+        subnetMatch(addr: IPv4 | IPv6, rangeList: RangeList<IPv4 | IPv6>, defaultName?: string): string;
+        readonly IPv4: typeof IPv4;
+        readonly IPv6: typeof IPv6;
+    };
+
+    // Type-only exports: these classes are reachable as members of the default
+    // export at runtime, but exporting their *types* lets TypeScript consumers
+    // reference them (e.g. `import type { IPv4 } from 'tjs:ipaddr'`).
+    export type { IP, IPv4, IPv6, RangeList, IPvXRangeDefaults, IPv4Range, IPv6Range };
+
+    export default ipaddr;
 }

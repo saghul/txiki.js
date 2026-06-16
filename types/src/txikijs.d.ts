@@ -154,6 +154,18 @@ declare global {
                 readonly sqlite3: string;
                 readonly mimalloc?: number;
             };
+
+            /**
+            * Build-time feature flags reflecting the CMake options the binary
+            * was compiled with. `wasm` corresponds to `BUILD_WITH_WASM` (the
+            * `WebAssembly` global and `tjs:wasi`) and `sqlite` to
+            * `BUILD_WITH_SQLITE` (the `tjs:sqlite` module and persistent
+            * `localStorage`).
+            */
+            readonly features: {
+                readonly wasm: boolean;
+                readonly sqlite: boolean;
+            };
         }
 
         /**
@@ -221,7 +233,9 @@ declare global {
         * @category Networking
         */
         interface Addr {
+            /** Numeric address family (`AF_INET` for IPv4, `AF_INET6` for IPv6). */
             family: number;
+            /** The resolved IP address as a string. */
             ip: string;
         }
 
@@ -537,9 +551,9 @@ declare global {
         * @category Filesystem
         */
         interface MakeDirOptions {
-            /* The file mode for the new directory. Defaults to `0o777`. */
+            /** The file mode for the new directory. Defaults to `0o777`. */
             mode?: number;
-            /* Whether the directories will be created recursively or not. Default to `false`. */
+            /** Whether the directories will be created recursively or not. Default to `false`. */
             recursive?: boolean;
         }
 
@@ -653,9 +667,9 @@ declare global {
         * @category Filesystem
         */
         interface RemoveOptions {
-            /* Amount of times to retry the operation in case it fails. Defaults to 0. */
+            /** Amount of times to retry the operation in case it fails. Defaults to 0. */
             maxRetries?: number;
-            /* Time (in milliseconds) to wait between retries. Defaults to 100. */
+            /** Time (in milliseconds) to wait between retries. Defaults to 100. */
             retryDelay?: number;
         }
 
@@ -682,7 +696,7 @@ declare global {
         * @category Filesystem
         */
         interface SymlinkOptions {
-            /* TYpe of symbolic link to create. Applies to Windows only. */
+            /** Type of symbolic link to create. Applies to Windows only. */
             type?: 'file' | 'directory' | 'junction';
         }
 
@@ -873,10 +887,15 @@ declare global {
         * @category Networking
         */
         interface ConnectOptions {
+            /** Disable Nagle's algorithm (sets `TCP_NODELAY`). */
             noDelay?: boolean;
+            /** TCP keep-alive idle delay, in seconds. Enables keep-alive when set. */
             keepAliveDelay?: number;
+            /** Force the address family used to resolve `host`. */
             dnsQueryType?: 'ipv4' | 'ipv6';
+            /** Local address and port to bind before connecting. */
             bindAddr?: { ip: string; port: number };
+            /** Restrict an `AF_INET6` socket to IPv6 only. */
             ipv6Only?: boolean;
         }
 
@@ -894,7 +913,7 @@ declare global {
             cert?: string;
             /** PEM-encoded client private key for mutual TLS. */
             key?: string;
-            /** Whether to verify the peer's certificate. Defaults to true for clients, false for servers. */
+            /** Whether to verify the server's certificate. Defaults to true. */
             verifyPeer?: boolean;
         }
 
@@ -917,8 +936,11 @@ declare global {
         * @category Networking
         */
         interface ListenOptions {
+            /** Maximum length of the queue of pending connections. */
             backlog?: number;
+            /** Restrict an `AF_INET6` socket to IPv6 only. */
             ipv6Only?: boolean;
+            /** Allow reuse of a local address that is in a `TIME_WAIT` state (`SO_REUSEADDR`). */
             reuseAddr?: boolean;
         }
 
@@ -932,7 +954,7 @@ declare global {
             key: string;
             /** PEM-encoded CA certificate(s) for client certificate verification (mutual TLS). */
             ca?: string;
-            /** Whether to verify the peer's certificate. Defaults to true for clients, false for servers. */
+            /** Whether to require and verify a client certificate (mutual TLS). Defaults to false. */
             verifyPeer?: boolean;
             /** ALPN protocol list to offer. */
             alpn?: string[];
@@ -974,7 +996,7 @@ declare global {
             interface UserInfo {
                 userName: string;
                 userId: number;
-                gorupId: number;
+                groupId: number;
                 shell: string | null;
                 homeDir: string | null;
             }
@@ -1320,8 +1342,11 @@ declare global {
     * @category Networking
     */
     interface TCPSocketOptions {
+        /** Disable Nagle's algorithm (sets `TCP_NODELAY`). */
         noDelay?: boolean;
+        /** TCP keep-alive idle delay, in seconds. Enables keep-alive when set. */
         keepAliveDelay?: number;
+        /** Force the address family used to resolve the remote address. */
         dnsQueryType?: 'ipv4' | 'ipv6';
     }
 
@@ -1356,8 +1381,11 @@ declare global {
     * @category Networking
     */
     interface TCPServerSocketOptions {
+        /** Local port to listen on. Defaults to an OS-assigned port (`0`). */
         localPort?: number;
+        /** Maximum length of the queue of pending connections. */
         backlog?: number;
+        /** Restrict an `AF_INET6` socket to IPv6 only. */
         ipv6Only?: boolean;
     }
 
@@ -1411,7 +1439,7 @@ declare global {
         cert?: string;
         /** PEM-encoded client private key for mutual TLS. */
         key?: string;
-        /** Whether to verify the peer's certificate. Defaults to true for clients, false for servers. */
+        /** Whether to verify the server's certificate. Defaults to true. */
         verifyPeer?: boolean;
         noDelay?: boolean;
         keepAliveDelay?: number;
@@ -1464,7 +1492,7 @@ declare global {
         key: string;
         /** PEM-encoded CA certificate(s) for client certificate verification (mutual TLS). */
         ca?: string;
-        /** Whether to verify the peer's certificate. Defaults to true for clients, false for servers. */
+        /** Whether to require and verify a client certificate (mutual TLS). Defaults to false. */
         verifyPeer?: boolean;
         /** ALPN protocol list to offer. */
         alpn?: string[];
@@ -1537,12 +1565,19 @@ declare global {
     * @category Networking
     */
     interface UDPSocketOptions {
+        /** Default remote address for sent datagrams (connects the socket). */
         remoteAddress?: string;
+        /** Default remote port for sent datagrams. */
         remotePort?: number;
+        /** Local address to bind to. */
         localAddress?: string;
+        /** Local port to bind to. Defaults to an OS-assigned port (`0`). */
         localPort?: number;
+        /** Force the address family used to resolve addresses. */
         dnsQueryType?: 'ipv4' | 'ipv6';
+        /** Allow reuse of a local address already in use (`SO_REUSEADDR`). */
         reuseAddr?: boolean;
+        /** Restrict an `AF_INET6` socket to IPv6 only. */
         ipv6Only?: boolean;
         /**
          * TTL for multicast packets. Each router hop decrements this value. Default is 1.
@@ -1616,6 +1651,7 @@ declare global {
     * @category Networking
     */
     interface PipeServerSocketOptions {
+        /** Maximum length of the queue of pending connections. */
         backlog?: number;
     }
 
