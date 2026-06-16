@@ -10,6 +10,11 @@ use oxc_semantic::SemanticBuilder;
 use oxc_span::SourceType;
 use oxc_transformer::{TransformOptions, Transformer};
 
+/// WASI reactor marker: tells WAMR this module is a reactor
+/// (exports functions for the host to call), not a command.
+#[no_mangle]
+pub extern "C" fn _initialize() {}
+
 #[no_mangle]
 pub extern "C" fn transpile(
     input_ptr: *const u8,

@@ -3,59 +3,82 @@ import core from 'tjs:internal/core';
 let transpilerInstance = null;
 let transpilerModule = null;
 
-const TYPESCRIPT_VERSION = '0.1.0';
+async function loadEmbedded() {
+    const bytes = core.typescriptEmbedded;
+    if (bytes) {
+        return compileAndInstantiate(bytes);
+    }
+    return false;
+}
 
-function initTranspiler() {
+async function loadFromCache() {
+    const tjsHome = (tjs.env && tjs.env.TJS_HOME) || tjs.homeDir + '/.tjs';
+    const cacheDir = tjsHome + '/typescript/' + tjs.version;
+    const wasmPath = cacheDir + '/oxc_transpiler.wasm';
+
+    try {
+        const data = await tjs.readFile(wasmPath);
+        if (data) {
+            return await compileAndInstantiate(data);
+        }
+    } catch (_) {}
+    return false;
+}
+
+async function downloadAndCache() {
+    const downloadUrl = 'https://github.com/saghul/txiki.js/releases/download/v' + tjs.version + '/oxc_transpiler.wasm';
+    const tjsHome = (tjs.env && tjs.env.TJS_HOME) || tjs.homeDir + '/.tjs';
+    const cacheDir = tjsHome + '/typescript/' + tjs.version;
+    const wasmPath = cacheDir + '/oxc_transpiler.wasm';
+
+    const res = await fetch(downloadUrl);
+    if (!res.ok) {
+        throw new Error(
+            'Failed to download TypeScript transpiler for tjs v' + tjs.version +
+            ': ' + res.status + ' ' + res.statusText + '\n' +
+            'Build it locally with: make wasm'
+        );
+    }
+
+    const blob = await res.blob();
+    const wasmBytes = new Uint8Array(await blob.arrayBuffer());
+
+    await tjs.makeDir(cacheDir, { recursive: true });
+    await tjs.writeFile(wasmPath, wasmBytes);
+
+    return await compileAndInstantiate(wasmBytes);
+}
+
+async function compileAndInstantiate(wasmBytes) {
+    transpilerModule = new WebAssembly.Module(wasmBytes);
+
+    const wasiImport = {
+        'wasi_snapshot_preview1': {
+            random_get: function(buf, bufLen) { return 0; },
+            environ_get: function(environ, environBuf) { return 0; },
+            environ_sizes_get: function(count, bufSize) { return 0; },
+            fd_write: function(fd, iovs, iovsLen, nwritten) { return 0; },
+            proc_exit: function(code) { /* ignore */ },
+        }
+    };
+
+    transpilerInstance = new WebAssembly.Instance(transpilerModule, wasiImport);
+    return true;
+}
+
+async function ensureTranspiler() {
     if (transpilerInstance) {
         return true;
     }
 
-    let wasmBytes;
-
-    if (core.typescriptEmbedded) {
-        wasmBytes = core.typescriptEmbedded;
-    } else {
-        const tjsHome = (tjs.env && tjs.env.TJS_HOME) ? tjs.env.TJS_HOME : tjs.homeDir + '/.tjs';
-        const tsDir = tjsHome + '/typescript/' + TYPESCRIPT_VERSION;
-        const wasmPath = tsDir + '/oxc_transpiler.wasm';
-
-        try {
-            const data = core.syncReadFile(wasmPath);
-            if (data) {
-                wasmBytes = data;
-            }
-        } catch (e) {}
-    }
-
-    if (!wasmBytes) {
-        return false;
-    }
-
-    try {
-        transpilerModule = new WebAssembly.Module(wasmBytes);
-
-        const wasiImport = {
-            'wasi_snapshot_preview1': {
-                random_get: function(buf, bufLen) { return 0; },
-                environ_get: function(environ, environBuf) { return 0; },
-                environ_sizes_get: function(count, bufSize) { return 0; },
-                fd_write: function(fd, iovs, iovsLen, nwritten) { return 0; },
-                proc_exit: function(code) { /* ignore */ },
-            }
-        };
-
-        transpilerInstance = new WebAssembly.Instance(transpilerModule, wasiImport);
-        return true;
-    } catch (e) {
-        return false;
-    }
+    if (await loadEmbedded()) return true;
+    if (await loadFromCache()) return true;
+    return await downloadAndCache();
 }
 
-export function transpile(filename, source, options) {
-    if (!initTranspiler()) {
-        throw new Error('TypeScript transpiler not available');
-    }
+await ensureTranspiler();
 
+export function transpile(filename, source, options) {
     const mem = transpilerInstance.exports.memory;
     const fn = transpilerInstance.exports.transpile;
 

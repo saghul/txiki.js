@@ -4,13 +4,14 @@
 .cache
 
 build/
+build-jit/
 src/bundles/js/
-src/bundles/typescript/
 src/js/core.js
 src/js/std.js
 src/version.h
 node_modules/
 types/api/
 test_dir*/
-wasm/*/target/
-wasm/*/Cargo.lock
+deps/oxc-transpiler/target/
+deps/oxc-transpiler/Cargo.lock
+src/bundles/typescript/
