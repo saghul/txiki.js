@@ -56,13 +56,13 @@ declare module 'tjs:sqlite'{
          * Whether the database needs to be created if it doesn't exist.
          * Defaults to `true`.
          */
-        create: boolean;
+        create?: boolean;
 
         /**
          * Whether the database should be open in read-only mode or not.
          * Defaults to `false`.
          */
-        readOnly: boolean;
+        readOnly?: boolean;
     }
 
     export interface ITransaction extends Function {
@@ -79,7 +79,7 @@ declare module 'tjs:sqlite'{
          * opens an in-memory database.
          * @param options Options when opening the database.
          */
-        constructor(dbName: string, options: IDatabaseOptions);
+        constructor(dbName?: string, options?: IDatabaseOptions);
 
         /**
          * Execute the given SQL statement(s).
@@ -133,6 +133,12 @@ declare module 'tjs:sqlite'{
          * @param fn - The function to be wrapped in a transaction.
          */
         transaction(fn: Function): ITransaction;
+
+        /**
+         * Whether the database currently has an open (uncommitted) transaction.
+         * Returns `false` if the database is closed.
+         */
+        readonly inTransaction: boolean;
 
         /**
          * Closes the database. No further operations can be performed afterwards.

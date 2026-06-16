@@ -13,15 +13,13 @@ txiki.js uses standard [ES modules](../guides/modules.md) with support for HTTP 
 
 ## Core features
 
-- [TCP](/docs/api/global.Class.TCPSocket), [TLS](/docs/api/global.Class.TLSSocket) and [UDP](/docs/api/global.Class.UDPSocket) sockets
-- [Unix sockets / named pipes](/docs/api/global.Class.PipeSocket)
-- [Signal handling](/docs/api/global.tjs.Function.addSignalListener)
-- [File operations](/docs/api/global.tjs.Function.open)
-- [Child processes](/docs/api/global.tjs.Function.spawn)
+- [TCP, TLS, UDP and Unix sockets](../guides/networking.md)
+- [Signal handling](../guides/child-processes.md#process-wide-signal-handling) and [child processes](../guides/child-processes.md)
+- [File operations](../guides/filesystem.md)
 - [DNS](/docs/api/global.tjs.Function.lookup) (getaddrinfo)
-- [HTTP Server](/docs/api/global.tjs.Function.serve)
+- [HTTP server](../guides/serve.md)
 - [WASI](/docs/api/tjs-wasi)
 - [Standalone executables](../guides/standalone-executables.md)
-- Builtin test runner
+- [Builtin test runner](../cli.md#tjs-test)
 
-See the [API Reference](/docs/api-reference) for detailed documentation.
+See the [CLI Reference](../cli.md) for the command-line interface, and the [API Reference](/docs/api-reference) for detailed API documentation.

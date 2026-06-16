@@ -58,7 +58,7 @@ aliases or as objects from the [`types`](/docs/api/tjs-ffi.Variable.types) table
 | `'buffer'` | `void *` backed by a `Uint8Array` (argument only) |
 | `'void'` | `void` (return only) |
 
-See [`TypeAlias`](/docs/api/tjs-ffi.TypeAlias.TypeAlias.md) for the full list.
+See [`TypeAlias`](/docs/api/tjs-ffi.TypeAlias.TypeAlias) for the full list.
 `returns` defaults to `'void'` and `args` to `[]`.
 
 `'buffer'` can only be used as an argument: a returned `void *` has no known

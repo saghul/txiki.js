@@ -79,8 +79,10 @@ declare module 'tjs:assert'{
         falsy: BooleanAssertionFunction;
         
         fail: MessageAssertionFunction;
-        
+
         throws: ErrorAssertionFunction;
+
+        doesNotThrow: ErrorAssertionFunction;
     }
 
     function factory(options?: IAssertOptions): IAssert;

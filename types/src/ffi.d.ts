@@ -108,7 +108,7 @@ declare module 'tjs:ffi'{
         readonly addr: NativePointer;
     }
 
-    interface SimpleType<T = any>{
+    export interface SimpleType<T = any>{
         toBuffer(data: T, ctx?: {}): Uint8Array;
         fromBuffer(buffer: Uint8Array, ctx?: {}): T;
         readonly size: number;
@@ -327,13 +327,13 @@ declare module 'tjs:ffi'{
         fixed?: number;
     }
 
-    type MapToJsType<T extends TypeOrAlias | undefined> = T extends TypeAlias
+    export type MapToJsType<T extends TypeOrAlias | undefined> = T extends TypeAlias
         ? TypeAliasMap[T]
         : T extends SimpleType
             ? ReturnType<T["fromBuffer"]>
             : void;
 
-    type MapArrayToJsType<T extends TypeOrAlias[]> = {
+    export type MapArrayToJsType<T extends TypeOrAlias[]> = {
         [key in keyof T]: MapToJsType<T[key]>;
     };
 
