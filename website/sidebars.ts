@@ -41,7 +41,6 @@ const sidebars: SidebarsConfig = {
       label: 'Guides',
       collapsed: false,
       items: [
-        'guides/mise',
         'guides/modules',
         'guides/networking',
         'guides/serve',
@@ -53,6 +52,7 @@ const sidebars: SidebarsConfig = {
         'guides/code-bundling',
         'guides/standalone-executables',
         'guides/app-packages',
+        'guides/mise',
       ],
     },
     'versioning',
