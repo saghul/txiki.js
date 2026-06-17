@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::panic;
 use std::path::Path;
 use std::slice;
@@ -91,6 +92,7 @@ fn do_transpile(
         },
         jsx: oxc_transformer::JsxOptions {
             runtime: oxc_transformer::JsxRuntime::Automatic,
+            import_source: Some("tjs:jsx-runtime".to_string()),
             ..Default::default()
         },
         ..Default::default()

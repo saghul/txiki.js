@@ -36,6 +36,7 @@
 #ifdef TJS_HAVE_SQLITE
 #include "bundles/c/stdlib/sqlite.c"
 #endif
+#include "bundles/c/stdlib/jsx-runtime.c"
 #include "bundles/c/stdlib/utils.c"
 #include "bundles/c/stdlib/uuid.c"
 #ifdef TJS_HAVE_TYPESCRIPT
@@ -70,6 +71,7 @@ static tjs_builtin_t builtins[] = {
 #endif
     { "tjs:utils", tjs__utils, sizeof(tjs__utils) },
     { "tjs:uuid", tjs__uuid, sizeof(tjs__uuid) },
+    { "tjs:jsx-runtime/jsx-runtime", tjs__jsx_runtime, sizeof(tjs__jsx_runtime) },
 #ifdef TJS_HAVE_TYPESCRIPT
     { "tjs:typescript", tjs__typescript, sizeof(tjs__typescript) },
 #endif
