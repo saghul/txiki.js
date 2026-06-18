@@ -2,7 +2,7 @@
   "dependencies": {
     "cheerio": "1.2.0",
     "global-jsdom": "5.1.0",
-    "hono": "4.12.21",
+    "hono": "4.12.25",
     "jsdom": "15.2.1"
   },
   "devDependencies": {
