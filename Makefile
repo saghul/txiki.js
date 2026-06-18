@@ -189,6 +189,15 @@ test-advanced:
 	cd tests/advanced && npm install
 	./$(BUILD_DIR)/tjs --stack-size 10485760 test tests/advanced/
 
+oxc:
+	$(MAKE) -C deps/oxc-transpiler
+
+oxc-install: oxc
+	$(MAKE) -C deps/oxc-transpiler install
+
+oxc-embed:
+	$(MAKE) -C deps/oxc-transpiler embed
+
 .PRECIOUS: src/bundles/js/core/%.js src/bundles/js/stdlib/%.js
-.PHONY: all js debug install clean distclean format lint test test-advanced core stdlib $(TJS) $(TJSC)
+.PHONY: all js debug install clean distclean format lint test test-advanced oxc oxc-install oxc-embed core stdlib $(TJS) $(TJSC)
 

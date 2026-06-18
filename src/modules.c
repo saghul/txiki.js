@@ -144,6 +144,8 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     int r;
     int type;
     bool use_realpath = false;
+    const char *effective_name = NULL;
+    const char *transpile_name = NULL;
     TBuf dbuf;
 
     if (strncmp(tjs_internal_prefix, module_name, strlen(tjs_internal_prefix)) == 0) {
@@ -184,17 +186,85 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
             goto after_load;
         }
         use_realpath = false;
+        effective_name = module_name;
     } else {
         r = tjs__load_file(ctx, &dbuf, module_name);
+        if (r != 0) {
+            /* Try extension resolution for path-like imports with no extension. */
+            if (type == JS_IMPORT_TYPE_JS && !has_suffix(module_name, ".ts") &&
+                !has_suffix(module_name, ".tsx") && !has_suffix(module_name, ".mts") &&
+                !has_suffix(module_name, ".cts") && !has_suffix(module_name, ".js") &&
+                !has_suffix(module_name, ".mjs") && !has_suffix(module_name, ".cjs") &&
+                !has_suffix(module_name, ".json") && !has_suffix(module_name, ".wasm")) {
+                static const char *try_exts[] = { ".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", NULL };
+                char *try_name = NULL;
+                size_t base_len = strlen(module_name);
+                for (int ei = 0; try_exts[ei] != NULL; ei++) {
+                    try_name = js_malloc(ctx, base_len + strlen(try_exts[ei]) + 1);
+                    if (!try_name) break;
+                    memcpy(try_name, module_name, base_len);
+                    memcpy(try_name + base_len, try_exts[ei], strlen(try_exts[ei]) + 1);
+                    tbuf_free(&dbuf);
+                    tbuf_init(ctx, &dbuf);
+                    r = tjs__load_file(ctx, &dbuf, try_name);
+                    if (r == 0) {
+                        /* Found a match — set transpile_name so the
+                         * transpiler hook can detect the .ts extension. */
+                        transpile_name = try_name;
+                        break;
+                    }
+                    js_free(ctx, try_name);
+                    try_name = NULL;
+                }
+                if (try_name && r != 0) {
+                    js_free(ctx, try_name);
+                }
+            }
+        }
         if (r != 0) {
             val = JS_ThrowReferenceError(ctx, "could not load '%s'", module_name);
             goto after_load;
         }
         use_realpath = true;
+        effective_name = transpile_name ? transpile_name : module_name;
     }
 
     /* Add null termination, required by JS_Eval / JS_ParseJSON. */
     tbuf_putc(&dbuf, '\0');
+
+    /* TypeScript transpilation hook. */
+    if (type == JS_IMPORT_TYPE_JS &&
+        (has_suffix(effective_name, ".ts") || has_suffix(effective_name, ".tsx") ||
+        has_suffix(effective_name, ".mts") || has_suffix(effective_name, ".cts"))) {
+        TJSRuntime *qrt = TJS_GetRuntime(ctx);
+        if (JS_IsFunction(ctx, qrt->builtins.typescript_transpiler)) {
+            JSValue args[2] = {
+                JS_NewString(ctx, effective_name),
+                JS_NewStringLen(ctx, (char *)dbuf.buf, dbuf.size - 1)
+            };
+            JSValue result = JS_Call(ctx, qrt->builtins.typescript_transpiler,
+                                      JS_UNDEFINED, 2, args);
+            JS_FreeValue(ctx, args[0]);
+            JS_FreeValue(ctx, args[1]);
+            if (JS_IsException(result)) {
+                if (type != JS_IMPORT_TYPE_BYTES) {
+                    tbuf_free(&dbuf);
+                }
+                return NULL;
+            }
+            const char *tsrc;
+            size_t tlen;
+            tsrc = JS_ToCStringLen(ctx, &tlen, result);
+            if (tsrc) {
+                tbuf_free(&dbuf);
+                tbuf_init(ctx, &dbuf);
+                tbuf_put(&dbuf, (const uint8_t *)tsrc, tlen);
+                tbuf_putc(&dbuf, '\0');
+                JS_FreeCString(ctx, tsrc);
+            }
+            JS_FreeValue(ctx, result);
+        }
+    }
 
     /* Now load the module for real. */
     switch (type) {
@@ -202,7 +272,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
             val = JS_Eval(ctx,
                           (char *) dbuf.buf,
                           dbuf.size - 1,
-                          module_name,
+                          effective_name,
                           JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
             break;
         case JS_IMPORT_TYPE_JSON:

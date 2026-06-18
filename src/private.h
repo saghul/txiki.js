@@ -115,6 +115,7 @@ struct TJSRuntime {
         JSValue promise_event_ctor;
         JSValue dispatch_event_func;
         JSValue import_map_resolver;
+        JSValue typescript_transpiler;
         JSValue internal_core;
         JSValue internal_message_pipe;
     } builtins;

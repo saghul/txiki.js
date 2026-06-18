@@ -76,7 +76,7 @@ Options:
 
 Subcommands:
   run
-        Run a JavaScript program
+        Run a JavaScript/TypeScript program
 
   eval
         Evaluate a JavaScript expression
@@ -197,6 +197,15 @@ const isBundled = await (async () => {
     await exef.close();
 })();
 
+// Register TypeScript transpiler if available.
+try {
+    const { transpile } = await import('tjs:typescript');
+
+    core.setTypescriptTranspiler(transpile);
+} catch (_) {
+    // TypeScript support not available.
+}
+
 if (!isBundled) {
     const options = getopts(tjs.args.slice(1), {
         alias: {
@@ -303,6 +312,8 @@ if (!isBundled) {
                     tjs.setImportMap(mapObj, path.dirname(resolvedMapPath));
                 }
 
+                // .ts, .tsx, .mts, .cts files are transpiled by the
+                // module loader hook registered above.
                 await core.evalFile(filename);
             }
         } else if (command === 'serve') {
@@ -363,7 +374,16 @@ if (!isBundled) {
             }
 
             const infilePath = path.parse(infile);
-            const data = await tjs.readFile(infile);
+            let data = await tjs.readFile(infile);
+            const inExt = path.extname(infile).toLowerCase();
+
+            if (inExt === '.ts' || inExt === '.tsx' || inExt === '.mts' || inExt === '.cts') {
+                const { transpile } = await import('tjs:typescript');
+                const jsSource = transpile(infile, new TextDecoder().decode(data));
+
+                data = new TextEncoder().encode(jsSource);
+            }
+
             const bytecode = tjs.engine.serialize(tjs.engine.compile(data, infilePath.base));
             const exe = await tjs.readFile(tjs.exePath);
             const exeSize = exe.length;
