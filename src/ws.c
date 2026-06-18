@@ -327,6 +327,25 @@ const struct lws_protocols tjs_ws_protocol = {
 };
 
 
+static JSValue emit_abnormal_close(JSContext *ctx, int argc, JSValue *argv) {
+    CHECK_EQ(argc, 1);
+
+    TJSWs *w = JS_GetOpaque(argv[0], tjs_ws_class_id);
+    if (w) {
+        JSContext *ctx = w->ctx;
+
+        JSValue err_reason = JS_NewString(ctx, "");
+        maybe_call_callback(w, WS_CALLBACK_ERROR, 1, &err_reason);
+
+        JSValue args[2] = {
+            JS_NewInt32(ctx, 1006),
+            JS_NewString(ctx, ""),
+        };
+        maybe_call_callback(w, WS_CALLBACK_CLOSE, 2, args);
+    }
+    return JS_UNDEFINED;
+}
+
 static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
     JSValue obj = JS_NewObjectClass(ctx, tjs_ws_class_id);
     if (JS_IsException(obj)) {
@@ -424,14 +443,19 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     lws_parse_uri_destroy(&uri);
     js_free(ctx, full_path);
 
-    if (!wsi) {
-        /* Connection failed immediately. */
-        js_free(ctx, w);
-        JS_FreeValue(ctx, obj);
-        return JS_ThrowInternalError(ctx, "WebSocket connection failed");
-    }
-
     JS_SetOpaque(obj, w);
+
+    /* lws_client_connect_via_info can return NULL if no route to IP address is found,
+     * or even assert if no DNS server is found.
+     * In the future lws should be patched, but for now we work around the bug */
+    if (!wsi) {
+        /* Connection failed immediately — fire error and close events asynchronously. */
+        JSValue argv[1];
+        argv[0] = JS_DupValue(ctx, obj);
+        CHECK_EQ(JS_EnqueueJob(ctx, emit_abnormal_close, 1, argv), 0);
+        JS_FreeValue(ctx, argv[0]);
+        return obj;
+    }
 
     /* Prevent GC while connected. */
     w->this_val = JS_DupValue(ctx, obj);
