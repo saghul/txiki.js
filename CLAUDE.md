@@ -93,6 +93,12 @@ VERBOSE_TESTS=1 ./build/tjs test tests/    # Verbose output
 
 Test files must be named `test-*.js` and live in `tests/`. They use `tjs:assert` for assertions.
 
+**One test, one file.** Each test file should cover a single feature or behavior. Prefer
+splitting distinct behaviors into separate `test-*.js` files (e.g. `test-fetch-h2-post-body.js`,
+`test-fetch-h2-empty-body.js`) over accumulating many unrelated cases in one file — a focused
+file is easier to run in isolation (`tjs run tests/test-foo.js`) and makes a failure point
+directly at the behavior that broke.
+
 ### Feature-gated tests
 
 When a test file requires a feature that can be compiled out (e.g. `BUILD_WITH_WASM=OFF`),

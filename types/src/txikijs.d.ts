@@ -1116,6 +1116,11 @@ declare global {
             server: Server;
             /** The remote client IP address. */
             remoteAddress: string;
+            /**
+            * The HTTP version the request was received over: `"2"` for HTTP/2
+            * (negotiated via ALPN on a TLS connection) or `"1.1"` otherwise.
+            */
+            httpVersion: string;
         }
 
         /**
@@ -1134,6 +1139,15 @@ declare global {
             passphrase?: string;
             /** If `true`, the server requires a valid client certificate. Implies use of {@link ca}. */
             requestCert?: boolean;
+            /**
+             * ALPN protocol list to advertise during the TLS handshake, in
+             * preference order. When omitted, the server offers every enabled
+             * protocol (`['h2', 'http/1.1']`). Restrict it to require a
+             * particular protocol — e.g. `['h2']` to require HTTP/2, so a
+             * client that cannot speak h2 fails the ALPN handshake instead of
+             * falling back to HTTP/1.1.
+             */
+            alpn?: string[];
         }
 
         /**

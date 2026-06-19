@@ -33,6 +33,25 @@
 
 #define TJS_LWS_HTTP_PROTOCOL_NAME "tjs-http"
 
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
+/* Max payload handed to a single lws_write() for the request body. Over HTTP/2
+ * the body must be written in chunks the connection can flush per writable
+ * callback; handing lws one giant buffer with LWS_WRITE_HTTP_FINAL truncates
+ * h2 request bodies larger than this.
+ *
+ * Each chunk becomes one h2 DATA frame: lws prepends a 9-byte frame header, so
+ * the bytes lws hands to the transport are chunk + 9. That must fit within the
+ * per-thread service buffer (pt_serv_buf_size, 16384 here). If a chunk fills
+ * the whole 16384 the resulting frame overflows the buffer and is sent only
+ * partially; for the *final* (END_STREAM) frame lws never flushes the buffered
+ * tail once the stream is marked done, so the server's body accounting never
+ * reaches content-length and the request stalls. Stay well under the buffer so
+ * every frame -- including the last -- is emitted whole. */
+#define TJS_HTTPCLIENT_WRITE_CHUNK_SIZE 8192
+
 enum {
     HC_CALLBACK_STATUS = 0,
     HC_CALLBACK_URL,
@@ -53,6 +72,7 @@ typedef struct {
     char *url_str;
     TBuf req_headers;
     TBuf send_buf;
+    size_t send_offset; /* bytes of send_buf written (non-streaming h2 chunking) */
     bool sent;
     bool streaming;
     bool body_done;
@@ -427,17 +447,74 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
         }
 
         case LWS_CALLBACK_CLIENT_HTTP_WRITEABLE: {
+            if (!h->streaming) {
+                /* Non-streaming body: send the buffered body in chunks the
+                 * connection can flush per callback. A single unconditional
+                 * FINAL write of the whole body truncated h2 request bodies
+                 * larger than one frame; lws applies h2 send-window flow
+                 * control and buffers what the window can't take yet. */
+                size_t remaining = h->send_buf.size - h->send_offset;
+                if (remaining == 0) {
+                    lws_client_http_body_pending(wsi, 0);
+                    break;
+                }
+
+                size_t to_send = MIN(remaining, TJS_HTTPCLIENT_WRITE_CHUNK_SIZE);
+
+                /* Respect the peer's flow-control window. Over HTTP/2 the
+                 * connection/stream send window bounds how much the peer will
+                 * accept right now; lws_write() does NOT clamp to it, so writing
+                 * past it overruns the window. For bodies that span more than
+                 * one window that desyncs flow control and the request fails.
+                 * lws_get_peer_write_allowance() returns -1 when the protocol
+                 * has no window (h1: send freely) or the bytes the peer will
+                 * currently accept (h2). */
+                lws_fileofs_t allow = lws_get_peer_write_allowance(wsi);
+                if (allow == 0) {
+                    /* No send credit right now: keep the body pending and wait
+                     * to be re-made-writable when a WINDOW_UPDATE arrives. */
+                    break;
+                }
+                if (allow > 0 && (lws_fileofs_t) to_send > allow) {
+                    to_send = (size_t) allow;
+                }
+
+                /* FINAL only on the write carrying the body's last byte. */
+                enum lws_write_protocol wp = LWS_WRITE_HTTP;
+                if (h->send_offset + to_send >= h->send_buf.size) {
+                    wp = LWS_WRITE_HTTP_FINAL;
+                }
+
+                uint8_t *buf = js_malloc(h->ctx, LWS_PRE + to_send);
+                if (!buf) {
+                    return -1;
+                }
+                memcpy(buf + LWS_PRE, h->send_buf.buf + h->send_offset, to_send);
+                int n = lws_write(wsi, buf + LWS_PRE, to_send, wp);
+                js_free(h->ctx, buf);
+                if (n < 0) {
+                    return -1;
+                }
+                h->send_offset += (size_t) n;
+
+                if (h->send_offset < h->send_buf.size) {
+                    lws_callback_on_writable(wsi);
+                } else {
+                    lws_client_http_body_pending(wsi, 0);
+                }
+
+                break;
+            }
+
+            /* Streaming body (chunked transfer-encoding). */
             if (h->send_buf.size == 0) {
                 if (h->body_done) {
-                    /* All body data sent — finalize. */
+                    /* All body data sent — finalize with the terminating chunk. */
                     lws_client_http_body_pending(wsi, 0);
-                    if (h->streaming) {
-                        /* Send final chunk: "0\r\n\r\n" */
-                        uint8_t buf[LWS_PRE + 5];
-                        memcpy(buf + LWS_PRE, "0\r\n\r\n", 5);
-                        lws_write(wsi, buf + LWS_PRE, 5, LWS_WRITE_HTTP_FINAL);
-                    }
-                } else if (h->streaming) {
+                    uint8_t buf[LWS_PRE + 5];
+                    memcpy(buf + LWS_PRE, "0\r\n\r\n", 5);
+                    lws_write(wsi, buf + LWS_PRE, 5, LWS_WRITE_HTTP_FINAL);
+                } else {
                     /* No data buffered — ask JS for more. */
                     maybe_invoke_callback(h, HC_CALLBACK_DRAIN, 0, NULL);
                 }
@@ -446,50 +523,34 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
 
             size_t to_send = h->send_buf.size;
 
-            if (h->streaming) {
-                /* Chunked encoding: "<hex-len>\r\n<data>\r\n" */
-                char chunk_hdr[20];
-                int hdr_len = snprintf(chunk_hdr, sizeof(chunk_hdr), "%zx\r\n", to_send);
-                size_t frame_size = (size_t) hdr_len + to_send + 2;
+            /* Chunked encoding: "<hex-len>\r\n<data>\r\n" */
+            char chunk_hdr[20];
+            int hdr_len = snprintf(chunk_hdr, sizeof(chunk_hdr), "%zx\r\n", to_send);
+            size_t frame_size = (size_t) hdr_len + to_send + 2;
 
-                uint8_t *buf = js_malloc(h->ctx, LWS_PRE + frame_size);
-                if (!buf) {
-                    return -1;
-                }
-                memcpy(buf + LWS_PRE, chunk_hdr, hdr_len);
-                memcpy(buf + LWS_PRE + hdr_len, h->send_buf.buf, to_send);
-                memcpy(buf + LWS_PRE + hdr_len + to_send, "\r\n", 2);
+            uint8_t *buf = js_malloc(h->ctx, LWS_PRE + frame_size);
+            if (!buf) {
+                return -1;
+            }
+            memcpy(buf + LWS_PRE, chunk_hdr, hdr_len);
+            memcpy(buf + LWS_PRE + hdr_len, h->send_buf.buf, to_send);
+            memcpy(buf + LWS_PRE + hdr_len + to_send, "\r\n", 2);
 
-                int n = lws_write(wsi, buf + LWS_PRE, frame_size, LWS_WRITE_HTTP);
-                js_free(h->ctx, buf);
-                if (n < 0) {
-                    return -1;
-                }
-            } else {
-                uint8_t *buf = js_malloc(h->ctx, LWS_PRE + to_send);
-                if (!buf) {
-                    return -1;
-                }
-                memcpy(buf + LWS_PRE, h->send_buf.buf, to_send);
-
-                int n = lws_write(wsi, buf + LWS_PRE, to_send, LWS_WRITE_HTTP_FINAL);
-                js_free(h->ctx, buf);
-                if (n < 0) {
-                    return -1;
-                }
+            int n = lws_write(wsi, buf + LWS_PRE, frame_size, LWS_WRITE_HTTP);
+            js_free(h->ctx, buf);
+            if (n < 0) {
+                return -1;
             }
 
             h->send_buf.size = 0;
 
-            if (h->streaming && !h->body_done) {
+            if (!h->body_done) {
                 /* Ask JS for more body data. sendData will
                  * call lws_callback_on_writable when ready. */
                 maybe_invoke_callback(h, HC_CALLBACK_DRAIN, 0, NULL);
-            } else if (h->streaming && h->body_done) {
+            } else {
                 /* Need another WRITEABLE to send the final chunk. */
                 lws_callback_on_writable(wsi);
-            } else {
-                lws_client_http_body_pending(wsi, 0);
             }
 
             break;
@@ -577,6 +638,7 @@ static JSValue tjs_httpclient_constructor(JSContext *ctx, JSValue new_target, in
     h->this_val = JS_UNDEFINED;
     tbuf_init(ctx, &h->req_headers);
     tbuf_init(ctx, &h->send_buf);
+    h->send_offset = 0;
     h->method = NULL;
     h->url_str = NULL;
     h->sent = false;
@@ -719,7 +781,8 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
     cci.path = full_path;
     cci.host = uri->host;
     cci.origin = uri->host;
-    cci.ssl_connection = (use_ssl ? LCCSCF_USE_SSL : 0) | h->ssl_flags | LCCSCF_HTTP_NO_FOLLOW_REDIRECT;
+    cci.ssl_connection = (use_ssl ? LCCSCF_USE_SSL : 0) | h->ssl_flags | LCCSCF_HTTP_NO_FOLLOW_REDIRECT |
+                         LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM;
     cci.method = h->method;
     cci.local_protocol_name = TJS_LWS_HTTP_PROTOCOL_NAME;
     cci.userdata = h;
