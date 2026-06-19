@@ -39,6 +39,7 @@ class Server {
         let caPem = null;
         let passphrase = null;
         let requestCert = false;
+        let alpn = null;
 
         if (tls) {
             if (typeof tls.cert !== 'string' || typeof tls.key !== 'string') {
@@ -50,15 +51,25 @@ class Server {
             caPem = tls.ca ?? null;
             passphrase = tls.passphrase ?? null;
             requestCert = !!tls.requestCert;
+
+            // Optional ALPN protocol list to advertise (string or array),
+            // e.g. 'h2' to require HTTP/2. Defaults to lws's "h2,http/1.1".
+            if (tls.alpn) {
+                alpn = Array.isArray(tls.alpn) ? tls.alpn.join(',') : tls.alpn;
+            }
         }
 
         this.#isTLS = !!tls;
 
-        const onRequest = (requestId, method, url, headersArr, bodyBuffer, remoteAddr, isWsUpgrade, isStreaming) => {
+        const onRequest = (
+            requestId, method, url, headersArr, bodyBuffer, remoteAddr, isWsUpgrade, isStreaming, httpVersion,
+        ) => {
             if (isWsUpgrade) {
                 this.#handleWsUpgrade(requestId, method, url, headersArr, remoteAddr);
             } else {
-                this.#handleRequest(requestId, method, url, headersArr, bodyBuffer, remoteAddr, isStreaming);
+                this.#handleRequest(
+                    requestId, method, url, headersArr, bodyBuffer, remoteAddr, isStreaming, httpVersion,
+                );
             }
         };
 
@@ -92,6 +103,7 @@ class Server {
             caPem,
             passphrase,
             requestCert,
+            alpn,
         });
     }
 
@@ -158,7 +170,7 @@ class Server {
         // server.upgrade(req) must have been called synchronously
     }
 
-    async #handleRequest(requestId, method, url, headersArr, bodyBuffer, remoteAddr, isStreaming) {
+    async #handleRequest(requestId, method, url, headersArr, bodyBuffer, remoteAddr, isStreaming, httpVersion) {
         let headersSent = false;
 
         try {
@@ -186,7 +198,7 @@ class Server {
             const request = new Request(fullUrl, requestInit);
 
             // Call user handler.
-            let response = this.#handler(request, { server: this, remoteAddress: remoteAddr });
+            let response = this.#handler(request, { server: this, remoteAddress: remoteAddr, httpVersion });
 
             if (response instanceof Promise) {
                 response = await response;

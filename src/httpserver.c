@@ -36,6 +36,11 @@
 #define TJS_HTTP_MAX_CHUNK_SIZE        (64 * 1024 * 1024)
 #define TJS_HTTP_MAX_CHUNK_SIZE_DIGITS 16
 #define TJS_HTTP_MAX_CHUNK_HEADER_SIZE 1024
+/* Max payload handed to a single lws_write(). Over HTTP/2 a response body
+ * must be written in chunks the connection can flush per writable callback
+ * (matches H2SET_MAX_FRAME_SIZE / pt_serv_buf_size); handing lws one giant
+ * buffer with LWS_WRITE_HTTP_FINAL truncates h2 bodies larger than this. */
+#define TJS_HTTP_WRITE_CHUNK_SIZE 16384
 
 typedef enum {
     TJS_HTTP_CHUNK_STATE_SIZE,
@@ -50,6 +55,7 @@ typedef struct {
     struct list_head link;
     uint8_t *data; /* includes LWS_PRE padding before actual data */
     size_t len;    /* length of actual data (not including LWS_PRE) */
+    size_t sent;   /* bytes of this chunk already written (for h2 chunking) */
     bool is_final;
 } TJSHttpPendingWrite;
 
@@ -67,8 +73,10 @@ typedef struct TJSHttpRequest {
     int method;
     char url[2048];
     char remote_addr[64];
+    bool is_h2; /* request arrived over HTTP/2 (carries h2 pseudo-headers) */
     bool body_complete;
-    bool chunked; /* true for Transfer-Encoding: chunked — body is streamed to JS */
+    bool dispatched; /* JS handler has been invoked for this request */
+    bool chunked;    /* true for Transfer-Encoding: chunked — body is streamed to JS */
     TJSHttpChunkState chunk_state;
     size_t chunk_size;
     size_t chunk_remaining;
@@ -159,6 +167,7 @@ typedef struct {
     char *ssl_key_mem;
     char *ssl_ca_mem;
     char *ssl_passphrase;
+    char *alpn; /* explicit ALPN protocol list (e.g. "h2"), or NULL for lws default */
 } TJSHttpServer;
 
 static JSClassID tjs_httpserver_class_id;
@@ -277,6 +286,7 @@ static void tjs_httpserver_finalizer(JSRuntime *rt, JSValue val) {
         js_free_rt(rt, s->ssl_key_mem);
         js_free_rt(rt, s->ssl_ca_mem);
         js_free_rt(rt, s->ssl_passphrase);
+        js_free_rt(rt, s->alpn);
 
         js_free_rt(rt, s);
     }
@@ -430,7 +440,17 @@ static const char *tjs_http_method_name(int method_idx) {
 static void tjs_http_invoke_handler(TJSHttpServer *s, TJSHttpRequest *req) {
     JSContext *ctx = s->ctx;
 
-    JSValue args[8];
+    /* Dispatch the request to JS exactly once. Over HTTP/2 a POST drives
+     * LWS_CALLBACK_HTTP twice (the bind-for-post step and the action step) and
+     * an empty body additionally yields an HTTP_BODY_COMPLETION; without this
+     * guard the handler would run more than once and emit duplicate responses
+     * on the stream. */
+    if (req->dispatched) {
+        return;
+    }
+    req->dispatched = true;
+
+    JSValue args[9];
     args[0] = JS_NewInt64(ctx, req->id);
     args[1] = JS_NewString(ctx, tjs_http_method_name(req->method));
     args[2] = JS_NewString(ctx, req->url);
@@ -443,6 +463,7 @@ static void tjs_http_invoke_handler(TJSHttpServer *s, TJSHttpRequest *req) {
     args[5] = JS_NewString(ctx, req->remote_addr);
     args[6] = JS_FALSE; /* not a WS upgrade */
     args[7] = JS_NewBool(ctx, req->chunked);
+    args[8] = JS_NewString(ctx, req->is_h2 ? "2" : "1.1");
 
     tjs_call_handler(ctx, s->callback, countof(args), args);
 
@@ -791,6 +812,17 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
         }
 
         case LWS_CALLBACK_HTTP: {
+            /* Over HTTP/2 a POST drives LWS_CALLBACK_HTTP twice (the
+             * bind-for-post step and the action step). If we already created
+             * per-request state for this stream, this is that duplicate —
+             * ignore it so we neither allocate a second request nor dispatch
+             * the handler twice. (wsi user is cleared when a request completes,
+             * so a genuine new request on a kept-alive connection still starts
+             * with no user pointer and is handled normally.) */
+            if (lws_wsi_user(wsi)) {
+                return 0;
+            }
+
             /* Allocate per-request state. */
             TJSHttpRequest *req = js_mallocz(s->ctx, sizeof(*req));
             if (!req) {
@@ -828,6 +860,11 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
 
             /* Get remote address. */
             lws_get_peer_simple(wsi, req->remote_addr, sizeof(req->remote_addr));
+
+            /* HTTP/2 requests carry the mandatory :method pseudo-header; an
+             * HTTP/1.x request never does. Record it now, while the request
+             * headers are still live, so the handler can report the protocol. */
+            req->is_h2 = lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_COLON_METHOD) > 0;
 
             /* Add to active requests hash table. */
             HASH_ADD(hh, s->active_requests, id, sizeof(req->id), req);
@@ -1033,24 +1070,56 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             }
 
             if (req->streaming) {
-                /* Streaming path: dequeue and send pending writes. */
+                /* Streaming path: send the head chunk, in pieces the connection
+                 * can flush and within the h2 send window (same constraints as
+                 * the buffered path below). */
                 if (list_empty(&req->pending_writes)) {
                     return 0;
                 }
 
                 TJSHttpPendingWrite *pw = list_entry(req->pending_writes.next, TJSHttpPendingWrite, link);
 
-                enum lws_write_protocol wp = pw->is_final ? LWS_WRITE_HTTP_FINAL : LWS_WRITE_HTTP;
-                int n = lws_write(wsi, pw->data + LWS_PRE, pw->len, wp);
+                /* One chunk per callback (see the buffered path). */
+                size_t to_write = MIN(pw->len - pw->sent, TJS_HTTP_WRITE_CHUNK_SIZE);
+
+                /* Respect the peer's HTTP/2 receive window. lws_write() does NOT
+                 * clamp to it, so writing past it overruns the window; for a body
+                 * that spans more than one window that desyncs flow control and the
+                 * transfer fails (the peer closes the connection mid-response). This
+                 * mirrors the client tx path (httpclient.c). A zero-length FINAL
+                 * (END_STREAM) carries no payload and consumes no window, so only
+                 * clamp when there is data to send. */
+                if (to_write > 0) {
+                    lws_fileofs_t allow = lws_get_peer_write_allowance(wsi);
+                    if (allow == 0) {
+                        /* No send credit now; lws re-fires writable on WINDOW_UPDATE. */
+                        return 0;
+                    }
+                    if (allow > 0 && (lws_fileofs_t) to_write > allow) {
+                        to_write = (size_t) allow;
+                    }
+                }
+
+                /* FINAL only on the piece that carries this chunk's last byte
+                 * of a final chunk, so h2 sets END_STREAM on the right frame. */
+                bool chunk_done = pw->sent + to_write >= pw->len;
+                enum lws_write_protocol wp = (pw->is_final && chunk_done) ? LWS_WRITE_HTTP_FINAL : LWS_WRITE_HTTP;
+                int n = lws_write(wsi, pw->data + LWS_PRE + pw->sent, to_write, wp);
+                if (n < 0) {
+                    return -1;
+                }
+                pw->sent += (size_t) n;
+
+                if (pw->sent < pw->len) {
+                    /* Chunk only partly sent; finish it on the next callback. */
+                    lws_callback_on_writable(wsi);
+                    return 0;
+                }
 
                 bool is_final = pw->is_final;
                 list_del(&pw->link);
                 js_free(s->ctx, pw->data);
                 js_free(s->ctx, pw);
-
-                if (n < 0) {
-                    return -1;
-                }
 
                 if (is_final) {
                     int must_close = lws_http_transaction_completed(wsi);
@@ -1079,11 +1148,33 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 return -1;
             }
 
+            /* Write at most one chunk the connection can flush per callback.
+             * Handing lws the whole body in one LWS_WRITE_HTTP_FINAL call
+             * truncated h2 bodies larger than one frame. */
+            size_t to_write = MIN(remaining, TJS_HTTP_WRITE_CHUNK_SIZE);
+
+            /* Respect the peer's HTTP/2 receive window (see the streaming path
+             * above and the client tx path in httpclient.c): lws_write() does not
+             * clamp to it, and overrunning desyncs flow control, failing the
+             * transfer for responses larger than one window. */
+            {
+                lws_fileofs_t allow = lws_get_peer_write_allowance(wsi);
+                if (allow == 0) {
+                    /* No send credit now; lws re-fires writable on WINDOW_UPDATE. */
+                    return 0;
+                }
+                if (allow > 0 && (lws_fileofs_t) to_write > allow) {
+                    to_write = (size_t) allow;
+                }
+            }
+
+            /* Flag FINAL only on the write that carries the last payload byte,
+             * so h2 sets END_STREAM on the correct DATA frame. */
             enum lws_write_protocol wp = LWS_WRITE_HTTP;
-            if (req->response_offset + remaining >= total_payload) {
+            if (req->response_offset + to_write >= total_payload) {
                 wp = LWS_WRITE_HTTP_FINAL;
             }
-            int n = lws_write(wsi, req->response_data + LWS_PRE + req->response_offset, remaining, wp);
+            int n = lws_write(wsi, req->response_data + LWS_PRE + req->response_offset, to_write, wp);
             if (n < 0) {
                 return -1;
             }
@@ -1284,6 +1375,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     s->ssl_key_mem = NULL;
     s->ssl_ca_mem = NULL;
     s->ssl_passphrase = NULL;
+    s->alpn = NULL;
 
     JSValue options = argv[0];
 
@@ -1364,6 +1456,17 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
             JS_FreeCString(ctx, pp_str);
         }
         JS_FreeValue(ctx, js_passphrase);
+
+        /* Explicit ALPN protocol list to advertise, e.g. "h2" to require
+         * HTTP/2. Without it lws offers its default ("h2,http/1.1"). */
+        JSValue js_alpn = JS_GetPropertyStr(ctx, options, "alpn");
+        if (JS_IsString(js_alpn)) {
+            const char *alpn_str = JS_ToCString(ctx, js_alpn);
+            CHECK_NOT_NULL(alpn_str);
+            s->alpn = js_strdup(ctx, alpn_str);
+            JS_FreeCString(ctx, alpn_str);
+        }
+        JS_FreeValue(ctx, js_alpn);
     }
 
     JS_FreeValue(ctx, js_cert);
@@ -1412,6 +1515,10 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
 
         if (s->ssl_passphrase) {
             vhost_info.ssl_private_key_password = s->ssl_passphrase;
+        }
+
+        if (s->alpn) {
+            vhost_info.alpn = s->alpn;
         }
 
         /* Client certificate requirement. */
@@ -1821,6 +1928,7 @@ static JSValue tjs_httpserver_send_body(JSContext *ctx, JSValue this_val, int ar
         memcpy(pw->data + LWS_PRE, data, data_len);
     }
     pw->len = data_len;
+    pw->sent = 0;
     pw->is_final = is_final;
 
     JS_FreeValue(ctx, data_ab);

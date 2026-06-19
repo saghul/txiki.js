@@ -139,3 +139,18 @@ const server = tjs.serve((request) => new Response('Hello!'));
 ```
 
 The returned [`Server`](/docs/api/global.tjs.Interface.Server) exposes `server.port` and `await server.close()`. It is also async-disposable, so `await using server = tjs.serve(...)` closes it automatically at the end of the scope. See [`ServeOptions`](/docs/api/global.tjs.Interface.ServeOptions) for the full set of options, including the [`TlsOptions`](/docs/api/global.tjs.Interface.TlsOptions) `ca`, `passphrase`, and `requestCert` fields for mutual TLS.
+
+### HTTP/2
+
+HTTPS connections negotiate HTTP/2 automatically via ALPN: a client that advertises `h2` gets HTTP/2, otherwise the connection falls back to HTTP/1.1. The request handler is identical either way.
+
+To restrict which protocols the server offers, set `tls.alpn` to a list in preference order. For example, `alpn: ['h2']` requires HTTP/2 — a client that cannot speak it has no protocol in common and fails the TLS handshake instead of downgrading:
+
+```js
+tjs.serve({
+    tls: { cert, key, alpn: ['h2'] },
+    fetch(request) {
+        return new Response('HTTP/2 only\n');
+    },
+});
+```
