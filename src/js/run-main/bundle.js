@@ -3,7 +3,9 @@
 import { UntarStream } from '@jsr/std__tar/untar-stream';
 import path from 'tjs:path';
 
-const ESBUILD_VERSION = '0.27.3';
+import pkgJson from '../../../package.json' with { type: 'json' };
+
+const ESBUILD_VERSION = pkgJson['dependencies']['esbuild'];
 
 
 async function getPackageInfo() {
