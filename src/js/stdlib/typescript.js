@@ -60,25 +60,8 @@ async function downloadAndCache() {
 async function compileAndInstantiate(wasmBytes) {
     transpilerModule = new WebAssembly.Module(wasmBytes);
 
-    const wasiImport = {
-        'wasi_snapshot_preview1': {
-            random_get: function(_buf, _bufLen) {
-                return 0;
-            },
-            environ_get: function(_environ, _environBuf) {
-                return 0;
-            },
-            environ_sizes_get: function(_count, _bufSize) {
-                return 0;
-            },
-            fd_write: function(_fd, _iovs, _iovsLen, _nwritten) {
-                return 0;
-            },
-            proc_exit: function(_code) { /* ignore */ },
-        }
-    };
 
-    transpilerInstance = new WebAssembly.Instance(transpilerModule, wasiImport);
+    transpilerInstance = new WebAssembly.Instance(transpilerModule);
 
     return true;
 }
