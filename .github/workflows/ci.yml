@@ -11,7 +11,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     - uses: actions/setup-node@v6
@@ -34,7 +34,7 @@ jobs:
     name: Codegen
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: actions/setup-node@v6
@@ -62,7 +62,7 @@ jobs:
       BUILDTYPE: ${{ matrix.buildType }}
       MIMALLOC: ${{ matrix.mimalloc }}
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     - uses: actions/setup-node@v6
@@ -100,7 +100,7 @@ jobs:
       BUILDTYPE: ${{ matrix.buildType }}
       MIMALLOC: ${{ matrix.mimalloc }}
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     - uses: actions/setup-node@v6
@@ -129,7 +129,7 @@ jobs:
     steps:
     - name: Prepare
       run: apk add git build-base cmake linux-headers libffi-dev --update-cache
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     - uses: actions/setup-node@v6
@@ -153,7 +153,7 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-windows
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     - name: Setup vcpkg
@@ -186,7 +186,7 @@ jobs:
         abi: [arm64-v8a, x86_64]
         buildType: [Debug, Release]
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     # Cross-compile only: the runner can't execute an arm64 binary, so this
@@ -211,7 +211,7 @@ jobs:
       CXX: clang++
       ASAN_OPTIONS: detect_leaks=0:detect_odr_violation=0:abort_on_error=1:halt_on_error=1
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     - uses: actions/setup-node@v6
@@ -235,7 +235,7 @@ jobs:
     env:
       ASAN_OPTIONS: detect_leaks=0:detect_odr_violation=0:abort_on_error=1:halt_on_error=1
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     - uses: actions/setup-node@v6
@@ -256,7 +256,7 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-windows
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     - name: Setup vcpkg
@@ -293,7 +293,7 @@ jobs:
       CC: clang
       CXX: clang++
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     - uses: actions/setup-node@v6
@@ -317,7 +317,7 @@ jobs:
     name: UBSAN (macOS)
     runs-on: macos-15
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     - uses: actions/setup-node@v6
@@ -348,7 +348,7 @@ jobs:
       # ASAN turns the premature frees that GC bugs cause into hard failures.
       ASAN_OPTIONS: detect_leaks=0:detect_odr_violation=0:abort_on_error=1:halt_on_error=1
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
     - uses: actions/setup-node@v6
