@@ -30,6 +30,7 @@
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifdef _WIN32
@@ -619,6 +620,14 @@ static void tjs__invalid_parameter_handler(const wchar_t *expression,
     (void) line;
     (void) reserved;
 }
+
+static UINT tjs__prev_console_output_cp = 0;
+
+static void tjs__restore_console_output_cp(void) {
+    if (tjs__prev_console_output_cp != 0) {
+        SetConsoleOutputCP(tjs__prev_console_output_cp);
+    }
+}
 #endif
 
 void TJS_Initialize(int argc, char **argv) {
@@ -633,6 +642,13 @@ void TJS_Initialize(int argc, char **argv) {
 #ifdef _WIN32
     _setmode(_fileno(stdout), _O_BINARY);
     _setmode(_fileno(stderr), _O_BINARY);
+
+    /* Make sure conmsole is set to UTF-8 so our output doesn't get garbled. */
+    tjs__prev_console_output_cp = GetConsoleOutputCP();
+    if (tjs__prev_console_output_cp != 0 && tjs__prev_console_output_cp != CP_UTF8) {
+        SetConsoleOutputCP(CP_UTF8);
+        atexit(tjs__restore_console_output_cp);
+    }
 
     /* CLI tool: never block on GUI error dialogs. Suppress the WER crash dialog
      * and the OS critical-error message box (e.g. device-not-ready). */
