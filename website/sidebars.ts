@@ -52,6 +52,7 @@ const sidebars: SidebarsConfig = {
         'guides/code-bundling',
         'guides/standalone-executables',
         'guides/app-packages',
+        'guides/mise',
       ],
     },
     'versioning',

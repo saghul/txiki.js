@@ -42,6 +42,16 @@ Prebuilt binaries are available for macOS and Windows from the [GitHub Releases]
 
 Download the zip for your platform, extract it, and add the `tjs` binary to your `PATH`.
 
+### [mise](https://mise.jdx.dev/) (per-project)
+
+Pin a txiki.js version per project and run it without a system-wide install:
+
+```bash
+mise use "github:saghul/txiki.js[exe=tjs]"
+```
+
+See [Using with mise](guides/mise.md) for details.
+
 ### Build from source
 
 On Linux (and other Unixes), you'll need to [build from source](building.md).
