@@ -164,6 +164,7 @@ void tjs__lws_setup(void) {
     lws_set_log_level(0, NULL);
 }
 
+#ifdef TJS_HAVE_TLS
 static void tjs__load_ca_bundle(TJSRuntime *qrt) {
     if (qrt->lws.ca_bundle_data || !qrt->lws.ca_bundle_path) {
         return;
@@ -191,6 +192,7 @@ static void tjs__set_ca_info(TJSRuntime *qrt, struct lws_context_creation_info *
         info->client_ssl_ca_mem_len = tjs_cacert_pem_len;
     }
 }
+#endif
 
 /*
  * Per-scheme proxy configuration.
@@ -373,12 +375,13 @@ static struct lws_vhost *tjs__create_client_vhost(TJSRuntime *qrt, const char *n
 
     vinfo.port = CONTEXT_PORT_NO_LISTEN;
     vinfo.protocols = protocols;
-    vinfo.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
     vinfo.vhost_name = name;
     vinfo.pt_serv_buf_size = 16384;
     vinfo.max_http_header_data2 = 16384;
-
+#ifdef TJS_HAVE_TLS
+    vinfo.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
     tjs__set_ca_info(qrt, &vinfo);
+#endif
 
     /*
      * Configure exactly one proxy kind per vhost and pin the other to ""
@@ -410,7 +413,11 @@ static void tjs__lws_init(TJSRuntime *qrt) {
     memset(&info, 0, sizeof(info));
 
     info.port = CONTEXT_PORT_NO_LISTEN;
+#ifdef TJS_HAVE_TLS
     info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_EXPLICIT_VHOSTS;
+#else
+    info.options = LWS_SERVER_OPTION_EXPLICIT_VHOSTS;
+#endif
     /* Match Node.js / Deno default max header size (16 KiB). */
     info.pt_serv_buf_size = 16384;
     info.max_http_header_data2 = 16384;
@@ -570,7 +577,11 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
         return -1;
     }
 
+#ifdef TJS_HAVE_TLS
     bool use_ssl = !strcmp(uri->scheme, "https");
+#else
+    bool use_ssl = false;
+#endif
 
     /* The parsed path has the leading '/' stripped, restore it. */
     char full_path[TJS_PATH_MAX];
@@ -609,9 +620,10 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
 
     info.port = CONTEXT_PORT_NO_LISTEN;
     info.protocols = protocols;
+#ifdef TJS_HAVE_TLS
     info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
-
     tjs__set_ca_info(qrt, &info);
+#endif
 
     /* Parse per-scheme proxy for this one-shot context. */
     TJSProxyConfig proxy_cfg;

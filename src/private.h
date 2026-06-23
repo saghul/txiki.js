@@ -30,7 +30,9 @@
 #include "tjs.h"
 
 #include <libwebsockets.h>
+#ifdef TJS_HAVE_TLS
 #include <mbedtls/x509_crt.h>
+#endif
 #include <quickjs.h>
 #ifdef TJS_HAVE_SQLITE
 #include <sqlite3.h>
@@ -106,11 +108,13 @@ struct TJSRuntime {
         TJSTimer *timers;
         int64_t next_timer;
     } timers;
+#ifdef TJS_HAVE_TLS
     struct {
         bool initialized;
         mbedtls_x509_crt cacert;
         char *ca_bundle_path;
     } tls;
+#endif
     struct {
         JSValue promise_event_ctor;
         JSValue dispatch_event_func;
@@ -141,8 +145,10 @@ void tjs__mod_signals_init(JSContext *ctx, JSValue ns);
 void tjs__mod_sqlite3_init(JSContext *ctx, JSValue ns);
 #endif
 void tjs__mod_streams_init(JSContext *ctx, JSValue ns);
+#ifdef TJS_HAVE_TLS
 void tjs__mod_tls_init(JSContext *ctx, JSValue ns);
 void tjs__mod_tls_cleanup(TJSRuntime *qrt);
+#endif
 void tjs__mod_sys_init(JSContext *ctx, JSValue ns);
 void tjs__mod_text_coding_init(JSContext *ctx, JSValue ns);
 void tjs__mod_timers_init(JSContext *ctx, JSValue ns);

@@ -23,6 +23,10 @@ function formatTLSAddress(localAddr, remoteAddr) {
 
 export class TLSSocket extends BaseStreamSocket {
     constructor(remoteAddress, remotePort, options = {}) {
+        if (!core.TLSTcp) {
+            throw new Error('TLS not supported in this build');
+        }
+
         if (typeof remoteAddress !== 'string') {
             throw new TypeError('remoteAddress must be a string');
         }
@@ -81,6 +85,10 @@ export class TLSSocket extends BaseStreamSocket {
 
 export class TLSServerSocket extends BaseStreamServerSocket {
     constructor(localAddress, options = {}) {
+        if (!core.TLSTcp) {
+            throw new Error('TLS not supported in this build');
+        }
+
         if (typeof localAddress !== 'string') {
             throw new TypeError('localAddress must be a string');
         }

@@ -38,4 +38,9 @@ Additional functionality is available as ES modules that can be imported using t
 > default). On a build with WebAssembly disabled, importing `tjs:wasi` throws a
 > module-not-found error; check `tjs.engine.features.wasm` to detect availability.
 
+> **Note:** TLS (`https://`/`wss://` requests and `TLSSocket`/`TLSServerSocket`) requires
+> `BUILD_WITH_TLS=ON` (the default). On a build with TLS disabled, these throw "TLS not
+> supported in this build"; plain HTTP/WS, TCP/UDP and the Web Crypto API still work. Check
+> `tjs.engine.features.tls` to detect availability.
+
 In addition, txiki.js supports many [Web Platform APIs](/docs/features/web-platform-apis) such as `fetch`, `WebSocket`, `setTimeout`, `TextEncoder`, and more.
