@@ -507,7 +507,7 @@ static JSValue js_ffi_type_from_buffer(JSContext *ctx, JSValue this_val, int arg
     }
     size_t typesz = ffi_type_get_sz(type->ffi_type);
     if (bufsz != typesz) {
-        JS_ThrowRangeError(ctx, "expected buffer to be of size %lu", typesz);
+        JS_ThrowRangeError(ctx, "expected buffer to be of size %zu", typesz);
         return JS_EXCEPTION;
     }
     JSValue val = JS_UNDEFINED;
