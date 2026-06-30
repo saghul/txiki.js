@@ -2,6 +2,22 @@ import { defineEventAttribute } from './event-target.js';
 import { HttpClient } from './http-client.js';
 
 
+// Extract the charset parameter from a MIME type string (e.g. the value of a
+// Content-Type header or the argument to overrideMimeType). Mirrors the
+// pragmatic getBoundary() helper in fetch/body.js. The leading ';' keeps a bare
+// "charset=…" (no type/subtype) from matching, approximating the spec's
+// "parse failure → application/octet-stream" (which carries no charset).
+function getCharset(mimeType) {
+    const match = /;\s*charset=(?:"([^"]+)"|([^;]+))/i.exec(mimeType);
+
+    if (!match) {
+        return null;
+    }
+
+    return (match[1] ?? match[2]).trim();
+}
+
+
 function statusTextForCode(code) {
     switch (code) {
         case 100: return 'Continue';
@@ -57,6 +73,7 @@ class XMLHttpRequest extends EventTarget {
     #responseBody = new Uint8Array(0);
     #contentLength = -1;
     #responseType = '';
+    #overrideCharset = null;
     #timeout = 0;
     #withCredentials = false;
     #method = '';
@@ -155,6 +172,25 @@ class XMLHttpRequest extends EventTarget {
         }
     }
 
+    // Decode the accumulated response body as text using the final charset
+    // (https://xhr.spec.whatwg.org/#final-charset): an overrideMimeType()
+    // charset wins, otherwise the response's own Content-Type is used, and an
+    // unknown/unsupported label falls back to UTF-8.
+    #decodeText() {
+        const label = this.#overrideCharset ??
+            getCharset(this.getResponseHeader('content-type') ?? '');
+
+        if (label) {
+            try {
+                return new TextDecoder(label).decode(this.#responseBody);
+            } catch {
+                // Unknown/unsupported encoding label: fall through to UTF-8.
+            }
+        }
+
+        return new TextDecoder().decode(this.#responseBody);
+    }
+
     get readyState() {
         return this.#readyState;
     }
@@ -167,7 +203,7 @@ class XMLHttpRequest extends EventTarget {
         switch (this.#responseType) {
             case '':
             case 'text':
-                return new TextDecoder().decode(this.#responseBody);
+                return this.#decodeText();
             case 'arraybuffer':
                 return this.#responseBody.buffer.slice(
                     this.#responseBody.byteOffset,
@@ -190,7 +226,7 @@ class XMLHttpRequest extends EventTarget {
             return null;
         }
 
-        return new TextDecoder().decode(this.#responseBody);
+        return this.#decodeText();
     }
 
     set responseType(value) {
@@ -304,8 +340,20 @@ class XMLHttpRequest extends EventTarget {
         this.#setReadyState(XMLHttpRequest.OPENED);
     }
 
-    overrideMimeType(_mimeType) {
-        throw new TypeError('unsupported');
+    overrideMimeType(mimeType) {
+        // https://xhr.spec.whatwg.org/#the-overridemimetype()-method
+        if (this.#readyState === XMLHttpRequest.LOADING ||
+            this.#readyState === XMLHttpRequest.DONE) {
+            throw new DOMException(
+                'overrideMimeType cannot be called in the LOADING or DONE state',
+                'InvalidStateError'
+            );
+        }
+
+        // The only thing we consume from the override is its charset, which
+        // then takes precedence over the response's Content-Type when decoding
+        // a text response (see #decodeText).
+        this.#overrideCharset = getCharset(String(mimeType));
     }
 
     send(body) {
