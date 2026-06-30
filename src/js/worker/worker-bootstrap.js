@@ -10,6 +10,7 @@ messagePipe.onmessageerror = msgerror => {
 };
 
 self.postMessage = message => messagePipe.postMessage(message);
+self.close = () => core.workerClose();
 
 core.defineEventAttribute(Object.getPrototypeOf(self), 'message');
 core.defineEventAttribute(Object.getPrototypeOf(self), 'messageerror');

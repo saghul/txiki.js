@@ -319,6 +319,48 @@ static JSValue tjs__dispatch_event(JSContext *ctx, JSValue *event) {
     return ret;
 }
 
+void tjs__worker_handle_uncaught(JSContext *ctx, JSValueConst exc) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+
+    if (!qrt->is_worker || qrt->freeing) {
+        return;
+    }
+
+    /* Dispatch a cancelable 'error' ErrorEvent at the worker global scope so
+     * self.onerror can observe (and, via preventDefault(), suppress propagation
+     * to) the parent. */
+    JSValue init = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, init, "message", JS_ToString(ctx, exc));
+    JS_SetPropertyStr(ctx, init, "error", JS_DupValue(ctx, exc));
+    JS_SetPropertyStr(ctx, init, "cancelable", JS_TRUE);
+
+    JSValue args[2] = { JS_NewString(ctx, "error"), init };
+    JSValue event = JS_CallConstructor(ctx, qrt->builtins.error_event_ctor, 2, args);
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, init);
+
+    bool canceled = false;
+    if (JS_IsException(event)) {
+        JS_FreeValue(ctx, JS_GetException(ctx));
+    } else {
+        JSValue ret = tjs__dispatch_event(ctx, &event);
+        if (JS_IsException(ret)) {
+            /* A handler threw: ignore it and forward the original error. */
+            JS_FreeValue(ctx, JS_GetException(ctx));
+        } else {
+            /* dispatchEvent() returns false when preventDefault() was called. */
+            canceled = !JS_ToBool(ctx, ret);
+        }
+        JS_FreeValue(ctx, ret);
+    }
+    JS_FreeValue(ctx, event);
+
+    if (!canceled) {
+        tjs__worker_post_error(ctx, exc);
+    }
+}
+
 static void uv__maybe_idle(TJSRuntime *qrt);
 
 static void tjs__pending_rejections_add(TJSRuntime *qrt, JSContext *ctx, JSValue promise, JSValue reason) {
@@ -484,6 +526,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(JS_IsUndefined(qrt->builtins.dispatch_event_func), 0);
     qrt->builtins.promise_event_ctor = JS_GetPropertyStr(qrt->ctx, global_obj, "PromiseRejectionEvent");
     CHECK_EQ(JS_IsUndefined(qrt->builtins.promise_event_ctor), 0);
+    qrt->builtins.error_event_ctor = JS_GetPropertyStr(qrt->ctx, global_obj, "ErrorEvent");
+    CHECK_EQ(JS_IsUndefined(qrt->builtins.error_event_ctor), 0);
 
     /* end bootstrap */
     JS_FreeValue(ctx, global_obj);
@@ -556,6 +600,8 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     qrt->builtins.dispatch_event_func = JS_UNDEFINED;
     JS_FreeValue(qrt->ctx, qrt->builtins.promise_event_ctor);
     qrt->builtins.promise_event_ctor = JS_UNDEFINED;
+    JS_FreeValue(qrt->ctx, qrt->builtins.error_event_ctor);
+    qrt->builtins.error_event_ctor = JS_UNDEFINED;
     JS_FreeValue(qrt->ctx, qrt->builtins.import_map_resolver);
     qrt->builtins.import_map_resolver = JS_UNDEFINED;
     JS_FreeValue(qrt->ctx, qrt->builtins.internal_core);
@@ -698,6 +744,13 @@ void tjs__drain_microtasks(JSContext *ctx) {
             if (err < 0) {
                 TJSRuntime *qrt = TJS_GetRuntime(ctx);
                 CHECK_NOT_NULL(qrt);
+                if (qrt->is_worker) {
+                    /* Report the uncaught error to the parent, then restore the
+                     * pending exception so it is still dumped to stderr. */
+                    JSValue exc = JS_GetException(ctx1);
+                    tjs__worker_handle_uncaught(ctx1, exc);
+                    JS_Throw(ctx1, exc);
+                }
                 TJS_Stop(qrt);
             }
 
@@ -758,6 +811,12 @@ void tjs__execute_jobs(JSContext *ctx) {
                 }
                 list_del(&pr2->link);
                 js_free(ctx, pr2);
+            }
+            /* In a worker, an unhandled rejection that aborts the runtime should
+             * also reach the parent. The 'unhandledrejection' event already
+             * fired at the worker global, so just forward the reason. */
+            if (qrt->is_worker) {
+                tjs__worker_post_error(ctx, reason);
             }
             JS_Throw(ctx, reason);
             TJS_Stop(qrt);

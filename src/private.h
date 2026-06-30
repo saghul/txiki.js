@@ -117,6 +117,7 @@ struct TJSRuntime {
         JSValue import_map_resolver;
         JSValue internal_core;
         JSValue internal_message_pipe;
+        JSValue error_event_ctor;
     } builtins;
     struct list_head pending_rejections;
 };
@@ -167,6 +168,14 @@ uv_stream_t *tjs_pipe_get_stream(JSContext *ctx, JSValue obj);
 
 void tjs__drain_microtasks(JSContext *ctx);
 void tjs__execute_jobs(JSContext *ctx);
+
+/* Forward an uncaught error from a worker to its parent so the parent's Worker
+ * 'error' handler fires. No-op on the main runtime or if the worker has no pipe. */
+void tjs__worker_post_error(JSContext *ctx, JSValueConst error);
+/* Dispatch a cancelable 'error' event at the worker global scope (so self.onerror
+ * fires) and, unless the event was canceled, forward it to the parent. No-op on
+ * the main runtime. */
+void tjs__worker_handle_uncaught(JSContext *ctx, JSValueConst exc);
 JSModuleDef *tjs__load_builtin(JSContext *ctx, const char *name);
 int tjs__load_file(JSContext *ctx, TBuf *dbuf, const char *filename);
 int tjs_module_attr_checker(JSContext *ctx, void *opaque, JSValueConst attributes);

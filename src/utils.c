@@ -191,6 +191,13 @@ void tjs_call_handler(JSContext *ctx, JSValue func, int argc, JSValue *argv) {
     if (JS_IsException(ret)) {
         TJSRuntime *qrt = TJS_GetRuntime(ctx);
         CHECK_NOT_NULL(qrt);
+        if (qrt->is_worker) {
+            /* Report the uncaught error to the parent, then restore the pending
+             * exception so it is still dumped to stderr. */
+            JSValue exc = JS_GetException(ctx);
+            tjs__worker_handle_uncaught(ctx, exc);
+            JS_Throw(ctx, exc);
+        }
         TJS_Stop(qrt);
     }
     JS_FreeValue(ctx, ret);

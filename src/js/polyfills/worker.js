@@ -59,6 +59,20 @@ class Worker extends EventTarget {
             this.dispatchEvent(new MessageEvent('messageerror', msgerror));
         };
 
+        messagePipe.onerror = info => {
+            const error = new Error(info?.message ?? 'uncaught error in worker');
+
+            if (info?.name) {
+                error.name = info.name;
+            }
+
+            if (info?.stack) {
+                error.stack = info.stack;
+            }
+
+            this.dispatchEvent(new ErrorEvent('error', { message: error.message, error }));
+        };
+
         this.#worker = worker;
     }
 

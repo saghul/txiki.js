@@ -35,8 +35,13 @@ extern const uint32_t tjs__worker_bootstrap_size;
 enum {
     MSGPIPE_EVENT_MESSAGE = 0,
     MSGPIPE_EVENT_MESSAGE_ERROR,
+    MSGPIPE_EVENT_ERROR,
     MSGPIPE_EVENT_MAX,
 };
+
+/* High bit of the on-wire frame length header marks an error frame (a worker
+ * reporting an uncaught error to its parent) instead of a normal message. */
+#define MSGPIPE_FRAME_ERROR_FLAG (UINT64_C(1) << 63)
 
 static JSClassID tjs_msgpipe_class_id;
 
@@ -54,6 +59,7 @@ typedef struct {
         } total_size;
         uint8_t *data;
         uint64_t nread;
+        bool is_error;
     } reading;
     JSValue events[MSGPIPE_EVENT_MAX];
 } TJSMessagePipe;
@@ -171,8 +177,10 @@ static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
             return;
         }
 
-        uint64_t total_size = p->reading.total_size.u64;
-        CHECK_GE(total_size, 0);
+        uint64_t header = p->reading.total_size.u64;
+        p->reading.is_error = (header & MSGPIPE_FRAME_ERROR_FLAG) != 0;
+        uint64_t total_size = header & ~MSGPIPE_FRAME_ERROR_FLAG;
+        p->reading.total_size.u64 = total_size;
         p->reading.data = js_malloc(ctx, total_size);
 
         return;
@@ -197,7 +205,7 @@ static void uv__read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
     if (JS_IsException(obj)) {
         emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE_ERROR, JS_GetException(ctx));
     } else {
-        emit_msgpipe_event(p, MSGPIPE_EVENT_MESSAGE, obj);
+        emit_msgpipe_event(p, p->reading.is_error ? MSGPIPE_EVENT_ERROR : MSGPIPE_EVENT_MESSAGE, obj);
     }
     JS_FreeValue(ctx, obj);
 
@@ -224,8 +232,9 @@ static JSValue tjs_new_msgpipe(JSContext *ctx, uv_os_sock_t fd) {
 
     p->ctx = ctx;
     p->h.handle.data = p;
-    p->events[0] = JS_UNDEFINED;
-    p->events[1] = JS_UNDEFINED;
+    for (int i = 0; i < MSGPIPE_EVENT_MAX; i++) {
+        p->events[i] = JS_UNDEFINED;
+    }
 
     CHECK_EQ(uv_tcp_init(tjs_get_loop(ctx), &p->h.tcp), 0);
     CHECK_EQ(uv_tcp_open(&p->h.tcp, fd), 0);
@@ -254,12 +263,7 @@ static void uv__write_cb(uv_write_t *req, int status) {
     js_free(ctx, wr);
 }
 
-static JSValue tjs_msgpipe_postmessage(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSMessagePipe *p = tjs_msgpipe_get(ctx, this_val);
-    if (!p) {
-        return JS_EXCEPTION;
-    }
-
+static JSValue msgpipe_write_value(JSContext *ctx, TJSMessagePipe *p, JSValueConst value, bool is_error) {
     TJSMessagePipeWriteReq *wr = js_malloc(ctx, sizeof(*wr));
     if (!wr) {
         return JS_EXCEPTION;
@@ -268,7 +272,7 @@ static JSValue tjs_msgpipe_postmessage(JSContext *ctx, JSValue this_val, int arg
     size_t len;
     int flags = JS_WRITE_OBJ_SAB | JS_WRITE_OBJ_REFERENCE | JS_WRITE_OBJ_STRIP_SOURCE;
     JSSABTab sab_tab;
-    uint8_t *buf = JS_WriteObject2(ctx, &len, argv[0], flags, &sab_tab);
+    uint8_t *buf = JS_WriteObject2(ctx, &len, value, flags, &sab_tab);
     if (!buf) {
         js_free(ctx, wr);
         return JS_EXCEPTION;
@@ -276,7 +280,7 @@ static JSValue tjs_msgpipe_postmessage(JSContext *ctx, JSValue this_val, int arg
 
     wr->req.data = wr;
     wr->data = buf;
-    wr->data_size.u64 = len;
+    wr->data_size.u64 = is_error ? (len | MSGPIPE_FRAME_ERROR_FLAG) : len;
 
     uv_buf_t bufs[2] = { uv_buf_init((char *) wr->data_size.u8, sizeof(wr->data_size.u8)),
                          uv_buf_init((char *) buf, len) };
@@ -295,6 +299,73 @@ static JSValue tjs_msgpipe_postmessage(JSContext *ctx, JSValue this_val, int arg
     }
 
     return JS_UNDEFINED;
+}
+
+static JSValue tjs_msgpipe_postmessage(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSMessagePipe *p = tjs_msgpipe_get(ctx, this_val);
+    if (!p) {
+        return JS_EXCEPTION;
+    }
+    return msgpipe_write_value(ctx, p, argv[0], false);
+}
+
+void tjs__worker_post_error(JSContext *ctx, JSValueConst error) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+
+    if (!qrt->is_worker || qrt->freeing) {
+        return;
+    }
+
+    JSValue pipe = qrt->builtins.internal_message_pipe;
+    if (JS_IsUndefined(pipe)) {
+        return;
+    }
+
+    TJSMessagePipe *p = JS_GetOpaque(pipe, tjs_msgpipe_class_id);
+    if (!p) {
+        return;
+    }
+
+    /* Build a structured-clonable description of the error: {name, message, stack}.
+     * The thrown value may be any JS value, not just an Error. */
+    JSValue obj = JS_NewObject(ctx);
+    if (JS_IsException(obj)) {
+        JS_FreeValue(ctx, JS_GetException(ctx));
+        return;
+    }
+
+    JSValue message = JS_UNDEFINED;
+    if (!JS_IsUndefined(error) && !JS_IsNull(error)) {
+        message = JS_GetPropertyStr(ctx, error, "message");
+    }
+    if (!JS_IsString(message)) {
+        JS_FreeValue(ctx, message);
+        message = JS_ToString(ctx, error);
+    }
+    JS_SetPropertyStr(ctx, obj, "message", message);
+
+    if (!JS_IsUndefined(error) && !JS_IsNull(error)) {
+        JSValue name = JS_GetPropertyStr(ctx, error, "name");
+        if (JS_IsString(name)) {
+            JS_SetPropertyStr(ctx, obj, "name", name);
+        } else {
+            JS_FreeValue(ctx, name);
+        }
+        JSValue stack = JS_GetPropertyStr(ctx, error, "stack");
+        if (JS_IsString(stack)) {
+            JS_SetPropertyStr(ctx, obj, "stack", stack);
+        } else {
+            JS_FreeValue(ctx, stack);
+        }
+    }
+
+    JSValue r = msgpipe_write_value(ctx, p, obj, true);
+    JS_FreeValue(ctx, obj);
+    if (JS_IsException(r)) {
+        /* Best-effort: never let reporting failure mask the original error. */
+        JS_FreeValue(ctx, JS_GetException(ctx));
+    }
 }
 
 static JSValue tjs_msgpipe_event_get(JSContext *ctx, JSValue this_val, int magic) {
@@ -321,6 +392,7 @@ static const JSCFunctionListEntry tjs_msgpipe_proto_funcs[] = {
     TJS_CFUNC_DEF("postMessage", 1, tjs_msgpipe_postmessage),
     JS_CGETSET_MAGIC_DEF("onmessage", tjs_msgpipe_event_get, tjs_msgpipe_event_set, MSGPIPE_EVENT_MESSAGE),
     JS_CGETSET_MAGIC_DEF("onmessageerror", tjs_msgpipe_event_get, tjs_msgpipe_event_set, MSGPIPE_EVENT_MESSAGE_ERROR),
+    JS_CGETSET_MAGIC_DEF("onerror", tjs_msgpipe_event_get, tjs_msgpipe_event_set, MSGPIPE_EVENT_ERROR),
 };
 
 static JSValue tjs_new_worker(JSContext *ctx, uv_os_sock_t channel_fd);
@@ -372,6 +444,13 @@ static JSValue worker_eval(JSContext *ctx, int argc, JSValue *argv) {
 error:;
     TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
+
+    /* Report the load/eval failure to the parent (self.onerror + Worker.onerror),
+     * then restore the pending exception so it is still dumped to stderr. */
+    JSValue exc = JS_GetException(ctx);
+    tjs__worker_handle_uncaught(ctx, exc);
+    JS_Throw(ctx, exc);
+
     TJS_Stop(qrt);
 
     return JS_UNDEFINED;
@@ -409,12 +488,28 @@ static void worker_entry(void *arg) {
 
     TJS_Run(wrt);
 
-    TJS_FreeRuntime(wrt);
+    /* The runtime is freed by the parent (terminate()/finalizer) after joining
+     * this thread, so the parent never dereferences a freed runtime — a worker
+     * can stop its own loop (self.close(), an uncaught error) before the parent
+     * calls terminate(). */
+}
+
+/* Stop the worker (if still running), wait for its thread to finish, then free
+ * its runtime. The parent owns the worker runtime's lifetime, so this is safe to
+ * call whether the worker is still running or has already stopped itself. */
+static void tjs_worker_shutdown(TJSWorker *w) {
+    if (w->wrt) {
+        TJS_Stop(w->wrt);
+        CHECK_EQ(uv_thread_join(&w->tid), 0);
+        TJS_FreeRuntime(w->wrt);
+        w->wrt = NULL;
+    }
 }
 
 static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
     TJSWorker *w = JS_GetOpaque(val, tjs_worker_class_id);
     if (w) {
+        tjs_worker_shutdown(w);
         JS_FreeValueRT(rt, w->message_pipe);
     }
 }
@@ -520,11 +615,17 @@ static JSValue tjs_worker_terminate(JSContext *ctx, JSValue this_val, int argc, 
         return JS_EXCEPTION;
     }
     if (w->wrt) {
-        TJS_Stop(w->wrt);
-        CHECK_EQ(uv_thread_join(&w->tid), 0);
+        tjs_worker_shutdown(w);
         uv_update_time(tjs_get_loop(ctx));
-        w->wrt = NULL;
     }
+    return JS_UNDEFINED;
+}
+
+/* WorkerGlobalScope.close(): stop the calling worker's own runtime. */
+static JSValue tjs_worker_self_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+    TJS_Stop(qrt);
     return JS_UNDEFINED;
 }
 
@@ -555,6 +656,13 @@ void tjs__mod_worker_init(JSContext *ctx, JSValue ns) {
     /* Worker object */
     obj = JS_NewCFunction2(ctx, tjs_worker_constructor, "Worker", 2, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx, ns, "Worker", obj, JS_PROP_C_W_E);
+
+    /* Backing for WorkerGlobalScope.close(), wired up by the worker bootstrap. */
+    JS_DefinePropertyValueStr(ctx,
+                              ns,
+                              "workerClose",
+                              JS_NewCFunction(ctx, tjs_worker_self_close, "workerClose", 0),
+                              JS_PROP_C_W_E);
 
     /* MessagePipe class */
     JS_NewClassID(rt, &tjs_msgpipe_class_id);
