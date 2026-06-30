@@ -20,10 +20,13 @@ const validAesUsages = [ 'encrypt', 'decrypt', 'wrapKey', 'unwrapKey' ];
 const validAesKwUsages = [ 'wrapKey', 'unwrapKey' ];
 const validTagLengths = [ 32, 64, 96, 104, 112, 120, 128 ];
 
-function cipherOp(cipherType, operation, key, iv, data, aad, tagLengthBytes) {
+// `algoParam` is an algorithm-specific numeric parameter passed through to the
+// native cipher: for AES-GCM it is the tag length in bytes, for AES-CTR it is the
+// counter length in bits, and it is unused (0) for AES-CBC.
+function cipherOp(cipherType, operation, key, iv, data, aad, algoParam) {
     const { promise, resolve, reject } = Promise.withResolvers();
 
-    nativeCipher(cipherType, operation, key, iv, data, aad, tagLengthBytes, (err, result) => {
+    nativeCipher(cipherType, operation, key, iv, data, aad, algoParam, (err, result) => {
         if (err) {
             reject(new DOMException(err, 'OperationError'));
         } else {
@@ -96,7 +99,7 @@ export function aesEncrypt(algorithm, key, data, requiredUsage = 'encrypt') {
             return Promise.reject(new DOMException('AES-CTR length must be between 1 and 128', 'OperationError'));
         }
 
-        return cipherOp(cipherType, CIPHER_OP_ENCRYPT, getKeyData(key), counter, bytes, undefined, 0)
+        return cipherOp(cipherType, CIPHER_OP_ENCRYPT, getKeyData(key), counter, bytes, undefined, length)
             .then(r => r.buffer);
     }
 
@@ -194,7 +197,7 @@ export function aesDecrypt(algorithm, key, data, requiredUsage = 'decrypt') {
             return Promise.reject(new DOMException('AES-CTR length must be between 1 and 128', 'OperationError'));
         }
 
-        return cipherOp(cipherType, CIPHER_OP_DECRYPT, getKeyData(key), counter, bytes, undefined, 0)
+        return cipherOp(cipherType, CIPHER_OP_DECRYPT, getKeyData(key), counter, bytes, undefined, length)
             .then(r => r.buffer);
     }
 
