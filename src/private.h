@@ -192,6 +192,7 @@ void tjs__lws_conn_ref(JSContext *ctx);
 void tjs__lws_conn_unref(JSContext *ctx);
 struct lws_vhost *tjs__lws_select_vhost(JSContext *ctx, const char *scheme, const char *hostname, int port);
 int tjs__lws_load_http(TJSRuntime *qrt, TBuf *dbuf, const char *url);
+void tjs__lws_format_host(char *buf, size_t buflen, const char *scheme, const char *host, int port);
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);
