@@ -3,7 +3,12 @@
 /* formdata-polyfill. MIT License. Jimmy Wärting <https://jimmy.warting.se/opensource> */
 
 /* global FormData self Blob File */
- 
+
+// Internal helper for trusted polyfills (e.g. fetch) that need the
+// multipart/form-data serialization of a FormData. Module-private — installed
+// by the class static block so it can reach the #blob private method. User
+// code cannot reach it.
+let getFormDataBlob;
 
 if (typeof Blob !== 'undefined' && (typeof FormData === 'undefined' || !FormData.prototype.keys)) {
 
@@ -27,7 +32,7 @@ if (typeof Blob !== 'undefined' && (typeof FormData === 'undefined' || !FormData
       : 'blob'
 
       if (value.name !== filename || Object.prototype.toString.call(value) === '[object Blob]') {
-        value = new File([value], filename)
+        value = new File([value], filename, { type: value.type })
       }
       return [String(name), value]
     }
@@ -257,11 +262,12 @@ if (typeof Blob !== 'undefined' && (typeof FormData === 'undefined' || !FormData
     }
 
     /**
-     * [_blob description]
+     * Serialize the FormData as a multipart/form-data Blob. Private: reachable
+     * only through the module-private getFormDataBlob() (see static block).
      *
-     * @return {Blob} [description]
+     * @return {Blob} multipart/form-data body (boundary in the Blob's type)
      */
-    ['_blob'] () {
+    #blob () {
         const boundary = '----formdata-polyfill-' + Math.random(),
           chunks = [],
           p = `--${boundary}\r\nContent-Disposition: form-data; name="`
@@ -300,7 +306,13 @@ if (typeof Blob !== 'undefined' && (typeof FormData === 'undefined' || !FormData
     get [Symbol.toStringTag]() {
       return 'FormData';
     }
+
+    static {
+      getFormDataBlob = fd => fd.#blob()
+    }
   }
 
   globalThis['FormData'] = FormDataPolyfill
 }
+
+export { getFormDataBlob }
