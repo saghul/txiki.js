@@ -405,6 +405,20 @@ static mbedtls_cipher_type_t tjs__get_cipher_type(int cipher_type, size_t key_le
     return MBEDTLS_CIPHER_NONE;
 }
 
+/* Clear the rightmost `bits` (1..127) of a 16-byte big-endian counter block,
+ * leaving the leftmost (nonce) bits untouched. Used to wrap the AES-CTR counter
+ * within its `length`-bit window without carrying into the nonce. */
+static void tjs__ctr_clear_low_bits(uint8_t block[16], int bits) {
+    int full_bytes = bits / 8;
+    int rem_bits = bits % 8;
+    for (int i = 0; i < full_bytes; i++) {
+        block[15 - i] = 0;
+    }
+    if (rem_bits) {
+        block[15 - full_bytes] &= (uint8_t) ~((1u << rem_bits) - 1);
+    }
+}
+
 static void tjs__cipher_work_cb(uv_work_t *req) {
     TJSCipherReq *cr = req->data;
     int ret;
@@ -507,20 +521,125 @@ static void tjs__cipher_work_cb(uv_work_t *req) {
                                                   cr->tag_length);
         }
     } else if (cr->cipher_type == CIPHER_AES_CTR) {
-        /* CTR: stream cipher, output length == input length, no padding. */
+        /* CTR: stream cipher, output length == input length, no padding.
+         *
+         * Per the WebCrypto spec only the rightmost `ctr_bits` of the 16-byte
+         * counter block form the counter; the remaining leftmost bits are a
+         * fixed nonce. The counter increments modulo 2^ctr_bits, so on overflow
+         * it must wrap back to zero *without* carrying into the nonce. mbedtls
+         * always increments the full 128-bit block, which matches the spec only
+         * while no wrap occurs. We therefore process the data in windows that
+         * stop at each wrap boundary, resetting the counter bits to zero in
+         * between. `ctr_bits` (1..128) arrives via the shared tag_length slot. */
+        if (cr->iv_ref.size != 16) {
+            ret = -1;
+            goto cleanup;
+        }
+
         cr->output = tjs__malloc(cr->data_ref.size > 0 ? cr->data_ref.size : 1);
         if (!cr->output) {
             ret = -1;
             goto cleanup;
         }
 
-        ret = mbedtls_cipher_crypt(&cipher_ctx,
-                                   cr->iv_ref.data,
-                                   cr->iv_ref.size,
-                                   cr->data_ref.data,
-                                   cr->data_ref.size,
-                                   cr->output,
-                                   &cr->output_len);
+        int ctr_bits = cr->tag_length;
+        size_t total = cr->data_ref.size;
+        cr->output_len = 0;
+
+        if (ctr_bits >= 128) {
+            /* The whole block is the counter; mbedtls' full-width increment is
+             * exactly the spec behavior, so a single call suffices. */
+            ret = mbedtls_cipher_crypt(&cipher_ctx,
+                                       cr->iv_ref.data,
+                                       16,
+                                       cr->data_ref.data,
+                                       total,
+                                       cr->output,
+                                       &cr->output_len);
+        } else {
+            uint8_t ctr_block[16];
+            memcpy(ctr_block, cr->iv_ref.data, 16);
+
+            size_t bytes_done = 0;
+            ret = 0;
+
+            while (bytes_done < total) {
+                size_t bytes_remaining = total - bytes_done;
+                size_t blocks_remaining = (bytes_remaining + 15) / 16;
+
+                /* Value of the low `ctr_bits` of the counter block (big-endian),
+                 * split into 64-bit halves. */
+                uint64_t c_hi = 0, c_lo = 0;
+                for (int i = 0; i < 8; i++) {
+                    c_hi = (c_hi << 8) | ctr_block[i];
+                }
+                for (int i = 8; i < 16; i++) {
+                    c_lo = (c_lo << 8) | ctr_block[i];
+                }
+
+                uint64_t v_hi, v_lo;
+                if (ctr_bits <= 64) {
+                    v_hi = 0;
+                    v_lo = (ctr_bits == 64) ? c_lo : (c_lo & (((uint64_t) 1 << ctr_bits) - 1));
+                } else {
+                    v_lo = c_lo;
+                    v_hi = c_hi & (((uint64_t) 1 << (ctr_bits - 64)) - 1);
+                }
+
+                /* p = 2^ctr_bits (ctr_bits is 1..127 here). */
+                uint64_t p_hi, p_lo;
+                if (ctr_bits < 64) {
+                    p_hi = 0;
+                    p_lo = (uint64_t) 1 << ctr_bits;
+                } else if (ctr_bits == 64) {
+                    p_hi = 1;
+                    p_lo = 0;
+                } else {
+                    p_hi = (uint64_t) 1 << (ctr_bits - 64);
+                    p_lo = 0;
+                }
+
+                /* room = p - v = number of blocks until the counter wraps.
+                 * v < p always holds, so room >= 1. */
+                uint64_t borrow = (p_lo < v_lo) ? 1 : 0;
+                uint64_t room_lo = p_lo - v_lo;
+                uint64_t room_hi = p_hi - v_hi - borrow;
+
+                size_t window_blocks;
+                int wrap_after;
+                if (room_hi != 0 || room_lo >= (uint64_t) blocks_remaining) {
+                    window_blocks = blocks_remaining;
+                    wrap_after = 0;
+                } else {
+                    window_blocks = (size_t) room_lo;
+                    wrap_after = 1;
+                }
+
+                size_t window_bytes = window_blocks * 16;
+                if (window_bytes > bytes_remaining) {
+                    window_bytes = bytes_remaining;
+                }
+
+                size_t olen = 0;
+                ret = mbedtls_cipher_crypt(&cipher_ctx,
+                                           ctr_block,
+                                           16,
+                                           cr->data_ref.data + bytes_done,
+                                           window_bytes,
+                                           cr->output + bytes_done,
+                                           &olen);
+                if (ret != 0) {
+                    goto cleanup;
+                }
+
+                cr->output_len += olen;
+                bytes_done += window_bytes;
+
+                if (wrap_after && bytes_done < total) {
+                    tjs__ctr_clear_low_bits(ctr_block, ctr_bits);
+                }
+            }
+        }
     } else {
         ret = -1;
     }
@@ -573,6 +692,8 @@ static JSValue tjs_webcrypto_cipher(JSContext *ctx, JSValue this_val, int argc, 
         return JS_EXCEPTION;
     }
 
+    /* Algorithm-specific numeric parameter: AES-GCM tag length in bytes, or the
+     * AES-CTR counter length in bits. Unused (0) for AES-CBC. */
     int32_t tag_length;
     if (JS_ToInt32(ctx, &tag_length, argv[6])) {
         return JS_EXCEPTION;
