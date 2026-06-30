@@ -1690,6 +1690,11 @@ declare global {
     /**
     * txiki.js adds `Symbol.dispose` to {@link Worker}, so
     * `using w = new Worker(url)` terminates the worker at scope exit.
+    *
+    * An uncaught error in the worker (at load, in a message handler, or an
+    * unhandled rejection) is surfaced as an `ErrorEvent` on the worker's
+    * `error` event, unless the worker cancels it via `self.onerror` +
+    * `preventDefault()`.
     */
     interface Worker extends Disposable {}
 }

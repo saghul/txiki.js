@@ -29,28 +29,36 @@ class CloseEvent extends Event {
 }
 
 class ErrorEvent extends Event {
+    #message;
+    #filename;
+    #lineno;
+    #colno;
     #error;
 
-    constructor(error) {
-        super('error');
+    constructor(type, init = {}) {
+        super(type, init);
 
-        this.#error = error;
+        this.#message = init.message ?? '';
+        this.#filename = init.filename ?? '';
+        this.#lineno = init.lineno ?? 0;
+        this.#colno = init.colno ?? 0;
+        this.#error = init.error;
     }
 
     get message() {
-        return String(this.#error);
+        return this.#message;
     }
 
     get filename() {
-        return undefined;
+        return this.#filename;
     }
 
     get lineno() {
-        return undefined;
+        return this.#lineno;
     }
 
     get colno() {
-        return undefined;
+        return this.#colno;
     }
 
     get error() {
