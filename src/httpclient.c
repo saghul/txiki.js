@@ -766,6 +766,11 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
     char full_path[TJS_PATH_MAX];
     snprintf(full_path, sizeof(full_path), "/%s", uri->path);
 
+    /* lws emits cci.host verbatim as the Host header; include a non-default
+     * port so the server sees the correct authority (RFC 7230 §5.4). */
+    char host_hdr[512];
+    tjs__lws_format_host(host_hdr, sizeof(host_hdr), uri->scheme, uri->host, uri->port);
+
     struct lws_context *lws_ctx = tjs__lws_get_context(ctx);
     if (!lws_ctx) {
         lws_parse_uri_destroy(&uri);
@@ -779,7 +784,7 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
     cci.address = uri->host;
     cci.port = uri->port;
     cci.path = full_path;
-    cci.host = uri->host;
+    cci.host = host_hdr;
     cci.origin = uri->host;
     cci.ssl_connection = (use_ssl ? LCCSCF_USE_SSL : 0) | h->ssl_flags | LCCSCF_HTTP_NO_FOLLOW_REDIRECT |
                          LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM;

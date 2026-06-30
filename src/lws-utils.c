@@ -40,6 +40,24 @@
 extern const struct lws_protocols tjs_ws_protocol;
 extern const struct lws_protocols tjs_http_protocol;
 
+/* Format the value of the HTTP "Host" header for a client connection into buf.
+ * lws emits lws_client_connect_info.host verbatim, so a non-default port must
+ * be appended and IPv6 literals bracketed (RFC 7230 §5.4 / RFC 3986 §3.2.2).
+ * lws_parse_uri_create() stores IPv6 hosts without their brackets and defaults
+ * the port to 80 (http/ws) or 443 (https/wss). */
+void tjs__lws_format_host(char *buf, size_t buflen, const char *scheme, const char *host, int port) {
+    int default_port = (!strcmp(scheme, "https") || !strcmp(scheme, "wss")) ? 443 : 80;
+    bool is_ipv6 = strchr(host, ':') != NULL;
+    const char *lb = is_ipv6 ? "[" : "";
+    const char *rb = is_ipv6 ? "]" : "";
+
+    if (port == default_port) {
+        lws_snprintf(buf, buflen, "%s%s%s", lb, host, rb);
+    } else {
+        lws_snprintf(buf, buflen, "%s%s%s:%d", lb, host, rb, port);
+    }
+}
+
 #define TJS_LWS_HTTP_LOAD_PROTOCOL_NAME "tjs-http-load"
 
 typedef struct {
@@ -728,11 +746,16 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
     struct lws_client_connect_info cci;
     memset(&cci, 0, sizeof(cci));
 
+    /* lws emits cci.host verbatim as the Host header; include a non-default
+     * port so the server sees the correct authority (RFC 7230 §5.4). */
+    char host_hdr[512];
+    tjs__lws_format_host(host_hdr, sizeof(host_hdr), uri->scheme, uri->host, uri->port);
+
     cci.context = lws_ctx;
     cci.address = ip_str;
     cci.port = uri->port;
     cci.path = full_path;
-    cci.host = uri->host;
+    cci.host = host_hdr;
     cci.origin = uri->host;
     cci.ssl_connection =
         (use_ssl ? LCCSCF_USE_SSL : 0) | LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM;
