@@ -2,6 +2,7 @@ import core from 'tjs:internal/core';
 
 import { getBlobParts } from './blob.js';
 import { defineEventAttribute } from './event-target';
+import { createPort, postMessageWithTransfer, DELIVER_ERROR, DELIVER_MESSAGE_ERROR } from './message-channel.js';
 import { getObjectURL } from './url.js';
 
 const _Worker = core.Worker;
@@ -29,6 +30,7 @@ function blobTextSync(blob) {
 
 class Worker extends EventTarget {
     #worker;
+    #handle;
 
     constructor(specifier) {
         super();
@@ -49,58 +51,41 @@ class Worker extends EventTarget {
         }
 
         const worker = new _Worker(specifier, source);
-        const messagePipe = worker.messagePipe;
+        const handle = worker.messagePipe;
 
-        messagePipe.onmessage = msg => {
-            this.dispatchEvent(new MessageEvent('message', msg));
-        };
+        // The Worker always listens (start() is not gated on a 'message' handler).
+        handle.start((data, ports, kind) => {
+            if (kind === DELIVER_ERROR) {
+                const error = new Error(data?.message ?? 'uncaught error in worker');
 
-        messagePipe.onmessageerror = msgerror => {
-            this.dispatchEvent(new MessageEvent('messageerror', msgerror));
-        };
+                if (data?.name) {
+                    error.name = data.name;
+                }
 
-        messagePipe.onerror = info => {
-            const error = new Error(info?.message ?? 'uncaught error in worker');
+                if (data?.stack) {
+                    error.stack = data.stack;
+                }
 
-            if (info?.name) {
-                error.name = info.name;
+                this.dispatchEvent(new ErrorEvent('error', { message: error.message, error }));
+
+                return;
             }
 
-            if (info?.stack) {
-                error.stack = info.stack;
+            if (kind === DELIVER_MESSAGE_ERROR) {
+                this.dispatchEvent(new MessageEvent('messageerror', {}));
+
+                return;
             }
 
-            this.dispatchEvent(new ErrorEvent('error', { message: error.message, error }));
-        };
+            this.dispatchEvent(new MessageEvent('message', { data, ports: ports?.map(createPort) }));
+        });
 
         this.#worker = worker;
+        this.#handle = handle;
     }
 
     postMessage(message, transferOrOptions) {
-        // Not using structuredClone here since we want to send the data directly
-        // without creating a Uint8Array, but the behavior is equivalent.
-
-        let options = {};
-
-        if (Array.isArray(transferOrOptions)) {
-            options = { transfer: transferOrOptions };
-        } else if (typeof transferOrOptions === 'object') {
-            options = transferOrOptions;
-        }
-
-        const transfers = options?.transfer ?? [];
-
-        for (const t of transfers) {
-            if (!core.isArrayBuffer(t)) {
-                throw new DOMException('Transferrable is not an ArrayBuffer', 'DataCloneError');
-            }
-        }
-
-        this.#worker.messagePipe.postMessage(message);
-
-        for (const t of transfers) {
-            core.detachArrayBuffer(t);
-        }
+        postMessageWithTransfer(this.#handle, message, transferOrOptions, null);
     }
 
     terminate() {
