@@ -147,7 +147,7 @@ class WebSocket extends EventTarget {
                 msg = new Blob([ data ]);
             }
 
-            this.dispatchEvent(new MessageEvent('message', msg));
+            this.dispatchEvent(new MessageEvent('message', { data: msg }));
         };
 
         ws.onerror = reason => {

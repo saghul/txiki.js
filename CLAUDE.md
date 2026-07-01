@@ -144,3 +144,7 @@ All vendored as git submodules: quickjs, libuv, mimalloc, sqlite3, libwebsockets
 - Prefer `Promise.withResolvers()` for deferred promises
 - Platform-specific C code uses `#ifdef _WIN32` / `#ifndef _WIN32` guards
 - Stdlib modules are imported as `tjs:modulename` (e.g., `import assert from 'tjs:assert'`)
+- Comment only what the code can't say itself. Add a comment when the *why* is
+  non-obvious — an unusual approach, a subtle invariant, a workaround, a non-local
+  consequence. Do **not** add comments that restate what the code plainly does; if
+  reading the code tells you the same thing, the comment is noise. Delete such comments.
