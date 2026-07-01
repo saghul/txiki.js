@@ -80,6 +80,21 @@ static inline int list_empty(struct list_head *el) {
     return el->next == el;
 }
 
+/* Move every element of 'src' into 'dst' (whose previous contents are ignored),
+ * leaving 'src' empty. Handy for lifting a whole list out from under a lock into
+ * a local head so it can be processed unlocked. */
+static inline void list_splice_init(struct list_head *dst, struct list_head *src) {
+    if (list_empty(src)) {
+        init_list_head(dst);
+        return;
+    }
+    dst->next = src->next;
+    dst->prev = src->prev;
+    dst->next->prev = dst;
+    dst->prev->next = dst;
+    init_list_head(src);
+}
+
 #define list_for_each(el, head) for (el = (head)->next; el != (head); el = el->next)
 
 #define list_for_each_safe(el, el1, head)                                                                              \
