@@ -122,6 +122,19 @@ struct TJSRuntime {
     struct list_head pending_rejections;
 };
 
+void tjs__mod_channel_init(JSContext *ctx, JSValue ns);
+
+/* Worker main-channel bridge (mod_channel.c): a MessageChannel whose two sides
+ * are owned by different threads' loops. The parent creates the two mailboxes
+ * (each with one reserved ref), wraps a side on each loop with a port, and drops
+ * both reserved refs once the ports exist. */
+typedef struct TJSMailbox TJSMailbox;
+bool tjs__channel_mailbox_pair(TJSMailbox **a, TJSMailbox **b);
+JSValue tjs__channel_port_new(JSContext *ctx, TJSMailbox *rx, TJSMailbox *tx);
+void tjs__channel_mailbox_unref(TJSMailbox *mb);
+void tjs__channel_port_close(JSValue port_handle);
+void tjs__channel_port_post_error(JSContext *ctx, JSValue port_handle, JSValueConst error_obj);
+
 void tjs__mod_dns_init(JSContext *ctx, JSValue ns);
 void tjs__mod_engine_init(JSContext *ctx, JSValue ns);
 void tjs__mod_error_init(JSContext *ctx, JSValue ns);
