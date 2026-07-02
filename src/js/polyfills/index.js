@@ -32,3 +32,4 @@ import './ws.js';
 import 'web-streams-polyfill/polyfill';
 import './compression-streams.js';
 import './ws-stream.js';
+import './eventsource.js';
