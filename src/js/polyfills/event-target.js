@@ -424,6 +424,55 @@ function defineEventAttribute(eventTargetPrototype, eventName) {
     );
 }
 
+// Guards against infinite recursion when an 'error' handler itself throws.
+let reportingException = false;
+
+/**
+ * Report an exception thrown by an event listener, per the DOM/HTML "report the
+ * exception" algorithm: fire a cancelable 'error' ErrorEvent at the global scope,
+ * and if no handler cancels it, perform the default action — forward to the parent
+ * (Worker.onerror) in a worker, or log to the console on the main thread. This
+ * keeps a throwing listener from propagating out of dispatchEvent (which would
+ * abort the runtime when dispatch happens from a native callback or a
+ * fire-and-forget async task).
+ * @param {any} error The exception thrown by the listener.
+ * @returns {void}
+ * @private
+ */
+function reportException(error) {
+    if (reportingException) {
+        console.error(error);
+
+        return;
+    }
+
+    reportingException = true;
+
+    let defaultPrevented = false;
+
+    try {
+        const event = new globalThis.ErrorEvent('error', {
+            message: error instanceof Error ? error.message : String(error),
+            error,
+            cancelable: true,
+        });
+
+        defaultPrevented = !globalThis.dispatchEvent(event);
+    } catch (_) {
+        // Reporting must never throw.
+    } finally {
+        reportingException = false;
+    }
+
+    if (!defaultPrevented) {
+        if (core.isWorker) {
+            core.postWorkerError(error);
+        } else {
+            console.error(error);
+        }
+    }
+}
+
 /**
  * EventTarget.
  */
@@ -588,10 +637,16 @@ class EventTarget {
             // Call this listener
             setPassiveListener(event, node.passive ? node.listener : null);
 
-            if (typeof node.listener === 'function') {
-                node.listener.call(self, event);
-            } else if (node.listenerType !== ATTRIBUTE && typeof node.listener.handleEvent === 'function') {
-                node.listener.handleEvent(event);
+            try {
+                if (typeof node.listener === 'function') {
+                    node.listener.call(self, event);
+                } else if (node.listenerType !== ATTRIBUTE && typeof node.listener.handleEvent === 'function') {
+                    node.listener.handleEvent(event);
+                }
+            } catch (err) {
+                // Per DOM, a throwing listener must not propagate out of dispatchEvent
+                // nor stop the remaining listeners: report it and continue.
+                reportException(err);
             }
 
             // Microtask checkpoint: drain microtasks after each listener
