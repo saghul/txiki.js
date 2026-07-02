@@ -18,6 +18,7 @@ Support for the [ES2025] specification (almost complete).
 - [Console]
 - [Crypto]
 - [Encoding API]
+- [EventSource]
 - [EventTarget]
 - [fetch]
 - [JSON modules]
@@ -57,6 +58,7 @@ Other extras:
 Look at the modules on the left sidebar.
 
 [fetch]: https://fetch.spec.whatwg.org/
+[EventSource]: https://developer.mozilla.org/en-US/docs/Web/API/EventSource
 [EventTarget]: https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
 [Console]: https://developer.mozilla.org/en-US/docs/Web/API/Console
 [Crypto]: https://developer.mozilla.org/en-US/docs/Web/API/Crypto

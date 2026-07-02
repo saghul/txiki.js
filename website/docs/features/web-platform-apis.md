@@ -22,6 +22,7 @@ txiki.js implements a number of Web Platform APIs to provide a familiar environm
 | [Direct Sockets](https://wicg.github.io/direct-sockets/) | TCP, TLS, UDP and Unix pipe sockets — see the [Networking](../guides/networking.md) guide |
 | [DOMException](https://developer.mozilla.org/en-US/docs/Web/API/DOMException) | |
 | [Encoding API](https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API) | `TextEncoder` / `TextDecoder`, plus the streaming [`TextEncoderStream`](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoderStream) / [`TextDecoderStream`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoderStream) |
+| [EventSource](https://developer.mozilla.org/en-US/docs/Web/API/EventSource) | Server-Sent Events over `fetch`; no CORS (`withCredentials` is a no-op) |
 | [EventTarget](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget) | |
 | [fetch](https://fetch.spec.whatwg.org/) | |
 | [File](https://developer.mozilla.org/en-US/docs/Web/API/File) | |

@@ -413,6 +413,13 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
         }
 
         case LWS_CALLBACK_RECEIVE_CLIENT_HTTP: {
+            /* Aborted (e.g. EventSource.close() / stream cancel) but the wsi is
+             * pending an async close: stop reading and let lws close via the -1
+             * return, so we don't deliver more data into a cancelled stream. */
+            if (h->completed) {
+                return -1;
+            }
+
             char buffer[8192 + LWS_PRE];
             char *px = buffer + LWS_PRE;
             int lenx = sizeof(buffer) - LWS_PRE;
@@ -950,9 +957,14 @@ static JSValue tjs_httpclient_abort(JSContext *ctx, JSValue this_val, int argc, 
         JSValue error = JS_NewString(ctx, "ABORTED");
         maybe_invoke_callback(h, HC_CALLBACK_COMPLETE, 1, &error);
 
-        /* Kill the WSI synchronously. The teardown callback chain
-         * will handle cleanup — do not access h afterwards. */
-        lws_set_timeout(wsi, PENDING_TIMEOUT_USER_OK, LWS_TO_KILL_SYNC);
+        /* Mark the WSI to be closed at the next loop iteration. Abort can be
+         * driven from a microtask drained *inside* this wsi's own service
+         * callback (e.g. a streaming fetch aborted from its ReadableStream
+         * cancel()): LWS_TO_KILL_SYNC would free the wsi inline while lws is
+         * still using it further up the stack (heap-use-after-free). ASYNC
+         * defers the close to a safe point in lws's service loop. The teardown
+         * callback chain will handle cleanup — do not access h afterwards. */
+        lws_set_timeout(wsi, PENDING_TIMEOUT_USER_OK, LWS_TO_KILL_ASYNC);
     }
 
     return JS_UNDEFINED;
