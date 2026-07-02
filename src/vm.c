@@ -175,6 +175,15 @@ static JSValue tjs__set_ca_bundle_path(JSContext *ctx, JSValue this_val, int arg
     return JS_UNDEFINED;
 }
 
+/* Forward an error to the parent over the worker's message channel (surfaces as
+ * Worker.onerror). No-ops on the main thread. Used by the JS "report the
+ * exception" path when a listener throws and the worker-scope 'error' event was
+ * not canceled. */
+static JSValue tjs__js_post_worker_error(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    tjs__worker_post_error(ctx, argv[0]);
+    return JS_UNDEFINED;
+}
+
 static JSValue tjs__js_drain_microtasks(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
@@ -294,6 +303,11 @@ static void tjs__bootstrap_core(JSContext *ctx, JSValue ns) {
                               ns,
                               "setImportMapResolver",
                               JS_NewCFunction(ctx, tjs__set_import_map_resolver, "setImportMapResolver", 1),
+                              JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx,
+                              ns,
+                              "postWorkerError",
+                              JS_NewCFunction(ctx, tjs__js_post_worker_error, "postWorkerError", 1),
                               JS_PROP_C_W_E);
 }
 
