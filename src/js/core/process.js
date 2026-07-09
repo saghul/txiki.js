@@ -118,9 +118,12 @@ class ProcessWritableStream extends WritableStream {
         super({
             async write(chunk, controller) {
                 try {
+                    // write() returns true when the chunk was fully written
+                    // inline (uv_try_write) and false when an async write was
+                    // queued, in which case onwrite fires on completion.
                     const result = handle.write(chunk);
 
-                    if (typeof result !== 'number') {
+                    if (!result) {
                         const { promise, resolve, reject } = Promise.withResolvers();
 
                         queue.push({ resolve, reject });
