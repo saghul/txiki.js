@@ -130,19 +130,9 @@ Direct CMake example (the flags can be combined):
 cmake -B build-slim -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_WASM=OFF -DBUILD_WITH_SQLITE=OFF
 ```
 
-### WASM transpiler build
-
-Building the TypeScript transpiler from source requires Rust:
-
-```bash
-rustup target add wasm32-wasip1
-make oxc-install        # build & cache locally
-# or
-make oxc-embed          # build & generate embed file for EMBED mode
-```
-
-The transpiler binary is also available as a release asset on GitHub, downloaded
+The transpiler binary is available as a release asset on GitHub, downloaded
 automatically on first use when `BUILD_WITH_TYPESCRIPT=ON` (default).
+The source lives at [txikijs-ts-transpiler](https://github.com/KaruroChori/txikijs-ts-transpiler).
 
 ## Size-optimized builds
 

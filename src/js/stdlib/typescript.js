@@ -1,6 +1,8 @@
 /* global tjs */
 import core from 'tjs:internal/core';
 
+const TRANSPILER_VERSION = '0.1.1';
+
 let transpilerInstance = null;
 let transpilerModule = null;
 
@@ -14,13 +16,25 @@ async function loadEmbedded() {
     return false;
 }
 
-async function loadFromCache() {
+function cacheDir() {
     const tjsHome = (tjs.env && tjs.env.TJS_HOME) || tjs.homeDir + '/.tjs';
-    const cacheDir = tjsHome + '/typescript/' + tjs.version;
-    const wasmPath = cacheDir + '/oxc_transpiler.wasm';
 
+    return tjsHome + '/typescript/' + TRANSPILER_VERSION;
+}
+
+function wasmPath() {
+    return cacheDir() + '/oxc_transpiler.wasm';
+}
+
+function downloadUrl() {
+    const base = 'https://github.com/KaruroChori/txikijs-ts-transpiler';
+
+    return base + '/releases/download/v' + TRANSPILER_VERSION + '/oxc_transpiler.wasm';
+}
+
+async function loadFromCache() {
     try {
-        const data = await tjs.readFile(wasmPath);
+        const data = await tjs.readFile(wasmPath());
 
         if (data) {
             return await compileAndInstantiate(data);
@@ -33,33 +47,27 @@ async function loadFromCache() {
 }
 
 async function downloadAndCache() {
-    const downloadUrl = 'https://github.com/saghul/txiki.js/releases/download/v' + tjs.version + '/oxc_transpiler.wasm';
-    const tjsHome = (tjs.env && tjs.env.TJS_HOME) || tjs.homeDir + '/.tjs';
-    const cacheDir = tjsHome + '/typescript/' + tjs.version;
-    const wasmPath = cacheDir + '/oxc_transpiler.wasm';
-
-    const res = await fetch(downloadUrl);
+    const url = downloadUrl();
+    const res = await fetch(url);
 
     if (!res.ok) {
         throw new Error(
-            'Failed to download TypeScript transpiler for tjs v' + tjs.version +
-            ': ' + res.status + ' ' + res.statusText + '\n' +
-            'Build it locally with: make oxc'
+            'Failed to download TypeScript transpiler v' + TRANSPILER_VERSION +
+            ': ' + res.status + ' ' + res.statusText
         );
     }
 
     const blob = await res.blob();
     const wasmBytes = new Uint8Array(await blob.arrayBuffer());
 
-    await tjs.makeDir(cacheDir, { recursive: true });
-    await tjs.writeFile(wasmPath, wasmBytes);
+    await tjs.makeDir(cacheDir(), { recursive: true });
+    await tjs.writeFile(wasmPath(), wasmBytes);
 
     return await compileAndInstantiate(wasmBytes);
 }
 
-async function compileAndInstantiate(wasmBytes) {
+function compileAndInstantiate(wasmBytes) {
     transpilerModule = new WebAssembly.Module(wasmBytes);
-
 
     transpilerInstance = new WebAssembly.Instance(transpilerModule);
 

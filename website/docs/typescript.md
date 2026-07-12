@@ -83,15 +83,15 @@ TypeScript support is enabled by default. Use the CMake option to control it:
 
 | Value | Behavior |
 |-------|----------|
-| `ON` (default) | WASM transpiler downloaded on first use, cached in `~/.tjs/typescript/` |
-| `EMBED` | WASM binary compiled into the txiki.js binary |
+| `ON` (default) | WASM transpiler downloaded on first use, cached in `~/.tjs/typescript/<version>/` |
+| `EMBED` | WASM binary downloaded at build time and compiled into the binary |
 | `OFF` | No TypeScript support |
 
 ```bash
 # Disable TypeScript support
 cmake -B build -DBUILD_WITH_TYPESCRIPT=OFF
 
-# Embed the WASM transpiler
+# Embed the WASM transpiler (downloads at CMake configure time)
 cmake -B build -DBUILD_WITH_TYPESCRIPT=EMBED
 ```
 

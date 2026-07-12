@@ -12,6 +12,5 @@ src/version.h
 node_modules/
 types/api/
 test_dir*/
-deps/oxc-transpiler/target/
-deps/oxc-transpiler/Cargo.lock
+tests/fixtures/typescript/
 src/bundles/typescript/
