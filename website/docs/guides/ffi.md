@@ -200,6 +200,47 @@ the raw bytes with `toUint8Array` instead.
 To go the other way, [`bufferToPointer`](/docs/api/tjs-ffi.Function.bufferToPointer)
 gives you a pointer to a `Uint8Array`'s memory.
 
+### Passing pointers between threads
+
+A `NativePointer` is not [structured-cloneable](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects),
+so you cannot `postMessage` it to a [`Worker`](/docs/api/tjs-worker) directly.
+Instead, send its address — [`pointer.value`](/docs/api/tjs-ffi.Interface.NativePointer),
+a `bigint` that clones by value — and rebuild the pointer on the other side with
+[`createPointer`](/docs/api/tjs-ffi.Function.createPointer):
+
+```javascript
+// main.js
+import { dlopen, suffix } from 'tjs:ffi';
+
+const { symbols } = dlopen(`./libfoo.${suffix}`, {
+    make_thing: { args: [], returns: 'ptr' },
+});
+const thing = symbols.make_thing();          // a NativePointer
+
+const worker = new Worker('./worker.js');
+worker.postMessage({ addr: thing.value });   // send the bigint, not the pointer
+```
+
+```javascript
+// worker.js
+import { createPointer } from 'tjs:ffi';
+
+self.onmessage = e => {
+    const thing = createPointer(e.data.addr); // same address, valid here
+    // ... use `thing` with a library loaded in this worker ...
+};
+```
+
+Two notable things the runtime does **not** do for you, both essential:
+
+- **Lifetime.** The address is just a number — nothing keeps the memory it refers
+  to alive. The thread that owns the memory must not free it (and, for a pointer
+  into a JS buffer, must keep that buffer referenced) until every other thread is
+  done with it.
+- **Thread-safety.** A valid pointer does not make the C API behind it safe to call
+  from another thread. Many libraries are not thread-safe. Confirm the library allows
+  the off-thread use
+
 ### Typed pointers
 
 [`Pointer`](/docs/api/tjs-ffi.Class.Pointer) pairs an address with the type it

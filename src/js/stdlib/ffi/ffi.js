@@ -286,6 +286,14 @@ export function bufferToPointer(buf) {
     return ffiInt.getArrayBufPtr(buf);
 }
 
+// Rebuild a NativePointer from a raw address obtained via `pointer.value`
+// (a BigInt). Primarily for moving a pointer across a same-process worker
+// thread: postMessage `pointer.value`, then `createPointer(addr)` on the
+// other side. See NativePointer.value for the caveats.
+export function createPointer(addr) {
+    return ffiInt.createPointer(addr);
+}
+
 // The zero-copy ArrayBuffer subtype returned by NativePointer.toArrayBuffer()
 // (and backing the Uint8Array from NativePointer.toUint8Array()). It is a real
 // ArrayBuffer with an extra detach() method; see src/mod_ffi.c.
