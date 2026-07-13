@@ -1082,6 +1082,23 @@ static JSValue js_is_pointer(JSContext *ctx, JSValue this_val, int argc, JSValue
     return JS_NewBool(ctx, argc > 0 && JS_IS_PTR(ctx, argv[0]));
 }
 
+// Build a NativePointer from a raw address given as a BigInt (the value read
+// from NativePointer.prototype.value). BigInt only: a JS number cannot hold
+// every 64-bit address exactly, so we reject it rather than silently truncate.
+// A zero address yields JS null, mirroring how null pointers are represented.
+// This fabricates a pointer from an arbitrary integer — dereferencing a bogus
+// address is undefined behaviour, exactly like bufferToPointer().
+static JSValue js_ffi_create_pointer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    if (argc < 1 || !JS_IsBigInt(argv[0])) {
+        return JS_ThrowTypeError(ctx, "createPointer expects a BigInt address");
+    }
+    uint64_t v;
+    if (JS_ToBigUint64(ctx, &v, argv[0])) {
+        return JS_EXCEPTION;
+    }
+    return js_ffi_pointer_new(ctx, (void *) (uintptr_t) v);
+}
+
 static JSValue js_array_buffer_get_ptr(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     if (argc <= 0) {
         JS_ThrowTypeError(ctx, "expected argument 1 to be ArrayBuffer");
@@ -1398,6 +1415,20 @@ static JSValue js_ffi_pointer_to_string(JSContext *ctx, JSValue this_val, int ar
     return JS_NewString(ctx, buf);
 }
 
+// Return the raw address as a BigInt. BigInt (not number) because a 64-bit
+// address can exceed Number.MAX_SAFE_INTEGER; it is also the carrier expected
+// by createPointer, so `createPointer(p.value)` round-trips exactly. This is the
+// supported way to move a pointer across a same-process worker thread: postMessage
+// the BigInt (structured-cloneable), then rebuild it with createPointer().
+static JSValue js_ffi_pointer_get_value(JSContext *ctx, JSValue this_val) {
+    void *ptr = JS_GetOpaque(this_val, js_ffi_pointer_classid);
+    if (!ptr) {
+        JS_ThrowTypeError(ctx, "expected this to be Pointer");
+        return JS_EXCEPTION;
+    }
+    return JS_NewBigUint64(ctx, (uint64_t) (uintptr_t) ptr);
+}
+
 static JSValue js_ffi_pointer_offset(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     void *ptr = JS_GetOpaque(this_val, js_ffi_pointer_classid);
     if (!ptr) {
@@ -1458,6 +1489,7 @@ static JSValue js_ffi_pointer_to_uint8array(JSContext *ctx, JSValue this_val, in
 
 static JSClassDef js_ffi_pointer_class = { "Pointer" };
 static const JSCFunctionListEntry js_ffi_pointer_proto_funcs[] = {
+    TJS_CGETSET_DEF("value", js_ffi_pointer_get_value, NULL),
     TJS_CFUNC_DEF("toString", 0, js_ffi_pointer_to_string),
     TJS_CFUNC_DEF("offset", 1, js_ffi_pointer_offset),
     TJS_CFUNC_DEF("equals", 1, js_ffi_pointer_equals),
@@ -1592,6 +1624,7 @@ static const JSCFunctionListEntry funcs[] = {
 
     // other helpers
     TJS_CFUNC_DEF("isPointer", 1, js_is_pointer),
+    TJS_CFUNC_DEF("createPointer", 1, js_ffi_create_pointer),
     TJS_CFUNC_DEF("getArrayBufPtr", 1, js_array_buffer_get_ptr),
     TJS_CFUNC_DEF("getCString", 1, js_get_cstring),
     TJS_CFUNC_DEF("toCString", 1, js_to_cstring),

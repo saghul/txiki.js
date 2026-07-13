@@ -21,6 +21,25 @@ declare module 'tjs:ffi'{
      * Null pointers are represented as JavaScript `null`.
      */
     export interface NativePointer {
+        /**
+         * The raw address as a `bigint`. Paired with {@link createPointer},
+         * which rebuilds a pointer from this value: `createPointer(p.value)`
+         * reproduces `p` exactly.
+         *
+         * This is the supported way to move a pointer to a **Worker**. A
+         * `NativePointer` is not structured-cloneable, so you cannot
+         * `postMessage` it directly; send `p.value` (a `bigint`, which clones
+         * by value) and call `createPointer()` on the other side. It works
+         * because txiki.js Workers are threads of the **same process** and
+         * share one address space — the address is valid on both sides.
+         *
+         * The address is a plain number: nothing keeps the memory it refers to
+         * alive, and nothing makes the target C API safe to call from another
+         * thread. The sender must ensure the memory outlives every use, and
+         * that touching it off-thread is actually allowed by that library (many
+         * — e.g. SDL rendering — are single-threaded or main-thread-only).
+         */
+        readonly value: bigint;
         /** Returns hex string representation, e.g. `"0x7fff5a2b3c00"`. */
         toString(): string;
         /** Returns a new pointer offset by `n` bytes. */
@@ -203,6 +222,20 @@ declare module 'tjs:ffi'{
     export function bufferToString(buf: Uint8Array): string;
     export function stringToBuffer(s: string): Uint8Array;
     export function bufferToPointer(buf: Uint8Array): NativePointer;
+
+    /**
+     * Rebuild a {@link NativePointer} from a raw address obtained via
+     * {@link NativePointer.value}. The argument **must** be a `bigint` (a
+     * number is rejected — it cannot represent every 64-bit address exactly);
+     * `0n` returns `null`, matching how null pointers are represented.
+     *
+     * The main use is moving a pointer to a Worker: `postMessage(p.value)`,
+     * then `createPointer(addr)` on the receiving thread. See
+     * {@link NativePointer.value} for why this is valid and for the lifetime
+     * and thread-safety caveats — this fabricates a pointer from an arbitrary
+     * integer, so dereferencing a bogus address is undefined behaviour.
+     */
+    export function createPointer(value: bigint): NativePointer | null;
 
     export class Pointer<T, N extends number>{
         constructor(addr: NativePointer, level: N, type: SimpleType<T>);
@@ -397,6 +430,7 @@ declare module 'tjs:ffi'{
         bufferToString: typeof bufferToString;
         stringToBuffer: typeof stringToBuffer;
         bufferToPointer: typeof bufferToPointer;
+        createPointer: typeof createPointer;
         dlopen: typeof dlopen;
     };
     export default _default;
