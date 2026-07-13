@@ -216,7 +216,7 @@ class Server {
                 responseHeaders.push([ name, value ]);
             });
 
-            if (response.body && response._bodySize < 0) {
+            if (response.body && response.bodySize < 0) {
                 // Streaming: send headers first, then stream body chunks.
                 // Filter hop-by-hop headers that lws manages itself.
                 const streamHeaders = responseHeaders.filter(

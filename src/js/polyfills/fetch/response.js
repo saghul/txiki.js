@@ -1,4 +1,4 @@
-import { BodyMixin } from './body.js';
+import { cloneBody, initBody, mixinBody } from './body.js';
 import { Headers } from './headers.js';
 
 
@@ -6,8 +6,6 @@ const redirectStatuses = [ 301, 302, 303, 307, 308 ];
 
 export class Response {
     constructor(bodyInit, options = {}) {
-        Object.assign(this, BodyMixin);
-
         this.type = 'default';
         this.status = options.status === undefined ? 200 : options.status;
 
@@ -20,7 +18,7 @@ export class Response {
         this.headers = new Headers(options.headers);
         this.url = options.url || '';
 
-        this._initBody(bodyInit);
+        initBody(this, bodyInit);
     }
 
     static error() {
@@ -56,7 +54,7 @@ export class Response {
     }
 
     clone() {
-        return new Response(this.body, {
+        return new Response(cloneBody(this), {
             status: this.status,
             statusText: this.statusText,
             headers: new Headers(this.headers),
@@ -64,3 +62,5 @@ export class Response {
         });
     }
 }
+
+mixinBody(Response.prototype);

@@ -1,11 +1,9 @@
-import { BodyMixin } from './body.js';
+import { cloneBody, initBody, mixinBody, takeBodyStream } from './body.js';
 import { Headers } from './headers.js';
 
 
 export class Request {
     constructor(input, options = {}) {
-        Object.assign(this, BodyMixin);
-
         let body = options.body;
 
         if (input instanceof Request) {
@@ -26,8 +24,7 @@ export class Request {
             this.signal = input.signal;
 
             if (!body && input.body !== null) {
-                body = input.body;
-                input.bodyUsed = true;
+                body = takeBodyStream(input);
             }
         } else {
             this.url = String(input);
@@ -49,14 +46,15 @@ export class Request {
             throw new TypeError('Body not allowed for GET or HEAD requests');
         }
 
-        // Require duplex: 'half' for ReadableStream bodies (spec compliant)
-        if (body instanceof ReadableStream) {
-            if (options.duplex !== 'half') {
-                throw new TypeError('ReadableStream body requires duplex: "half" option');
-            }
+        // A user-supplied ReadableStream body requires duplex: 'half' (spec
+        // compliant). A stream inherited from another Request — via clone(), or
+        // fetch() re-wrapping a Request argument — is an internal body and
+        // carries no such requirement.
+        if (options.body instanceof ReadableStream && options.duplex !== 'half') {
+            throw new TypeError('ReadableStream body requires duplex: "half" option');
         }
 
-        this._initBody(body);
+        initBody(this, body);
 
         if (this.method === 'GET' || this.method === 'HEAD') {
             if (options.cache === 'no-store' || options.cache === 'no-cache') {
@@ -77,9 +75,13 @@ export class Request {
     }
 
     clone() {
-        return new Request(this, { body: this.body, duplex: this._bodySize === -1 ? 'half' : undefined });
+        const body = cloneBody(this);
+
+        return new Request(this, { body, duplex: body ? 'half' : undefined });
     }
 }
+
+mixinBody(Request.prototype);
 
 // HTTP methods whose capitalization should be normalized.
 const methods = [ 'CONNECT', 'DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT', 'TRACE' ];

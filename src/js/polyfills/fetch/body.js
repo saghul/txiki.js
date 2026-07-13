@@ -1,20 +1,15 @@
 import { getFormDataBlob } from '../form-data.js';
 
 
+// The WHATWG spec models Body as a mixin that Request and Response "include",
+// not a base class. We mirror that: mixinBody() installs the members onto each
+// prototype, and the per-instance state ({ stream, size, used }) lives under a
+// Symbol that never leaves this module, so it is unreachable from user code.
+const kBodyState = Symbol('bodyState');
+
+
 function isDataView(obj) {
     return obj && isPrototypeOf(DataView.prototype, obj);
-}
-
-function consumed(body) {
-    if (body._noBody) {
-        return;
-    }
-
-    if (body.bodyUsed) {
-        return Promise.reject(new TypeError('Already read'));
-    }
-
-    body.bodyUsed = true;
 }
 
 function bufferClone(buf) {
@@ -67,104 +62,164 @@ async function readAllChunks(stream) {
     return result.buffer;
 }
 
-export const BodyMixin = {
-    bodyUsed: false,
+function consumeBody(state) {
+    if (state.stream === null) {
+        return;
+    }
 
-    _initBody(body) {
-        this._bodyInit = body;
+    if (state.used) {
+        return Promise.reject(new TypeError('Already read'));
+    }
 
-        if (!body) {
-            this._noBody = true;
-            this._bodySize = 0;
-            this._bodyStream = null;
-        } else if (body instanceof ReadableStream) {
-            this._bodySize = -1;  // Unknown size (streaming)
-            this._bodyStream = body;
-        } else if (typeof body === 'string') {
-            const encoded = new TextEncoder().encode(body);
+    state.used = true;
+}
 
-            this._bodySize = encoded.byteLength;
-            this._bodyStream = new ReadableStream({
-                start(controller) {
-                    controller.enqueue(encoded);
-                    controller.close();
-                }
-            });
-        } else if (isPrototypeOf(Blob.prototype, body)) {
-            this._bodySize = body.size;
-            this._bodyStream = body.stream();
-        } else if (isPrototypeOf(FormData.prototype, body)) {
-            // Serialize as multipart/form-data so File/Blob parts are sent as
-            // their raw bytes (WHATWG Fetch). getFormDataBlob() builds the
-            // multipart body and reports the boundary via the Blob's type.
-            const blob = getFormDataBlob(body);
+// Build the body state for a Request/Response and apply default content-type
+// headers. Called from their constructors once target.headers is set.
+export function initBody(target, body) {
+    const headers = target.headers;
 
-            this._bodySize = blob.size;
-            this._bodyStream = blob.stream();
+    let stream;
+    let size;
 
-            if (!this.headers.get('content-type')) {
-                this.headers.set('content-type', blob.type);
+    if (!body) {
+        size = 0;
+        stream = null;
+    } else if (body instanceof ReadableStream) {
+        size = -1;  // Unknown size (streaming)
+        stream = body;
+    } else if (typeof body === 'string') {
+        const encoded = new TextEncoder().encode(body);
+
+        size = encoded.byteLength;
+        stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(encoded);
+                controller.close();
             }
+        });
+    } else if (isPrototypeOf(Blob.prototype, body)) {
+        size = body.size;
+        stream = body.stream();
+    } else if (isPrototypeOf(FormData.prototype, body)) {
+        // Serialize as multipart/form-data so File/Blob parts are sent as
+        // their raw bytes (WHATWG Fetch). getFormDataBlob() builds the
+        // multipart body and reports the boundary via the Blob's type.
+        const blob = getFormDataBlob(body);
+
+        size = blob.size;
+        stream = blob.stream();
+
+        if (!headers.get('content-type')) {
+            headers.set('content-type', blob.type);
+        }
+    } else if (isPrototypeOf(URLSearchParams.prototype, body)) {
+        const encoded = new TextEncoder().encode(body.toString());
+
+        size = encoded.byteLength;
+        stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(encoded);
+                controller.close();
+            }
+        });
+    } else if (isDataView(body)) {
+        const buffer = bufferClone(body.buffer);
+
+        size = buffer.byteLength;
+        stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(new Uint8Array(buffer));
+                controller.close();
+            }
+        });
+    } else if (isPrototypeOf(ArrayBuffer.prototype, body) || ArrayBuffer.isView(body)) {
+        const buffer = bufferClone(body);
+
+        size = buffer.byteLength;
+        stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(new Uint8Array(buffer));
+                controller.close();
+            }
+        });
+    } else {
+        // Fallback: convert to string
+        const encoded = new TextEncoder().encode(Object.prototype.toString.call(body));
+
+        size = encoded.byteLength;
+        stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(encoded);
+                controller.close();
+            }
+        });
+    }
+
+    // Set content-type header if not already set
+    if (!headers.get('content-type')) {
+        if (typeof body === 'string') {
+            headers.set('content-type', 'text/plain;charset=UTF-8');
+        } else if (body && isPrototypeOf(Blob.prototype, body) && body.type) {
+            headers.set('content-type', body.type);
         } else if (isPrototypeOf(URLSearchParams.prototype, body)) {
-            const encoded = new TextEncoder().encode(body.toString());
-
-            this._bodySize = encoded.byteLength;
-            this._bodyStream = new ReadableStream({
-                start(controller) {
-                    controller.enqueue(encoded);
-                    controller.close();
-                }
-            });
-        } else if (isDataView(body)) {
-            const buffer = bufferClone(body.buffer);
-
-            this._bodySize = buffer.byteLength;
-            this._bodyStream = new ReadableStream({
-                start(controller) {
-                    controller.enqueue(new Uint8Array(buffer));
-                    controller.close();
-                }
-            });
-        } else if (isPrototypeOf(ArrayBuffer.prototype, body) || ArrayBuffer.isView(body)) {
-            const buffer = bufferClone(body);
-
-            this._bodySize = buffer.byteLength;
-            this._bodyStream = new ReadableStream({
-                start(controller) {
-                    controller.enqueue(new Uint8Array(buffer));
-                    controller.close();
-                }
-            });
-        } else {
-            // Fallback: convert to string
-            const str = Object.prototype.toString.call(body);
-            const encoded = new TextEncoder().encode(str);
-
-            this._bodySize = encoded.byteLength;
-            this._bodyStream = new ReadableStream({
-                start(controller) {
-                    controller.enqueue(encoded);
-                    controller.close();
-                }
-            });
+            headers.set('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
         }
+    }
 
-        // Set content-type header if not already set
-        if (!this.headers.get('content-type')) {
-            if (typeof body === 'string') {
-                this.headers.set('content-type', 'text/plain;charset=UTF-8');
-            } else if (this._bodyInit && isPrototypeOf(Blob.prototype, body) && body.type) {
-                this.headers.set('content-type', body.type);
-            } else if (isPrototypeOf(URLSearchParams.prototype, body)) {
-                this.headers.set('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
-            }
-        }
+    target[kBodyState] = { stream, size, used: false };
+}
 
-        this.body = this._bodyStream;
+// Tee a body for clone(): rewire the source to one branch of the tee and return
+// the other for the clone (null when there is no body). Throws, per the WHATWG
+// clone() steps, if the body was already consumed. The clone's body is a fresh
+// ReadableStream, so it reports an unknown size (-1).
+export function cloneBody(source) {
+    const state = source[kBodyState];
+
+    if (state.used) {
+        throw new TypeError('Already read');
+    }
+
+    if (state.stream === null) {
+        return null;
+    }
+
+    const [ mine, theirs ] = state.stream.tee();
+
+    state.stream = mine;
+
+    return theirs;
+}
+
+// Transfer a source Request's body into a new one (Request-from-Request
+// construction): mark the source consumed and hand back its stream.
+export function takeBodyStream(source) {
+    const state = source[kBodyState];
+
+    state.used = true;
+
+    return state.stream;
+}
+
+// WHATWG Body mixin members, installed onto the Request and Response prototypes
+// by mixinBody(). Each reads the per-instance state stored under kBodyState.
+const bodyMixin = {
+    get body() {
+        return this[kBodyState].stream;
+    },
+
+    get bodyUsed() {
+        return this[kBodyState].used;
+    },
+
+    get bodySize() {
+        return this[kBodyState].size;
     },
 
     blob() {
-        const rejected = consumed(this);
+        const state = this[kBodyState];
+        const rejected = consumeBody(state);
 
         if (rejected) {
             return rejected;
@@ -172,41 +227,43 @@ export const BodyMixin = {
 
         const contentType = this.headers.get('content-type') ?? '';
 
-        if (!this._bodyStream) {
+        if (state.stream === null) {
             return Promise.resolve(new Blob([], { type: contentType }));
         }
 
-        return readAllChunks(this._bodyStream).then(buffer =>
+        return readAllChunks(state.stream).then(buffer =>
             new Blob([ buffer ], { type: contentType })
         );
     },
 
     arrayBuffer() {
-        const rejected = consumed(this);
+        const state = this[kBodyState];
+        const rejected = consumeBody(state);
 
         if (rejected) {
             return rejected;
         }
 
-        if (!this._bodyStream) {
+        if (state.stream === null) {
             return Promise.resolve(new ArrayBuffer(0));
         }
 
-        return readAllChunks(this._bodyStream);
+        return readAllChunks(state.stream);
     },
 
     text() {
-        const rejected = consumed(this);
+        const state = this[kBodyState];
+        const rejected = consumeBody(state);
 
         if (rejected) {
             return rejected;
         }
 
-        if (!this._bodyStream) {
+        if (state.stream === null) {
             return Promise.resolve('');
         }
 
-        return readAllChunks(this._bodyStream).then(buffer =>
+        return readAllChunks(state.stream).then(buffer =>
             new TextDecoder().decode(buffer)
         );
     },
@@ -233,6 +290,18 @@ export const BodyMixin = {
         return this.text().then(JSON.parse);
     },
 };
+
+// Install the Body mixin members onto a Request/Response prototype as
+// non-enumerable properties, matching normal prototype-method semantics.
+export function mixinBody(prototype) {
+    const descriptors = Object.getOwnPropertyDescriptors(bodyMixin);
+
+    for (const descriptor of Object.values(descriptors)) {
+        descriptor.enumerable = false;
+    }
+
+    Object.defineProperties(prototype, descriptors);
+}
 
 function decode(body) {
     const form = new FormData();
