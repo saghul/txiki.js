@@ -203,7 +203,7 @@ gives you a pointer to a `Uint8Array`'s memory.
 ### Passing pointers between threads
 
 A `NativePointer` is not [structured-cloneable](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects),
-so you cannot `postMessage` it to a [`Worker`](/docs/api/tjs-worker) directly.
+so you cannot `postMessage` it to a `Worker` directly.
 Instead, send its address — [`pointer.value`](/docs/api/tjs-ffi.Interface.NativePointer),
 a `bigint` that clones by value — and rebuild the pointer on the other side with
 [`createPointer`](/docs/api/tjs-ffi.Function.createPointer):
