@@ -249,7 +249,7 @@ export function fetch(input, init) {
         }
 
         // Open the connection. Body handling depends on request type.
-        if (request._bodySize === -1) {
+        if (request.bodySize === -1) {
             // Streaming body (ReadableStream)
             client.streaming = true;
 
@@ -275,7 +275,7 @@ export function fetch(input, init) {
             };
 
             client.open(request.method, request.url);
-        } else if (request._bodySize > 0) {
+        } else if (request.bodySize > 0) {
             // Known-size body - read it all and pass to open
             request.arrayBuffer().then(function(buf) {
                 client.open(request.method, request.url, new Uint8Array(buf));
