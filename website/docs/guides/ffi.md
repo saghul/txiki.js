@@ -176,6 +176,41 @@ console.log(callIt.call(cb, 21)); // 42
 Keep the `JSCallback` alive for as long as C might call it; if it is garbage
 collected, the function pointer becomes dangling.
 
+Callbacks work through [`dlopen`](/docs/api/tjs-ffi.Function.dlopen) too — declare
+the argument as `types.jscallback()` and pass a `JSCallback` when calling:
+
+```javascript
+import { dlopen, JSCallback, types, suffix } from 'tjs:ffi';
+
+const { symbols, close } = dlopen(`./libmystuff.${suffix}`, {
+    call_it: { args: [types.jscallback(), types.sint], returns: types.sint },
+});
+
+const cb = new JSCallback(types.sint, [types.sint], (n) => n * 2);
+
+console.log(symbols.call_it(cb, 21)); // 42
+close();
+```
+
+If you'd rather build a `CFunction` yourself, `dlopen`'s result also exposes the
+underlying [`Lib`](/docs/api/tjs-ffi.Class.Lib) as `lib`, so you can grab raw
+symbols from the same handle without opening the library twice:
+
+```javascript
+import { dlopen, CFunction, JSCallback, types, suffix } from 'tjs:ffi';
+
+const { symbols, lib, close } = dlopen(`./libmystuff.${suffix}`, {
+    add: { args: [types.sint, types.sint], returns: types.sint },
+});
+
+const callIt = new CFunction(lib.symbol('call_it'), types.sint, [types.jscallback(), types.sint]);
+const cb = new JSCallback(types.sint, [types.sint], (n) => n * 2);
+
+console.log(symbols.add(1, 2));   // 3
+console.log(callIt.call(cb, 21)); // 42
+close();
+```
+
 ## Pointers
 
 Functions that return or accept pointers work with

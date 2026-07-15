@@ -377,6 +377,12 @@ declare module 'tjs:ffi'{
                 ? (...args: MapArrayToJsType<T[K]["args"]>) => MapToJsType<T[K]["returns"]>
                 : () => MapToJsType<T[K]["returns"]>;
         };
+        /**
+         * The underlying {@link Lib}. Use `lib.symbol(name)` to obtain a raw
+         * {@link DlSymbol} — e.g. to build a {@link CFunction} that takes a
+         * {@link JSCallback} — without opening the library a second time.
+         */
+        lib: Lib;
         /** Close the shared library handle. */
         close(): void;
     }
