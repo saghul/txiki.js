@@ -446,6 +446,19 @@ else()
     set(LWS_WITH_SYS_ASYNC_DNS ON CACHE BOOL "" FORCE)
 endif()
 set(LWS_WITH_SOCKS5 ON CACHE BOOL "" FORCE)
+# Our custom event lib (src/lws-evlib.c, event_lib_custom) is a full event-lib
+# integration, not lws's built-in poll() loop. LWS_WITH_EVENT_LIBS makes lws
+# route every fd/wsi lifecycle event through the event-lib ops — including the
+# client connection-pool socket handoff in
+# _lws_generic_transaction_completed_active_conn (guarded by this define), which
+# is what fetch keep-alive/pipelining relies on to migrate a warm connection to
+# the next request. It also disables lws's default-poll() foreign-thread pollfd
+# bookkeeping, which is dead code for a custom event lib. Our ops report
+# evlib_size_{wsi,vh,ctx} == 0 (watchers live in a wsi-keyed hash map), so no
+# per-object evlib storage is expected. LWS_WITH_EVLIB_PLUGINS stays OFF: we
+# link one static custom evlib, not runtime-loaded plugins.
+set(LWS_WITH_EVENT_LIBS ON CACHE BOOL "" FORCE)
+set(LWS_WITH_EVLIB_PLUGINS OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_CACHE_NSCOOKIEJAR ON CACHE BOOL "" FORCE)
 # Tell lws about mbedtls capabilities (CHECK_FUNCTION_EXISTS fails for static libs)
 set(LWS_HAVE_mbedtls_md_setup 1 CACHE BOOL "" FORCE)
