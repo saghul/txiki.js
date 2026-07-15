@@ -89,6 +89,7 @@ typedef struct TJSHttpRequest {
     /* Response state. */
     bool responded;
     bool streaming;
+    bool chunked_response; /* h1 streaming response framed with Transfer-Encoding: chunked */
     struct list_head pending_writes;
     uint8_t *response_data; /* includes LWS_PRE padding */
     size_t response_len;    /* total length including LWS_PRE + headers + body */
@@ -1808,10 +1809,30 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
     unsigned char *p = start;
     unsigned char *end = header_buf + hdr_buf_size - 1;
 
-    /* Status line without Content-Length (streaming / unknown size). */
-    if (lws_add_http_common_headers(req->wsi, (unsigned int) status, NULL, LWS_ILLEGAL_HTTP_CONTENT_LEN, &p, end)) {
-        js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to add status header");
+    /* Streaming response of unknown length. Over HTTP/2 the body is framed as
+     * DATA frames terminated by END_STREAM, so lws's common-headers path (which
+     * adds neither Content-Length nor Connection for a mux stream) is right.
+     * Over HTTP/1.1 that path would add "Connection: close" (lws close-delimits
+     * unknown-length h1 responses), which prevents keep-alive/pipelining. So
+     * for h1 we frame the body ourselves with Transfer-Encoding: chunked and
+     * keep the connection reusable. */
+    if (req->is_h2) {
+        if (lws_add_http_common_headers(req->wsi, (unsigned int) status, NULL, LWS_ILLEGAL_HTTP_CONTENT_LEN, &p, end)) {
+            js_free(ctx, header_buf);
+            return JS_ThrowInternalError(ctx, "failed to add status header");
+        }
+    } else {
+        req->chunked_response = true;
+        if (lws_add_http_header_status(req->wsi, (unsigned int) status, &p, end) ||
+            lws_add_http_header_by_token(req->wsi,
+                                         WSI_TOKEN_HTTP_TRANSFER_ENCODING,
+                                         (const unsigned char *) "chunked",
+                                         7,
+                                         &p,
+                                         end)) {
+            js_free(ctx, header_buf);
+            return JS_ThrowInternalError(ctx, "failed to add status header");
+        }
     }
 
     /* Add custom headers from the array. */
@@ -1910,6 +1931,27 @@ static JSValue tjs_httpserver_send_body(JSContext *ctx, JSValue this_val, int ar
         }
     }
 
+    /* For an h1 chunked streaming response we frame the payload ourselves:
+     * a non-empty chunk as "<hex-len>\r\n<data>\r\n", and the final write as the
+     * terminating "0\r\n\r\n". (Over h2 the body is raw DATA frames terminated by
+     * END_STREAM, so leave the bytes unframed there.) */
+    char chunk_hdr[24];
+    int chunk_hdr_len = 0;
+    bool add_terminator = req->chunked_response && is_final;
+    size_t out_len = data_len;
+
+    if (req->chunked_response) {
+        if (data && data_len > 0) {
+            chunk_hdr_len = snprintf(chunk_hdr, sizeof(chunk_hdr), "%zx\r\n", data_len);
+            out_len = (size_t) chunk_hdr_len + data_len + 2; /* hdr + data + CRLF */
+        } else {
+            out_len = 0;
+        }
+        if (add_terminator) {
+            out_len += 5; /* "0\r\n\r\n" */
+        }
+    }
+
     /* Allocate pending write with LWS_PRE padding. */
     TJSHttpPendingWrite *pw = js_malloc(ctx, sizeof(*pw));
     if (!pw) {
@@ -1917,17 +1959,30 @@ static JSValue tjs_httpserver_send_body(JSContext *ctx, JSValue this_val, int ar
         return JS_ThrowOutOfMemory(ctx);
     }
 
-    pw->data = js_malloc(ctx, LWS_PRE + data_len);
+    pw->data = js_malloc(ctx, LWS_PRE + out_len);
     if (!pw->data) {
         js_free(ctx, pw);
         JS_FreeValue(ctx, data_ab);
         return JS_ThrowOutOfMemory(ctx);
     }
 
-    if (data && data_len > 0) {
+    if (req->chunked_response) {
+        uint8_t *w = pw->data + LWS_PRE;
+        if (data && data_len > 0) {
+            memcpy(w, chunk_hdr, (size_t) chunk_hdr_len);
+            w += chunk_hdr_len;
+            memcpy(w, data, data_len);
+            w += data_len;
+            memcpy(w, "\r\n", 2);
+            w += 2;
+        }
+        if (add_terminator) {
+            memcpy(w, "0\r\n\r\n", 5);
+        }
+    } else if (data && data_len > 0) {
         memcpy(pw->data + LWS_PRE, data, data_len);
     }
-    pw->len = data_len;
+    pw->len = out_len;
     pw->sent = 0;
     pw->is_final = is_final;
 

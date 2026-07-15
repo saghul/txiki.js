@@ -77,6 +77,8 @@ typedef struct {
     bool streaming;
     bool body_done;
     bool completed;
+    bool torn_down;
+    bool keepalive; /* connection may be pooled for reuse (decided at headers) */
     unsigned long timeout;
     int ssl_flags;
     JSValue url;
@@ -157,6 +159,86 @@ static void maybe_invoke_callback(TJSHttpClient *h, int callback, int argc, JSVa
     for (int i = 0; i < argc; i++) {
         JS_FreeValue(ctx, argv[i]);
     }
+}
+
+/* Release our hold on a finished request.  With connection reuse
+ * (LCCSCF_PIPELINE) a wsi is no longer 1:1 with a socket: on transaction
+ * completion lws keeps the connection warm and, for h1, migrates it to the
+ * next queued request — the retired leader is then destroyed WITHOUT a
+ * CLOSED_CLIENT_HTTP callback (it sets already_did_cce). So teardown must run
+ * from whichever terminal callback fires first: COMPLETED_CLIENT_HTTP on
+ * success, CLOSED/CONNECTION_ERROR on failure; an idle connection's eventual
+ * CLOSED arrives after we have already detached here and is a no-op.
+ *
+ * This drops loop-liveness (so idle pooled connections don't keep the process
+ * alive), cancels the request timeout, and detaches h from the wsi so no later
+ * callback on the reused/idle connection sees this client.  It does NOT free
+ * h: that stays the GC finalizer's job, since the JS wrapper (and abort())
+ * may still reach it until it is collected. */
+static void httpclient_teardown(TJSHttpClient *h, struct lws *cbwsi) {
+    if (h->torn_down) {
+        return;
+    }
+    h->torn_down = true;
+
+    tjs__lws_conn_unref(h->ctx);
+
+    if (h->wsi) {
+        lws_set_timer_usecs(h->wsi, LWS_SET_TIMER_USEC_CANCEL);
+    }
+
+    /* Detach h from every wsi that carries it as user_space, so no later callback
+     * on a reused/idle connection dereferences a client we no longer own. h->wsi
+     * is what lws wrote to cci.pwsi — for a pooled h2 request that is the shared
+     * network wsi, whereas the request's HTTP callbacks (including the terminal
+     * CLOSED) fire on a mux child stream wsi whose user_space is also h. cbwsi is
+     * the wsi of the terminal callback we tear down from; clear it, h->wsi, and
+     * cbwsi's network wsi, each guarded so we only ever null our own pointer. */
+    struct lws *carriers[3] = { h->wsi, cbwsi, cbwsi ? lws_get_network_wsi(cbwsi) : NULL };
+    for (size_t i = 0; i < sizeof(carriers) / sizeof(carriers[0]); i++) {
+        if (carriers[i] && lws_wsi_user(carriers[i]) == h) {
+            lws_set_wsi_user(carriers[i], NULL);
+        }
+    }
+    h->wsi = NULL;
+
+    /* Release the self-pin; the finalizer frees callbacks, url, buffers, and the
+     * struct itself once JS also lets go. Unpinning also removes h from the
+     * teardown registry, so an abnormal-exit drain won't touch it. */
+    CHECK(!JS_IsUndefined(h->pin.obj));
+    tjs__handle_unpin(h->ctx, &h->pin);
+}
+
+/* Decide whether a connection may be kept warm for reuse, from the response
+ * headers.  Called at ESTABLISHED_CLIENT_HTTP (not COMPLETED): for a
+ * close-delimited response lws fires COMPLETED off the socket EOF, by which
+ * point the response header table may already be gone, so the "Connection"
+ * token must be read while the headers are fresh.  The response must permit
+ * keep-alive (no "Connection: close"): a close-delimited h1 response is sent
+ * with Connection: close and the peer tears the socket down after it, so
+ * keeping it warm would race a dead socket on the next request.
+ * When not reusable the COMPLETED handler returns -1 so lws closes the socket
+ * and the next request to the same host opens a fresh connection. */
+static bool httpclient_conn_reusable(struct lws *wsi) {
+    char conn[64];
+    if (lws_hdr_copy(wsi, conn, sizeof(conn), WSI_TOKEN_CONNECTION) > 0) {
+        /* Connection is a comma-separated token list; a "close" token anywhere
+         * means the peer will not keep the connection alive. */
+        const char *p = conn;
+        while (*p) {
+            while (*p == ' ' || *p == ',') {
+                p++;
+            }
+            if (!strncasecmp(p, "close", 5) && (p[5] == '\0' || p[5] == ' ' || p[5] == ',')) {
+                return false;
+            }
+            while (*p && *p != ',') {
+                p++;
+            }
+        }
+    }
+
+    return true;
 }
 
 
@@ -406,6 +488,23 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
         case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP: {
             int status = (int) lws_http_client_http_response(wsi);
 
+            /* When a request reuses an existing h2 connection, lws binds a new
+             * stream and fires this callback once with no response yet (HTTP
+             * status 0) purely to signal the stream is ready; the real response
+             * headers arrive in a later ESTABLISHED. Ignore the signalling one
+             * so we don't deliver a bogus status-0 response. */
+            if (status <= 0) {
+                break;
+            }
+
+            /* Decide reuse now, while the response headers are still parsed: a
+             * response that carried "Connection: close" leaves the socket about
+             * to be torn down, so it must not be kept warm — the COMPLETED
+             * handler returns -1 to close it. Streaming (chunked) request bodies
+             * were already kept out of the pool at connect (no LCCSCF_PIPELINE),
+             * so there is nothing to evict here. */
+            h->keepalive = httpclient_conn_reusable(wsi);
+
             /* Detect Content-Encoding before firing headers. */
             const char *encoding = detect_content_encoding(wsi);
             if (encoding) {
@@ -581,7 +680,13 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                 JSValue error = JS_NULL;
                 maybe_invoke_callback(h, HC_CALLBACK_COMPLETE, 1, &error);
             }
-            return -1;
+            /* Keep the connection warm for reuse (LCCSCF_PIPELINE) only when the
+             * response allowed it (decided at ESTABLISHED); otherwise return -1
+             * so lws closes it and the next request to the same host opens a
+             * fresh connection. */
+            bool reusable = h->keepalive;
+            httpclient_teardown(h, wsi);
+            return reusable ? 0 : -1;
         }
 
         case LWS_CALLBACK_TIMER: {
@@ -593,17 +698,16 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
             return -1;
         }
 
-            /* CLOSED and CONNECTION_ERROR are mutually exclusive — exactly
-             * one of them fires as the final callback through our protocol.
-             * (WSI_DESTROY goes to protocols[0], not to us.)
-             * Do full teardown here. */
+            /* Terminal failure/close callbacks. On a reused connection a
+             * successful transaction ends at COMPLETED_CLIENT_HTTP (which tore
+             * down already, detaching h → user is NULL and we returned at the
+             * top). Reaching here means either the transaction never completed
+             * (connection error / server closed mid-response) or an aborted
+             * request's deferred close. Report the failure if not already
+             * completed, then tear down. */
 
         case LWS_CALLBACK_CLOSED_CLIENT_HTTP:
         case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: {
-            tjs__lws_conn_unref(h->ctx);
-            lws_set_wsi_user(h->wsi, NULL);
-            h->wsi = NULL;
-
             if (!h->completed) {
                 h->completed = true;
                 if (reason == LWS_CALLBACK_CLIENT_CONNECTION_ERROR) {
@@ -617,10 +721,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                 }
             }
 
-            /* Drop the prevent-GC reference.  The GC finalizer will free
-             * callbacks, url, buffers, and the struct itself. */
-            CHECK(!JS_IsUndefined(h->pin.obj));
-            tjs__handle_unpin(h->ctx, &h->pin);
+            httpclient_teardown(h, wsi);
             break;
         }
 
@@ -663,6 +764,8 @@ static JSValue tjs_httpclient_constructor(JSContext *ctx, JSValue new_target, in
     h->streaming = false;
     h->body_done = false;
     h->completed = false;
+    h->torn_down = false;
+    h->keepalive = true;
     h->ssl_flags = 0;
 
     for (int i = 0; i < HC_CALLBACK_MAX; i++) {
@@ -804,8 +907,23 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
     cci.path = full_path;
     cci.host = host_hdr;
     cci.origin = uri->host;
+    /* LCCSCF_PIPELINE opts this connection into lws's client connection pool:
+     * requests to the same endpoint (address+port+tls, per vhost) reuse a warm
+     * connection instead of a fresh TCP+TLS handshake each time — h1 pipelines
+     * sequentially, h2 multiplexes streams. Without it lws also sends
+     * "Connection: close" on every request.
+     *
+     * A streaming (unknown-length) request body is sent chunked, and a
+     * keep-alive peer that cannot de-frame a chunked request body would fail to
+     * parse the next request on a reused connection (lws itself has no such
+     * server-side de-framer). Rather than pool such a connection and evict it
+     * afterwards, we keep it out of the pool from the start: no LCCSCF_PIPELINE,
+     * so lws gives it its own connection and sends "Connection: close". These
+     * requests are rare; for h2 it only means a streaming upload does not
+     * multiplex onto a shared connection, a negligible cost. */
     cci.ssl_connection = (use_ssl ? LCCSCF_USE_SSL : 0) | h->ssl_flags | LCCSCF_HTTP_NO_FOLLOW_REDIRECT |
-                         LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM;
+                         LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM |
+                         (h->streaming ? 0 : LCCSCF_PIPELINE);
     cci.method = h->method;
     cci.local_protocol_name = TJS_LWS_HTTP_PROTOCOL_NAME;
     cci.userdata = h;
