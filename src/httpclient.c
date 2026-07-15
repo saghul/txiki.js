@@ -64,9 +64,9 @@ enum {
 };
 
 typedef struct {
+    TJSHandlePin pin;
     JSContext *ctx;
     JSValue callbacks[HC_CALLBACK_MAX];
-    JSValue this_val;
     struct lws *wsi;
     char *method;
     char *url_str;
@@ -89,6 +89,9 @@ static JSClassID tjs_httpclient_class_id;
 static void tjs_httpclient_finalizer(JSRuntime *rt, JSValue val) {
     TJSHttpClient *h = JS_GetOpaque(val, tjs_httpclient_class_id);
     if (h) {
+        /* A pinned client holds a ref to itself, so it can't be finalized until
+         * the pin is released (in the lws close callback). */
+        CHECK(JS_IsUndefined(h->pin.obj));
         for (int i = 0; i < HC_CALLBACK_MAX; i++) {
             JS_FreeValueRT(rt, h->callbacks[i]);
         }
@@ -128,12 +131,21 @@ static TJSHttpClient *tjs_httpclient_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_httpclient_class_id);
 }
 
+/* Clear the JS callbacks at teardown (see TJSHandlePin.detach) so the lws close
+ * callback dispatches nothing once the context is destroyed. */
+static void tjs_httpclient_detach(TJSHandlePin *pin) {
+    TJSHttpClient *h = list_entry(pin, TJSHttpClient, pin);
+    for (int i = 0; i < HC_CALLBACK_MAX; i++) {
+        JS_FreeValue(h->ctx, h->callbacks[i]);
+        h->callbacks[i] = JS_UNDEFINED;
+    }
+}
+
 static void maybe_invoke_callback(TJSHttpClient *h, int callback, int argc, JSValue *argv) {
     JSContext *ctx = h->ctx;
-    TJSRuntime *qrt = TJS_GetRuntime(ctx);
 
     JSValue func = h->callbacks[callback];
-    if (qrt->freeing || !JS_IsFunction(ctx, func)) {
+    if (!JS_IsFunction(ctx, func)) {
         for (int i = 0; i < argc; i++) {
             JS_FreeValue(ctx, argv[i]);
         }
@@ -607,10 +619,8 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
 
             /* Drop the prevent-GC reference.  The GC finalizer will free
              * callbacks, url, buffers, and the struct itself. */
-            CHECK(!JS_IsUndefined(h->this_val));
-            JSValue val = h->this_val;
-            h->this_val = JS_UNDEFINED;
-            JS_FreeValue(h->ctx, val);
+            CHECK(!JS_IsUndefined(h->pin.obj));
+            tjs__handle_unpin(h->ctx, &h->pin);
             break;
         }
 
@@ -642,7 +652,8 @@ static JSValue tjs_httpclient_constructor(JSContext *ctx, JSValue new_target, in
 
     h->ctx = ctx;
     h->url = JS_NULL;
-    h->this_val = JS_UNDEFINED;
+    h->pin.obj = JS_UNDEFINED;
+    h->pin.detach = tjs_httpclient_detach;
     tbuf_init(ctx, &h->req_headers);
     tbuf_init(ctx, &h->send_buf);
     h->send_offset = 0;
@@ -858,13 +869,12 @@ static JSValue tjs_httpclient_open(JSContext *ctx, JSValue this_val, int argc, J
     }
 
     /* Prevent GC while request is in flight. */
-    h->this_val = JS_DupValue(ctx, this_val);
+    tjs__handle_pin(ctx, &h->pin, this_val);
     h->sent = true;
 
     if (tjs_httpclient_connect(h)) {
         h->sent = false;
-        JS_FreeValue(ctx, h->this_val);
-        h->this_val = JS_UNDEFINED;
+        tjs__handle_unpin(ctx, &h->pin);
         return JS_ThrowInternalError(ctx, "Connection failed");
     }
 

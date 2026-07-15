@@ -67,6 +67,25 @@ typedef struct {
     JSValue reason;
 } TJSPendingRejection;
 
+/* A native handle's GC-invisible self-pin, embedded in a struct to keep its JS
+ * wrapper alive while a libuv operation is in flight. `obj` is a duplicated
+ * reference to the wrapper that is deliberately NOT reported to the GC (so the
+ * cycle collector can't free the wrapper mid-operation); `link` registers the
+ * pin on TJSRuntime.handle_pins so teardown can drop it. `obj` is JS_UNDEFINED
+ * (and the pin unlinked) when idle.
+ *
+ * `detach` quiesces the handle at the start of teardown so it stops running JS
+ * during shutdown without a global flag. It must not touch the pin itself. Its
+ * job depends on who owns the handle's close: lws-backed handles clear their JS
+ * callbacks (lws closes them later, via lws_context_destroy), while libuv-backed
+ * handles begin closing (maybe_close), so their close does not depend on the GC
+ * collecting the wrapper. See tjs__detach_handles in vm.c. */
+typedef struct TJSHandlePin {
+    struct list_head link;
+    JSValue obj;
+    void (*detach)(struct TJSHandlePin *pin);
+} TJSHandlePin;
+
 struct TJSRuntime {
     TJSRunOptions options;
     JSRuntime *rt;
@@ -79,7 +98,6 @@ struct TJSRuntime {
     } jobs;
     uv_async_t stop;
     bool is_worker;
-    bool freeing;
     bool draining_microtasks;
 #ifdef TJS_HAVE_WASM
     struct {
@@ -120,7 +138,22 @@ struct TJSRuntime {
         JSValue error_event_ctor;
     } builtins;
     struct list_head pending_rejections;
+    /* Self-pins of all active native handles (TJSHandlePin), so teardown can
+     * drop them and let the final GC collect and close the handles. */
+    struct list_head handle_pins;
 };
+
+/* Pin/unpin a native handle's JS wrapper for the duration of an async op, and
+ * register/deregister the pin so teardown can release it. Idempotent: pinning an
+ * already-pinned handle or unpinning an idle one is a no-op. */
+void tjs__handle_pin(JSContext *ctx, TJSHandlePin *pin, JSValue obj);
+void tjs__handle_unpin(JSContext *ctx, TJSHandlePin *pin);
+/* Teardown, before the lws context is destroyed: run each registered pin's
+ * `detach` hook (no-op for pins without one) so lws-backed wrappers stop
+ * dispatching to JS before their close callbacks fire. */
+void tjs__detach_handles(TJSRuntime *qrt);
+/* Teardown: drop every registered self-pin so the objects become collectable. */
+void tjs__release_pins(TJSRuntime *qrt);
 
 void tjs__mod_channel_init(JSContext *ctx, JSValue ns);
 

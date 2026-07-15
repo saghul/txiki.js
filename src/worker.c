@@ -39,10 +39,11 @@ void tjs__worker_post_error(JSContext *ctx, JSValueConst error) {
     TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
 
-    if (!qrt->is_worker || qrt->freeing) {
+    if (!qrt->is_worker) {
         return;
     }
 
+    /* Cleared at the start of teardown, so this also short-circuits shutdown. */
     JSValue pipe = qrt->builtins.internal_message_pipe;
     if (JS_IsUndefined(pipe)) {
         return;

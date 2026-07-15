@@ -39,9 +39,9 @@ typedef struct {
 } TJSWsPendingWrite;
 
 typedef struct {
+    TJSHandlePin pin;
     JSContext *ctx;
     JSValue callbacks[WS_CALLBACK_MAX];
-    JSValue this_val;
     struct lws *wsi;
     TBuf recv_buf;
     bool recv_is_binary;
@@ -61,6 +61,9 @@ static JSClassID tjs_ws_class_id;
 static void tjs_ws_finalizer(JSRuntime *rt, JSValue val) {
     TJSWs *w = JS_GetOpaque(val, tjs_ws_class_id);
     if (w) {
+        /* A pinned socket holds a ref to itself, so it can't be finalized until
+         * the pin is released (in the lws close/error callback). */
+        CHECK(JS_IsUndefined(w->pin.obj));
         for (int i = 0; i < WS_CALLBACK_MAX; i++) {
             JS_FreeValueRT(rt, w->callbacks[i]);
         }
@@ -99,12 +102,21 @@ static TJSWs *tjs_ws_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_ws_class_id);
 }
 
+/* Clear the JS callbacks at teardown (see TJSHandlePin.detach) so the lws
+ * close/error callback dispatches nothing once the context is destroyed. */
+static void tjs_ws_detach(TJSHandlePin *pin) {
+    TJSWs *w = list_entry(pin, TJSWs, pin);
+    for (int i = 0; i < WS_CALLBACK_MAX; i++) {
+        JS_FreeValue(w->ctx, w->callbacks[i]);
+        w->callbacks[i] = JS_UNDEFINED;
+    }
+}
+
 static void maybe_call_callback(TJSWs *w, int event, int argc, JSValue *argv) {
     JSContext *ctx = w->ctx;
-    TJSRuntime *qrt = TJS_GetRuntime(ctx);
 
     JSValue cb = w->callbacks[event];
-    if (qrt->freeing || !JS_IsFunction(ctx, cb)) {
+    if (!JS_IsFunction(ctx, cb)) {
         for (int i = 0; i < argc; i++) {
             JS_FreeValue(ctx, argv[i]);
         }
@@ -279,10 +291,8 @@ static int tjs_lws_callback(struct lws *wsi, enum lws_callback_reasons reason, v
             tjs__lws_conn_unref(ctx);
 
             /* Release the prevent-GC ref now that the connection is closed. */
-            JSValue cls_val = w->this_val;
-            w->this_val = JS_UNDEFINED;
             lws_set_wsi_user(wsi, NULL);
-            JS_FreeValue(ctx, cls_val);
+            tjs__handle_unpin(ctx, &w->pin);
             break;
         }
 
@@ -305,10 +315,8 @@ static int tjs_lws_callback(struct lws *wsi, enum lws_callback_reasons reason, v
             tjs__lws_conn_unref(ctx);
 
             /* Release the prevent-GC ref. */
-            JSValue err_val = w->this_val;
-            w->this_val = JS_UNDEFINED;
             lws_set_wsi_user(wsi, NULL);
-            JS_FreeValue(ctx, err_val);
+            tjs__handle_unpin(ctx, &w->pin);
             break;
         }
 
@@ -362,7 +370,8 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     for (int i = 0; i < WS_CALLBACK_MAX; i++) {
         w->callbacks[i] = JS_UNDEFINED;
     }
-    w->this_val = JS_UNDEFINED;
+    w->pin.obj = JS_UNDEFINED;
+    w->pin.detach = tjs_ws_detach;
     tbuf_init(ctx, &w->recv_buf);
     w->header_names = JS_UNDEFINED;
     w->header_values = JS_UNDEFINED;
@@ -458,7 +467,7 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     }
 
     /* Prevent GC while connected. */
-    w->this_val = JS_DupValue(ctx, obj);
+    tjs__handle_pin(ctx, &w->pin, obj);
 
     tjs__lws_conn_ref(ctx);
 
