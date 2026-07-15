@@ -628,6 +628,11 @@ export function dlopen(path, symbols) {
 
     return {
         symbols: result,
+        // Expose the underlying Lib so callers can grab raw symbols (e.g. to
+        // build a CFunction with a JSCallback arg) without opening the library
+        // a second time. close() and lib.close() both close the same handle;
+        // that's fine, the native close is idempotent.
+        lib,
         close: () => lib.close(),
     };
 }
