@@ -32,8 +32,8 @@
 static JSClassID tjs_process_class_id;
 
 typedef struct {
+    TJSHandlePin pin;
     JSContext *ctx;
-    JSValue obj;
     JSValue onexit;
     bool closed;
     bool finalized;
@@ -55,9 +55,18 @@ static void maybe_close(TJSProcess *p) {
     }
 }
 
+/* Begin closing the handle at teardown (see TJSHandlePin.detach), so it is
+ * closed without relying on the GC to collect and finalize the wrapper. */
+static void tjs_process_detach(TJSHandlePin *pin) {
+    maybe_close(list_entry(pin, TJSProcess, pin));
+}
+
 static void tjs_process_finalizer(JSRuntime *rt, JSValue val) {
     TJSProcess *p = JS_GetOpaque(val, tjs_process_class_id);
     if (p) {
+        /* A pinned process holds a ref to itself, so it can't be finalized until
+         * the pin is released (on exit or at teardown). */
+        CHECK(JS_IsUndefined(p->pin.obj));
         JS_FreeValueRT(rt, p->onexit);
         p->finalized = true;
         if (p->closed) {
@@ -133,8 +142,7 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
     p->onexit = JS_UNDEFINED;
     JS_FreeValue(ctx, arg);
 
-    JS_FreeValue(ctx, p->obj);
-    p->obj = JS_UNDEFINED;
+    tjs__handle_unpin(ctx, &p->pin);
 
     maybe_close(p);
 }
@@ -155,6 +163,8 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
 
     p->ctx = ctx;
     p->process.data = p;
+    p->pin.obj = JS_UNDEFINED;
+    p->pin.detach = tjs_process_detach;
 
     uv_process_options_t options;
     memset(&options, 0, sizeof(uv_process_options_t));
@@ -401,7 +411,7 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
 
     JS_SetOpaque(obj, p);
     ret = obj;
-    p->obj = JS_DupValue(ctx, obj);
+    tjs__handle_pin(ctx, &p->pin, obj);
     goto cleanup;
 
 fail:

@@ -148,3 +148,7 @@ All vendored as git submodules: quickjs, libuv, mimalloc, sqlite3, libwebsockets
   non-obvious — an unusual approach, a subtle invariant, a workaround, a non-local
   consequence. Do **not** add comments that restate what the code plainly does; if
   reading the code tells you the same thing, the comment is noise. Delete such comments.
+- Don't defend against states that can't happen. If an invariant must always hold,
+  assert it with `CHECK(...)` (which aborts), not with a fallback branch that
+  silently "handles" the impossible case. Fallback-for-the-impossible hides bugs;
+  a `CHECK` documents the invariant and fails loudly if it is ever violated.

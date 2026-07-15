@@ -45,6 +45,7 @@ enum {
 };
 
 typedef struct {
+    TJSHandlePin pin; /* keep the JS object alive while the handle is active */
     JSContext *ctx;
     int closed;
     int finalized;
@@ -55,7 +56,6 @@ typedef struct {
         uv_tty_t tty;
         uv_pipe_t pipe;
     } h;
-    JSValue obj; /* prevent GC while the handle is active (reading / listening) */
     JSValue callbacks[STREAM_CB_MAX];
     struct {
         uint8_t *buf;
@@ -85,8 +85,22 @@ static void maybe_close(TJSStream *s) {
     }
 }
 
+/* Begin closing the handle at teardown (see TJSHandlePin.detach), so it is
+ * closed without relying on the GC to collect and finalize the wrapper. */
+static void tjs_stream_detach(TJSHandlePin *pin) {
+    maybe_close(list_entry(pin, TJSStream, pin));
+}
+
 static void maybe_invoke_callback(TJSStream *s, int callback, int argc, JSValue *argv) {
     JSContext *ctx = s->ctx;
+    /* A request canceled by uv_close completes here after the finalizer has
+     * already freed s->callbacks; skip dispatch (but still drop argv). */
+    if (s->finalized) {
+        for (int i = 0; i < argc; i++) {
+            JS_FreeValue(ctx, argv[i]);
+        }
+        return;
+    }
     JSValue func = s->callbacks[callback];
     if (!JS_IsFunction(ctx, func)) {
         for (int i = 0; i < argc; i++) {
@@ -136,8 +150,7 @@ static JSValue tjs_stream_close(JSContext *ctx, JSValue this_val, int argc, JSVa
         maybe_invoke_callback(s, STREAM_CB_CONNECTION, 2, args);
     }
 
-    JS_FreeValue(ctx, s->obj);
-    s->obj = JS_UNDEFINED;
+    tjs__handle_unpin(ctx, &s->pin);
 
     maybe_close(s);
     return JS_UNDEFINED;
@@ -203,11 +216,9 @@ static JSValue tjs_stream_start_read(JSContext *ctx, JSValue this_val, int argc,
     }
 
     /* Pin the JS object so the GC cannot collect it while the handle is
-       actively reading.  The reference is intentionally NOT marked in gc_mark
-       so the cycle-collector cannot account for it. */
-    if (JS_IsUndefined(s->obj)) {
-        s->obj = JS_DupValue(ctx, this_val);
-    }
+       actively reading.  The pin is intentionally NOT marked in gc_mark so the
+       cycle-collector cannot account for it. */
+    tjs__handle_pin(ctx, &s->pin, this_val);
 
     return JS_UNDEFINED;
 }
@@ -226,8 +237,7 @@ static JSValue tjs_stream_stop_read(JSContext *ctx, JSValue this_val, int argc, 
     js_free(ctx, s->read.buf);
     s->read.buf = NULL;
 
-    JS_FreeValue(ctx, s->obj);
-    s->obj = JS_UNDEFINED;
+    tjs__handle_unpin(ctx, &s->pin);
 
     return JS_UNDEFINED;
 }
@@ -405,10 +415,9 @@ static void uv__stream_connect_cb(uv_connect_t *req, int status) {
 
     /* Unpin unless start_read (or listen) has re-pinned in the meantime.
        We check uv_is_active: if the user called startRead inside the connect
-       callback the handle is active and obj was already re-pinned there. */
+       callback the handle is active and it was already re-pinned there. */
     if (!uv_is_active(&s->h.handle)) {
-        JS_FreeValue(ctx, s->obj);
-        s->obj = JS_UNDEFINED;
+        tjs__handle_unpin(ctx, &s->pin);
     }
 
     js_free(ctx, req);
@@ -472,9 +481,7 @@ static JSValue tjs_stream_listen(JSContext *ctx, JSValue this_val, int argc, JSV
         return tjs_throw_errno(ctx, r);
     }
 
-    if (JS_IsUndefined(s->obj)) {
-        s->obj = JS_DupValue(ctx, this_val);
-    }
+    tjs__handle_pin(ctx, &s->pin, this_val);
 
     return JS_UNDEFINED;
 }
@@ -501,7 +508,8 @@ static JSValue tjs_stream_set_blocking(JSContext *ctx, JSValue this_val, int arg
 static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
     s->ctx = ctx;
     s->h.handle.data = s;
-    s->obj = JS_UNDEFINED;
+    s->pin.obj = JS_UNDEFINED;
+    s->pin.detach = tjs_stream_detach;
     s->read.buf = NULL;
 
     for (int i = 0; i < STREAM_CB_MAX; i++) {
@@ -514,7 +522,9 @@ static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
 
 static void tjs_stream_finalizer(JSRuntime *rt, TJSStream *s) {
     if (s) {
-        JS_FreeValueRT(rt, s->obj);
+        /* A pinned handle holds a ref to itself, so it can't be finalized until
+         * the pin is released (on stop/close or at teardown). */
+        CHECK(JS_IsUndefined(s->pin.obj));
         for (int i = 0; i < STREAM_CB_MAX; i++) {
             JS_FreeValueRT(rt, s->callbacks[i]);
         }
@@ -643,9 +653,7 @@ static JSValue tjs_tcp_connect(JSContext *ctx, JSValue this_val, int argc, JSVal
         return tjs_throw_errno(ctx, r);
     }
 
-    if (JS_IsUndefined(t->obj)) {
-        t->obj = JS_DupValue(ctx, this_val);
-    }
+    tjs__handle_pin(ctx, &t->pin, this_val);
 
     return JS_UNDEFINED;
 }
@@ -929,9 +937,7 @@ static JSValue tjs_pipe_connect(JSContext *ctx, JSValue this_val, int argc, JSVa
         return tjs_throw_errno(ctx, r);
     }
 
-    if (JS_IsUndefined(t->obj)) {
-        t->obj = JS_DupValue(ctx, this_val);
-    }
+    tjs__handle_pin(ctx, &t->pin, this_val);
 
     return JS_UNDEFINED;
 }

@@ -125,6 +125,7 @@ enum {
 };
 
 typedef struct TJSTlsStream {
+    TJSHandlePin pin; /* keep the JS object alive while the handle is active */
     JSContext *ctx;
     int closed;
     int finalized;
@@ -152,7 +153,6 @@ typedef struct TJSTlsStream {
     char *cert_pem;
     char *key_pem;
 
-    JSValue obj;    /* own JS object — needed to pass to callbacks from libuv */
     JSValue server; /* accepted clients only: server ref during handshake */
 
     JSValue callbacks[TLS_CB_MAX];
@@ -307,6 +307,14 @@ static void tjs_tls_flush_bio_out(TJSTlsStream *s) {
 
 static void maybe_invoke_tls_callback(TJSTlsStream *s, int callback, int argc, JSValue *argv) {
     JSContext *ctx = s->ctx;
+    /* A request canceled by uv_close completes here after the finalizer has
+     * already freed s->callbacks; skip dispatch (but still drop argv). */
+    if (s->finalized) {
+        for (int i = 0; i < argc; i++) {
+            JS_FreeValue(ctx, argv[i]);
+        }
+        return;
+    }
     JSValue func = s->callbacks[callback];
     if (!JS_IsFunction(ctx, func)) {
         for (int i = 0; i < argc; i++) {
@@ -406,9 +414,8 @@ static void tjs_tls_complete_accept(TJSTlsStream *client, JSValue error) {
     JS_FreeValue(ctx, client->server);
     client->server = JS_UNDEFINED;
 
-    JSValue self_ref = JS_DupValue(ctx, client->obj);
-    JS_FreeValue(ctx, client->obj);
-    client->obj = JS_UNDEFINED;
+    JSValue self_ref = JS_DupValue(ctx, client->pin.obj);
+    tjs__handle_unpin(ctx, &client->pin);
 
     TJSTlsStream *server = tjs_tls_get(ctx, server_ref);
     if (!server) {
@@ -489,8 +496,7 @@ static void uv__tls_connect_cb(uv_connect_t *req, int status) {
     if (status != 0) {
         JSValue arg = tjs_new_error(ctx, status);
         maybe_invoke_tls_callback(s, TLS_CB_CONNECT, 1, &arg);
-        JS_FreeValue(ctx, s->obj);
-        s->obj = JS_UNDEFINED;
+        tjs__handle_unpin(ctx, &s->pin);
         return;
     }
 
@@ -501,8 +507,7 @@ static void uv__tls_connect_cb(uv_connect_t *req, int status) {
         s->tls_state = TLS_STATE_ERROR;
         JSValue arg = tjs_new_error(ctx, r);
         maybe_invoke_tls_callback(s, TLS_CB_CONNECT, 1, &arg);
-        JS_FreeValue(ctx, s->obj);
-        s->obj = JS_UNDEFINED;
+        tjs__handle_unpin(ctx, &s->pin);
         return;
     }
     tjs_tls_handshake(s);
@@ -531,9 +536,7 @@ static JSValue tjs_tls_connect(JSContext *ctx, JSValue this_val, int argc, JSVal
         return tjs_throw_errno(ctx, r);
     }
 
-    if (JS_IsUndefined(s->obj)) {
-        s->obj = JS_DupValue(ctx, this_val);
-    }
+    tjs__handle_pin(ctx, &s->pin, this_val);
 
     return JS_UNDEFINED;
 }
@@ -579,8 +582,11 @@ static void uv__tls_connection_cb(uv_stream_t *handle, int status) {
 
     /* Store references so the handshake completion can call onconnection
      * on the server. */
-    client->server = JS_DupValue(ctx, server->obj);
-    client->obj = obj;
+    client->server = JS_DupValue(ctx, server->pin.obj);
+    /* Transfer our owned reference to `obj` into the pin (which dups), then drop
+     * ours, and register the pin so teardown can release it. */
+    tjs__handle_pin(ctx, &client->pin, obj);
+    JS_FreeValue(ctx, obj);
 
     /* Start reading encrypted data. The handshake will be driven by
      * uv__tls_read_cb when the ClientHello arrives.
@@ -629,8 +635,7 @@ static JSValue tjs_tls_listen(JSContext *ctx, JSValue this_val, int argc, JSValu
         return JS_EXCEPTION;
     }
 
-    /* Store our own JS object so that the connection callback can reference it. */
-    s->obj = JS_DupValue(ctx, this_val);
+    tjs__handle_pin(ctx, &s->pin, this_val);
 
     int r = uv_listen((uv_stream_t *) &s->tcp, (int) backlog, uv__tls_connection_cb);
     if (r != 0) {
@@ -654,9 +659,7 @@ static JSValue tjs_tls_start_read(JSContext *ctx, JSValue this_val, int argc, JS
         return tjs_throw_errno(ctx, r);
     }
 
-    if (JS_IsUndefined(s->obj)) {
-        s->obj = JS_DupValue(ctx, this_val);
-    }
+    tjs__handle_pin(ctx, &s->pin, this_val);
 
     return JS_UNDEFINED;
 }
@@ -671,8 +674,7 @@ static JSValue tjs_tls_stop_read(JSContext *ctx, JSValue this_val, int argc, JSV
     }
     uv_read_stop((uv_stream_t *) &s->tcp);
 
-    JS_FreeValue(ctx, s->obj);
-    s->obj = JS_UNDEFINED;
+    tjs__handle_unpin(ctx, &s->pin);
 
     return JS_UNDEFINED;
 }
@@ -769,6 +771,12 @@ static void tjs_tls_maybe_close(TJSTlsStream *s) {
     }
 }
 
+/* Begin closing the handle at teardown (see TJSHandlePin.detach), so it is
+ * closed without relying on the GC to collect and finalize the wrapper. */
+static void tjs_tls_detach(TJSHandlePin *pin) {
+    tjs_tls_maybe_close(list_entry(pin, TJSTlsStream, pin));
+}
+
 static JSValue tjs_tls_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSTlsStream *s = tjs_tls_get(ctx, this_val);
     if (!s) {
@@ -781,8 +789,7 @@ static JSValue tjs_tls_close(JSContext *ctx, JSValue this_val, int argc, JSValue
     }
 
     /* Release the self-reference held by server sockets for the connection callback. */
-    JS_FreeValue(ctx, s->obj);
-    s->obj = JS_UNDEFINED;
+    tjs__handle_unpin(ctx, &s->pin);
 
     tjs_tls_maybe_close(s);
     return JS_UNDEFINED;
@@ -939,7 +946,9 @@ static void tjs_tls_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, s->callbacks[i]);
     }
 
-    JS_FreeValueRT(rt, s->obj);
+    /* A pinned stream holds a ref to itself, so it can't be finalized until the
+     * pin is released (on stop/close, accept completion, or at teardown). */
+    CHECK(JS_IsUndefined(s->pin.obj));
     JS_FreeValueRT(rt, s->server);
 
     mbedtls_ssl_free(&s->ssl);
@@ -977,7 +986,7 @@ static void tjs_tls_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
         for (int i = 0; i < TLS_CB_MAX; i++) {
             JS_MarkValue(rt, s->callbacks[i], mark_func);
         }
-        /* s->obj is intentionally NOT marked: it is a GC-invisible
+        /* s->pin is intentionally NOT marked: it is a GC-invisible
            self-reference that keeps the JS object alive while the libuv
            handle is active (reading / listening). */
         JS_MarkValue(rt, s->server, mark_func);
@@ -1148,7 +1157,8 @@ static JSValue tjs_new_tls(JSContext *ctx, int af) {
     s->ctx = ctx;
     s->tcp.data = s;
     s->tls_state = TLS_STATE_INIT;
-    s->obj = JS_UNDEFINED;
+    s->pin.obj = JS_UNDEFINED;
+    s->pin.detach = tjs_tls_detach;
     s->server = JS_UNDEFINED;
 
     tjs_tlsbuf_init(&s->bio_in);
