@@ -1756,12 +1756,21 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
     if (body_len > 0) {
         lws_callback_on_writable(req->wsi);
     } else {
-        /* No body, complete the transaction now and release the request so
-         * a subsequent keep-alive transaction on this wsi doesn't accumulate
-         * the previous request's state.  The return value indicates whether
-         * lws will close the connection; we can't propagate that from here (we
-         * are not in the protocol callback), so we drop our state either way
-         * and let lws handle the wsi lifecycle. */
+        /* No body. Over HTTP/2 a response is not complete until its stream is
+         * closed with END_STREAM; the HEADERS frame alone leaves the peer
+         * waiting for a DATA frame (the transfer fails). Emit a zero-length
+         * LWS_WRITE_HTTP_FINAL to carry END_STREAM and end the stream. Over
+         * HTTP/1 the content-length: 0 header fully frames the response, so no
+         * terminator is needed. */
+        if (req->is_h2) {
+            lws_write(req->wsi, req->response_data + LWS_PRE + hdr_len, 0, LWS_WRITE_HTTP_FINAL);
+        }
+        /* Complete the transaction now and release the request so a subsequent
+         * keep-alive transaction on this wsi doesn't accumulate the previous
+         * request's state.  The return value indicates whether lws will close
+         * the connection; we can't propagate that from here (we are not in the
+         * protocol callback), so we drop our state either way and let lws handle
+         * the wsi lifecycle. */
         int must_close = lws_http_transaction_completed(req->wsi);
         (void) must_close;
         tjs_http_req_complete(s, req);
