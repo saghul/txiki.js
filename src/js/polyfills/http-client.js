@@ -12,6 +12,7 @@ class HttpClient {
     #headers = [];
     #cookies = false;
     #allowInsecure = false;
+    #http3 = false;
     #client = null;
 
     get onstatus() {
@@ -128,6 +129,16 @@ class HttpClient {
         }
     }
 
+    // Internal: attempt the request over HTTP/3 (QUIC). Driven by fetch()'s
+    // Alt-Svc auto-upgrade, not a public API.
+    setHttp3(enable) {
+        this.#http3 = !!enable;
+
+        if (this.#client) {
+            this.#client.setHttp3(enable);
+        }
+    }
+
     sendData(data) {
         if (this.#client) {
             this.#client.sendData(data);
@@ -164,6 +175,10 @@ class HttpClient {
 
         if (this.#allowInsecure) {
             client.setAllowInsecure(true);
+        }
+
+        if (this.#http3) {
+            client.setHttp3(true);
         }
 
         if (this._streaming) {

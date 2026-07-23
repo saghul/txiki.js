@@ -1,0 +1,688 @@
+diff --git a/include/mbedtls/mbedtls_config.h b/include/mbedtls/mbedtls_config.h
+index 8fa445a132..82bdf37142 100644
+--- a/include/mbedtls/mbedtls_config.h
++++ b/include/mbedtls/mbedtls_config.h
+@@ -4435,3 +4435,11 @@
+ //#define MBEDTLS_X509_MAX_FILE_PATH_LEN     512 /**< Maximum length of a path/filename string in bytes including the null terminator character ('\0'). */
+ 
+ /** \} name SECTION: Module configuration options */
++
++/**
++ * \def MBEDTLS_SSL_LWS_QUIC_SUPPORT
++ *
++ * Enable LWS QUIC custom transport operations and extensions.
++ */
++#define MBEDTLS_SSL_LWS_QUIC_SUPPORT
++
+diff --git a/include/mbedtls/ssl.h b/include/mbedtls/ssl.h
+index 43d8175988..a51ba51e7c 100644
+--- a/include/mbedtls/ssl.h
++++ b/include/mbedtls/ssl.h
+@@ -300,6 +300,9 @@
+ 
+ #define MBEDTLS_SSL_TRANSPORT_STREAM            0   /*!< TLS      */
+ #define MBEDTLS_SSL_TRANSPORT_DATAGRAM          1   /*!< DTLS     */
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++#define MBEDTLS_SSL_TRANSPORT_QUIC              2   /*!< QUIC     */
++#endif
+ 
+ #define MBEDTLS_SSL_MAX_HOST_NAME_LEN           255 /*!< Maximum host name defined in RFC 1035 */
+ #define MBEDTLS_SSL_MAX_ALPN_NAME_LEN           255 /*!< Maximum size in bytes of a protocol name in alpn ext., RFC 7301 */
+@@ -1438,6 +1441,71 @@ typedef void mbedtls_ssl_export_keys_t(void *p_expkey,
+ typedef int (*mbedtls_ssl_hs_cb_t)(mbedtls_ssl_context *ssl);
+ #endif
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++typedef enum {
++    MBEDTLS_SSL_SECRET_TYPE_EARLY = 0,
++    MBEDTLS_SSL_SECRET_TYPE_HANDSHAKE,
++    MBEDTLS_SSL_SECRET_TYPE_APPLICATION,
++} mbedtls_ssl_secret_type_t;
++
++typedef enum {
++    MBEDTLS_SSL_QUIC_ENC_LEVEL_INITIAL = 0,
++    MBEDTLS_SSL_QUIC_ENC_LEVEL_EARLY_DATA,
++    MBEDTLS_SSL_QUIC_ENC_LEVEL_HANDSHAKE,
++    MBEDTLS_SSL_QUIC_ENC_LEVEL_APPLICATION
++} mbedtls_ssl_quic_enc_level_t;
++
++typedef struct mbedtls_ssl_transport_ops {
++    int (*write_handshake_msg)(mbedtls_ssl_context *ssl, mbedtls_ssl_quic_enc_level_t level, const unsigned char *buf, size_t len);
++    int (*read_handshake_msg)(mbedtls_ssl_context *ssl, mbedtls_ssl_quic_enc_level_t level, unsigned char *buf, size_t len);
++    int (*set_traffic_secrets)(mbedtls_ssl_context *ssl,
++                               mbedtls_ssl_secret_type_t secret_type,
++                               const unsigned char *client_secret,
++                               const unsigned char *server_secret,
++                               size_t secret_len,
++                               int ciphersuite_id);
++    int (*notify_alert)(mbedtls_ssl_context *ssl, unsigned char level, unsigned char description);
++} mbedtls_ssl_transport_ops;
++
++#define MBEDTLS_SSL_EXT_CTX_CLIENT_HELLO         (1 << 0)
++#define MBEDTLS_SSL_EXT_CTX_SERVER_HELLO         (1 << 1)
++#define MBEDTLS_SSL_EXT_CTX_ENCRYPTED_EXTENSIONS (1 << 2)
++#define MBEDTLS_SSL_EXT_CTX_CERTIFICATE          (1 << 3)
++
++typedef int (*mbedtls_ssl_custom_ext_write_cb)(
++                    mbedtls_ssl_context *ssl,
++                    unsigned int ext_type,
++                    unsigned int context,
++                    unsigned char *buf,
++                    size_t buf_len,
++                    size_t *out_len,
++                    void *custom_ctx );
++
++typedef int (*mbedtls_ssl_custom_ext_parse_cb)(
++                    mbedtls_ssl_context *ssl,
++                    unsigned int ext_type,
++                    unsigned int context,
++                    const unsigned char *buf,
++                    size_t in_len,
++                    void *custom_ctx );
++
++typedef void (*mbedtls_ssl_custom_ext_free_cb)(
++                    mbedtls_ssl_context *ssl,
++                    unsigned int ext_type,
++                    unsigned int context,
++                    void *custom_ctx );
++
++typedef struct mbedtls_ssl_custom_ext {
++    uint16_t ext_type;
++    uint32_t context_mask;
++    mbedtls_ssl_custom_ext_write_cb write_cb;
++    mbedtls_ssl_custom_ext_parse_cb parse_cb;
++    mbedtls_ssl_custom_ext_free_cb free_cb;
++    void *custom_ctx;
++    struct mbedtls_ssl_custom_ext *next;
++} mbedtls_ssl_custom_ext_t;
++#endif
++
+ /* A type for storing user data in a library structure.
+  *
+  * The representation of type may change in future versions of the library.
+@@ -1526,6 +1594,9 @@ struct mbedtls_ssl_config {
+      * Pointers
+      */
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++#endif
++
+     /** Allowed ciphersuites for (D)TLS 1.2 (0-terminated)                  */
+     const int *MBEDTLS_PRIVATE(ciphersuite_list);
+ 
+@@ -1731,6 +1802,11 @@ struct mbedtls_ssl_config {
+ struct mbedtls_ssl_context {
+     const mbedtls_ssl_config *MBEDTLS_PRIVATE(conf); /*!< configuration information          */
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++    const mbedtls_ssl_transport_ops *MBEDTLS_PRIVATE(transport_ops); /*!< custom transport ops       */
++    mbedtls_ssl_custom_ext_t *MBEDTLS_PRIVATE(custom_exts);          /*!< custom extensions          */
++#endif
++
+     /*
+      * Miscellaneous
+      */
+@@ -2128,7 +2204,7 @@ static inline int mbedtls_ssl_conf_get_endpoint(const mbedtls_ssl_config *conf)
+ 
+ /**
+  * \brief           Set the transport type (TLS or DTLS).
+- *                  Default: TLS
++ *                  Default: MBEDTLS_SSL_TRANSPORT_STREAM
+  *
+  * \note            For DTLS, you must either provide a recv callback that
+  *                  doesn't block, or one that handles timeouts, see
+@@ -2142,6 +2218,27 @@ static inline int mbedtls_ssl_conf_get_endpoint(const mbedtls_ssl_config *conf)
+  */
+ void mbedtls_ssl_conf_transport(mbedtls_ssl_config *conf, int transport);
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++/**
++ * \brief          Set the custom transport operations.
++ *
++ * \param ssl      SSL context
++ * \param ops      Transport ops structure.
++ */
++void mbedtls_ssl_set_quic_transport_ops(mbedtls_ssl_context *ssl, const mbedtls_ssl_transport_ops *ops);
++
++/**
++ * \brief          Add a custom extension to the connection context.
++ *
++ * \param ssl      SSL context
++ * \param ext      Custom extension struct. Must remain valid for the lifetime
++ *                 of the connection.
++ *
++ * \return         0 on success, or an error code.
++ */
++int mbedtls_ssl_set_quic_custom_ext(mbedtls_ssl_context *ssl, mbedtls_ssl_custom_ext_t *ext);
++#endif
++
+ /**
+  * \brief          Set the certificate verification mode
+  *                 Default: NONE on server, REQUIRED on client
+diff --git a/library/ssl_client.c b/library/ssl_client.c
+index 0bd00cd91a..fa5585785a 100644
+--- a/library/ssl_client.c
++++ b/library/ssl_client.c
+@@ -845,7 +845,11 @@ static int ssl_prepare_client_hello(mbedtls_ssl_context *ssl)
+ #endif /* MBEDTLS_SSL_PROTO_TLS1_2 */
+ 
+ #if defined(MBEDTLS_SSL_TLS1_3_COMPATIBILITY_MODE)
+-    if (ssl->tls_version == MBEDTLS_SSL_VERSION_TLS1_3) {
++    if (ssl->tls_version == MBEDTLS_SSL_VERSION_TLS1_3
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++        && ssl->conf->transport != MBEDTLS_SSL_TRANSPORT_QUIC
++#endif
++        ) {
+         /*
+          * Create a legacy session identifier for the purpose of middlebox
+          * compatibility only if one has not been created already, which is
+diff --git a/library/ssl_debug_helpers.h b/library/ssl_debug_helpers.h
+index 38ef76376c..297e6b9751 100644
+--- a/library/ssl_debug_helpers.h
++++ b/library/ssl_debug_helpers.h
+@@ -32,6 +32,8 @@ const char *mbedtls_tls_prf_types_str(mbedtls_tls_prf_types in);
+ 
+ const char *mbedtls_ssl_key_export_type_str(mbedtls_ssl_key_export_type in);
+ 
++const char *mbedtls_ssl_secret_type_t_str(mbedtls_ssl_secret_type_t in);
++
+ const char *mbedtls_ssl_sig_alg_to_str(uint16_t in);
+ 
+ const char *mbedtls_ssl_named_group_to_str(uint16_t in);
+@@ -40,6 +42,11 @@ const char *mbedtls_ssl_get_extension_name(unsigned int extension_type);
+ 
+ const char *mbedtls_ssl_get_hs_msg_name(int hs_msg_type);
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++const char *mbedtls_ssl_secret_type_t_str(mbedtls_ssl_secret_type_t in);
++const char *mbedtls_ssl_quic_enc_level_t_str(mbedtls_ssl_quic_enc_level_t in);
++#endif
++
+ void mbedtls_ssl_print_extensions(const mbedtls_ssl_context *ssl,
+                                   int level, const char *file, int line,
+                                   int hs_msg_type, uint32_t extensions_mask,
+diff --git a/library/ssl_misc.h b/library/ssl_misc.h
+index 218a30d408..5b1fbf6ee2 100644
+--- a/library/ssl_misc.h
++++ b/library/ssl_misc.h
+@@ -1468,6 +1468,46 @@ MBEDTLS_CHECK_RETURN_CRITICAL
+ int mbedtls_ssl_start_handshake_msg(mbedtls_ssl_context *ssl, unsigned char hs_type,
+                                     unsigned char **buf, size_t *buf_len);
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++static inline mbedtls_ssl_quic_enc_level_t mbedtls_ssl_quic_get_enc_level(
++    mbedtls_ssl_context *ssl, mbedtls_ssl_transform *transform)
++{
++    if (transform == NULL) {
++        return MBEDTLS_SSL_QUIC_ENC_LEVEL_INITIAL;
++    }
++#if defined(MBEDTLS_SSL_PROTO_TLS1_3)
++    if (ssl->handshake != NULL) {
++#if defined(MBEDTLS_SSL_EARLY_DATA)
++        if (transform == ssl->handshake->transform_earlydata) {
++            return MBEDTLS_SSL_QUIC_ENC_LEVEL_EARLY_DATA;
++        }
++#endif
++        if (transform == ssl->handshake->transform_handshake) {
++            return MBEDTLS_SSL_QUIC_ENC_LEVEL_HANDSHAKE;
++        }
++    }
++    if (transform == ssl->transform_application) {
++        return MBEDTLS_SSL_QUIC_ENC_LEVEL_APPLICATION;
++    }
++#endif /* MBEDTLS_SSL_PROTO_TLS1_3 */
++
++    return MBEDTLS_SSL_QUIC_ENC_LEVEL_INITIAL; /* Fallback */
++}
++
++MBEDTLS_CHECK_RETURN_CRITICAL
++int mbedtls_ssl_write_custom_exts(mbedtls_ssl_context *ssl,
++                                  unsigned int context,
++                                  unsigned char *buf,
++                                  unsigned char *end,
++                                  size_t *out_len);
++
++int mbedtls_ssl_parse_custom_ext(mbedtls_ssl_context *ssl,
++                                 unsigned int context,
++                                 unsigned int ext_type,
++                                 const unsigned char *buf,
++                                 size_t len);
++#endif /* MBEDTLS_SSL_LWS_QUIC_SUPPORT */
++
+ MBEDTLS_CHECK_RETURN_CRITICAL
+ int mbedtls_ssl_write_handshake_msg_ext(mbedtls_ssl_context *ssl,
+                                         int update_checksum,
+diff --git a/library/ssl_msg.c b/library/ssl_msg.c
+index b0ab608350..104ee69056 100644
+--- a/library/ssl_msg.c
++++ b/library/ssl_msg.c
+@@ -2926,6 +2926,63 @@ cleanup:
+     return ret;
+ }
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++int mbedtls_ssl_write_custom_exts(mbedtls_ssl_context *ssl,
++                                  unsigned int context,
++                                  unsigned char *buf,
++                                  unsigned char *end,
++                                  size_t *out_len)
++{
++    unsigned char *p = buf;
++    mbedtls_ssl_custom_ext_t *ext;
++    size_t ext_len;
++
++    *out_len = 0;
++
++    for (ext = ssl->custom_exts; ext != NULL; ext = ext->next) {
++        if ((ext->context_mask & context) == 0 || ext->write_cb == NULL) {
++            continue;
++        }
++
++        MBEDTLS_SSL_CHK_BUF_PTR(p, end, 4);
++
++        if (ext->write_cb(ssl, ext->ext_type, context, p + 4, (size_t) (end - p - 4), &ext_len, ext->custom_ctx) != 0) {
++            return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
++        }
++
++        if (ext_len > 0) {
++            MBEDTLS_PUT_UINT16_BE(ext->ext_type, p, 0);
++            MBEDTLS_PUT_UINT16_BE(ext_len, p, 2);
++            p += 4 + ext_len;
++        }
++    }
++
++    *out_len = (size_t) (p - buf);
++    return 0;
++}
++
++int mbedtls_ssl_parse_custom_ext(mbedtls_ssl_context *ssl,
++                                 unsigned int context,
++                                 unsigned int ext_type,
++                                 const unsigned char *buf,
++                                 size_t len)
++{
++    mbedtls_ssl_custom_ext_t *ext;
++
++    for (ext = ssl->custom_exts; ext != NULL; ext = ext->next) {
++        if (ext->ext_type == ext_type && (ext->context_mask & context) != 0) {
++            if (ext->parse_cb != NULL) {
++                return ext->parse_cb(ssl, ext_type, context, buf, len, ext->custom_ctx);
++            }
++            return 0; /* Known extension, but no parse callback (maybe write-only) */
++        }
++    }
++
++    /* Not handled by custom extensions */
++    return MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE;
++}
++#endif
++
+ /*
+  * Record layer functions
+  */
+@@ -2946,6 +3003,19 @@ int mbedtls_ssl_write_record(mbedtls_ssl_context *ssl, int force_flush)
+ 
+     MBEDTLS_SSL_DEBUG_MSG(2, ("=> write record"));
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++    if (ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_QUIC && ssl->transport_ops) {
++        mbedtls_ssl_quic_enc_level_t level = mbedtls_ssl_quic_get_enc_level(ssl, ssl->transform_out);
++        ret = ssl->transport_ops->write_handshake_msg(ssl, level, ssl->out_msg, ssl->out_msglen);
++        if (ret != 0) {
++            MBEDTLS_SSL_DEBUG_RET(1, "transport_ops->write_handshake_msg", ret);
++            return ret;
++        }
++        MBEDTLS_SSL_DEBUG_MSG(2, ("<= write record (QUIC bypass)"));
++        return 0;
++    }
++#endif
++
+     if (!done) {
+         unsigned i;
+         size_t protected_record_size;
+@@ -4331,6 +4401,34 @@ int mbedtls_ssl_read_record(mbedtls_ssl_context *ssl,
+ 
+     MBEDTLS_SSL_DEBUG_MSG(2, ("=> read record"));
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++    if (ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_QUIC && ssl->transport_ops) {
++        if (ssl->keep_current_message == 0) {
++            mbedtls_ssl_quic_enc_level_t level = mbedtls_ssl_quic_get_enc_level(ssl, ssl->transform_in);
++            ret = ssl->transport_ops->read_handshake_msg(ssl, level, ssl->in_msg, MBEDTLS_SSL_IN_CONTENT_LEN);
++            if (ret <= 0) {
++                MBEDTLS_SSL_DEBUG_RET(1, "transport_ops->read_handshake_msg", ret);
++                return ret;
++            }
++            ssl->in_msglen = (size_t) ret;
++            ssl->in_msgtype = MBEDTLS_SSL_MSG_HANDSHAKE;
++            ssl->in_hslen = ssl->in_msglen; /* No TLS header overhead */
++        } else {
++            ssl->keep_current_message = 0;
++        }
++
++        if (update_hs_digest != 0 && ssl->in_msgtype == MBEDTLS_SSL_MSG_HANDSHAKE) {
++            ret = mbedtls_ssl_update_handshake_status(ssl);
++            if (ret != 0) {
++                MBEDTLS_SSL_DEBUG_RET(1, "mbedtls_ssl_update_handshake_status", ret);
++                return ret;
++            }
++        }
++        MBEDTLS_SSL_DEBUG_MSG(2, ("<= read record (QUIC bypass)"));
++        return 0;
++    }
++#endif
++
+     if (ssl->keep_current_message == 0) {
+         do {
+ 
+@@ -5350,6 +5448,18 @@ int mbedtls_ssl_send_alert_message(mbedtls_ssl_context *ssl,
+     MBEDTLS_SSL_DEBUG_MSG(2, ("=> send alert message"));
+     MBEDTLS_SSL_DEBUG_MSG(3, ("send alert level=%u message=%u", level, message));
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++    if (ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_QUIC && ssl->transport_ops) {
++        ret = ssl->transport_ops->notify_alert(ssl, level, message);
++        if (ret != 0) {
++            MBEDTLS_SSL_DEBUG_RET(1, "transport_ops->notify_alert", ret);
++            return ret;
++        }
++        MBEDTLS_SSL_DEBUG_MSG(2, ("<= send alert message (QUIC bypass)"));
++        return 0;
++    }
++#endif
++
+     ssl->out_msgtype = MBEDTLS_SSL_MSG_ALERT;
+     ssl->out_msglen = 2;
+     ssl->out_msg[0] = level;
+diff --git a/library/ssl_tls.c b/library/ssl_tls.c
+index 1185b0b283..0f3de7392c 100644
+--- a/library/ssl_tls.c
++++ b/library/ssl_tls.c
+@@ -1634,6 +1634,25 @@ void mbedtls_ssl_conf_transport(mbedtls_ssl_config *conf, int transport)
+     conf->transport = transport;
+ }
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++void mbedtls_ssl_set_quic_transport_ops(mbedtls_ssl_context *ssl, const mbedtls_ssl_transport_ops *ops)
++{
++    ssl->transport_ops = ops;
++}
++
++int mbedtls_ssl_set_quic_custom_ext(mbedtls_ssl_context *ssl, mbedtls_ssl_custom_ext_t *ext)
++{
++    if (ssl == NULL || ext == NULL) {
++        return MBEDTLS_ERR_SSL_BAD_INPUT_DATA;
++    }
++
++    ext->next = ssl->custom_exts;
++    ssl->custom_exts = ext;
++
++    return 0;
++}
++#endif
++
+ #if defined(MBEDTLS_SSL_DTLS_ANTI_REPLAY)
+ void mbedtls_ssl_conf_dtls_anti_replay(mbedtls_ssl_config *conf, char mode)
+ {
+diff --git a/library/ssl_tls13_client.c b/library/ssl_tls13_client.c
+index 752bc033fe..d1f470d78c 100644
+--- a/library/ssl_tls13_client.c
++++ b/library/ssl_tls13_client.c
+@@ -1212,6 +1212,14 @@ int mbedtls_ssl_tls13_write_client_hello_exts(mbedtls_ssl_context *ssl,
+     }
+ #endif /* MBEDTLS_SSL_EARLY_DATA */
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++    ret = mbedtls_ssl_write_custom_exts(ssl, MBEDTLS_SSL_EXT_CTX_CLIENT_HELLO, p, end, &ext_len);
++    if (ret != 0) {
++        return ret;
++    }
++    p += ext_len;
++#endif
++
+ #if defined(MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_SOME_PSK_ENABLED)
+     /* For PSK-based key exchange we need the pre_shared_key extension
+      * and the psk_key_exchange_modes extension.
+@@ -1820,8 +1828,20 @@ static int ssl_tls13_parse_server_hello(mbedtls_ssl_context *ssl,
+                 break;
+ 
+             default:
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++                ret = mbedtls_ssl_parse_custom_ext(ssl,
++                                                   MBEDTLS_SSL_EXT_CTX_SERVER_HELLO,
++                                                   extension_type,
++                                                   p, extension_data_len);
++                if (ret != 0 && ret != MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE) {
++                    goto cleanup;
++                }
++                ret = 0; /* Clear MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE */
++                break;
++#else
+                 ret = MBEDTLS_ERR_SSL_INTERNAL_ERROR;
+                 goto cleanup;
++#endif
+         }
+ 
+         p += extension_data_len;
+@@ -2152,9 +2172,27 @@ static int ssl_tls13_parse_encrypted_extensions(mbedtls_ssl_context *ssl,
+ #endif /* MBEDTLS_SSL_RECORD_SIZE_LIMIT */
+ 
+             default:
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++                ret = mbedtls_ssl_parse_custom_ext(ssl,
++                                                   MBEDTLS_SSL_EXT_CTX_ENCRYPTED_EXTENSIONS,
++                                                   extension_type,
++                                                   p, extension_data_len);
++                if (ret != 0 && ret != MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE) {
++                    return ret;
++                }
++                if (ret == MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE) {
++                    MBEDTLS_SSL_PRINT_EXT(
++                        3, MBEDTLS_SSL_HS_ENCRYPTED_EXTENSIONS,
++                        extension_type, "( ignored )");
++                    ret = 0; /* unknown extension is ignorable; must not
++                                leak into the function's return value and
++                                fail the handshake (mirrors ServerHello) */
++                }
++#else
+                 MBEDTLS_SSL_PRINT_EXT(
+                     3, MBEDTLS_SSL_HS_ENCRYPTED_EXTENSIONS,
+                     extension_type, "( ignored )");
++#endif
+                 break;
+         }
+ 
+diff --git a/library/ssl_tls13_generic.c b/library/ssl_tls13_generic.c
+index b6d09788ba..cd96e8bf83 100644
+--- a/library/ssl_tls13_generic.c
++++ b/library/ssl_tls13_generic.c
+@@ -68,7 +68,7 @@ int mbedtls_ssl_tls13_fetch_handshake_msg(mbedtls_ssl_context *ssl,
+ 
+     if (ssl->in_msgtype != MBEDTLS_SSL_MSG_HANDSHAKE ||
+         ssl->in_msg[0]  != hs_type) {
+-        MBEDTLS_SSL_DEBUG_MSG(1, ("Receive unexpected handshake message."));
++        MBEDTLS_SSL_DEBUG_MSG(1, ("Receive unexpected handshake message. Expected %u, got msgtype %d in_msg[0] %u.", hs_type, ssl->in_msgtype, ssl->in_msg[0]));
+         MBEDTLS_SSL_PEND_FATAL_ALERT(MBEDTLS_SSL_ALERT_MSG_UNEXPECTED_MESSAGE,
+                                      MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE);
+         ret = MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE;
+@@ -1278,6 +1278,13 @@ int mbedtls_ssl_tls13_write_change_cipher_spec(mbedtls_ssl_context *ssl)
+ 
+     MBEDTLS_SSL_DEBUG_MSG(2, ("=> write change cipher spec"));
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++    if (ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_QUIC) {
++        MBEDTLS_SSL_DEBUG_MSG(2, ("<= write change cipher spec (skipped for QUIC)"));
++        return 0;
++    }
++#endif
++
+     /* Only one CCS to send. */
+     if (ssl->handshake->ccs_sent) {
+         ret = 0;
+@@ -1629,6 +1636,43 @@ int mbedtls_ssl_tls13_check_received_extension(
+         3, hs_msg_type, received_extension_type, "received");
+ 
+     if ((extension_mask & hs_msg_allowed_extensions_mask) == 0) {
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++        mbedtls_ssl_custom_ext_t *custom_ext;
++        int is_custom = 0;
++        unsigned int context = 0;
++
++        switch (hs_msg_type) {
++            case MBEDTLS_SSL_HS_CLIENT_HELLO:
++                context = MBEDTLS_SSL_EXT_CTX_CLIENT_HELLO;
++                break;
++            case MBEDTLS_SSL_HS_SERVER_HELLO:
++            case MBEDTLS_SSL_TLS1_3_HS_HELLO_RETRY_REQUEST:
++                context = MBEDTLS_SSL_EXT_CTX_SERVER_HELLO;
++                break;
++            case MBEDTLS_SSL_HS_ENCRYPTED_EXTENSIONS:
++                context = MBEDTLS_SSL_EXT_CTX_ENCRYPTED_EXTENSIONS;
++                break;
++            case MBEDTLS_SSL_HS_CERTIFICATE:
++                context = MBEDTLS_SSL_EXT_CTX_CERTIFICATE;
++                break;
++            default:
++                break;
++        }
++
++        for (custom_ext = ssl->custom_exts; custom_ext != NULL; custom_ext = custom_ext->next) {
++            if (custom_ext->ext_type == received_extension_type &&
++                (custom_ext->context_mask & context) != 0) {
++                is_custom = 1;
++                break;
++            }
++        }
++
++        if (is_custom) {
++            /* Allowed custom extension */
++            return 0;
++        }
++#endif
++
+         MBEDTLS_SSL_PRINT_EXT(
+             3, hs_msg_type, received_extension_type, "is illegal");
+         MBEDTLS_SSL_PEND_FATAL_ALERT(
+diff --git a/library/ssl_tls13_keys.c b/library/ssl_tls13_keys.c
+index 1967883b61..6d8610dbe0 100644
+--- a/library/ssl_tls13_keys.c
++++ b/library/ssl_tls13_keys.c
+@@ -1199,6 +1199,17 @@ static int ssl_tls13_generate_early_key(mbedtls_ssl_context *ssl,
+             MBEDTLS_SSL_TLS_PRF_NONE /* TODO: FIX! */);
+     }
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++    if (ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_QUIC &&
++        ssl->transport_ops != NULL &&
++        ssl->transport_ops->set_traffic_secrets != NULL) {
++        ssl->transport_ops->set_traffic_secrets(
++            ssl, MBEDTLS_SSL_SECRET_TYPE_EARLY,
++            tls13_early_secrets.client_early_traffic_secret, NULL, hash_len,
++            ssl->handshake->ciphersuite_info->id);
++    }
++#endif
++
+     ret = ssl_tls13_make_traffic_key(
+         hash_alg,
+         tls13_early_secrets.client_early_traffic_secret,
+@@ -1413,6 +1424,18 @@ static int ssl_tls13_generate_handshake_keys(mbedtls_ssl_context *ssl,
+             MBEDTLS_SSL_TLS_PRF_NONE /* TODO: FIX! */);
+     }
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++    if (ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_QUIC &&
++        ssl->transport_ops != NULL &&
++        ssl->transport_ops->set_traffic_secrets != NULL) {
++        ssl->transport_ops->set_traffic_secrets(
++            ssl, MBEDTLS_SSL_SECRET_TYPE_HANDSHAKE,
++            tls13_hs_secrets->client_handshake_traffic_secret,
++            tls13_hs_secrets->server_handshake_traffic_secret,
++            hash_len, ssl->handshake->ciphersuite_info->id);
++    }
++#endif
++
+     ret = mbedtls_ssl_tls13_make_traffic_keys(
+         hash_alg,
+         tls13_hs_secrets->client_handshake_traffic_secret,
+@@ -1674,6 +1697,18 @@ static int ssl_tls13_generate_application_keys(
+                                         a new constant for TLS 1.3! */);
+     }
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++    if (ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_QUIC &&
++        ssl->transport_ops != NULL &&
++        ssl->transport_ops->set_traffic_secrets != NULL) {
++        ssl->transport_ops->set_traffic_secrets(
++            ssl, MBEDTLS_SSL_SECRET_TYPE_APPLICATION,
++            app_secrets->client_application_traffic_secret_N,
++            app_secrets->server_application_traffic_secret_N,
++            hash_len, ssl->handshake->ciphersuite_info->id);
++    }
++#endif
++
+     MBEDTLS_SSL_DEBUG_BUF(4, "client application_write_key:",
+                           traffic_keys->client_write_key, key_len);
+     MBEDTLS_SSL_DEBUG_BUF(4, "server application write key",
+diff --git a/library/ssl_tls13_server.c b/library/ssl_tls13_server.c
+index a72ed25cfa..ef735a87d6 100644
+--- a/library/ssl_tls13_server.c
++++ b/library/ssl_tls13_server.c
+@@ -1673,9 +1673,24 @@ static int ssl_tls13_parse_client_hello(mbedtls_ssl_context *ssl,
+ #endif /* MBEDTLS_SSL_RECORD_SIZE_LIMIT */
+ 
+             default:
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++                ret = mbedtls_ssl_parse_custom_ext(ssl,
++                                                   MBEDTLS_SSL_EXT_CTX_CLIENT_HELLO,
++                                                   extension_type,
++                                                   p, extension_data_len);
++                if (ret != 0 && ret != MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE) {
++                    return ret;
++                }
++                if (ret == MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE) {
++                    MBEDTLS_SSL_PRINT_EXT(
++                        3, MBEDTLS_SSL_HS_CLIENT_HELLO,
++                        extension_type, "( ignored )");
++                }
++#else
+                 MBEDTLS_SSL_PRINT_EXT(
+                     3, MBEDTLS_SSL_HS_CLIENT_HELLO,
+                     extension_type, "( ignored )");
++#endif
+                 break;
+         }
+ 
+@@ -2378,6 +2393,16 @@ static int ssl_tls13_write_server_hello_body(mbedtls_ssl_context *ssl,
+         p += output_len;
+     }
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++    ret = mbedtls_ssl_write_custom_exts(ssl,
++                                        MBEDTLS_SSL_EXT_CTX_SERVER_HELLO,
++                                        p, end, &output_len);
++    if (ret != 0) {
++        return ret;
++    }
++    p += output_len;
++#endif
++
+ #if defined(MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_SOME_PSK_ENABLED)
+     if (!is_hrr && mbedtls_ssl_tls13_key_exchange_mode_with_psk(ssl)) {
+         ret = ssl_tls13_write_server_pre_shared_key_ext(ssl, p, end, &output_len);
+@@ -2601,6 +2626,16 @@ static int ssl_tls13_write_encrypted_extensions_body(mbedtls_ssl_context *ssl,
+     }
+ #endif
+ 
++#if defined(MBEDTLS_SSL_LWS_QUIC_SUPPORT)
++    ret = mbedtls_ssl_write_custom_exts(ssl,
++                                        MBEDTLS_SSL_EXT_CTX_ENCRYPTED_EXTENSIONS,
++                                        p, end, &output_len);
++    if (ret != 0) {
++        return ret;
++    }
++    p += output_len;
++#endif
++
+     extensions_len = (p - p_extensions_len) - 2;
+     MBEDTLS_PUT_UINT16_BE(extensions_len, p_extensions_len, 0);
+ 
