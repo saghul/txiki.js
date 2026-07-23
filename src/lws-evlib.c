@@ -168,6 +168,23 @@ static void tjs__evlib_watcher_detach(TJSEvlibPt *evpt, const struct lws *wsi) {
     uv_close((uv_handle_t *) &watcher->poll, tjs__evlib_watcher_close_cb);
 }
 
+/* Detach whatever watcher is currently bound to fd, regardless of which wsi
+ * owns it.  Used by the QUIC/H3 ALPN migration path: lws hands the connected
+ * UDP fd to a fresh network wsi and leaves the old (now fd-less) handshake wsi
+ * still holding a stale watcher on that fd.  We drop it so only one uv_poll
+ * ever references the fd before re-adopting it under the migrated wsi. */
+static void tjs__evlib_watcher_detach_by_fd(TJSEvlibPt *evpt, lws_sockfd_type fd) {
+    TJSEvlibWatcher *watcher, *tmp;
+
+    HASH_ITER(hh, evpt->watchers, watcher, tmp) {
+        if (watcher->fd == fd) {
+            HASH_DEL(evpt->watchers, watcher);
+            uv_poll_stop(&watcher->poll);
+            uv_close((uv_handle_t *) &watcher->poll, tjs__evlib_watcher_close_cb);
+        }
+    }
+}
+
 static int tjs__evlib_watcher_create(TJSEvlibPt *evpt, struct lws *wsi, bool unref) {
     TJSEvlibWatcher *watcher = tjs__malloc(sizeof(*watcher));
 
@@ -270,10 +287,41 @@ static void tjs__evlib_io(struct lws *wsi, unsigned int flags) {
     TJSEvlibPt *evpt = lws_evlib_wsi_to_evlib_pt(wsi);
     TJSEvlibWatcher *watcher = tjs__evlib_watcher_find(evpt, wsi);
 
-    /* The watcher may be gone (or not exist yet) while lws still adjusts
-     * pollfd state; ignore those. */
     if (!watcher) {
-        return;
+        /* A watcher normally exists before lws toggles io: sock_accept runs
+         * before the fd enters the fds table.  The exception is the QUIC/H3
+         * client ALPN migration, which hands the connected UDP fd to a fresh
+         * network wsi via __insert_wsi_socket_into_fds() WITHOUT going through
+         * sock_accept (roles/quic/ops-quic.c).  lws's in-tree libuv evlib
+         * survives that by carrying its per-wsi watcher storage across and
+         * repointing it (gated on event_loop_ops->name == "libuv"); we key
+         * watchers by wsi, so the migrated wsi reaches here with a live fd and
+         * no watcher.  Adopt it lazily on the first START, taking the fd over
+         * from the old handshake wsi's now-stale watcher.  A STOP with no
+         * watcher (e.g. lws still adjusting a detached wsi) is a no-op. */
+        lws_sockfd_type fd;
+
+        if (!(flags & LWS_EV_START)) {
+            return;
+        }
+
+        fd = lws_get_socket_fd(wsi);
+        if (fd == LWS_SOCK_INVALID) {
+            return;
+        }
+
+        tjs__evlib_watcher_detach_by_fd(evpt, fd);
+
+        if (tjs__evlib_watcher_create(evpt, wsi, true)) {
+            return;
+        }
+
+        watcher = tjs__evlib_watcher_find(evpt, wsi);
+        CHECK_NOT_NULL(watcher);
+
+        /* __insert_wsi_socket_into_fds() seeds the fds table with POLLIN but
+         * never calls io(), so mirror that baseline or RX would go unpolled. */
+        watcher->events = UV_READABLE;
     }
 
     if (flags & LWS_EV_START) {

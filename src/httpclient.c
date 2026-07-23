@@ -79,6 +79,7 @@ typedef struct {
     bool completed;
     bool torn_down;
     bool keepalive; /* connection may be pooled for reuse (decided at headers) */
+    bool try_http3; /* attempt HTTP/3 over QUIC (ALPN "h3", no TCP fallback) */
     unsigned long timeout;
     int ssl_flags;
     JSValue url;
@@ -766,6 +767,7 @@ static JSValue tjs_httpclient_constructor(JSContext *ctx, JSValue new_target, in
     h->completed = false;
     h->torn_down = false;
     h->keepalive = true;
+    h->try_http3 = false;
     h->ssl_flags = 0;
 
     for (int i = 0; i < HC_CALLBACK_MAX; i++) {
@@ -929,6 +931,15 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
     cci.userdata = h;
     cci.pwsi = &h->wsi;
     cci.vhost = tjs__lws_select_vhost(ctx, uri->scheme, uri->host, uri->port);
+
+    /* HTTP/3 (set by the fetch layer's Alt-Svc auto-upgrade). h3 is selected
+     * purely by ALPN "h3"; disable_h3_fallback keeps lws from racing a parallel
+     * TCP connect (which would need evlib parallel-connect ops we do not
+     * implement) — the fetch layer falls back to h1/h2 itself on failure. */
+    if (use_ssl && h->try_http3) {
+        cci.alpn = "h3";
+        cci.disable_h3_fallback = 1;
+    }
 
     tjs__lws_conn_ref(ctx);
 
@@ -1112,6 +1123,16 @@ static JSValue tjs_httpclient_set_allow_insecure(JSContext *ctx, JSValue this_va
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_httpclient_set_http3(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSHttpClient *h = tjs_httpclient_get(ctx, this_val);
+    if (!h) {
+        return JS_EXCEPTION;
+    }
+
+    h->try_http3 = JS_ToBool(ctx, argv[0]);
+    return JS_UNDEFINED;
+}
+
 static const JSCFunctionListEntry tjs_httpclient_proto_funcs[] = {
     JS_CGETSET_MAGIC_DEF("onstatus", tjs_httpclient_callback_get, tjs_httpclient_callback_set, HC_CALLBACK_STATUS),
     JS_CGETSET_MAGIC_DEF("onurl", tjs_httpclient_callback_get, tjs_httpclient_callback_set, HC_CALLBACK_URL),
@@ -1129,6 +1150,7 @@ static const JSCFunctionListEntry tjs_httpclient_proto_funcs[] = {
     TJS_CFUNC_DEF("setRequestHeader", 2, tjs_httpclient_setrequestheader),
     TJS_CFUNC_DEF("setEnableCookies", 1, tjs_httpclient_set_enable_cookies),
     TJS_CFUNC_DEF("setAllowInsecure", 1, tjs_httpclient_set_allow_insecure),
+    TJS_CFUNC_DEF("setHttp3", 1, tjs_httpclient_set_http3),
     TJS_CFUNC_DEF("sendData", 1, tjs_httpclient_senddata),
     TJS_CFUNC_DEF("abort", 0, tjs_httpclient_abort),
 };

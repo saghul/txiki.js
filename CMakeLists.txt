@@ -383,6 +383,41 @@ option(MBEDTLS_FATAL_WARNINGS "" OFF)
 set(MBEDTLS_AS_SUBPROJECT ON)
 set(MBEDTLS_USER_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/mbedtls_config.h" CACHE FILEPATH "" FORCE)
 set(MSVC_STATIC_RUNTIME ON CACHE BOOL "" FORCE)
+
+# mbedTLS upstream has no QUIC support; patches/mbedtls-quic.patch adds it (from
+# warmcat's quic-v3.6.6 mbedTLS branch — credit libwebsockets). Applied to the
+# submodule work tree at configure time, idempotently via a forward/reverse
+# apply --check.
+find_package(Git QUIET)
+if(NOT GIT_EXECUTABLE)
+    set(GIT_EXECUTABLE git)
+endif()
+set(MBEDTLS_QUIC_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/patches/mbedtls-quic.patch")
+set(MBEDTLS_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls")
+execute_process(
+    COMMAND "${GIT_EXECUTABLE}" -C "${MBEDTLS_SRC_DIR}" apply --check "${MBEDTLS_QUIC_PATCH}"
+    RESULT_VARIABLE MBEDTLS_QUIC_FWD OUTPUT_QUIET ERROR_QUIET)
+if(MBEDTLS_QUIC_FWD EQUAL 0)
+    message(STATUS "Applying mbedTLS QUIC patch (HTTP/3 support)")
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" -C "${MBEDTLS_SRC_DIR}" apply "${MBEDTLS_QUIC_PATCH}"
+        RESULT_VARIABLE MBEDTLS_QUIC_APPLY)
+    if(NOT MBEDTLS_QUIC_APPLY EQUAL 0)
+        message(FATAL_ERROR "Failed to apply ${MBEDTLS_QUIC_PATCH}")
+    endif()
+else()
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" -C "${MBEDTLS_SRC_DIR}" apply --reverse --check "${MBEDTLS_QUIC_PATCH}"
+        RESULT_VARIABLE MBEDTLS_QUIC_REV OUTPUT_QUIET ERROR_QUIET)
+    if(MBEDTLS_QUIC_REV EQUAL 0)
+        message(STATUS "mbedTLS QUIC patch already applied")
+    else()
+        message(FATAL_ERROR "mbedTLS QUIC patch neither applies nor is already applied; "
+            "deps/mbedtls is in an unexpected state. Reset it with "
+            "'git -C deps/mbedtls checkout .' and reconfigure.")
+    endif()
+endif()
+
 add_subdirectory(deps/mbedtls EXCLUDE_FROM_ALL)
 target_link_libraries(tjs PUBLIC mbedtls mbedx509 mbedcrypto)
 
@@ -391,8 +426,8 @@ if (NOT CMAKE_BUILD_TYPE MATCHES "Debug")
 endif()
 set(DISABLE_WERROR ON CACHE BOOL "" FORCE)
 set(LWS_WITH_HTTP2 ON CACHE BOOL "" FORCE)
-set(LWS_WITH_HTTP3 OFF CACHE BOOL "" FORCE)
-set(LWS_ROLE_QUIC OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_HTTP3 ON CACHE BOOL "" FORCE)
+set(LWS_ROLE_QUIC ON CACHE BOOL "" FORCE)
 set(LWS_ROLE_RAW_FILE OFF CACHE BOOL "" FORCE)
 set(LWS_UNIX_SOCK OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_SYS_STATE OFF CACHE BOOL "" FORCE)
@@ -475,6 +510,8 @@ set(LWS_HAVE_mbedtls_x509_crt_parse_file 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_mbedtls_internal_aes_encrypt 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_MBEDTLS_NET_SOCKETS 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_MBEDTLS_SSL_NEW_SESSION_TICKET 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_ssl_set_quic_transport_ops 1 CACHE BOOL "" FORCE)
+set(LWS_HAVE_mbedtls_ssl_set_export_keys_cb 1 CACHE BOOL "" FORCE)
 set(LWS_MBEDTLS_LIBRARIES mbedtls mbedx509 mbedcrypto CACHE STRING "" FORCE)
 set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" CACHE STRING "" FORCE)
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)

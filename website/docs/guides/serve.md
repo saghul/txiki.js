@@ -154,3 +154,27 @@ tjs.serve({
     },
 });
 ```
+
+### HTTP/3
+
+Set `http3: true` to also serve HTTP/3 over QUIC (UDP) on the same port. The
+server keeps serving HTTP/1.1 and HTTP/2 over TCP and advertises HTTP/3 to those
+clients with an `Alt-Svc` response header, so a client that supports it upgrades
+to HTTP/3 on a subsequent request. The request handler is identical across all
+three versions. HTTP/3 requires TLS (QUIC is always encrypted), so the `tls`
+option is mandatory.
+
+```js
+tjs.serve({
+    tls: { cert, key },
+    http3: true,
+    fetch(request) {
+        return new Response('served over h1, h2 or h3\n');
+    },
+});
+```
+
+`fetch()` performs the client side of this automatically: it learns HTTP/3
+availability from a server's `Alt-Svc` header and upgrades matching same-origin
+requests. HTTP/3 requires TLS (QUIC is always encrypted), so `cert` and `key`
+are mandatory.
