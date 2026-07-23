@@ -62,7 +62,10 @@ const both = await raw(server.port,
         '\r\n' +
         '5\r\nhello\r\n0\r\n\r\n');
 
-assert.ok(both.startsWith('HTTP/1.1 400'), 'request with both CL and TE is rejected with 400');
+// lws rejects a CL+TE message in its own HTTP parser (emitting an HTTP/1.0
+// error page) before our request callback runs, so accept either HTTP version
+// in the 400 status line — what matters is that it is rejected with 400.
+assert.ok(/^HTTP\/1\.[01] 400/.test(both), 'request with both CL and TE is rejected with 400');
 assert.eq(bodies.length, 0, 'ambiguous request body never reaches the handler');
 
 /* Transfer-Encoding with an unrecognized coding must also be rejected — the

@@ -2,9 +2,15 @@
 
 import { HttpClient } from '../http-client.js';
 
+import { dropH3, hasH3, noteAltSvc } from './alt-svc.js';
 import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
 import { Response } from './response.js';
+
+// Private signal from sendRequest() back to fetch(): an h3 attempt failed
+// before producing a response and is eligible for an h1/h2 retry. A Symbol
+// keeps it off the error's enumerable surface and out of reach of user code.
+const kH3Fallback = Symbol('h3Fallback');
 
 async function fetchFileURI(url) {
     // Strip file:// prefix and decode. Handles both POSIX (file:///tmp/foo)
@@ -64,42 +70,23 @@ function fetchDataURI(url) {
 // Keep strong references to active clients to prevent premature GC
 const activeClients = new Set();
 
-export function fetch(input, init) {
-    const rawUrl = typeof input === 'string' ? input : input?.url;
-
-    if (rawUrl?.startsWith('data:')) {
-        return fetchDataURI(rawUrl);
-    }
-
-    if (rawUrl?.startsWith('file:')) {
-        return fetchFileURI(rawUrl);
-    }
-
-    let tmpUrl;
-
-    try {
-        tmpUrl = new URL(rawUrl);
-    } catch (e) {
-        return Promise.reject(e);
-    }
-
-    const { protocol } = tmpUrl;
-
-    if (protocol !== 'http:' && protocol !== 'https:') {
-        return Promise.reject(new TypeError(`Unsupported protocol: ${protocol}`));
-    }
+// Perform a single HTTP request attempt. Resolves with a Response once the
+// response headers arrive. `opts.useH3` routes the attempt over HTTP/3; on a
+// pre-response connection failure of an h3 attempt the returned promise rejects
+// with an error tagged with the kH3Fallback symbol so fetch() can retry over
+// h1/h2.
+function sendRequest(request, init, opts) {
+    const { origin, originHost, originPort, bodyBytes, streaming, useH3 } = opts;
 
     return new Promise(function(resolve, reject) {
-        const request = new Request(input, init);
-
-        if (request.signal && request.signal.aborted) {
-            return reject(new DOMException('Aborted', 'AbortError'));
-        }
-
         const client = new HttpClient();
 
         if (init?.allowInsecure) {
             client.setAllowInsecure(true);
+        }
+
+        if (useH3) {
+            client.setHttp3(true);
         }
 
         activeClients.add(client);
@@ -143,6 +130,10 @@ export function fetch(input, init) {
                 return;
             }
 
+            // Learn HTTP/3 availability for this origin from Alt-Svc (an h3
+            // response never carries it, so this only fires on h1/h2).
+            noteAltSvc(origin, responseHeaders.get('alt-svc'), originHost, originPort);
+
             responseResolved = true;
 
             setTimeout(function() {
@@ -185,6 +176,27 @@ export function fetch(input, init) {
                 }
 
                 if (!responseResolved) {
+                    // An h3 attempt that fails before producing a response can
+                    // be retried over h1/h2 (not for user aborts).
+                    if (useH3 && !isAbort) {
+                        if (streamController) {
+                            try {
+                                streamController.error(new TypeError(msg));
+                            } catch (_e) { /* already errored/closed */ }
+
+                            streamController = null;
+                        }
+
+                        const err = new TypeError(msg);
+
+                        err[kH3Fallback] = true;
+                        setTimeout(function() {
+                            reject(err);
+                        }, 0);
+
+                        return;
+                    }
+
                     if (streamController) {
                         try {
                             streamController.error(isAbort
@@ -249,7 +261,7 @@ export function fetch(input, init) {
         }
 
         // Open the connection. Body handling depends on request type.
-        if (request.bodySize === -1) {
+        if (streaming) {
             // Streaming body (ReadableStream)
             client.streaming = true;
 
@@ -275,17 +287,92 @@ export function fetch(input, init) {
             };
 
             client.open(request.method, request.url);
-        } else if (request.bodySize > 0) {
-            // Known-size body - read it all and pass to open
-            request.arrayBuffer().then(function(buf) {
-                client.open(request.method, request.url, new Uint8Array(buf));
-            }).catch(function(err) {
-                activeClients.delete(client);
-                reject(err);
-            });
+        } else if (bodyBytes) {
+            client.open(request.method, request.url, bodyBytes);
         } else {
-            // No body
             client.open(request.method, request.url);
         }
+    });
+}
+
+export function fetch(input, init) {
+    const rawUrl = typeof input === 'string' ? input : input?.url;
+
+    if (rawUrl?.startsWith('data:')) {
+        return fetchDataURI(rawUrl);
+    }
+
+    if (rawUrl?.startsWith('file:')) {
+        return fetchFileURI(rawUrl);
+    }
+
+    let tmpUrl;
+
+    try {
+        tmpUrl = new URL(rawUrl);
+    } catch (e) {
+        return Promise.reject(e);
+    }
+
+    const { protocol } = tmpUrl;
+
+    if (protocol !== 'http:' && protocol !== 'https:') {
+        return Promise.reject(new TypeError(`Unsupported protocol: ${protocol}`));
+    }
+
+    const origin = `${protocol}//${tmpUrl.host}`;
+    const originHost = tmpUrl.hostname;
+    const secure = protocol === 'https:';
+
+    let originPort;
+
+    if (tmpUrl.port) {
+        originPort = parseInt(tmpUrl.port, 10);
+    } else {
+        originPort = secure ? 443 : 80;
+    }
+
+    return new Promise(function(resolve, reject) {
+        let request;
+
+        try {
+            request = new Request(input, init);
+        } catch (e) {
+            return reject(e);
+        }
+
+        if (request.signal && request.signal.aborted) {
+            return reject(new DOMException('Aborted', 'AbortError'));
+        }
+
+        const streaming = request.bodySize === -1;
+
+        // HTTP/3 auto-upgrade is limited to bodyless requests (GET/HEAD and the
+        // like) for now: lws's QUIC client does not yet flush a request body
+        // DATA frame after the HEADERS, so a body-bearing request would arrive
+        // empty. Requests with a body stay on h1/h2 (which handle bodies
+        // correctly). This is where h3 helps most anyway.
+        const wantH3 = secure && request.bodySize === 0 && hasH3(origin);
+
+        const bodyReady = request.bodySize > 0
+            ? request.arrayBuffer().then(buf => new Uint8Array(buf))
+            : Promise.resolve(null);
+
+        bodyReady.then(function(bodyBytes) {
+            const opts = { origin, originHost, originPort, bodyBytes, streaming };
+
+            function attempt(useH3) {
+                sendRequest(request, init, { ...opts, useH3 }).then(resolve, function(err) {
+                    if (useH3 && err && err[kH3Fallback]) {
+                        dropH3(origin);
+                        attempt(false);
+                    } else {
+                        reject(err);
+                    }
+                });
+            }
+
+            attempt(wantH3);
+        }).catch(reject);
     });
 }

@@ -22,7 +22,7 @@ class Server {
             options = { fetch: options };
         }
 
-        const { fetch: handler, port = 0, listenIp = '0.0.0.0', websocket, tls } = options;
+        const { fetch: handler, port = 0, listenIp = '0.0.0.0', websocket, tls, http3 = false } = options;
 
         if (typeof handler !== 'function') {
             throw new TypeError('fetch handler must be a function');
@@ -57,6 +57,13 @@ class Server {
             if (tls.alpn) {
                 alpn = Array.isArray(tls.alpn) ? tls.alpn.join(',') : tls.alpn;
             }
+        }
+
+        // Also serve HTTP/3 over QUIC (UDP) on the same port; the TCP vhost
+        // advertises it to clients via an Alt-Svc header. QUIC is always
+        // TLS 1.3, so it needs the tls option.
+        if (http3 && !tls) {
+            throw new TypeError('http3 requires the tls option (cert and key)');
         }
 
         this.#isTLS = !!tls;
@@ -104,6 +111,7 @@ class Server {
             passphrase,
             requestCert,
             alpn,
+            http3: !!http3,
         });
     }
 
