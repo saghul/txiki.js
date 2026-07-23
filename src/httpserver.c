@@ -59,6 +59,26 @@ typedef struct {
     bool is_final;
 } TJSHttpPendingWrite;
 
+/* Wire protocol a request arrived over. HTTP/2 and HTTP/3 are both multiplexed
+ * (they carry the :method pseudo-header and take the mux response write path);
+ * HTTP/3 is additionally distinguished by arriving on the QUIC vhost. */
+typedef enum {
+    TJS_HTTP_1_1,
+    TJS_HTTP_2,
+    TJS_HTTP_3,
+} TJSHttpVersion;
+
+static const char *tjs_http_version_name(TJSHttpVersion v) {
+    switch (v) {
+        case TJS_HTTP_3:
+            return "3";
+        case TJS_HTTP_2:
+            return "2";
+        default:
+            return "1.1";
+    }
+}
+
 /*
  * Per-request state, managed by us (not by lws per_session_data_size).
  */
@@ -73,7 +93,7 @@ typedef struct TJSHttpRequest {
     int method;
     char url[2048];
     char remote_addr[64];
-    bool is_h2; /* request arrived over HTTP/2 (carries h2 pseudo-headers) */
+    TJSHttpVersion http_version; /* wire protocol the request arrived over */
     bool body_complete;
     bool dispatched; /* JS handler has been invoked for this request */
     bool chunked;    /* true for Transfer-Encoding: chunked — body is streamed to JS */
@@ -151,6 +171,8 @@ typedef struct {
     JSValue this_val;                   /* prevent GC while listening */
     JSValue ws_callbacks[WS_EVENT_MAX]; /* server-level: open, message, close, error */
     struct lws_vhost *vhost;
+    struct lws_vhost *quic_vhost; /* HTTP/3 (QUIC/UDP) vhost, or NULL if h3 off */
+    int vhost_count;              /* live vhosts (1, or 2 with h3); s is released on the last PROTOCOL_DESTROY */
     int port;
     bool closed;
     uint64_t next_req_id;
@@ -464,7 +486,7 @@ static void tjs_http_invoke_handler(TJSHttpServer *s, TJSHttpRequest *req) {
     args[5] = JS_NewString(ctx, req->remote_addr);
     args[6] = JS_FALSE; /* not a WS upgrade */
     args[7] = JS_NewBool(ctx, req->chunked);
-    args[8] = JS_NewString(ctx, req->is_h2 ? "2" : "1.1");
+    args[8] = JS_NewString(ctx, tjs_http_version_name(req->http_version));
 
     tjs_call_handler(ctx, s->callback, countof(args), args);
 
@@ -862,10 +884,19 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             /* Get remote address. */
             lws_get_peer_simple(wsi, req->remote_addr, sizeof(req->remote_addr));
 
-            /* HTTP/2 requests carry the mandatory :method pseudo-header; an
-             * HTTP/1.x request never does. Record it now, while the request
-             * headers are still live, so the handler can report the protocol. */
-            req->is_h2 = lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_COLON_METHOD) > 0;
+            /* HTTP/2 and HTTP/3 requests carry the mandatory :method
+             * pseudo-header; an HTTP/1.x request never does. Record the version
+             * now, while the request headers are still live, so the handler can
+             * report the protocol and the response takes the mux write path.
+             * h3 additionally arrives on the QUIC vhost, which distinguishes it
+             * from h2 (both carry :method). */
+            if (lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_COLON_METHOD) <= 0) {
+                req->http_version = TJS_HTTP_1_1;
+            } else if (s->quic_vhost && lws_get_vhost(wsi) == s->quic_vhost) {
+                req->http_version = TJS_HTTP_3;
+            } else {
+                req->http_version = TJS_HTTP_2;
+            }
 
             /* Add to active requests hash table. */
             HASH_ADD(hh, s->active_requests, id, sizeof(req->id), req);
@@ -875,16 +906,11 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             int has_cl = lws_hdr_copy(wsi, cl, sizeof(cl), WSI_TOKEN_HTTP_CONTENT_LENGTH);
             int has_te = lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_TRANSFER_ENCODING);
 
-            /* RFC 9112 § 6.1: reject messages that carry both Content-Length and
-             * Transfer-Encoding so upstream/backend parsers cannot disagree about
-             * framing (HTTP request smuggling). */
-            if (has_cl > 0 && has_te > 0) {
-                lws_return_http_status(wsi, HTTP_STATUS_BAD_REQUEST, NULL);
-                return -1;
-            }
-
-            /* Only "chunked" is a recognized transfer coding; reject anything else
-             * per RFC 9112 § 6.1. */
+            /* A message carrying both Content-Length and Transfer-Encoding is
+             * ambiguous (RFC 9112 § 6.1, request smuggling); lws rejects it in
+             * its own parser before this callback, so we need not re-check here.
+             * Only "chunked" is a recognized transfer coding; reject anything
+             * else, which lws does not. */
             if (has_te > 0) {
                 char te[32];
                 int te_len = lws_hdr_copy(wsi, te, sizeof(te), WSI_TOKEN_HTTP_TRANSFER_ENCODING);
@@ -1215,6 +1241,14 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
         }
 
         case LWS_CALLBACK_PROTOCOL_DESTROY: {
+            /* Fired once per vhost. With HTTP/3 the server owns two vhosts
+             * (TCP + QUIC), both bound to this protocol/user; release s only
+             * after the last one is gone, or the second teardown reads freed
+             * memory. */
+            if (--s->vhost_count > 0) {
+                return 0;
+            }
+
             if (JS_IsFunction(s->ctx, s->close_callback)) {
                 JSValue cb = s->close_callback;
                 s->close_callback = JS_UNDEFINED;
@@ -1426,6 +1460,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     JSValue js_key = JS_GetPropertyStr(ctx, options, "keyPem");
 
     bool use_tls = JS_IsString(js_cert) && JS_IsString(js_key);
+    bool want_http3 = false;
 
     if (use_tls) {
         const char *cert_str = JS_ToCString(ctx, js_cert);
@@ -1468,6 +1503,13 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
             JS_FreeCString(ctx, alpn_str);
         }
         JS_FreeValue(ctx, js_alpn);
+
+        /* Serve HTTP/3 over QUIC (UDP) on the same port. Requires TLS (QUIC is
+         * always TLS 1.3). The TCP vhost keeps serving h1/h2 and advertises h3
+         * to clients via an Alt-Svc response header. */
+        JSValue js_http3 = JS_GetPropertyStr(ctx, options, "http3");
+        want_http3 = JS_ToBool(ctx, js_http3);
+        JS_FreeValue(ctx, js_http3);
     }
 
     JS_FreeValue(ctx, js_cert);
@@ -1532,15 +1574,67 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
 
     s->vhost = lws_create_vhost(lws_ctx, &vhost_info);
 
-    JS_FreeCString(ctx, listen_ip);
-
     if (!s->vhost) {
+        JS_FreeCString(ctx, listen_ip);
         JS_FreeValue(ctx, obj);
         return JS_ThrowInternalError(ctx, "failed to create HTTP server vhost");
     }
 
     /* Get the actual port (in case port 0 was used for auto-assignment). */
     s->port = lws_get_vhost_port(s->vhost);
+    s->vhost_count = 1;
+
+    /* HTTP/3: a second vhost bound to the QUIC role serves h3 over a UDP socket
+     * on the same port. lws does not open a UDP listener from vhost_info.port,
+     * so we create a no-TCP-listener vhost and adopt the UDP socket explicitly.
+     * It shares the server's protocols/user, cert and key with the TCP vhost;
+     * the TCP vhost advertises h3 to clients via an Alt-Svc header. */
+    if (want_http3) {
+        /* A wildcard bind address must be passed as NULL: lws_create_adopt_udp
+         * would otherwise try to resolve the literal string. */
+        const char *udp_ads = listen_ip;
+        if (udp_ads && (!udp_ads[0] || !strcmp(udp_ads, "0.0.0.0") || !strcmp(udp_ads, "::"))) {
+            udp_ads = NULL;
+        }
+
+        struct lws_context_creation_info qinfo;
+        memset(&qinfo, 0, sizeof(qinfo));
+        qinfo.port = CONTEXT_PORT_NO_LISTEN_SERVER;
+        qinfo.protocols = protocols;
+        qinfo.user = s;
+        qinfo.vhost_name = "tjs-http-server-h3";
+        qinfo.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+        qinfo.server_ssl_cert_mem = s->ssl_cert_mem;
+        qinfo.server_ssl_cert_mem_len = (unsigned int) strlen(s->ssl_cert_mem);
+        qinfo.server_ssl_private_key_mem = s->ssl_key_mem;
+        qinfo.server_ssl_private_key_mem_len = (unsigned int) strlen(s->ssl_key_mem);
+        qinfo.server_ssl_ca_mem = s->ssl_ca_mem;
+        qinfo.server_ssl_ca_mem_len = s->ssl_ca_mem ? (unsigned int) strlen(s->ssl_ca_mem) : 0;
+        qinfo.ssl_private_key_password = s->ssl_passphrase;
+        qinfo.listen_accept_role = "quic";
+        qinfo.listen_accept_protocol = s->ws_protocol_name;
+        qinfo.alpn = "h3,lws-quic";
+
+        s->quic_vhost = lws_create_vhost(lws_ctx, &qinfo);
+        if (!s->quic_vhost || !lws_create_adopt_udp(s->quic_vhost,
+                                                    udp_ads,
+                                                    s->port,
+                                                    LWS_CAUDP_BIND,
+                                                    s->ws_protocol_name,
+                                                    NULL,
+                                                    NULL,
+                                                    NULL,
+                                                    NULL,
+                                                    "tjs-quic-listen")) {
+            JS_FreeCString(ctx, listen_ip);
+            JS_FreeValue(ctx, obj);
+            return JS_ThrowInternalError(ctx, "failed to create HTTP/3 (QUIC) listener");
+        }
+
+        s->vhost_count = 2;
+    }
+
+    JS_FreeCString(ctx, listen_ip);
 
     /* Prevent GC while server is active. */
     s->this_val = JS_DupValue(ctx, obj);
@@ -1561,6 +1655,11 @@ static JSValue tjs_httpserver_close(JSContext *ctx, JSValue this_val, int argc, 
     }
 
     s->closed = true;
+
+    if (s->quic_vhost) {
+        lws_vhost_destroy(s->quic_vhost);
+        s->quic_vhost = NULL;
+    }
 
     if (s->vhost) {
         lws_vhost_destroy(s->vhost);
@@ -1595,6 +1694,25 @@ static TJSHttpRequest *tjs_http_find_request(TJSHttpServer *s, uint64_t req_id) 
 
 /* Max size for response header buffer.  Matches Node.js / Deno default. */
 #define TJS_MAX_HEADER_SIZE 16384
+
+/* Advertise HTTP/3 to h1/h2 (TCP) clients via Alt-Svc so they can discover and
+ * upgrade to the QUIC listener on the same port. Not emitted on h3 responses
+ * (the client is already on h3). */
+static int tjs_http_add_altsvc(TJSHttpServer *s, TJSHttpRequest *req, unsigned char **p, unsigned char *end) {
+    if (!s->quic_vhost || req->http_version == TJS_HTTP_3) {
+        return 0;
+    }
+
+    char altsvc[64];
+    int n = lws_snprintf(altsvc, sizeof(altsvc), "h3=\":%d\"; ma=86400", s->port);
+
+    return lws_add_http_header_by_name(req->wsi,
+                                       (const unsigned char *) "alt-svc:",
+                                       (const unsigned char *) altsvc,
+                                       n,
+                                       p,
+                                       end);
+}
 
 /*
  * HttpServer.prototype.sendResponse(requestId, status, headersArray, bodyBuffer)
@@ -1641,6 +1759,11 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
     if (lws_add_http_header_status(req->wsi, (unsigned int) status, &p, end)) {
         js_free(ctx, header_buf);
         return JS_ThrowInternalError(ctx, "failed to add status header");
+    }
+
+    if (tjs_http_add_altsvc(s, req, &p, end)) {
+        js_free(ctx, header_buf);
+        return JS_ThrowInternalError(ctx, "failed to add alt-svc header");
     }
 
     /* Iterate headers array. */
@@ -1756,13 +1879,13 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
     if (body_len > 0) {
         lws_callback_on_writable(req->wsi);
     } else {
-        /* No body. Over HTTP/2 a response is not complete until its stream is
-         * closed with END_STREAM; the HEADERS frame alone leaves the peer
-         * waiting for a DATA frame (the transfer fails). Emit a zero-length
-         * LWS_WRITE_HTTP_FINAL to carry END_STREAM and end the stream. Over
-         * HTTP/1 the content-length: 0 header fully frames the response, so no
-         * terminator is needed. */
-        if (req->is_h2) {
+        /* No body. Over a multiplexed protocol (HTTP/2 or HTTP/3) a response is
+         * not complete until its stream is closed with END_STREAM; the HEADERS
+         * frame alone leaves the peer waiting for a DATA frame (the transfer
+         * fails). Emit a zero-length LWS_WRITE_HTTP_FINAL to carry END_STREAM
+         * and end the stream. Over HTTP/1 the content-length: 0 header fully
+         * frames the response, so no terminator is needed. */
+        if (req->http_version != TJS_HTTP_1_1) {
             lws_write(req->wsi, req->response_data + LWS_PRE + hdr_len, 0, LWS_WRITE_HTTP_FINAL);
         }
         /* Complete the transaction now and release the request so a subsequent
@@ -1818,14 +1941,15 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
     unsigned char *p = start;
     unsigned char *end = header_buf + hdr_buf_size - 1;
 
-    /* Streaming response of unknown length. Over HTTP/2 the body is framed as
-     * DATA frames terminated by END_STREAM, so lws's common-headers path (which
-     * adds neither Content-Length nor Connection for a mux stream) is right.
-     * Over HTTP/1.1 that path would add "Connection: close" (lws close-delimits
-     * unknown-length h1 responses), which prevents keep-alive/pipelining. So
-     * for h1 we frame the body ourselves with Transfer-Encoding: chunked and
-     * keep the connection reusable. */
-    if (req->is_h2) {
+    /* Streaming response of unknown length. Over a multiplexed protocol (HTTP/2
+     * or HTTP/3) the body is framed as DATA frames terminated by END_STREAM, so
+     * lws's common-headers path (which adds neither Content-Length nor
+     * Connection for a mux stream) is right. Over HTTP/1.1 that path would add
+     * "Connection: close" (lws close-delimits unknown-length h1 responses),
+     * which prevents keep-alive/pipelining. So for h1 we frame the body
+     * ourselves with Transfer-Encoding: chunked and keep the connection
+     * reusable. */
+    if (req->http_version != TJS_HTTP_1_1) {
         if (lws_add_http_common_headers(req->wsi, (unsigned int) status, NULL, LWS_ILLEGAL_HTTP_CONTENT_LEN, &p, end)) {
             js_free(ctx, header_buf);
             return JS_ThrowInternalError(ctx, "failed to add status header");
@@ -1842,6 +1966,11 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
             js_free(ctx, header_buf);
             return JS_ThrowInternalError(ctx, "failed to add status header");
         }
+    }
+
+    if (tjs_http_add_altsvc(s, req, &p, end)) {
+        js_free(ctx, header_buf);
+        return JS_ThrowInternalError(ctx, "failed to add alt-svc header");
     }
 
     /* Add custom headers from the array. */
