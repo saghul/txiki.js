@@ -4,6 +4,7 @@
 .cache
 
 build/
+build-*/
 src/bundles/js/
 src/js/core.js
 src/js/std.js
