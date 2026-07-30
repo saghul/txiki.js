@@ -231,8 +231,8 @@ declare module 'tjs:ffi'{
         static createRefFromBuf<T>(type: SimpleType<T>, buf: Uint8Array): Pointer<T, 1>;
     }
 
-    export class PointerType<T, ST extends SimpleType<T>, N extends number> extends AdvancedType<Pointer<T, N>, PointerType<T, ST, N>>{
-        constructor(type: ST , level: N);
+    export class PointerType<T, ST extends SimpleType<T>, N extends number = 1> extends AdvancedType<Pointer<T, N>, PointerType<T, ST, N>>{
+        constructor(type: ST, level?: N);
         toBuffer(data: Pointer<T, N>|NativePointer|null, ctx?: {}): Uint8Array;
         fromBuffer(buf: Uint8Array, ctx?: {}): Pointer<T, N>;
         get type(): ST;
