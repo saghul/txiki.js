@@ -658,13 +658,14 @@ export function dlopen(path, symbols) {
                     'it cannot be combined with \'returns\' or \'args\'');
             }
 
-            resolved[name] = { symbol, type: resolveType(def.type) };
+            resolved[name] = { symbol, optional: def.optional, type: resolveType(def.type) };
 
             continue;
         }
 
         resolved[name] = {
             symbol,
+            optional: def.optional,
             returns: resolveType(def.returns ?? 'void'),
             args: (def.args ?? []).map(resolveType),
             fixed: def.fixed,
@@ -699,7 +700,21 @@ export function dlopen(path, symbols) {
 
 function bindSymbols(lib, resolved, result) {
     for (const [ name, def ] of Object.entries(resolved)) {
-        const sym = lib.symbol(def.symbol);
+        let sym;
+
+        try {
+            sym = lib.symbol(def.symbol);
+        } catch (e) {
+            if (!def.optional) {
+                throw e;
+            }
+
+            // The symbol isn't there: leave the property out entirely, so that
+            // `name in symbols` tells the caller whether this build of the
+            // library has it. Only the resolution is guarded — anything that
+            // goes wrong while binding a symbol that *does* exist still throws.
+            continue;
+        }
 
         if (def.type) {
             // A data symbol: the symbol's address *is* the global, so hand back a
