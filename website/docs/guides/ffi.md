@@ -16,13 +16,14 @@ strings, buffers, pointers, structs, and callbacks.
 
 ## Loading a library
 
-The quickest way in is [`dlopen`](/docs/api/tjs-ffi.Function.dlopen): give it a
-library path and a description of the symbols you want, and it returns ready-to-call functions.
+[`dlopen`](/docs/api/tjs-ffi.Function.dlopen) is the way in: give it a library
+path and a description of the symbols you want, and it returns ready-to-call
+functions.
 
 ```javascript
-import { dlopen, Lib } from 'tjs:ffi';
+import { dlopen, LIBC_NAME } from 'tjs:ffi';
 
-const { symbols, close } = dlopen(Lib.LIBC_NAME, {
+const { symbols, close } = dlopen(LIBC_NAME, {
     getpid: { returns: 'i32' },
     abs: { args: ['i32'], returns: 'i32' },
 });
@@ -33,15 +34,27 @@ console.log('abs(-5):', symbols.abs(-5));
 close(); // release the library handle when done
 ```
 
-`Lib.LIBC_NAME` and `Lib.LIBM_NAME` resolve to the platform's C and math
-libraries. For your own libraries, build the path with the platform-specific
-`suffix`:
+[`LIBC_NAME`](/docs/api/tjs-ffi.Variable.LIBC_NAME) and
+[`LIBM_NAME`](/docs/api/tjs-ffi.Variable.LIBM_NAME) resolve to the platform's C
+and math libraries. For your own libraries, build the path with the
+platform-specific [`suffix`](/docs/api/tjs-ffi.Variable.suffix):
 
 ```javascript
 import { suffix } from 'tjs:ffi';
 
 const path = `./libmystuff.${suffix}`; // dylib / so / dll
 ```
+
+Everything a library exports is declared in that symbol map: a function with
+`args` / `returns`, a global variable with [`type`](#global-variables), and both
+under whichever JS name you like via [`name`](#binding-a-symbol-more-than-once).
+
+> **Breaking change.** Earlier versions also exposed a lower-level `Lib` /
+> `DlSymbol` / `CFunction` trio, and `dlopen`'s result carried the underlying
+> `Lib` as `lib`. Those are gone: `new Lib(path)` is the `dlopen` call itself,
+> `new CFunction(lib.symbol('f'), ...)` is an `args`/`returns` entry,
+> `lib.symbol('g').addr` is a `type` entry, and `lib.parseCProto(header)` is
+> [`dlopenCProto`](#declaring-symbols-from-c-prototypes).
 
 ## Types
 
@@ -72,9 +85,9 @@ NUL-terminated `char *`, and `'string'` return values are read back into a JS
 string. For raw memory, pass a `Uint8Array` as a `'buffer'`:
 
 ```javascript
-import { dlopen, Lib, bufferToString } from 'tjs:ffi';
+import { dlopen, LIBC_NAME, bufferToString } from 'tjs:ffi';
 
-const { symbols } = dlopen(Lib.LIBC_NAME, {
+const { symbols } = dlopen(LIBC_NAME, {
     // int snprintf(char *str, size_t size, const char *format, ...);
     snprintf: { args: ['buffer', 'size_t', 'string'], returns: 'int', fixed: 3 },
 });
@@ -94,25 +107,139 @@ string into a `Uint8Array` you can pass as a `'buffer'`.
 For variadic C functions, set `fixed` to the number of fixed (non-variadic)
 arguments. Above, `snprintf` has three fixed parameters before the `...`.
 
-## Structs
+A binding's call signature is fixed when the library is opened, so a variadic
+function is only callable at the arity you declared. To use it at more than one
+arity, bind it more than once.
 
-Use the lower-level [`Lib`](/docs/api/tjs-ffi.Class.Lib) /
-[`CFunction`](/docs/api/tjs-ffi.Class.CFunction) API together with
-[`StructType`](/docs/api/tjs-ffi.Class.StructType) to pass or return structs by
-value. Field layout (including padding) is computed for you.
+### Binding a symbol more than once
+
+By default the key an entry is listed under is both the JS property name and the
+C symbol to resolve. `name` separates the two, which is what lets the same C
+symbol be bound twice:
 
 ```javascript
-import { Lib, CFunction, StructType, types } from 'tjs:ffi';
+import { dlopen, LIBC_NAME, bufferToString } from 'tjs:ffi';
 
-const lib = new Lib(`./libmystuff.${suffix}`);
+const { symbols, close } = dlopen(LIBC_NAME, {
+    // int snprintf(char *str, size_t size, const char *format, ...);
+    snprintf1: { name: 'snprintf', args: ['buffer', 'size_t', 'string', 'i32'], returns: 'int', fixed: 3 },
+    snprintf2: { name: 'snprintf', args: ['buffer', 'size_t', 'string', 'i32', 'i32'], returns: 'int', fixed: 3 },
+});
+
+const buf = new Uint8Array(32);
+
+symbols.snprintf1(buf, buf.length, 'x=%d', 7);
+console.log(bufferToString(buf)); // "x=7"
+
+symbols.snprintf2(buf, buf.length, 'x=%d y=%d', 7, 8);
+console.log(bufferToString(buf)); // "x=7 y=8"
+
+close();
+```
+
+The same field also exposes an awkward C name under a friendlier one
+(`readConfig: { name: 'mylib_read_config_v2', ... }`). Only the keys are bound —
+the C name behind them never appears in `symbols`.
+
+### Optional symbols
+
+A symbol that fails to resolve makes the whole `dlopen` throw (and closes the
+handle again). Mark an entry `optional` to probe for a symbol instead: if it is
+missing, the property is left out of `symbols` altogether, so `in` tells you
+whether the library you got has it.
+
+```javascript
+import { dlopen, LIBC_NAME } from 'tjs:ffi';
+
+const { symbols, close } = dlopen(LIBC_NAME, {
+    strlen: { args: ['string'], returns: 'size_t' },
+    // A BSD extension: always there on macOS, on glibc only since 2.38.
+    strlcpy: { args: ['buffer', 'string', 'size_t'], returns: 'size_t', optional: true },
+});
+
+if ('strlcpy' in symbols) {
+    // ... use the fast path ...
+} else {
+    // ... fall back to snprintf ...
+}
+
+close();
+```
+
+Only the resolution is guarded: an `optional` entry that resolves but is
+declared wrong still throws.
+
+## Global variables
+
+An entry with `type` — instead of `args` / `returns` — declares a *data* symbol,
+i.e. a global variable. It binds to a level-1
+[`Pointer`](/docs/api/tjs-ffi.Class.Pointer) at the variable's address rather
+than to a callable, so `deref()` reads its current value:
+
+```javascript
+import { dlopen, suffix } from 'tjs:ffi';
+
+const { symbols, close } = dlopen(`./libmystuff.${suffix}`, {
+    // int mystuff_version;
+    mystuff_version: { type: 'int' },
+    // const char *mystuff_build;
+    mystuff_build: { type: 'string' },
+});
+
+console.log(symbols.mystuff_version.deref()); // 3
+console.log(symbols.mystuff_build.deref());   // "2026-07-30"
+
+close();
+```
+
+`type` is mutually exclusive with `args` and `returns`; an entry carrying both
+throws a `TypeError`.
+
+The binding is always level 1, because the symbol's address *is* the variable.
+A global that is itself a pointer you want to follow twice — `int *thing` — is
+reached by rebuilding the pointer at the same address with the level it really
+has:
+
+```javascript
+import { dlopen, Pointer, types, suffix } from 'tjs:ffi';
+
+const { symbols, close } = dlopen(`./libmystuff.${suffix}`, {
+    // int *mystuff_count_ptr;
+    mystuff_count_ptr: { type: types.sint },
+});
+
+const ptr = new Pointer(symbols.mystuff_count_ptr.addr, 2, types.sint);
+
+console.log(ptr.derefAll()); // the int behind both levels
+
+close();
+```
+
+Keep the bound `Pointer` reachable while you use the rebuilt one: it is what
+keeps the library loaded, and the rebuilt pointer carries no such tie.
+
+## Structs
+
+Use [`StructType`](/docs/api/tjs-ffi.Class.StructType) as an argument or return
+type to pass or return structs by value. Field layout (including padding) is
+computed for you.
+
+```javascript
+import { dlopen, StructType, PointerType, Pointer, types, suffix } from 'tjs:ffi';
 
 // struct point { int x; int y; };
 const Point = new StructType([['x', types.sint], ['y', types.sint]], 'point');
 
-// struct point make_point(int x, int y);
-const makePoint = new CFunction(lib.symbol('make_point'), Point, [types.sint, types.sint]);
+const { symbols, close } = dlopen(`./libmystuff.${suffix}`, {
+    // struct point make_point(int x, int y);
+    make_point: { args: ['int', 'int'], returns: Point },
+    // double point_len(struct point p);
+    point_len: { args: [Point], returns: 'f64' },
+    // void scale_point(struct point *p, double f);
+    scale_point: { args: [new PointerType(Point), 'f64'] },
+});
 
-console.log(makePoint.call(3, 4)); // { x: 3, y: 4 }
+console.log(symbols.make_point(3, 4)); // { x: 3, y: 4 }
 ```
 
 ### Passing a struct by value
@@ -121,26 +248,20 @@ When a parameter *is* a struct (passed by value), use the `StructType` as the
 argument type and pass a plain object:
 
 ```javascript
-// double point_len(struct point p);
-const pointLen = new CFunction(lib.symbol('point_len'), types.double, [Point]);
-
-console.log(pointLen.call({ x: 3, y: 4 })); // 5
+console.log(symbols.point_len({ x: 3, y: 4 })); // 5
 ```
 
 ### Passing a struct by reference
 
-The common C idiom takes a pointer to a struct (`struct point *`). Wrap the
-object with [`Pointer.createRef`](/docs/api/tjs-ffi.Class.Pointer) to pass a
+The common C idiom takes a pointer to a struct (`struct point *`). Declare the
+parameter with a [`PointerType`](/docs/api/tjs-ffi.Class.PointerType) and wrap
+the object with [`Pointer.createRef`](/docs/api/tjs-ffi.Class.Pointer) to pass a
 pointer to its bytes — passing a bare object would be a type error:
 
 ```javascript
-import { Pointer } from 'tjs:ffi';
-
-// void scale_point(struct point *p, double f);
-const scalePoint = new CFunction(lib.symbol('scale_point'), types.void, [new PointerType(Point), types.double]);
-
 const ref = Pointer.createRef(Point, { x: 3, y: 4 });
-scalePoint.call(ref, 2);
+
+symbols.scale_point(ref, 2);
 console.log(ref.deref()); // { x: 6, y: 8 } — read the mutated value back
 ```
 
@@ -158,58 +279,56 @@ converts to/from a JS string.
 ## Callbacks
 
 Wrap a JS function in a [`JSCallback`](/docs/api/tjs-ffi.Class.JSCallback) to
-pass it where C expects a function pointer.
-
-```javascript
-import { Lib, CFunction, JSCallback, types } from 'tjs:ffi';
-
-const lib = new Lib(`./libmystuff.${suffix}`);
-
-// int call_it(int (*fn)(int), int arg);
-const callIt = new CFunction(lib.symbol('call_it'), types.sint, [types.jscallback(), types.sint]);
-
-const cb = new JSCallback(types.sint, [types.sint], (n) => n * 2);
-
-console.log(callIt.call(cb, 21)); // 42
-```
-
-Keep the `JSCallback` alive for as long as C might call it; if it is garbage
-collected, the function pointer becomes dangling.
-
-Callbacks work through [`dlopen`](/docs/api/tjs-ffi.Function.dlopen) too — declare
-the argument as `types.jscallback()` and pass a `JSCallback` when calling:
+pass it where C expects a function pointer. Declare the parameter as
+`types.jscallback()`:
 
 ```javascript
 import { dlopen, JSCallback, types, suffix } from 'tjs:ffi';
 
 const { symbols, close } = dlopen(`./libmystuff.${suffix}`, {
+    // int call_it(int (*fn)(int), int arg);
     call_it: { args: [types.jscallback(), types.sint], returns: types.sint },
 });
 
 const cb = new JSCallback(types.sint, [types.sint], (n) => n * 2);
 
 console.log(symbols.call_it(cb, 21)); // 42
+
 close();
 ```
 
-If you'd rather build a `CFunction` yourself, `dlopen`'s result also exposes the
-underlying [`Lib`](/docs/api/tjs-ffi.Class.Lib) as `lib`, so you can grab raw
-symbols from the same handle without opening the library twice:
+Keep the `JSCallback` alive for as long as C might call it; if it is garbage
+collected, the function pointer becomes dangling.
+
+### Passing a native function pointer
+
+Sometimes the function pointer C wants is not a JS function but another function
+from a native library — a destructor to hand to a registry, a comparator the
+library itself provides. A `{ type }` entry gives you its address: `type` binds
+*any* symbol as a `Pointer` at its address, function or data alike, and `.addr`
+is the raw pointer to pass along. Declare the parameter as `'ptr'`, since
+`types.jscallback()` accepts nothing but a `JSCallback`:
 
 ```javascript
-import { dlopen, CFunction, JSCallback, types, suffix } from 'tjs:ffi';
+import { dlopen, suffix } from 'tjs:ffi';
 
-const { symbols, lib, close } = dlopen(`./libmystuff.${suffix}`, {
-    add: { args: [types.sint, types.sint], returns: types.sint },
+const { symbols, close } = dlopen(`./libmystuff.${suffix}`, {
+    // int call_it(int (*fn)(int), int arg);
+    call_it: { args: ['ptr', 'int'], returns: 'int' },
+    // int times_two(int n); — bound for its address, not to be called from JS.
+    times_two: { type: 'void' },
 });
 
-const callIt = new CFunction(lib.symbol('call_it'), types.sint, [types.jscallback(), types.sint]);
-const cb = new JSCallback(types.sint, [types.sint], (n) => n * 2);
+console.log(symbols.call_it(symbols.times_two.addr, 21)); // 42
 
-console.log(symbols.add(1, 2));   // 3
-console.log(callIt.call(cb, 21)); // 42
 close();
 ```
+
+Declare the pointee as `'void'`, as above: for a function symbol there is no
+meaningful thing being pointed at, and `deref()` would read the function's
+machine code as data. On such a pointer, `.addr` is the only member you may
+touch. If you want to *call* the function from JS as well, add a second entry
+for it with `args` / `returns` — `name` lets both live in the same map.
 
 ## Pointers
 
@@ -291,15 +410,22 @@ wraps an existing buffer. Use a [`PointerType`](/docs/api/tjs-ffi.Class.PointerT
 as the argument/return type to declare a `T *` parameter:
 
 ```javascript
-import { Lib, CFunction, PointerType, Pointer, types } from 'tjs:ffi';
+import { dlopen, LIBC_NAME, PointerType, Pointer, StructType, types } from 'tjs:ffi';
 
-const libc = new Lib(Lib.LIBC_NAME);
+const Tm = new StructType([
+    ['sec', types.sint], ['min', types.sint], ['hour', types.sint],
+    ['mday', types.sint], ['mon', types.sint], ['year', types.sint],
+], 'tm');
 
-// struct tm *localtime(const time_t *timep);
-const localtime = new CFunction(libc.symbol('localtime'), new PointerType(Tm), [new PointerType(types.sint64)]);
+const { symbols, close } = dlopen(LIBC_NAME, {
+    // struct tm *localtime(const time_t *timep);
+    localtime: { args: [new PointerType(types.sint64)], returns: new PointerType(Tm) },
+});
 
-const tmPtr = localtime.call(Pointer.createRef(types.sint64, 1658319387));
+const tmPtr = symbols.localtime(Pointer.createRef(types.sint64, 1658319387));
 console.log(tmPtr.deref()); // { sec, min, hour, ... } — deref reads the struct
+
+close();
 ```
 
 `deref()` reads one level of indirection; `derefAll()` follows a multi-level
@@ -357,7 +483,7 @@ console.log(src[0]); // 42 — same memory; keep `src` reachable while `view` li
 For deterministic cleanup, free it yourself when you're done:
 
 ```javascript
-const { symbols } = dlopen(Lib.LIBC_NAME, {
+const { symbols } = dlopen(LIBC_NAME, {
     free: { args: ['ptr'] },
 });
 
@@ -399,29 +525,32 @@ bytes, so it is safe to call *after* the memory is gone. For a view returned as 
 ## Declaring symbols from C prototypes
 
 Instead of describing each symbol by hand, you can paste C declarations and let
-[`Lib.parseCProto`](/docs/api/tjs-ffi.Class.Lib) register the structs, typedefs
-and functions for you. Functions then become callable by name with
-`lib.call(name, ...)`, and types are retrievable with `lib.getType(name)`:
+[`dlopenCProto`](/docs/api/tjs-ffi.Function.dlopenCProto) do it for you: it binds
+every function the header declares and hands back the types it defines along the
+way. `symbols` is exactly what `dlopen` returns; `types` is a `Map` keyed by the
+name each type was declared under, e.g. `'struct point'`.
 
 ```javascript
-import { Lib, Pointer } from 'tjs:ffi';
+import { dlopenCProto, Pointer, suffix } from 'tjs:ffi';
 
-const lib = new Lib(`./libmystuff.${suffix}`);
-
-lib.parseCProto(`
+const { symbols, types, close } = dlopenCProto(`./libmystuff.${suffix}`, `
     struct point { int x; int y; };
     int point_sum(struct point *p);
 `);
 
-const Point = lib.getType('struct point');
-console.log(lib.call('point_sum', Pointer.createRef(Point, { x: 3, y: 4 }))); // 7
+const Point = types.get('struct point');
+
+console.log(symbols.point_sum(Pointer.createRef(Point, { x: 3, y: 4 }))); // 7
+
+close();
 ```
 
 The parser understands scalar types, pointers, fixed-size array members,
-structs, typedefs and function pointers (registered as callbacks). `lib.call`
-pairs with `lib.getFunc(name)` / `lib.registerFunction(name, fn)` and
-`lib.getType` / `lib.registerType(name, type)` if you want to inspect or extend
-the registry.
+structs, typedefs and function pointers (registered as callbacks). A typedef is
+keyed under its own name as well (`types.get('p_t')`), and a pointer type the
+header used under the name with the stars (`types.get('p_t*')`). Since the
+header is parsed at runtime, the resulting signatures are opaque to TypeScript —
+declare the symbols by hand if you want them typed.
 
 ## Error handling
 
@@ -430,25 +559,38 @@ Many libc-style functions report failure by setting `errno`. Read it with
 with [`strerror()`](/docs/api/tjs-ffi.Function.strerror):
 
 ```javascript
-import { errno, strerror } from 'tjs:ffi';
+import { dlopen, LIBC_NAME, errno, strerror } from 'tjs:ffi';
 
-if (symbols.some_call() < 0) {
-    console.log('failed:', strerror(errno()));
+const { symbols, close } = dlopen(LIBC_NAME, {
+    chdir: { args: ['string'], returns: 'int' },
+});
+
+if (symbols.chdir('/no/such/directory') < 0) {
+    console.log('failed:', strerror(errno())); // "No such file or directory"
 }
+
+close();
 ```
 
 ## Closing libraries
 
-Close a `Lib` (or the handle from `dlopen`) when you're finished. `Lib`
-implements `Symbol.dispose`, so `using` closes it automatically at scope exit:
+`dlopen` and `dlopenCProto` both hand back a `close()` that releases the library
+handle, and both results implement `Symbol.dispose` as an alias for it, so
+`using` closes the library at scope exit:
 
 ```javascript
-import { Lib } from 'tjs:ffi';
+import { dlopen, LIBC_NAME } from 'tjs:ffi';
 
 {
-    using lib = new Lib(Lib.LIBC_NAME);
-    // ... use lib ...
+    using lib = dlopen(LIBC_NAME, {
+        getpid: { returns: 'i32' },
+    });
+
+    console.log(lib.symbols.getpid());
 } // lib.close() runs here
 ```
 
-After a library is closed, symbols obtained from it must not be used.
+Closing twice is harmless — an explicit `close()` inside a `using` scope is fine.
+After a library is closed, the symbols bound from it must not be used: the
+functions in `symbols` and any `Pointer` to a global still exist, but the code
+and data they refer to are gone.
