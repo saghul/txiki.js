@@ -2,6 +2,7 @@ import core from 'tjs:internal/core';
 const ffiInt = core.ffi_load_native();
 
 import buildAstToSymbols, { parseCProto } from './ffiutils.js';
+import buildDefineStruct from './structs.js';
 
 const suffixMap = { macOS: 'dylib', Windows: 'dll' };
 
@@ -204,6 +205,20 @@ export const types = {
             throw new Error('type buffer cannot be used as a return type, since the size is not known!');
         },
         name: 'buffer'
+    }),
+
+    // A JS boolean carried by an unsigned integer, in the two widths C code uses
+    // for a flag: C99 `bool` (and ObjC `BOOL`) is one byte, Win32 `BOOL` is four.
+    bool_u8: new AdvancedType(ffiInt.type_uint8, {
+        toBuffer: b => ffiInt.type_uint8.toBuffer(b ? 1 : 0),
+        fromBuffer: buf => Boolean(ffiInt.type_uint8.fromBuffer(buf)),
+        name: 'bool_u8'
+    }),
+
+    bool_u32: new AdvancedType(ffiInt.type_uint32, {
+        toBuffer: b => ffiInt.type_uint32.toBuffer(b ? 1 : 0),
+        fromBuffer: buf => Boolean(ffiInt.type_uint32.fromBuffer(buf)),
+        name: 'bool_u32'
     }),
 
     jscallback: () => jscallbackType
@@ -553,6 +568,7 @@ const typeAliases = {
     pointer: types.pointer, ptr: types.pointer,
     string: types.string, cstring: types.string,
     buffer: types.buffer,
+    bool_u8: types.bool_u8, bool_u32: types.bool_u32,
     uchar: types.uchar, schar: types.schar, char: types.schar,
     ushort: types.ushort, sshort: types.sshort,
     uint: types.uint, sint: types.sint,
@@ -573,6 +589,20 @@ function resolveType(t) {
 
     return t;
 }
+
+// Declaring a struct layout is a job of its own, so it lives in structs.js; the
+// pieces it needs (the type vocabulary, the libffi-facing StructType, the
+// pointer helpers) are handed to it rather than exported, which would widen this
+// module's public surface.
+export const defineStruct = buildDefineStruct({
+    AdvancedType,
+    StructType,
+    types,
+    resolveType,
+    createPointer,
+    bufferToPointer,
+    isPointer: ffiInt.isPointer,
+});
 
 // `using lib = dlopen(...)` has to work, but what the dlopen() family hands back
 // is a plain object rather than one of the stdlib's disposable classes, so alias

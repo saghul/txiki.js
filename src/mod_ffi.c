@@ -283,6 +283,19 @@ static JSValue js_ffi_type_get_sz(JSContext *ctx, JSValue this_val) {
     return JS_NEW_SIZE_T(ctx, ffi_type_get_sz(type->ffi_type));
 }
 
+// The type's ABI alignment, as libffi computed it: filled in by
+// ffi_get_struct_offsets for our dynamic structs, and part of libffi's static
+// tables for the primitive types. Structs laid out from JS need it (a struct's
+// alignment is not derivable from its members' sizes on every ABI).
+static JSValue js_ffi_type_get_alignment(JSContext *ctx, JSValue this_val) {
+    js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
+    if (type == NULL) {
+        JS_ThrowTypeError(ctx, "expected this to be FfiType");
+        return JS_EXCEPTION;
+    }
+    return JS_NEW_SIZE_T(ctx, type->ffi_type->alignment);
+}
+
 int ffi_type_to_buffer(JSContext *ctx, JSValue val, ffi_type *type, uint8_t *buf) {
     if (type->type == FFI_TYPE_STRUCT) {
         if (!JS_IsArray(val)) {
@@ -532,6 +545,7 @@ static const JSCFunctionListEntry js_ffi_type_proto_funcs[] = {
     TJS_CFUNC_DEF("fromBuffer", 1, js_ffi_type_from_buffer),
     TJS_CGETSET_DEF("name", js_ffi_type_name, NULL),
     TJS_CGETSET_DEF("size", js_ffi_type_get_sz, NULL),
+    TJS_CGETSET_DEF("alignment", js_ffi_type_get_alignment, NULL),
 };
 #pragma endregion "FfiType class definition"
 
