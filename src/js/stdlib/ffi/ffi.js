@@ -594,8 +594,9 @@ function resolveType(t) {
 // pieces it needs (the type vocabulary, the libffi-facing StructType, the
 // pointer helpers) are handed to it rather than exported, which would widen this
 // module's public surface.
-export const { defineStruct, defineEnum } = buildDefineStruct({
+export const { defineStruct, defineEnum, allocStruct } = buildDefineStruct({
     AdvancedType,
+    ArrayType,
     StructType,
     types,
     resolveType,

@@ -105,6 +105,94 @@ FFI_TEST_EXPORT char* sprint_str_test(struct str_test* t){
 	return str;
 }
 
+/* The `{ T* data; size_t len }` shape: a pointer to a run of elements plus its
+ * count, which is what defineStruct's [ elementType ] fields pack into. */
+struct byte_span{
+	unsigned char* data;
+	size_t len;
+};
+
+FFI_TEST_EXPORT unsigned sum_byte_span(struct byte_span* s){
+	unsigned total = 0;
+	for(size_t i = 0; i < s->len; i++){
+		total += s->data[i];
+	}
+	return total;
+}
+
+struct point{
+	float x;
+	float y;
+};
+
+struct polyline{
+	struct point* points;
+	unsigned count;
+};
+
+FFI_TEST_EXPORT float sum_polyline(struct polyline* p){
+	float total = 0;
+	for(unsigned i = 0; i < p->count; i++){
+		total += p->points[i].x + p->points[i].y;
+	}
+	return total;
+}
+
+/* Fills in a struct the caller allocated: `items` points at `count` ints. */
+struct int_list{
+	unsigned count;
+	int* items;
+};
+
+FFI_TEST_EXPORT void fill_int_list(struct int_list* l){
+	for(unsigned i = 0; i < l->count; i++){
+		l->items[i] = (int)(i + 1) * 10;
+	}
+}
+
+/* Arrays laid out inside the struct, as opposed to a pointer to elements. */
+struct grid{
+	char name[8];
+	int cells[4];
+};
+
+FFI_TEST_EXPORT size_t sizeof_struct_grid(){
+	return sizeof(struct grid);
+}
+
+FFI_TEST_EXPORT size_t offsetof_struct_grid_cells(){
+	return offsetof(struct grid, cells);
+}
+
+FFI_TEST_EXPORT char* sprint_grid(struct grid* g){
+	static char str[255];
+	snprintf(str, 255, "%s:%d,%d,%d,%d", g->name, g->cells[0], g->cells[1], g->cells[2], g->cells[3]);
+	return str;
+}
+
+/* A nested struct reached through a pointer rather than laid out inline. */
+struct limits{
+	uint32_t min_size;
+	uint32_t max_size;
+};
+
+struct device_desc{
+	uint32_t id;
+	struct limits* limits;
+};
+
+FFI_TEST_EXPORT int device_desc_span(struct device_desc* d){
+	if(!d->limits){
+		return -1;
+	}
+	return (int)(d->limits->max_size - d->limits->min_size);
+}
+
+FFI_TEST_EXPORT void set_device_limits(struct device_desc* d, uint32_t min_size, uint32_t max_size){
+	d->limits->min_size = min_size;
+	d->limits->max_size = max_size;
+}
+
 struct test_handle_entry{
 	int a;
 };
