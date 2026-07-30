@@ -14,7 +14,7 @@
 const LE = new DataView(new Uint16Array([ 1 ]).buffer).getUint16(0) !== 1;
 
 export default function buildDefineStruct(
-    { AdvancedType, ArrayType, StructType, types, resolveType, createPointer, bufferToPointer, isPointer }) {
+    { AdvancedType, ArrayType, StructType, types, resolveType, typeName, createPointer, bufferToPointer, isPointer }) {
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     const pointerSize = types.pointer.size;
@@ -206,7 +206,7 @@ export default function buildDefineStruct(
 
         constructor(element) {
             this.#element = element;
-            this.#name = `${element.name}[]`;
+            this.#name = `${typeName(element)}[]`;
         }
         get element() {
             return this.#element;
@@ -793,7 +793,10 @@ export default function buildDefineStruct(
                 return { relOffset: offsets[i] - offset, get, set };
             };
 
-            this.#fields = resolved.map(([ field, type ]) => [ field, type ]);
+            // Frozen because the getter hands the same array out on every access:
+            // a caller mutating it would leave the definition misreporting itself
+            // while pack/unpack, which read the separate layout, carried on.
+            this.#fields = Object.freeze(resolved.map(([ field, type ]) => Object.freeze([ field, type ])));
             this.#arrays = new Map();
             this.#layout = resolved.map(([ field, type, options ], i) => {
                 const offset = offsets[i];
@@ -907,7 +910,7 @@ export default function buildDefineStruct(
         }
         describe() {
             return this.#layout.map(({ name, offset, size, type }) => {
-                return { name, offset, size, type: type.name };
+                return { name, offset, size, type: typeName(type) };
             });
         }
     }

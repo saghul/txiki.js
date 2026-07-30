@@ -251,8 +251,8 @@ which is where to look first when a struct does not agree with C:
 
 ```javascript
 console.log(Point.describe());
-// [ { name: 'x', offset: 0, size: 4, type: 'type_sint32' },
-//   { name: 'y', offset: 4, size: 4, type: 'type_sint32' } ]
+// [ { name: 'x', offset: 0, size: 4, type: 'i32' },
+//   { name: 'y', offset: 4, size: 4, type: 'i32' } ]
 ```
 
 A field's type is anything from the [types table](#types), as an alias or as a
