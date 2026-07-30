@@ -200,6 +200,23 @@ export class CFunction {
     }
 }
 
+// A single shared instance: dlopen()'s fast-path check compares argument types
+// by identity, so minting a fresh AdvancedType per types.jscallback() call would
+// make every callback signature fall back to the slow path.
+const jscallbackType = new AdvancedType(ffiInt.type_pointer, {
+    toBuffer: jsc => {
+        if (!(jsc instanceof JSCallback)) {
+            throw new Error('not a JSCallback');
+        }
+
+        return jsc.addr;
+    },
+    fromBuffer: () =>{
+        throw new Error('JSCallback as a return is not supported!');
+    },
+    name: 'jscallback'
+});
+
 export const types = {
     void: ffiInt.type_void,
     uint8: ffiInt.type_uint8,
@@ -254,19 +271,7 @@ export const types = {
         name: 'buffer'
     }),
 
-    jscallback: () => new AdvancedType(ffiInt.type_pointer, {
-        toBuffer: jsc => {
-            if (!(jsc instanceof JSCallback)) {
-                throw new Error('not a JSCallback');
-            }
-
-            return jsc.addr;
-        },
-        fromBuffer: () =>{
-            throw new Error('JSCallback as a return is not supported!');
-        },
-        name: 'jscallback'
-    })
+    jscallback: () => jscallbackType
 };
 
 const typeMap = [
@@ -552,6 +557,7 @@ export class JSCallback {
     #func;
     #cif;
     #closure;
+    #addr;
 
     constructor(rtype, argtypes, func) {
         this.#func = (...args) => {
@@ -570,9 +576,14 @@ export class JSCallback {
 
         this.#cif = new ffiInt.FfiCif(rtype.ffiType ?? rtype, ...argtypes.map(t => t.ffiType ?? t));
         this.#closure = new ffiInt.FfiClosure(this.#cif, this.#func);
+
+        // The closure's code pointer is fixed at creation and lives as long as the
+        // closure does, so the NativePointer wrapping it is minted once: reading
+        // .addr happens on every call that passes this callback.
+        this.#addr = this.#closure.addr;
     }
     get addr() {
-        return this.#closure.addr;
+        return this.#addr;
     }
 }
 
@@ -633,22 +644,26 @@ export function dlopen(path, symbols) {
     for (const [ name, def ] of Object.entries(resolved)) {
         const sym = lib.symbol(name);
 
-        // Check if all arg types are simple (scalar/pointer/string/buffer)
-        // and if so, use the fast call path.
+        // Check if all arg types are simple (scalar/pointer/string/buffer/jscallback)
+        // and if so, use the fast call path. jscallback is not allowed as a return
+        // type — that has no meaning, and its fromBuffer throws.
         const canFastCall = def.args.length <= 16 && def.args.every(t =>
-            t === types.string || t === types.buffer || !t.ffiType
+            t === types.string || t === types.buffer || t === jscallbackType || !t.ffiType
         ) && (def.returns === types.string || !def.returns.ffiType);
 
         if (canFastCall) {
-            // Build bitmasks for string and buffer arguments.
+            // Build bitmasks for string, buffer and jscallback arguments.
             let stringMask = 0;
             let bufferMask = 0;
+            let callbackMask = 0;
 
             for (let i = 0; i < def.args.length; i++) {
                 if (def.args[i] === types.string) {
                     stringMask |= (1 << i);
                 } else if (def.args[i] === types.buffer) {
                     bufferMask |= (1 << i);
+                } else if (def.args[i] === jscallbackType) {
+                    callbackMask |= (1 << i);
                 }
             }
 
@@ -663,7 +678,7 @@ export function dlopen(path, symbols) {
             // the bound function stays valid even if the Lib is collected.
             const dlsym = nativeSymbol(sym);
 
-            result[name] = (...a) => cif.fast_call(dlsym, stringMask, bufferMask, ...a);
+            result[name] = (...a) => cif.fast_call(dlsym, stringMask, bufferMask, callbackMask, ...a);
         } else {
             // Fallback to CFunction for complex types (structs, etc.)
             const func = new CFunction(sym, def.returns, def.args, def.fixed);
