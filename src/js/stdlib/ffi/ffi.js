@@ -8,6 +8,13 @@ const suffixMap = { macOS: 'dylib', Windows: 'dll' };
 export const suffix = suffixMap[navigator.userAgentData.platform] ?? 'so';
 
 
+// Pins the owning UvLib on the native symbol: a UvDlSym holds nothing but a raw
+// function pointer, so without this the library could be collected and
+// dlclose()d while a symbol resolved from it is still callable. The pin lives on
+// the native symbol rather than on DlSymbol so that holding just the native
+// symbol (as dlopen's fast path does) keeps the library loaded.
+const kLib = Symbol('uvlib');
+
 export class DlSymbol {
     constructor(name, uvlib, dlsym) {
         this._name = name;
@@ -61,6 +68,8 @@ export class Lib {
     }
     symbol(name) {
         const symbol = this._uvlib.symbol(name);
+
+        symbol[kLib] = this._uvlib;
 
         return new DlSymbol(name, this._uvlib, symbol);
     }
@@ -615,6 +624,8 @@ export function dlopen(path, symbols) {
             const ffiArgTypes = def.args.map(t => t.ffiType ?? t);
             const ffiRetType = def.returns.ffiType ?? def.returns;
             const cif = new ffiInt.FfiCif(ffiRetType, ...ffiArgTypes, def.fixed);
+            // The captured native symbol keeps the library loaded (see kLib), so
+            // the bound function stays valid even if the Lib is collected.
             const dlsym = sym._dlsym;
 
             result[name] = (...a) => cif.fast_call(dlsym, stringMask, bufferMask, ...a);
