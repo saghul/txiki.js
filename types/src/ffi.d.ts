@@ -366,8 +366,18 @@ declare module 'tjs:ffi'{
      *
      * An entry with `type` declares a data symbol (a global variable); any other
      * entry declares a function.
+     *
+     * The key an entry is listed under is the JS property name it binds to, and
+     * by default also the C symbol resolved; `name` separates the two.
      */
     export interface DlopenSymbol {
+        /**
+         * C symbol to resolve. Defaults to the key the entry is listed under.
+         *
+         * Set it to bind one C symbol more than once — a variadic function needs
+         * a binding per arity — or to expose a C name under a friendlier one.
+         */
+        name?: string;
         /** Argument types. Defaults to `[]` (no arguments) if omitted. */
         args?: TypeOrAlias[];
         /** Return type. Defaults to `'void'` if omitted. */
