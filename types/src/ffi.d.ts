@@ -378,6 +378,13 @@ declare module 'tjs:ffi'{
          * a binding per arity — or to expose a C name under a friendlier one.
          */
         name?: string;
+        /**
+         * When `true`, a symbol that cannot be resolved is left out of
+         * `symbols` instead of making the whole {@link dlopen} throw — use
+         * `'foo' in symbols` to find out whether this build of the library has
+         * it. Only resolution is affected; any other failure still throws.
+         */
+        optional?: boolean;
         /** Argument types. Defaults to `[]` (no arguments) if omitted. */
         args?: TypeOrAlias[];
         /** Return type. Defaults to `'void'` if omitted. */
@@ -407,17 +414,23 @@ declare module 'tjs:ffi'{
         [key in keyof T]: MapToJsType<T[key]>;
     };
 
+    /** What a single {@link DlopenSymbol} binds to: a Pointer, or a callable. */
+    export type MapSymbolToJsValue<S extends DlopenSymbol> = S["type"] extends TypeOrAlias
+        ? Pointer<MapToJsType<S["type"]>, 1>
+        : S["args"] extends TypeOrAlias[]
+            ? (...args: MapArrayToJsType<S["args"]>) => MapToJsType<S["returns"]>
+            : () => MapToJsType<S["returns"]>;
+
     export interface DlopenResult<T extends Record<string, DlopenSymbol>> {
         /**
          * Object containing a callable function for each declared function
-         * symbol, and a {@link Pointer} for each declared data symbol.
+         * symbol, and a {@link Pointer} for each declared data symbol. An entry
+         * declared `optional` is absent when its symbol did not resolve.
          */
         symbols: {
-            [K in keyof T]: T[K]["type"] extends TypeOrAlias
-                ? Pointer<MapToJsType<T[K]["type"]>, 1>
-                : T[K]["args"] extends TypeOrAlias[]
-                    ? (...args: MapArrayToJsType<T[K]["args"]>) => MapToJsType<T[K]["returns"]>
-                    : () => MapToJsType<T[K]["returns"]>;
+            [K in keyof T as T[K]["optional"] extends true ? never : K]: MapSymbolToJsValue<T[K]>;
+        } & {
+            [K in keyof T as T[K]["optional"] extends true ? K : never]?: MapSymbolToJsValue<T[K]>;
         };
         /**
          * The underlying {@link Lib}. Use `lib.symbol(name)` to obtain a raw
