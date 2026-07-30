@@ -645,6 +645,12 @@ export function dlopen(path, symbols) {
     const resolved = {};
 
     for (const [ name, def ] of Object.entries(symbols)) {
+        // The C symbol to resolve. It defaults to the map key, which is only the
+        // JS property name: an explicit `name` lets one C symbol be bound more
+        // than once (different signatures of a variadic function, say) and lets a
+        // C name be exposed under a friendlier one.
+        const symbol = def.name ?? name;
+
         if (def.type !== undefined) {
             if (def.returns !== undefined || def.args !== undefined) {
                 throw new TypeError(
@@ -652,12 +658,13 @@ export function dlopen(path, symbols) {
                     'it cannot be combined with \'returns\' or \'args\'');
             }
 
-            resolved[name] = { type: resolveType(def.type) };
+            resolved[name] = { symbol, type: resolveType(def.type) };
 
             continue;
         }
 
         resolved[name] = {
+            symbol,
             returns: resolveType(def.returns ?? 'void'),
             args: (def.args ?? []).map(resolveType),
             fixed: def.fixed,
@@ -692,7 +699,7 @@ export function dlopen(path, symbols) {
 
 function bindSymbols(lib, resolved, result) {
     for (const [ name, def ] of Object.entries(resolved)) {
-        const sym = lib.symbol(name);
+        const sym = lib.symbol(def.symbol);
 
         if (def.type) {
             // A data symbol: the symbol's address *is* the global, so hand back a
