@@ -576,6 +576,22 @@ const typeAliases = {
     size_t: types.size, ssize_t: types.ssize,
 };
 
+// The documented spelling of a type, for reporting a layout back to a caller.
+// The raw libffi types name themselves after their C counterpart (`type_sint32`),
+// which is not a name anyone can write in a symbol map or a field list; the first
+// alias declared for a type is the short one the guide uses.
+const typeAliasNames = new Map();
+
+for (const [ alias, type ] of Object.entries(typeAliases)) {
+    if (!typeAliasNames.has(type)) {
+        typeAliasNames.set(type, alias);
+    }
+}
+
+function typeName(t) {
+    return typeAliasNames.get(t) ?? t.name;
+}
+
 function resolveType(t) {
     if (typeof t === 'string') {
         const resolved = typeAliases[t];
@@ -600,6 +616,7 @@ export const { defineStruct, defineEnum, allocStruct } = buildDefineStruct({
     StructType,
     types,
     resolveType,
+    typeName,
     createPointer,
     bufferToPointer,
     isPointer: ffiInt.isPointer,
