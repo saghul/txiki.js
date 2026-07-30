@@ -641,6 +641,30 @@ export function dlopen(path, symbols) {
     const lib = new Lib(path);
     const result = {};
 
+    try {
+        bindSymbols(lib, resolved, result);
+    } catch (e) {
+        // The library is open at this point and nothing else references it yet
+        // (a failure here means the caller gets no symbols), so close it instead
+        // of leaving the handle open until the Lib is finalized. Unresolvable
+        // symbol names make this the common path, not a corner case.
+        lib.close();
+
+        throw e;
+    }
+
+    return {
+        symbols: result,
+        // Expose the underlying Lib so callers can grab raw symbols (e.g. to
+        // build a CFunction with a JSCallback arg) without opening the library
+        // a second time. close() and lib.close() both close the same handle;
+        // that's fine, the native close is idempotent.
+        lib,
+        close: () => lib.close(),
+    };
+}
+
+function bindSymbols(lib, resolved, result) {
     for (const [ name, def ] of Object.entries(resolved)) {
         const sym = lib.symbol(name);
 
@@ -705,14 +729,4 @@ export function dlopen(path, symbols) {
             result[name] = (...a) => func.call(...a);
         }
     }
-
-    return {
-        symbols: result,
-        // Expose the underlying Lib so callers can grab raw symbols (e.g. to
-        // build a CFunction with a JSCallback arg) without opening the library
-        // a second time. close() and lib.close() both close the same handle;
-        // that's fine, the native close is idempotent.
-        lib,
-        close: () => lib.close(),
-    };
 }
