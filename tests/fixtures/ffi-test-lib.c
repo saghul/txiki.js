@@ -1,4 +1,5 @@
 #include <inttypes.h>
+#include <stddef.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -78,6 +79,29 @@ FFI_TEST_EXPORT char* sprint_struct_test(struct test* t){
 FFI_TEST_EXPORT char* sprint_struct_byval_test(struct test t){
 	static char str[255];
 	snprintf(str, 255, "a: %d, b: %u, c: %" PRIu64, t.a, t.b, t.c);
+	return str;
+}
+
+FFI_TEST_EXPORT size_t sizeof_struct_test(){
+	return sizeof(struct test);
+}
+
+FFI_TEST_EXPORT size_t offsetof_struct_test_b(){
+	return offsetof(struct test, b);
+}
+
+FFI_TEST_EXPORT size_t offsetof_struct_test_c(){
+	return offsetof(struct test, c);
+}
+
+struct str_test{
+	char* s;
+	int n;
+};
+
+FFI_TEST_EXPORT char* sprint_str_test(struct str_test* t){
+	static char str[255];
+	snprintf(str, 255, "%s:%d", t->s ? t->s : "(null)", t->n);
 	return str;
 }
 
