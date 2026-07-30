@@ -1,21 +1,23 @@
 import assert from 'tjs:assert';
 import { FFI, sopath } from './helpers/ffi.js';
 
+const sizeofFuncs = [
+	'sizeof_sllong',
+	'sizeof_slong',
+	'sizeof_sint',
+	'sizeof_sshort',
+	'sizeof_schar',
+	'sizeof_float',
+	'sizeof_double',
+	'sizeof_pointer',
+	'sizeof_size_t',
+	'sizeof_ulong',
+	'sizeof_ullong',
+];
+
 const testlib = new FFI.Lib(sopath);
-testlib.parseCProto(`
-	size_t sizeof_sllong();
-	size_t sizeof_slong();
-	size_t sizeof_sint();
-	size_t sizeof_sshort();
-	size_t sizeof_schar();
-	size_t sizeof_float();
-	size_t sizeof_double();
-	size_t sizeof_pointer();
-	size_t sizeof_size_t();
-	size_t sizeof_ulong();
-	size_t sizeof_ullong();
-`);
-for(const [fname] of testlib._funcs.entries()){
+testlib.parseCProto(sizeofFuncs.map(fname => `size_t ${fname}();`).join('\n'));
+for(const fname of sizeofFuncs){
 	const tname = fname.replace('sizeof_', '').replace(/_t$/, '');
 	assert.eq(testlib.call(fname), FFI.types[tname].size);
 }

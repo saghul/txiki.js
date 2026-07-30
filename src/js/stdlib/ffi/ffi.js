@@ -11,18 +11,28 @@ export const suffix = suffixMap[navigator.userAgentData.platform] ?? 'so';
 // Pins the owning UvLib on the native symbol: a UvDlSym holds nothing but a raw
 // function pointer, so without this the library could be collected and
 // dlclose()d while a symbol resolved from it is still callable. The pin lives on
-// the native symbol rather than on DlSymbol so that holding just the native
+// the native object rather than on DlSymbol so that holding just the native
 // symbol (as dlopen's fast path does) keeps the library loaded.
 const kLib = Symbol('uvlib');
 
+// Module-private accessor for DlSymbol's native symbol, which CFunction and
+// dlopen hand to FfiCif. Installed from the class body so the native symbol
+// stays unreachable outside this module.
+let nativeSymbol;
+
 export class DlSymbol {
-    constructor(name, uvlib, dlsym) {
-        this._name = name;
-        this._uvlib = uvlib;
-        this._dlsym = dlsym;
+    #dlsym;
+
+    static {
+        nativeSymbol = sym => sym.#dlsym;
+    }
+
+    constructor(uvlib, dlsym) {
+        dlsym[kLib] = uvlib;
+        this.#dlsym = dlsym;
     }
     get addr() {
-        return this._dlsym.addr;
+        return this.#dlsym.addr;
     }
 }
 
@@ -54,11 +64,14 @@ function formatTypeName(name) {
 }
 
 export class Lib {
+    #uvlib;
+    #funcs;
+    #types;
+
     constructor(libname) {
-        this._libname = libname;
-        this._uvlib = new ffiInt.UvLib(libname);
-        this._funcs = new Map();
-        this._types = new Map();
+        this.#uvlib = new ffiInt.UvLib(libname);
+        this.#funcs = new Map();
+        this.#types = new Map();
 
         for (const [ t, aliases ] of typeMap) {
             for (const alias of aliases) {
@@ -67,29 +80,25 @@ export class Lib {
         }
     }
     symbol(name) {
-        const symbol = this._uvlib.symbol(name);
-
-        symbol[kLib] = this._uvlib;
-
-        return new DlSymbol(name, this._uvlib, symbol);
+        return new DlSymbol(this.#uvlib, this.#uvlib.symbol(name));
     }
     static LIBC_NAME = ffiInt.LIBC_NAME;
     static LIBM_NAME = ffiInt.LIBM_NAME;
 
     registerType(name, type) {
         name = formatTypeName(name);
-        this._types.set(name, type);
+        this.#types.set(name, type);
     }
     getType(name) {
         name = formatTypeName(name);
 
-        return this._types.get(name);
+        return this.#types.get(name);
     }
     registerFunction(name, func) {
-        this._funcs.set(name, func);
+        this.#funcs.set(name, func);
     }
     getFunc(name) {
-        return this._funcs.get(name);
+        return this.#funcs.get(name);
     }
     call(funcname, ...args) {
         const func = this.getFunc(funcname);
@@ -102,7 +111,7 @@ export class Lib {
     }
 
     close() {
-        this._uvlib.close();
+        this.#uvlib.close();
     }
 
     [Symbol.dispose]() {
@@ -117,43 +126,52 @@ export class Lib {
 }
 
 export class AdvancedType {
+    #ffiType;
+    #conf;
+
     constructor(type, conf) {
-        this._ffiType = type;
-        this._conf = conf;
+        this.#ffiType = type;
+        this.#conf = conf;
     }
     toBuffer(data, ctx = {}) {
-        if (this._conf.toBuffer) {
-            return this._conf.toBuffer(data, ctx);
+        if (this.#conf.toBuffer) {
+            return this.#conf.toBuffer(data, ctx);
         } else {
-            return this._ffiType.toBuffer(data, ctx);
+            return this.#ffiType.toBuffer(data, ctx);
         }
     }
     fromBuffer(buf, ctx = {}) {
-        if (this._conf.fromBuffer) {
-            return this._conf.fromBuffer(buf, ctx);
+        if (this.#conf.fromBuffer) {
+            return this.#conf.fromBuffer(buf, ctx);
         } else {
-            return this._ffiType.fromBuffer(buf, ctx);
+            return this.#ffiType.fromBuffer(buf, ctx);
         }
     }
     get ffiType() {
-        return this._ffiType;
+        return this.#ffiType;
     }
     get ffiTypeStruct() {
-        return this._conf.getFfiTypeStruct ? this._conf.getFfiTypeStruct() : this._ffiType;
+        return this.#conf.getFfiTypeStruct ? this.#conf.getFfiTypeStruct() : this.#ffiType;
     }
     get name() {
-        return this._conf.name;
+        return this.#conf.name;
     }
     get size() {
-        return this._ffiType.size;
+        return this.#ffiType.size;
     }
 }
 
 export class CFunction {
+    // Holding the DlSymbol keeps the library it came from loaded (see kLib).
+    #symbol;
+    #rtype;
+    #argtypes;
+    #cif;
+
     constructor(symbol, rtype, argtypes, fixed) {
-        this._symbol = symbol;
-        this._rtype = rtype;
-        this._argtypes = argtypes;
+        this.#symbol = symbol;
+        this.#rtype = rtype;
+        this.#argtypes = argtypes;
 
         function getFfiType(t) {
             if (t.ffiType) {
@@ -163,8 +181,7 @@ export class CFunction {
             return t;
         }
 
-        this._cif = new ffiInt.FfiCif(getFfiType(rtype), ...argtypes.map(getFfiType), fixed);
-        this._fixed = fixed;
+        this.#cif = new ffiInt.FfiCif(getFfiType(rtype), ...argtypes.map(getFfiType), fixed);
     }
     call(...argsJs) {
         const ctx = {};
@@ -172,14 +189,14 @@ export class CFunction {
 
         for (const i in argsJs) {
             ctx[i] = {};
-            args[i] = this._argtypes[i].toBuffer(argsJs[i], ctx[i]);
+            args[i] = this.#argtypes[i].toBuffer(argsJs[i], ctx[i]);
         }
 
-        const ret = this._cif.call(this._symbol._dlsym, ...args);
+        const ret = this.#cif.call(nativeSymbol(this.#symbol), ...args);
 
         ctx['ret'] = {};
 
-        return this._rtype.fromBuffer(ret, ctx['ret']);
+        return this.#rtype.fromBuffer(ret, ctx['ret']);
     }
 }
 
@@ -309,40 +326,47 @@ export function createPointer(addr) {
 export const ExternalArrayBuffer = ffiInt.ExternalArrayBuffer;
 
 export class Pointer {
+    #type;
+    #level;
+    #addr;
+    // Set by createRefFromBuf() to keep the pointed-to buffer from being GCed;
+    // never read.
+    #data;
+
     constructor(addr, level, type) {
-        this._type = type;
-        this._level = level;
-        this._addr = addr;
+        this.#type = type;
+        this.#level = level;
+        this.#addr = addr;
     }
     get addr() {
-        return this._addr;
+        return this.#addr;
     }
     get level() {
-        return this._level;
+        return this.#level;
     }
     get type() {
-        return this._type;
+        return this.#type;
     }
     get isNull() {
-        return this._addr === null;
+        return this.#addr === null;
     }
     deref() {
         if (this.level === 1) {
-            const addr = this._addr;
-            const buf = ffiInt.ptrToBuffer(addr, this._type.size);
+            const addr = this.#addr;
+            const buf = ffiInt.ptrToBuffer(addr, this.#type.size);
 
-            return this._type.fromBuffer(buf, {});
+            return this.#type.fromBuffer(buf, {});
         } else {
-            const addr = ffiInt.derefPtr(this._addr, 1);
+            const addr = ffiInt.derefPtr(this.#addr, 1);
 
-            return new Pointer(addr, this._level - 1, this._type);
+            return new Pointer(addr, this.#level - 1, this.#type);
         }
     }
     derefAll() {
-        const addr = ffiInt.derefPtr(this._addr, this._level-1);
-        const buf = ffiInt.ptrToBuffer(addr, this._type.size);
+        const addr = ffiInt.derefPtr(this.#addr, this.#level-1);
+        const buf = ffiInt.ptrToBuffer(addr, this.#type.size);
 
-        return this._type.fromBuffer(buf, {});
+        return this.#type.fromBuffer(buf, {});
     }
     static createRef(type, data) {
         const buf = type.toBuffer(data, {});
@@ -353,19 +377,22 @@ export class Pointer {
         const addr = ffiInt.getArrayBufPtr(buf);
         const ptr = new Pointer(addr, 1, type);
 
-        ptr._data = buf; // attach to keep buf from being GCed
+        ptr.#data = buf;
 
         return ptr;
     }
 }
 
 export class PointerType extends AdvancedType {
+    #level;
+    #type;
+
     constructor(type, level = 1) {
         super(types.pointer || type, {
             name: (type.name || 'void') + ('*').repeat(level),
         });
-        this._level = level;
-        this._type = type;
+        this.#level = level;
+        this.#type = type;
     }
     toBuffer(data, ctx = {}) {
         if (data instanceof Pointer) {
@@ -386,27 +413,29 @@ export class PointerType extends AdvancedType {
             'to pass a value by reference use Pointer.createRef(type, value)');
     }
     fromBuffer(buf, ctx = {}) {
-        return new Pointer(types.pointer.fromBuffer(buf, ctx), this._level, this._type);
+        return new Pointer(types.pointer.fromBuffer(buf, ctx), this.#level, this.#type);
     }
     get type() {
-        return this._type;
+        return this.#type;
     }
     get level() {
-        return this._level;
+        return this.#level;
     }
 }
 
 export class StructType extends AdvancedType {
+    #fields;
+
     constructor(fields, name) {
         const ffitype = new ffiInt.FfiType(...fields.map(([ _f, t ]) => t.ffiTypeStruct || t.ffiType || t));
 
         super(ffitype, {
             toBuffer: (obj, ctx)=>{
-                const buf = new Uint8Array(this._ffiType.size);
-                const offsets = this._ffiType.offsets;
+                const buf = new Uint8Array(this.ffiType.size);
+                const offsets = this.ffiType.offsets;
 
                 for (let i=0; i<offsets.length; i++) {
-                    const [ field, type ] = this._fields[i];
+                    const [ field, type ] = this.#fields[i];
 
                     // eslint-disable-next-line no-prototype-builtins
                     if (obj.hasOwnProperty(field)) {
@@ -420,10 +449,10 @@ export class StructType extends AdvancedType {
             },
             fromBuffer: (buf, ctx)=>{
                 let obj = {};
-                const offsets = this._ffiType.offsets;
+                const offsets = this.ffiType.offsets;
 
                 for (let i=0; i<offsets.length; i++) {
-                    const [ field, type ] = this._fields[i];
+                    const [ field, type ] = this.#fields[i];
                     const fbuf = buf.slice(offsets[i], offsets[i] + type.size);
 
                     obj[field] = type.fromBuffer(fbuf, ctx);
@@ -433,21 +462,24 @@ export class StructType extends AdvancedType {
             },
             name
         });
-        this._fields = fields;
+        this.#fields = fields;
     }
     get fields() {
-        return this._fields;
+        return this.#fields;
     }
 }
 
 export class ArrayType extends AdvancedType {
+    #length;
+    #ffiStruct;
+
     constructor(type, length, name) {
         const ffitype = type.ffiType ? type.ffiType : type;
         const ffisz = ffitype.size;
 
         super(ffitype, {
             toBuffer: (arr, ctx)=>{
-                if (arr.length > this._length) {
+                if (arr.length > this.#length) {
                     throw new RangeError('Array length exceeds type length');
                 }
 
@@ -464,7 +496,7 @@ export class ArrayType extends AdvancedType {
             fromBuffer: (buf, ctx)=>{
                 let arr = [];
 
-                for (let i=0; i<this._length; i++) {
+                for (let i=0; i<this.#length; i++) {
                     arr[i] = type.fromBuffer(buf.slice(i*ffisz, (i+1)*ffisz), ctx);
                 }
 
@@ -472,21 +504,20 @@ export class ArrayType extends AdvancedType {
             },
             name,
         });
-        this._type = type;
-        this._length = length;
+        this.#length = length;
     }
     get ffiTypeStruct() {
-        if (!this._ffiStruct) {
-            this._ffiStruct = new ffiInt.FfiType(this._length, this._ffiType);
+        if (!this.#ffiStruct) {
+            this.#ffiStruct = new ffiInt.FfiType(this.#length, this.ffiType);
         }
 
-        return this._ffiStruct;
+        return this.#ffiStruct;
     }
     get length() {
-        return this._length;
+        return this.#length;
     }
     get size() {
-        return this._ffiType.size * this._length;
+        return this.ffiType.size * this.#length;
     }
 }
 
@@ -516,8 +547,14 @@ export function strerror(err = errno()) {
 
 
 export class JSCallback {
+    // The closure calls through the cif and the wrapper, so both have to outlive
+    // it; keep them alive here.
+    #func;
+    #cif;
+    #closure;
+
     constructor(rtype, argtypes, func) {
-        this._func = (...args) => {
+        this.#func = (...args) => {
             const arr = [];
             const ctx = {};
 
@@ -531,13 +568,11 @@ export class JSCallback {
             return rtype.toBuffer(ret);
         };
 
-        this._rtype = rtype;
-        this._argtypes = argtypes;
-        this._cif = new ffiInt.FfiCif(rtype.ffiType ?? rtype, ...argtypes.map(t => t.ffiType ?? t));
-        this._closure = new ffiInt.FfiClosure(this._cif, this._func);
+        this.#cif = new ffiInt.FfiCif(rtype.ffiType ?? rtype, ...argtypes.map(t => t.ffiType ?? t));
+        this.#closure = new ffiInt.FfiClosure(this.#cif, this.#func);
     }
     get addr() {
-        return this._closure.addr;
+        return this.#closure.addr;
     }
 }
 
@@ -626,7 +661,7 @@ export function dlopen(path, symbols) {
             const cif = new ffiInt.FfiCif(ffiRetType, ...ffiArgTypes, def.fixed);
             // The captured native symbol keeps the library loaded (see kLib), so
             // the bound function stays valid even if the Lib is collected.
-            const dlsym = sym._dlsym;
+            const dlsym = nativeSymbol(sym);
 
             result[name] = (...a) => cif.fast_call(dlsym, stringMask, bufferMask, ...a);
         } else {

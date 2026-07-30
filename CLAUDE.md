@@ -152,3 +152,9 @@ All vendored as git submodules: quickjs, libuv, mimalloc, sqlite3, libwebsockets
   assert it with `CHECK(...)` (which aborts), not with a fallback branch that
   silently "handles" the impossible case. Fallback-for-the-impossible hides bugs;
   a `CHECK` documents the invariant and fails loudly if it is ever violated.
+- In JS classes, keep internal state in real private fields (`#foo`), never in
+  `_foo`-prefixed public properties. When another class in the same module needs
+  access, expose a module-private accessor from a `static {}` block instead of
+  widening the public API. Use a module-scoped `Symbol` key only for state that
+  must hang off an object of another class (e.g. pinning an owner on a native
+  object to keep it alive).
