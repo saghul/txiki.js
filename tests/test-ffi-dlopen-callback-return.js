@@ -4,8 +4,8 @@ const { dlopen, types } = FFI;
 
 // jscallback is only meaningful as an argument type. A symbol declaring it as
 // its return type must not take the fast call path (which would hand back a
-// bare native pointer); it keeps falling back to CFunction, whose fromBuffer
-// rejects it.
+// bare native pointer); it keeps falling back to the marshalling path, whose
+// fromBuffer rejects it.
 const { symbols, close } = dlopen(sopath, {
     simple_func1: { args: [ types.sint ], returns: types.jscallback() },
 });

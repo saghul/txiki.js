@@ -6,11 +6,12 @@
  * including structs, pointers, and callbacks.
  *
  * ```js
- * import { Lib, CFunction, types } from 'tjs:ffi';
+ * import { dlopen, LIBC_NAME } from 'tjs:ffi';
  *
- * const lib = new Lib(Lib.LIBC_NAME);
- * const getpid = new CFunction(lib.symbol('getpid'), types.sint, []);
- * console.log(`PID: ${getpid.call()}`);
+ * const { symbols } = dlopen(LIBC_NAME, {
+ *     getpid: { returns: 'i32' },
+ * });
+ * console.log(`PID: ${symbols.getpid()}`);
  * ```
  *
  * @module tjs:ffi
@@ -121,12 +122,6 @@ declare module 'tjs:ffi'{
         ptr(ptr: NativePointer, offset?: number): NativePointer | null;
     };
 
-    export class DlSymbol{
-        /** Instances come only from {@link Lib.symbol}; not user-constructible. */
-        private constructor();
-        readonly addr: NativePointer;
-    }
-
     export interface SimpleType<T = any>{
         toBuffer(data: T, ctx?: {}): Uint8Array;
         fromBuffer(buffer: Uint8Array, ctx?: {}): T;
@@ -148,27 +143,6 @@ declare module 'tjs:ffi'{
         fromBuffer(buffer: Uint8Array, ctx?: {}): T;
         readonly size: number;
         readonly name: string;
-    }
-
-    export class Lib{
-        constructor(libname: string);
-        symbol(name: string): DlSymbol;
-        /**
-         * Explicitly close the shared library handle. After calling this,
-         * any symbols obtained from this library must not be used.
-         *
-         * Aliased as `Symbol.dispose`, so `using lib = new Lib(...)` closes
-         * the handle at scope exit.
-         */
-        close(): void;
-        static LIBC_NAME: string;
-        static LIBM_NAME: string;
-    }
-    export interface Lib extends Disposable {}
-
-    export class CFunction<JRT = unknown, JAT extends unknown[] = unknown[]>{
-        constructor(symbol: DlSymbol, rtype: SimpleType<JRT>, argtypes: { [key in keyof JAT]: SimpleType<JAT[key]> }, fixed?: number);
-        call(...argsJs: JAT): JRT;
     }
 
     export const types: {
@@ -212,6 +186,16 @@ declare module 'tjs:ffi'{
      * `'so'` on Linux, `'dll'` on Windows.
      */
     export const suffix: string;
+
+    /**
+     * The platform's C library: `'libSystem.dylib'` on macOS, `'msvcrt.dll'` on
+     * Windows, libc's SONAME on Linux. Pass it to {@link dlopen} to bind a libc
+     * symbol portably.
+     */
+    export const LIBC_NAME: string;
+
+    /** The platform's math library, in the same vein as {@link LIBC_NAME}. */
+    export const LIBM_NAME: string;
 
     export function bufferToString(buf: Uint8Array): string;
     export function stringToBuffer(s: string): Uint8Array;
@@ -414,7 +398,7 @@ declare module 'tjs:ffi'{
             ? (...args: MapArrayToJsType<S["args"]>) => MapToJsType<S["returns"]>
             : () => MapToJsType<S["returns"]>;
 
-    export interface DlopenResult<T extends Record<string, DlopenSymbol>> {
+    export interface DlopenResult<T extends Record<string, DlopenSymbol>> extends Disposable {
         /**
          * Object containing a callable function for each declared function
          * symbol, and a {@link Pointer} for each declared data symbol. An entry
@@ -426,12 +410,9 @@ declare module 'tjs:ffi'{
             [K in keyof T as T[K]["optional"] extends true ? K : never]?: MapSymbolToJsValue<T[K]>;
         };
         /**
-         * The underlying {@link Lib}. Use `lib.symbol(name)` to obtain a raw
-         * {@link DlSymbol} — e.g. to build a {@link CFunction} that takes a
-         * {@link JSCallback} — without opening the library a second time.
+         * Close the shared library handle. Aliased as `Symbol.dispose`, so
+         * `using lib = dlopen(...)` closes it at scope exit.
          */
-        lib: Lib;
-        /** Close the shared library handle. */
         close(): void;
     }
 
@@ -460,7 +441,7 @@ declare module 'tjs:ffi'{
     export function dlopen<T extends Record<string, DlopenSymbol>>(path: string, symbols: T): DlopenResult<T>;
 
     /** Result of {@link dlopenCProto}. */
-    export interface DlopenCProtoResult {
+    export interface DlopenCProtoResult extends Disposable {
         /**
          * A callable for each function the header declared, keyed by its C name.
          * The header is parsed at runtime, so the signatures are not known to
@@ -478,7 +459,10 @@ declare module 'tjs:ffi'{
          * `Pointer.createRef(types.get('struct test'), { a: 1 })`.
          */
         types: Map<string, SimpleType>;
-        /** Close the shared library handle. */
+        /**
+         * Close the shared library handle. Aliased as `Symbol.dispose`, so
+         * `using lib = dlopenCProto(...)` closes it at scope exit.
+         */
         close(): void;
     }
 
@@ -513,10 +497,7 @@ declare module 'tjs:ffi'{
      * `import { dlopen } from 'tjs:ffi'` are supported.
      */
     const _default: {
-        DlSymbol: typeof DlSymbol;
-        Lib: typeof Lib;
         AdvancedType: typeof AdvancedType;
-        CFunction: typeof CFunction;
         Pointer: typeof Pointer;
         PointerType: typeof PointerType;
         StructType: typeof StructType;
@@ -527,6 +508,8 @@ declare module 'tjs:ffi'{
         types: typeof types;
         read: typeof read;
         suffix: typeof suffix;
+        LIBC_NAME: typeof LIBC_NAME;
+        LIBM_NAME: typeof LIBM_NAME;
         errno: typeof errno;
         strerror: typeof strerror;
         bufferToString: typeof bufferToString;

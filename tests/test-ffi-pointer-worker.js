@@ -5,8 +5,11 @@ import { FFI, sopath } from './helpers/ffi.js';
 // A native pointer survives a trip to a worker when sent as its `.value`
 // (a BigInt) and rebuilt with createPointer() on the other side — the address
 // is valid across threads of the same process.
-const testlib = new FFI.Lib(sopath);
-const ptr = testlib.symbol('simple_func1').addr;
+const { symbols, close } = FFI.dlopen(sopath, {
+    test_int: { type: 'int' },
+});
+
+const ptr = symbols.test_int.addr;
 
 const { promise, resolve, reject } = Promise.withResolvers();
 
@@ -36,4 +39,4 @@ w.onmessageerror = event => {
 w.postMessage({ addr: ptr.value });
 
 await promise;
-testlib.close();
+close();

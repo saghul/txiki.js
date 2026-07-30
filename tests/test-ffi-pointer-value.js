@@ -3,8 +3,11 @@ import { FFI, sopath } from './helpers/ffi.js';
 
 const { createPointer } = FFI;
 
-const testlib = new FFI.Lib(sopath);
-const ptr = testlib.symbol('simple_func1').addr;
+const { symbols, close } = FFI.dlopen(sopath, {
+    test_int: { type: 'int' },
+});
+
+const ptr = symbols.test_int.addr;
 
 // `.value` is the raw address as a BigInt, non-zero for a real pointer.
 assert.eq(typeof ptr.value, 'bigint', 'value is a bigint');
@@ -31,4 +34,4 @@ assert.throws(() => createPointer(null), TypeError, 'rejects null');
 const valueGetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(ptr), 'value').get;
 assert.throws(() => valueGetter.call({}), TypeError, 'value getter rejects a foreign receiver');
 
-testlib.close();
+close();

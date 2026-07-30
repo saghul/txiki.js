@@ -6,11 +6,13 @@ import { FFI, sopath } from './helpers/ffi.js';
 
 const { read } = FFI;
 
-const lib = new FFI.Lib(sopath);
+// `test_int` is an exported `int` initialised to 123; a data symbol binds to a
+// Pointer at the variable itself.
+const { symbols, close } = FFI.dlopen(sopath, {
+    test_int: { type: 'int' },
+});
 
-// `test_int` is an exported `int` initialised to 123; its symbol address is the
-// address of the variable itself.
-const intPtr = lib.symbol('test_int').addr;
+const intPtr = symbols.test_int.addr;
 
 assert.eq(read.i32(intPtr), 123, 'sanity: test_int is 123');
 
@@ -58,4 +60,4 @@ assert.eq(view.buffer.byteLength, 4, 'uint8 view buffer spans the same memory');
 assert.eq(intPtr.toUint8Array(0).length, 0);
 assert.eq(intPtr.toArrayBuffer(0).byteLength, 0);
 
-lib.close();
+close();

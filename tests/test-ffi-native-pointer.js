@@ -1,9 +1,11 @@
 import assert from 'tjs:assert';
 import { FFI, sopath } from './helpers/ffi.js';
 
-const testlib = new FFI.Lib(sopath);
-const sym = testlib.symbol('simple_func1');
-const ptr = sym.addr;
+const { symbols, close } = FFI.dlopen(sopath, {
+    test_int: { type: 'int' },
+});
+
+const ptr = symbols.test_int.addr;
 
 // NativePointer prototype has a null prototype (no Object.prototype in chain).
 const proto = Object.getPrototypeOf(ptr);
@@ -24,3 +26,5 @@ assert.ok(!ptr.equals(ptr2));
 assert.eq(ptr.hasOwnProperty, undefined);
 assert.eq(ptr.valueOf, undefined);
 assert.eq(ptr.constructor, undefined);
+
+close();
