@@ -175,9 +175,17 @@ declare module 'tjs:ffi'{
         ssize: SimpleType<number>,
 
         string: SimpleType<string>,
-        
+
         buffer: SimpleType<Uint8Array>,
-        
+
+        /**
+         * A C flag one byte wide — C99 `bool`, ObjC `BOOL` — carried as a JS
+         * boolean. Anything nonzero reads back as `true`.
+         */
+        bool_u8: SimpleType<boolean>,
+        /** A C flag four bytes wide — Win32 `BOOL` — carried as a JS boolean. */
+        bool_u32: SimpleType<boolean>,
+
         jscallback: <T extends JSCallback>() => SimpleType<T>,
     }
 
@@ -259,6 +267,295 @@ declare module 'tjs:ffi'{
         fromBuffer(buf: Uint8Array, ctx?: {}): string;
     }
 
+    /**
+     * The JS side of a struct: a plain object keyed by field name, as passed to
+     * {@link StructDef.pack} and returned by {@link StructDef.unpack}.
+     *
+     * The field types are not tracked: a struct is described at runtime by a
+     * list of `[ name, type ]` entries, so TypeScript cannot know that `x` is a
+     * `number` and `name` a `string`. Values are typed `any` rather than
+     * `unknown` so that reading a field back needs no cast.
+     */
+    export type StructValues = Record<string, any>;
+
+    /**
+     * A name -> value mapping over an integer field, from {@link defineEnum}.
+     *
+     * Usable as a {@link defineStruct} field type (or as the element type of a
+     * `[ elementType ]` field), where it packs from a member name and unpacks
+     * back to one. It is not a {@link SimpleType}, so it cannot be a
+     * {@link dlopen} argument or return type on its own — pass
+     * {@link EnumDef.type} for that.
+     */
+    export interface EnumDef {
+        /** The mapping the enum was defined with, frozen. */
+        readonly members: Readonly<Record<string, number>>;
+        /**
+         * The integer type the enum is stored in, i.e. what libffi lays out.
+         * Defaults to `types.sint`, which is what a C compiler gives an enum
+         * whose enumerators fit in an `int`.
+         */
+        readonly type: SimpleType<number>;
+        /** Size in bytes of {@link EnumDef.type}. */
+        readonly size: number;
+        /** A description of the mapping, e.g. `'enum(RED, GREEN, BLUE)'`. */
+        readonly name: string;
+        /**
+         * The integer for a member name, or for a value that is already one of
+         * the enum's; `undefined` for anything else.
+         */
+        valueFor(nameOrValue: string | number | bigint): number | undefined;
+        /** The member name for a value, `undefined` if the enum has none. */
+        nameFor(value: number | bigint): string | undefined;
+    }
+
+    /**
+     * What a {@link defineStruct} field may be declared as:
+     *
+     * - a primitive, by {@link TypeAlias} or as a {@link types} object —
+     *   including `'cstring'` (a `char *`, packed from and unpacked to a JS
+     *   string, `null` for a null pointer), `'pointer'` (a
+     *   {@link NativePointer} or `null`) and `'bool_u8'` / `'bool_u32'`;
+     * - another {@link StructDef}, laid out inline by value (or behind a
+     *   pointer with {@link StructFieldOptions.asPointer});
+     * - an {@link EnumDef};
+     * - an {@link ArrayType} or {@link StaticStringType}, for an array laid out
+     *   *inside* the struct (`int cells[4]`, `char name[8]`);
+     * - `[ elementType ]`, a pointer to a run of elements whose count lives in
+     *   the field that names this one in {@link StructFieldOptions.lengthOf}.
+     */
+    export type StructFieldType = TypeOrAlias | StructDef | EnumDef | [StructFieldType];
+
+    /**
+     * Runs on pack and rejects a value by throwing. It sees the value as the
+     * caller gave it (or the field's `default`), before any
+     * {@link StructFieldOptions.packTransform}.
+     *
+     * @param value - The value about to be packed.
+     * @param field - The field's name, for the error message.
+     * @param context - `{ input }`, the whole object being packed.
+     */
+    export type StructValidator = (value: any, field: string, context: { input: StructValues }) => void;
+
+    /** Per-field options, the third element of a {@link StructField} entry. */
+    export interface StructFieldOptions {
+        /**
+         * Value to pack when the field is absent from the object. Absent means
+         * `undefined`: `null` is a value a `'pointer'` or `'cstring'` field
+         * takes, and is packed as a null address. Wins over `optional`.
+         */
+        default?: any;
+        /**
+         * When `true`, an absent field is zeroed instead of throwing — which
+         * unpacks back as `0`, `false`, or `null` for a pointer or a string.
+         */
+        optional?: boolean;
+        /** One validator, or a list of them; every one runs. */
+        validate?: StructValidator | StructValidator[];
+        /** Maps the value the caller gave to the one the field stores. */
+        packTransform?: (value: any) => any;
+        /** Maps the stored value back on the way out of `unpack`. */
+        unpackTransform?: (value: any) => any;
+        /**
+         * Answered once, when the struct is defined: a field whose condition
+         * returns `false` is not part of the struct at all, so it neither shows
+         * up in the layout nor shifts the fields after it. This is how a member
+         * only some platforms have is expressed.
+         */
+        condition?: () => boolean;
+        /**
+         * Names the field this one holds the element count of — a
+         * `[ elementType ]` field, or a `'cstring'` field, which pairs into C's
+         * counted string. The count is written by the field it counts, so this
+         * field's own value is never read from the object being packed, and
+         * `default`, `optional`, `validate` and `packTransform` are rejected on
+         * it.
+         */
+        lengthOf?: string;
+        /**
+         * For a nested {@link StructDef} field: store the address of a buffer of
+         * its own instead of laying the struct out inline, i.e. C's
+         * `struct limits *`. A null pointer unpacks as `null`.
+         */
+        asPointer?: boolean;
+    }
+
+    /** One entry of a {@link defineStruct} field list. */
+    export type StructField =
+        | readonly [name: string, type: StructFieldType]
+        | readonly [name: string, type: StructFieldType, options: StructFieldOptions];
+
+    /** One field's place in the layout, as reported by {@link StructDef.describe}. */
+    export interface StructFieldInfo {
+        readonly name: string;
+        /** Byte offset from the start of the struct, as computed by libffi. */
+        readonly offset: number;
+        /** Bytes the field occupies — a pointer's worth for a pointer field. */
+        readonly size: number;
+        /** The field type's name, e.g. `'type_sint32'`, `'u8[]'`, `'enum(RED, GREEN)'`. */
+        readonly type: string;
+    }
+
+    /**
+     * A struct described with {@link defineStruct}: packs a plain object into
+     * struct bytes and unpacks them back.
+     *
+     * It is an {@link AdvancedType}, so it doubles as a {@link dlopen} argument
+     * or return type — its `toBuffer` is {@link StructDef.pack} and its
+     * `fromBuffer` is {@link StructDef.unpack} — and a struct is then passed and
+     * returned by value.
+     */
+    export interface StructDef extends AdvancedType<StructValues, SimpleType<StructValues>> {
+        /** Struct bytes for `obj`, `size` bytes long. */
+        pack(obj: StructValues): Uint8Array;
+        /** The object `buf` holds. Reads the struct at offset 0. */
+        unpack(buf: ArrayBuffer | ArrayBufferView): StructValues;
+        /**
+         * Write the fields into an object the caller owns and return it, rather
+         * than allocating a result object. Only the struct's own fields are
+         * assigned; anything else on `target` is left alone.
+         *
+         * @param buf - Bytes to read.
+         * @param target - Object to assign the fields to.
+         * @param offset - Byte offset of the struct within `buf`.
+         */
+        unpackInto<T extends object>(buf: ArrayBuffer | ArrayBufferView, target: T, offset?: number): T & StructValues;
+        /** Unpack `count` structs packed back to back, from offset 0. */
+        unpackList(buf: ArrayBuffer | ArrayBufferView, count: number): StructValues[];
+        /**
+         * Pack a run of structs back to back into a buffer the caller owns,
+         * without a buffer per element. Padding between fields keeps whatever
+         * the buffer already held.
+         *
+         * @param objects - The structs to write.
+         * @param buf - Buffer to write into; must have room for all of them.
+         * @param offset - Byte offset to start at.
+         */
+        packListInto(objects: readonly StructValues[], buf: ArrayBuffer | ArrayBufferView, offset?: number): void;
+        /** Size of the struct in bytes, padding included. */
+        readonly size: number;
+        /** Alignment of the struct in bytes. */
+        readonly align: number;
+        /**
+         * The fields as `[ name, type ]` pairs, with each type resolved to a
+         * type object — a string alias appears as the {@link types} entry it
+         * names, and a `[ elementType ]` field as an object whose `name` is
+         * `'<element>[]'`. Fields dropped by a
+         * {@link StructFieldOptions.condition} are not listed.
+         */
+        readonly fields: Array<[name: string, type: { readonly name: string }]>;
+        /**
+         * The layout, field by field: the offsets, sizes and type names libffi
+         * computed. The place to look when a struct does not agree with C.
+         */
+        describe(): StructFieldInfo[];
+    }
+
+    /**
+     * Describe a C struct as a list of fields, and get back a type that turns a
+     * plain JS object into struct bytes and back.
+     *
+     * The layout is libffi's, so it is the platform's: offsets, size, alignment
+     * and padding all match what the C compiler did to the same struct.
+     *
+     * ```js
+     * import { defineStruct } from 'tjs:ffi';
+     *
+     * // struct point { int x; int y; };
+     * const Point = defineStruct([
+     *     ['x', 'i32'],
+     *     ['y', 'i32'],
+     * ]);
+     *
+     * const bytes = Point.pack({ x: 3, y: 4 });
+     *
+     * console.log(Point.unpack(bytes)); // { x: 3, y: 4 }
+     * ```
+     *
+     * @param fields - `[ name, type ]` or `[ name, type, options ]` entries.
+     */
+    export function defineStruct(fields: readonly StructField[]): StructDef;
+
+    /**
+     * Describe a C enum as a name -> value mapping, for use as a
+     * {@link defineStruct} field type: the field then packs from a member name
+     * and unpacks back to one.
+     *
+     * A name the mapping does not have, or bytes holding a value it has no name
+     * for, throw a `RangeError` naming the field. A raw value may be packed as
+     * well, but only if the mapping declares it.
+     *
+     * ```js
+     * import { defineEnum, defineStruct } from 'tjs:ffi';
+     *
+     * // enum log_level { LOG_DEBUG, LOG_INFO, LOG_ERROR };
+     * const LogLevel = defineEnum({ DEBUG: 0, INFO: 1, ERROR: 2 });
+     * const Message = defineStruct([['level', LogLevel], ['code', 'u32']]);
+     *
+     * console.log(Message.unpack(Message.pack({ level: 'ERROR', code: 42 })));
+     * ```
+     *
+     * @param members - The enumerators, as `{ NAME: value }`. Values must be
+     *                  safe integers; two names for one value is legal C, and
+     *                  the last one declared is what unpacking reports.
+     * @param type - The integer type the enum is stored in. Defaults to
+     *               `types.sint` (C's `int`), which is also the only default
+     *               under which a negative enumerator round trips.
+     */
+    export function defineEnum(members: Record<string, number>, type?: TypeOrAlias): EnumDef;
+
+    /** Options for {@link allocStruct}. */
+    export interface AllocStructOptions {
+        /**
+         * How many elements to allocate for each named array field, as
+         * `{ field: count }`. A field named here must be one that has a
+         * {@link StructFieldOptions.lengthOf} field pointing at it — for a
+         * `'cstring'` field the count is a number of bytes.
+         */
+        lengths?: Record<string, number>;
+    }
+
+    /** What {@link allocStruct} hands back. */
+    export interface AllocatedStruct {
+        /**
+         * Zeroed struct bytes, with the address and count of every requested
+         * array field already written. Pass them where C wants a
+         * `struct foo *`, then {@link StructDef.unpack} them to read the result.
+         */
+        bytes: Uint8Array;
+        /**
+         * The element buffer allocated for each field named in
+         * {@link AllocStructOptions.lengths} — the very memory the struct points
+         * at, not a copy.
+         */
+        arrays: Record<string, Uint8Array>;
+    }
+
+    /**
+     * Allocate struct bytes for a C function to fill in, with a buffer per named
+     * array field wired up as if {@link StructDef.pack} had written a run of
+     * that many elements.
+     *
+     * ```js
+     * import { allocStruct, defineStruct } from 'tjs:ffi';
+     *
+     * // struct int_list { unsigned count; int *items; };
+     * const IntList = defineStruct([
+     *     ['count', 'u32', { lengthOf: 'items' }],
+     *     ['items', ['int']],
+     * ]);
+     *
+     * const { bytes } = allocStruct(IntList, { lengths: { items: 4 } });
+     *
+     * symbols.fill_int_list(bytes);     // void fill_int_list(struct int_list *);
+     * console.log(IntList.unpack(bytes));
+     * ```
+     *
+     * @param def - The struct to allocate.
+     * @param options - Which array fields to allocate room for.
+     */
+    export function allocStruct(def: StructDef, options?: AllocStructOptions): AllocatedStruct;
+
     export function errno(): number;
     export function strerror(err?: number): string;
     export class JSCallback<RT = unknown, AT extends unknown[] = unknown[]>{
@@ -309,6 +606,8 @@ declare module 'tjs:ffi'{
         readonly 'string': typeof types.string;
         readonly 'cstring': typeof types.string;
         readonly 'buffer': typeof types.buffer;
+        readonly 'bool_u8': typeof types.bool_u8;
+        readonly 'bool_u32': typeof types.bool_u32;
         readonly 'uchar': typeof types.uchar;
         readonly 'schar': typeof types.schar;
         readonly 'char': typeof types.schar;
@@ -503,6 +802,9 @@ declare module 'tjs:ffi'{
         StructType: typeof StructType;
         ArrayType: typeof ArrayType;
         StaticStringType: typeof StaticStringType;
+        defineStruct: typeof defineStruct;
+        defineEnum: typeof defineEnum;
+        allocStruct: typeof allocStruct;
         JSCallback: typeof JSCallback;
         ExternalArrayBuffer: typeof ExternalArrayBuffer;
         types: typeof types;
