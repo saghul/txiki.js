@@ -7,6 +7,11 @@ const suffixMap = { macOS: 'dylib', Windows: 'dll' };
 
 export const suffix = suffixMap[navigator.userAgentData.platform] ?? 'so';
 
+// The platform's C and math libraries, i.e. how a dlopen() call names them
+// portably.
+export const LIBC_NAME = ffiInt.LIBC_NAME;
+export const LIBM_NAME = ffiInt.LIBM_NAME;
+
 
 // Pins the owning UvLib on the native symbol: a UvDlSym holds nothing but a raw
 // function pointer, so without this the library could be collected and
@@ -20,7 +25,7 @@ const kLib = Symbol('uvlib');
 // stays unreachable outside this module.
 let nativeSymbol;
 
-export class DlSymbol {
+class DlSymbol {
     #dlsym;
 
     static {
@@ -36,7 +41,7 @@ export class DlSymbol {
     }
 }
 
-export class Lib {
+class Lib {
     #uvlib;
 
     constructor(libname) {
@@ -45,8 +50,6 @@ export class Lib {
     symbol(name) {
         return new DlSymbol(this.#uvlib, this.#uvlib.symbol(name));
     }
-    static LIBC_NAME = ffiInt.LIBC_NAME;
-    static LIBM_NAME = ffiInt.LIBM_NAME;
 
     close() {
         this.#uvlib.close();
@@ -93,7 +96,7 @@ export class AdvancedType {
     }
 }
 
-export class CFunction {
+class CFunction {
     // Holding the DlSymbol keeps the library it came from loaded (see kLib).
     #symbol;
     #rtype;
@@ -571,6 +574,19 @@ function resolveType(t) {
     return t;
 }
 
+// `using lib = dlopen(...)` has to work, but what the dlopen() family hands back
+// is a plain object rather than one of the stdlib's disposable classes, so alias
+// its close() as Symbol.dispose here. Non-enumerable, like the method a class
+// would carry on its prototype.
+function withDispose(handle) {
+    return Object.defineProperty(handle, Symbol.dispose, {
+        value: handle.close,
+        writable: true,
+        enumerable: false,
+        configurable: true,
+    });
+}
+
 export function dlopen(path, symbols) {
     // Resolve all types before opening the library so that type errors
     // don't leave a library handle open.
@@ -619,15 +635,10 @@ export function dlopen(path, symbols) {
         throw e;
     }
 
-    return {
+    return withDispose({
         symbols: result,
-        // Expose the underlying Lib so callers can grab raw symbols (e.g. to
-        // build a CFunction with a JSCallback arg) without opening the library
-        // a second time. close() and lib.close() both close the same handle;
-        // that's fine, the native close is idempotent.
-        lib,
         close: () => lib.close(),
-    };
+    });
 }
 
 // Same as dlopen(), but the symbol definitions come from C declarations instead
@@ -640,7 +651,7 @@ export function dlopenCProto(path, header) {
     const { symbols, types: declaredTypes } = astToSymbols(parseCProto(header));
     const { symbols: bound, close } = dlopen(path, symbols);
 
-    return { symbols: bound, types: declaredTypes, close };
+    return withDispose({ symbols: bound, types: declaredTypes, close });
 }
 
 function bindSymbols(lib, resolved, result) {

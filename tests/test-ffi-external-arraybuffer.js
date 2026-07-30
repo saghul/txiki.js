@@ -7,8 +7,11 @@ import { FFI, sopath } from './helpers/ffi.js';
 
 const { ExternalArrayBuffer, read } = FFI;
 
-const lib = new FFI.Lib(sopath);
-const intPtr = lib.symbol('test_int').addr;
+const { symbols, close } = FFI.dlopen(sopath, {
+    test_int: { type: 'int' },
+});
+
+const intPtr = symbols.test_int.addr;
 
 // It is a real ArrayBuffer and an ExternalArrayBuffer.
 const ab = intPtr.toArrayBuffer(4);
@@ -47,4 +50,4 @@ assert.throws(() => ExternalArrayBuffer.prototype.detach.call({}), TypeError, 'd
 // ExternalArrayBuffer is not constructible.
 assert.throws(() => new ExternalArrayBuffer(8), TypeError, 'not constructible');
 
-lib.close();
+close();

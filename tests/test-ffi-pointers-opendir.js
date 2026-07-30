@@ -1,19 +1,19 @@
 import assert from 'tjs:assert';
 import { FFI, sopath } from './helpers/ffi.js';
 
-const testlib = new FFI.Lib(sopath);
-
-const open_test_handle = new FFI.CFunction(testlib.symbol('open_test_handle'), FFI.types.pointer, [FFI.types.sint]);
 const entry_t = new FFI.StructType([['a', FFI.types.sint]]);
 const entry_ptr_t = new FFI.PointerType(entry_t, 1);
-const get_next_entry = new FFI.CFunction(testlib.symbol('get_next_entry'), entry_ptr_t, [FFI.types.pointer]);
-const close_test_handle = new FFI.CFunction(testlib.symbol('close_test_handle'), FFI.types.void, [FFI.types.pointer]);
+const { symbols, close } = FFI.dlopen(sopath, {
+	open_test_handle: { args: [FFI.types.sint], returns: FFI.types.pointer },
+	get_next_entry: { args: [FFI.types.pointer], returns: entry_ptr_t },
+	close_test_handle: { args: [FFI.types.pointer], returns: FFI.types.void },
+});
 
-const handle = open_test_handle.call(5);
+const handle = symbols.open_test_handle(5);
 let i = 0;
 let entry;
 do{
-	entry = get_next_entry.call(handle);
+	entry = symbols.get_next_entry(handle);
 	if(!entry.isNull){
 		i++;
 		const obj = entry.deref();
@@ -21,5 +21,7 @@ do{
 		assert.eq(obj.a, i);
 	}
 }while(!entry.isNull);
-close_test_handle.call(handle);
+symbols.close_test_handle(handle);
 assert.eq(i, 5);
+
+close();

@@ -2,9 +2,9 @@ import assert from 'tjs:assert';
 import { FFI, sopath } from './helpers/ffi.js';
 const { dlopen, types, JSCallback } = FFI;
 
-// Callbacks can be declared directly in the symbol map — no separate
-// Lib/CFunction needed. A jscallback argument marshals as a plain pointer, so
-// such a symbol is eligible for dlopen()'s fast call path.
+// Callbacks can be declared directly in the symbol map. A jscallback argument
+// marshals as a plain pointer, so such a symbol is eligible for dlopen()'s fast
+// call path.
 const { symbols, close } = dlopen(sopath, {
     call_callback: { args: [types.jscallback(), types.sint], returns: types.sint },
 });
