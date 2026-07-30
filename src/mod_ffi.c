@@ -734,11 +734,13 @@ static JSValue js_ffi_cif_call(JSContext *ctx, JSValue this_val, int argc, JSVal
  *   - string args: marked by a flags bitmask (bit i set = arg i is string)
  *     JS string -> JS_ToCString, pointer to that cstring is passed, freed after call
  *   - buffer args: Uint8Array -> pointer to underlying data
+ *   - callback args: JSCallback -> the address of its native closure
  *
  * argv[0] = DlSymbol (function pointer)
  * argv[1] = string_mask (uint32, bits 0-15: arg i is string, bit 31: return is string)
  * argv[2] = buffer_mask (uint32, bit i set if arg i is a buffer type)
- * argv[3..] = JS argument values
+ * argv[3] = callback_mask (uint32, bit i set if arg i is a jscallback type)
+ * argv[4..] = JS argument values
  */
 #define MAX_FAST_ARGS 16
 
@@ -770,21 +772,23 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
     }
 
     void *func;
-    if (argc < 3 || (func = JS_GetOpaque(argv[0], js_uv_dlsym_classid)) == NULL) {
+    if (argc < 4 || (func = JS_GetOpaque(argv[0], js_uv_dlsym_classid)) == NULL) {
         JS_ThrowTypeError(ctx, "argument 1 must be UvDlsym");
         return JS_EXCEPTION;
     }
 
     uint32_t string_mask = 0;
     uint32_t buffer_mask = 0;
+    uint32_t callback_mask = 0;
     JS_ToUint32(ctx, &string_mask, argv[1]);
     JS_ToUint32(ctx, &buffer_mask, argv[2]);
+    JS_ToUint32(ctx, &callback_mask, argv[3]);
     int return_is_string = (string_mask >> 31) & 1;
     string_mask &= 0xFFFFu;
 
     unsigned nargs = cif->ffi_cif.nargs;
-    unsigned js_argc = argc - 3;
-    JSValue *js_argv = &argv[3];
+    unsigned js_argc = argc - 4;
+    JSValue *js_argv = &argv[4];
 
     if (js_argc != nargs) {
         JS_ThrowRangeError(ctx, "expected %d arguments but got %d", nargs, js_argc);
@@ -808,10 +812,7 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
         if (string_mask & (1u << i)) {
             const char *s = JS_ToCString(ctx, val);
             if (!s) {
-                for (unsigned j = 0; j < n_cstrings; j++) {
-                    JS_FreeCString(ctx, cstrings[j]);
-                }
-                return JS_EXCEPTION;
+                goto fail;
             }
             cstrings[n_cstrings++] = s;
             arg_storage[i].p = (void *) s;
@@ -822,12 +823,31 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
             size_t sz;
             uint8_t *ptr = JS_GetUint8Array(ctx, &sz, val);
             if (!ptr) {
-                for (unsigned j = 0; j < n_cstrings; j++) {
-                    JS_FreeCString(ctx, cstrings[j]);
-                }
-                return JS_EXCEPTION;
+                goto fail;
             }
             arg_storage[i].p = ptr;
+            continue;
+        }
+
+        if (callback_mask & (1u << i)) {
+            // A JSCallback (src/js/stdlib/ffi/ffi.js) keeps its native FfiClosure in a
+            // private field, so the closure is unreachable from here; its `addr` getter
+            // is the supported way to get the closure's code pointer. No pin is needed:
+            // the caller's argument array holds the JSCallback for the whole call, so
+            // the closure outlives ffi_call.
+            JSValue addr = JS_IsObject(val) ? JS_GetPropertyStr(ctx, val, "addr") : JS_UNDEFINED;
+            if (JS_IsException(addr)) {
+                goto fail;
+            }
+            // A NativePointer holds the address in the class opaque, not in heap
+            // storage, so the value read here stays valid after the JSValue is freed.
+            void *cbp = JS_GetOpaque(addr, js_ffi_pointer_classid);
+            JS_FreeValue(ctx, addr);
+            if (!cbp) {
+                JS_ThrowTypeError(ctx, "argument %d must be a JSCallback", i + 1);
+                goto fail;
+            }
+            arg_storage[i].p = cbp;
             continue;
         }
 
@@ -897,21 +917,15 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
                         size_t sz;
                         uint8_t *bp = JS_GetUint8Array(ctx, &sz, val);
                         if (!bp) {
-                            for (unsigned j = 0; j < n_cstrings; j++) {
-                                JS_FreeCString(ctx, cstrings[j]);
-                            }
-                            return JS_EXCEPTION;
+                            goto fail;
                         }
                         arg_storage[i].p = bp;
                     }
                 }
                 break;
             default:
-                for (unsigned j = 0; j < n_cstrings; j++) {
-                    JS_FreeCString(ctx, cstrings[j]);
-                }
                 JS_ThrowTypeError(ctx, "fast_call: unsupported arg type %d", type->type);
-                return JS_EXCEPTION;
+                goto fail;
         }
     }
 
@@ -967,11 +981,18 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
             JS_ThrowInternalError(ctx, "fast_call: unsupported return type %d", rtype->type);
             return JS_EXCEPTION;
     }
+
+fail:
+    /* Bail out of argument marshalling: release the cstrings converted so far. */
+    for (unsigned j = 0; j < n_cstrings; j++) {
+        JS_FreeCString(ctx, cstrings[j]);
+    }
+    return JS_EXCEPTION;
 }
 
 static const JSCFunctionListEntry js_ffi_cif_proto_funcs[] = {
     TJS_CFUNC_DEF("call", 1, js_ffi_cif_call),
-    TJS_CFUNC_DEF("fast_call", 3, js_ffi_cif_fast_call),
+    TJS_CFUNC_DEF("fast_call", 4, js_ffi_cif_fast_call),
 };
 
 #pragma endregion "FfiCif class definition"
