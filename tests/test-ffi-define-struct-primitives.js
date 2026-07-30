@@ -53,6 +53,6 @@ assert.eq(unpacked.no, false);
 assert.ok(unpacked.ptr.equals(ptr), 'pointer field round trips');
 assert.eq(unpacked.nullptr, null);
 
-// Every field is required until field options land: a missing one is a bug in
-// the caller, not a zero.
+// A field that asks for neither `default` nor `optional` is required: a missing
+// one is a bug in the caller, not a zero.
 assert.throws(() => point.pack({ ...values, u32: undefined }), TypeError);
