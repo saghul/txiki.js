@@ -1,7 +1,7 @@
 import core from 'tjs:internal/core';
 const ffiInt = core.ffi_load_native();
 
-import buildCParser from './ffiutils.js';
+import buildAstToSymbols, { parseCProto } from './ffiutils.js';
 
 const suffixMap = { macOS: 'dylib', Windows: 'dll' };
 
@@ -36,48 +36,11 @@ export class DlSymbol {
     }
 }
 
-function formatTypeName(name) {
-    if (name.includes(' ')) {
-        const mPtr = name.match(/\*+/g);
-
-        name = name.replace(/\*+/g, '');
-        let parts = name.split(/\s+/);
-        let struct = false;
-
-        if (parts.includes('struct')) {
-            parts = parts.filter(e=>e !== 'struct');
-            struct = true;
-        }
-
-        name = parts.sort().join(' ');
-
-        if (mPtr) {
-            name += mPtr[0];
-        }
-
-        if (struct) {
-            name = 'struct ' + name;
-        }
-    }
-
-    return name;
-}
-
 export class Lib {
     #uvlib;
-    #funcs;
-    #types;
 
     constructor(libname) {
         this.#uvlib = new ffiInt.UvLib(libname);
-        this.#funcs = new Map();
-        this.#types = new Map();
-
-        for (const [ t, aliases ] of typeMap) {
-            for (const alias of aliases) {
-                this.registerType(alias, t);
-            }
-        }
     }
     symbol(name) {
         return new DlSymbol(this.#uvlib, this.#uvlib.symbol(name));
@@ -85,43 +48,12 @@ export class Lib {
     static LIBC_NAME = ffiInt.LIBC_NAME;
     static LIBM_NAME = ffiInt.LIBM_NAME;
 
-    registerType(name, type) {
-        name = formatTypeName(name);
-        this.#types.set(name, type);
-    }
-    getType(name) {
-        name = formatTypeName(name);
-
-        return this.#types.get(name);
-    }
-    registerFunction(name, func) {
-        this.#funcs.set(name, func);
-    }
-    getFunc(name) {
-        return this.#funcs.get(name);
-    }
-    call(funcname, ...args) {
-        const func = this.getFunc(funcname);
-
-        if (!func) {
-            throw new Error(`Function ${funcname} not found`);
-        }
-
-        return func.call(...args);
-    }
-
     close() {
         this.#uvlib.close();
     }
 
     [Symbol.dispose]() {
         this.close();
-    }
-
-    parseCProto(header) {
-        const ast = parseCProto(header);
-
-        astToLib(this, ast);
     }
 }
 
@@ -601,7 +533,7 @@ export class JSCallback {
     }
 }
 
-const { parseCProto, astToLib } = buildCParser({ StructType, ArrayType, CFunction, PointerType, types });
+const astToSymbols = buildAstToSymbols({ StructType, ArrayType, PointerType, types, typeMap });
 
 const typeAliases = {
     void: types.void,
@@ -696,6 +628,19 @@ export function dlopen(path, symbols) {
         lib,
         close: () => lib.close(),
     };
+}
+
+// Same as dlopen(), but the symbol definitions come from C declarations instead
+// of a JS object: every function the header declares is bound, and the types it
+// declares (structs, typedefs, and the pointer types derived from them) come
+// back keyed by the name they were declared under, e.g. 'struct test'.
+export function dlopenCProto(path, header) {
+    // Parse before opening the library so a malformed header doesn't leave a
+    // handle open.
+    const { symbols, types: declaredTypes } = astToSymbols(parseCProto(header));
+    const { symbols: bound, close } = dlopen(path, symbols);
+
+    return { symbols: bound, types: declaredTypes, close };
 }
 
 function bindSymbols(lib, resolved, result) {

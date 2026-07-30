@@ -29,9 +29,9 @@ export class PacketSocket {
 		dv.setUint16(0, PosixSocket.defines.AF_PACKET, true); // sll_family
 		dv.setUint16(2, ETH_P_IP, false); // sll_protocol = htons(ETH_P_IP);
 		if (iface != undefined) {
-			const libc = new ffi.Lib(ffi.Lib.LIBC_NAME);
-			libc.parseCProto('unsigned int if_nametoindex(const char *ifname);');
-			const ifindex = libc.call('if_nametoindex', [iface]);
+			const libc = ffi.dlopenCProto(ffi.Lib.LIBC_NAME, 'unsigned int if_nametoindex(const char *ifname);');
+			const ifindex = libc.symbols.if_nametoindex(iface);
+			libc.close();
 
 			dv.setUint32(4, ifindex, true); // sll_ifindex
 		}
