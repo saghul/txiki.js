@@ -163,13 +163,6 @@ declare module 'tjs:ffi'{
         close(): void;
         static LIBC_NAME: string;
         static LIBM_NAME: string;
-
-        registerType(name: string, type: SimpleType): void;
-        getType(name: string): undefined|SimpleType;
-        registerFunction(name: string, func: CFunction): void;
-        getFunc(name: string): CFunction;
-        call(funcname: string, ...args: any[]): any;
-        parseCProto(header: string): void;
     }
     export interface Lib extends Disposable {}
 
@@ -466,6 +459,54 @@ declare module 'tjs:ffi'{
      */
     export function dlopen<T extends Record<string, DlopenSymbol>>(path: string, symbols: T): DlopenResult<T>;
 
+    /** Result of {@link dlopenCProto}. */
+    export interface DlopenCProtoResult {
+        /**
+         * A callable for each function the header declared, keyed by its C name.
+         * The header is parsed at runtime, so the signatures are not known to
+         * TypeScript.
+         */
+        symbols: Record<string, (...args: any[]) => any>;
+        /**
+         * The types the header declared — structs, typedefs, and the pointer
+         * types derived from them — keyed by the name they were declared under:
+         * `'struct test'` for `struct test { ... }`, `'s_test'` for a typedef of
+         * it, `'s_test*'` for a pointer to it. Words in a multi-word type name
+         * are sorted, since their order is not significant in C.
+         *
+         * Use these to build arguments, e.g.
+         * `Pointer.createRef(types.get('struct test'), { a: 1 })`.
+         */
+        types: Map<string, SimpleType>;
+        /** Close the shared library handle. */
+        close(): void;
+    }
+
+    /**
+     * Load a shared library and bind every function declared in a C header
+     * snippet, which also defines the structs and typedefs those functions use.
+     *
+     * ```js
+     * import { dlopenCProto, Pointer } from 'tjs:ffi';
+     *
+     * const { symbols, types, close } = dlopenCProto('./libfoo.dylib', `
+     *     struct point { int x; int y; };
+     *     int distance(struct point* a, struct point* b);
+     * `);
+     *
+     * const point = types.get('struct point');
+     *
+     * console.log(symbols.distance(
+     *     Pointer.createRef(point, { x: 0, y: 0 }),
+     *     Pointer.createRef(point, { x: 3, y: 4 })));
+     * close();
+     * ```
+     *
+     * @param path - Path to the shared library.
+     * @param header - C declarations: function prototypes, structs, typedefs.
+     */
+    export function dlopenCProto(path: string, header: string): DlopenCProtoResult;
+
     /**
      * Default export: the module namespace object, with every named export as a
      * property. Both `import ffi from 'tjs:ffi'` (then `ffi.dlopen(...)`) and
@@ -493,6 +534,7 @@ declare module 'tjs:ffi'{
         bufferToPointer: typeof bufferToPointer;
         createPointer: typeof createPointer;
         dlopen: typeof dlopen;
+        dlopenCProto: typeof dlopenCProto;
     };
     export default _default;
 }

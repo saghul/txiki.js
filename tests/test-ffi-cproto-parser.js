@@ -1,8 +1,6 @@
 import assert from 'tjs:assert';
-import FFI from 'tjs:ffi';
-import initCParser from '../src/js/stdlib/ffi/ffiutils.js';
+import { parseCProto } from '../src/js/stdlib/ffi/ffiutils.js';
 
-const {parseCProto} = initCParser(FFI);
 const ast1 = parseCProto(`
 	static inline JSValue JS_DupValue(JSContext *ctx, JSValue v);
 	static unsigned long long int* bla(JSContext *ctx, const int32_t **pres, JSValue val);
