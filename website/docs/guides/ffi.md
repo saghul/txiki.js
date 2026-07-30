@@ -227,6 +227,10 @@ const second = read.i32(p, 4);   // read an int32 at p + 4 bytes
 const inner = read.ptr(p, 8);    // read a pointer field
 ```
 
+A NULL pointer is JavaScript `null`, never a `NativePointer`: a function returning
+`'ptr'` gives you `NativePointer | null`, and passing `null` where C expects a
+pointer sends NULL. Check for it before dereferencing.
+
 `read.u64` / `read.i64` return a JS `number`, which can't represent every 64-bit
 value: results above `Number.MAX_SAFE_INTEGER` (2⁵³−1) lose precision, and a
 `u64` with its high bit set reads back negative. For exact 64-bit values, read
