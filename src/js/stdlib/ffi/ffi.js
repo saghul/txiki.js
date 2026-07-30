@@ -644,12 +644,18 @@ export function dlopen(path, symbols) {
     for (const [ name, def ] of Object.entries(resolved)) {
         const sym = lib.symbol(name);
 
+        // A PointerType return marshals as a plain pointer; the only thing its
+        // fromBuffer adds is the Pointer wrapper, which the closure below
+        // reproduces. Every other AdvancedType return (struct, array, static
+        // string, buffer) needs its own fromBuffer and stays on the slow path.
+        const returnsPointerType = def.returns instanceof PointerType;
+
         // Check if all arg types are simple (scalar/pointer/string/buffer/jscallback)
         // and if so, use the fast call path. jscallback is not allowed as a return
         // type — that has no meaning, and its fromBuffer throws.
         const canFastCall = def.args.length <= 16 && def.args.every(t =>
             t === types.string || t === types.buffer || t === jscallbackType || !t.ffiType
-        ) && (def.returns === types.string || !def.returns.ffiType);
+        ) && (def.returns === types.string || returnsPointerType || !def.returns.ffiType);
 
         if (canFastCall) {
             // Build bitmasks for string, buffer and jscallback arguments.
@@ -678,7 +684,20 @@ export function dlopen(path, symbols) {
             // the bound function stays valid even if the Lib is collected.
             const dlsym = nativeSymbol(sym);
 
-            result[name] = (...a) => cif.fast_call(dlsym, stringMask, bufferMask, callbackMask, ...a);
+            if (returnsPointerType) {
+                // fast_call returns a bare NativePointer, or null for NULL. Both
+                // are what PointerType.fromBuffer feeds to Pointer, so wrapping
+                // them here yields the same value the slow path produced —
+                // including a Pointer whose isNull is true for a NULL return.
+                // Read level/type once: they are fixed for this symbol.
+                const level = def.returns.level;
+                const pointee = def.returns.type;
+
+                result[name] = (...a) =>
+                    new Pointer(cif.fast_call(dlsym, stringMask, bufferMask, callbackMask, ...a), level, pointee);
+            } else {
+                result[name] = (...a) => cif.fast_call(dlsym, stringMask, bufferMask, callbackMask, ...a);
+            }
         } else {
             // Fallback to CFunction for complex types (structs, etc.)
             const func = new CFunction(sym, def.returns, def.args, def.fixed);
