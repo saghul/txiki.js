@@ -190,7 +190,8 @@ declare module 'tjs:ffi'{
         sint64: SimpleType<number>,
         float: SimpleType<number>,
         double: SimpleType<number>,
-        pointer: SimpleType<NativePointer>,
+        /** A `void*`. A NULL pointer marshals to and from `null`. */
+        pointer: SimpleType<NativePointer | null>,
         longdouble: SimpleType<number>, 
         uchar: SimpleType<number>,
         schar: SimpleType<number>,
@@ -238,8 +239,9 @@ declare module 'tjs:ffi'{
     export function createPointer(value: bigint): NativePointer | null;
 
     export class Pointer<T, N extends number>{
-        constructor(addr: NativePointer, level: N, type: SimpleType<T>);
-        readonly addr: NativePointer;
+        constructor(addr: NativePointer | null, level: N, type: SimpleType<T>);
+        /** `null` when the pointer is NULL, i.e. when {@link isNull} is `true`. */
+        readonly addr: NativePointer | null;
         readonly level: N;
         readonly type: SimpleType<T>;
         readonly isNull: boolean;
@@ -254,7 +256,7 @@ declare module 'tjs:ffi'{
 
     export class PointerType<T, ST extends SimpleType<T>, N extends number> extends AdvancedType<Pointer<T, N>, PointerType<T, ST, N>>{
         constructor(type: ST , level: N);
-        toBuffer(data: Pointer<T, N>|NativePointer, ctx?: {}): Uint8Array;
+        toBuffer(data: Pointer<T, N>|NativePointer|null, ctx?: {}): Uint8Array;
         fromBuffer(buf: Uint8Array, ctx?: {}): Pointer<T, N>;
         get type(): ST;
         get level(): N;
@@ -287,55 +289,66 @@ declare module 'tjs:ffi'{
         readonly addr: NativePointer;
     }
 
+    /**
+     * Type alias -> the {@link types} entry it resolves to.
+     *
+     * This is the single source of truth for what an alias means: the JS types
+     * in {@link TypeAliasMap} are derived from it, so a string alias and the
+     * equivalent {@link types} object always marshal to the same JS type.
+     */
+    export type TypeAliasTypeMap = {
+        readonly 'void': typeof types.void;
+        readonly 'u8': typeof types.uint8;
+        readonly 'uint8': typeof types.uint8;
+        readonly 'uint8_t': typeof types.uint8;
+        readonly 'i8': typeof types.sint8;
+        readonly 'sint8': typeof types.sint8;
+        readonly 'int8_t': typeof types.sint8;
+        readonly 'u16': typeof types.uint16;
+        readonly 'uint16': typeof types.uint16;
+        readonly 'uint16_t': typeof types.uint16;
+        readonly 'i16': typeof types.sint16;
+        readonly 'sint16': typeof types.sint16;
+        readonly 'int16_t': typeof types.sint16;
+        readonly 'u32': typeof types.uint32;
+        readonly 'uint32': typeof types.uint32;
+        readonly 'uint32_t': typeof types.uint32;
+        readonly 'int': typeof types.sint32;
+        readonly 'i32': typeof types.sint32;
+        readonly 'sint32': typeof types.sint32;
+        readonly 'int32_t': typeof types.sint32;
+        readonly 'u64': typeof types.uint64;
+        readonly 'uint64': typeof types.uint64;
+        readonly 'uint64_t': typeof types.uint64;
+        readonly 'i64': typeof types.sint64;
+        readonly 'sint64': typeof types.sint64;
+        readonly 'int64_t': typeof types.sint64;
+        readonly 'f32': typeof types.float;
+        readonly 'float': typeof types.float;
+        readonly 'f64': typeof types.double;
+        readonly 'double': typeof types.double;
+        readonly 'pointer': typeof types.pointer;
+        readonly 'ptr': typeof types.pointer;
+        readonly 'string': typeof types.string;
+        readonly 'cstring': typeof types.string;
+        readonly 'buffer': typeof types.buffer;
+        readonly 'uchar': typeof types.uchar;
+        readonly 'schar': typeof types.schar;
+        readonly 'char': typeof types.schar;
+        readonly 'ushort': typeof types.ushort;
+        readonly 'sshort': typeof types.sshort;
+        readonly 'uint': typeof types.uint;
+        readonly 'sint': typeof types.sint;
+        readonly 'ulong': typeof types.ulong;
+        readonly 'slong': typeof types.slong;
+        readonly 'long': typeof types.slong;
+        readonly 'size_t': typeof types.size;
+        readonly 'ssize_t': typeof types.ssize;
+    };
+
     /** Type conversion map (FFI type alias -> JS type) */
     export type TypeAliasMap = {
-        readonly 'void': void;
-        readonly 'u8': number;
-        readonly 'uint8': number;
-        readonly 'uint8_t': number;
-        readonly 'i8': number;
-        readonly 'sint8': number;
-        readonly 'int8_t': number;
-        readonly 'u16': number;
-        readonly 'uint16': number;
-        readonly 'uint16_t': number;
-        readonly 'i16': number;
-        readonly 'sint16': number;
-        readonly 'int16_t': number;
-        readonly 'u32': number;
-        readonly 'uint32': number;
-        readonly 'uint32_t': number;
-        readonly 'int': number;
-        readonly 'i32': number;
-        readonly 'sint32': number;
-        readonly 'int32_t': number;
-        readonly 'u64': number;
-        readonly 'uint64': number;
-        readonly 'uint64_t': number;
-        readonly 'i64': number;
-        readonly 'sint64': number;
-        readonly 'int64_t': number;
-        readonly 'f32': number;
-        readonly 'float': number;
-        readonly 'f64': number;
-        readonly 'double': number;
-        readonly 'pointer': NativePointer | null;
-        readonly 'ptr': NativePointer | null;
-        readonly 'string': string;
-        readonly 'cstring': string;
-        readonly 'buffer': Uint8Array;
-        readonly 'uchar': string;
-        readonly 'schar': string;
-        readonly 'char': string;
-        readonly 'ushort': number;
-        readonly 'sshort': number;
-        readonly 'uint': number;
-        readonly 'sint': number;
-        readonly 'ulong': number;
-        readonly 'slong': number;
-        readonly 'long': number;
-        readonly 'size_t': number;
-        readonly 'ssize_t': number;
+        readonly [K in keyof TypeAliasTypeMap]: ReturnType<TypeAliasTypeMap[K]['fromBuffer']>;
     };
 
     /**
