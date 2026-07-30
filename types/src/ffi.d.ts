@@ -362,7 +362,10 @@ declare module 'tjs:ffi'{
     export type TypeOrAlias = SimpleType | TypeAlias;
 
     /**
-     * Describes a native function symbol for use with {@link dlopen}.
+     * Describes a native symbol for use with {@link dlopen}.
+     *
+     * An entry with `type` declares a data symbol (a global variable); any other
+     * entry declares a function.
      */
     export interface DlopenSymbol {
         /** Argument types. Defaults to `[]` (no arguments) if omitted. */
@@ -371,6 +374,17 @@ declare module 'tjs:ffi'{
         returns?: TypeOrAlias;
         /** Number of fixed arguments for variadic functions. */
         fixed?: number;
+        /**
+         * Type of a global variable. The symbol binds to a level-1
+         * {@link Pointer} at the variable's address instead of a callable, so
+         * `symbols.foo.deref()` reads it. A global with a deeper indirection is
+         * reached by rebuilding the pointer: `new Pointer(symbols.foo.addr, 2,
+         * type)`.
+         *
+         * Mutually exclusive with `args` and `returns`; an entry carrying both
+         * throws a `TypeError`.
+         */
+        type?: TypeOrAlias;
     }
 
     export type MapToJsType<T extends TypeOrAlias | undefined> = T extends TypeAlias
@@ -384,11 +398,16 @@ declare module 'tjs:ffi'{
     };
 
     export interface DlopenResult<T extends Record<string, DlopenSymbol>> {
-        /** Object containing callable functions for each declared symbol. */
+        /**
+         * Object containing a callable function for each declared function
+         * symbol, and a {@link Pointer} for each declared data symbol.
+         */
         symbols: {
-            [K in keyof T]: T[K]["args"] extends TypeOrAlias[]
-                ? (...args: MapArrayToJsType<T[K]["args"]>) => MapToJsType<T[K]["returns"]>
-                : () => MapToJsType<T[K]["returns"]>;
+            [K in keyof T]: T[K]["type"] extends TypeOrAlias
+                ? Pointer<MapToJsType<T[K]["type"]>, 1>
+                : T[K]["args"] extends TypeOrAlias[]
+                    ? (...args: MapArrayToJsType<T[K]["args"]>) => MapToJsType<T[K]["returns"]>
+                    : () => MapToJsType<T[K]["returns"]>;
         };
         /**
          * The underlying {@link Lib}. Use `lib.symbol(name)` to obtain a raw

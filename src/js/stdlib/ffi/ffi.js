@@ -330,6 +330,11 @@ export function createPointer(addr) {
 // ArrayBuffer with an extra detach() method; see src/mod_ffi.c.
 export const ExternalArrayBuffer = ffiInt.ExternalArrayBuffer;
 
+// Module-private setter for the library pin on a Pointer to a data symbol, used
+// by dlopen. Installed from the class body so a Pointer built by a caller keeps
+// exposing nothing but its address, level and type.
+let pinPointerLib;
+
 export class Pointer {
     #type;
     #level;
@@ -337,6 +342,15 @@ export class Pointer {
     // Set by createRefFromBuf() to keep the pointed-to buffer from being GCed;
     // never read.
     #data;
+    // Set by pinPointerLib() for the same reason, for the library a data symbol
+    // was resolved from; never read.
+    #lib;
+
+    static {
+        pinPointerLib = (ptr, lib) => {
+            ptr.#lib = lib;
+        };
+    }
 
     constructor(addr, level, type) {
         this.#type = type;
@@ -631,6 +645,18 @@ export function dlopen(path, symbols) {
     const resolved = {};
 
     for (const [ name, def ] of Object.entries(symbols)) {
+        if (def.type !== undefined) {
+            if (def.returns !== undefined || def.args !== undefined) {
+                throw new TypeError(
+                    `FFI symbol '${name}': 'type' declares a data symbol, ` +
+                    'it cannot be combined with \'returns\' or \'args\'');
+            }
+
+            resolved[name] = { type: resolveType(def.type) };
+
+            continue;
+        }
+
         resolved[name] = {
             returns: resolveType(def.returns ?? 'void'),
             args: (def.args ?? []).map(resolveType),
@@ -667,6 +693,24 @@ export function dlopen(path, symbols) {
 function bindSymbols(lib, resolved, result) {
     for (const [ name, def ] of Object.entries(resolved)) {
         const sym = lib.symbol(name);
+
+        if (def.type) {
+            // A data symbol: the symbol's address *is* the global, so hand back a
+            // level-1 Pointer at it rather than a callable. A deeper indirection
+            // (an int* global, say) is `new Pointer(p.addr, 2, type)` built from
+            // this one.
+            const ptr = new Pointer(sym.addr, 1, def.type);
+
+            // A Pointer holds nothing but a raw address, so pin the native symbol
+            // on it (which pins the library, see kLib) — otherwise a GC could
+            // dlclose() the library and unmap the global while the Pointer is
+            // still reachable.
+            pinPointerLib(ptr, nativeSymbol(sym));
+
+            result[name] = ptr;
+
+            continue;
+        }
 
         // A PointerType return marshals as a plain pointer; the only thing its
         // fromBuffer adds is the Pointer wrapper, which the closure below
