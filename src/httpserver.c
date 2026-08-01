@@ -1494,7 +1494,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         JS_FreeValue(ctx, js_passphrase);
 
         /* Explicit ALPN protocol list to advertise, e.g. "h2" to require
-         * HTTP/2. Without it lws offers its default ("h2,http/1.1"). */
+         * HTTP/2. Without it the TCP vhost offers "h2,http/1.1". */
         JSValue js_alpn = JS_GetPropertyStr(ctx, options, "alpn");
         if (JS_IsString(js_alpn)) {
             const char *alpn_str = JS_ToCString(ctx, js_alpn);
@@ -1560,9 +1560,10 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
             vhost_info.ssl_private_key_password = s->ssl_passphrase;
         }
 
-        if (s->alpn) {
-            vhost_info.alpn = s->alpn;
-        }
+        /* lws derives its default ALPN list from the enabled roles, which on an
+         * HTTP/3-capable build offers h3 and WebTransport over TCP, where
+         * neither can exist.  h3 is served on the separate QUIC vhost below. */
+        vhost_info.alpn = s->alpn ? s->alpn : "h2,http/1.1";
 
         /* Client certificate requirement. */
         JSValue js_request_cert = JS_GetPropertyStr(ctx, options, "requestCert");

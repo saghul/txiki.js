@@ -414,6 +414,17 @@ static struct lws_vhost *tjs__create_client_vhost(TJSRuntime *qrt, const char *n
      */
     vinfo.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_H2_JUST_FIX_WINDOW_UPDATE_OVERFLOW;
     vinfo.vhost_name = name;
+    /*
+     * ALPN list offered on TLS-over-TCP client handshakes.  lws derives its
+     * default from the enabled roles, which on an HTTP/3-capable build means
+     * "h2,h3,h3,wt,http/1.1" — it offers h3 (and WebTransport) over TCP, where
+     * neither can exist.  Most servers ignore the bogus entries, but Fastly
+     * selects h3, and lws then takes its QUIC-negotiated-h3 path on a TCP
+     * socket: the connection migrates to a new wsi, the request is left queued
+     * on the txn queue, and fetch() never settles.  The h3 path sets ALPN "h3"
+     * per connection (httpclient.c), which overrides this.
+     */
+    vinfo.alpn = "h2,http/1.1";
     vinfo.pt_serv_buf_size = 16384;
     vinfo.max_http_header_data2 = 16384;
 
