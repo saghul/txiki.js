@@ -54,13 +54,21 @@
  * one-shot uv_timer so deadlines fire while the loop is blocked.  A return of
  * 0 means buffered data (TLS, rxflow) needs a forced service pass right away.
  *
- * lws can replace the fd of a live wsi behind the event lib's back: the
+ * A connecting client wsi can own more than one socket: lws races extra
+ * "parallel" sockets against the primary one (happy eyeballs / the QUIC-vs-TCP
+ * race), and drives them through a separate set of event lib ops keyed by the
+ * racer index.  Watchers are therefore keyed by (wsi, racer index), using
+ * TJS__EVLIB_PIDX_PRIMARY for the wsi's own socket.
+ *
+ * lws also replaces the fd of a live wsi behind the event lib's back: the
  * client connect DNS-retry path closes the socket directly and calls
- * sock_accept again on the same wsi.  sock_accept therefore drops any stale
- * watcher before creating the new one.
+ * sock_accept again on the same wsi, and a racer promoted after the primary
+ * failed becomes wsi->desc.sockfd with no op call at all.  So sock_accept
+ * drops any stale watcher before creating the new one, and io() resolves the
+ * watcher it acts on by fd rather than by wsi.
  *
  * There is no public accessor for per-wsi event lib storage, so watchers
- * live in a wsi-keyed hash map in the per-pt private area.
+ * live in a hash map in the per-pt private area.
  *
  * Invariant: lws_context_destroy() must never be called from inside an lws
  * callback (it would close the tick handles this event lib is running on).
@@ -73,6 +81,9 @@
 #include "utils.h"
 
 #include <string.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 #if LWS_MAX_SMP > 1
 #error "The txiki.js lws event lib requires LWS_MAX_SMP == 1 (it calls lws service APIs without holding lws locks)"
@@ -84,12 +95,22 @@
  * this only caps how long the uv_timer can sleep. */
 #define TJS__EVLIB_MAX_WAIT_MS (3600 * 1000)
 
+/* Racer index standing for the wsi's own (non-raced) socket. */
+#define TJS__EVLIB_PIDX_PRIMARY (-1)
+
+/* Hashed as raw bytes, padding included, so it is always memset first. */
 typedef struct {
-    uv_poll_t poll;
     struct lws *wsi;
+    int pidx;
+} TJSEvlibWatcherKey;
+
+typedef struct {
+    TJSEvlibWatcherKey key;
+    uv_poll_t poll;
     lws_sockfd_type fd;
     int events;        /* UV_READABLE | UV_WRITABLE currently subscribed */
-    UT_hash_handle hh; /* in TJSEvlibPt watchers, keyed by wsi */
+    bool close_fd;     /* close fd once the uv handle is closed */
+    UT_hash_handle hh; /* in TJSEvlibPt watchers, keyed by key */
 } TJSEvlibWatcher;
 
 /* Drives lws scheduled events off the loop.  There is one per pt, but it
@@ -107,26 +128,53 @@ typedef struct {
 typedef struct {
     uv_loop_t *loop;
     TJSEvlibTick *tick;
-    TJSEvlibWatcher *watchers; /* uthash, keyed by wsi */
+    TJSEvlibWatcher *watchers; /* uthash, keyed by (wsi, pidx) */
 } TJSEvlibPt;
 
-static TJSEvlibWatcher *tjs__evlib_watcher_find(const TJSEvlibPt *evpt, const struct lws *wsi) {
+static TJSEvlibWatcher *tjs__evlib_watcher_find(const TJSEvlibPt *evpt, const struct lws *wsi, int pidx) {
+    TJSEvlibWatcherKey key;
     TJSEvlibWatcher *watcher;
 
-    HASH_FIND_PTR(evpt->watchers, &wsi, watcher);
+    memset(&key, 0, sizeof(key));
+    key.wsi = (struct lws *) wsi;
+    key.pidx = pidx;
+
+    HASH_FIND(hh, evpt->watchers, &key, sizeof(key), watcher);
 
     return watcher;
 }
 
+static void tjs__evlib_close_socket(lws_sockfd_type fd) {
+    if (fd == LWS_SOCK_INVALID) {
+        return;
+    }
+
+#ifdef _WIN32
+    closesocket(fd);
+#else
+    close(fd);
+#endif
+}
+
 static void tjs__evlib_watcher_close_cb(uv_handle_t *handle) {
-    CHECK_NOT_NULL(handle->data);
-    tjs__free(handle->data);
+    TJSEvlibWatcher *watcher = handle->data;
+
+    CHECK_NOT_NULL(watcher);
+
+    /* lws hands us ownership of a socket when it tears down a raced fd
+     * (close_handle_manually_parallel / promote_parallel skip its own close),
+     * and the fd has to outlive its uv handle, so it is closed here. */
+    if (watcher->close_fd) {
+        tjs__evlib_close_socket(watcher->fd);
+    }
+
+    tjs__free(watcher);
 }
 
 static void tjs__evlib_poll_cb(uv_poll_t *handle, int status, int events) {
     TJSEvlibWatcher *watcher = handle->data;
     CHECK_NOT_NULL(watcher);
-    struct lws_context *cx = lws_get_context(watcher->wsi);
+    struct lws_context *cx = lws_get_context(watcher->key.wsi);
 
     /* lws_service_fd() wants the fired events mirrored in both fields;
      * this matches what the in-tree lws event libs do. */
@@ -152,49 +200,101 @@ static void tjs__evlib_poll_cb(uv_poll_t *handle, int status, int events) {
     lws_service_fd(cx, &pfd);
 }
 
-/* Stop and close the wsi's watcher, if any.  Idempotent on purpose:
- * destroy_wsi runs for every wsi after wsi_logical_close already detached
- * it, sock_accept detaches preemptively, and some wsis (e.g. failed
- * connects) never had a watcher to begin with. */
-static void tjs__evlib_watcher_detach(TJSEvlibPt *evpt, const struct lws *wsi) {
-    TJSEvlibWatcher *watcher = tjs__evlib_watcher_find(evpt, wsi);
+static void tjs__evlib_watcher_destroy(TJSEvlibPt *evpt, TJSEvlibWatcher *watcher, bool close_fd) {
+    HASH_DEL(evpt->watchers, watcher);
+    watcher->close_fd = close_fd;
+    uv_poll_stop(&watcher->poll);
+    uv_close((uv_handle_t *) &watcher->poll, tjs__evlib_watcher_close_cb);
+}
+
+/* Stop and close the watcher for one of the wsi's sockets, if any.  Idempotent
+ * on purpose: destroy_wsi runs for every wsi after wsi_logical_close already
+ * detached it, sock_accept detaches preemptively, and some wsis (e.g. failed
+ * connects) never had a watcher to begin with.  lws owns the fd on this path. */
+static void tjs__evlib_watcher_detach(TJSEvlibPt *evpt, const struct lws *wsi, int pidx) {
+    TJSEvlibWatcher *watcher = tjs__evlib_watcher_find(evpt, wsi, pidx);
 
     if (!watcher) {
         return;
     }
 
-    HASH_DEL(evpt->watchers, watcher);
-    uv_poll_stop(&watcher->poll);
-    uv_close((uv_handle_t *) &watcher->poll, tjs__evlib_watcher_close_cb);
+    tjs__evlib_watcher_destroy(evpt, watcher, false);
 }
 
-/* Detach whatever watcher is currently bound to fd, regardless of which wsi
- * owns it.  Used by the QUIC/H3 ALPN migration path: lws hands the connected
- * UDP fd to a fresh network wsi and leaves the old (now fd-less) handshake wsi
- * still holding a stale watcher on that fd.  We drop it so only one uv_poll
- * ever references the fd before re-adopting it under the migrated wsi. */
-static void tjs__evlib_watcher_detach_by_fd(TJSEvlibPt *evpt, lws_sockfd_type fd) {
+/* Drop every watcher belonging to a wsi, primary and racers alike.  lws tears
+ * its racers down through close_handle_manually_parallel long before it closes
+ * the wsi, so this only ever finds the primary in practice; it must not close
+ * any fd, since one lws still owns must not be closed twice. */
+static void tjs__evlib_watcher_detach_all(TJSEvlibPt *evpt, const struct lws *wsi) {
     TJSEvlibWatcher *watcher, *tmp;
 
     HASH_ITER(hh, evpt->watchers, watcher, tmp) {
-        if (watcher->fd == fd) {
-            HASH_DEL(evpt->watchers, watcher);
-            uv_poll_stop(&watcher->poll);
-            uv_close((uv_handle_t *) &watcher->poll, tjs__evlib_watcher_close_cb);
+        if (watcher->key.wsi == wsi) {
+            tjs__evlib_watcher_destroy(evpt, watcher, false);
         }
     }
 }
 
-static int tjs__evlib_watcher_create(TJSEvlibPt *evpt, struct lws *wsi, bool unref) {
+/* Find the watcher bound to fd, whichever wsi and socket slot owns it. */
+static TJSEvlibWatcher *tjs__evlib_watcher_find_by_fd(const TJSEvlibPt *evpt, lws_sockfd_type fd) {
+    TJSEvlibWatcher *watcher, *tmp;
+
+    HASH_ITER(hh, evpt->watchers, watcher, tmp) {
+        if (watcher->fd == fd) {
+            return watcher;
+        }
+    }
+
+    return NULL;
+}
+
+/* Drop the watcher bound to fd, if any, whoever owns it.  For the create paths:
+ * lws closes sockets behind our back (the client connect DNS-retry path, and the
+ * internal racer promotions that come with no op call), so an fd number handed
+ * to us may still be claimed by a watcher for a socket that no longer exists.
+ * Only one uv_poll may ever reference an fd. */
+static void tjs__evlib_watcher_detach_by_fd(TJSEvlibPt *evpt, lws_sockfd_type fd) {
+    TJSEvlibWatcher *watcher = tjs__evlib_watcher_find_by_fd(evpt, fd);
+
+    if (watcher) {
+        tjs__evlib_watcher_destroy(evpt, watcher, false);
+    }
+}
+
+/* Move a live watcher (uv handle, subscribed events and all) to another slot,
+ * for the paths where lws re-homes one of its sockets.  Any watcher already at
+ * the destination is a leftover from an lws promotion we were not told about
+ * (see tjs__evlib_io), never a live one, so it is dropped. */
+static void tjs__evlib_watcher_rekey(TJSEvlibPt *evpt, TJSEvlibWatcher *watcher, struct lws *wsi, int pidx) {
+    TJSEvlibWatcher *occupant = tjs__evlib_watcher_find(evpt, wsi, pidx);
+
+    if (occupant && occupant != watcher) {
+        tjs__evlib_watcher_destroy(evpt, occupant, false);
+    }
+
+    HASH_DEL(evpt->watchers, watcher);
+    watcher->key.wsi = wsi;
+    watcher->key.pidx = pidx;
+    HASH_ADD(hh, evpt->watchers, key, sizeof(watcher->key), watcher);
+}
+
+static TJSEvlibWatcher *tjs__evlib_watcher_create(TJSEvlibPt *evpt,
+                                                  struct lws *wsi,
+                                                  int pidx,
+                                                  lws_sockfd_type fd,
+                                                  bool unref) {
     TJSEvlibWatcher *watcher = tjs__malloc(sizeof(*watcher));
 
     if (!watcher) {
-        return -1;
+        return NULL;
     }
 
-    watcher->wsi = wsi;
-    watcher->fd = lws_get_socket_fd(wsi);
+    memset(&watcher->key, 0, sizeof(watcher->key));
+    watcher->key.wsi = wsi;
+    watcher->key.pidx = pidx;
+    watcher->fd = fd;
     watcher->events = 0;
+    watcher->close_fd = false;
 
     int r;
 #ifdef _WIN32
@@ -205,7 +305,7 @@ static int tjs__evlib_watcher_create(TJSEvlibPt *evpt, struct lws *wsi, bool unr
 #endif
     if (r != 0) {
         tjs__free(watcher);
-        return -1;
+        return NULL;
     }
 
     watcher->poll.data = watcher;
@@ -214,9 +314,33 @@ static int tjs__evlib_watcher_create(TJSEvlibPt *evpt, struct lws *wsi, bool unr
         uv_unref((uv_handle_t *) &watcher->poll);
     }
 
-    HASH_ADD_PTR(evpt->watchers, wsi, watcher);
+    HASH_ADD(hh, evpt->watchers, key, sizeof(watcher->key), watcher);
 
-    return 0;
+    return watcher;
+}
+
+static void tjs__evlib_watcher_apply(TJSEvlibWatcher *watcher, unsigned int flags) {
+    if (flags & LWS_EV_START) {
+        if (flags & LWS_EV_READ) {
+            watcher->events |= UV_READABLE;
+        }
+        if (flags & LWS_EV_WRITE) {
+            watcher->events |= UV_WRITABLE;
+        }
+    } else {
+        if (flags & LWS_EV_READ) {
+            watcher->events &= ~UV_READABLE;
+        }
+        if (flags & LWS_EV_WRITE) {
+            watcher->events &= ~UV_WRITABLE;
+        }
+    }
+
+    if (watcher->events) {
+        uv_poll_start(&watcher->poll, watcher->events, tjs__evlib_poll_cb);
+    } else {
+        uv_poll_stop(&watcher->poll);
+    }
 }
 
 static void tjs__evlib_timer_cb(uv_timer_t *handle);
@@ -285,76 +409,141 @@ static int tjs__evlib_init_pt(struct lws_context *cx, void *loop, int tsi) {
 
 static void tjs__evlib_io(struct lws *wsi, unsigned int flags) {
     TJSEvlibPt *evpt = lws_evlib_wsi_to_evlib_pt(wsi);
-    TJSEvlibWatcher *watcher = tjs__evlib_watcher_find(evpt, wsi);
+    lws_sockfd_type fd = lws_get_socket_fd(wsi);
+    TJSEvlibWatcher *watcher = NULL;
+
+    /* Resolve by fd rather than by wsi.  Which of a wsi's sockets this call is
+     * about is whichever one lws currently has selected in wsi->desc, and that
+     * is not always the primary: while racing connects are in flight lws points
+     * wsi->desc at a racer for the duration of a call, and after an internal
+     * promotion (promote_parallel_fd() on a failed primary, which comes with no
+     * op call at all) the wsi is simply left pointing at the racer's socket. */
+    if (fd != LWS_SOCK_INVALID) {
+        watcher = tjs__evlib_watcher_find_by_fd(evpt, fd);
+    }
+
+    if (watcher && watcher->key.wsi != wsi) {
+        /* The QUIC/H3 client ALPN migration hands the connected UDP fd to a
+         * fresh network wsi via __insert_wsi_socket_into_fds() WITHOUT going
+         * through sock_accept (roles/quic/ops-quic.c), leaving the old (now
+         * fd-less) handshake wsi holding the watcher.  lws's in-tree libuv
+         * evlib survives that by carrying its per-wsi watcher storage across
+         * and repointing it (gated on event_loop_ops->name == "libuv"); we
+         * take the watcher over instead, so only one uv_poll ever references
+         * the fd. */
+        tjs__evlib_watcher_rekey(evpt, watcher, wsi, TJS__EVLIB_PIDX_PRIMARY);
+    }
+
+    /* A wsi with no socket of its own left (lws closed it and is still
+     * adjusting) can only be a STOP; act on its primary watcher if it has one. */
+    if (!watcher && fd == LWS_SOCK_INVALID) {
+        watcher = tjs__evlib_watcher_find(evpt, wsi, TJS__EVLIB_PIDX_PRIMARY);
+    }
 
     if (!watcher) {
         /* A watcher normally exists before lws toggles io: sock_accept runs
-         * before the fd enters the fds table.  The exception is the QUIC/H3
-         * client ALPN migration, which hands the connected UDP fd to a fresh
-         * network wsi via __insert_wsi_socket_into_fds() WITHOUT going through
-         * sock_accept (roles/quic/ops-quic.c).  lws's in-tree libuv evlib
-         * survives that by carrying its per-wsi watcher storage across and
-         * repointing it (gated on event_loop_ops->name == "libuv"); we key
-         * watchers by wsi, so the migrated wsi reaches here with a live fd and
-         * no watcher.  Adopt it lazily on the first START, taking the fd over
-         * from the old handshake wsi's now-stale watcher.  A STOP with no
-         * watcher (e.g. lws still adjusting a detached wsi) is a no-op. */
-        lws_sockfd_type fd;
-
+         * before the fd enters the fds table.  Adopt anything else lazily on
+         * the first START; a STOP for a socket we do not know is a no-op. */
         if (!(flags & LWS_EV_START)) {
             return;
         }
 
-        fd = lws_get_socket_fd(wsi);
-        if (fd == LWS_SOCK_INVALID) {
+        watcher = tjs__evlib_watcher_create(evpt, wsi, TJS__EVLIB_PIDX_PRIMARY, fd, true);
+        if (!watcher) {
             return;
         }
-
-        tjs__evlib_watcher_detach_by_fd(evpt, fd);
-
-        if (tjs__evlib_watcher_create(evpt, wsi, true)) {
-            return;
-        }
-
-        watcher = tjs__evlib_watcher_find(evpt, wsi);
-        CHECK_NOT_NULL(watcher);
 
         /* __insert_wsi_socket_into_fds() seeds the fds table with POLLIN but
          * never calls io(), so mirror that baseline or RX would go unpolled. */
         watcher->events = UV_READABLE;
     }
 
-    if (flags & LWS_EV_START) {
-        if (flags & LWS_EV_READ) {
-            watcher->events |= UV_READABLE;
-        }
-        if (flags & LWS_EV_WRITE) {
-            watcher->events |= UV_WRITABLE;
-        }
-    } else {
-        if (flags & LWS_EV_READ) {
-            watcher->events &= ~UV_READABLE;
-        }
-        if (flags & LWS_EV_WRITE) {
-            watcher->events &= ~UV_WRITABLE;
-        }
-    }
-
-    if (watcher->events) {
-        uv_poll_start(&watcher->poll, watcher->events, tjs__evlib_poll_cb);
-    } else {
-        uv_poll_stop(&watcher->poll);
-    }
+    tjs__evlib_watcher_apply(watcher, flags);
 }
 
 static int tjs__evlib_sock_accept(struct lws *wsi) {
     TJSEvlibPt *evpt = lws_evlib_wsi_to_evlib_pt(wsi);
+    lws_sockfd_type fd = lws_get_socket_fd(wsi);
 
     /* lws may have replaced the wsi's fd (client connect DNS-retry path
      * closes the socket behind our back); drop any stale watcher. */
-    tjs__evlib_watcher_detach(evpt, wsi);
+    tjs__evlib_watcher_detach(evpt, wsi, TJS__EVLIB_PIDX_PRIMARY);
+    tjs__evlib_watcher_detach_by_fd(evpt, fd);
 
-    return tjs__evlib_watcher_create(evpt, wsi, true);
+    if (!tjs__evlib_watcher_create(evpt, wsi, TJS__EVLIB_PIDX_PRIMARY, fd, true)) {
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * Racing (parallel) client connect sockets.  lws opens these on a wsi that
+ * already has a primary socket connecting, so they get their own watcher keyed
+ * by racer index and their own set of ops; without them lws applies every
+ * racer's io change to the primary watcher and stops polling the socket that is
+ * actually connecting ("Timed out waiting SSL").
+ */
+static int tjs__evlib_sock_accept_parallel(struct lws *wsi, lws_sockfd_type fd, int pidx) {
+    TJSEvlibPt *evpt = lws_evlib_wsi_to_evlib_pt(wsi);
+
+    tjs__evlib_watcher_detach_by_fd(evpt, fd);
+
+    if (!tjs__evlib_watcher_create(evpt, wsi, pidx, fd, true)) {
+        return -1;
+    }
+
+    return 0;
+}
+
+static void tjs__evlib_io_parallel(struct lws *wsi, int pidx, unsigned int flags) {
+    TJSEvlibPt *evpt = lws_evlib_wsi_to_evlib_pt(wsi);
+    TJSEvlibWatcher *watcher = tjs__evlib_watcher_find(evpt, wsi, pidx);
+
+    if (!watcher) {
+        return;
+    }
+
+    tjs__evlib_watcher_apply(watcher, flags);
+}
+
+static void tjs__evlib_close_handle_manually_parallel(struct lws *wsi, int pidx) {
+    TJSEvlibPt *evpt = lws_evlib_wsi_to_evlib_pt(wsi);
+    TJSEvlibWatcher *watcher = tjs__evlib_watcher_find(evpt, wsi, pidx);
+
+    if (!watcher) {
+        return;
+    }
+
+    /* lws skips its own close() of the racer's socket when this op exists, so
+     * the fd is ours to close, from the uv close cb. */
+    tjs__evlib_watcher_destroy(evpt, watcher, true);
+}
+
+static int tjs__evlib_promote_parallel(struct lws *wsi, int pidx) {
+    TJSEvlibPt *evpt = lws_evlib_wsi_to_evlib_pt(wsi);
+    TJSEvlibWatcher *winner = tjs__evlib_watcher_find(evpt, wsi, pidx);
+    /* The socket that lost is whatever the wsi still points at: lws promotes
+     * the winner into wsi->desc only after this returns. */
+    lws_sockfd_type loser = lws_get_socket_fd(wsi);
+    TJSEvlibWatcher *w_loser = loser == LWS_SOCK_INVALID ? NULL : tjs__evlib_watcher_find_by_fd(evpt, loser);
+
+    /* Only reached for a racer we adopted. */
+    CHECK_NOT_NULL(winner);
+
+    /* lws skips its own close() of the losing socket when this op exists, so it
+     * is ours; it has to outlive its uv handle, hence the close cb. */
+    if (w_loser) {
+        tjs__evlib_watcher_destroy(evpt, w_loser, true);
+    } else {
+        tjs__evlib_close_socket(loser);
+    }
+
+    /* Re-key the winner as the wsi's primary socket: from here on lws drives
+     * it through the non-parallel ops. */
+    tjs__evlib_watcher_rekey(evpt, winner, wsi, TJS__EVLIB_PIDX_PRIMARY);
+
+    return 0;
 }
 
 static int tjs__evlib_init_vhost_listen_wsi(struct lws *wsi) {
@@ -364,12 +553,12 @@ static int tjs__evlib_init_vhost_listen_wsi(struct lws *wsi) {
 
     TJSEvlibPt *evpt = lws_evlib_wsi_to_evlib_pt(wsi);
 
-    if (tjs__evlib_watcher_find(evpt, wsi)) {
+    if (tjs__evlib_watcher_find(evpt, wsi, TJS__EVLIB_PIDX_PRIMARY)) {
         return 0;
     }
 
     /* Listen watchers stay ref'd: a listening server keeps the loop alive. */
-    if (tjs__evlib_watcher_create(evpt, wsi, false)) {
+    if (!tjs__evlib_watcher_create(evpt, wsi, TJS__EVLIB_PIDX_PRIMARY, lws_get_socket_fd(wsi), false)) {
         return -1;
     }
 
@@ -379,7 +568,7 @@ static int tjs__evlib_init_vhost_listen_wsi(struct lws *wsi) {
 }
 
 static int tjs__evlib_wsi_logical_close(struct lws *wsi) {
-    tjs__evlib_watcher_detach(lws_evlib_wsi_to_evlib_pt(wsi), wsi);
+    tjs__evlib_watcher_detach_all(lws_evlib_wsi_to_evlib_pt(wsi), wsi);
 
     /* 0: lws finalizes the wsi synchronously.  The watcher is already
      * stopped, so lws closing the fd right after this is safe. */
@@ -387,7 +576,7 @@ static int tjs__evlib_wsi_logical_close(struct lws *wsi) {
 }
 
 static void tjs__evlib_destroy_wsi(struct lws *wsi) {
-    tjs__evlib_watcher_detach(lws_evlib_wsi_to_evlib_pt(wsi), wsi);
+    tjs__evlib_watcher_detach_all(lws_evlib_wsi_to_evlib_pt(wsi), wsi);
 }
 
 static void tjs__evlib_destroy_pt(struct lws_context *cx, int tsi) {
@@ -404,9 +593,7 @@ static void tjs__evlib_destroy_pt(struct lws_context *cx, int tsi) {
     /* All wsis are closed by now; drop any stragglers defensively. */
     TJSEvlibWatcher *watcher, *tmp;
     HASH_ITER(hh, evpt->watchers, watcher, tmp) {
-        HASH_DEL(evpt->watchers, watcher);
-        uv_poll_stop(&watcher->poll);
-        uv_close((uv_handle_t *) &watcher->poll, tjs__evlib_watcher_close_cb);
+        tjs__evlib_watcher_destroy(evpt, watcher, false);
     }
 }
 
@@ -416,6 +603,10 @@ static const struct lws_event_loop_ops tjs_event_loop_ops = {
     .init_vhost_listen_wsi = tjs__evlib_init_vhost_listen_wsi,
     .sock_accept = tjs__evlib_sock_accept,
     .io = tjs__evlib_io,
+    .sock_accept_parallel = tjs__evlib_sock_accept_parallel,
+    .io_parallel = tjs__evlib_io_parallel,
+    .close_handle_manually_parallel = tjs__evlib_close_handle_manually_parallel,
+    .promote_parallel = tjs__evlib_promote_parallel,
     .wsi_logical_close = tjs__evlib_wsi_logical_close,
     .destroy_wsi = tjs__evlib_destroy_wsi,
     .destroy_pt = tjs__evlib_destroy_pt,

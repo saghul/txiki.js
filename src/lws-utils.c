@@ -454,23 +454,6 @@ static void tjs__lws_init(TJSRuntime *qrt) {
     info.pt_serv_buf_size = 16384;
     info.max_http_header_data2 = 16384;
 
-#if defined(WIN32)
-    /* On Windows lws schedules a periodic "connect status" poller
-     * (lws_client_win32_conn_async_check, default every 1ms). Unlike the
-     * happy-eyeballs timer it is NOT gated on the event-loop type, and when it
-     * fires mid-connect for a multi-address host it spawns a *parallel* connect
-     * socket. lws's parallel-connect path assumes one wsi can own several
-     * polled fds, but our libuv event lib keys exactly one uv_poll watcher per
-     * wsi, so spawning a parallel fd detaches the primary connecting socket's
-     * watcher -> the TLS handshake stalls until it times out ("Timed out
-     * waiting SSL"). Our loop already detects connect completion via the normal
-     * POLLOUT path, so the poller is redundant here; set it to lws's documented
-     * maximum (~1s vs the 1ms default) so the connect completes (and cancels
-     * the poller, connect3.c conn_good) long before it ever fires. The struct
-     * field only exists on Windows. */
-    info.win32_connect_check_interval_usec = 999999u;
-#endif
-
     /* Use the existing libuv event loop via our own event lib. */
     info.event_lib_custom = &tjs_lws_evlib;
     void *foreign_loops[1] = { &qrt->loop };
