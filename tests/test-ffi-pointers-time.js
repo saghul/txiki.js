@@ -12,7 +12,7 @@ const tmT = new FFI.StructType([
 	['yday', FFI.types.sint],
 	['isdst', FFI.types.sint],
 ], 'tm');
-const { symbols, close } = FFI.dlopen(FFI.LIBC_NAME, {
+const { symbols, close } = FFI.dlopen('c', {
 	time: { args: [FFI.types.pointer], returns: FFI.types.sint64 },
 	localtime: { args: [new FFI.PointerType(FFI.types.sint64, 1)], returns: new FFI.PointerType(tmT, 1) },
 });

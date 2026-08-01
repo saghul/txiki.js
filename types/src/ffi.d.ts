@@ -6,9 +6,9 @@
  * including structs, pointers, and callbacks.
  *
  * ```js
- * import { dlopen, LIBC_NAME } from 'tjs:ffi';
+ * import { dlopen } from 'tjs:ffi';
  *
- * const { symbols } = dlopen(LIBC_NAME, {
+ * const { symbols } = dlopen('c', {
  *     getpid: { returns: 'i32' },
  * });
  * console.log(`PID: ${symbols.getpid()}`);
@@ -194,16 +194,6 @@ declare module 'tjs:ffi'{
      * `'so'` on Linux, `'dll'` on Windows.
      */
     export const suffix: string;
-
-    /**
-     * The platform's C library: `'libSystem.dylib'` on macOS, `'msvcrt.dll'` on
-     * Windows, libc's SONAME on Linux. Pass it to {@link dlopen} to bind a libc
-     * symbol portably.
-     */
-    export const LIBC_NAME: string;
-
-    /** The platform's math library, in the same vein as {@link LIBC_NAME}. */
-    export const LIBM_NAME: string;
 
     export function bufferToString(buf: Uint8Array): string;
     export function stringToBuffer(s: string): Uint8Array;
@@ -734,7 +724,8 @@ declare module 'tjs:ffi'{
      * close();
      * ```
      *
-     * @param path - Path to the shared library.
+     * @param path - Path to the shared library, or `'c'` / `'m'` for the
+     * platform's C and math libraries, whose file names differ per platform.
      * @param symbols - Object mapping symbol names to their type signatures.
      */
     export function dlopen<T extends Record<string, DlopenSymbol>>(path: string, symbols: T): DlopenResult<T>;
@@ -785,7 +776,8 @@ declare module 'tjs:ffi'{
      * close();
      * ```
      *
-     * @param path - Path to the shared library.
+     * @param path - Path to the shared library, or `'c'` / `'m'` for the
+     * platform's C and math libraries, whose file names differ per platform.
      * @param header - C declarations: function prototypes, structs, typedefs.
      */
     export function dlopenCProto(path: string, header: string): DlopenCProtoResult;
@@ -810,8 +802,6 @@ declare module 'tjs:ffi'{
         types: typeof types;
         read: typeof read;
         suffix: typeof suffix;
-        LIBC_NAME: typeof LIBC_NAME;
-        LIBM_NAME: typeof LIBM_NAME;
         errno: typeof errno;
         strerror: typeof strerror;
         bufferToString: typeof bufferToString;

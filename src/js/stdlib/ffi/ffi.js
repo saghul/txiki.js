@@ -8,10 +8,15 @@ const suffixMap = { macOS: 'dylib', Windows: 'dll' };
 
 export const suffix = suffixMap[navigator.userAgentData.platform] ?? 'so';
 
-// The platform's C and math libraries, i.e. how a dlopen() call names them
-// portably.
-export const LIBC_NAME = ffiInt.LIBC_NAME;
-export const LIBM_NAME = ffiInt.LIBM_NAME;
+// The two libraries every platform has under a different file name, aliased to
+// the short names a linker knows them by: dlopen('c') and dlopen('m'). Null
+// prototype, so that a library actually named 'constructor' or 'toString' is
+// looked up rather than answered by Object.prototype.
+const libAliases = {
+    __proto__: null,
+    c: ffiInt.LIBC_NAME,
+    m: ffiInt.LIBM_NAME,
+};
 
 
 // Pins the owning UvLib on the native symbol: a UvDlSym holds nothing but a raw
@@ -46,7 +51,7 @@ class Lib {
     #uvlib;
 
     constructor(libname) {
-        this.#uvlib = new ffiInt.UvLib(libname);
+        this.#uvlib = new ffiInt.UvLib(libAliases[libname] ?? libname);
     }
     symbol(name) {
         return new DlSymbol(this.#uvlib, this.#uvlib.symbol(name));
@@ -635,6 +640,9 @@ function withDispose(handle) {
     });
 }
 
+// Opens a shared library and binds the symbols the map describes. `path` is a
+// library path, or one of the aliases in libAliases for a library whose file
+// name is platform-specific.
 export function dlopen(path, symbols) {
     // Resolve all types before opening the library so that type errors
     // don't leave a library handle open.
