@@ -21,9 +21,9 @@ path and a description of the symbols you want, and it returns ready-to-call
 functions.
 
 ```javascript
-import { dlopen, LIBC_NAME } from 'tjs:ffi';
+import { dlopen } from 'tjs:ffi';
 
-const { symbols, close } = dlopen(LIBC_NAME, {
+const { symbols, close } = dlopen('c', {
     getpid: { returns: 'i32' },
     abs: { args: ['i32'], returns: 'i32' },
 });
@@ -34,10 +34,17 @@ console.log('abs(-5):', symbols.abs(-5));
 close(); // release the library handle when done
 ```
 
-[`LIBC_NAME`](/docs/api/tjs-ffi.Variable.LIBC_NAME) and
-[`LIBM_NAME`](/docs/api/tjs-ffi.Variable.LIBM_NAME) resolve to the platform's C
-and math libraries. For your own libraries, build the path with the
-platform-specific [`suffix`](/docs/api/tjs-ffi.Variable.suffix):
+### Naming a library
+
+`'c'` and `'m'` are the C and math libraries, named the way `-lc` and `-lm` name
+them to a linker. Their actual file names are platform-specific —
+`libSystem.dylib` on macOS, `msvcrt.dll` on Windows, libc's and libm's SONAMEs
+on Linux — and the alias saves you from writing that out.
+
+Anything else is passed to the platform's loader unchanged: a path opens that
+file, a bare name goes through the usual library search path. For your own
+libraries, build the path with the platform-specific
+[`suffix`](/docs/api/tjs-ffi.Variable.suffix):
 
 ```javascript
 import { suffix } from 'tjs:ffi';
@@ -90,9 +97,9 @@ NUL-terminated `char *`, and `'string'` return values are read back into a JS
 string. For raw memory, pass a `Uint8Array` as a `'buffer'`:
 
 ```javascript
-import { dlopen, LIBC_NAME, bufferToString } from 'tjs:ffi';
+import { dlopen, bufferToString } from 'tjs:ffi';
 
-const { symbols } = dlopen(LIBC_NAME, {
+const { symbols } = dlopen('c', {
     // int snprintf(char *str, size_t size, const char *format, ...);
     snprintf: { args: ['buffer', 'size_t', 'string'], returns: 'int', fixed: 3 },
 });
@@ -123,9 +130,9 @@ C symbol to resolve. `name` separates the two, which is what lets the same C
 symbol be bound twice:
 
 ```javascript
-import { dlopen, LIBC_NAME, bufferToString } from 'tjs:ffi';
+import { dlopen, bufferToString } from 'tjs:ffi';
 
-const { symbols, close } = dlopen(LIBC_NAME, {
+const { symbols, close } = dlopen('c', {
     // int snprintf(char *str, size_t size, const char *format, ...);
     snprintf1: { name: 'snprintf', args: ['buffer', 'size_t', 'string', 'i32'], returns: 'int', fixed: 3 },
     snprintf2: { name: 'snprintf', args: ['buffer', 'size_t', 'string', 'i32', 'i32'], returns: 'int', fixed: 3 },
@@ -154,9 +161,9 @@ missing, the property is left out of `symbols` altogether, so `in` tells you
 whether the library you got has it.
 
 ```javascript
-import { dlopen, LIBC_NAME } from 'tjs:ffi';
+import { dlopen } from 'tjs:ffi';
 
-const { symbols, close } = dlopen(LIBC_NAME, {
+const { symbols, close } = dlopen('c', {
     strlen: { args: ['string'], returns: 'size_t' },
     // A BSD extension: always there on macOS, on glibc only since 2.38.
     strlcpy: { args: ['buffer', 'string', 'size_t'], returns: 'size_t', optional: true },
@@ -832,14 +839,14 @@ wraps an existing buffer. Use a [`PointerType`](/docs/api/tjs-ffi.Class.PointerT
 as the argument/return type to declare a `T *` parameter:
 
 ```javascript
-import { dlopen, LIBC_NAME, PointerType, Pointer, defineStruct, types } from 'tjs:ffi';
+import { dlopen, PointerType, Pointer, defineStruct, types } from 'tjs:ffi';
 
 const Tm = defineStruct([
     ['sec', 'int'], ['min', 'int'], ['hour', 'int'],
     ['mday', 'int'], ['mon', 'int'], ['year', 'int'],
 ]);
 
-const { symbols, close } = dlopen(LIBC_NAME, {
+const { symbols, close } = dlopen('c', {
     // struct tm *localtime(const time_t *timep);
     localtime: { args: [new PointerType(types.sint64)], returns: new PointerType(Tm) },
 });
@@ -905,7 +912,7 @@ console.log(src[0]); // 42 — same memory; keep `src` reachable while `view` li
 For deterministic cleanup, free it yourself when you're done:
 
 ```javascript
-const { symbols } = dlopen(LIBC_NAME, {
+const { symbols } = dlopen('c', {
     free: { args: ['ptr'] },
 });
 
@@ -986,9 +993,9 @@ Many libc-style functions report failure by setting `errno`. Read it with
 with [`strerror()`](/docs/api/tjs-ffi.Function.strerror):
 
 ```javascript
-import { dlopen, LIBC_NAME, errno, strerror } from 'tjs:ffi';
+import { dlopen, errno, strerror } from 'tjs:ffi';
 
-const { symbols, close } = dlopen(LIBC_NAME, {
+const { symbols, close } = dlopen('c', {
     chdir: { args: ['string'], returns: 'int' },
 });
 
@@ -1006,10 +1013,10 @@ handle, and both results implement `Symbol.dispose` as an alias for it, so
 `using` closes the library at scope exit:
 
 ```javascript
-import { dlopen, LIBC_NAME } from 'tjs:ffi';
+import { dlopen } from 'tjs:ffi';
 
 {
-    using lib = dlopen(LIBC_NAME, {
+    using lib = dlopen('c', {
         getpid: { returns: 'i32' },
     });
 
