@@ -933,9 +933,11 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
     cci.vhost = tjs__lws_select_vhost(ctx, uri->scheme, uri->host, uri->port);
 
     /* HTTP/3 (set by the fetch layer's Alt-Svc auto-upgrade). h3 is selected
-     * purely by ALPN "h3"; disable_h3_fallback keeps lws from racing a parallel
-     * TCP connect (which would need evlib parallel-connect ops we do not
-     * implement) — the fetch layer falls back to h1/h2 itself on failure. */
+     * purely by ALPN "h3"; disable_h3_fallback keeps lws from racing TCP
+     * connects against the QUIC one, because the fetch layer owns h3 discovery
+     * (its own Alt-Svc cache) and falls back to h1/h2 itself on failure. lws's
+     * own fallback instead waits out its h3 grace timer (2s by default) before
+     * abandoning QUIC. */
     if (use_ssl && h->try_http3) {
         cci.alpn = "h3";
         cci.disable_h3_fallback = 1;
