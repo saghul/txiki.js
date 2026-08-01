@@ -67,6 +67,12 @@ export function format(...args) {
                 case '%i':{
                     const arg = args[i++];
 
+                    if (typeof arg === 'bigint') {
+                        // parseInt() would drop the `n` and, past 2**53, digits
+                        // with it.
+                        return arg + 'n';
+                    }
+
                     return typeof arg === 'symbol' ? NaN : parseInt(arg, 10);
                 }
 
@@ -91,12 +97,13 @@ export function format(...args) {
         result.push(replacedFormat);
     }
 
+    // The same rule the printer applies to a lone argument: a string goes
+    // through as it is, since quoting it would be noise at the top level, and
+    // everything else is inspected. Listing the types to inspect instead meant
+    // the rest fell back to their String() form, which is empty for null and
+    // undefined and the entire source text for a function.
     for (let x = args[i]; i < len; x = args[++i]) {
-        if (x === null || ![ 'object', 'symbol' ].includes(typeof x)) {
-            result.push(x);
-        } else {
-            result.push(inspect(x));
-        }
+        result.push(typeof x === 'string' ? x : inspect(x));
     }
 
     return result.join(' ');
@@ -174,6 +181,7 @@ inspect.colors = {
 inspect.styles = {
     'special': 'cyan',
     'number': 'yellow',
+    'bigint': 'yellow',
     'boolean': 'yellow',
     'undefined': 'grey',
     'null': 'bold',
@@ -200,6 +208,28 @@ function stylizeNoColor(str) {
     return str;
 }
 
+// The label for a function or a class: `[Function: name]`, `[class Name]`, or
+// `[class Name extends Super]`.
+function functionBase(value) {
+    // A class constructor's source text always begins with `class`, and no
+    // function or arrow can — which is the only way to tell the two apart
+    // without calling the thing. Worth telling apart: a class reported as a
+    // Function reads as something you may call, and calling one throws.
+    if (Function.prototype.toString.call(value).startsWith('class')) {
+        let base = 'class ' + (value.name || '(anonymous)');
+        const parent = Object.getPrototypeOf(value);
+
+        // Function.prototype for a base class, and its name is empty.
+        if (parent && parent.name) {
+            base += ' extends ' + parent.name;
+        }
+
+        return '[' + base + ']';
+    }
+
+    return '[Function' + (value.name ? ': ' + value.name : '') + ']';
+}
+
 function formatValue(ctx, value, recurseTimes) {
     // Primitive types cannot have properties
     const primitive = formatPrimitive(ctx, value);
@@ -221,9 +251,7 @@ function formatValue(ctx, value, recurseTimes) {
     // Some type of object without properties can be shortcutted.
     if (keys.length === 0) {
         if (typeof value === 'function') {
-            const name = value.name ? ': ' + value.name : '';
-
-            return ctx.stylize('[Function' + name + ']', 'special');
+            return ctx.stylize(functionBase(value), 'special');
         }
 
         if (isRegExp(value)) {
@@ -249,9 +277,7 @@ function formatValue(ctx, value, recurseTimes) {
 
     // Make functions say that they are functions
     if (typeof value === 'function') {
-        var n = value.name ? ': ' + value.name : '';
-
-        base = ' [Function' + n + ']';
+        base = ' ' + functionBase(value);
     }
 
     // Make RegExps say that they are RegExps
@@ -314,6 +340,12 @@ function formatPrimitive(ctx, value) {
 
     if (isNumber(value)) {
         return ctx.stylize('' + value, 'number');
+    }
+
+    // With the `n` suffix, as the literal is written: a bigint is worth telling
+    // apart from a number, which is the whole reason a value is one.
+    if (typeof value === 'bigint') {
+        return ctx.stylize(value + 'n', 'bigint');
     }
 
     if (typeof value === 'boolean') {
