@@ -2,7 +2,7 @@
 
 import { HttpClient } from '../http-client.js';
 
-import { dropH3, hasH3, noteAltSvc } from './alt-svc.js';
+import { hasH3, markH3Broken, noteAltSvc } from './alt-svc.js';
 import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
 import { Response } from './response.js';
@@ -11,6 +11,20 @@ import { Response } from './response.js';
 // before producing a response and is eligible for an h1/h2 retry. A Symbol
 // keeps it off the error's enumerable surface and out of reach of user code.
 const kH3Fallback = Symbol('h3Fallback');
+
+const DEFAULT_H3_TIMEOUT = 3000;
+
+// How long to wait for the QUIC handshake before falling back to h1/h2.
+//
+// A blackholed UDP path (a firewall dropping :443/udp is the common case) gives
+// no error at all, so without this the h3 attempt only fails when the whole
+// connect times out — 20s — and every h3-advertised origin on such a network
+// stalls for that long. Read per attempt so it stays settable at runtime.
+function h3Timeout() {
+    const v = Number(tjs.env.TJS_H3_TIMEOUT);
+
+    return Number.isFinite(v) && v >= 0 ? v : DEFAULT_H3_TIMEOUT;
+}
 
 async function fetchFileURI(url) {
     // Strip file:// prefix and decode. Handles both POSIX (file:///tmp/foo)
@@ -86,7 +100,7 @@ function sendRequest(request, init, opts) {
         }
 
         if (useH3) {
-            client.setHttp3(true);
+            client.setHttp3(true, h3Timeout());
         }
 
         activeClients.add(client);
@@ -164,6 +178,7 @@ function sendRequest(request, init, opts) {
             if (error) {
                 const isAbort = error === 'ABORTED';
                 const isTimeout = error === 'TIMED_OUT';
+                const isH3Timeout = error === 'H3_TIMED_OUT';
 
                 let msg;
 
@@ -171,14 +186,18 @@ function sendRequest(request, init, opts) {
                     msg = `Network request failed: ${reason}`;
                 } else if (isTimeout) {
                     msg = 'Network request timed out';
+                } else if (isH3Timeout) {
+                    msg = 'HTTP/3 connection timed out';
                 } else {
                     msg = 'Network request failed';
                 }
 
                 if (!responseResolved) {
                     // An h3 attempt that fails before producing a response can
-                    // be retried over h1/h2 (not for user aborts).
-                    if (useH3 && !isAbort) {
+                    // be retried over h1/h2. Not for user aborts, and not for
+                    // the caller's own request timeout — retrying that would
+                    // hand the caller twice the deadline they asked for.
+                    if (useH3 && !isAbort && !isTimeout) {
                         if (streamController) {
                             try {
                                 streamController.error(new TypeError(msg));
@@ -365,7 +384,7 @@ export function fetch(input, init) {
             function attempt(useH3) {
                 sendRequest(request, init, { ...opts, useH3 }).then(resolve, function(err) {
                     if (useH3 && err && err[kH3Fallback]) {
-                        dropH3(origin);
+                        markH3Broken(origin);
                         attempt(false);
                     } else {
                         reject(err);
