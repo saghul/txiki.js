@@ -164,11 +164,15 @@ typedef struct {
  * Per-server state.
  */
 typedef struct {
+    /* Self-pin keeping the JS wrapper (and thus this struct, which the vhost
+     * points into for its protocol name) alive while lws still owns a vhost.
+     * Registered with the runtime, so teardown releases it even when lws never
+     * reports the vhost gone — see the PROTOCOL_DESTROY handler. */
+    TJSHandlePin pin;
     JSContext *ctx;
     JSValue callback;                   /* JS onrequest handler */
     JSValue body_chunk_callback;        /* JS onBodyChunk handler for streaming bodies */
     JSValue close_callback;             /* JS onClose, invoked when lws fires PROTOCOL_DESTROY */
-    JSValue this_val;                   /* prevent GC while listening */
     JSValue ws_callbacks[WS_EVENT_MAX]; /* server-level: open, message, close, error */
     struct lws_vhost *vhost;
     struct lws_vhost *quic_vhost; /* HTTP/3 (QUIC/UDP) vhost, or NULL if h3 off */
@@ -272,9 +276,30 @@ static TJSWsConnection *tjs_wsconn_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs_wsconn_class_id);
 }
 
+/* Clear the JS callbacks at teardown (see TJSHandlePin.detach) so the vhost
+ * teardown lws runs while destroying its context dispatches nothing. */
+static void tjs_httpserver_detach(TJSHandlePin *pin) {
+    TJSHttpServer *s = list_entry(pin, TJSHttpServer, pin);
+
+    JS_FreeValue(s->ctx, s->callback);
+    s->callback = JS_UNDEFINED;
+
+    JS_FreeValue(s->ctx, s->body_chunk_callback);
+    s->body_chunk_callback = JS_UNDEFINED;
+
+    JS_FreeValue(s->ctx, s->close_callback);
+    s->close_callback = JS_UNDEFINED;
+
+    for (int i = 0; i < WS_EVENT_MAX; i++) {
+        JS_FreeValue(s->ctx, s->ws_callbacks[i]);
+        s->ws_callbacks[i] = JS_UNDEFINED;
+    }
+}
+
 static void tjs_httpserver_finalizer(JSRuntime *rt, JSValue val) {
     TJSHttpServer *s = JS_GetOpaque(val, tjs_httpserver_class_id);
     if (s) {
+        CHECK(JS_IsUndefined(s->pin.obj));
         JS_FreeValueRT(rt, s->callback);
         JS_FreeValueRT(rt, s->body_chunk_callback);
         JS_FreeValueRT(rt, s->close_callback);
@@ -1241,10 +1266,13 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
         }
 
         case LWS_CALLBACK_PROTOCOL_DESTROY: {
-            /* Fired once per vhost. With HTTP/3 the server owns two vhosts
-             * (TCP + QUIC), both bound to this protocol/user; release s only
-             * after the last one is gone, or the second teardown reads freed
-             * memory. */
+            /* Fired once per vhost whose protocol lws actually initialized.
+             * With HTTP/3 the server owns two vhosts (TCP + QUIC), both bound to
+             * this protocol/user; release s only after the last one is gone, or
+             * the second teardown reads freed memory. A vhost destroyed before
+             * lws got round to its (deferred) protocol init never reports here,
+             * so this count can stay above zero forever — the pin is registered
+             * with the runtime, which releases it at teardown. */
             if (--s->vhost_count > 0) {
                 return 0;
             }
@@ -1255,11 +1283,7 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 tjs_call_handler(s->ctx, cb, 0, NULL);
                 JS_FreeValue(s->ctx, cb);
             }
-            if (!JS_IsUndefined(s->this_val)) {
-                JSValue this_val = s->this_val;
-                s->this_val = JS_UNDEFINED;
-                JS_FreeValue(s->ctx, this_val);
-            }
+            tjs__handle_unpin(s->ctx, &s->pin);
             return 0;
         }
 
@@ -1401,7 +1425,8 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     s->callback = JS_UNDEFINED;
     s->body_chunk_callback = JS_UNDEFINED;
     s->close_callback = JS_UNDEFINED;
-    s->this_val = JS_UNDEFINED;
+    s->pin.obj = JS_UNDEFINED;
+    s->pin.detach = tjs_httpserver_detach;
     for (int i = 0; i < WS_EVENT_MAX; i++) {
         s->ws_callbacks[i] = JS_UNDEFINED;
     }
@@ -1633,15 +1658,15 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
              * vhosts that were created, mirroring close(): a created vhost's
              * deferred protocol init / PROTOCOL_DESTROY runs on a later service
              * loop and reads s via the vhost user pointer, so s must be kept
-             * alive (via this_val, released by the last PROTOCOL_DESTROY) until
-             * then or that callback reads freed memory. The server never
-             * started, so drop the close callback rather than firing it.
+             * alive (via the pin) until then or that callback reads freed
+             * memory. The server never started, so drop the close callback
+             * rather than firing it.
              */
             JS_FreeValue(ctx, s->close_callback);
             s->close_callback = JS_UNDEFINED;
             s->closed = true;
             s->vhost_count = s->quic_vhost ? 2 : 1;
-            s->this_val = JS_DupValue(ctx, obj);
+            tjs__handle_pin(ctx, &s->pin, obj);
             if (s->quic_vhost) {
                 lws_vhost_destroy(s->quic_vhost);
                 s->quic_vhost = NULL;
@@ -1659,7 +1684,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     JS_FreeCString(ctx, listen_ip);
 
     /* Prevent GC while server is active. */
-    s->this_val = JS_DupValue(ctx, obj);
+    tjs__handle_pin(ctx, &s->pin, obj);
 
     /* Kick lws service loop. */
     lws_cancel_service(lws_ctx);
@@ -1689,7 +1714,7 @@ static JSValue tjs_httpserver_close(JSContext *ctx, JSValue this_val, int argc, 
     }
 
     /* Release callback references to break reference cycles.
-     * The server struct must stay alive (via this_val) until lws
+     * The server struct must stay alive (via the pin) until lws
      * fires PROTOCOL_DESTROY, so we only release callbacks here. */
     JS_FreeValue(ctx, s->callback);
     s->callback = JS_UNDEFINED;
