@@ -78,8 +78,12 @@ typedef struct {
     bool body_done;
     bool completed;
     bool torn_down;
-    bool keepalive; /* connection may be pooled for reuse (decided at headers) */
-    bool try_http3; /* attempt HTTP/3 over QUIC (ALPN "h3", no TCP fallback) */
+    bool keepalive;           /* connection may be pooled for reuse (decided at headers) */
+    bool try_http3;           /* attempt HTTP/3 over QUIC (ALPN "h3") */
+    bool h3_probing;          /* QUIC handshake still outstanding: the h3 deadline applies */
+    bool h3_deadline_armed;   /* the timer currently armed is the h3 deadline, not h->timeout */
+    unsigned long h3_timeout; /* ms to wait for the QUIC handshake before giving up (0 = no limit) */
+    lws_usec_t start_us;      /* request start, so re-arming can charge elapsed time */
     unsigned long timeout;
     int ssl_flags;
     JSValue url;
@@ -160,6 +164,46 @@ static void maybe_invoke_callback(TJSHttpClient *h, int callback, int argc, JSVa
     for (int i = 0; i < argc; i++) {
         JS_FreeValue(ctx, argv[i]);
     }
+}
+
+/* Arm the wsi's single lws timer for whichever deadline comes first.
+ *
+ * Two deadlines can be outstanding: the h3 connect deadline, which only applies
+ * while the QUIC handshake is unfinished, and the request timeout.  Both are
+ * measured from h->start_us, so re-arming after the handshake completes charges
+ * the time already spent instead of restarting the request timeout.
+ *
+ * h3_deadline_armed records which one is loaded, so LWS_CALLBACK_TIMER can tell
+ * "QUIC isn't getting through" (retryable over h1/h2) from a genuine request
+ * timeout (not retryable). */
+static void httpclient_arm_timer(TJSHttpClient *h, struct lws *wsi) {
+    lws_usec_t now = lws_now_usecs();
+    lws_usec_t deadline = 0; /* absolute; 0 = none */
+
+    h->h3_deadline_armed = false;
+
+    if (h->h3_probing && h->h3_timeout > 0) {
+        deadline = h->start_us + (lws_usec_t) h->h3_timeout * LWS_USEC_PER_SEC / 1000;
+        h->h3_deadline_armed = true;
+    }
+
+    if (h->timeout > 0) {
+        lws_usec_t req = h->start_us + (lws_usec_t) h->timeout * LWS_USEC_PER_SEC / 1000;
+
+        if (!deadline || req < deadline) {
+            deadline = req;
+            h->h3_deadline_armed = false;
+        }
+    }
+
+    if (!deadline) {
+        lws_set_timer_usecs(wsi, LWS_SET_TIMER_USEC_CANCEL);
+        return;
+    }
+
+    /* Already past due (or due this instant): lws treats 0 as "cancel", so ask
+     * for the shortest real delay instead and let the timer callback report it. */
+    lws_set_timer_usecs(wsi, deadline > now ? deadline - now : 1);
 }
 
 /* Release our hold on a finished request.  With connection reuse
@@ -388,6 +432,14 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
     switch (reason) {
         case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER: {
             unsigned char **p = (unsigned char **) in, *end = (*p) + len;
+
+            /* lws only asks for request headers once the connection carrying them
+             * is up, so over QUIC this means the handshake completed: the h3
+             * deadline has done its job and the request timeout takes over. */
+            if (h->h3_probing) {
+                h->h3_probing = false;
+                httpclient_arm_timer(h, wsi);
+            }
 
             /* Add User-Agent header unless the user already set one. */
             if (!has_request_header(&h->req_headers, "User-Agent")) {
@@ -693,7 +745,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
         case LWS_CALLBACK_TIMER: {
             if (!h->completed) {
                 h->completed = true;
-                JSValue error = JS_NewString(h->ctx, "TIMED_OUT");
+                JSValue error = JS_NewString(h->ctx, h->h3_deadline_armed ? "H3_TIMED_OUT" : "TIMED_OUT");
                 maybe_invoke_callback(h, HC_CALLBACK_COMPLETE, 1, &error);
             }
             return -1;
@@ -935,9 +987,15 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
     /* HTTP/3 (set by the fetch layer's Alt-Svc auto-upgrade). h3 is selected
      * purely by ALPN "h3"; disable_h3_fallback keeps lws from racing TCP
      * connects against the QUIC one, because the fetch layer owns h3 discovery
-     * (its own Alt-Svc cache) and falls back to h1/h2 itself on failure. lws's
-     * own fallback instead waits out its h3 grace timer (2s by default) before
-     * abandoning QUIC. */
+     * (its own Alt-Svc cache) and falls back to h1/h2 itself on failure.
+     *
+     * lws's own fallback cannot do this job: it only falls back by promoting a
+     * happy-eyeballs racer, so single-address origins get no fallback at all,
+     * and a promoted racer would offer this "h3" ALPN over TCP -- which real
+     * servers answer by failing the handshake (Google) or, worse, by selecting
+     * h3 on a TCP socket (Fastly), the hang fixed in "tls: stop offering h3 in
+     * TLS-over-TCP ALPN lists". Instead h3_timeout below bounds how long the
+     * QUIC handshake may take before we fall back ourselves. */
     if (use_ssl && h->try_http3) {
         cci.alpn = "h3";
         cci.disable_h3_fallback = 1;
@@ -957,9 +1015,9 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
 
     lws_cancel_service(lws_ctx);
 
-    if (h->timeout > 0) {
-        lws_set_timer_usecs(wsi, (lws_usec_t) h->timeout * LWS_USEC_PER_SEC / 1000);
-    }
+    h->start_us = lws_now_usecs();
+    h->h3_probing = use_ssl && h->try_http3 && h->h3_timeout > 0;
+    httpclient_arm_timer(h, wsi);
 
     return 0;
 }
@@ -1132,6 +1190,19 @@ static JSValue tjs_httpclient_set_http3(JSContext *ctx, JSValue this_val, int ar
     }
 
     h->try_http3 = JS_ToBool(ctx, argv[0]);
+
+    /* Optional: ms to wait for the QUIC handshake before failing with
+     * H3_TIMED_OUT so the fetch layer can retry over h1/h2. 0 disables it. */
+    if (argc > 1 && !JS_IsUndefined(argv[1])) {
+        uint32_t ms;
+
+        if (JS_ToUint32(ctx, &ms, argv[1])) {
+            return JS_EXCEPTION;
+        }
+
+        h->h3_timeout = ms;
+    }
+
     return JS_UNDEFINED;
 }
 
@@ -1152,7 +1223,7 @@ static const JSCFunctionListEntry tjs_httpclient_proto_funcs[] = {
     TJS_CFUNC_DEF("setRequestHeader", 2, tjs_httpclient_setrequestheader),
     TJS_CFUNC_DEF("setEnableCookies", 1, tjs_httpclient_set_enable_cookies),
     TJS_CFUNC_DEF("setAllowInsecure", 1, tjs_httpclient_set_allow_insecure),
-    TJS_CFUNC_DEF("setHttp3", 1, tjs_httpclient_set_http3),
+    TJS_CFUNC_DEF("setHttp3", 2, tjs_httpclient_set_http3),
     TJS_CFUNC_DEF("sendData", 1, tjs_httpclient_senddata),
     TJS_CFUNC_DEF("abort", 0, tjs_httpclient_abort),
 };

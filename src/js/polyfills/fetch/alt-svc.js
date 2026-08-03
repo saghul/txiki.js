@@ -9,8 +9,35 @@
 // *same host and port* we already connected to (the overwhelmingly common
 // case). Entries pointing at a different authority, and draft protocol ids
 // (h3-29, ...), are ignored.
+//
+// An origin whose h3 attempt failed is put on a cooldown rather than simply
+// dropped from the cache: the h1/h2 response that the fallback produces carries
+// the very same `alt-svc` header, so dropping alone would re-arm the origin
+// immediately and every later request would pay the failed h3 attempt again.
+// Browsers do the same thing (Chrome calls it marking the alternative service
+// broken).
 
 const cache = new Map(); // origin ("https://host:port") -> { expires: epoch ms }
+const broken = new Map(); // origin -> epoch ms until which h3 is not retried
+
+// How long an origin stays on cooldown after a failed h3 attempt.
+const BROKEN_COOLDOWN_MS = 5 * 60 * 1000;
+
+function isBroken(origin) {
+    const until = broken.get(origin);
+
+    if (until === undefined) {
+        return false;
+    }
+
+    if (Date.now() >= until) {
+        broken.delete(origin);
+
+        return false;
+    }
+
+    return true;
+}
 
 function stripQuotes(s) {
     if (s.length >= 2 && s[0] === '"' && s[s.length - 1] === '"') {
@@ -23,6 +50,12 @@ function stripQuotes(s) {
 // Record any usable h3 advertisement from an Alt-Svc header value.
 export function noteAltSvc(origin, altSvcValue, originHost, originPort) {
     if (!altSvcValue) {
+        return;
+    }
+
+    // `clear` is still honoured while on cooldown; a fresh h3 advertisement is
+    // not, or the fallback's own response would immediately re-arm the origin.
+    if (isBroken(origin) && altSvcValue.trim() !== 'clear') {
         return;
     }
 
@@ -90,6 +123,10 @@ export function noteAltSvc(origin, altSvcValue, originHost, originPort) {
 
 // True if a non-expired h3 advertisement is cached for this origin.
 export function hasH3(origin) {
+    if (isBroken(origin)) {
+        return false;
+    }
+
     const e = cache.get(origin);
 
     if (!e) {
@@ -105,7 +142,9 @@ export function hasH3(origin) {
     return true;
 }
 
-// Forget the h3 advertisement (called when an h3 attempt fails).
-export function dropH3(origin) {
+// Called when an h3 attempt fails: forget the advertisement and stop retrying
+// h3 for this origin until the cooldown lapses.
+export function markH3Broken(origin) {
     cache.delete(origin);
+    broken.set(origin, Date.now() + BROKEN_COOLDOWN_MS);
 }
