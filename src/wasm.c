@@ -1457,11 +1457,6 @@ static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValue this_val, int argc, 
     return obj;
 }
 
-/* No-op free function: WAMR owns the memory, not JS */
-static void tjs__wasm_memory_free(JSRuntime *rt, void *opaque, void *ptr) {
-    /* intentionally empty */
-}
-
 static JSValue tjs_wasm_getmemorybuffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWasmInstance *i = tjs_wasm_instance_get(ctx, argv[0]);
     if (!i) {
@@ -1488,7 +1483,9 @@ static JSValue tjs_wasm_getmemorybuffer(JSContext *ctx, JSValue this_val, int ar
         tjs__wasm_drop_memory_buffer(ctx, i);
     }
 
-    JSValue buffer = JS_NewArrayBuffer(ctx, (uint8_t *) base, byte_length, tjs__wasm_memory_free, NULL, false);
+    /* NULL realloc callback: WAMR owns the linear memory, so the runtime must
+     * never free or resize it. */
+    JSValue buffer = JS_NewArrayBuffer(ctx, (uint8_t *) base, byte_length, 0, NULL, NULL, false);
     if (JS_IsException(buffer)) {
         return buffer;
     }

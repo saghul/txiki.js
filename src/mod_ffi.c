@@ -1255,7 +1255,7 @@ static JSValue js_external_arraybuffer_constructor(JSContext *ctx, JSValue new_t
 // Wrap a (base, size) span in a zero-copy ArrayBuffer reparented to
 // ExternalArrayBuffer.prototype. The runtime takes no ownership of the memory.
 static JSValue js_ffi_new_external_arraybuffer(JSContext *ctx, uint8_t *base, size_t size) {
-    JSValue ab = JS_NewArrayBuffer(ctx, base, size, NULL, NULL, false);
+    JSValue ab = JS_NewArrayBuffer(ctx, base, size, 0, NULL, NULL, false);
     if (JS_IsException(ab)) {
         return ab;
     }
