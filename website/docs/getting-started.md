@@ -54,7 +54,7 @@ See [Using with mise](guides/mise.md) for details.
 
 ### Build from source
 
-On Linux (and other Unixes), you'll need to [build from source](building.md).
+txiki.js can be [built from source](building.md) on GNU/Linux, macOS, Windows, and other Unixes.
 
 ## Quick start
 
