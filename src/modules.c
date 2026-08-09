@@ -191,17 +191,17 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
         r = tjs__load_file(ctx, &dbuf, module_name);
         if (r != 0) {
             /* Try extension resolution for path-like imports with no extension. */
-            if (type == JS_IMPORT_TYPE_JS && !has_suffix(module_name, ".ts") &&
-                !has_suffix(module_name, ".tsx") && !has_suffix(module_name, ".mts") &&
-                !has_suffix(module_name, ".cts") && !has_suffix(module_name, ".js") &&
-                !has_suffix(module_name, ".mjs") && !has_suffix(module_name, ".cjs") &&
-                !has_suffix(module_name, ".json") && !has_suffix(module_name, ".wasm")) {
-                static const char *try_exts[] = { ".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", NULL };
+            if (type == JS_IMPORT_TYPE_JS && !has_suffix(module_name, ".ts") && !has_suffix(module_name, ".tsx") &&
+                !has_suffix(module_name, ".js") && !has_suffix(module_name, ".json") &&
+                !has_suffix(module_name, ".wasm")) {
+                static const char *try_exts[] = { ".ts", ".tsx", ".js", NULL };
                 char *try_name = NULL;
                 size_t base_len = strlen(module_name);
                 for (int ei = 0; try_exts[ei] != NULL; ei++) {
                     try_name = js_malloc(ctx, base_len + strlen(try_exts[ei]) + 1);
-                    if (!try_name) break;
+                    if (!try_name) {
+                        break;
+                    }
                     memcpy(try_name, module_name, base_len);
                     memcpy(try_name + base_len, try_exts[ei], strlen(try_exts[ei]) + 1);
                     tbuf_free(&dbuf);
@@ -233,17 +233,12 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
     tbuf_putc(&dbuf, '\0');
 
     /* TypeScript transpilation hook. */
-    if (type == JS_IMPORT_TYPE_JS &&
-        (has_suffix(effective_name, ".ts") || has_suffix(effective_name, ".tsx") ||
-        has_suffix(effective_name, ".mts") || has_suffix(effective_name, ".cts"))) {
+    if (type == JS_IMPORT_TYPE_JS && (has_suffix(effective_name, ".ts") || has_suffix(effective_name, ".tsx"))) {
         TJSRuntime *qrt = TJS_GetRuntime(ctx);
         if (JS_IsFunction(ctx, qrt->builtins.typescript_transpiler)) {
-            JSValue args[2] = {
-                JS_NewString(ctx, effective_name),
-                JS_NewStringLen(ctx, (char *)dbuf.buf, dbuf.size - 1)
-            };
-            JSValue result = JS_Call(ctx, qrt->builtins.typescript_transpiler,
-                                      JS_UNDEFINED, 2, args);
+            JSValue args[2] = { JS_NewString(ctx, effective_name),
+                                JS_NewStringLen(ctx, (char *) dbuf.buf, dbuf.size - 1) };
+            JSValue result = JS_Call(ctx, qrt->builtins.typescript_transpiler, JS_UNDEFINED, 2, args);
             JS_FreeValue(ctx, args[0]);
             JS_FreeValue(ctx, args[1]);
             if (JS_IsException(result)) {
@@ -258,7 +253,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
             if (tsrc) {
                 tbuf_free(&dbuf);
                 tbuf_init(ctx, &dbuf);
-                tbuf_put(&dbuf, (const uint8_t *)tsrc, tlen);
+                tbuf_put(&dbuf, (const uint8_t *) tsrc, tlen);
                 tbuf_putc(&dbuf, '\0');
                 JS_FreeCString(ctx, tsrc);
             }

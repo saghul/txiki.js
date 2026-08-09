@@ -20,7 +20,7 @@ tjs run component.tsx
 tjs compile file.ts output
 ```
 
-TypeScript files are transpiled to JavaScript at module load time using the oxc transpiler running inside txiki.js's built-in WAMR WebAssembly runtime. The transpilation is transparent — `.ts`, `.tsx`, `.mts`, and `.cts` files work alongside `.js` files.
+TypeScript files are transpiled to JavaScript at module load time using the oxc transpiler running inside txiki.js's built-in WAMR WebAssembly runtime. The transpilation is transparent: `.ts`, `.tsx` files work alongside `.js` files.
 
 ## Import Resolution
 
@@ -31,7 +31,7 @@ import { foo } from './bar.ts';
 ```
 
 For extensionless imports, txiki.js automatically tries resolving with these extensions in order:
-`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, `.cjs`.
+`.ts`, `.tsx`, `.js`.
 
 ```ts
 import { foo } from './bar';  // resolves ./bar.ts, ./bar.tsx, etc.

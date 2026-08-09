@@ -76,7 +76,7 @@ Options:
 
 Subcommands:
   run
-        Run a JavaScript/TypeScript program
+        Run a JavaScript or TypeScript program
 
   eval
         Evaluate a JavaScript expression
@@ -312,7 +312,7 @@ if (!isBundled) {
                     tjs.setImportMap(mapObj, path.dirname(resolvedMapPath));
                 }
 
-                // .ts, .tsx, .mts, .cts files are transpiled by the
+                // .ts, .tsx files are transpiled by the
                 // module loader hook registered above.
                 await core.evalFile(filename);
             }
@@ -377,7 +377,7 @@ if (!isBundled) {
             let data = await tjs.readFile(infile);
             const inExt = path.extname(infile).toLowerCase();
 
-            if (inExt === '.ts' || inExt === '.tsx' || inExt === '.mts' || inExt === '.cts') {
+            if (inExt === '.ts' || inExt === '.tsx') {
                 const { transpile } = await import('tjs:typescript');
                 const jsSource = transpile(infile, new TextDecoder().decode(data));
 

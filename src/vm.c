@@ -959,10 +959,7 @@ JSValue TJS_EvalScript(JSContext *ctx, const char *filename) {
 
 static bool tjs__has_ts_suffix(const char *str) {
     size_t len = strlen(str);
-    return (len >= 3 && memcmp(str + len - 3, ".ts", 3) == 0) ||
-           (len >= 4 && (memcmp(str + len - 4, ".tsx", 4) == 0 ||
-                         memcmp(str + len - 4, ".mts", 4) == 0 ||
-                         memcmp(str + len - 4, ".cts", 4) == 0));
+    return (len >= 3 && memcmp(str + len - 3, ".ts", 3) == 0) || (len >= 4 && (memcmp(str + len - 4, ".tsx", 4) == 0));
 }
 
 JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
@@ -988,12 +985,8 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     if (tjs__has_ts_suffix(filename)) {
         TJSRuntime *qrt = TJS_GetRuntime(ctx);
         if (JS_IsFunction(ctx, qrt->builtins.typescript_transpiler)) {
-            JSValue args[2] = {
-                JS_NewString(ctx, filename),
-                JS_NewStringLen(ctx, (char *)dbuf.buf, dbuf_size)
-            };
-            JSValue result = JS_Call(ctx, qrt->builtins.typescript_transpiler,
-                                      JS_UNDEFINED, 2, args);
+            JSValue args[2] = { JS_NewString(ctx, filename), JS_NewStringLen(ctx, (char *) dbuf.buf, dbuf_size) };
+            JSValue result = JS_Call(ctx, qrt->builtins.typescript_transpiler, JS_UNDEFINED, 2, args);
             JS_FreeValue(ctx, args[0]);
             JS_FreeValue(ctx, args[1]);
             if (!JS_IsException(result)) {
@@ -1003,7 +996,7 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
                 if (tsrc) {
                     tbuf_free(&dbuf);
                     tbuf_init(ctx, &dbuf);
-                    tbuf_put(&dbuf, (const uint8_t *)tsrc, tlen);
+                    tbuf_put(&dbuf, (const uint8_t *) tsrc, tlen);
                     tbuf_putc(&dbuf, '\0');
                     dbuf_size = tlen;
                     JS_FreeCString(ctx, tsrc);

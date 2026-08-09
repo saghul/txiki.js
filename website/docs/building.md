@@ -128,6 +128,7 @@ Direct CMake example (the flags can be combined):
 
 ```bash
 cmake -B build-slim -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_WASM=OFF -DBUILD_WITH_SQLITE=OFF
+cmake --build build-slim
 ```
 
 The transpiler binary is available as a release asset on GitHub, downloaded
