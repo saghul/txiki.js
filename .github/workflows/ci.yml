@@ -151,11 +151,22 @@ jobs:
         mimalloc: [ON, OFF]
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows
-      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-bincache
     steps:
     - uses: actions/checkout@v7
       with:
         submodules: recursive
+    # Cache vcpkg's prebuilt libffi archive. The `x-gha` binary source relied on
+    # GitHub's retired cache protocol and silently rebuilt libffi (~4 min) every
+    # run; a plain actions/cache over the files-provider dir actually persists it.
+    # Keyed on the vcpkg commit + triplet + package, so bumping any busts it.
+    - name: Cache vcpkg binaries
+      uses: actions/cache@v4
+      with:
+        path: ${{ github.workspace }}\vcpkg-bincache
+        key: vcpkg-${{ runner.os }}-libffi-x64-windows-static-66c0373dc7
+    - name: Create vcpkg binary cache dir
+      run: New-Item -ItemType Directory -Force -Path ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
       with:
@@ -254,11 +265,21 @@ jobs:
     runs-on: windows-latest
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows
-      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-bincache
     steps:
     - uses: actions/checkout@v7
       with:
         submodules: recursive
+    # See the note on build-windows: actions/cache persists the prebuilt libffi
+    # archive that the retired `x-gha` source no longer did. Same key as
+    # build-windows so both jobs share the one cached libffi.
+    - name: Cache vcpkg binaries
+      uses: actions/cache@v4
+      with:
+        path: ${{ github.workspace }}\vcpkg-bincache
+        key: vcpkg-${{ runner.os }}-libffi-x64-windows-static-66c0373dc7
+    - name: Create vcpkg binary cache dir
+      run: New-Item -ItemType Directory -Force -Path ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
       with:
