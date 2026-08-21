@@ -2,29 +2,13 @@
 
 import { HttpClient } from '../http-client.js';
 
-import { hasH3, markH3Broken, noteAltSvc } from './alt-svc.js';
 import { Headers, normalizeName, normalizeValue } from './headers.js';
 import { Request } from './request.js';
 import { Response } from './response.js';
 
-// Private signal from sendRequest() back to fetch(): an h3 attempt failed
-// before producing a response and is eligible for an h1/h2 retry. A Symbol
-// keeps it off the error's enumerable surface and out of reach of user code.
-const kH3Fallback = Symbol('h3Fallback');
-
-const DEFAULT_H3_TIMEOUT = 3000;
-
-// How long to wait for the QUIC handshake before falling back to h1/h2.
-//
-// A blackholed UDP path (a firewall dropping :443/udp is the common case) gives
-// no error at all, so without this the h3 attempt only fails when the whole
-// connect times out — 20s — and every h3-advertised origin on such a network
-// stalls for that long. Read per attempt so it stays settable at runtime.
-function h3Timeout() {
-    const v = Number(tjs.env.TJS_H3_TIMEOUT);
-
-    return Number.isFinite(v) && v >= 0 ? v : DEFAULT_H3_TIMEOUT;
-}
+// HTTP/3 is handled entirely inside lws (native Alt-Svc discovery, QUIC-first
+// racing on cold connects, fallback to TCP, and per-origin cooldown), so fetch
+// itself is transport-agnostic — no h3 discovery, upgrade, or retry lives here.
 
 async function fetchFileURI(url) {
     // Strip file:// prefix and decode. Handles both POSIX (file:///tmp/foo)
@@ -84,23 +68,16 @@ function fetchDataURI(url) {
 // Keep strong references to active clients to prevent premature GC
 const activeClients = new Set();
 
-// Perform a single HTTP request attempt. Resolves with a Response once the
-// response headers arrive. `opts.useH3` routes the attempt over HTTP/3; on a
-// pre-response connection failure of an h3 attempt the returned promise rejects
-// with an error tagged with the kH3Fallback symbol so fetch() can retry over
-// h1/h2.
+// Perform the HTTP request. Resolves with a Response once the response headers
+// arrive.
 function sendRequest(request, init, opts) {
-    const { origin, originHost, originPort, bodyBytes, streaming, useH3 } = opts;
+    const { bodyBytes, streaming } = opts;
 
     return new Promise(function(resolve, reject) {
         const client = new HttpClient();
 
         if (init?.allowInsecure) {
             client.setAllowInsecure(true);
-        }
-
-        if (useH3) {
-            client.setHttp3(true, h3Timeout());
         }
 
         activeClients.add(client);
@@ -144,10 +121,6 @@ function sendRequest(request, init, opts) {
                 return;
             }
 
-            // Learn HTTP/3 availability for this origin from Alt-Svc (an h3
-            // response never carries it, so this only fires on h1/h2).
-            noteAltSvc(origin, responseHeaders.get('alt-svc'), originHost, originPort);
-
             responseResolved = true;
 
             setTimeout(function() {
@@ -178,7 +151,6 @@ function sendRequest(request, init, opts) {
             if (error) {
                 const isAbort = error === 'ABORTED';
                 const isTimeout = error === 'TIMED_OUT';
-                const isH3Timeout = error === 'H3_TIMED_OUT';
 
                 let msg;
 
@@ -186,36 +158,11 @@ function sendRequest(request, init, opts) {
                     msg = `Network request failed: ${reason}`;
                 } else if (isTimeout) {
                     msg = 'Network request timed out';
-                } else if (isH3Timeout) {
-                    msg = 'HTTP/3 connection timed out';
                 } else {
                     msg = 'Network request failed';
                 }
 
                 if (!responseResolved) {
-                    // An h3 attempt that fails before producing a response can
-                    // be retried over h1/h2. Not for user aborts, and not for
-                    // the caller's own request timeout — retrying that would
-                    // hand the caller twice the deadline they asked for.
-                    if (useH3 && !isAbort && !isTimeout) {
-                        if (streamController) {
-                            try {
-                                streamController.error(new TypeError(msg));
-                            } catch (_e) { /* already errored/closed */ }
-
-                            streamController = null;
-                        }
-
-                        const err = new TypeError(msg);
-
-                        err[kH3Fallback] = true;
-                        setTimeout(function() {
-                            reject(err);
-                        }, 0);
-
-                        return;
-                    }
-
                     if (streamController) {
                         try {
                             streamController.error(isAbort
@@ -339,18 +286,6 @@ export function fetch(input, init) {
         return Promise.reject(new TypeError(`Unsupported protocol: ${protocol}`));
     }
 
-    const origin = `${protocol}//${tmpUrl.host}`;
-    const originHost = tmpUrl.hostname;
-    const secure = protocol === 'https:';
-
-    let originPort;
-
-    if (tmpUrl.port) {
-        originPort = parseInt(tmpUrl.port, 10);
-    } else {
-        originPort = secure ? 443 : 80;
-    }
-
     return new Promise(function(resolve, reject) {
         let request;
 
@@ -366,33 +301,12 @@ export function fetch(input, init) {
 
         const streaming = request.bodySize === -1;
 
-        // HTTP/3 auto-upgrade covers bodyless requests (GET/HEAD) and
-        // known-size bodies (Content-Length), which lws frames as H3 DATA
-        // frames after the HEADERS. Streaming bodies stay on h1/h2: txiki
-        // sends those with HTTP/1.1 chunked transfer-encoding, which is not a
-        // valid wire encoding over h3 (h3 delimits bodies with DATA frames +
-        // FIN, not chunk framing).
-        const wantH3 = secure && !streaming && hasH3(origin);
-
         const bodyReady = request.bodySize > 0
             ? request.arrayBuffer().then(buf => new Uint8Array(buf))
             : Promise.resolve(null);
 
         bodyReady.then(function(bodyBytes) {
-            const opts = { origin, originHost, originPort, bodyBytes, streaming };
-
-            function attempt(useH3) {
-                sendRequest(request, init, { ...opts, useH3 }).then(resolve, function(err) {
-                    if (useH3 && err && err[kH3Fallback]) {
-                        markH3Broken(origin);
-                        attempt(false);
-                    } else {
-                        reject(err);
-                    }
-                });
-            }
-
-            attempt(wantH3);
+            sendRequest(request, init, { bodyBytes, streaming }).then(resolve, reject);
         }).catch(reject);
     });
 }

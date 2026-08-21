@@ -159,14 +159,13 @@ For programmatic control over WASI, use the [`tjs:wasi`](/docs/api/tjs-wasi) mod
 | `TJS_HOME` | Overrides the home/cache directory (default `~/.tjs`). Stores the HTTP cookie jar (`cookies.txt`), the cached esbuild binary (`esbuild/<version>/`), and the REPL history database (`history.db`). |
 | `TJS_CA_BUNDLE` | Path to a custom TLS CA bundle PEM file. |
 | `SSL_CERT_FILE` | Fallback path to a custom TLS CA bundle PEM file. |
-| `TJS_H3_TIMEOUT` | How long, in milliseconds, `fetch()` waits for an HTTP/3 (QUIC) handshake before falling back to HTTP/1.1 or HTTP/2 (default `3000`). `0` disables the limit. |
 
 The CA bundle is resolved with the precedence `--tls-ca` > `TJS_CA_BUNDLE` > `SSL_CERT_FILE` > the embedded Mozilla bundle.
 
-`fetch()` upgrades a connection to HTTP/3 when an origin advertises it via an
-`Alt-Svc` response header. Because a network that silently drops UDP traffic
-gives no error, `TJS_H3_TIMEOUT` bounds how long such an attempt may take before
-falling back; the origin is then left on HTTP/1.1 or HTTP/2 for a few minutes
-before HTTP/3 is tried again.
+`fetch()` upgrades to HTTP/3 automatically when an origin advertises it via an
+`Alt-Svc` response header. The upgrade is transparent: a warm HTTP/1.1 or HTTP/2
+connection keeps being reused, and HTTP/3 is tried on the next fresh connection
+to that origin. If the QUIC path does not answer (for example a network that
+silently drops UDP), the request falls back to HTTP/1.1 or HTTP/2 on its own.
 
 Outbound HTTP requests also honor the standard proxy environment variables — see the [HTTP Proxy Support](guides/http-proxy.md) guide.

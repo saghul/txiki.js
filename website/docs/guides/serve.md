@@ -175,6 +175,7 @@ tjs.serve({
 ```
 
 `fetch()` performs the client side of this automatically: it learns HTTP/3
-availability from a server's `Alt-Svc` header and upgrades matching same-origin
-requests. HTTP/3 requires TLS (QUIC is always encrypted), so `cert` and `key`
-are mandatory.
+availability from a server's `Alt-Svc` header and upgrades a later same-origin
+request to HTTP/3 on its next fresh connection (a warm HTTP/1.1 or HTTP/2
+connection keeps being reused until then). HTTP/3 requires TLS (QUIC is always
+encrypted), so `cert` and `key` are mandatory.

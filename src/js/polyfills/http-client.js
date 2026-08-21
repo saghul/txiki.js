@@ -12,8 +12,6 @@ class HttpClient {
     #headers = [];
     #cookies = false;
     #allowInsecure = false;
-    #http3 = false;
-    #http3Timeout = 0;
     #client = null;
 
     get onstatus() {
@@ -130,19 +128,6 @@ class HttpClient {
         }
     }
 
-    // Internal: attempt the request over HTTP/3 (QUIC). Driven by fetch()'s
-    // Alt-Svc auto-upgrade, not a public API. timeoutMs bounds the QUIC
-    // handshake; exceeding it fails the request with H3_TIMED_OUT so the caller
-    // can retry over h1/h2. 0 means no bound.
-    setHttp3(enable, timeoutMs = 0) {
-        this.#http3 = !!enable;
-        this.#http3Timeout = timeoutMs;
-
-        if (this.#client) {
-            this.#client.setHttp3(enable, timeoutMs);
-        }
-    }
-
     sendData(data) {
         if (this.#client) {
             this.#client.sendData(data);
@@ -179,10 +164,6 @@ class HttpClient {
 
         if (this.#allowInsecure) {
             client.setAllowInsecure(true);
-        }
-
-        if (this.#http3) {
-            client.setHttp3(true, this.#http3Timeout);
         }
 
         if (this._streaming) {
