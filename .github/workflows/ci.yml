@@ -151,27 +151,32 @@ jobs:
         mimalloc: [ON, OFF]
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-bincache
     steps:
     - uses: actions/checkout@v7
       with:
         submodules: recursive
-    # Cache vcpkg's prebuilt libffi archive. The `x-gha` binary source relied on
-    # GitHub's retired cache protocol and silently rebuilt libffi (~4 min) every
-    # run; a plain actions/cache over the files-provider dir actually persists it.
-    # Keyed on the vcpkg commit + triplet + package, so bumping any busts it.
+    # Cache vcpkg's prebuilt libffi archive. run-vcpkg's default `x-gha` binary
+    # source relies on GitHub's retired cache protocol and silently rebuilt
+    # libffi (~4 min) every run; a plain actions/cache over a files-provider dir
+    # actually persists it. Keyed on the vcpkg commit + triplet + package, so
+    # bumping any busts it.
     - name: Cache vcpkg binaries
       uses: actions/cache@v4
       with:
         path: ${{ github.workspace }}\vcpkg-bincache
-        key: vcpkg-${{ runner.os }}-libffi-x64-windows-static-66c0373dc7
+        key: vcpkg-${{ runner.os }}-libffi-x64-windows-static-66c0373dc7-v2
     - name: Create vcpkg binary cache dir
-      run: New-Item -ItemType Directory -Force -Path ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+      run: New-Item -ItemType Directory -Force -Path ${{ github.workspace }}\vcpkg-bincache
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
+    # run-vcpkg exports VCPKG_BINARY_SOURCES=clear;x-gha (dead) plus its own temp
+    # VCPKG_DEFAULT_BINARY_CACHE, shadowing job env. Override at step scope (step
+    # env wins) so the files provider writes into the dir we actually cache.
     - name: Install dependencies
+      env:
+        VCPKG_BINARY_SOURCES: 'clear;files,${{ github.workspace }}\vcpkg-bincache,readwrite'
       run: vcpkg install libffi:x64-windows-static
     - name: Configure
       run: |
@@ -265,26 +270,27 @@ jobs:
     runs-on: windows-latest
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-bincache
     steps:
     - uses: actions/checkout@v7
       with:
         submodules: recursive
-    # See the note on build-windows: actions/cache persists the prebuilt libffi
-    # archive that the retired `x-gha` source no longer did. Same key as
-    # build-windows so both jobs share the one cached libffi.
+    # See the note on build-windows: actions/cache + a step-scoped files provider
+    # persist the prebuilt libffi archive that the retired `x-gha` source no
+    # longer did. Same key as build-windows so both jobs share the one libffi.
     - name: Cache vcpkg binaries
       uses: actions/cache@v4
       with:
         path: ${{ github.workspace }}\vcpkg-bincache
-        key: vcpkg-${{ runner.os }}-libffi-x64-windows-static-66c0373dc7
+        key: vcpkg-${{ runner.os }}-libffi-x64-windows-static-66c0373dc7-v2
     - name: Create vcpkg binary cache dir
-      run: New-Item -ItemType Directory -Force -Path ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+      run: New-Item -ItemType Directory -Force -Path ${{ github.workspace }}\vcpkg-bincache
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
     - name: Install dependencies
+      env:
+        VCPKG_BINARY_SOURCES: 'clear;files,${{ github.workspace }}\vcpkg-bincache,readwrite'
       run: vcpkg install libffi:x64-windows-static
     - name: Configure
       run: |
