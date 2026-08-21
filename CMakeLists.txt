@@ -384,39 +384,51 @@ set(MBEDTLS_AS_SUBPROJECT ON)
 set(MBEDTLS_USER_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/mbedtls_config.h" CACHE FILEPATH "" FORCE)
 set(MSVC_STATIC_RUNTIME ON CACHE BOOL "" FORCE)
 
-# mbedTLS upstream has no QUIC support; patches/mbedtls-quic.patch adds it (from
-# warmcat's quic-v3.6.6 mbedTLS branch — credit libwebsockets). Applied to the
-# submodule work tree at configure time, idempotently via a forward/reverse
-# apply --check.
 find_package(Git QUIET)
 if(NOT GIT_EXECUTABLE)
     set(GIT_EXECUTABLE git)
 endif()
-set(MBEDTLS_QUIC_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/patches/mbedtls-quic.patch")
-set(MBEDTLS_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls")
-execute_process(
-    COMMAND "${GIT_EXECUTABLE}" -C "${MBEDTLS_SRC_DIR}" apply --check "${MBEDTLS_QUIC_PATCH}"
-    RESULT_VARIABLE MBEDTLS_QUIC_FWD OUTPUT_QUIET ERROR_QUIET)
-if(MBEDTLS_QUIC_FWD EQUAL 0)
-    message(STATUS "Applying mbedTLS QUIC patch (HTTP/3 support)")
-    execute_process(
-        COMMAND "${GIT_EXECUTABLE}" -C "${MBEDTLS_SRC_DIR}" apply "${MBEDTLS_QUIC_PATCH}"
-        RESULT_VARIABLE MBEDTLS_QUIC_APPLY)
-    if(NOT MBEDTLS_QUIC_APPLY EQUAL 0)
-        message(FATAL_ERROR "Failed to apply ${MBEDTLS_QUIC_PATCH}")
-    endif()
-else()
-    execute_process(
-        COMMAND "${GIT_EXECUTABLE}" -C "${MBEDTLS_SRC_DIR}" apply --reverse --check "${MBEDTLS_QUIC_PATCH}"
-        RESULT_VARIABLE MBEDTLS_QUIC_REV OUTPUT_QUIET ERROR_QUIET)
-    if(MBEDTLS_QUIC_REV EQUAL 0)
-        message(STATUS "mbedTLS QUIC patch already applied")
-    else()
-        message(FATAL_ERROR "mbedTLS QUIC patch neither applies nor is already applied; "
-            "deps/mbedtls is in an unexpected state. Reset it with "
-            "'git -C deps/mbedtls checkout .' and reconfigure.")
-    endif()
-endif()
+
+# Apply carried patches to a submodule work tree at configure time. Globs
+# patches/<prefix>*.patch and applies them in alphabetical order, idempotently
+# via a forward/reverse `git apply --check`: an unapplied patch is applied, one
+# already applied is left alone, and an unexpected state is a fatal error. Each
+# patch is upstreamed — drop the file (and, once none share its prefix, the
+# call) after bumping the submodule past the corresponding merge.
+function(tjs_apply_patches target_dir prefix)
+    file(GLOB patches "${CMAKE_CURRENT_SOURCE_DIR}/patches/${prefix}*.patch")
+    list(SORT patches)
+    foreach(patch ${patches})
+        get_filename_component(name "${patch}" NAME)
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" -C "${target_dir}" apply --check "${patch}"
+            RESULT_VARIABLE fwd OUTPUT_QUIET ERROR_QUIET)
+        if(fwd EQUAL 0)
+            message(STATUS "Applying patch: ${name}")
+            execute_process(
+                COMMAND "${GIT_EXECUTABLE}" -C "${target_dir}" apply "${patch}"
+                RESULT_VARIABLE applied)
+            if(NOT applied EQUAL 0)
+                message(FATAL_ERROR "Failed to apply ${patch}")
+            endif()
+        else()
+            execute_process(
+                COMMAND "${GIT_EXECUTABLE}" -C "${target_dir}" apply --reverse --check "${patch}"
+                RESULT_VARIABLE rev OUTPUT_QUIET ERROR_QUIET)
+            if(rev EQUAL 0)
+                message(STATUS "Patch already applied: ${name}")
+            else()
+                message(FATAL_ERROR "Patch neither applies nor is already applied: "
+                    "${name}; ${target_dir} is in an unexpected state. Reset it with "
+                    "'git -C ${target_dir} checkout .' and reconfigure.")
+            endif()
+        endif()
+    endforeach()
+endfunction()
+
+# mbedTLS upstream has no QUIC support; patches/mbedtls-quic.patch adds it (from
+# warmcat's quic-v3.6.6 mbedTLS branch — credit libwebsockets).
+tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls" "mbedtls-")
 
 add_subdirectory(deps/mbedtls EXCLUDE_FROM_ALL)
 target_link_libraries(tjs PUBLIC mbedtls mbedx509 mbedcrypto)
@@ -514,6 +526,13 @@ set(LWS_HAVE_mbedtls_ssl_set_quic_transport_ops 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_mbedtls_ssl_set_export_keys_cb 1 CACHE BOOL "" FORCE)
 set(LWS_MBEDTLS_LIBRARIES mbedtls mbedx509 mbedcrypto CACHE STRING "" FORCE)
 set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" CACHE STRING "" FORCE)
+
+# Carried fixes for libwebsockets (patches/lws-*.patch), each upstreamed:
+#   - lws-mbedtls-client-alpn-uaf.patch: stack-use-after-scope in
+#     lws_ssl_client_bio_create() on the QUIC->TCP HTTP/3 fallback path
+#     (warmcat/libwebsockets#3658).
+tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets" "lws-")
+
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
 # Work around mbedtls ssl.h using #if instead of #ifdef on
 # MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT (undefined when DTLS is disabled).

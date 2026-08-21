@@ -1,0 +1,39 @@
+commit 3f2669ccb617a0a198aa258dfb74c21809974331
+Author: Saúl Ibarra Corretgé <s@saghul.net>
+Date:   Fri Aug 21 12:42:50 2026 +0200
+
+    mbedtls: client: fix ALPN stack-use-after-scope
+    
+    In lws_ssl_client_bio_create() the final else branch copies the ALPN from
+    the ah into a temp_alpn[] buffer scoped to that block and points alpn_comma
+    at it, but lws_mbedtls_set_alpn(conn->ctx, alpn_comma) runs after the block
+    has closed, so it reads (and lws_strncpy()s) out-of-scope stack.
+    
+    This path is taken for a client wsi with no stash that carries its ALPN in
+    the ah header, e.g. the QUIC->TCP fallback reset (lws_client_h3_grace_cb ->
+    lws_client_reset). It happens to work because the stack slot is usually not
+    yet reused, but it is undefined behaviour; ASAN reports stack-use-after-scope
+    at lws_mbedtls_set_alpn().
+    
+    Hoist temp_alpn to function scope so it outlives the assignment.
+
+diff --git a/lib/tls/mbedtls/mbedtls-client.c b/lib/tls/mbedtls/mbedtls-client.c
+index 42e8b944c..8af5f7f9f 100644
+--- a/lib/tls/mbedtls/mbedtls-client.c
++++ b/lib/tls/mbedtls/mbedtls-client.c
+@@ -42,6 +42,7 @@ lws_ssl_client_bio_create(struct lws *wsi)
+ {
+ 	struct lws_tls_conn *conn;
+ 	char hostname[128], *p;
++	char temp_alpn[128];
+ 	const char *alpn_comma = wsi->a.context->tls.alpn_default;
+ 
+ 	if (wsi->stash)
+@@ -114,7 +115,6 @@ lws_ssl_client_bio_create(struct lws *wsi)
+ 		if (wsi->stash->cis[CIS_ALPN])
+ 			alpn_comma = wsi->stash->cis[CIS_ALPN];
+ 	} else {
+-		char temp_alpn[128];
+ 		if (lws_hdr_copy(wsi, temp_alpn, sizeof(temp_alpn),
+ 				_WSI_TOKEN_CLIENT_ALPN) > 0)
+ 			alpn_comma = temp_alpn;
