@@ -420,12 +420,11 @@ static JSValue tjs__externref_unbox(TJSWasmInstance *inst, uint32_t externref_id
 
 /* Raw native trampoline: called by WAMR, forwards to a JS function.
  *
- * NOTE: externref params/returns are not supported in import trampolines due to:
- * 1. WAMR 2.4.4 bug: wasm_func_type_get_param_valkind asserts for externref
- *    (fixed on WAMR master, not yet in our pinned version)
- * 2. WAMR bug: invoke_native_raw passes garbage for externref params
- *    (still unfixed upstream as of 2026-03)
- * Externref works fine for exported functions, globals, and tables.
+ * NOTE: externref/funcref params and returns are not supported in import
+ * trampolines. WAMR's raw-native calling convention (invoke_native_raw) does
+ * not marshal reference-type values to/from the argv buffer, so a reftype
+ * param would arrive as garbage and a reftype return would be dropped.
+ * Reference types work fine for exported functions, globals, and tables.
  */
 static void tjs__wasm_import_trampoline(wasm_exec_env_t exec_env, uint64_t *args) {
     TJSWasmImportCtx *import_ctx = wasm_runtime_get_function_attachment(exec_env);
@@ -435,6 +434,17 @@ static void tjs__wasm_import_trampoline(wasm_exec_env_t exec_env, uint64_t *args
 
     JSContext *ctx = import_ctx->ctx;
     wasm_func_type_t func_type = import_ctx->type;
+
+    /* A `memory.grow` instruction earlier in this same wasm call can relocate
+     * and free the linear-memory base (on macOS os_mremap always moves it).
+     * We are about to re-enter JS, which may still hold a TypedArray aliasing
+     * the old base via a cached memory.buffer; detach it now if base/size
+     * changed so the stale view reads/writes become inert instead of aliasing
+     * freed memory. */
+    TJSWasmInstance *inst = wasm_runtime_get_user_data(exec_env);
+    if (inst) {
+        tjs__wasm_drop_memory_buffer_if_changed(ctx, inst);
+    }
 
     uint32_t param_count = wasm_func_type_get_param_count(func_type);
     uint32_t result_count = wasm_func_type_get_result_count(func_type);
@@ -488,7 +498,6 @@ static void tjs__wasm_import_trampoline(wasm_exec_env_t exec_env, uint64_t *args
 
     if (JS_IsException(ret)) {
         /* Save the JS exception on the instance so tjs__call_wasm_func_inst can re-throw it */
-        TJSWasmInstance *inst = wasm_runtime_get_user_data(exec_env);
         if (inst) {
             inst->pending_exception = JS_GetException(ctx);
             inst->has_pending_exception = true;
@@ -1578,6 +1587,14 @@ static JSValue tjs_wasm_getglobal(JSContext *ctx, JSValue this_val, int argc, JS
             uint32_t idx = *(uint32_t *) global_inst.global_data;
             return JS_DupValue(ctx, tjs__externref_unbox(i, idx));
         }
+        case WASM_FUNCREF: {
+            uint32_t idx = *(uint32_t *) global_inst.global_data;
+            if (idx == (uint32_t) NULL_REF) {
+                return JS_NULL;
+            }
+            /* Return the function index; the JS layer wraps it as a callable. */
+            return JS_NewUint32(ctx, idx);
+        }
         default:
             return JS_UNDEFINED;
     }
@@ -1652,6 +1669,15 @@ static JSValue tjs_wasm_setglobal(JSContext *ctx, JSValue this_val, int argc, JS
                 return JS_ThrowInternalError(ctx, "failed to register externref");
             }
             memcpy(global_inst.global_data, &idx, sizeof(idx));
+            break;
+        }
+        case WASM_FUNCREF: {
+            /* The JS layer passes null or a WAMR function index (uint32). */
+            uint32_t func_idx = (uint32_t) NULL_REF;
+            if (!JS_IsNull(argv[2]) && JS_ToUint32(ctx, &func_idx, argv[2])) {
+                return JS_EXCEPTION;
+            }
+            memcpy(global_inst.global_data, &func_idx, sizeof(func_idx));
             break;
         }
         default:

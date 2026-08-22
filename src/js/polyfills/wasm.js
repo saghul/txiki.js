@@ -444,7 +444,24 @@ class Global {
 
     get value() {
         if (this.#instance) {
-            return wasm.getGlobal(this.#instance, this.#name);
+            const raw = wasm.getGlobal(this.#instance, this.#name);
+
+            if (this.#type === 'funcref') {
+                if (raw === null) {
+                    return null;
+                }
+
+                // raw is a function index; create a callable wrapper
+                const instance = this.#instance;
+                const funcIdx = raw;
+                const fn = (...args) => callWasmFuncByIndex(instance, funcIdx, ...args);
+
+                funcIndexMap.set(fn, funcIdx);
+
+                return fn;
+            }
+
+            return raw;
         }
 
         return this.#value;
@@ -456,7 +473,17 @@ class Global {
         }
 
         if (this.#instance) {
-            wasm.setGlobal(this.#instance, this.#name, v);
+            if (this.#type === 'funcref') {
+                if (v === null) {
+                    wasm.setGlobal(this.#instance, this.#name, null);
+                } else if (typeof v === 'function' && funcIndexMap.has(v)) {
+                    wasm.setGlobal(this.#instance, this.#name, funcIndexMap.get(v));
+                } else {
+                    throw new TypeError('WebAssembly.Global.set(): Value must be null or a WebAssembly function');
+                }
+            } else {
+                wasm.setGlobal(this.#instance, this.#name, v);
+            }
         } else {
             this.#value = coerceGlobalValue(this.#type, v);
         }
