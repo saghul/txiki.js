@@ -173,7 +173,7 @@ jobs:
     # actually persists it. Keyed on the vcpkg commit + triplet + package, so
     # bumping any busts it.
     - name: Cache vcpkg binaries
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ${{ github.workspace }}\vcpkg-bincache
         key: vcpkg-${{ runner.os }}-libffi-x64-windows-static-66c0373dc7-v2
@@ -302,7 +302,7 @@ jobs:
     # persist the prebuilt libffi archive that the retired `x-gha` source no
     # longer did. Same key as build-windows so both jobs share the one libffi.
     - name: Cache vcpkg binaries
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ${{ github.workspace }}\vcpkg-bincache
         key: vcpkg-${{ runner.os }}-libffi-x64-windows-static-66c0373dc7-v2
