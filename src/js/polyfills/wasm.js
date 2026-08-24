@@ -151,6 +151,17 @@ function funcrefToIndex(instance, value, where) {
     return ref.index;
 }
 
+// Validate a funcref value for a standalone (non-instance-backed) Global: it must
+// be null or a WebAssembly function. Instance-backed globals resolve to an index
+// via funcrefToIndex instead. Returns the value so it can be stored inline.
+function validateFuncref(value, where) {
+    if (value !== null && !(typeof value === 'function' && funcIndexMap.has(value))) {
+        throw new TypeError(`${where}: value must be null or a WebAssembly function`);
+    }
+
+    return value;
+}
+
 function buildInstance(mod) {
     try {
         return wasm.buildInstance(mod);
@@ -505,7 +516,9 @@ class Global {
             initialValue = 0;
         }
 
-        this.#value = coerceGlobalValue(type, initialValue);
+        this.#value = type === 'funcref'
+            ? validateFuncref(initialValue, 'WebAssembly.Global()')
+            : coerceGlobalValue(type, initialValue);
     }
 
     static {
@@ -545,7 +558,9 @@ class Global {
                 wasm.setGlobal(this.#instance, this.#name, v);
             }
         } else {
-            this.#value = coerceGlobalValue(this.#type, v);
+            this.#value = this.#type === 'funcref'
+                ? validateFuncref(v, 'WebAssembly.Global.set()')
+                : coerceGlobalValue(this.#type, v);
         }
     }
 
