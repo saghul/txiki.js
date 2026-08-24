@@ -31,7 +31,8 @@ try {
 
     // Netscape cookie jar, tab-separated:
     // domain  hostonly  path  secure  expires  name  value
-    const line = jar.split('\n').find(l => l && !l.startsWith('#'));
+    // Split on \r?\n: the jar is written with \r\n line endings on Windows.
+    const line = jar.split(/\r?\n/).find(l => l && !l.startsWith('#'));
     assert.ok(line, 'a cookie was persisted');
 
     const fields = line.split('\t');
