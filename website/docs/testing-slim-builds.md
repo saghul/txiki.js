@@ -3,7 +3,11 @@ sidebar_position: 4
 title: Testing a slim build
 ---
 
+import ForkNotice from '@site/src/components/ForkNotice';
+
 # Testing a slim build
+
+<ForkNotice />
 
 The published profiles have the test runner compiled out, so
 `./tjs test tests/` on a downloaded binary fails — there is no `test` subcommand. That is

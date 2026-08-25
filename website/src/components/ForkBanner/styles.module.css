@@ -1,0 +1,18 @@
+.banner {
+  width: 100%;
+  padding: 0.45rem 1rem;
+  border-bottom: 1px solid var(--ifm-color-emphasis-300);
+  background: var(--ifm-color-emphasis-100);
+  color: var(--ifm-color-emphasis-800);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.text {
+  margin: 0;
+}
+
+.text a {
+  font-weight: 600;
+}

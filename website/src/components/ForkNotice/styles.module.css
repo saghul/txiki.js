@@ -1,18 +1,40 @@
 .banner {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+
   width: 100%;
-  padding: 0.45rem 1rem;
-  border-bottom: 1px solid var(--ifm-color-emphasis-300);
+  margin: 0 0 1.75rem;
+  padding: 0.65rem 0.9rem;
+
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-left: 3px solid var(--ifm-color-primary);
+  border-radius: var(--ifm-global-radius);
   background: var(--ifm-color-emphasis-100);
-  color: var(--ifm-color-emphasis-800);
-  font-size: 0.8rem;
-  line-height: 1.4;
-  text-align: center;
+}
+
+.badge {
+  flex: none;
+
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+
+  background: var(--ifm-color-primary);
+  color: var(--ifm-color-primary-contrast-background);
+
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .text {
+  flex: 1 1 20rem;
   margin: 0;
-}
 
-.text a {
-  font-weight: 600;
+  color: var(--ifm-color-emphasis-800);
+  font-size: 0.875rem;
+  line-height: 1.5;
 }

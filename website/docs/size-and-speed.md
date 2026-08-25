@@ -3,7 +3,11 @@ sidebar_position: 3
 title: Size and speed
 ---
 
+import ForkNotice from '@site/src/components/ForkNotice';
+
 # Size and speed
+
+<ForkNotice />
 
 Every number on this page carries the platform, the date and the commit it was measured at.
 That is not politeness — the same build on a different toolchain can move by 3%, and a bare

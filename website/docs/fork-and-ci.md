@@ -3,7 +3,11 @@ sidebar_position: 5
 title: Fork and CI internals
 ---
 
+import ForkNotice from '@site/src/components/ForkNotice';
+
 # Fork and CI internals
+
+<ForkNotice />
 
 Contributor-facing. Nothing here is needed to *use* a slim build — see
 [Downloads](./downloads.md) for that.

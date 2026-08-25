@@ -1,23 +1,23 @@
 import type {ReactNode} from 'react';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 import styles from './styles.module.css';
 
 export default function ForkNotice(): ReactNode {
-  const {siteConfig} = useDocusaurusContext();
-
-  if (!siteConfig.customFields?.forkDocs) {
-    return null;
-  }
-
   return (
-    <aside className={styles.banner} aria-label="Fork documentation disclaimer">
+    <aside className={styles.banner} aria-label="Fork-only documentation">
+      <span className={styles.badge}>only on this fork</span>
       <p className={styles.text}>
-        You are viewing documentation for an unofficial txiki.js fork. Visit{' '}
+        This page documents <strong>txiki.js with slim builds</strong> — a fork that adds
+        size-reduced build profiles and publishes prebuilt binaries. It is not part of
+        upstream txiki.js: see{' '}
         <a href="https://txikijs.org" target="_blank" rel="noopener noreferrer">
-          official txiki.js documentation
-        </a>
-        .
+          txikijs.org
+        </a>{' '}
+        and{' '}
+        <a href="https://github.com/saghul/txiki.js" target="_blank" rel="noopener noreferrer">
+          saghul/txiki.js
+        </a>{' '}
+        for the original project and its documentation.
       </p>
     </aside>
   );

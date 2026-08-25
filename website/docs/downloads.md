@@ -3,7 +3,11 @@ sidebar_position: 2
 title: Downloads
 ---
 
+import ForkNotice from '@site/src/components/ForkNotice';
+
 # Download a released binary
+
+<ForkNotice />
 
 This fork publishes prebuilt slim binaries on every release: **8 profiles × 4 platforms**,
 attached to a `slim-vX.Y.Z-N` tag on the

@@ -3,7 +3,11 @@ sidebar_position: 1
 title: Slim builds
 ---
 
+import ForkNotice from '@site/src/components/ForkNotice';
+
 # Slim builds
+
+<ForkNotice />
 
 This fork adds build-time options on top of the ones documented in
 [Building](./building.md). They fall into two groups: options that **remove a feature**
