@@ -268,6 +268,18 @@ await multicastController.leaveGroup('239.1.2.3');
 | `leaveGroup(ip)` | Leave a multicast group (Promise) |
 | `joinedGroups` | Frozen array of currently joined group addresses |
 
+### Broadcast
+
+Sending to a broadcast address (e.g. a subnet broadcast like `192.168.1.255`, or `255.255.255.255`) requires the `broadcast` option, which sets `SO_BROADCAST` on the socket:
+
+```js
+const sock = new UDPSocket({ localAddress: '0.0.0.0', broadcast: true });
+const { writable } = await sock.opened;
+const writer = writable.getWriter();
+
+await writer.write({ data, remoteAddress: '192.168.1.255', remotePort: 10024 });
+```
+
 ### UDP options
 
 | Option | Type | Description |
@@ -277,6 +289,7 @@ await multicastController.leaveGroup('239.1.2.3');
 | `dnsQueryType` | `'ipv4' \| 'ipv6'` | Force a resolution family |
 | `reuseAddr` | `boolean` | Allow reusing the local address |
 | `ipv6Only` | `boolean` | Bind IPv6 only |
+| `broadcast` | `boolean` | Allow sending to broadcast addresses, `SO_BROADCAST` (default `false`) |
 | `multicastTimeToLive` | `number` | TTL for multicast packets (default `1`) |
 | `multicastLoopback` | `boolean` | Loop sent multicast packets back to the sender (default `true`) |
 | `multicastAllowAddressSharing` | `boolean` | Permit multiple listeners on the same multicast addr/port (default `false`) |

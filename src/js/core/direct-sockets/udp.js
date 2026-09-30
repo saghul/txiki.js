@@ -212,7 +212,11 @@ export class UDPSocket {
                 openedInfo.remotePort = peerAddr.port;
             }
 
-            // Set multicast options after bind/connect so the socket fd exists.
+            // Set socket options after bind/connect so the socket fd exists.
+            if (options.broadcast) {
+                handle.setBroadcast(true);
+            }
+
             if (options.multicastLoopback !== undefined) {
                 handle.setMulticastLoop(options.multicastLoopback);
             }

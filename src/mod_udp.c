@@ -524,6 +524,21 @@ static JSValue tjs_udp_set_multicast_loop(JSContext *ctx, JSValue this_val, int 
     return JS_UNDEFINED;
 }
 
+static JSValue tjs_udp_set_broadcast(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    TJSUdp *u = tjs_udp_get(ctx, this_val);
+    if (!u) {
+        return JS_EXCEPTION;
+    }
+
+    int on = JS_ToBool(ctx, argv[0]);
+    int r = uv_udp_set_broadcast(&u->udp, on);
+    if (r != 0) {
+        return tjs_throw_errno(ctx, r);
+    }
+
+    return JS_UNDEFINED;
+}
+
 static JSValue tjs_udp_set_multicast_ttl(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSUdp *u = tjs_udp_get(ctx, this_val);
     if (!u) {
@@ -577,6 +592,7 @@ static const JSCFunctionListEntry tjs_udp_proto_funcs[] = {
     TJS_CFUNC_DEF("connect", 1, tjs_udp_connect),
     TJS_CFUNC_DEF("bind", 2, tjs_udp_bind),
     TJS_CFUNC_DEF("setMembership", 3, tjs_udp_set_membership),
+    TJS_CFUNC_DEF("setBroadcast", 1, tjs_udp_set_broadcast),
     TJS_CFUNC_DEF("setMulticastLoop", 1, tjs_udp_set_multicast_loop),
     TJS_CFUNC_DEF("setMulticastTTL", 1, tjs_udp_set_multicast_ttl),
     TJS_CFUNC_DEF("setMulticastInterface", 1, tjs_udp_set_multicast_interface),
