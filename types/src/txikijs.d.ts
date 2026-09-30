@@ -1601,6 +1601,10 @@ declare global {
         /** Restrict an `AF_INET6` socket to IPv6 only. */
         ipv6Only?: boolean;
         /**
+         * Enable sending to broadcast addresses (`SO_BROADCAST`). Default is false.
+         */
+        broadcast?: boolean;
+        /**
          * TTL for multicast packets. Each router hop decrements this value. Default is 1.
          */
         multicastTimeToLive?: number;
