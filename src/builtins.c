@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "bundles/c/internal/home.c"
 #include "bundles/c/internal/path.c"
 #include "bundles/c/stdlib/assert.c"
 #ifdef TJS_HAVE_FFI
@@ -57,6 +58,7 @@ static tjs_builtin_t builtins[] = {
 #endif
     { "tjs:getopts", tjs__getopts, sizeof(tjs__getopts) },
     { "tjs:hashing", tjs__hashing, sizeof(tjs__hashing) },
+    { "tjs:internal/home", tjs__internal_home, sizeof(tjs__internal_home) },
     { "tjs:internal/path", tjs__internal_path, sizeof(tjs__internal_path) },
     { "tjs:ipaddr", tjs__ipaddr, sizeof(tjs__ipaddr) },
     { "tjs:path", tjs__path, sizeof(tjs__path) },

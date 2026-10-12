@@ -1,5 +1,6 @@
 /* global tjs */
 
+import { getTjsHome } from 'tjs:internal/home';
 import path from 'tjs:path';
 
 
@@ -28,8 +29,7 @@ export function saveHistory(rl) {
 }
 
 export async function loadHistory(rl) {
-    const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
-    const historyDbPath = path.join(TJS_HOME, 'history.db');
+    const historyDbPath = path.join(getTjsHome(), 'history.db');
 
     try {
         await tjs.makeDir(path.dirname(historyDbPath), { recursive: true });

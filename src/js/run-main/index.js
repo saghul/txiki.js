@@ -2,6 +2,7 @@
 
 import getopts from 'tjs:getopts';
 import core from 'tjs:internal/core';
+import { getTjsHome } from 'tjs:internal/home';
 import path from 'tjs:path';
 
 import { bundle } from './bundle.js';
@@ -17,7 +18,7 @@ import { TpkTrailer, runTpk, appInit, appPack, appCompile } from './tpk.js';
  * Also set the cookie jar path, since it's needed when
  * initializing lws.
  */
-const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
+const TJS_HOME = getTjsHome();
 
 try {
     mkdirSync(TJS_HOME, { recursive: true });
