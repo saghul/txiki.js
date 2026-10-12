@@ -120,6 +120,15 @@ src/bundles/c/core/worker-bootstrap.c: $(TJSC) src/js/worker/worker-bootstrap.js
 		-p tjs__ \
 		src/js/worker/worker-bootstrap.js
 
+src/bundles/c/internal/home.c: $(TJSC) src/js/internal/home.js
+	@mkdir -p $(dir $@)
+	$(TJSC) -m \
+		$(TJSC_PARAMS_STIP) \
+		-o $@ \
+		-n "tjs:internal/home" \
+		-p tjs__internal_ \
+		src/js/internal/home.js
+
 src/bundles/c/internal/path.c: $(TJSC) src/js/internal/path.js
 	@mkdir -p $(dir $@)
 	$(TJSC) -m \
@@ -129,7 +138,7 @@ src/bundles/c/internal/path.c: $(TJSC) src/js/internal/path.js
 		-p tjs__internal_ \
 		src/js/internal/path.js
 
-core: src/bundles/c/core/polyfills.c src/bundles/c/core/core.c src/bundles/c/core/run-main.c src/bundles/c/core/run-repl.c src/bundles/c/core/worker-bootstrap.c src/bundles/c/internal/path.c
+core: src/bundles/c/core/polyfills.c src/bundles/c/core/core.c src/bundles/c/core/run-main.c src/bundles/c/core/run-repl.c src/bundles/c/core/worker-bootstrap.c src/bundles/c/internal/home.c src/bundles/c/internal/path.c
 
 src/bundles/c/stdlib/%.c: $(TJSC) src/bundles/js/stdlib/%.js
 	@mkdir -p $(basename $(dir $@))

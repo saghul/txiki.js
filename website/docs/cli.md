@@ -156,7 +156,7 @@ For programmatic control over WASI, use the [`tjs:wasi`](/docs/api/tjs-wasi) mod
 
 | Variable | Description |
 |----------|-------------|
-| `TJS_HOME` | Overrides the home/cache directory (default `~/.tjs`). Stores the HTTP cookie jar (`cookies.txt`), the cached esbuild binary (`esbuild/<version>/`), and the REPL history database (`history.db`). |
+| `TJS_HOME` | Overrides the home/cache directory (default `~/.tjs`). Stores the HTTP cookie jar (`cookies.txt`), the cached esbuild binary (`esbuild/<version>/`), the REPL history database (`history.db`), and the `localStorage` database (`localStorage.db`). |
 | `TJS_CA_BUNDLE` | Path to a custom TLS CA bundle PEM file. |
 | `SSL_CERT_FILE` | Fallback path to a custom TLS CA bundle PEM file. |
 

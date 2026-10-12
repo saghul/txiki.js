@@ -1,5 +1,5 @@
-/* global tjs */
 import core from 'tjs:internal/core';
+import { getTjsHome } from 'tjs:internal/home';
 import path from 'tjs:internal/path';
 
 const sqlite3 = core.sqlite3;
@@ -83,8 +83,7 @@ Object.defineProperty(globalThis, 'sessionStorage', {
 
 
 function initDb() {
-    const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
-    const localStorageDb = path.join(TJS_HOME, 'localStorage.db');
+    const localStorageDb = path.join(getTjsHome(), 'localStorage.db');
     const flags = sqlite3.SQLITE_OPEN_CREATE | sqlite3.SQLITE_OPEN_READWRITE;
 
     let db;
