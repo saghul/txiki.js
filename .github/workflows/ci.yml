@@ -136,13 +136,12 @@ jobs:
       MIMALLOC: ${{ matrix.mimalloc }}
     steps:
     - name: Prepare
-      run: apk add git build-base cmake linux-headers libffi-dev --update-cache
+      # Node comes from apk: actions/setup-node ships glibc binaries, which
+      # don't run on musl.
+      run: apk add git build-base cmake linux-headers libffi-dev nodejs npm --update-cache
     - uses: actions/checkout@v7
       with:
         submodules: recursive
-    - uses: actions/setup-node@v7
-      with:
-        node-version-file: '.nvmrc'
     - name: Build it
       run: make VERBOSE=1
     - name: Download esbuild
