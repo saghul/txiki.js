@@ -5,7 +5,7 @@ title: Getting Started
 
 # Getting Started
 
-> **txikia** (Basque): small, tiny.
+> **txiki** /ˈtʃiki/ (Basque): small, tiny.
 
 **txiki.js** is a small and powerful JavaScript runtime. It targets state-of-the-art ECMAScript and aims to be [WinterTC](https://wintertc.org/) compliant.
 
