@@ -1,5 +1,7 @@
 import assert from 'tjs:assert';
 
+import { importRsaKeyPair } from './helpers/rsa-keys.js';
+
 // 1. HMAC JWK round-trip (SHA-256)
 {
     const key = await crypto.subtle.generateKey(
@@ -221,11 +223,7 @@ for (const namedCurve of [ 'P-256', 'P-384', 'P-521' ]) {
 
 // 7. RSA-OAEP JWK round-trip
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        true,
-        [ 'encrypt', 'decrypt' ]
-    );
+    const keyPair = await importRsaKeyPair('rsa2048', { name: 'RSA-OAEP', hash: 'SHA-256' }, true, [ 'encrypt' ], [ 'decrypt' ]);
 
     const pubJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
 
@@ -267,11 +265,7 @@ for (const namedCurve of [ 'P-256', 'P-384', 'P-521' ]) {
 
 // 8. RSA-PSS JWK round-trip
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-PSS', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        true,
-        [ 'sign', 'verify' ]
-    );
+    const keyPair = await importRsaKeyPair('rsa2048', { name: 'RSA-PSS', hash: 'SHA-256' }, true, [ 'verify' ], [ 'sign' ]);
 
     const privJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
     const pubJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
@@ -307,14 +301,7 @@ for (const namedCurve of [ 'P-256', 'P-384', 'P-521' ]) {
 
 // 9. RSASSA-PKCS1-v1_5 JWK round-trip
 {
-    const keyPair = await crypto.subtle.generateKey(
-        {
-            name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048,
-            publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256',
-        },
-        true,
-        [ 'sign', 'verify' ]
-    );
+    const keyPair = await importRsaKeyPair('rsa2048', { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, true, [ 'verify' ], [ 'sign' ]);
 
     const privJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
     const pubJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);

@@ -1,48 +1,43 @@
 import assert from 'tjs:assert';
 
-// RSA key generation is slow (constant-time prime generation since mbedtls 3.6.7), so
-// generate one keypair per algorithm and reuse it; variants that differ only in the bound
-// hash or in extractability are derived by exporting and re-importing the key material.
+import { importRsaKeyPair } from './helpers/rsa-keys.js';
+
+// RSA key generation takes seconds per key on Debug and sanitizer builds, with a long tail.
+// Generate one small keypair per algorithm, concurrently, to cover generateKey itself; every
+// other case uses the fixed 2048-bit keys from helpers/rsa-keys.js.
 const publicExponent = new Uint8Array([ 1, 0, 1 ]);
 
-const oaepKeyPair = await crypto.subtle.generateKey(
-    { name: 'RSA-OAEP', modulusLength: 2048, publicExponent, hash: 'SHA-256' },
-    true,
-    [ 'encrypt', 'decrypt' ]
-);
+const [ oaepGenerated, pssGenerated, pkcs1Generated ] = await Promise.all([
+    crypto.subtle.generateKey(
+        { name: 'RSA-OAEP', modulusLength: 1024, publicExponent, hash: 'SHA-256' },
+        true,
+        [ 'encrypt', 'decrypt' ]
+    ),
+    crypto.subtle.generateKey(
+        { name: 'RSA-PSS', modulusLength: 1024, publicExponent, hash: 'SHA-256' },
+        true,
+        [ 'sign', 'verify' ]
+    ),
+    crypto.subtle.generateKey(
+        { name: 'RSASSA-PKCS1-v1_5', modulusLength: 1024, publicExponent, hash: 'SHA-256' },
+        false,
+        [ 'sign', 'verify' ]
+    ),
+]);
 
-const pssKeyPair = await crypto.subtle.generateKey(
-    { name: 'RSA-PSS', modulusLength: 2048, publicExponent, hash: 'SHA-256' },
-    true,
-    [ 'sign', 'verify' ]
-);
+const oaepKeyPair = await importRsaKeyPair('rsa2048', { name: 'RSA-OAEP', hash: 'SHA-256' }, true, [ 'encrypt' ], [ 'decrypt' ]);
+const pssKeyPair = await importRsaKeyPair('rsa2048', { name: 'RSA-PSS', hash: 'SHA-256' }, true, [ 'verify' ], [ 'sign' ]);
 
-const pkcs1KeyPair = await crypto.subtle.generateKey(
-    { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent, hash: 'SHA-256' },
-    false,
-    [ 'sign', 'verify' ]
-);
-
-async function reimport(keyPair, algorithm, extractable, publicUsages, privateUsages) {
-    const spki = await crypto.subtle.exportKey('spki', keyPair.publicKey);
-    const pkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
-
-    return {
-        publicKey: await crypto.subtle.importKey('spki', spki, algorithm, extractable, publicUsages),
-        privateKey: await crypto.subtle.importKey('pkcs8', pkcs8, algorithm, extractable, privateUsages),
-    };
-}
-
-// 1. RSA-OAEP generateKey + encrypt + decrypt round-trip (2048, SHA-256)
+// 1. RSA-OAEP generateKey + encrypt + decrypt round-trip (1024, SHA-256)
 {
-    const keyPair = oaepKeyPair;
+    const keyPair = oaepGenerated;
 
     assert.ok(keyPair.publicKey, 'has publicKey');
     assert.ok(keyPair.privateKey, 'has privateKey');
     assert.eq(keyPair.publicKey.type, 'public', 'publicKey type');
     assert.eq(keyPair.privateKey.type, 'private', 'privateKey type');
     assert.eq(keyPair.publicKey.algorithm.name, 'RSA-OAEP', 'publicKey algorithm');
-    assert.eq(keyPair.publicKey.algorithm.modulusLength, 2048, 'modulusLength');
+    assert.eq(keyPair.publicKey.algorithm.modulusLength, 1024, 'modulusLength');
     assert.eq(keyPair.publicKey.algorithm.hash.name, 'SHA-256', 'hash algorithm');
     assert.eq(keyPair.publicKey.extractable, true, 'publicKey is extractable');
 
@@ -54,7 +49,7 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
     );
 
     assert.ok(ciphertext instanceof ArrayBuffer, 'ciphertext is ArrayBuffer');
-    assert.eq(ciphertext.byteLength, 256, '2048-bit RSA produces 256-byte ciphertext');
+    assert.eq(ciphertext.byteLength, 128, '1024-bit RSA produces 128-byte ciphertext');
 
     const plaintext = await crypto.subtle.decrypt(
         { name: 'RSA-OAEP' },
@@ -71,7 +66,7 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
     const hashes = [ 'SHA-1', 'SHA-256', 'SHA-384', 'SHA-512' ];
 
     for (const hash of hashes) {
-        const keyPair = await reimport(oaepKeyPair, { name: 'RSA-OAEP', hash }, false, [ 'encrypt' ], [ 'decrypt' ]);
+        const keyPair = await importRsaKeyPair('rsa2048', { name: 'RSA-OAEP', hash }, false, [ 'encrypt' ], [ 'decrypt' ]);
 
         assert.eq(keyPair.publicKey.algorithm.hash.name, hash, `RSA-OAEP key bound to ${hash}`);
 
@@ -99,8 +94,7 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
 {
     const keyPair1 = oaepKeyPair;
 
-    // A different modulus: the RSA-PSS key material imported for RSA-OAEP.
-    const keyPair2 = await reimport(pssKeyPair, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, [ 'encrypt' ], [ 'decrypt' ]);
+    const keyPair2 = await importRsaKeyPair('rsa2048b', { name: 'RSA-OAEP', hash: 'SHA-256' }, false, [ 'encrypt' ], [ 'decrypt' ]);
 
     const data = new TextEncoder().encode('secret');
     const ciphertext = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, keyPair1.publicKey, data);
@@ -113,12 +107,12 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
     }
 }
 
-// 5. RSA-PSS generateKey + sign + verify round-trip (2048, SHA-256)
+// 5. RSA-PSS generateKey + sign + verify round-trip (1024, SHA-256)
 {
-    const keyPair = pssKeyPair;
+    const keyPair = pssGenerated;
 
     assert.eq(keyPair.publicKey.algorithm.name, 'RSA-PSS', 'RSA-PSS algorithm');
-    assert.eq(keyPair.publicKey.algorithm.modulusLength, 2048, 'modulusLength');
+    assert.eq(keyPair.publicKey.algorithm.modulusLength, 1024, 'modulusLength');
     assert.eq(keyPair.publicKey.algorithm.hash.name, 'SHA-256', 'hash');
 
     const data = new TextEncoder().encode('hello RSA-PSS');
@@ -129,7 +123,7 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
     );
 
     assert.ok(signature instanceof ArrayBuffer, 'signature is ArrayBuffer');
-    assert.eq(signature.byteLength, 256, '2048-bit RSA produces 256-byte signature');
+    assert.eq(signature.byteLength, 128, '1024-bit RSA produces 128-byte signature');
 
     const valid = await crypto.subtle.verify(
         { name: 'RSA-PSS', saltLength: 32 },
@@ -146,7 +140,7 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
     const hashes = [ 'SHA-1', 'SHA-256', 'SHA-384', 'SHA-512' ];
 
     for (const hash of hashes) {
-        const keyPair = await reimport(pssKeyPair, { name: 'RSA-PSS', hash }, false, [ 'verify' ], [ 'sign' ]);
+        const keyPair = await importRsaKeyPair('rsa2048', { name: 'RSA-PSS', hash }, false, [ 'verify' ], [ 'sign' ]);
 
         assert.eq(keyPair.publicKey.algorithm.hash.name, hash, `RSA-PSS key bound to ${hash}`);
 
@@ -163,6 +157,7 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
 
     const data = new TextEncoder().encode('original data');
     const signature = await crypto.subtle.sign({ name: 'RSA-PSS', saltLength: 32 }, keyPair.privateKey, data);
+    assert.eq(signature.byteLength, 256, '2048-bit RSA produces 256-byte signature');
     const tampered = new TextEncoder().encode('tampered data');
     const valid = await crypto.subtle.verify({ name: 'RSA-PSS', saltLength: 32 }, keyPair.publicKey, signature, tampered);
     assert.eq(valid, false, 'tampered data fails RSA-PSS verification');
@@ -192,9 +187,9 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
     }
 }
 
-// 10. RSASSA-PKCS1-v1_5 generateKey + sign + verify round-trip (2048, SHA-256)
+// 10. RSASSA-PKCS1-v1_5 generateKey + sign + verify round-trip (1024, SHA-256)
 {
-    const keyPair = pkcs1KeyPair;
+    const keyPair = pkcs1Generated;
 
     assert.eq(keyPair.publicKey.algorithm.name, 'RSASSA-PKCS1-v1_5', 'PKCS1v15 algorithm');
 
@@ -206,7 +201,7 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
     );
 
     assert.ok(signature instanceof ArrayBuffer, 'signature is ArrayBuffer');
-    assert.eq(signature.byteLength, 256, '2048-bit RSA produces 256-byte signature');
+    assert.eq(signature.byteLength, 128, '1024-bit RSA produces 128-byte signature');
 
     const valid = await crypto.subtle.verify(
         { name: 'RSASSA-PKCS1-v1_5' },
@@ -220,7 +215,7 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
 
 // 11. RSASSA-PKCS1-v1_5 verify tampered data
 {
-    const keyPair = pkcs1KeyPair;
+    const keyPair = pkcs1Generated;
 
     const data = new TextEncoder().encode('original');
     const signature = await crypto.subtle.sign({ name: 'RSASSA-PKCS1-v1_5' }, keyPair.privateKey, data);
@@ -252,6 +247,7 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
     // Encrypt with imported key, decrypt with original private key
     const data = new TextEncoder().encode('test import');
     const ciphertext = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, imported, data);
+    assert.eq(ciphertext.byteLength, 256, '2048-bit RSA produces 256-byte ciphertext');
     const plaintext = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, keyPair.privateKey, ciphertext);
     const decoded = new TextDecoder().decode(plaintext);
     assert.eq(decoded, 'test import', 'imported key works for encryption');
@@ -374,7 +370,7 @@ async function reimport(keyPair, algorithm, extractable, publicUsages, privateUs
 // 20. Error: non-extractable key export
 {
     // Generated with extractable=false.
-    const keyPair = pkcs1KeyPair;
+    const keyPair = pkcs1Generated;
 
     assert.eq(keyPair.privateKey.extractable, false, 'privateKey is not extractable');
 
