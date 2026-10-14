@@ -51,6 +51,8 @@
     "node": ">=20.0"
   },
   "overrides": {
-    "minimatch": "10.2.5"
+    "minimatch": "10.2.5",
+    "postcss-selector-parser": "7.1.6",
+    "tinypool": "2.1.2"
   }
 }
