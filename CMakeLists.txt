@@ -427,7 +427,7 @@ function(tjs_apply_patches target_dir prefix)
 endfunction()
 
 # mbedTLS upstream has no QUIC support; patches/mbedtls-quic.patch adds it (from
-# warmcat's quic-v3.6.6 mbedTLS branch — credit libwebsockets).
+# warmcat's quic-v3.6.6 mbedTLS branch, rebased onto 3.6.7 — credit libwebsockets).
 tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls" "mbedtls-")
 
 add_subdirectory(deps/mbedtls EXCLUDE_FROM_ALL)

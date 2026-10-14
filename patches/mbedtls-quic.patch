@@ -1,8 +1,8 @@
 diff --git a/include/mbedtls/mbedtls_config.h b/include/mbedtls/mbedtls_config.h
-index 8fa445a132..82bdf37142 100644
+index f684347519..f7b1bc704c 100644
 --- a/include/mbedtls/mbedtls_config.h
 +++ b/include/mbedtls/mbedtls_config.h
-@@ -4435,3 +4435,11 @@
+@@ -4444,3 +4444,11 @@
  //#define MBEDTLS_X509_MAX_FILE_PATH_LEN     512 /**< Maximum length of a path/filename string in bytes including the null terminator character ('\0'). */
  
  /** \} name SECTION: Module configuration options */
@@ -15,7 +15,7 @@ index 8fa445a132..82bdf37142 100644
 +#define MBEDTLS_SSL_LWS_QUIC_SUPPORT
 +
 diff --git a/include/mbedtls/ssl.h b/include/mbedtls/ssl.h
-index 43d8175988..a51ba51e7c 100644
+index d272a9a894..3e6cafe5a6 100644
 --- a/include/mbedtls/ssl.h
 +++ b/include/mbedtls/ssl.h
 @@ -300,6 +300,9 @@
@@ -160,10 +160,10 @@ index 43d8175988..a51ba51e7c 100644
   * \brief          Set the certificate verification mode
   *                 Default: NONE on server, REQUIRED on client
 diff --git a/library/ssl_client.c b/library/ssl_client.c
-index 0bd00cd91a..fa5585785a 100644
+index fb5fe57181..80c743a2ee 100644
 --- a/library/ssl_client.c
 +++ b/library/ssl_client.c
-@@ -845,7 +845,11 @@ static int ssl_prepare_client_hello(mbedtls_ssl_context *ssl)
+@@ -849,7 +849,11 @@ static int ssl_prepare_client_hello(mbedtls_ssl_context *ssl)
  #endif /* MBEDTLS_SSL_PROTO_TLS1_2 */
  
  #if defined(MBEDTLS_SSL_TLS1_3_COMPATIBILITY_MODE)
@@ -202,10 +202,10 @@ index 38ef76376c..297e6b9751 100644
                                    int level, const char *file, int line,
                                    int hs_msg_type, uint32_t extensions_mask,
 diff --git a/library/ssl_misc.h b/library/ssl_misc.h
-index 218a30d408..5b1fbf6ee2 100644
+index 864314d1d8..149940cdf5 100644
 --- a/library/ssl_misc.h
 +++ b/library/ssl_misc.h
-@@ -1468,6 +1468,46 @@ MBEDTLS_CHECK_RETURN_CRITICAL
+@@ -1561,6 +1561,46 @@ MBEDTLS_CHECK_RETURN_CRITICAL
  int mbedtls_ssl_start_handshake_msg(mbedtls_ssl_context *ssl, unsigned char hs_type,
                                      unsigned char **buf, size_t *buf_len);
  
@@ -253,7 +253,7 @@ index 218a30d408..5b1fbf6ee2 100644
  int mbedtls_ssl_write_handshake_msg_ext(mbedtls_ssl_context *ssl,
                                          int update_checksum,
 diff --git a/library/ssl_msg.c b/library/ssl_msg.c
-index b0ab608350..104ee69056 100644
+index b4fa74ca9e..20fa370ccf 100644
 --- a/library/ssl_msg.c
 +++ b/library/ssl_msg.c
 @@ -2926,6 +2926,63 @@ cleanup:
@@ -340,7 +340,7 @@ index b0ab608350..104ee69056 100644
      if (!done) {
          unsigned i;
          size_t protected_record_size;
-@@ -4331,6 +4401,34 @@ int mbedtls_ssl_read_record(mbedtls_ssl_context *ssl,
+@@ -4337,6 +4407,34 @@ int mbedtls_ssl_read_record(mbedtls_ssl_context *ssl,
  
      MBEDTLS_SSL_DEBUG_MSG(2, ("=> read record"));
  
@@ -375,7 +375,7 @@ index b0ab608350..104ee69056 100644
      if (ssl->keep_current_message == 0) {
          do {
  
-@@ -5350,6 +5448,18 @@ int mbedtls_ssl_send_alert_message(mbedtls_ssl_context *ssl,
+@@ -5358,6 +5456,18 @@ int mbedtls_ssl_send_alert_message(mbedtls_ssl_context *ssl,
      MBEDTLS_SSL_DEBUG_MSG(2, ("=> send alert message"));
      MBEDTLS_SSL_DEBUG_MSG(3, ("send alert level=%u message=%u", level, message));
  
@@ -395,10 +395,10 @@ index b0ab608350..104ee69056 100644
      ssl->out_msglen = 2;
      ssl->out_msg[0] = level;
 diff --git a/library/ssl_tls.c b/library/ssl_tls.c
-index 1185b0b283..0f3de7392c 100644
+index b29986daa3..03b687379c 100644
 --- a/library/ssl_tls.c
 +++ b/library/ssl_tls.c
-@@ -1634,6 +1634,25 @@ void mbedtls_ssl_conf_transport(mbedtls_ssl_config *conf, int transport)
+@@ -1638,6 +1638,25 @@ void mbedtls_ssl_conf_transport(mbedtls_ssl_config *conf, int transport)
      conf->transport = transport;
  }
  
@@ -425,10 +425,10 @@ index 1185b0b283..0f3de7392c 100644
  void mbedtls_ssl_conf_dtls_anti_replay(mbedtls_ssl_config *conf, char mode)
  {
 diff --git a/library/ssl_tls13_client.c b/library/ssl_tls13_client.c
-index 752bc033fe..d1f470d78c 100644
+index aab0f63c29..54ff3d5368 100644
 --- a/library/ssl_tls13_client.c
 +++ b/library/ssl_tls13_client.c
-@@ -1212,6 +1212,14 @@ int mbedtls_ssl_tls13_write_client_hello_exts(mbedtls_ssl_context *ssl,
+@@ -1216,6 +1216,14 @@ int mbedtls_ssl_tls13_write_client_hello_exts(mbedtls_ssl_context *ssl,
      }
  #endif /* MBEDTLS_SSL_EARLY_DATA */
  
@@ -443,7 +443,7 @@ index 752bc033fe..d1f470d78c 100644
  #if defined(MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_SOME_PSK_ENABLED)
      /* For PSK-based key exchange we need the pre_shared_key extension
       * and the psk_key_exchange_modes extension.
-@@ -1820,8 +1828,20 @@ static int ssl_tls13_parse_server_hello(mbedtls_ssl_context *ssl,
+@@ -1824,8 +1832,20 @@ static int ssl_tls13_parse_server_hello(mbedtls_ssl_context *ssl,
                  break;
  
              default:
@@ -464,7 +464,7 @@ index 752bc033fe..d1f470d78c 100644
          }
  
          p += extension_data_len;
-@@ -2152,9 +2172,27 @@ static int ssl_tls13_parse_encrypted_extensions(mbedtls_ssl_context *ssl,
+@@ -2169,9 +2189,27 @@ static int ssl_tls13_parse_encrypted_extensions(mbedtls_ssl_context *ssl,
  #endif /* MBEDTLS_SSL_RECORD_SIZE_LIMIT */
  
              default:
@@ -493,19 +493,19 @@ index 752bc033fe..d1f470d78c 100644
          }
  
 diff --git a/library/ssl_tls13_generic.c b/library/ssl_tls13_generic.c
-index b6d09788ba..cd96e8bf83 100644
+index 7e4c909562..8314d0693a 100644
 --- a/library/ssl_tls13_generic.c
 +++ b/library/ssl_tls13_generic.c
-@@ -68,7 +68,7 @@ int mbedtls_ssl_tls13_fetch_handshake_msg(mbedtls_ssl_context *ssl,
- 
+@@ -100,7 +100,7 @@ int mbedtls_ssl_tls13_fetch_handshake_msg(mbedtls_ssl_context *ssl,
+     ret = MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE;
      if (ssl->in_msgtype != MBEDTLS_SSL_MSG_HANDSHAKE ||
          ssl->in_msg[0]  != hs_type) {
 -        MBEDTLS_SSL_DEBUG_MSG(1, ("Receive unexpected handshake message."));
 +        MBEDTLS_SSL_DEBUG_MSG(1, ("Receive unexpected handshake message. Expected %u, got msgtype %d in_msg[0] %u.", hs_type, ssl->in_msgtype, ssl->in_msg[0]));
-         MBEDTLS_SSL_PEND_FATAL_ALERT(MBEDTLS_SSL_ALERT_MSG_UNEXPECTED_MESSAGE,
-                                      MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE);
-         ret = MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE;
-@@ -1278,6 +1278,13 @@ int mbedtls_ssl_tls13_write_change_cipher_spec(mbedtls_ssl_context *ssl)
+         goto error;
+     }
+ 
+@@ -1317,6 +1317,13 @@ int mbedtls_ssl_tls13_write_change_cipher_spec(mbedtls_ssl_context *ssl)
  
      MBEDTLS_SSL_DEBUG_MSG(2, ("=> write change cipher spec"));
  
@@ -519,7 +519,7 @@ index b6d09788ba..cd96e8bf83 100644
      /* Only one CCS to send. */
      if (ssl->handshake->ccs_sent) {
          ret = 0;
-@@ -1629,6 +1636,43 @@ int mbedtls_ssl_tls13_check_received_extension(
+@@ -1668,6 +1675,43 @@ int mbedtls_ssl_tls13_check_received_extension(
          3, hs_msg_type, received_extension_type, "received");
  
      if ((extension_mask & hs_msg_allowed_extensions_mask) == 0) {
@@ -624,7 +624,7 @@ index 1967883b61..6d8610dbe0 100644
                            traffic_keys->client_write_key, key_len);
      MBEDTLS_SSL_DEBUG_BUF(4, "server application write key",
 diff --git a/library/ssl_tls13_server.c b/library/ssl_tls13_server.c
-index a72ed25cfa..ef735a87d6 100644
+index 0021c3fd88..2fd376d263 100644
 --- a/library/ssl_tls13_server.c
 +++ b/library/ssl_tls13_server.c
 @@ -1673,9 +1673,24 @@ static int ssl_tls13_parse_client_hello(mbedtls_ssl_context *ssl,
