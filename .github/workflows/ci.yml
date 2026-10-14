@@ -136,12 +136,12 @@ jobs:
       MIMALLOC: ${{ matrix.mimalloc }}
     steps:
     - name: Prepare
-      # Node comes from apk: actions/setup-node ships glibc binaries, which
-      # don't run on musl.
-      run: apk add git build-base cmake linux-headers libffi-dev nodejs npm --update-cache
+      run: apk add git build-base cmake linux-headers libffi-dev --update-cache
     - uses: actions/checkout@v7
       with:
         submodules: recursive
+    # No setup-node here: nothing in this job needs Node, and setup-node's
+    # glibc binaries can't run on musl anyway.
     - name: Build it
       run: make VERBOSE=1
     - name: Download esbuild
