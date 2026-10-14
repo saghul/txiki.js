@@ -1,12 +1,41 @@
 import assert from 'tjs:assert';
 
+// RSA key generation is slow (constant-time prime generation since mbedtls 3.6.7), so
+// generate one keypair per algorithm and reuse it; variants that differ only in the bound
+// hash or in extractability are derived by exporting and re-importing the key material.
+const publicExponent = new Uint8Array([ 1, 0, 1 ]);
+
+const oaepKeyPair = await crypto.subtle.generateKey(
+    { name: 'RSA-OAEP', modulusLength: 2048, publicExponent, hash: 'SHA-256' },
+    true,
+    [ 'encrypt', 'decrypt' ]
+);
+
+const pssKeyPair = await crypto.subtle.generateKey(
+    { name: 'RSA-PSS', modulusLength: 2048, publicExponent, hash: 'SHA-256' },
+    true,
+    [ 'sign', 'verify' ]
+);
+
+const pkcs1KeyPair = await crypto.subtle.generateKey(
+    { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent, hash: 'SHA-256' },
+    false,
+    [ 'sign', 'verify' ]
+);
+
+async function reimport(keyPair, algorithm, extractable, publicUsages, privateUsages) {
+    const spki = await crypto.subtle.exportKey('spki', keyPair.publicKey);
+    const pkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+
+    return {
+        publicKey: await crypto.subtle.importKey('spki', spki, algorithm, extractable, publicUsages),
+        privateKey: await crypto.subtle.importKey('pkcs8', pkcs8, algorithm, extractable, privateUsages),
+    };
+}
+
 // 1. RSA-OAEP generateKey + encrypt + decrypt round-trip (2048, SHA-256)
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        true,
-        [ 'encrypt', 'decrypt' ]
-    );
+    const keyPair = oaepKeyPair;
 
     assert.ok(keyPair.publicKey, 'has publicKey');
     assert.ok(keyPair.privateKey, 'has privateKey');
@@ -42,11 +71,9 @@ import assert from 'tjs:assert';
     const hashes = [ 'SHA-1', 'SHA-256', 'SHA-384', 'SHA-512' ];
 
     for (const hash of hashes) {
-        const keyPair = await crypto.subtle.generateKey(
-            { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash },
-            false,
-            [ 'encrypt', 'decrypt' ]
-        );
+        const keyPair = await reimport(oaepKeyPair, { name: 'RSA-OAEP', hash }, false, [ 'encrypt' ], [ 'decrypt' ]);
+
+        assert.eq(keyPair.publicKey.algorithm.hash.name, hash, `RSA-OAEP key bound to ${hash}`);
 
         const data = new TextEncoder().encode(`test ${hash}`);
         const ciphertext = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, keyPair.publicKey, data);
@@ -58,11 +85,7 @@ import assert from 'tjs:assert';
 
 // 3. RSA-OAEP with optional label
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'encrypt', 'decrypt' ]
-    );
+    const keyPair = oaepKeyPair;
 
     const label = new TextEncoder().encode('my-label');
     const data = new TextEncoder().encode('labeled data');
@@ -74,17 +97,10 @@ import assert from 'tjs:assert';
 
 // 4. RSA-OAEP decrypt with wrong key fails
 {
-    const keyPair1 = await crypto.subtle.generateKey(
-        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'encrypt', 'decrypt' ]
-    );
+    const keyPair1 = oaepKeyPair;
 
-    const keyPair2 = await crypto.subtle.generateKey(
-        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'encrypt', 'decrypt' ]
-    );
+    // A different modulus: the RSA-PSS key material imported for RSA-OAEP.
+    const keyPair2 = await reimport(pssKeyPair, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, [ 'encrypt' ], [ 'decrypt' ]);
 
     const data = new TextEncoder().encode('secret');
     const ciphertext = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, keyPair1.publicKey, data);
@@ -99,11 +115,7 @@ import assert from 'tjs:assert';
 
 // 5. RSA-PSS generateKey + sign + verify round-trip (2048, SHA-256)
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-PSS', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        true,
-        [ 'sign', 'verify' ]
-    );
+    const keyPair = pssKeyPair;
 
     assert.eq(keyPair.publicKey.algorithm.name, 'RSA-PSS', 'RSA-PSS algorithm');
     assert.eq(keyPair.publicKey.algorithm.modulusLength, 2048, 'modulusLength');
@@ -134,11 +146,9 @@ import assert from 'tjs:assert';
     const hashes = [ 'SHA-1', 'SHA-256', 'SHA-384', 'SHA-512' ];
 
     for (const hash of hashes) {
-        const keyPair = await crypto.subtle.generateKey(
-            { name: 'RSA-PSS', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash },
-            false,
-            [ 'sign', 'verify' ]
-        );
+        const keyPair = await reimport(pssKeyPair, { name: 'RSA-PSS', hash }, false, [ 'verify' ], [ 'sign' ]);
+
+        assert.eq(keyPair.publicKey.algorithm.hash.name, hash, `RSA-PSS key bound to ${hash}`);
 
         const data = new TextEncoder().encode(`test ${hash}`);
         const signature = await crypto.subtle.sign({ name: 'RSA-PSS', saltLength: 20 }, keyPair.privateKey, data);
@@ -149,11 +159,7 @@ import assert from 'tjs:assert';
 
 // 7. RSA-PSS verify with tampered data
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-PSS', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'sign', 'verify' ]
-    );
+    const keyPair = pssKeyPair;
 
     const data = new TextEncoder().encode('original data');
     const signature = await crypto.subtle.sign({ name: 'RSA-PSS', saltLength: 32 }, keyPair.privateKey, data);
@@ -164,11 +170,7 @@ import assert from 'tjs:assert';
 
 // 8. RSA-PSS verify with tampered signature
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-PSS', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'sign', 'verify' ]
-    );
+    const keyPair = pssKeyPair;
 
     const data = new TextEncoder().encode('some data');
     const signature = await crypto.subtle.sign({ name: 'RSA-PSS', saltLength: 32 }, keyPair.privateKey, data);
@@ -180,11 +182,7 @@ import assert from 'tjs:assert';
 
 // 9. RSA-PSS with different saltLength values
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-PSS', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'sign', 'verify' ]
-    );
+    const keyPair = pssKeyPair;
 
     for (const saltLength of [ 0, 32 ]) {
         const data = new TextEncoder().encode(`salt ${saltLength}`);
@@ -196,11 +194,7 @@ import assert from 'tjs:assert';
 
 // 10. RSASSA-PKCS1-v1_5 generateKey + sign + verify round-trip (2048, SHA-256)
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        true,
-        [ 'sign', 'verify' ]
-    );
+    const keyPair = pkcs1KeyPair;
 
     assert.eq(keyPair.publicKey.algorithm.name, 'RSASSA-PKCS1-v1_5', 'PKCS1v15 algorithm');
 
@@ -226,11 +220,7 @@ import assert from 'tjs:assert';
 
 // 11. RSASSA-PKCS1-v1_5 verify tampered data
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'sign', 'verify' ]
-    );
+    const keyPair = pkcs1KeyPair;
 
     const data = new TextEncoder().encode('original');
     const signature = await crypto.subtle.sign({ name: 'RSASSA-PKCS1-v1_5' }, keyPair.privateKey, data);
@@ -241,11 +231,7 @@ import assert from 'tjs:assert';
 
 // 12. importKey/exportKey spki round-trip (RSA-OAEP)
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        true,
-        [ 'encrypt', 'decrypt' ]
-    );
+    const keyPair = oaepKeyPair;
 
     const exported = await crypto.subtle.exportKey('spki', keyPair.publicKey);
     assert.ok(exported instanceof ArrayBuffer, 'exported is ArrayBuffer');
@@ -273,11 +259,7 @@ import assert from 'tjs:assert';
 
 // 13. importKey/exportKey pkcs8 round-trip (RSA-OAEP)
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        true,
-        [ 'encrypt', 'decrypt' ]
-    );
+    const keyPair = oaepKeyPair;
 
     const exported = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
     assert.ok(exported instanceof ArrayBuffer, 'exported is ArrayBuffer');
@@ -304,11 +286,7 @@ import assert from 'tjs:assert';
 
 // 14. importKey/exportKey round-trip (RSA-PSS)
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-PSS', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        true,
-        [ 'sign', 'verify' ]
-    );
+    const keyPair = pssKeyPair;
 
     const exportedPub = await crypto.subtle.exportKey('spki', keyPair.publicKey);
     const exportedPriv = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
@@ -328,11 +306,7 @@ import assert from 'tjs:assert';
 
 // 15. Error: encrypt with private key
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'encrypt', 'decrypt' ]
-    );
+    const keyPair = oaepKeyPair;
 
     try {
         await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, keyPair.privateKey, new Uint8Array(10));
@@ -344,11 +318,7 @@ import assert from 'tjs:assert';
 
 // 16. Error: decrypt with public key
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'encrypt', 'decrypt' ]
-    );
+    const keyPair = oaepKeyPair;
 
     try {
         await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, keyPair.publicKey, new Uint8Array(256));
@@ -360,11 +330,7 @@ import assert from 'tjs:assert';
 
 // 17. Error: sign with public key
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-PSS', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'sign', 'verify' ]
-    );
+    const keyPair = pssKeyPair;
 
     try {
         await crypto.subtle.sign({ name: 'RSA-PSS', saltLength: 32 }, keyPair.publicKey, new Uint8Array(10));
@@ -376,11 +342,7 @@ import assert from 'tjs:assert';
 
 // 18. Error: verify with private key
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-PSS', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'sign', 'verify' ]
-    );
+    const keyPair = pssKeyPair;
 
     try {
         await crypto.subtle.verify(
@@ -399,7 +361,7 @@ import assert from 'tjs:assert';
 {
     try {
         await crypto.subtle.generateKey(
-            { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
+            { name: 'RSA-OAEP', modulusLength: 2048, publicExponent, hash: 'SHA-256' },
             false,
             [ 'sign' ]
         );
@@ -411,11 +373,10 @@ import assert from 'tjs:assert';
 
 // 20. Error: non-extractable key export
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        false,
-        [ 'encrypt', 'decrypt' ]
-    );
+    // Generated with extractable=false.
+    const keyPair = pkcs1KeyPair;
+
+    assert.eq(keyPair.privateKey.extractable, false, 'privateKey is not extractable');
 
     try {
         await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
@@ -427,11 +388,7 @@ import assert from 'tjs:assert';
 
 // 21. Error: unsupported export format
 {
-    const keyPair = await crypto.subtle.generateKey(
-        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' },
-        true,
-        [ 'encrypt', 'decrypt' ]
-    );
+    const keyPair = oaepKeyPair;
 
     try {
         await crypto.subtle.exportKey('raw', keyPair.publicKey);
