@@ -1,5 +1,7 @@
 import assert from 'tjs:assert';
 
+import { importRsaKeyPair } from './helpers/rsa-keys.js';
+
 // 1. AES-GCM wrap/unwrap HMAC key (raw format)
 {
     const wrappingKey = await crypto.subtle.generateKey(
@@ -86,16 +88,7 @@ import assert from 'tjs:assert';
 
 // 3. RSA-OAEP wrap/unwrap AES key (raw format)
 {
-    const rsaKeyPair = await crypto.subtle.generateKey(
-        {
-            name: 'RSA-OAEP',
-            modulusLength: 2048,
-            publicExponent: new Uint8Array([ 1, 0, 1 ]),
-            hash: 'SHA-256',
-        },
-        true,
-        [ 'wrapKey', 'unwrapKey' ]
-    );
+    const rsaKeyPair = await importRsaKeyPair('rsa2048', { name: 'RSA-OAEP', hash: 'SHA-256' }, true, [ 'wrapKey' ], [ 'unwrapKey' ]);
 
     const aesKey = await crypto.subtle.generateKey(
         { name: 'AES-GCM', length: 256 },
@@ -172,16 +165,7 @@ import assert from 'tjs:assert';
 
 // 5. RSA-OAEP wrap/unwrap with JWK format
 {
-    const rsaKeyPair = await crypto.subtle.generateKey(
-        {
-            name: 'RSA-OAEP',
-            modulusLength: 4096,
-            publicExponent: new Uint8Array([ 1, 0, 1 ]),
-            hash: 'SHA-256',
-        },
-        true,
-        [ 'wrapKey', 'unwrapKey' ]
-    );
+    const rsaKeyPair = await importRsaKeyPair('rsa4096', { name: 'RSA-OAEP', hash: 'SHA-256' }, true, [ 'wrapKey' ], [ 'unwrapKey' ]);
 
     const aesKey = await crypto.subtle.generateKey(
         { name: 'AES-GCM', length: 128 },
