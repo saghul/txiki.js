@@ -94,7 +94,7 @@ typedef struct {
 } worker_data_t;
 
 typedef struct {
-    JSContext *ctx;
+    JSRuntime *rt; /* parent runtime */
     uv_thread_t tid;
     JSValue msg_port; /* parent-side MessagePort handle (native mod_channel port) */
     TJSRuntime *wrt;
@@ -204,14 +204,14 @@ static void worker_entry(void *arg) {
  * runtime, then disentangle the parent side so the parent loop can exit. The
  * parent owns the worker runtime's lifetime, so this is safe whether the worker
  * is still running or has already stopped itself. */
-static void tjs_worker_shutdown(JSRuntime *rt, TJSWorker *w) {
+static void tjs_worker_shutdown(TJSWorker *w) {
     if (w->wrt) {
         TJS_Stop(w->wrt);
         CHECK_EQ(uv_thread_join(&w->tid), 0);
         TJS_FreeRuntime(w->wrt);
         w->wrt = NULL;
     }
-    tjs__channel_port_close(rt, w->msg_port);
+    tjs__channel_port_close(w->rt, w->msg_port);
 }
 
 static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
@@ -219,7 +219,7 @@ static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
     if (w) {
         /* Shutdown joins the worker thread, so once it returns nothing else can
          * touch *w and it is safe to free. */
-        tjs_worker_shutdown(rt, w);
+        tjs_worker_shutdown(w);
         JS_FreeValueRT(rt, w->msg_port);
         tjs__free(w);
     }
@@ -257,7 +257,7 @@ static JSValue tjs_new_worker(JSContext *ctx, TJSMailbox *rx, TJSMailbox *tx) {
         return JS_ThrowOutOfMemory(ctx);
     }
 
-    w->ctx = ctx;
+    w->rt = JS_GetRuntime(ctx);
     w->msg_port = tjs__channel_port_new(ctx, rx, tx);
     if (JS_IsException(w->msg_port)) {
         JS_FreeValue(ctx, obj);
@@ -332,7 +332,7 @@ static JSValue tjs_worker_terminate(JSContext *ctx, JSValue this_val, int argc, 
         return JS_EXCEPTION;
     }
     if (w->wrt) {
-        tjs_worker_shutdown(JS_GetRuntime(ctx), w);
+        tjs_worker_shutdown(w);
         uv_update_time(tjs_get_loop(ctx));
     }
     return JS_UNDEFINED;
