@@ -38,8 +38,6 @@
 
 typedef struct TJSWasmImportGroup TJSWasmImportGroup;
 
-static JSClassID tjs_wasm_module_class_id;
-
 typedef struct {
     wasm_module_t module;
     struct {
@@ -58,7 +56,7 @@ typedef struct {
 } TJSWasmModule;
 
 static void tjs_wasm_module_finalizer(JSRuntime *rt, JSValue val) {
-    TJSWasmModule *m = JS_GetOpaque(val, tjs_wasm_module_class_id);
+    TJSWasmModule *m = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WASM_MODULE));
     if (m) {
         if (m->module) {
             wasm_runtime_unload(m->module);
@@ -108,8 +106,6 @@ typedef struct TJSWasmImportGroup {
     struct TJSWasmImportGroup *next;
 } TJSWasmImportGroup;
 
-static JSClassID tjs_wasm_instance_class_id;
-
 typedef struct {
     wasm_module_inst_t module_inst;
     wasm_exec_env_t exec_env;
@@ -128,7 +124,7 @@ typedef struct {
 } TJSWasmInstance;
 
 static void tjs_wasm_instance_finalizer(JSRuntime *rt, JSValue val) {
-    TJSWasmInstance *i = JS_GetOpaque(val, tjs_wasm_instance_class_id);
+    TJSWasmInstance *i = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WASM_INSTANCE));
     if (i) {
         if (!JS_IsUndefined(i->memory_buffer)) {
             JS_FreeValueRT(rt, i->memory_buffer);
@@ -165,7 +161,7 @@ static void tjs_wasm_instance_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_wasm_instance_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSWasmInstance *i = JS_GetOpaque(val, tjs_wasm_instance_class_id);
+    TJSWasmInstance *i = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WASM_INSTANCE));
     if (i) {
         TJSWasmImportGroup *g = i->import_groups;
         while (g) {
@@ -196,7 +192,7 @@ static JSValue tjs_new_wasm_module(JSContext *ctx) {
     TJSWasmModule *m;
     JSValue obj;
 
-    obj = JS_NewObjectClass(ctx, tjs_wasm_module_class_id);
+    obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_WASM_MODULE));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -212,14 +208,14 @@ static JSValue tjs_new_wasm_module(JSContext *ctx) {
 }
 
 static TJSWasmModule *tjs_wasm_module_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_wasm_module_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_WASM_MODULE));
 }
 
 static JSValue tjs_new_wasm_instance(JSContext *ctx) {
     TJSWasmInstance *i;
     JSValue obj;
 
-    obj = JS_NewObjectClass(ctx, tjs_wasm_instance_class_id);
+    obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_WASM_INSTANCE));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -237,7 +233,7 @@ static JSValue tjs_new_wasm_instance(JSContext *ctx) {
 }
 
 static TJSWasmInstance *tjs_wasm_instance_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_wasm_instance_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_WASM_INSTANCE));
 }
 
 JSValue tjs_throw_wasm_error(JSContext *ctx, const char *name, const char *msg) {
@@ -2111,19 +2107,15 @@ static const JSCFunctionListEntry tjs_wasm_instance_funcs[] = {
 };
 
 void tjs__mod_wasm_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
-
     /* Module object */
-    JS_NewClassID(rt, &tjs_wasm_module_class_id);
-    JS_NewClass(rt, tjs_wasm_module_class_id, &tjs_wasm_module_class);
-    JS_SetClassProto(ctx, tjs_wasm_module_class_id, JS_NULL);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_WASM_MODULE, &tjs_wasm_module_class), 0);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_WASM_MODULE), JS_NULL);
 
     /* Instance object */
-    JS_NewClassID(rt, &tjs_wasm_instance_class_id);
-    JS_NewClass(rt, tjs_wasm_instance_class_id, &tjs_wasm_instance_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_WASM_INSTANCE, &tjs_wasm_instance_class), 0);
     JSValue proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_wasm_instance_funcs, countof(tjs_wasm_instance_funcs));
-    JS_SetClassProto(ctx, tjs_wasm_instance_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_WASM_INSTANCE), proto);
 
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyFunctionList(ctx, obj, tjs_wasm_funcs, countof(tjs_wasm_funcs));

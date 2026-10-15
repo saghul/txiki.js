@@ -455,6 +455,23 @@ TJSRuntime *TJS_NewRuntimeOptions(TJSRunOptions *options) {
     return TJS_NewRuntimeInternal(false, options);
 }
 
+int tjs__class_register(JSContext *ctx, TJSClass c, const JSClassDef *def) {
+    TJSRuntime *qrt = JS_GetContextOpaque(ctx);
+    JSRuntime *rt = JS_GetRuntime(ctx);
+
+    if (qrt->class_ids[c] != 0 && JS_IsRegisteredClass(rt, qrt->class_ids[c])) {
+        return 0;
+    }
+
+    JSClassID id = JS_NewClassID(rt, &qrt->class_ids[c]);
+    if (JS_NewClass(rt, id, def) < 0) {
+        JS_ThrowInternalError(ctx, "failed to register class %s", def->class_name);
+        return -1;
+    }
+
+    return 0;
+}
+
 TJSRuntime *TJS_NewRuntimeWorker(void) {
     TJSRunOptions options;
     TJS_DefaultOptions(&options);
@@ -724,6 +741,7 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
         }
     }
     JS_FreeContext(qrt->ctx);
+    /* Finalizers look up class ids in qrt, so free qrt only after this. */
     JS_FreeRuntime(qrt->rt);
 
 #ifdef TJS_HAVE_WASM

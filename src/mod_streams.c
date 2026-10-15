@@ -550,15 +550,13 @@ static void tjs_stream_mark(JSRuntime *rt, TJSStream *s, JS_MarkFunc *mark_func)
 
 /* TCP object  */
 
-static JSClassID tjs_tcp_class_id;
-
 static void tjs_tcp_finalizer(JSRuntime *rt, JSValue val) {
-    TJSStream *t = JS_GetOpaque(val, tjs_tcp_class_id);
+    TJSStream *t = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_TCP));
     tjs_stream_finalizer(rt, t);
 }
 
 static void tjs_tcp_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSStream *t = JS_GetOpaque(val, tjs_tcp_class_id);
+    TJSStream *t = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_TCP));
     tjs_stream_mark(rt, t, mark_func);
 }
 
@@ -573,7 +571,7 @@ static JSValue tjs_new_tcp(JSContext *ctx, int af) {
     JSValue obj;
     int r;
 
-    obj = JS_NewObjectClass(ctx, tjs_tcp_class_id);
+    obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_TCP));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -603,7 +601,7 @@ static JSValue tjs_tcp_constructor(JSContext *ctx, JSValue new_target, int argc,
 }
 
 static TJSStream *tjs_tcp_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_tcp_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_TCP));
 }
 
 static JSValue tjs_tcp_getsockpeername(JSContext *ctx, JSValue this_val, int argc, JSValue *argv, int magic) {
@@ -730,15 +728,13 @@ static JSValue tjs_tcp_nodelay(JSContext *ctx, JSValue this_val, int argc, JSVal
 
 /* TTY */
 
-static JSClassID tjs_tty_class_id;
-
 static void tjs_tty_finalizer(JSRuntime *rt, JSValue val) {
-    TJSStream *t = JS_GetOpaque(val, tjs_tty_class_id);
+    TJSStream *t = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_TTY));
     tjs_stream_finalizer(rt, t);
 }
 
 static void tjs_tty_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSStream *t = JS_GetOpaque(val, tjs_tty_class_id);
+    TJSStream *t = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_TTY));
     tjs_stream_mark(rt, t, mark_func);
 }
 
@@ -761,7 +757,7 @@ static JSValue tjs_tty_constructor(JSContext *ctx, JSValue new_target, int argc,
         return JS_EXCEPTION;
     }
 
-    obj = JS_NewObjectClass(ctx, tjs_tty_class_id);
+    obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_TTY));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -783,7 +779,7 @@ static JSValue tjs_tty_constructor(JSContext *ctx, JSValue new_target, int argc,
 }
 
 static TJSStream *tjs_tty_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_tty_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_TTY));
 }
 
 static JSValue tjs_tty_setMode(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -826,15 +822,13 @@ static JSValue tjs_tty_getWinSize(JSContext *ctx, JSValue this_val, int argc, JS
 
 /* Pipe */
 
-static JSClassID tjs_pipe_class_id;
-
 static void tjs_pipe_finalizer(JSRuntime *rt, JSValue val) {
-    TJSStream *t = JS_GetOpaque(val, tjs_pipe_class_id);
+    TJSStream *t = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_PIPE));
     tjs_stream_finalizer(rt, t);
 }
 
 static void tjs_pipe_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSStream *t = JS_GetOpaque(val, tjs_pipe_class_id);
+    TJSStream *t = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_PIPE));
     tjs_stream_mark(rt, t, mark_func);
 }
 
@@ -849,7 +843,7 @@ JSValue tjs_new_pipe(JSContext *ctx) {
     JSValue obj;
     int r;
 
-    obj = JS_NewObjectClass(ctx, tjs_pipe_class_id);
+    obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_PIPE));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -875,11 +869,11 @@ static JSValue tjs_pipe_constructor(JSContext *ctx, JSValue new_target, int argc
 }
 
 static TJSStream *tjs_pipe_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_pipe_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_PIPE));
 }
 
 uv_stream_t *tjs_pipe_get_stream(JSContext *ctx, JSValue obj) {
-    TJSStream *s = JS_GetOpaque(obj, tjs_pipe_class_id);
+    TJSStream *s = JS_GetOpaque(obj, tjs__class_id(ctx, TJS_CLASS_PIPE));
     if (s) {
         return &s->h.stream;
     }
@@ -1035,7 +1029,6 @@ static const JSCFunctionListEntry tjs_streams_funcs[] = {
 };
 
 void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj, stream_proto;
 
     /* Stream prototype */
@@ -1043,33 +1036,30 @@ void tjs__mod_streams_init(JSContext *ctx, JSValue ns) {
     JS_SetPropertyFunctionList(ctx, stream_proto, tjs_stream_proto_funcs, countof(tjs_stream_proto_funcs));
 
     /* TCP class */
-    JS_NewClassID(rt, &tjs_tcp_class_id);
-    JS_NewClass(rt, tjs_tcp_class_id, &tjs_tcp_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_TCP, &tjs_tcp_class), 0);
     proto = JS_NewObjectProto(ctx, stream_proto);
     JS_SetPropertyFunctionList(ctx, proto, tjs_tcp_proto_funcs, countof(tjs_tcp_proto_funcs));
-    JS_SetClassProto(ctx, tjs_tcp_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_TCP), proto);
 
     /* TCP object */
     obj = JS_NewCFunction2(ctx, tjs_tcp_constructor, "TCP", 1, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx, ns, "TCP", obj, JS_PROP_C_W_E);
 
     /* TTY class */
-    JS_NewClassID(rt, &tjs_tty_class_id);
-    JS_NewClass(rt, tjs_tty_class_id, &tjs_tty_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_TTY, &tjs_tty_class), 0);
     proto = JS_NewObjectProto(ctx, stream_proto);
     JS_SetPropertyFunctionList(ctx, proto, tjs_tty_proto_funcs, countof(tjs_tty_proto_funcs));
-    JS_SetClassProto(ctx, tjs_tty_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_TTY), proto);
 
     /* TTY object */
     obj = JS_NewCFunction2(ctx, tjs_tty_constructor, "TTY", 1, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx, ns, "TTY", obj, JS_PROP_C_W_E);
 
     /* Pipe class */
-    JS_NewClassID(rt, &tjs_pipe_class_id);
-    JS_NewClass(rt, tjs_pipe_class_id, &tjs_pipe_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_PIPE, &tjs_pipe_class), 0);
     proto = JS_NewObjectProto(ctx, stream_proto);
     JS_SetPropertyFunctionList(ctx, proto, tjs_pipe_proto_funcs, countof(tjs_pipe_proto_funcs));
-    JS_SetClassProto(ctx, tjs_pipe_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_PIPE), proto);
 
     /* Pipe object */
     obj = JS_NewCFunction2(ctx, tjs_pipe_constructor, "Pipe", 1, JS_CFUNC_constructor, 0);

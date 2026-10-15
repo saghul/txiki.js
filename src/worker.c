@@ -84,8 +84,6 @@ void tjs__worker_post_error(JSContext *ctx, JSValueConst error) {
     JS_FreeValue(ctx, obj);
 }
 
-static JSClassID tjs_worker_class_id;
-
 typedef struct {
     const char *specifier;
     const char *source;
@@ -96,7 +94,7 @@ typedef struct {
 } worker_data_t;
 
 typedef struct {
-    JSContext *ctx;
+    JSRuntime *rt; /* parent runtime */
     uv_thread_t tid;
     JSValue msg_port; /* parent-side MessagePort handle (native mod_channel port) */
     TJSRuntime *wrt;
@@ -213,11 +211,11 @@ static void tjs_worker_shutdown(TJSWorker *w) {
         TJS_FreeRuntime(w->wrt);
         w->wrt = NULL;
     }
-    tjs__channel_port_close(w->msg_port);
+    tjs__channel_port_close(w->rt, w->msg_port);
 }
 
 static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
-    TJSWorker *w = JS_GetOpaque(val, tjs_worker_class_id);
+    TJSWorker *w = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WORKER));
     if (w) {
         /* Shutdown joins the worker thread, so once it returns nothing else can
          * touch *w and it is safe to free. */
@@ -228,7 +226,7 @@ static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_worker_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSWorker *w = JS_GetOpaque(val, tjs_worker_class_id);
+    TJSWorker *w = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WORKER));
     if (w) {
         JS_MarkValue(rt, w->msg_port, mark_func);
     }
@@ -241,14 +239,14 @@ static JSClassDef tjs_worker_class = {
 };
 
 static TJSWorker *tjs_worker_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_worker_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_WORKER));
 }
 
 /* Create the Worker object and wrap the parent side of the channel (rx, tx). On
  * failure the mailboxes keep their reserved refs and are reclaimed by the
  * caller's tjs__channel_mailbox_unref. */
 static JSValue tjs_new_worker(JSContext *ctx, TJSMailbox *rx, TJSMailbox *tx) {
-    JSValue obj = JS_NewObjectClass(ctx, tjs_worker_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_WORKER));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -259,7 +257,7 @@ static JSValue tjs_new_worker(JSContext *ctx, TJSMailbox *rx, TJSMailbox *tx) {
         return JS_ThrowOutOfMemory(ctx);
     }
 
-    w->ctx = ctx;
+    w->rt = JS_GetRuntime(ctx);
     w->msg_port = tjs__channel_port_new(ctx, rx, tx);
     if (JS_IsException(w->msg_port)) {
         JS_FreeValue(ctx, obj);
@@ -362,15 +360,13 @@ static const JSCFunctionListEntry tjs_worker_proto_funcs[] = {
 };
 
 void tjs__mod_worker_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
     /* Worker class */
-    JS_NewClassID(rt, &tjs_worker_class_id);
-    JS_NewClass(rt, tjs_worker_class_id, &tjs_worker_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_WORKER, &tjs_worker_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_worker_proto_funcs, countof(tjs_worker_proto_funcs));
-    JS_SetClassProto(ctx, tjs_worker_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_WORKER), proto);
 
     /* Worker object */
     obj = JS_NewCFunction2(ctx, tjs_worker_constructor, "Worker", 2, JS_CFUNC_constructor, 0);

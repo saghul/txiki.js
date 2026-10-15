@@ -11,8 +11,6 @@
 
 #define TJS_SOCK_CLASS_NAME "PosixSocket"
 
-static JSClassID tjs_sock_classid;
-
 typedef struct {
     int sock;
     bool closed;
@@ -33,7 +31,7 @@ typedef struct {
     }
 
 static JSValue tjs_sock_new_from_fd(JSContext *ctx, int fd) {
-    JSValue obj = JS_NewObjectClass(ctx, tjs_sock_classid);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_SOCK));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -80,7 +78,7 @@ static JSValue tjs_sock_create_from_fd(JSContext *ctx, JSValue this_val, int arg
 
 
 static void tjs_uv_socket_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    tjs_sock_t *u = JS_GetOpaque(val, tjs_sock_classid);
+    tjs_sock_t *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_SOCK));
     if (u) {
         if (!JS_IsUndefined(u->callback)) {
             JS_MarkValue(rt, u->callback, mark_func);
@@ -118,7 +116,7 @@ static void close_sock(tjs_sock_t *s) {
 }
 
 static void tjs_sock_finalizer(JSRuntime *rt, JSValue val) {
-    tjs_sock_t *u = JS_GetOpaque(val, tjs_sock_classid);
+    tjs_sock_t *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_SOCK));
     if (u) {
         close_sock(u);
         JS_FreeValueRT(rt, u->this);
@@ -132,7 +130,7 @@ static void tjs_sock_finalizer(JSRuntime *rt, JSValue val) {
 JSClassDef tjs_sock_class = { TJS_SOCK_CLASS_NAME, .finalizer = tjs_sock_finalizer, .gc_mark = tjs_uv_socket_mark };
 
 static JSValue tjs_sock_bind(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -151,7 +149,7 @@ static JSValue tjs_sock_bind(JSContext *ctx, JSValue this_val, int argc, JSValue
 }
 
 static JSValue tjs_sock_accept(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -171,7 +169,7 @@ static JSValue tjs_sock_accept(JSContext *ctx, JSValue this_val, int argc, JSVal
 }
 
 static JSValue tjs_sock_connect(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -192,7 +190,7 @@ static JSValue tjs_sock_connect(JSContext *ctx, JSValue this_val, int argc, JSVa
 }
 
 static JSValue tjs_sock_setsockopt(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -215,7 +213,7 @@ static JSValue tjs_sock_setsockopt(JSContext *ctx, JSValue this_val, int argc, J
 }
 
 static JSValue tjs_sock_getsockopt(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -242,7 +240,7 @@ static JSValue tjs_sock_getsockopt(JSContext *ctx, JSValue this_val, int argc, J
 }
 
 static JSValue tjs_sock_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket already closed");
@@ -255,7 +253,7 @@ static JSValue tjs_sock_close(JSContext *ctx, JSValue this_val, int argc, JSValu
 }
 
 static JSValue tjs_sock_listen(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -268,13 +266,13 @@ static JSValue tjs_sock_listen(JSContext *ctx, JSValue this_val, int argc, JSVal
 }
 
 static JSValue tjs_sock_get_fd(JSContext *ctx, JSValue this_val) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     return JS_NewUint32(ctx, s->sock);
 }
 
 static JSValue tjs_sock_get_info(JSContext *ctx, JSValue this_val) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     JSValue info = JS_NewObject(ctx);
     JSValue socket_info = JS_NewObject(ctx);
@@ -316,7 +314,7 @@ static JSValue tjs_sock_get_info(JSContext *ctx, JSValue this_val) {
 }
 
 static JSValue tjs_sock_read(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -337,7 +335,7 @@ static JSValue tjs_sock_read(JSContext *ctx, JSValue this_val, int argc, JSValue
 }
 
 static JSValue tjs_sock_write(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -354,7 +352,7 @@ static JSValue tjs_sock_write(JSContext *ctx, JSValue this_val, int argc, JSValu
 }
 
 static JSValue tjs_sock_shutdown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -367,7 +365,7 @@ static JSValue tjs_sock_shutdown(JSContext *ctx, JSValue this_val, int argc, JSV
 }
 
 static JSValue tjs_sock_recv(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -390,7 +388,7 @@ static JSValue tjs_sock_recv(JSContext *ctx, JSValue this_val, int argc, JSValue
 }
 
 static JSValue tjs_sock_recvmsg(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -433,7 +431,7 @@ static JSValue tjs_sock_recvmsg(JSContext *ctx, JSValue this_val, int argc, JSVa
 
 /*
 static JSValue tjs_sock_send(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t* s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -451,7 +449,7 @@ static JSValue tjs_sock_send(JSContext *ctx, JSValue this_val, int argc, JSValue
 }
 
 static JSValue tjs_sock_sendto(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t* s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t* s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -478,7 +476,7 @@ static JSValue tjs_sock_sendto(JSContext *ctx, JSValue this_val, int argc, JSVal
 static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     // this: PosixSocket
     // args: Uint8Array|undefined addr, Uint8Array|undefined control, int flags, Uint8Array ...data
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
         return JS_ThrowInternalError(ctx, "Socket closed");
@@ -550,7 +548,7 @@ static void tjs_sock_uv_poll_cb(uv_poll_t *handle, int status, int events) {
 }
 
 static JSValue tjs_sock_poll(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     unsigned events;
     TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 0, "positive integer");
@@ -579,7 +577,7 @@ static JSValue tjs_sock_poll(JSContext *ctx, JSValue this_val, int argc, JSValue
 }
 
 static JSValue tjs_sock_poll_stop(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->in_cb) {
         return JS_ThrowInternalError(ctx, "cannot stop poll during callback");
@@ -595,7 +593,7 @@ static JSValue tjs_sock_poll_stop(JSContext *ctx, JSValue this_val, int argc, JS
 }
 
 static JSValue tjs_uv_poll_get_running(JSContext *ctx, JSValue this_val) {
-    tjs_sock_t *s = JS_GetOpaque(this_val, tjs_sock_classid);
+    tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     int ret = uv_is_active((uv_handle_t *) &s->poll);
     RET_THROW_ERRNO(ctx, ret == 0);
@@ -829,13 +827,12 @@ static const JSCFunctionListEntry posix_ns_funcs[] = {
 
 
 static JSValue tjs__mod_posix_socket_init_js(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
-
-    JS_NewClassID(rt, &tjs_sock_classid);
-    JS_NewClass(rt, tjs_sock_classid, &tjs_sock_class);
+    if (tjs__class_register(ctx, TJS_CLASS_SOCK, &tjs_sock_class) < 0) {
+        return JS_EXCEPTION;
+    }
     JSValue tjs_sock_proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, tjs_sock_proto, tjs_sock_proto_funcs, countof(tjs_sock_proto_funcs));
-    JS_SetClassProto(ctx, tjs_sock_classid, tjs_sock_proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_SOCK), tjs_sock_proto);
 
     JSValue posixSocketNs = JS_NewObject(ctx);
     JS_DefinePropertyValueStr(ctx,

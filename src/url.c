@@ -29,7 +29,6 @@
 
 
 /* Forward declarations. */
-static JSClassID tjs_urlsearchparams_class_id;
 
 typedef struct {
     ada_url_search_params params;
@@ -41,15 +40,13 @@ typedef struct {
  * URL
  */
 
-static JSClassID tjs_url_class_id;
-
 typedef struct {
     ada_url url;
     JSValue search_params; /* cached URLSearchParams or JS_UNDEFINED */
 } TJSURL;
 
 static void tjs_url_finalizer(JSRuntime *rt, JSValue val) {
-    TJSURL *u = JS_GetOpaque(val, tjs_url_class_id);
+    TJSURL *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_URL));
     if (u) {
         if (u->url) {
             ada_free(u->url);
@@ -60,7 +57,7 @@ static void tjs_url_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_url_gc_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSURL *u = JS_GetOpaque(val, tjs_url_class_id);
+    TJSURL *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_URL));
     if (u) {
         JS_MarkValue(rt, u->search_params, mark_func);
     }
@@ -73,14 +70,14 @@ static JSClassDef tjs_url_class = {
 };
 
 static TJSURL *tjs_url_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_url_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_URL));
 }
 
 static JSValue tjs_new_urlsearchparams_from_search(JSContext *ctx, const char *search, size_t len, JSValue url_obj);
 static void tjs_urlsearchparams_sync_to_url(JSContext *ctx, JSValue sp_val);
 
 static JSValue tjs_new_url(JSContext *ctx, ada_url url) {
-    JSValue obj = JS_NewObjectClass(ctx, tjs_url_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_URL));
     if (JS_IsException(obj)) {
         ada_free(url);
         return obj;
@@ -144,7 +141,7 @@ static void tjs_url_sync_search_params(JSContext *ctx, TJSURL *u) {
         len--;
     }
 
-    TJSURLSearchParams *sp = JS_GetOpaque2(ctx, u->search_params, tjs_urlsearchparams_class_id);
+    TJSURLSearchParams *sp = JS_GetOpaque2(ctx, u->search_params, tjs__class_id(ctx, TJS_CLASS_URLSEARCHPARAMS));
     if (sp && sp->params) {
         ada_search_params_reset(sp->params, data, len);
     }
@@ -371,7 +368,7 @@ static const JSCFunctionListEntry tjs_url_static_funcs[] = {
  */
 
 static void tjs_urlsearchparams_finalizer(JSRuntime *rt, JSValue val) {
-    TJSURLSearchParams *sp = JS_GetOpaque(val, tjs_urlsearchparams_class_id);
+    TJSURLSearchParams *sp = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_URLSEARCHPARAMS));
     if (sp) {
         if (sp->params) {
             ada_free_search_params(sp->params);
@@ -382,7 +379,7 @@ static void tjs_urlsearchparams_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_urlsearchparams_gc_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSURLSearchParams *sp = JS_GetOpaque(val, tjs_urlsearchparams_class_id);
+    TJSURLSearchParams *sp = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_URLSEARCHPARAMS));
     if (sp) {
         JS_MarkValue(rt, sp->url_obj, mark_func);
     }
@@ -395,11 +392,11 @@ static JSClassDef tjs_urlsearchparams_class = {
 };
 
 static TJSURLSearchParams *tjs_urlsp_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_urlsearchparams_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_URLSEARCHPARAMS));
 }
 
 static JSValue tjs_new_urlsearchparams_from_search(JSContext *ctx, const char *search, size_t len, JSValue url_obj) {
-    JSValue obj = JS_NewObjectClass(ctx, tjs_urlsearchparams_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_URLSEARCHPARAMS));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -418,7 +415,7 @@ static JSValue tjs_new_urlsearchparams_from_search(JSContext *ctx, const char *s
 
 /* Sync URLSearchParams changes back to parent URL. */
 static void tjs_urlsearchparams_sync_to_url(JSContext *ctx, JSValue sp_val) {
-    TJSURLSearchParams *sp = JS_GetOpaque2(ctx, sp_val, tjs_urlsearchparams_class_id);
+    TJSURLSearchParams *sp = JS_GetOpaque2(ctx, sp_val, tjs__class_id(ctx, TJS_CLASS_URLSEARCHPARAMS));
     if (!sp || JS_IsUndefined(sp->url_obj)) {
         return;
     }
@@ -463,7 +460,7 @@ static JSValue tjs_urlsearchparams_constructor(JSContext *ctx, JSValue new_targe
             JS_ToInt64(ctx, &len, len_val);
             JS_FreeValue(ctx, len_val);
 
-            obj = JS_NewObjectClass(ctx, tjs_urlsearchparams_class_id);
+            obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_URLSEARCHPARAMS));
             if (JS_IsException(obj)) {
                 return obj;
             }
@@ -499,10 +496,10 @@ static JSValue tjs_urlsearchparams_constructor(JSContext *ctx, JSValue new_targe
             return obj;
         } else if (JS_IsObject(argv[0])) {
             /* Check if it's a URLSearchParams instance. */
-            TJSURLSearchParams *other = JS_GetOpaque(argv[0], tjs_urlsearchparams_class_id);
+            TJSURLSearchParams *other = JS_GetOpaque(argv[0], tjs__class_id(ctx, TJS_CLASS_URLSEARCHPARAMS));
             if (other && other->params) {
                 ada_owned_string str = ada_search_params_to_string(other->params);
-                obj = JS_NewObjectClass(ctx, tjs_urlsearchparams_class_id);
+                obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_URLSEARCHPARAMS));
                 if (JS_IsException(obj)) {
                     ada_free_owned_string(str);
                     return obj;
@@ -527,7 +524,7 @@ static JSValue tjs_urlsearchparams_constructor(JSContext *ctx, JSValue new_targe
                 return JS_EXCEPTION;
             }
 
-            obj = JS_NewObjectClass(ctx, tjs_urlsearchparams_class_id);
+            obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_URLSEARCHPARAMS));
             if (JS_IsException(obj)) {
                 js_free(ctx, props);
                 return obj;
@@ -568,7 +565,7 @@ static JSValue tjs_urlsearchparams_constructor(JSContext *ctx, JSValue new_targe
     }
 
     /* Default: parse from string. */
-    obj = JS_NewObjectClass(ctx, tjs_urlsearchparams_class_id);
+    obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_URLSEARCHPARAMS));
     if (JS_IsException(obj)) {
         if (init_str_orig) {
             JS_FreeCString(ctx, init_str_orig);
@@ -879,27 +876,24 @@ static const JSCFunctionListEntry tjs_urlsearchparams_proto_funcs[] = {
  */
 
 void tjs__mod_url_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
     /* URL */
-    JS_NewClassID(rt, &tjs_url_class_id);
-    JS_NewClass(rt, tjs_url_class_id, &tjs_url_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_URL, &tjs_url_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_url_proto_funcs, countof(tjs_url_proto_funcs));
     obj = JS_NewCFunction2(ctx, tjs_url_constructor, "URL", 1, JS_CFUNC_constructor, 0);
     JS_SetPropertyFunctionList(ctx, obj, tjs_url_static_funcs, countof(tjs_url_static_funcs));
     JS_SetConstructor(ctx, obj, proto);
-    JS_SetClassProto(ctx, tjs_url_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_URL), proto);
     JS_DefinePropertyValueStr(ctx, ns, "URL", obj, JS_PROP_C_W_E);
 
     /* URLSearchParams */
-    JS_NewClassID(rt, &tjs_urlsearchparams_class_id);
-    JS_NewClass(rt, tjs_urlsearchparams_class_id, &tjs_urlsearchparams_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_URLSEARCHPARAMS, &tjs_urlsearchparams_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_urlsearchparams_proto_funcs, countof(tjs_urlsearchparams_proto_funcs));
     obj = JS_NewCFunction2(ctx, tjs_urlsearchparams_constructor, "URLSearchParams", 0, JS_CFUNC_constructor, 0);
     JS_SetConstructor(ctx, obj, proto);
-    JS_SetClassProto(ctx, tjs_urlsearchparams_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_URLSEARCHPARAMS), proto);
     JS_DefinePropertyValueStr(ctx, ns, "URLSearchParams", obj, JS_PROP_C_W_E);
 }
