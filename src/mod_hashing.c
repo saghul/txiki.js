@@ -93,10 +93,8 @@ typedef struct {
     } ctx;
 } TJSHash;
 
-static JSClassID tjs_hash_class_id;
-
 static void tjs_hash_finalizer(JSRuntime *rt, JSValue val) {
-    TJSHash *h = JS_GetOpaque(val, tjs_hash_class_id);
+    TJSHash *h = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_HASH));
     if (h) {
         switch (h->type) {
             case HASH_MD5:
@@ -149,7 +147,7 @@ static JSValue tjs_hash_constructor(JSContext *ctx, JSValue new_target, int argc
     }
     CHECK(type >= HASH_MD5 && type < HASH_MAX);
 
-    JSValue obj = JS_NewObjectClass(ctx, tjs_hash_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_HASH));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -247,7 +245,7 @@ static int tjs_hash_do_update(TJSHash *h, const uint8_t *data, size_t len) {
 }
 
 static JSValue tjs_hash_update(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSHash *h = JS_GetOpaque2(ctx, this_val, tjs_hash_class_id);
+    TJSHash *h = JS_GetOpaque2(ctx, this_val, tjs__class_id(ctx, TJS_CLASS_HASH));
     if (!h) {
         return JS_EXCEPTION;
     }
@@ -284,7 +282,7 @@ static JSValue tjs_hash_update(JSContext *ctx, JSValue this_val, int argc, JSVal
 }
 
 static JSValue tjs_hash_finish(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSHash *h = JS_GetOpaque2(ctx, this_val, tjs_hash_class_id);
+    TJSHash *h = JS_GetOpaque2(ctx, this_val, tjs__class_id(ctx, TJS_CLASS_HASH));
     if (!h) {
         return JS_EXCEPTION;
     }
@@ -359,14 +357,12 @@ static const JSCFunctionListEntry tjs_hash_consts[] = {
 /* clang-format on */
 
 void tjs__mod_hashing_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
-    JS_NewClassID(rt, &tjs_hash_class_id);
-    JS_NewClass(rt, tjs_hash_class_id, &tjs_hash_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_HASH, &tjs_hash_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_hash_proto_funcs, countof(tjs_hash_proto_funcs));
-    JS_SetClassProto(ctx, tjs_hash_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_HASH), proto);
 
     obj = JS_NewCFunction2(ctx, tjs_hash_constructor, "Hash", 1, JS_CFUNC_constructor, 0);
     JS_SetPropertyFunctionList(ctx, obj, tjs_hash_consts, countof(tjs_hash_consts));

@@ -64,10 +64,8 @@ typedef struct {
     uint32_t leftover_len;
 } TJS_utf8_decoder;
 
-static JSClassID tjs_utf8_decoder_class_id;
-
 static JSValue tjs_utf8_decoder_create(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
-    JSValue obj = JS_NewObjectClass(ctx, tjs_utf8_decoder_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_UTF8_DECODER));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -87,7 +85,7 @@ static JSValue tjs_utf8_decoder_create(JSContext *ctx, JSValueConst new_target, 
 }
 
 static void tjs_utf8_decoder_finalizer(JSRuntime *rt, JSValue val) {
-    TJS_utf8_decoder *d = JS_GetOpaque(val, tjs_utf8_decoder_class_id);
+    TJS_utf8_decoder *d = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_UTF8_DECODER));
     if (d) {
         js_free_rt(rt, d);
     }
@@ -214,7 +212,7 @@ static inline int tjs_utf8_decoder_process_item(JSContext *ctx,
 }
 
 static JSValue tjs_utf8_decoder_decode(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    TJS_utf8_decoder *d = JS_GetOpaque2(ctx, this_val, tjs_utf8_decoder_class_id);
+    TJS_utf8_decoder *d = JS_GetOpaque2(ctx, this_val, tjs__class_id(ctx, TJS_CLASS_UTF8_DECODER));
     if (!d) {
         return JS_ThrowTypeError(ctx, "object is not a Utf8Decoder");
     }
@@ -311,14 +309,13 @@ static const JSCFunctionListEntry tjs_utf8_decoder_proto_funcs[] = {
 };
 
 static void init_tjs_utf8_decoder_class(JSContext *ctx, JSValue obj) {
-    JS_NewClassID(JS_GetRuntime(ctx), &tjs_utf8_decoder_class_id);
-    JS_NewClass(JS_GetRuntime(ctx), tjs_utf8_decoder_class_id, &tjs_utf8_decoder_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_UTF8_DECODER, &tjs_utf8_decoder_class), 0);
     JSValue tjs_utf8_decoder_proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx,
                                tjs_utf8_decoder_proto,
                                tjs_utf8_decoder_proto_funcs,
                                countof(tjs_utf8_decoder_proto_funcs));
-    JS_SetClassProto(ctx, tjs_utf8_decoder_class_id, tjs_utf8_decoder_proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_UTF8_DECODER), tjs_utf8_decoder_proto);
     JSValue tjs_utf8_decoder_constructor =
         JS_NewCFunction2(ctx, tjs_utf8_decoder_create, tjs_utf8_decoder_class.class_name, 1, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx,

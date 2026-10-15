@@ -27,14 +27,12 @@
 #include <sqlite3.h>
 
 
-static JSClassID tjs_sqlite3_class_id;
-
 typedef struct {
     sqlite3 *handle;
 } TJSSqlite3Handle;
 
 static void tjs_sqlite3_finalizer(JSRuntime *rt, JSValue val) {
-    TJSSqlite3Handle *h = JS_GetOpaque(val, tjs_sqlite3_class_id);
+    TJSSqlite3Handle *h = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_SQLITE3));
     if (!h) {
         return;
     }
@@ -53,7 +51,7 @@ static JSValue tjs_new_sqlite3(JSContext *ctx, sqlite3 *handle) {
     TJSSqlite3Handle *h;
     JSValue obj;
 
-    obj = JS_NewObjectClass(ctx, tjs_sqlite3_class_id);
+    obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_SQLITE3));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -71,17 +69,15 @@ static JSValue tjs_new_sqlite3(JSContext *ctx, sqlite3 *handle) {
 }
 
 static TJSSqlite3Handle *tjs_sqlite3_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_sqlite3_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_SQLITE3));
 }
-
-static JSClassID tjs_sqlite3_stmt_class_id;
 
 typedef struct {
     sqlite3_stmt *stmt;
 } TJSSqlite3Stmt;
 
 static void tjs_sqlite3_stmt_finalizer(JSRuntime *rt, JSValue val) {
-    TJSSqlite3Stmt *h = JS_GetOpaque(val, tjs_sqlite3_stmt_class_id);
+    TJSSqlite3Stmt *h = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_SQLITE3_STMT));
     if (!h) {
         return;
     }
@@ -101,7 +97,7 @@ static JSValue tjs_new_sqlite3_stmt(JSContext *ctx, sqlite3_stmt *stmt) {
     TJSSqlite3Stmt *h;
     JSValue obj;
 
-    obj = JS_NewObjectClass(ctx, tjs_sqlite3_stmt_class_id);
+    obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_SQLITE3_STMT));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -119,7 +115,7 @@ static JSValue tjs_new_sqlite3_stmt(JSContext *ctx, sqlite3_stmt *stmt) {
 }
 
 static TJSSqlite3Stmt *tjs_sqlite3_stmt_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_sqlite3_stmt_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_SQLITE3_STMT));
 }
 
 JSValue tjs_throw_sqlite3_errno(JSContext *ctx, int err) {
@@ -605,17 +601,13 @@ static const JSCFunctionListEntry tjs_sqlite3_funcs[] = {
 };
 
 void tjs__mod_sqlite3_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
-
     /* Handle object */
-    JS_NewClassID(rt, &tjs_sqlite3_class_id);
-    JS_NewClass(rt, tjs_sqlite3_class_id, &tjs_sqlite3_class);
-    JS_SetClassProto(ctx, tjs_sqlite3_class_id, JS_NULL);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_SQLITE3, &tjs_sqlite3_class), 0);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_SQLITE3), JS_NULL);
 
     /* Statement object */
-    JS_NewClassID(rt, &tjs_sqlite3_stmt_class_id);
-    JS_NewClass(rt, tjs_sqlite3_stmt_class_id, &tjs_sqlite3_stmt_class);
-    JS_SetClassProto(ctx, tjs_sqlite3_stmt_class_id, JS_NULL);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_SQLITE3_STMT, &tjs_sqlite3_stmt_class), 0);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_SQLITE3_STMT), JS_NULL);
 
     JSValue obj = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyFunctionList(ctx, obj, tjs_sqlite3_funcs, countof(tjs_sqlite3_funcs));

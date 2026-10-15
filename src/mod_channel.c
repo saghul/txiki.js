@@ -293,10 +293,8 @@ struct TJSPort {
     JSValue deliver_fn; /* JS (data, ports, kind) -> dispatch */
 };
 
-static JSClassID tjs_port_class_id;
-
 static TJSPort *tjs_port_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_port_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_PORT));
 }
 
 static bool port_is_live(const TJSPort *p) {
@@ -309,7 +307,7 @@ static bool port_is_live(const TJSPort *p) {
  * initialized" flag. Failure can only happen before the refs are taken, so there
  * is nothing to unwind. */
 static JSValue tjs_new_port(JSContext *ctx, TJSMailbox *rx, TJSMailbox *tx) {
-    JSValue obj = JS_NewObjectClass(ctx, tjs_port_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_PORT));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -490,7 +488,7 @@ static void port_do_transfer(TJSPort *p, TJSPortRef *out) {
 }
 
 static void tjs_port_finalizer(JSRuntime *rt, JSValue val) {
-    TJSPort *p = JS_GetOpaque(val, tjs_port_class_id);
+    TJSPort *p = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_PORT));
     if (!p) {
         return;
     }
@@ -506,7 +504,7 @@ static void tjs_port_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_port_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSPort *p = JS_GetOpaque(val, tjs_port_class_id);
+    TJSPort *p = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_PORT));
     if (p) {
         JS_MarkValue(rt, p->deliver_fn, mark_func);
     }
@@ -732,8 +730,8 @@ void tjs__channel_mailbox_unref(TJSMailbox *mb) {
 
 /* Disentangle a worker-channel port and let its loop exit (used on terminate).
  * The handle stays valid; the finalizer reclaims it. */
-void tjs__channel_port_close(JSValue port_handle) {
-    TJSPort *p = JS_GetOpaque(port_handle, tjs_port_class_id);
+void tjs__channel_port_close(JSRuntime *rt, JSValue port_handle) {
+    TJSPort *p = JS_GetOpaque(port_handle, tjs__class_id_rt(rt, TJS_CLASS_PORT));
     if (p) {
         port_do_close(p);
     }
@@ -743,7 +741,7 @@ void tjs__channel_port_close(JSValue port_handle) {
  * `error_obj` is a structured-clonable {name, message, stack}. Best-effort: a
  * failure here must never mask the original error. */
 void tjs__channel_port_post_error(JSContext *ctx, JSValue port_handle, JSValueConst error_obj) {
-    TJSPort *p = JS_GetOpaque(port_handle, tjs_port_class_id);
+    TJSPort *p = JS_GetOpaque(port_handle, tjs__class_id(ctx, TJS_CLASS_PORT));
     if (!p || !port_is_live(p)) {
         return;
     }
@@ -767,10 +765,8 @@ struct TJSBroadcast {
     char name[];
 };
 
-static JSClassID tjs_broadcast_class_id;
-
 static TJSBroadcast *tjs_broadcast_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_broadcast_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_BROADCAST));
 }
 
 static void broadcast_dispatch_one(JSContext *ctx, TJSBroadcast *bc, TJSChannelMsg *m) {
@@ -841,7 +837,7 @@ static void broadcast_do_close(TJSBroadcast *bc) {
 }
 
 static void tjs_broadcast_finalizer(JSRuntime *rt, JSValue val) {
-    TJSBroadcast *bc = JS_GetOpaque(val, tjs_broadcast_class_id);
+    TJSBroadcast *bc = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_BROADCAST));
     if (!bc) {
         return;
     }
@@ -856,7 +852,7 @@ static void tjs_broadcast_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_broadcast_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSBroadcast *bc = JS_GetOpaque(val, tjs_broadcast_class_id);
+    TJSBroadcast *bc = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_BROADCAST));
     if (bc) {
         JS_MarkValue(rt, bc->deliver_fn, mark_func);
     }
@@ -877,7 +873,7 @@ static JSValue tjs_broadcast_new(JSContext *ctx, JSValue this_val, int argc, JSV
         return JS_EXCEPTION;
     }
 
-    JSValue obj = JS_NewObjectClass(ctx, tjs_broadcast_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_BROADCAST));
     if (JS_IsException(obj)) {
         JS_FreeCString(ctx, name);
         return obj;
@@ -976,22 +972,19 @@ static const JSCFunctionListEntry tjs_broadcast_proto_funcs[] = {
 };
 
 void tjs__mod_channel_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto;
 
     /* MessagePort handle class */
-    JS_NewClassID(rt, &tjs_port_class_id);
-    JS_NewClass(rt, tjs_port_class_id, &tjs_port_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_PORT, &tjs_port_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_port_proto_funcs, countof(tjs_port_proto_funcs));
-    JS_SetClassProto(ctx, tjs_port_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_PORT), proto);
 
     /* BroadcastChannel handle class */
-    JS_NewClassID(rt, &tjs_broadcast_class_id);
-    JS_NewClass(rt, tjs_broadcast_class_id, &tjs_broadcast_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_BROADCAST, &tjs_broadcast_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_broadcast_proto_funcs, countof(tjs_broadcast_proto_funcs));
-    JS_SetClassProto(ctx, tjs_broadcast_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_BROADCAST), proto);
 
     JS_DefinePropertyValueStr(ctx,
                               ns,

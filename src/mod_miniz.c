@@ -143,10 +143,8 @@ typedef struct {
     mz_ulong total_in;
 } TJSCompressor;
 
-static JSClassID tjs_compressor_class_id;
-
 static void tjs_compressor_finalizer(JSRuntime *rt, JSValue val) {
-    TJSCompressor *c = JS_GetOpaque(val, tjs_compressor_class_id);
+    TJSCompressor *c = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_COMPRESSOR));
     if (c) {
         if (c->initialized) {
             mz_deflateEnd(&c->stream);
@@ -170,7 +168,7 @@ static JSValue tjs_compressor_constructor(JSContext *ctx, JSValue new_target, in
         return JS_EXCEPTION;
     }
 
-    JSValue obj = JS_NewObjectClass(ctx, tjs_compressor_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_COMPRESSOR));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -211,7 +209,7 @@ static JSValue tjs_compressor_constructor(JSContext *ctx, JSValue new_target, in
 }
 
 static JSValue tjs_compressor_process(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSCompressor *c = JS_GetOpaque2(ctx, this_val, tjs_compressor_class_id);
+    TJSCompressor *c = JS_GetOpaque2(ctx, this_val, tjs__class_id(ctx, TJS_CLASS_COMPRESSOR));
     if (!c) {
         return JS_EXCEPTION;
     }
@@ -328,10 +326,8 @@ struct TJSDecompressor {
     mz_ulong total_out;
 };
 
-static JSClassID tjs_decompressor_class_id;
-
 static void tjs_decompressor_finalizer(JSRuntime *rt, JSValue val) {
-    TJSDecompressor *d = JS_GetOpaque(val, tjs_decompressor_class_id);
+    TJSDecompressor *d = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_DECOMPRESSOR));
     if (d) {
         tjs__decompressor_destroy(d, rt);
     }
@@ -360,7 +356,7 @@ static JSValue tjs_decompressor_constructor(JSContext *ctx, JSValue new_target, 
     }
     JS_FreeCString(ctx, str);
 
-    JSValue obj = JS_NewObjectClass(ctx, tjs_decompressor_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_DECOMPRESSOR));
     if (JS_IsException(obj)) {
         tjs__decompressor_destroy(d, JS_GetRuntime(ctx));
         return obj;
@@ -536,7 +532,7 @@ void tjs__decompressor_destroy(TJSDecompressor *d, JSRuntime *rt) {
 }
 
 static JSValue tjs_decompressor_process(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSDecompressor *d = JS_GetOpaque2(ctx, this_val, tjs_decompressor_class_id);
+    TJSDecompressor *d = JS_GetOpaque2(ctx, this_val, tjs__class_id(ctx, TJS_CLASS_DECOMPRESSOR));
     if (!d) {
         return JS_EXCEPTION;
     }
@@ -739,25 +735,22 @@ static JSValue tjs_zip_extract(JSContext *ctx, JSValue this_val, int argc, JSVal
 }
 
 void tjs__mod_miniz_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
     /* Compressor class. */
-    JS_NewClassID(rt, &tjs_compressor_class_id);
-    JS_NewClass(rt, tjs_compressor_class_id, &tjs_compressor_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_COMPRESSOR, &tjs_compressor_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_compressor_proto_funcs, countof(tjs_compressor_proto_funcs));
-    JS_SetClassProto(ctx, tjs_compressor_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_COMPRESSOR), proto);
 
     obj = JS_NewCFunction2(ctx, tjs_compressor_constructor, "Compressor", 1, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx, ns, "Compressor", obj, JS_PROP_C_W_E);
 
     /* Decompressor class. */
-    JS_NewClassID(rt, &tjs_decompressor_class_id);
-    JS_NewClass(rt, tjs_decompressor_class_id, &tjs_decompressor_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_DECOMPRESSOR, &tjs_decompressor_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_decompressor_proto_funcs, countof(tjs_decompressor_proto_funcs));
-    JS_SetClassProto(ctx, tjs_decompressor_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_DECOMPRESSOR), proto);
 
     obj = JS_NewCFunction2(ctx, tjs_decompressor_constructor, "Decompressor", 1, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx, ns, "Decompressor", obj, JS_PROP_C_W_E);

@@ -197,9 +197,6 @@ typedef struct {
     char *alpn; /* explicit ALPN protocol list (e.g. "h2"), or NULL for lws default */
 } TJSHttpServer;
 
-static JSClassID tjs_httpserver_class_id;
-static JSClassID tjs_wsconn_class_id;
-
 static void tjs_http_req_free(JSRuntime *rt, TJSHttpRequest *req) {
     if (!req) {
         return;
@@ -238,7 +235,7 @@ static void tjs_http_req_complete(TJSHttpServer *s, TJSHttpRequest *req) {
 }
 
 static void tjs_wsconn_finalizer(JSRuntime *rt, JSValue val) {
-    TJSWsConnection *ws = JS_GetOpaque(val, tjs_wsconn_class_id);
+    TJSWsConnection *ws = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WSCONN));
     if (ws) {
         JS_FreeValueRT(rt, ws->data);
         JS_FreeValueRT(rt, ws->header_names);
@@ -258,7 +255,7 @@ static void tjs_wsconn_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_wsconn_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSWsConnection *ws = JS_GetOpaque(val, tjs_wsconn_class_id);
+    TJSWsConnection *ws = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WSCONN));
     if (ws) {
         JS_MarkValue(rt, ws->data, mark_func);
         JS_MarkValue(rt, ws->header_names, mark_func);
@@ -273,7 +270,7 @@ static JSClassDef tjs_wsconn_class = {
 };
 
 static TJSWsConnection *tjs_wsconn_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_wsconn_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_WSCONN));
 }
 
 /* Clear the JS callbacks at teardown (see TJSHandlePin.detach) so the vhost
@@ -297,7 +294,7 @@ static void tjs_httpserver_detach(TJSHandlePin *pin) {
 }
 
 static void tjs_httpserver_finalizer(JSRuntime *rt, JSValue val) {
-    TJSHttpServer *s = JS_GetOpaque(val, tjs_httpserver_class_id);
+    TJSHttpServer *s = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_HTTPSERVER));
     if (s) {
         CHECK(JS_IsUndefined(s->pin.obj));
         JS_FreeValueRT(rt, s->callback);
@@ -341,7 +338,7 @@ static void tjs_httpserver_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_httpserver_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSHttpServer *s = JS_GetOpaque(val, tjs_httpserver_class_id);
+    TJSHttpServer *s = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_HTTPSERVER));
     if (s) {
         JS_MarkValue(rt, s->callback, mark_func);
         JS_MarkValue(rt, s->body_chunk_callback, mark_func);
@@ -359,7 +356,7 @@ static JSClassDef tjs_httpserver_class = {
 };
 
 static TJSHttpServer *tjs_httpserver_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_httpserver_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_HTTPSERVER));
 }
 
 static int tjs_http_chunk_hex_value(uint8_t c) {
@@ -1369,7 +1366,7 @@ static JSValue tjs_httpserver_accept_upgrade(JSContext *ctx, JSValue this_val, i
     }
 
     /* Create JS object. */
-    JSValue ws_obj = JS_NewObjectClass(ctx, tjs_wsconn_class_id);
+    JSValue ws_obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_WSCONN));
     if (JS_IsException(ws_obj)) {
         JS_FreeValue(ctx, ws->data);
         tbuf_free(&ws->recv_buf);
@@ -1410,7 +1407,7 @@ static JSValue tjs_httpserver_accept_upgrade(JSContext *ctx, JSValue this_val, i
  *   requestCert: boolean    (require client certificate)
  */
 static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
-    JSValue obj = JS_NewObjectClass(ctx, tjs_httpserver_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_HTTPSERVER));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -2362,22 +2359,19 @@ static const JSCFunctionListEntry tjs_httpserver_proto_funcs[] = {
 };
 
 void tjs__mod_httpserver_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
     /* WsConnection class */
-    JS_NewClassID(rt, &tjs_wsconn_class_id);
-    JS_NewClass(rt, tjs_wsconn_class_id, &tjs_wsconn_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_WSCONN, &tjs_wsconn_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_wsconn_proto_funcs, countof(tjs_wsconn_proto_funcs));
-    JS_SetClassProto(ctx, tjs_wsconn_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_WSCONN), proto);
 
     /* HttpServer class */
-    JS_NewClassID(rt, &tjs_httpserver_class_id);
-    JS_NewClass(rt, tjs_httpserver_class_id, &tjs_httpserver_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_HTTPSERVER, &tjs_httpserver_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_httpserver_proto_funcs, countof(tjs_httpserver_proto_funcs));
-    JS_SetClassProto(ctx, tjs_httpserver_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_HTTPSERVER), proto);
 
     /* HttpServer constructor */
     obj = JS_NewCFunction2(ctx, tjs_httpserver_constructor, "HttpServer", 1, JS_CFUNC_constructor, 0);

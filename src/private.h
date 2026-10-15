@@ -86,6 +86,49 @@ typedef struct TJSHandlePin {
     void (*detach)(struct TJSHandlePin *pin);
 } TJSHandlePin;
 
+/* Native classes. Their JSClassIDs are allocated per runtime (TJSRuntime.class_ids),
+ * since each runtime numbers its classes independently. */
+typedef enum {
+    TJS_CLASS_HTTPCLIENT,
+    TJS_CLASS_HTTPSERVER,
+    TJS_CLASS_WSCONN,
+    TJS_CLASS_PORT,
+    TJS_CLASS_BROADCAST,
+    TJS_CLASS_FFI_POINTER,
+    TJS_CLASS_FFI_EXTERNAL_AB,
+    TJS_CLASS_FFI_TYPE,
+    TJS_CLASS_UV_DLSYM,
+    TJS_CLASS_FFI_CIF,
+    TJS_CLASS_UV_LIB,
+    TJS_CLASS_FFI_CLOSURE,
+    TJS_CLASS_FILE,
+    TJS_CLASS_DIR,
+    TJS_CLASS_DIRENT,
+    TJS_CLASS_STAT,
+    TJS_CLASS_FSWATCH,
+    TJS_CLASS_HASH,
+    TJS_CLASS_COMPRESSOR,
+    TJS_CLASS_DECOMPRESSOR,
+    TJS_CLASS_SOCK,
+    TJS_CLASS_PROCESS,
+    TJS_CLASS_SQLITE3,
+    TJS_CLASS_SQLITE3_STMT,
+    TJS_CLASS_TCP,
+    TJS_CLASS_TTY,
+    TJS_CLASS_PIPE,
+    TJS_CLASS_TLS,
+    TJS_CLASS_UDP,
+    TJS_CLASS_SIGNAL_HANDLER,
+    TJS_CLASS_UTF8_DECODER,
+    TJS_CLASS_URLSEARCHPARAMS,
+    TJS_CLASS_URL,
+    TJS_CLASS_WASM_MODULE,
+    TJS_CLASS_WASM_INSTANCE,
+    TJS_CLASS_WORKER,
+    TJS_CLASS_WS,
+    TJS_CLASS__COUNT
+} TJSClass;
+
 struct TJSRuntime {
     TJSRunOptions options;
     JSRuntime *rt;
@@ -141,7 +184,20 @@ struct TJSRuntime {
     /* Self-pins of all active native handles (TJSHandlePin), so teardown can
      * drop them and let the final GC collect and close the handles. */
     struct list_head handle_pins;
+    JSClassID class_ids[TJS_CLASS__COUNT];
 };
+
+static inline JSClassID tjs__class_id(JSContext *ctx, TJSClass c) {
+    return ((TJSRuntime *) JS_GetContextOpaque(ctx))->class_ids[c];
+}
+
+static inline JSClassID tjs__class_id_rt(JSRuntime *rt, TJSClass c) {
+    return ((TJSRuntime *) JS_GetRuntimeOpaque(rt))->class_ids[c];
+}
+
+/* Allocate (in this runtime) and register a native class. Idempotent per runtime.
+ * Returns -1 with an exception pending on failure. */
+int tjs__class_register(JSContext *ctx, TJSClass c, const JSClassDef *def);
 
 /* Pin/unpin a native handle's JS wrapper for the duration of an async op, and
  * register/deregister the pin so teardown can release it. Idempotent: pinning an
@@ -165,7 +221,7 @@ typedef struct TJSMailbox TJSMailbox;
 bool tjs__channel_mailbox_pair(TJSMailbox **a, TJSMailbox **b);
 JSValue tjs__channel_port_new(JSContext *ctx, TJSMailbox *rx, TJSMailbox *tx);
 void tjs__channel_mailbox_unref(TJSMailbox *mb);
-void tjs__channel_port_close(JSValue port_handle);
+void tjs__channel_port_close(JSRuntime *rt, JSValue port_handle);
 void tjs__channel_port_post_error(JSContext *ctx, JSValue port_handle, JSValueConst error_obj);
 
 void tjs__mod_dns_init(JSContext *ctx, JSValue ns);

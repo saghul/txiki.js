@@ -87,10 +87,8 @@ typedef struct {
     TJSDecompressor *decompressor;
 } TJSHttpClient;
 
-static JSClassID tjs_httpclient_class_id;
-
 static void tjs_httpclient_finalizer(JSRuntime *rt, JSValue val) {
-    TJSHttpClient *h = JS_GetOpaque(val, tjs_httpclient_class_id);
+    TJSHttpClient *h = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_HTTPCLIENT));
     if (h) {
         /* A pinned client holds a ref to itself, so it can't be finalized until
          * the pin is released (in the lws close callback). */
@@ -115,7 +113,7 @@ static void tjs_httpclient_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_httpclient_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSHttpClient *h = JS_GetOpaque(val, tjs_httpclient_class_id);
+    TJSHttpClient *h = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_HTTPCLIENT));
     if (h) {
         for (int i = 0; i < HC_CALLBACK_MAX; i++) {
             JS_MarkValue(rt, h->callbacks[i], mark_func);
@@ -131,7 +129,7 @@ static JSClassDef tjs_httpclient_class = {
 };
 
 static TJSHttpClient *tjs_httpclient_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_httpclient_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_HTTPCLIENT));
 }
 
 /* Clear the JS callbacks at teardown (see TJSHandlePin.detach) so the lws close
@@ -756,7 +754,7 @@ const struct lws_protocols tjs_http_protocol = {
 };
 
 static JSValue tjs_httpclient_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
-    JSValue obj = JS_NewObjectClass(ctx, tjs_httpclient_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_HTTPCLIENT));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -1154,15 +1152,13 @@ static const JSCFunctionListEntry tjs_httpclient_proto_funcs[] = {
 };
 
 void tjs__mod_httpclient_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
     /* HttpClient class */
-    JS_NewClassID(rt, &tjs_httpclient_class_id);
-    JS_NewClass(rt, tjs_httpclient_class_id, &tjs_httpclient_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_HTTPCLIENT, &tjs_httpclient_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_httpclient_proto_funcs, countof(tjs_httpclient_proto_funcs));
-    JS_SetClassProto(ctx, tjs_httpclient_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_HTTPCLIENT), proto);
 
     /* HttpClient constructor */
     obj = JS_NewCFunction2(ctx, tjs_httpclient_constructor, "HttpClient", 0, JS_CFUNC_constructor, 0);

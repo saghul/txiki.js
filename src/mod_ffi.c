@@ -31,14 +31,11 @@ SOFTWARE.
 
 #define TJS_CONST_STRING_DEF(x) JS_PROP_STRING_DEF(#x, x, JS_PROP_ENUMERABLE)
 
-static JSClassID js_ffi_pointer_classid;
-static JSClassID js_ffi_external_ab_classid;
-
 static JSValue js_ffi_pointer_new(JSContext *ctx, void *ptr) {
     if (ptr == NULL) {
         return JS_NULL;
     }
-    JSValue obj = JS_NewObjectClass(ctx, js_ffi_pointer_classid);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_FFI_POINTER));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -46,10 +43,10 @@ static JSValue js_ffi_pointer_new(JSContext *ctx, void *ptr) {
     return obj;
 }
 
-#define JS_IS_PTR(ctx, x) (JS_GetOpaque((x), js_ffi_pointer_classid) != NULL)
+#define JS_IS_PTR(ctx, x) (JS_GetOpaque((x), tjs__class_id(ctx, TJS_CLASS_FFI_POINTER)) != NULL)
 #define JS_TO_UINTPTR_T(ctx, pres, val)                                                                                \
     do {                                                                                                               \
-        *(void **) (pres) = JS_GetOpaque((val), js_ffi_pointer_classid);                                               \
+        *(void **) (pres) = JS_GetOpaque((val), tjs__class_id(ctx, TJS_CLASS_FFI_POINTER));                            \
     } while (0)
 #define JS_NEW_UINTPTR_T(ctx, val) js_ffi_pointer_new((ctx), (void *) (uintptr_t) (val))
 
@@ -137,7 +134,6 @@ size_t ffi_type_get_sz(ffi_type *type) {
     return type->size;
 }
 
-static JSClassID js_ffi_type_classid;
 static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JSValue *types = argv;
     size_t typeCnt = argc;
@@ -155,14 +151,14 @@ static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValue this_val, int a
         }
     }
     for (unsigned i = 0; i < typeCnt; i++) {
-        ffi_type *t = JS_GetOpaque(types[i], js_ffi_type_classid);
+        ffi_type *t = JS_GetOpaque(types[i], tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
         if (t == NULL) {
             JS_ThrowTypeError(ctx, "argument %lld is not a FfiType", (long long int) ((types - argv) + i + 1));
             return JS_EXCEPTION;
         }
     }
 
-    JSValue obj = JS_NewObjectClass(ctx, js_ffi_type_classid);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -170,7 +166,7 @@ static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValue this_val, int a
     ffi_type **elements;
     if (arrSz > 0) {
         elements = js_malloc(ctx, sizeof(ffi_type *) * (arrSz + 1));
-        js_ffi_type *jst = JS_GetOpaque(types[0], js_ffi_type_classid);
+        js_ffi_type *jst = JS_GetOpaque(types[0], tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
         for (unsigned i = 0; i < arrSz; i++) {
             elements[i] = jst->ffi_type;
         }
@@ -178,7 +174,7 @@ static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValue this_val, int a
     } else {
         elements = js_malloc(ctx, sizeof(ffi_type *) * (typeCnt + 1));
         for (unsigned i = 0; i < typeCnt; i++) {
-            js_ffi_type *jst = JS_GetOpaque(types[i], js_ffi_type_classid);
+            js_ffi_type *jst = JS_GetOpaque(types[i], tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
             elements[i] = jst->ffi_type;
         }
         elements[typeCnt] = NULL;
@@ -227,7 +223,7 @@ static JSValue js_ffi_type_create_struct(JSContext *ctx, JSValue this_val, int a
 }
 
 static JSValue ffi_type_create_existing(JSContext *ctx, ffi_type *exist, const char *name) {
-    JSValue obj = JS_NewObjectClass(ctx, js_ffi_type_classid);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -245,7 +241,7 @@ static JSValue ffi_type_create_existing(JSContext *ctx, ffi_type *exist, const c
 }
 
 static void js_ffi_type_finalizer(JSRuntime *rt, JSValue val) {
-    js_ffi_type *u = JS_GetOpaque(val, js_ffi_type_classid);
+    js_ffi_type *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_FFI_TYPE));
     if (u) {
         if (u->dynamic) {
             for (unsigned i = 0; i < u->elemCount; i++) {
@@ -265,7 +261,7 @@ static void js_ffi_type_finalizer(JSRuntime *rt, JSValue val) {
     }
 }
 static void js_ffi_type_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    js_ffi_type *u = JS_GetOpaque(val, js_ffi_type_classid);
+    js_ffi_type *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_FFI_TYPE));
     if (u) {
         for (unsigned i = 0; i < u->elemCount; i++) {
             JS_MarkValue(rt, u->deps[i], mark_func);
@@ -275,7 +271,7 @@ static void js_ffi_type_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func)
 JSClassDef js_ffi_type_class = { "FfiType", .finalizer = js_ffi_type_finalizer, .gc_mark = js_ffi_type_mark };
 
 static JSValue js_ffi_type_get_sz(JSContext *ctx, JSValue this_val) {
-    js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
+    js_ffi_type *type = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
     if (type == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be FfiType");
         return JS_EXCEPTION;
@@ -288,7 +284,7 @@ static JSValue js_ffi_type_get_sz(JSContext *ctx, JSValue this_val) {
 // tables for the primitive types. Structs laid out from JS need it (a struct's
 // alignment is not derivable from its members' sizes on every ABI).
 static JSValue js_ffi_type_get_alignment(JSContext *ctx, JSValue this_val) {
-    js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
+    js_ffi_type *type = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
     if (type == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be FfiType");
         return JS_EXCEPTION;
@@ -414,7 +410,7 @@ int ffi_type_to_buffer(JSContext *ctx, JSValue val, ffi_type *type, uint8_t *buf
 }
 
 static JSValue js_ffi_type_to_buffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
+    js_ffi_type *type = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
     if (type == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be FfiType");
         return JS_EXCEPTION;
@@ -504,7 +500,7 @@ static int ffi_type_from_buffer(JSContext *ctx, ffi_type *type, uint8_t *buf, JS
 }
 
 static JSValue js_ffi_type_from_buffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
+    js_ffi_type *type = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
     if (type == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be FfiType");
         return JS_EXCEPTION;
@@ -532,7 +528,7 @@ static JSValue js_ffi_type_from_buffer(JSContext *ctx, JSValue this_val, int arg
 }
 
 static JSValue js_ffi_type_name(JSContext *ctx, JSValue this_val) {
-    js_ffi_type *type = JS_GetOpaque(this_val, js_ffi_type_classid);
+    js_ffi_type *type = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
     if (type == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be FfiType");
         return JS_EXCEPTION;
@@ -552,8 +548,6 @@ static const JSCFunctionListEntry js_ffi_type_proto_funcs[] = {
 #pragma region "UvDlSym class definition"
 // =======================================
 
-static JSClassID js_uv_dlsym_classid;
-
 JSClassDef js_uv_dlsym_class = {
     "UvDlSym",
 };
@@ -564,7 +558,7 @@ static JSValue js_uv_dlsym_create(JSContext *ctx, JSValue this_val, int argc, JS
 }
 
 static JSValue js_uv_dlsym_get_addr(JSContext *ctx, JSValue this_val) {
-    void *ptr = JS_GetOpaque(this_val, js_uv_dlsym_classid);
+    void *ptr = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_UV_DLSYM));
     if (ptr == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be UvDlSym");
         return JS_EXCEPTION;
@@ -580,7 +574,6 @@ static const JSCFunctionListEntry js_uv_dlsym_proto_funcs[] = {
 #pragma region "FfiCif class definition"
 // ======================================
 
-static JSClassID js_ffi_cif_classid;
 typedef struct {
     ffi_cif ffi_cif;
     ffi_type **args;
@@ -601,14 +594,14 @@ static JSValue js_ffi_cif_create(JSContext *ctx, JSValue this_val, int argc, JSV
         ntotalargs = argc - 2;
     }
     for (unsigned i = 0; i < ntotalargs + 1; i++) {
-        ffi_type *t = JS_GetOpaque(argv[i], js_ffi_type_classid);
+        ffi_type *t = JS_GetOpaque(argv[i], tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
         if (t == NULL) {
             JS_ThrowTypeError(ctx, "argument %d is not a FfiType", i + 1);
             return JS_EXCEPTION;
         }
     }
 
-    JSValue obj = JS_NewObjectClass(ctx, js_ffi_cif_classid);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_FFI_CIF));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -625,7 +618,7 @@ static JSValue js_ffi_cif_create(JSContext *ctx, JSValue this_val, int argc, JSV
     ffi_type *retType;
 
     if (argc > 0) {
-        js_ffi_type *jst = JS_GetOpaque(argv[0], js_ffi_type_classid);
+        js_ffi_type *jst = JS_GetOpaque(argv[0], tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
         retType = jst->ffi_type;
     } else {
         retType = &ffi_type_void;
@@ -636,7 +629,7 @@ static JSValue js_ffi_cif_create(JSContext *ctx, JSValue this_val, int argc, JSV
     }
 
     for (unsigned i = 1; i < ntotalargs + 1; i++) {
-        js_ffi_type *jst = JS_GetOpaque(argv[i], js_ffi_type_classid);
+        js_ffi_type *jst = JS_GetOpaque(argv[i], tjs__class_id(ctx, TJS_CLASS_FFI_TYPE));
         js_cif->args[i - 1] = jst->ffi_type;
     }
 
@@ -658,7 +651,7 @@ static JSValue js_ffi_cif_create(JSContext *ctx, JSValue this_val, int argc, JSV
 }
 
 static void js_ffi_cif_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    js_ffi_cif *u = JS_GetOpaque(val, js_ffi_cif_classid);
+    js_ffi_cif *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_FFI_CIF));
     if (u) {
         for (unsigned i = 0; i < u->depsCount; i++) {
             JS_MarkValue(rt, u->deps[i], mark_func);
@@ -667,7 +660,7 @@ static void js_ffi_cif_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) 
 }
 
 static void js_ffi_cif_finalizer(JSRuntime *rt, JSValue val) {
-    js_ffi_cif *u = JS_GetOpaque(val, js_ffi_cif_classid);
+    js_ffi_cif *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_FFI_CIF));
     if (u) {
         for (unsigned i = 0; i < u->depsCount; i++) {
             JS_FreeValueRT(rt, u->deps[i]);
@@ -683,13 +676,13 @@ static void js_ffi_cif_finalizer(JSRuntime *rt, JSValue val) {
 JSClassDef js_ffi_cif_class = { "FfiCif", .finalizer = js_ffi_cif_finalizer, .gc_mark = js_ffi_cif_mark };
 
 static JSValue js_ffi_cif_call(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    js_ffi_cif *cif = JS_GetOpaque(this_val, js_ffi_cif_classid);
+    js_ffi_cif *cif = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_CIF));
     if (!cif) {
         JS_ThrowTypeError(ctx, "this must be FfiCif");
         return JS_EXCEPTION;
     }
     void *func;
-    if (argc <= 0 || (func = JS_GetOpaque(argv[0], js_uv_dlsym_classid)) == NULL) {
+    if (argc <= 0 || (func = JS_GetOpaque(argv[0], tjs__class_id(ctx, TJS_CLASS_UV_DLSYM))) == NULL) {
         JS_ThrowTypeError(ctx, "argument 1 must be UvDlsym");
         return JS_EXCEPTION;
     }
@@ -779,14 +772,14 @@ typedef union {
 } tjs_ffi_value;
 
 static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    js_ffi_cif *cif = JS_GetOpaque(this_val, js_ffi_cif_classid);
+    js_ffi_cif *cif = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_CIF));
     if (!cif) {
         JS_ThrowTypeError(ctx, "this must be FfiCif");
         return JS_EXCEPTION;
     }
 
     void *func;
-    if (argc < 4 || (func = JS_GetOpaque(argv[0], js_uv_dlsym_classid)) == NULL) {
+    if (argc < 4 || (func = JS_GetOpaque(argv[0], tjs__class_id(ctx, TJS_CLASS_UV_DLSYM))) == NULL) {
         JS_ThrowTypeError(ctx, "argument 1 must be UvDlsym");
         return JS_EXCEPTION;
     }
@@ -855,7 +848,7 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
             }
             // A NativePointer holds the address in the class opaque, not in heap
             // storage, so the value read here stays valid after the JSValue is freed.
-            void *cbp = JS_GetOpaque(addr, js_ffi_pointer_classid);
+            void *cbp = JS_GetOpaque(addr, tjs__class_id(ctx, TJS_CLASS_FFI_POINTER));
             JS_FreeValue(ctx, addr);
             if (!cbp) {
                 JS_ThrowTypeError(ctx, "argument %d must be a JSCallback", i + 1);
@@ -924,7 +917,7 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
                 if (JS_IsNull(val)) {
                     arg_storage[i].p = NULL;
                 } else {
-                    void *p = JS_GetOpaque(val, js_ffi_pointer_classid);
+                    void *p = JS_GetOpaque(val, tjs__class_id(ctx, TJS_CLASS_FFI_POINTER));
                     if (p) {
                         arg_storage[i].p = p;
                     } else {
@@ -1014,10 +1007,9 @@ static const JSCFunctionListEntry js_ffi_cif_proto_funcs[] = {
 #pragma region "UvLib class definition"
 // =====================================
 
-static JSClassID js_uv_lib_classid;
 static JSValue js_uv_lib_create(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
-    JSValue obj = JS_NewObjectClass(ctx, js_uv_lib_classid);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_UV_LIB));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -1036,7 +1028,7 @@ static JSValue js_uv_lib_create(JSContext *ctx, JSValue this_val, int argc, JSVa
 }
 
 static void js_uv_lib_finalizer(JSRuntime *rt, JSValue val) {
-    uv_lib_t *u = JS_GetOpaque(val, js_uv_lib_classid);
+    uv_lib_t *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_UV_LIB));
     if (u) {
         uv_dlclose(u);
         js_free_rt(rt, u);
@@ -1046,13 +1038,13 @@ static void js_uv_lib_finalizer(JSRuntime *rt, JSValue val) {
 static JSValue js_uv_lib_dlsym(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJS_CHECK_ARG_RET(ctx, JS_IsString(argv[0]), 0, "string");
 
-    uv_lib_t *lib = JS_GetOpaque(this_val, js_uv_lib_classid);
+    uv_lib_t *lib = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_UV_LIB));
     if (lib == NULL) {
         JS_ThrowTypeError(ctx, "this needs to be instance of UvLib");
         return JS_EXCEPTION;
     }
 
-    JSValue obj = JS_NewObjectClass(ctx, js_uv_dlsym_classid);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_UV_DLSYM));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -1072,7 +1064,7 @@ static JSValue js_uv_lib_dlsym(JSContext *ctx, JSValue this_val, int argc, JSVal
 }
 
 static JSValue js_uv_lib_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    uv_lib_t *u = JS_GetOpaque(this_val, js_uv_lib_classid);
+    uv_lib_t *u = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_UV_LIB));
     if (u) {
         uv_dlclose(u);
         js_free(ctx, u);
@@ -1259,7 +1251,7 @@ static JSValue js_ffi_new_external_arraybuffer(JSContext *ctx, uint8_t *base, si
     if (JS_IsException(ab)) {
         return ab;
     }
-    JSValue proto = JS_GetClassProto(ctx, js_ffi_external_ab_classid);
+    JSValue proto = JS_GetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_FFI_EXTERNAL_AB));
     JS_SetPrototype(ctx, ab, proto);
     JS_FreeValue(ctx, proto);
     return ab;
@@ -1318,7 +1310,6 @@ static JSValue js_deref_ptr(JSContext *ctx, JSValue this_val, int argc, JSValue 
 
 // ======================================
 
-static JSClassID js_ffi_closure_classid;
 typedef struct {
     ffi_closure closure;
     void *code;
@@ -1371,13 +1362,13 @@ static JSValue js_ffi_closure_create(JSContext *ctx, JSValue this_val, int argc,
     TJS_CHECK_ARG_RET(ctx, JS_IsObject(argv[0]), 0, "object");
     TJS_CHECK_ARG_RET(ctx, JS_IsFunction(ctx, argv[1]), 1, "function");
 
-    js_ffi_cif *cif = JS_GetOpaque(argv[0], js_ffi_cif_classid);
+    js_ffi_cif *cif = JS_GetOpaque(argv[0], tjs__class_id(ctx, TJS_CLASS_FFI_CIF));
     if (!cif) {
         JS_ThrowTypeError(ctx, "argument 1 is expected to be FfiCif");
         return JS_EXCEPTION;
     }
 
-    JSValue obj = JS_NewObjectClass(ctx, js_ffi_closure_classid);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_FFI_CLOSURE));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -1401,7 +1392,7 @@ static JSValue js_ffi_closure_create(JSContext *ctx, JSValue this_val, int argc,
 }
 
 static void js_ffi_closure_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    js_ffi_closure *u = JS_GetOpaque(val, js_ffi_closure_classid);
+    js_ffi_closure *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_FFI_CLOSURE));
     if (u) {
         JS_MarkValue(rt, u->cif, mark_func);
         JS_MarkValue(rt, u->func, mark_func);
@@ -1409,7 +1400,7 @@ static void js_ffi_closure_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_fu
 }
 
 static void js_ffi_closure_finalizer(JSRuntime *rt, JSValue val) {
-    js_ffi_closure *u = JS_GetOpaque(val, js_ffi_closure_classid);
+    js_ffi_closure *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_FFI_CLOSURE));
     if (u) {
         JS_FreeValueRT(rt, u->cif);
         JS_FreeValueRT(rt, u->func);
@@ -1422,7 +1413,7 @@ JSClassDef js_ffi_closure_class = { "FfiClosure",
                                     .gc_mark = js_ffi_closure_mark };
 
 static JSValue js_ffi_closure_get_addr(JSContext *ctx, JSValue this_val) {
-    js_ffi_closure *ptr = JS_GetOpaque(this_val, js_ffi_closure_classid);
+    js_ffi_closure *ptr = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_CLOSURE));
     if (ptr == NULL) {
         JS_ThrowTypeError(ctx, "expected this to be FfiClosure");
         return JS_EXCEPTION;
@@ -1440,7 +1431,7 @@ static const JSCFunctionListEntry js_ffi_closure_proto_funcs[] = {
 // =========================================
 
 static JSValue js_ffi_pointer_to_string(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    void *ptr = JS_GetOpaque(this_val, js_ffi_pointer_classid);
+    void *ptr = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_POINTER));
     if (!ptr) {
         JS_ThrowTypeError(ctx, "expected this to be Pointer");
         return JS_EXCEPTION;
@@ -1456,7 +1447,7 @@ static JSValue js_ffi_pointer_to_string(JSContext *ctx, JSValue this_val, int ar
 // supported way to move a pointer across a same-process worker thread: postMessage
 // the BigInt (structured-cloneable), then rebuild it with createPointer().
 static JSValue js_ffi_pointer_get_value(JSContext *ctx, JSValue this_val) {
-    void *ptr = JS_GetOpaque(this_val, js_ffi_pointer_classid);
+    void *ptr = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_POINTER));
     if (!ptr) {
         JS_ThrowTypeError(ctx, "expected this to be Pointer");
         return JS_EXCEPTION;
@@ -1465,7 +1456,7 @@ static JSValue js_ffi_pointer_get_value(JSContext *ctx, JSValue this_val) {
 }
 
 static JSValue js_ffi_pointer_offset(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    void *ptr = JS_GetOpaque(this_val, js_ffi_pointer_classid);
+    void *ptr = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_POINTER));
     if (!ptr) {
         JS_ThrowTypeError(ctx, "expected this to be Pointer");
         return JS_EXCEPTION;
@@ -1478,7 +1469,7 @@ static JSValue js_ffi_pointer_offset(JSContext *ctx, JSValue this_val, int argc,
 }
 
 static JSValue js_ffi_pointer_equals(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    void *ptr = JS_GetOpaque(this_val, js_ffi_pointer_classid);
+    void *ptr = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_POINTER));
     if (!ptr) {
         JS_ThrowTypeError(ctx, "expected this to be Pointer");
         return JS_EXCEPTION;
@@ -1486,7 +1477,7 @@ static JSValue js_ffi_pointer_equals(JSContext *ctx, JSValue this_val, int argc,
     if (JS_IsNull(argv[0])) {
         return JS_FALSE;
     }
-    void *other = JS_GetOpaque(argv[0], js_ffi_pointer_classid);
+    void *other = JS_GetOpaque(argv[0], tjs__class_id(ctx, TJS_CLASS_FFI_POINTER));
     return JS_NewBool(ctx, ptr == other);
 }
 
@@ -1494,7 +1485,7 @@ static JSValue js_ffi_pointer_equals(JSContext *ctx, JSValue this_val, int argc,
 // this pointer plus an optional `byteOffset`. The buffer aliases the native
 // memory; no copy is made and the runtime does not take ownership of it.
 static JSValue js_ffi_pointer_to_arraybuffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    void *ptr = JS_GetOpaque(this_val, js_ffi_pointer_classid);
+    void *ptr = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_FFI_POINTER));
     if (!ptr) {
         JS_ThrowTypeError(ctx, "expected this to be Pointer");
         return JS_EXCEPTION;
@@ -1538,7 +1529,7 @@ static const JSCFunctionListEntry js_ffi_pointer_proto_funcs[] = {
 // ============================
 
 static void *js_ptr_read_get(JSContext *ctx, int argc, JSValue *argv) {
-    void *ptr = JS_GetOpaque(argv[0], js_ffi_pointer_classid);
+    void *ptr = JS_GetOpaque(argv[0], tjs__class_id(ctx, TJS_CLASS_FFI_POINTER));
     if (!ptr) {
         JS_ThrowTypeError(ctx, "argument 1 must be a pointer");
         return NULL;
@@ -1670,12 +1661,14 @@ static const JSCFunctionListEntry funcs[] = {
     TJS_CONST_STRING_DEF(LIBM_NAME),
 };
 
-#define REGISTER_CLASS(ctx, name)                                                                                      \
-    JS_NewClassID(JS_GetRuntime(ctx), &name##_classid);                                                                \
-    JS_NewClass(JS_GetRuntime(ctx), name##_classid, &name##_class);                                                    \
+#define REGISTER_CLASS(ctx, name, cid)                                                                                 \
+    if (tjs__class_register(ctx, cid, &name##_class) < 0) {                                                            \
+        JS_FreeValue(ctx, ffiobj);                                                                                     \
+        return JS_EXCEPTION;                                                                                           \
+    }                                                                                                                  \
     JSValue name##_proto = JS_NewObject(ctx);                                                                          \
     JS_SetPropertyFunctionList(ctx, name##_proto, name##_proto_funcs, countof(name##_proto_funcs));                    \
-    JS_SetClassProto(ctx, name##_classid, name##_proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, cid), name##_proto);
 
 #define CLASS_CREATE_CONSTRUCTOR(ctx, name, ns, constructor)                                                           \
     JSValue name##_constructor =                                                                                       \
@@ -1696,21 +1689,25 @@ static JSValue tjs__mod_ffi_init_js(JSContext *ctx, JSValue this_val, int argc, 
     JSValue ffiobj = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, ffiobj, funcs, countof(funcs));
 
-    JS_NewClassID(JS_GetRuntime(ctx), &js_ffi_pointer_classid);
-    JS_NewClass(JS_GetRuntime(ctx), js_ffi_pointer_classid, &js_ffi_pointer_class);
+    if (tjs__class_register(ctx, TJS_CLASS_FFI_POINTER, &js_ffi_pointer_class) < 0) {
+        JS_FreeValue(ctx, ffiobj);
+        return JS_EXCEPTION;
+    }
     JSValue js_ffi_pointer_proto = JS_NewObjectProto(ctx, JS_NULL);
     JS_SetPropertyFunctionList(ctx,
                                js_ffi_pointer_proto,
                                js_ffi_pointer_proto_funcs,
                                countof(js_ffi_pointer_proto_funcs));
-    JS_SetClassProto(ctx, js_ffi_pointer_classid, js_ffi_pointer_proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_FFI_POINTER), js_ffi_pointer_proto);
 
     // ExternalArrayBuffer: prototype chains to ArrayBuffer.prototype and adds
     // detach(). The class id is used purely to stash the prototype so the view
     // methods can reparent the buffers they create; the constructor exists only
     // to back `instanceof` (it throws if actually called).
-    JS_NewClassID(JS_GetRuntime(ctx), &js_ffi_external_ab_classid);
-    JS_NewClass(JS_GetRuntime(ctx), js_ffi_external_ab_classid, &js_ffi_external_ab_class);
+    if (tjs__class_register(ctx, TJS_CLASS_FFI_EXTERNAL_AB, &js_ffi_external_ab_class) < 0) {
+        JS_FreeValue(ctx, ffiobj);
+        return JS_EXCEPTION;
+    }
     {
         JSValue global = JS_GetGlobalObject(ctx);
         JSValue ab_ctor = JS_GetPropertyStr(ctx, global, "ArrayBuffer");
@@ -1727,26 +1724,26 @@ static JSValue tjs__mod_ffi_init_js(JSContext *ctx, JSValue this_val, int argc, 
                                             JS_CFUNC_constructor,
                                             0);
         JS_SetConstructor(ctx, ext_ctor, ext_proto);
-        JS_SetClassProto(ctx, js_ffi_external_ab_classid, ext_proto);  // consumes ext_proto
+        JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_FFI_EXTERNAL_AB), ext_proto);  // consumes ext_proto
         JS_DefinePropertyValueStr(ctx, ffiobj, "ExternalArrayBuffer", ext_ctor, JS_PROP_C_W_E);
         JS_FreeValue(ctx, ab_proto);
         JS_FreeValue(ctx, ab_ctor);
         JS_FreeValue(ctx, global);
     }
 
-    REGISTER_CLASS(ctx, js_ffi_type);
+    REGISTER_CLASS(ctx, js_ffi_type, TJS_CLASS_FFI_TYPE);
     CLASS_CREATE_CONSTRUCTOR(ctx, js_ffi_type, ffiobj, js_ffi_type_create_struct);
 
-    REGISTER_CLASS(ctx, js_uv_dlsym);
+    REGISTER_CLASS(ctx, js_uv_dlsym, TJS_CLASS_UV_DLSYM);
     CLASS_CREATE_CONSTRUCTOR(ctx, js_uv_dlsym, ffiobj, js_uv_dlsym_create);
 
-    REGISTER_CLASS(ctx, js_ffi_cif);
+    REGISTER_CLASS(ctx, js_ffi_cif, TJS_CLASS_FFI_CIF);
     CLASS_CREATE_CONSTRUCTOR(ctx, js_ffi_cif, ffiobj, js_ffi_cif_create);
 
-    REGISTER_CLASS(ctx, js_uv_lib);
+    REGISTER_CLASS(ctx, js_uv_lib, TJS_CLASS_UV_LIB);
     CLASS_CREATE_CONSTRUCTOR(ctx, js_uv_lib, ffiobj, js_uv_lib_create);
 
-    REGISTER_CLASS(ctx, js_ffi_closure);
+    REGISTER_CLASS(ctx, js_ffi_closure, TJS_CLASS_FFI_CLOSURE);
     CLASS_CREATE_CONSTRUCTOR(ctx, js_ffi_closure, ffiobj, js_ffi_closure_create);
 
 

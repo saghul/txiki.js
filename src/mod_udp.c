@@ -52,8 +52,6 @@ typedef struct {
     TJSBufferRef buf_ref;
 } TJSSendReq;
 
-static JSClassID tjs_udp_class_id;
-
 static void uv__udp_close_cb(uv_handle_t *handle) {
     TJSUdp *u = handle->data;
     CHECK_NOT_NULL(u);
@@ -101,7 +99,7 @@ static void maybe_invoke_callback(TJSUdp *u, int callback, int argc, JSValue *ar
 }
 
 static void tjs_udp_finalizer(JSRuntime *rt, JSValue val) {
-    TJSUdp *u = JS_GetOpaque(val, tjs_udp_class_id);
+    TJSUdp *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_UDP));
     if (u) {
         /* A pinned socket holds a ref to itself, so it can't be finalized until
          * the pin is released (on stop/close or at teardown). */
@@ -121,7 +119,7 @@ static void tjs_udp_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_udp_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSUdp *u = JS_GetOpaque(val, tjs_udp_class_id);
+    TJSUdp *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_UDP));
     if (u) {
         for (int i = 0; i < UDP_CB_MAX; i++) {
             JS_MarkValue(rt, u->callbacks[i], mark_func);
@@ -136,7 +134,7 @@ static JSClassDef tjs_udp_class = {
 };
 
 static TJSUdp *tjs_udp_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_udp_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_UDP));
 }
 
 static JSValue tjs_udp_callback_get(JSContext *ctx, JSValue this_val, int magic) {
@@ -359,7 +357,7 @@ static JSValue tjs_new_udp(JSContext *ctx, int af) {
     JSValue obj;
     int r;
 
-    obj = JS_NewObjectClass(ctx, tjs_udp_class_id);
+    obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_UDP));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -607,15 +605,13 @@ static const JSCFunctionListEntry tjs_udp_funcs[] = {
 };
 
 void tjs__mod_udp_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
     /* UDP class */
-    JS_NewClassID(rt, &tjs_udp_class_id);
-    JS_NewClass(rt, tjs_udp_class_id, &tjs_udp_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_UDP, &tjs_udp_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_udp_proto_funcs, countof(tjs_udp_proto_funcs));
-    JS_SetClassProto(ctx, tjs_udp_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_UDP), proto);
 
     /* UDP object */
     obj = JS_NewCFunction2(ctx, tjs_udp_constructor, "UDP", 1, JS_CFUNC_constructor, 0);

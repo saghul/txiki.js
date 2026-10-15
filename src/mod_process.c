@@ -29,8 +29,6 @@
 #include <string.h>
 
 
-static JSClassID tjs_process_class_id;
-
 typedef struct {
     TJSHandlePin pin;
     JSContext *ctx;
@@ -62,7 +60,7 @@ static void tjs_process_detach(TJSHandlePin *pin) {
 }
 
 static void tjs_process_finalizer(JSRuntime *rt, JSValue val) {
-    TJSProcess *p = JS_GetOpaque(val, tjs_process_class_id);
+    TJSProcess *p = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_PROCESS));
     if (p) {
         /* A pinned process holds a ref to itself, so it can't be finalized until
          * the pin is released (on exit or at teardown). */
@@ -78,7 +76,7 @@ static void tjs_process_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_process_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSProcess *p = JS_GetOpaque(val, tjs_process_class_id);
+    TJSProcess *p = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_PROCESS));
     if (p) {
         JS_MarkValue(rt, p->onexit, mark_func);
     }
@@ -91,7 +89,7 @@ static JSClassDef tjs_process_class = {
 };
 
 static TJSProcess *tjs_process_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_process_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_PROCESS));
 }
 
 static JSValue tjs_process_kill(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -150,7 +148,7 @@ static void uv__exit_cb(uv_process_t *handle, int64_t exit_status, int term_sign
 static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     JSValue ret;
 
-    JSValue obj = JS_NewObjectClass(ctx, tjs_process_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_PROCESS));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -550,13 +548,10 @@ static const JSCFunctionListEntry tjs_process_funcs[] = {
 };
 
 void tjs__mod_process_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
-
-    JS_NewClassID(rt, &tjs_process_class_id);
-    JS_NewClass(rt, tjs_process_class_id, &tjs_process_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_PROCESS, &tjs_process_class), 0);
     JSValue proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_process_proto_funcs, countof(tjs_process_proto_funcs));
-    JS_SetClassProto(ctx, tjs_process_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_PROCESS), proto);
 
     JS_SetPropertyFunctionList(ctx, ns, tjs_process_funcs, countof(tjs_process_funcs));
 }

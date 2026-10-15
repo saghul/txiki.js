@@ -161,10 +161,8 @@ typedef struct TJSTlsStream {
     uint8_t read_buf[65536];
 } TJSTlsStream;
 
-static JSClassID tjs_tls_class_id;
-
 static TJSTlsStream *tjs_tls_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_tls_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_TLS));
 }
 
 /* Forward declarations */
@@ -917,7 +915,7 @@ static JSValue tjs_tls_get_alpn(JSContext *ctx, JSValue this_val, int argc, JSVa
 }
 
 static JSValue tjs_tls_cb_get(JSContext *ctx, JSValue this_val, int magic) {
-    TJSTlsStream *s = JS_GetOpaque2(ctx, this_val, tjs_tls_class_id);
+    TJSTlsStream *s = JS_GetOpaque2(ctx, this_val, tjs__class_id(ctx, TJS_CLASS_TLS));
     if (!s) {
         return JS_EXCEPTION;
     }
@@ -925,7 +923,7 @@ static JSValue tjs_tls_cb_get(JSContext *ctx, JSValue this_val, int magic) {
 }
 
 static JSValue tjs_tls_cb_set(JSContext *ctx, JSValue this_val, JSValue value, int magic) {
-    TJSTlsStream *s = JS_GetOpaque2(ctx, this_val, tjs_tls_class_id);
+    TJSTlsStream *s = JS_GetOpaque2(ctx, this_val, tjs__class_id(ctx, TJS_CLASS_TLS));
     if (!s) {
         return JS_EXCEPTION;
     }
@@ -937,7 +935,7 @@ static JSValue tjs_tls_cb_set(JSContext *ctx, JSValue this_val, JSValue value, i
 }
 
 static void tjs_tls_finalizer(JSRuntime *rt, JSValue val) {
-    TJSTlsStream *s = JS_GetOpaque(val, tjs_tls_class_id);
+    TJSTlsStream *s = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_TLS));
     if (!s) {
         return;
     }
@@ -981,7 +979,7 @@ static void tjs_tls_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_tls_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSTlsStream *s = JS_GetOpaque(val, tjs_tls_class_id);
+    TJSTlsStream *s = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_TLS));
     if (s) {
         for (int i = 0; i < TLS_CB_MAX; i++) {
             JS_MarkValue(rt, s->callbacks[i], mark_func);
@@ -1136,7 +1134,7 @@ static JSValue tjs_new_tls(JSContext *ctx, int af) {
     JSValue obj;
     int r;
 
-    obj = JS_NewObjectClass(ctx, tjs_tls_class_id);
+    obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_TLS));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -1314,14 +1312,12 @@ static const JSCFunctionListEntry tjs_tls_proto_funcs[] = {
 /* clang-format on */
 
 void tjs__mod_tls_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
-    JS_NewClassID(rt, &tjs_tls_class_id);
-    JS_NewClass(rt, tjs_tls_class_id, &tjs_tls_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_TLS, &tjs_tls_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_tls_proto_funcs, countof(tjs_tls_proto_funcs));
-    JS_SetClassProto(ctx, tjs_tls_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_TLS), proto);
 
     obj = JS_NewCFunction2(ctx, tjs_tls_constructor, "TLSTcp", 1, JS_CFUNC_constructor, 0);
     JS_DefinePropertyValueStr(ctx, ns, "TLSTcp", obj, JS_PROP_C_W_E);

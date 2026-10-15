@@ -56,10 +56,8 @@ typedef struct {
     char close_reason[124]; /* RFC 6455: max 123 bytes + NUL */
 } TJSWs;
 
-static JSClassID tjs_ws_class_id;
-
 static void tjs_ws_finalizer(JSRuntime *rt, JSValue val) {
-    TJSWs *w = JS_GetOpaque(val, tjs_ws_class_id);
+    TJSWs *w = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WS));
     if (w) {
         /* A pinned socket holds a ref to itself, so it can't be finalized until
          * the pin is released (in the lws close/error callback). */
@@ -82,7 +80,7 @@ static void tjs_ws_finalizer(JSRuntime *rt, JSValue val) {
 }
 
 static void tjs_ws_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
-    TJSWs *w = JS_GetOpaque(val, tjs_ws_class_id);
+    TJSWs *w = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WS));
     if (w) {
         for (int i = 0; i < WS_CALLBACK_MAX; i++) {
             JS_MarkValue(rt, w->callbacks[i], mark_func);
@@ -99,7 +97,7 @@ static JSClassDef tjs_ws_class = {
 };
 
 static TJSWs *tjs_ws_get(JSContext *ctx, JSValue obj) {
-    return JS_GetOpaque2(ctx, obj, tjs_ws_class_id);
+    return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_WS));
 }
 
 /* Clear the JS callbacks at teardown (see TJSHandlePin.detach) so the lws
@@ -338,7 +336,7 @@ const struct lws_protocols tjs_ws_protocol = {
 static JSValue emit_abnormal_close(JSContext *ctx, int argc, JSValue *argv) {
     CHECK_EQ(argc, 1);
 
-    TJSWs *w = JS_GetOpaque(argv[0], tjs_ws_class_id);
+    TJSWs *w = JS_GetOpaque(argv[0], tjs__class_id(ctx, TJS_CLASS_WS));
     if (w) {
         JSContext *ctx = w->ctx;
 
@@ -355,7 +353,7 @@ static JSValue emit_abnormal_close(JSContext *ctx, int argc, JSValue *argv) {
 }
 
 static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, JSValue *argv) {
-    JSValue obj = JS_NewObjectClass(ctx, tjs_ws_class_id);
+    JSValue obj = JS_NewObjectClass(ctx, tjs__class_id(ctx, TJS_CLASS_WS));
     if (JS_IsException(obj)) {
         return obj;
     }
@@ -633,15 +631,13 @@ static const JSCFunctionListEntry tjs_ws_proto_funcs[] = {
 };
 
 void tjs__mod_ws_init(JSContext *ctx, JSValue ns) {
-    JSRuntime *rt = JS_GetRuntime(ctx);
     JSValue proto, obj;
 
     /* WebSocket class */
-    JS_NewClassID(rt, &tjs_ws_class_id);
-    JS_NewClass(rt, tjs_ws_class_id, &tjs_ws_class);
+    CHECK_EQ(tjs__class_register(ctx, TJS_CLASS_WS, &tjs_ws_class), 0);
     proto = JS_NewObject(ctx);
     JS_SetPropertyFunctionList(ctx, proto, tjs_ws_proto_funcs, countof(tjs_ws_proto_funcs));
-    JS_SetClassProto(ctx, tjs_ws_class_id, proto);
+    JS_SetClassProto(ctx, tjs__class_id(ctx, TJS_CLASS_WS), proto);
 
     /* WebSocket constructor */
     obj = JS_NewCFunction2(ctx, tjs_ws_constructor, "WebSocket", 4, JS_CFUNC_constructor, 0);
