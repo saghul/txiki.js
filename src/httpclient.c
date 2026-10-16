@@ -899,7 +899,7 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
     bool use_ssl = !strcmp(uri->scheme, "https");
 
     char full_path[TJS_PATH_MAX];
-    snprintf(full_path, sizeof(full_path), "/%s", uri->path);
+    tjs__lws_request_path(h->url_str, full_path, sizeof(full_path));
 
     /* lws emits cci.host verbatim as the Host header; include a non-default
      * port so the server sees the correct authority (RFC 7230 §5.4). */
