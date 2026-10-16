@@ -30,16 +30,11 @@ for (let i = 0; i < NUM_WORKERS; i++) {
     pending.push(promise);
 }
 
-let timer;
-const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error('Timed out waiting for workers')), 10000);
-});
-
+// No in-test timeout: the runner's TJS_TEST_TIMEOUT kills a hung test, and a
+// fixed timer here is too tight under GC stress.
 try {
-    await Promise.race([ Promise.all(pending), timeout ]);
+    await Promise.all(pending);
 } finally {
-    clearTimeout(timer);
-
     for (const w of workers) {
         w.terminate();
     }
