@@ -400,9 +400,7 @@ static void port_dispatch_one(JSContext *ctx, TJSPort *p, TJSChannelMsg *m) {
     JS_FreeValue(ctx, ports);
 }
 
-static void port_async_cb(uv_async_t *handle) {
-    TJSPort *p = handle->data;
-    CHECK_NOT_NULL(p);
+static void port_drain(TJSPort *p) {
     JSContext *ctx = p->ctx;
 
     /* This runs on the owner's loop thread, the only thread that mutates p->state
@@ -432,6 +430,12 @@ static void port_async_cb(uv_async_t *handle) {
         port_dispatch_one(ctx, p, m);
         channel_msg_free(m);
     }
+}
+
+static void port_async_cb(uv_async_t *handle) {
+    TJSPort *p = handle->data;
+    CHECK_NOT_NULL(p);
+    port_drain(p);
 }
 
 static void port_async_close_cb(uv_handle_t *handle) {
@@ -734,6 +738,24 @@ void tjs__channel_port_close(JSRuntime *rt, JSValue port_handle) {
     TJSPort *p = JS_GetOpaque(port_handle, tjs__class_id_rt(rt, TJS_CLASS_PORT));
     if (p) {
         port_do_close(p);
+    }
+}
+
+/* Deliver everything already in a started worker-channel port's inbox now,
+ * without waiting for its async wake. No-op unless the port is started. */
+void tjs__channel_port_flush(JSRuntime *rt, JSValue port_handle) {
+    TJSPort *p = JS_GetOpaque(port_handle, tjs__class_id_rt(rt, TJS_CLASS_PORT));
+    if (p && p->state == PORT_STARTED) {
+        port_drain(p);
+    }
+}
+
+/* Stop a worker-channel port from keeping its loop alive, leaving it started:
+ * later posts to the (closed) peer are dropped rather than throwing. */
+void tjs__channel_port_unref(JSRuntime *rt, JSValue port_handle) {
+    TJSPort *p = JS_GetOpaque(port_handle, tjs__class_id_rt(rt, TJS_CLASS_PORT));
+    if (p) {
+        uv_unref((uv_handle_t *) &p->async);
     }
 }
 
