@@ -195,6 +195,9 @@ typedef struct {
     char *ssl_ca_mem;
     char *ssl_passphrase;
     char *alpn; /* explicit ALPN protocol list (e.g. "h2"), or NULL for lws default */
+    /* Per-server iface label for the QUIC vhost (see the constructor). lws
+     * keeps the pointer, so it lives here, as long as the vhost. */
+    char quic_iface[32];
 } TJSHttpServer;
 
 static void tjs_http_req_free(JSRuntime *rt, TJSHttpRequest *req) {
@@ -1637,6 +1640,14 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         qinfo.listen_accept_role = "quic";
         qinfo.listen_accept_protocol = s->ws_protocol_name;
         qinfo.alpn = "h3,lws-quic";
+        /* lws treats vhosts with equal iface and port as sharing a listener,
+         * and on destroy hands the listen sockets, here the QUIC UDP socket,
+         * to such a sibling. Every QUIC vhost has no iface and the same
+         * no-listen port, so closing one of two h3 servers moved its UDP
+         * socket onto the other and freed lists the socket was still on. A
+         * per-server label keeps each QUIC vhost to itself. */
+        snprintf(s->quic_iface, sizeof(s->quic_iface), "tjs-h3-%p", (void *) s);
+        qinfo.iface = s->quic_iface;
 
         s->quic_vhost = lws_create_vhost(lws_ctx, &qinfo);
         if (!s->quic_vhost || !lws_create_adopt_udp(s->quic_vhost,
