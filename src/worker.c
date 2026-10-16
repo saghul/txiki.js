@@ -94,6 +94,7 @@ typedef struct {
     TJSMailbox *tx; /* worker's send side */
     uv_sem_t *sem;
     TJSRuntime *wrt;
+    uv_async_t *exit_async; /* parent's, signalled when the worker's loop ends */
 } worker_data_t;
 
 typedef struct {
@@ -101,6 +102,11 @@ typedef struct {
     uv_thread_t tid;
     JSValue msg_port; /* parent-side MessagePort handle (native mod_channel port) */
     TJSRuntime *wrt;
+    /* Pins the wrapper while the worker runs: the only path back to it is the
+     * msg_port -> deliver_fn -> Worker cycle, which the GC would otherwise
+     * collect (stopping a live worker) once JS can no longer reach it. */
+    TJSHandlePin pin;
+    uv_async_t exit_async;
 } TJSWorker;
 
 /* Enable inbound message delivery on the worker's port, once its entry module has
@@ -200,42 +206,91 @@ static void worker_entry(void *arg) {
     JS_FreeValue(ctx, source);
     JS_FreeValue(ctx, specifier);
 
-    /* Notify the caller we are setup.  */
+    /* Notify the caller we are setup. wd lives on the caller's stack and is gone
+     * once the semaphore is posted. */
+    uv_async_t *exit_async = wd->exit_async;
     wd->wrt = wrt;
     uv_sem_post(wd->sem);
     wd = NULL;
 
     TJS_Run(wrt);
 
-    /* The runtime is freed by the parent (terminate()/finalizer) after joining
-     * this thread, so the parent never dereferences a freed runtime — a worker
-     * can stop its own loop (self.close(), an uncaught error) before the parent
-     * calls terminate(). */
+    /* The runtime is freed by the parent (terminate()/finalizer/exit callback)
+     * after joining this thread, so the parent never dereferences a freed
+     * runtime — a worker can stop its own loop (self.close(), an uncaught error)
+     * before the parent calls terminate(). This send is the thread's last access
+     * to parent state: the parent joins this thread before it closes exit_async
+     * or frees the worker. */
+    uv_async_send(exit_async);
 }
 
-/* Stop the worker (if still running), wait for its thread to finish, free its
- * runtime, then disentangle the parent side so the parent loop can exit. The
- * parent owns the worker runtime's lifetime, so this is safe whether the worker
- * is still running or has already stopped itself. */
-static void tjs_worker_shutdown(TJSWorker *w) {
+/* Stop the worker (if still running), wait for its thread to finish and free its
+ * runtime. The parent owns the worker runtime's lifetime, so this is safe whether
+ * the worker is still running or has already stopped itself. */
+static void worker_reap(TJSWorker *w) {
     if (w->wrt) {
         TJS_Stop(w->wrt);
         CHECK_EQ(uv_thread_join(&w->tid), 0);
         TJS_FreeRuntime(w->wrt);
         w->wrt = NULL;
     }
+}
+
+/* Reap the worker, then disentangle the parent side so the parent loop can exit. */
+static void tjs_worker_shutdown(TJSWorker *w) {
+    worker_reap(w);
     tjs__channel_port_close(JS_GetRuntime(w->realm), w->msg_port);
+}
+
+/* The worker's loop ended on its own (self.close(), an uncaught error, a failed
+ * load). Reap it, deliver what it posted before stopping, and stop keeping the
+ * parent alive. The port stays started so a later postMessage() is dropped (the
+ * worker side is closed) rather than throwing. */
+static void worker_exit_cb(uv_async_t *handle) {
+    TJSWorker *w = handle->data;
+
+    /* Unpinned means terminate() or teardown already shut the worker down. */
+    if (JS_IsUndefined(w->pin.obj)) {
+        return;
+    }
+
+    /* The flush runs JS that may call terminate() (dropping the pin); hold the
+     * wrapper, and so w->msg_port, until we are done. */
+    JSContext *ctx = w->realm;
+    JSRuntime *rt = JS_GetRuntime(ctx);
+    JSValue obj = JS_DupValue(ctx, w->pin.obj);
+
+    worker_reap(w);
+    tjs__channel_port_flush(rt, w->msg_port);
+    tjs__channel_port_unref(rt, w->msg_port);
+    tjs__handle_unpin(ctx, &w->pin);
+
+    /* May finalize the wrapper; touch nothing after it. */
+    JS_FreeValueRT(rt, obj);
+}
+
+static void worker_exit_close_cb(uv_handle_t *handle) {
+    tjs__free(handle->data);
+}
+
+/* Teardown of the parent runtime: shut the worker down without running JS. The
+ * pin is released by tjs__release_pins, and the finalizer frees the worker. */
+static void worker_pin_detach(TJSHandlePin *pin) {
+    tjs_worker_shutdown(list_entry(pin, TJSWorker, pin));
 }
 
 static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
     TJSWorker *w = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WORKER));
     if (w) {
+        /* A pinned worker holds a ref to itself, so it can't be finalized until
+         * the pin is released (terminate(), exit, or teardown). */
+        CHECK(JS_IsUndefined(w->pin.obj));
         /* Shutdown joins the worker thread, so once it returns nothing else can
-         * touch *w and it is safe to free. */
+         * touch *w; it is freed once exit_async is closed. */
         tjs_worker_shutdown(w);
         JS_FreeValueRT(rt, w->msg_port);
         JS_FreeContext(w->realm);
-        tjs__free(w);
+        uv_close((uv_handle_t *) &w->exit_async, worker_exit_close_cb);
     }
 }
 
@@ -272,12 +327,19 @@ static JSValue tjs_new_worker(JSContext *ctx, TJSMailbox *rx, TJSMailbox *tx) {
         return JS_ThrowOutOfMemory(ctx);
     }
 
+    w->pin.obj = JS_UNDEFINED;
+    w->pin.detach = worker_pin_detach;
     w->msg_port = tjs__channel_port_new(ctx, rx, tx);
     if (JS_IsException(w->msg_port)) {
         JS_FreeValue(ctx, obj);
         tjs__free(w);
         return JS_EXCEPTION;
     }
+
+    /* Unref'd: the started parent port is what keeps the loop alive. */
+    CHECK_EQ(uv_async_init(tjs_get_loop(ctx), &w->exit_async, worker_exit_cb), 0);
+    w->exit_async.data = w;
+    uv_unref((uv_handle_t *) &w->exit_async);
 
     w->realm = JS_DupContext(ctx);
     JS_SetOpaque(obj, w);
@@ -322,7 +384,8 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValue new_target, int ar
                                   .cookie_jar_path = qrt->lws.cookie_jar_path,
                                   .ca_bundle_path = qrt->lws.ca_bundle_path,
                                   .sem = &sem,
-                                  .wrt = NULL };
+                                  .wrt = NULL,
+                                  .exit_async = &w->exit_async };
 
     CHECK_EQ(uv_thread_create(&w->tid, worker_entry, (void *) &worker_data), 0);
 
@@ -343,6 +406,8 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValue new_target, int ar
     w->wrt = worker_data.wrt;
     CHECK_NOT_NULL(w->wrt);
 
+    tjs__handle_pin(ctx, &w->pin, obj);
+
     return obj;
 }
 
@@ -351,10 +416,11 @@ static JSValue tjs_worker_terminate(JSContext *ctx, JSValue this_val, int argc, 
     if (!w) {
         return JS_EXCEPTION;
     }
-    if (w->wrt) {
-        tjs_worker_shutdown(w);
-        uv_update_time(tjs_get_loop(ctx));
-    }
+    /* Also after the worker stopped itself (already reaped), so the port is
+     * closed and a later postMessage() throws, as before. */
+    tjs_worker_shutdown(w);
+    uv_update_time(tjs_get_loop(ctx));
+    tjs__handle_unpin(ctx, &w->pin);
     return JS_UNDEFINED;
 }
 

@@ -222,6 +222,8 @@ bool tjs__channel_mailbox_pair(TJSMailbox **a, TJSMailbox **b);
 JSValue tjs__channel_port_new(JSContext *ctx, TJSMailbox *rx, TJSMailbox *tx);
 void tjs__channel_mailbox_unref(TJSMailbox *mb);
 void tjs__channel_port_close(JSRuntime *rt, JSValue port_handle);
+void tjs__channel_port_flush(JSRuntime *rt, JSValue port_handle);
+void tjs__channel_port_unref(JSRuntime *rt, JSValue port_handle);
 void tjs__channel_port_post_error(JSContext *ctx, JSValue port_handle, JSValueConst error_obj);
 
 void tjs__mod_dns_init(JSContext *ctx, JSValue ns);
