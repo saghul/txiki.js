@@ -1,0 +1,75 @@
+From 4af3cfa904c066aa9e992cd796f3f98e412ab4aa Mon Sep 17 00:00:00 2001
+From: Andy Green <andy@warmcat.com>
+Date: Mon, 5 Oct 2026 05:02:32 +0000
+Subject: [PATCH] windows: fds: a racing connect's socket belongs to its wsi in
+ the fd lookup
+
+connect3.c enters a client wsi in the fd hashtable once per live racer
+socket too, but the Windows lookup only matched wsi->io->desc.sockfd.  When
+a racer won and the primary was removed first, the racer, as the last fds
+entry, was moved into the hole, its owner wasn't found ("no wsi for fd"),
+and its position_in_fds_table went stale; promoting it then asserted
+position_in_fds_table < fds_count.  api-test-client-next-address hit it.
+
+Match valid parallel_conns sockets as well, as the unix slow lookup does.
+This also lets the Windows POLLOUT pass find racer fds.
+
+Backport of upstream c6f480f54e8e3813e950f5d1215f2f9349ff61a3 (main), adapted to v5.0-stable ac23cae70.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ lib/plat/windows/windows-fds.c | 27 +++++++++++++++++++++++++--
+ 1 file changed, 25 insertions(+), 2 deletions(-)
+
+diff --git a/lib/plat/windows/windows-fds.c b/lib/plat/windows/windows-fds.c
+index 05a662087..828a48fc1 100644
+--- a/lib/plat/windows/windows-fds.c
++++ b/lib/plat/windows/windows-fds.c
+@@ -27,6 +27,29 @@
+ #endif
+ #include "private-lib-core.h"
+ 
++/*
++ * A client wsi racing connects is entered in the table once for each of its
++ * live racer sockets as well as for its primary one (connect3.c swaps the
++ * racer fd into desc while it inserts it), so a racer fd belongs to it too.
++ * Otherwise when a racer is the last fds entry moved into a freed slot, its
++ * owner isn't found and its position_in_fds_table goes stale.
++ */
++static int
++wsi_owns_fd(const struct lws *wsi, lws_sockfd_type fd)
++{
++	if (wsi->desc.sockfd == fd)
++		return 1;
++
++#if defined(LWS_WITH_CLIENT)
++	for (int n = 0; n < wsi->parallel_count; n++)
++		if (wsi->parallel_conns[n].is_valid &&
++		    wsi->parallel_conns[n].desc.sockfd == fd)
++			return 1;
++#endif
++
++	return 0;
++}
++
+ struct lws *
+ wsi_from_fd(const struct lws_context *context, lws_sockfd_type fd)
+ {
+@@ -34,7 +57,7 @@ wsi_from_fd(const struct lws_context *context, lws_sockfd_type fd)
+ 	int n = 0;
+ 
+ 	for (n = 0; n < context->fd_hashtable[h].length; n++)
+-		if (context->fd_hashtable[h].wsi[n]->desc.sockfd == fd)
++		if (wsi_owns_fd(context->fd_hashtable[h].wsi[n], fd))
+ 			return context->fd_hashtable[h].wsi[n];
+ 
+ 	return NULL;
+@@ -62,7 +85,7 @@ delete_from_fd(struct lws_context *context, lws_sockfd_type fd)
+ 	int n = 0;
+ 
+ 	for (n = 0; n < context->fd_hashtable[h].length; n++)
+-		if (context->fd_hashtable[h].wsi[n]->desc.sockfd == fd) {
++		if (wsi_owns_fd(context->fd_hashtable[h].wsi[n], fd)) {
+ 			while (n < context->fd_hashtable[h].length) {
+ 				context->fd_hashtable[h].wsi[n] =
+ 					context->fd_hashtable[h].wsi[n + 1];
