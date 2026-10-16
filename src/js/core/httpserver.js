@@ -133,7 +133,10 @@ class Server {
             listenIp,
             onRequest,
             onBodyChunk,
-            onClose: resolve,
+            // onClose runs inside lws's vhost teardown (PROTOCOL_DESTROY). Resolving
+            // there would run the awaiting code, which may create a new server,
+            // re-entrantly inside lws, so resolve on a later event-loop turn.
+            onClose: () => setTimeout(resolve, 0),
             wsOpen: websocket?.open ?? null,
             wsMessage: websocket?.message ?? null,
             wsClose: websocket?.close ?? null,

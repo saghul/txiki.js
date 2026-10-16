@@ -1274,6 +1274,8 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 return 0;
             }
 
+            /* We are inside lws's vhost teardown: onClose must not re-enter lws
+             * (e.g. create a vhost), so the JS side defers its work. */
             if (JS_IsFunction(s->ctx, s->close_callback)) {
                 JSValue cb = s->close_callback;
                 s->close_callback = JS_UNDEFINED;
