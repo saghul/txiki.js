@@ -1,10 +1,12 @@
 /* global tjs */
 
 import core from 'tjs:internal/core';
+import { getTjsHome } from 'tjs:internal/home';
 import path from 'tjs:path';
 
 const APP_DIR = 'app';
 const APP_MANIFEST = 'app.json';
+const TPK_CACHE_DIR = 'tpk_cache';
 
 /**
  * TPK trailer for bundled app packages.
@@ -60,7 +62,7 @@ export async function runTpk(exef, exeSize) {
     }
 
     const buildId = new TextDecoder().decode(uuidBuf);
-    const cacheDir = path.join(tjs.tmpDir, `tjs-${buildId}`);
+    const cacheDir = path.join(getTjsHome(), TPK_CACHE_DIR, buildId);
 
     let needsExtract = true;
 
@@ -113,8 +115,11 @@ export async function runTpk(exef, exeSize) {
         }
     }
 
-    // Validate manifest.
-    const manifestData = await tjs.readFile(path.join(cacheDir, 'app.json'));
+    const manifestPath = path.join(cacheDir, APP_MANIFEST);
+
+    await assertCachedFile(manifestPath, cacheDir);
+
+    const manifestData = await tjs.readFile(manifestPath);
     const manifest = JSON.parse(new TextDecoder().decode(manifestData));
 
     if (manifest.version !== 0) {
@@ -130,6 +135,8 @@ export async function runTpk(exef, exeSize) {
     const entryPoint = manifest.main ?? 'src/main.js';
     const mainFile = path.join(cacheDir, entryPoint);
 
+    await assertCachedFile(mainFile, cacheDir);
+
     tjs.env.TJS_HOME = cacheDir;
 
     if (manifest.imports || manifest.scopes) {
@@ -140,6 +147,21 @@ export async function runTpk(exef, exeSize) {
     }
 
     await core.evalFile(mainFile);
+}
+
+async function assertCachedFile(filePath, cacheDir) {
+    let st;
+
+    try {
+        st = await tjs.stat(filePath);
+    } catch (_) {
+        // Handled below.
+    }
+
+    if (!st?.isFile) {
+        throw new Error(`TPK cache is corrupted: '${filePath}' is missing or not a regular file. `
+            + `Remove '${cacheDir}' and try again.`);
+    }
 }
 
 export async function appInit() {

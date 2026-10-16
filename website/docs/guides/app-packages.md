@@ -11,7 +11,7 @@ The TPK format and `tjs app` commands are experimental. The format, CLI, and beh
 
 TPK is a simple packaging format for txiki.js applications. It lets you bundle a multi-file app into a single `.tpk` archive or compile it into a standalone executable — without needing a separate bundling step.
 
-Unlike [`tjs compile`](standalone-executables.md), which embeds a single pre-compiled JavaScript file as bytecode, `tjs app compile` packages your entire source tree (multiple files, ES module imports, assets) as a ZIP archive appended to the runtime binary. The app is extracted to a temporary directory on first run and cached for subsequent launches.
+Unlike [`tjs compile`](standalone-executables.md), which embeds a single pre-compiled JavaScript file as bytecode, `tjs app compile` packages your entire source tree (multiple files, ES module imports, assets) as a ZIP archive appended to the runtime binary. The app is extracted to a cache directory on first run and reused for subsequent launches.
 
 ## Quick start
 
@@ -132,12 +132,12 @@ On startup, the runtime detects the TPK trailer by reading the last 4 bytes of i
 
 1. Reads the ZIP size, UUID, SHA-256 hash, and ZIP data from the trailer.
 2. Verifies the SHA-256 hash to ensure integrity.
-3. Checks for a cached extraction in the system temp directory (`{tmpDir}/tjs-{buildId}/`).
-4. If no cache exists, extracts the ZIP to a temporary directory and atomically renames it into place. A `.tpk-ok` sentinel file marks a complete extraction.
-5. Validates the manifest (`version` and `build.id`).
+3. Checks for a cached extraction in the txiki.js home directory (`{TJS_HOME}/tpk_cache/{buildId}/`, `~/.tjs` by default).
+4. If no cache exists, extracts the ZIP to a temporary directory and atomically renames it into place.
+5. Checks that `app.json` and the entry point are regular files, and validates the manifest (`version` and `build.id`). If the cache is damaged, the app fails with an error that names the cache directory to remove.
 6. Runs the entry point specified by `main`.
 
-Since the build ID is a fresh UUID on every build, each build gets its own cache directory. Old cache directories live in the system temp directory and are cleaned up by the OS.
+Since the build ID is a fresh UUID on every build, each build gets its own cache directory. Old cache directories are not removed automatically; delete them from `{TJS_HOME}/tpk_cache/` when they are no longer needed.
 
 ## TPK vs `tjs compile`
 
