@@ -79,6 +79,7 @@ typedef struct {
     bool completed;
     bool torn_down;
     bool keepalive;      /* connection may be pooled for reuse (decided at headers) */
+    bool conn_close;     /* the user asked for "Connection: close" */
     lws_usec_t start_us; /* request start */
     unsigned long timeout;
     int ssl_flags;
@@ -223,6 +224,24 @@ static void httpclient_teardown(TJSHttpClient *h, struct lws *cbwsi) {
     tjs__handle_unpin(h->ctx, &h->pin);
 }
 
+/* Connection is a comma-separated token list; a "close" token anywhere means
+ * the connection will not be kept alive. */
+static bool connection_has_close(const char *p) {
+    while (*p) {
+        while (*p == ' ' || *p == '\t' || *p == ',') {
+            p++;
+        }
+        if (!strncasecmp(p, "close", 5) && (p[5] == '\0' || p[5] == ' ' || p[5] == '\t' || p[5] == ',')) {
+            return true;
+        }
+        while (*p && *p != ',') {
+            p++;
+        }
+    }
+
+    return false;
+}
+
 /* Decide whether a connection may be kept warm for reuse, from the response
  * headers.  Called at ESTABLISHED_CLIENT_HTTP (not COMPLETED): for a
  * close-delimited response lws fires COMPLETED off the socket EOF, by which
@@ -236,20 +255,7 @@ static void httpclient_teardown(TJSHttpClient *h, struct lws *cbwsi) {
 static bool httpclient_conn_reusable(struct lws *wsi) {
     char conn[64];
     if (lws_hdr_copy(wsi, conn, sizeof(conn), WSI_TOKEN_CONNECTION) > 0) {
-        /* Connection is a comma-separated token list; a "close" token anywhere
-         * means the peer will not keep the connection alive. */
-        const char *p = conn;
-        while (*p) {
-            while (*p == ' ' || *p == ',') {
-                p++;
-            }
-            if (!strncasecmp(p, "close", 5) && (p[5] == '\0' || p[5] == ' ' || p[5] == ',')) {
-                return false;
-            }
-            while (*p && *p != ',') {
-                p++;
-            }
-        }
+        return !connection_has_close(conn);
     }
 
     return true;
@@ -517,7 +523,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
              * handler returns -1 to close it. Streaming (chunked) request bodies
              * were already kept out of the pool at connect (no LCCSCF_PIPELINE),
              * so there is nothing to evict here. */
-            h->keepalive = httpclient_conn_reusable(wsi);
+            h->keepalive = !h->conn_close && httpclient_conn_reusable(wsi);
 
             /* Detect Content-Encoding before firing headers. */
             const char *encoding = detect_content_encoding(wsi);
@@ -780,6 +786,7 @@ static JSValue tjs_httpclient_constructor(JSContext *ctx, JSValue new_target, in
     h->completed = false;
     h->torn_down = false;
     h->keepalive = true;
+    h->conn_close = false;
     h->ssl_flags = 0;
 
     for (int i = 0; i < HC_CALLBACK_MAX; i++) {
@@ -934,10 +941,16 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
      * afterwards, we keep it out of the pool from the start: no LCCSCF_PIPELINE,
      * so lws gives it its own connection and sends "Connection: close". These
      * requests are rare; for h2 it only means a streaming upload does not
-     * multiplex onto a shared connection, a negligible cost. */
+     * multiplex onto a shared connection, a negligible cost.
+     *
+     * A user "Connection: close" request gets the same treatment: the header
+     * itself is never sent (see tjs_httpclient_setrequestheader), so the
+     * request's own connection is how it is honored — lws sends
+     * "connection: close" on h1, and on h2 the dedicated connection carries no
+     * connection header at all (it would be malformed there). */
     cci.ssl_connection = (use_ssl ? LCCSCF_USE_SSL : 0) | h->ssl_flags | LCCSCF_HTTP_NO_FOLLOW_REDIRECT |
                          LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM |
-                         (h->streaming ? 0 : LCCSCF_PIPELINE);
+                         (h->streaming || h->conn_close ? 0 : LCCSCF_PIPELINE);
     cci.method = h->method;
     cci.local_protocol_name = TJS_LWS_HTTP_PROTOCOL_NAME;
     cci.userdata = h;
@@ -1017,6 +1030,41 @@ static JSValue tjs_httpclient_open(JSContext *ctx, JSValue this_val, int argc, J
     return JS_UNDEFINED;
 }
 
+/* Connection-specific (hop-by-hop) request headers are not passed through: on
+ * h2 they make the message malformed (RFC 9113 §8.2.2) and the peer answers
+ * with GOAWAY, failing every stream on the pooled connection; on h1 the
+ * runtime owns connection management and body framing. "Connection: close" is
+ * remembered and honored at connect; "TE: trailers" is the one legal TE. */
+static bool httpclient_filter_request_header(TJSHttpClient *h, const char *name, const char *value) {
+    if (!strcasecmp(name, "Connection")) {
+        if (value && connection_has_close(value)) {
+            h->conn_close = true;
+        }
+        return true;
+    }
+
+    if (!strcasecmp(name, "Keep-Alive") || !strcasecmp(name, "Proxy-Connection") || !strcasecmp(name, "Upgrade") ||
+        !strcasecmp(name, "Transfer-Encoding")) {
+        return true;
+    }
+
+    if (!strcasecmp(name, "TE")) {
+        if (!value) {
+            return true;
+        }
+        while (*value == ' ' || *value == '\t') {
+            value++;
+        }
+        size_t len = strlen(value);
+        while (len > 0 && (value[len - 1] == ' ' || value[len - 1] == '\t')) {
+            len--;
+        }
+        return !(len == 8 && !strncasecmp(value, "trailers", 8));
+    }
+
+    return false;
+}
+
 static JSValue tjs_httpclient_setrequestheader(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSHttpClient *h = tjs_httpclient_get(ctx, this_val);
     if (!h) {
@@ -1026,15 +1074,20 @@ static JSValue tjs_httpclient_setrequestheader(JSContext *ctx, JSValue this_val,
         return JS_UNDEFINED;
     }
     const char *h_name = JS_ToCString(ctx, argv[0]);
+    if (!h_name) {
+        return JS_EXCEPTION;
+    }
     const char *h_value = NULL;
     if (!JS_IsUndefined(argv[1])) {
         h_value = JS_ToCString(ctx, argv[1]);
     }
 
-    if (h_value) {
-        tbuf_printf(&h->req_headers, "%s: %s\r\n", h_name, h_value);
-    } else {
-        tbuf_printf(&h->req_headers, "%s: \r\n", h_name);
+    if (!httpclient_filter_request_header(h, h_name, h_value)) {
+        if (h_value) {
+            tbuf_printf(&h->req_headers, "%s: %s\r\n", h_name, h_value);
+        } else {
+            tbuf_printf(&h->req_headers, "%s: \r\n", h_name);
+        }
     }
 
     JS_FreeCString(ctx, h_name);
