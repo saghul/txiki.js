@@ -1034,23 +1034,27 @@ static JSValue tjs_httpclient_open(JSContext *ctx, JSValue this_val, int argc, J
  * h2 they make the message malformed (RFC 9113 §8.2.2) and the peer answers
  * with GOAWAY, failing every stream on the pooled connection; on h1 the
  * runtime owns connection management and body framing. "Connection: close" is
- * remembered and honored at connect; "TE: trailers" is the one legal TE. */
-static bool httpclient_filter_request_header(TJSHttpClient *h, const char *name, const char *value) {
+ * remembered and honored at connect. "TE: trailers" is the one legal TE; its
+ * value is sent in lowercase because h2 peers (lws among them) compare it
+ * case-sensitively and answer anything else with GOAWAY.
+ *
+ * Returns the value to send, or NULL to drop the header. */
+static const char *httpclient_filter_request_header(TJSHttpClient *h, const char *name, const char *value) {
     if (!strcasecmp(name, "Connection")) {
         if (value && connection_has_close(value)) {
             h->conn_close = true;
         }
-        return true;
+        return NULL;
     }
 
     if (!strcasecmp(name, "Keep-Alive") || !strcasecmp(name, "Proxy-Connection") || !strcasecmp(name, "Upgrade") ||
         !strcasecmp(name, "Transfer-Encoding")) {
-        return true;
+        return NULL;
     }
 
     if (!strcasecmp(name, "TE")) {
         if (!value) {
-            return true;
+            return NULL;
         }
         while (*value == ' ' || *value == '\t') {
             value++;
@@ -1059,10 +1063,10 @@ static bool httpclient_filter_request_header(TJSHttpClient *h, const char *name,
         while (len > 0 && (value[len - 1] == ' ' || value[len - 1] == '\t')) {
             len--;
         }
-        return !(len == 8 && !strncasecmp(value, "trailers", 8));
+        return len == 8 && !strncasecmp(value, "trailers", 8) ? "trailers" : NULL;
     }
 
-    return false;
+    return value ? value : "";
 }
 
 static JSValue tjs_httpclient_setrequestheader(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -1082,12 +1086,9 @@ static JSValue tjs_httpclient_setrequestheader(JSContext *ctx, JSValue this_val,
         h_value = JS_ToCString(ctx, argv[1]);
     }
 
-    if (!httpclient_filter_request_header(h, h_name, h_value)) {
-        if (h_value) {
-            tbuf_printf(&h->req_headers, "%s: %s\r\n", h_name, h_value);
-        } else {
-            tbuf_printf(&h->req_headers, "%s: \r\n", h_name);
-        }
+    const char *value = httpclient_filter_request_header(h, h_name, h_value);
+    if (value) {
+        tbuf_printf(&h->req_headers, "%s: %s\r\n", h_name, value);
     }
 
     JS_FreeCString(ctx, h_name);

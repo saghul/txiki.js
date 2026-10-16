@@ -133,14 +133,15 @@ async function testDropped(t) {
     });
 }
 
-// e. "TE: trailers" is legal on h1 and h2 and is passed through.
+// e. "TE: trailers" is legal on h1 and h2 and is passed through, in lowercase:
+// h2 peers compare it case-sensitively and GOAWAY on "Trailers".
 async function testTeTrailers(t) {
     await withServer(t, echo, async url => {
-        const r = await doFetch(url, { headers: { te: 'Trailers' } });
+        const r = await doFetch(url, { headers: { te: ' Trailers ' } });
         const data = await r.json();
 
         assert.eq(r.status, 200, `${t.name}: status`);
-        assert.eq(data.headers.te?.toLowerCase(), 'trailers', `${t.name}: te: trailers reaches the server`);
+        assert.eq(data.headers.te, 'trailers', `${t.name}: te: trailers reaches the server`);
     });
 }
 
