@@ -531,6 +531,10 @@ set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" 
 #   - lws-mbedtls-client-alpn-uaf.patch: stack-use-after-scope in
 #     lws_ssl_client_bio_create() on the QUIC->TCP HTTP/3 fallback path
 #     (warmcat/libwebsockets#3658).
+#   - lws-windows-fds-racer-owner.patch: Windows fd lookup ignored
+#     happy-eyeballs racer sockets, leaving a stale position_in_fds_table
+#     (pollfd.c assert / hang); upstream c6f480f54 on main, not yet in
+#     v5.0-stable.
 tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets" "lws-")
 
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
