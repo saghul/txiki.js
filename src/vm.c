@@ -475,7 +475,21 @@ TJSRuntime *TJS_NewRuntimeWorker(void) {
     return TJS_NewRuntimeInternal(true, &options);
 }
 
+static uv_once_t tjs__global_once = UV_ONCE_INIT;
+
+/* Process-wide library setup. Runs once, from the first runtime (the main
+ * thread's), before anything can touch mbedtls or lws; Workers' runtimes must
+ * not redo it while other threads are already using those libraries. */
+static void tjs__global_init(void) {
+#ifdef _WIN32
+    tjs__mbedtls_threading_init();
+#endif
+    tjs__lws_setup();
+}
+
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
+    uv_once(&tjs__global_once, tjs__global_init);
+
     JSRuntime *rt = NULL;
     JSContext *ctx = NULL;
     TJSRuntime *qrt = tjs__mallocz(sizeof(*qrt));
@@ -582,9 +596,6 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
 
     /* Active native-handle self-pins (for teardown). */
     init_list_head(&qrt->handle_pins);
-
-    /* libwebsockets initializtion */
-    tjs__lws_setup();
 
     return qrt;
 }

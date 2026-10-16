@@ -5,6 +5,18 @@
  * Disables features not needed for: TLS client/server, HTTP/WS, SubtleCrypto.
  */
 
+/* Threading. PSA crypto keeps process-global state (key slots, RNG) which
+ * every TLS 1.3 handshake goes through, and handshakes run on the main thread
+ * and on Workers concurrently. mbedtls only locks that state with
+ * MBEDTLS_THREADING_C. Windows has no mbedtls-provided layer, so it plugs in
+ * SRWLOCK (src/mbedtls_threading_win32.c). */
+#define MBEDTLS_THREADING_C
+#if defined(_WIN32)
+#define MBEDTLS_THREADING_ALT
+#else
+#define MBEDTLS_THREADING_PTHREAD
+#endif
+
 /* DTLS — all protocols are TCP-based. */
 #undef MBEDTLS_SSL_PROTO_DTLS
 #undef MBEDTLS_SSL_COOKIE_C

@@ -167,6 +167,10 @@ if(UNIX)
     target_sources(tjs PRIVATE src/mod_posix-socket.c)
 endif()
 
+if(WIN32)
+    target_sources(tjs PRIVATE src/mbedtls_threading_win32.c)
+endif()
+
 if(BUILD_WITH_WASM)
     target_sources(tjs PRIVATE src/wasm.c)
     target_compile_definitions(tjs PRIVATE TJS_HAVE_WASM)
@@ -431,6 +435,11 @@ endfunction()
 tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls" "mbedtls-")
 
 add_subdirectory(deps/mbedtls EXCLUDE_FROM_ALL)
+if(WIN32)
+    # threading_alt.h for MBEDTLS_THREADING_ALT. PUBLIC so every target that
+    # includes mbedtls headers (mbedx509, mbedtls, websockets, tjs) sees it.
+    target_include_directories(mbedcrypto PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/mbedtls_alt)
+endif()
 target_link_libraries(tjs PUBLIC mbedtls mbedx509 mbedcrypto)
 
 if (NOT CMAKE_BUILD_TYPE MATCHES "Debug")
