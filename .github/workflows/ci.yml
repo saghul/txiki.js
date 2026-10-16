@@ -327,11 +327,12 @@ jobs:
     - name: Build
       run: cmake --build build --config RelWithDebInfo
     - name: Download esbuild
-      # The download is normally 1-9s; cap it so a hung or misbehaving fetch
-      # (e.g. the intermittent lws pollfd assertion on Windows) fails fast
-      # instead of stalling the job. timeout-minutes must be a whole number;
+      # Cap it so a hung or misbehaving fetch (e.g. the intermittent lws pollfd
+      # assertion on Windows) fails fast instead of stalling the job. Under
+      # ASAN on Windows the download normally takes 75-99s, so this step gets
+      # more headroom than the others. timeout-minutes must be a whole number;
       # the runner truncates fractions (0.5 -> 0 = no timeout).
-      timeout-minutes: 2
+      timeout-minutes: 5
       run: |
         $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
         $clangDir = Get-ChildItem "$vsPath\VC\Tools\MSVC\*\bin\Hostx64\x64" -Directory | Select-Object -Last 1
