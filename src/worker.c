@@ -94,7 +94,7 @@ typedef struct {
 } worker_data_t;
 
 typedef struct {
-    JSRuntime *rt; /* parent runtime */
+    JSContext *realm; /* parent context, owned reference */
     uv_thread_t tid;
     JSValue msg_port; /* parent-side MessagePort handle (native mod_channel port) */
     TJSRuntime *wrt;
@@ -211,7 +211,7 @@ static void tjs_worker_shutdown(TJSWorker *w) {
         TJS_FreeRuntime(w->wrt);
         w->wrt = NULL;
     }
-    tjs__channel_port_close(w->rt, w->msg_port);
+    tjs__channel_port_close(JS_GetRuntime(w->realm), w->msg_port);
 }
 
 static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
@@ -221,6 +221,7 @@ static void tjs_worker_finalizer(JSRuntime *rt, JSValue val) {
          * touch *w and it is safe to free. */
         tjs_worker_shutdown(w);
         JS_FreeValueRT(rt, w->msg_port);
+        JS_FreeContext(w->realm);
         tjs__free(w);
     }
 }
@@ -229,6 +230,7 @@ static void tjs_worker_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) 
     TJSWorker *w = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WORKER));
     if (w) {
         JS_MarkValue(rt, w->msg_port, mark_func);
+        mark_func(rt, (JSGCObjectHeader *) w->realm);
     }
 }
 
@@ -257,7 +259,6 @@ static JSValue tjs_new_worker(JSContext *ctx, TJSMailbox *rx, TJSMailbox *tx) {
         return JS_ThrowOutOfMemory(ctx);
     }
 
-    w->rt = JS_GetRuntime(ctx);
     w->msg_port = tjs__channel_port_new(ctx, rx, tx);
     if (JS_IsException(w->msg_port)) {
         JS_FreeValue(ctx, obj);
@@ -265,6 +266,7 @@ static JSValue tjs_new_worker(JSContext *ctx, TJSMailbox *rx, TJSMailbox *tx) {
         return JS_EXCEPTION;
     }
 
+    w->realm = JS_DupContext(ctx);
     JS_SetOpaque(obj, w);
     return obj;
 }
