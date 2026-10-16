@@ -1,0 +1,76 @@
+From: devteam builder <317464+saghul@users.noreply.github.com>
+Subject: [PATCH] client: h1: restart the guys queued on a connection that
+ won't be kept alive
+
+When an h1 response says the connection won't be kept alive (an HTTP/1.0
+status line, or, with the Connection: close backport, a "Connection: close"
+header), lws_client_interpret_server_handshake() takes every request queued
+on that connection off its queue to restart them on connections of their
+own.  On v5.0-stable that loop only moves them back to LRS_UNCONNECTED and
+sets their user_space to NULL: nothing re-drives them, their timeout was
+cleared when they were queued, and their user can no longer find them from
+their callbacks.  The requests never go out and never settle.
+
+Before the Connection: close backport this only bit HTTP/1.0 servers; with
+it, any HTTP/1.1 server answering "Connection: close" while requests are
+queued (eg, several fetches to one origin issued in the same tick) leaves
+them hanging, where previously they failed fast with the leader.
+
+Keep each dequeued guy's user_space and schedule him, through his
+sul_connect_timeout (unused while he was queued), to restart from
+lws_client_connect_2_dnsreq_MAY_CLOSE_WSI().  He goes solo there, since he
+no longer pipelines, and if his connect fails he is closed and his user is
+told.  Running from the event loop keeps the restart out of the leader's
+handshake interpretation and the vhost lock it holds.
+
+Not an upstream backport: this is specific to the v5.0-stable pin ac23cae70.
+Upstream main replaces the transition with lws_wsi_event_role(ww,
+LWS_WSIEV_RESTART, rops), which v5.0-stable does not have.  Drop this patch
+on a bump once the target restarts the dequeued guys itself.
+---
+ lib/roles/http/client/client-http.c | 24 +++++++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/lib/roles/http/client/client-http.c b/lib/roles/http/client/client-http.c
+--- a/lib/roles/http/client/client-http.c
++++ b/lib/roles/http/client/client-http.c
+@@ -1048,6 +1048,22 @@ lws_http_is_redirected_to_get(struct lws *wsi)
+ 	return wsi->redirected_to_get;
+ }
+ 
++/*
++ * A guy that was queued on a connection that turned out not to be kept alive
++ * has never had a connection of his own.  Restart him from connect2, where
++ * he will make one.  This runs from the event loop, not from inside the
++ * leader's handshake interpretation that dequeued him, and if the connect
++ * fails, he is closed and his user is told.
++ */
++static void
++lws_client_restart_dequeued(lws_sorted_usec_list_t *sul)
++{
++	struct lws *wsi = lws_container_of(sul, struct lws,
++					   sul_connect_timeout);
++
++	lws_client_connect_2_dnsreq_MAY_CLOSE_WSI(wsi);
++}
++
+ int
+ lws_client_interpret_server_handshake(struct lws *wsi)
+ {
+@@ -1492,7 +1508,13 @@ lws_client_interpret_server_handshake(struct lws *wsi)
+ #endif
+ #endif
+ #endif
+-				ww->user_space = NULL;
++				/*
++				 * Keep his user_space: it is his user's, and
++				 * the restart still reports to it
++				 */
++				lws_sul_schedule(ww->a.context, ww->tsi,
++						 &ww->sul_connect_timeout,
++						 lws_client_restart_dequeued, 1);
+ 			} lws_end_foreach_dll_safe(d, d1);
+ 			lws_vhost_unlock(wsi->a.vhost);
+ 		}
+-- 
+2.50.1
