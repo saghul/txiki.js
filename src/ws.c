@@ -395,8 +395,8 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
 
     /* Parse the URL. */
     lws_parse_uri_t *uri = lws_parse_uri_create(url);
-    JS_FreeCString(ctx, url);
     if (!uri) {
+        JS_FreeCString(ctx, url);
         JS_FreeCString(ctx, protocols);
         js_free(ctx, w);
         JS_FreeValue(ctx, obj);
@@ -405,18 +405,19 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
 
     bool use_ssl = !strcmp(uri->scheme, "wss") || !strcmp(uri->scheme, "https");
 
-    /* Build the path with leading slash (the parsed path has it stripped). */
-    size_t path_len = strlen(uri->path);
-    char *full_path = js_malloc(ctx, path_len + 2);
+    /* The request path is at most the URL's remainder plus a leading '/'. */
+    size_t full_path_len = strlen(url) + 2;
+    char *full_path = js_malloc(ctx, full_path_len);
     if (!full_path) {
+        JS_FreeCString(ctx, url);
         JS_FreeCString(ctx, protocols);
         lws_parse_uri_destroy(&uri);
         js_free(ctx, w);
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
     }
-    full_path[0] = '/';
-    memcpy(full_path + 1, uri->path, path_len + 1);
+    tjs__lws_request_path(url, full_path, full_path_len);
+    JS_FreeCString(ctx, url);
 
     struct lws_context *lws_ctx = tjs__lws_get_context(ctx);
     if (!lws_ctx) {

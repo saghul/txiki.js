@@ -58,6 +58,19 @@ void tjs__lws_format_host(char *buf, size_t buflen, const char *scheme, const ch
     }
 }
 
+/* Format the origin-form request path of url into buf. It is derived from the
+ * original string because lws_parse_uri_create() strips one leading '/' from
+ * the path except when nothing would remain, so its path is ambiguous: "/" can
+ * come from "", "/" or "//". The authority ends at the first '/' or '?', the
+ * same place lws's host/port scan stops. */
+void tjs__lws_request_path(const char *url, char *buf, size_t buflen) {
+    const char *p = strstr(url, "://");
+    p = p ? p + 3 : url;
+    p += strcspn(p, "/?");
+
+    lws_snprintf(buf, buflen, "%s%s", *p == '/' ? "" : "/", p);
+}
+
 #define TJS_LWS_HTTP_LOAD_PROTOCOL_NAME "tjs-http-load"
 
 typedef struct {
@@ -622,9 +635,8 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
 
     bool use_ssl = !strcmp(uri->scheme, "https");
 
-    /* The parsed path has the leading '/' stripped, restore it. */
     char full_path[TJS_PATH_MAX];
-    snprintf(full_path, sizeof(full_path), "/%s", uri->path);
+    tjs__lws_request_path(url, full_path, sizeof(full_path));
 
     /* Resolve DNS synchronously.  The lws async DNS resolver is
      * unreliable in a temporary poll-based context. */
