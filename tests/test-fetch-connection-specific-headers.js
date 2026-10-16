@@ -20,6 +20,17 @@ const transports = [
 
 const dropped = [ 'keep-alive', 'proxy-connection', 'upgrade', 'transfer-encoding', 'te' ];
 
+// A never-settling await (e.g. a server.close() that never finishes) would let
+// the loop run dry and exit 0 with the remaining cases skipped.
+let completed = false;
+
+addEventListener('beforeunload', () => {
+    if (!completed) {
+        console.error('test did not run to completion');
+        tjs.exit(1);
+    }
+});
+
 async function withServer(t, handler, fn) {
     const server = tjs.serve({
         port: 0,
@@ -164,3 +175,5 @@ for (const t of transports) {
     assert.eq(status.exit_status, 0, `xhr helper failed: ${stderr}`);
     assert.eq(stdout.trim(), '200 v:2 conn:null', 'xhr Connection: close over h2');
 }
+
+completed = true;
