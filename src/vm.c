@@ -90,26 +90,23 @@ static const JSMallocFunctions tjs_mf = {
 /* SharedArrayBuffer functions */
 
 typedef struct {
-    int ref_count;
+    /* 64-bit so that buf is 8-byte aligned, as required by 8-byte typed arrays. */
+    _Atomic(int64_t) ref_count;
     uint8_t buf[0];
 } TJSSABHeader;
-
-static int atomic_add_int(int *ptr, int v) {
-    return atomic_fetch_add((_Atomic(uint32_t) *) ptr, v) + v;
-}
 
 static void *tjs__sab_alloc(void *opaque, size_t size) {
     TJSSABHeader *sab = tjs__malloc(sizeof(*sab) + size);
     if (!sab) {
         return NULL;
     }
-    sab->ref_count = 1;
+    atomic_init(&sab->ref_count, 1);
     return sab->buf;
 }
 
 void tjs__sab_free(void *opaque, void *ptr) {
     TJSSABHeader *sab = (TJSSABHeader *) ((uint8_t *) ptr - sizeof(TJSSABHeader));
-    int ref_count = atomic_add_int(&sab->ref_count, -1);
+    int64_t ref_count = atomic_fetch_sub(&sab->ref_count, 1) - 1;
     assert(ref_count >= 0);
     if (ref_count == 0) {
         tjs__free(sab);
@@ -118,7 +115,7 @@ void tjs__sab_free(void *opaque, void *ptr) {
 
 void tjs__sab_dup(void *opaque, void *ptr) {
     TJSSABHeader *sab = (TJSSABHeader *) ((uint8_t *) ptr - sizeof(TJSSABHeader));
-    atomic_add_int(&sab->ref_count, 1);
+    atomic_fetch_add(&sab->ref_count, 1);
 }
 
 static const JSSharedArrayBufferFunctions tjs_sf = {
