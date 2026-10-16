@@ -1672,7 +1672,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
             s->vhost = NULL;
             JS_FreeCString(ctx, listen_ip);
             JS_FreeValue(ctx, obj);
-            return JS_ThrowInternalError(ctx, "failed to create HTTP/3 (QUIC) listener");
+            return JS_ThrowInternalError(ctx, "failed to create HTTP/3 (QUIC) listener on port %d", s->port);
         }
 
         s->vhost_count = 2;

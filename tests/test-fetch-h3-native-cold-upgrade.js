@@ -13,26 +13,17 @@ import key from './fixtures/server-key.pem' with { type: 'text' };
 // The server serves real h3 (UDP) alongside h1/h2 and echoes the negotiated
 // version so the upgrade is directly observable.
 
-// tjs.serve({ http3: true }) binds the QUIC listener on the same ephemeral port
-// the TCP listener got; that UDP port is occasionally already taken, surfacing
-// as "failed to create HTTP/3 (QUIC) listener". Retry with a fresh port.
-function serveH3(handler) {
-    for (let attempt = 0; ; attempt++) {
-        try {
-            return tjs.serve({ port: 0, listenIp: '127.0.0.1', tls: { cert, key }, http3: true, fetch: handler });
-        } catch (e) {
-            if (attempt < 10 && /HTTP\/3 \(QUIC\) listener/.test(e.message)) {
-                continue;
-            }
-
-            throw e;
-        }
-    }
-}
-
-const server = serveH3((_req, info) => new Response(info.httpVersion, {
-    headers: { 'alt-svc': `h3=":${server.port}"; ma=86400` },
-}));
+// No retry loop here: with port 0, tjs.serve() itself falls back to another
+// port when the QUIC (UDP) side of the auto-assigned port can't be bound.
+const server = tjs.serve({
+    port: 0,
+    listenIp: '127.0.0.1',
+    tls: { cert, key },
+    http3: true,
+    fetch: (_req, info) => new Response(info.httpVersion, {
+        headers: { 'alt-svc': `h3=":${server.port}"; ma=86400` },
+    }),
+});
 
 const url = `https://127.0.0.1:${server.port}/`;
 

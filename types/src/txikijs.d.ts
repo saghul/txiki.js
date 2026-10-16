@@ -1170,7 +1170,9 @@ declare global {
              * If `true`, also serve HTTP/3 over QUIC (UDP) on the same port and
              * advertise it to HTTP/1.1 and HTTP/2 clients with an `Alt-Svc`
              * response header. Requires {@link tls} (QUIC is always TLS 1.3).
-             * Defaults to `false`.
+             * With `port: 0`, if the UDP side of the auto-assigned port can't be
+             * bound, the server picks another port so TCP and UDP still share
+             * one port. Defaults to `false`.
              */
             http3?: boolean;
         }

@@ -9,6 +9,39 @@ const kHopByHopHeaders = new Set([ 'transfer-encoding', 'connection', 'content-l
 // `#private` field on a wrapper.
 const wsUpgrades = new WeakMap();
 
+// Native error message prefixes; must match src/httpserver.c.
+const kQuicListenerError = 'failed to create HTTP/3 (QUIC) listener';
+const kVhostError = 'failed to create HTTP server vhost';
+
+const kH3MaxAttempts = 16;
+const kDynamicPortMin = 49152;
+const kDynamicPortMax = 65535;
+
+// With http3 and port 0 the OS picks the TCP port and the QUIC listener must
+// bind UDP on that same number, which can fail (the UDP port is taken, or on
+// Windows sits in an excluded port range). Port 0 would keep handing out nearby
+// ports, so retry on random ports from the dynamic range instead.
+function createHandle(opts) {
+    if (!opts.http3 || opts.port !== 0) {
+        return new HttpServer(opts);
+    }
+
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return new HttpServer(opts);
+        } catch (e) {
+            const msg = String(e?.message);
+            const retryable = msg.startsWith(kQuicListenerError) || (opts.port !== 0 && msg.startsWith(kVhostError));
+
+            if (!retryable || attempt >= kH3MaxAttempts) {
+                throw e;
+            }
+
+            opts.port = kDynamicPortMin + Math.floor(Math.random() * (kDynamicPortMax - kDynamicPortMin + 1));
+        }
+    }
+}
+
 class Server {
     #handle;
     #handler;
@@ -95,7 +128,7 @@ class Server {
             }
         };
 
-        this.#handle = new HttpServer({
+        this.#handle = createHandle({
             port,
             listenIp,
             onRequest,
