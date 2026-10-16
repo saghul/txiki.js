@@ -7,30 +7,22 @@ import key from './fixtures/server-key.pem' with { type: 'text' };
 // connection closes, a cold POST is raced over QUIC by lws, so the body is sent
 // as H3 DATA frames after the HEADERS and echoed back intact.
 
-// tjs.serve({ http3: true }) binds the QUIC listener on the same ephemeral port
-// the TCP listener got; retry a fresh port if that UDP port is already taken.
-function serveH3(handler) {
-    for (let attempt = 0; ; attempt++) {
-        try {
-            return tjs.serve({ port: 0, listenIp: '127.0.0.1', tls: { cert, key }, http3: true, fetch: handler });
-        } catch (e) {
-            if (attempt < 10 && /HTTP\/3 \(QUIC\) listener/.test(e.message)) {
-                continue;
-            }
-
-            throw e;
+// No retry loop here: with port 0, tjs.serve() itself falls back to another
+// port when the QUIC (UDP) side of the auto-assigned port can't be bound.
+const server = tjs.serve({
+    port: 0,
+    listenIp: '127.0.0.1',
+    tls: { cert, key },
+    http3: true,
+    fetch: async (req, info) => {
+        if (req.method === 'POST') {
+            return new Response(await req.text(), { headers: { 'x-http-version': info.httpVersion } });
         }
-    }
-}
 
-const server = serveH3(async (req, info) => {
-    if (req.method === 'POST') {
-        return new Response(await req.text(), { headers: { 'x-http-version': info.httpVersion } });
-    }
-
-    return new Response('ready', {
-        headers: { 'x-http-version': info.httpVersion, 'alt-svc': `h3=":${server.port}"; ma=86400` },
-    });
+        return new Response('ready', {
+            headers: { 'x-http-version': info.httpVersion, 'alt-svc': `h3=":${server.port}"; ma=86400` },
+        });
+    },
 });
 
 const url = `https://127.0.0.1:${server.port}/`;
