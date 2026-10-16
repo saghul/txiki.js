@@ -207,15 +207,6 @@ jobs:
         $env:PATH = "${{ github.workspace }}\build\${{ matrix.buildType }};${{ github.workspace }}\vcpkg\installed\x64-windows\bin;$env:PATH"
         .\build\${{ matrix.buildType }}\tjs.exe bundle tests\helpers\bundle-input.js $env:TEMP\warm.js
         Remove-Item $env:TEMP\warm.js -ErrorAction SilentlyContinue
-    - name: DIAG (temporary) excluded port ranges and TCP->UDP same-port probe
-      continue-on-error: true
-      run: |
-        netsh interface ipv4 show dynamicport protocol=tcp
-        netsh interface ipv4 show dynamicport protocol=udp
-        netsh interface ipv4 show excludedportrange protocol=tcp
-        netsh interface ipv4 show excludedportrange protocol=udp
-        $env:PATH = "${{ github.workspace }}\build\${{ matrix.buildType }};${{ github.workspace }}\vcpkg\installed\x64-windows\bin;$env:PATH"
-        .\build\${{ matrix.buildType }}\tjs.exe run tests\helpers\diag-h3-ports.js
     - name: Test
       run: |
         $env:PATH = "${{ github.workspace }}\build\${{ matrix.buildType }};${{ github.workspace }}\vcpkg\installed\x64-windows\bin;$env:PATH"
