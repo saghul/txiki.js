@@ -51,7 +51,10 @@ console.log('answer:' + result);
     assert.ok(st.isFile, 'compiled executable exists');
 
     // Run the compiled executable and verify output.
-    const runProc = tjs.spawn(exePath, { stdout: 'pipe' });
+    const runProc = tjs.spawn(exePath, {
+        stdout: 'pipe',
+        env: { ...tjs.env, TJS_HOME: path.join(tmpDir, 'home') },
+    });
     const [ runStatus, stdout ] = await Promise.all([ runProc.wait(), runProc.stdout.text() ]);
 
     assert.ok(runStatus.exit_status === 0, 'compiled app ran successfully');
