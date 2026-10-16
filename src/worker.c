@@ -87,6 +87,9 @@ void tjs__worker_post_error(JSContext *ctx, JSValueConst error) {
 typedef struct {
     const char *specifier;
     const char *source;
+    /* Borrowed from the parent runtime; valid until the worker posts sem. */
+    const char *cookie_jar_path;
+    const char *ca_bundle_path;
     TJSMailbox *rx; /* worker's receive side */
     TJSMailbox *tx; /* worker's send side */
     uv_sem_t *sem;
@@ -168,6 +171,16 @@ static void worker_entry(void *arg) {
     TJSRuntime *wrt = TJS_NewRuntimeWorker();
     CHECK_NOT_NULL(wrt);
     JSContext *ctx = TJS_GetJSContext(wrt);
+
+    /* Inherit the parent's lws config; TJS_FreeRuntime frees these with js_free. */
+    if (wd->cookie_jar_path) {
+        wrt->lws.cookie_jar_path = js_strdup(ctx, wd->cookie_jar_path);
+        CHECK_NOT_NULL(wrt->lws.cookie_jar_path);
+    }
+    if (wd->ca_bundle_path) {
+        wrt->lws.ca_bundle_path = js_strdup(ctx, wd->ca_bundle_path);
+        CHECK_NOT_NULL(wrt->lws.ca_bundle_path);
+    }
 
     /* Wrap the worker's side of the channel and expose it to the bootstrap. */
     JSValue message_pipe = tjs__channel_port_new(ctx, wd->rx, wd->tx);
@@ -299,10 +312,15 @@ static JSValue tjs_worker_constructor(JSContext *ctx, JSValue new_target, int ar
 
     const char *source = JS_IsUndefined(argv[1]) ? NULL : JS_ToCString(ctx, argv[1]);
 
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
+
     worker_data_t worker_data = { .rx = m1, /* worker side: receives on m1, sends to m0 */
                                   .tx = m0,
                                   .specifier = specifier,
                                   .source = source,
+                                  .cookie_jar_path = qrt->lws.cookie_jar_path,
+                                  .ca_bundle_path = qrt->lws.ca_bundle_path,
                                   .sem = &sem,
                                   .wrt = NULL };
 

@@ -5,6 +5,7 @@ import path from 'tjs:path';
 const fixturesDir = path.join(import.meta.dirname, 'fixtures');
 const caPath = path.join(fixturesDir, 'ca.pem');
 const helperPath = path.join(import.meta.dirname, 'helpers', 'tls-ca-echo.js');
+const workerHelperPath = path.join(import.meta.dirname, 'helpers', 'tls-ca-worker-echo.js');
 
 
 async function runHelper(args, env) {
@@ -69,8 +70,35 @@ async function testFailsWithoutCa() {
 }
 
 
+// Test that a Worker inherits the --tls-ca bundle.
+async function testWorkerInheritsCa() {
+    const { status, stderr } = await runHelper([
+        tjs.exePath, '--tls-ca', caPath, 'run', workerHelperPath,
+    ]);
+
+    assert.eq(status.exit_status, 0, `worker --tls-ca failed: ${stderr}`);
+}
+
+
+// Test that HTTPS in a Worker fails cleanly (no crash) without the custom CA.
+async function testWorkerFailsWithoutCa() {
+    const env = { ...tjs.env };
+
+    delete env.TJS_CA_BUNDLE;
+    delete env.SSL_CERT_FILE;
+
+    const { status, stderr } = await runHelper([ tjs.exePath, 'run', workerHelperPath ], env);
+
+    assert.ok(status.exit_status !== 0, 'worker should fail without custom CA');
+    assert.eq(status.term_signal, null, `worker helper should not crash: ${stderr}`);
+    assert.ok(stderr.includes('worker fetch failed'), `worker fetch should reject: ${stderr}`);
+}
+
+
 await testCliOption();
 await testEnvTjsCaBundle();
 await testEnvSslCertFile();
 await testCliPrecedence();
 await testFailsWithoutCa();
+await testWorkerInheritsCa();
+await testWorkerFailsWithoutCa();

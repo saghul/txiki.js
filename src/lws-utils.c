@@ -483,8 +483,8 @@ static void tjs__lws_init(TJSRuntime *qrt) {
     void *foreign_loops[1] = { &qrt->loop };
     info.foreign_loops = foreign_loops;
 
-    /* Cookie jar is context-level in lws, must be set here. */
-    CHECK_NOT_NULL(qrt->lws.cookie_jar_path);
+    /* Cookie jar is context-level in lws, must be set here. It may be NULL for
+     * runtimes not created through run-main (embedders): lws then doesn't persist cookies. */
     info.http_nsc_filepath = qrt->lws.cookie_jar_path;
 
     qrt->lws.ctx = lws_create_context(&info);
