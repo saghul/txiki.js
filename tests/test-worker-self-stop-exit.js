@@ -8,10 +8,11 @@ async function runHelper(name, ...extra) {
     const args = [ tjs.exePath, 'run', path.join(import.meta.dirname, 'helpers', name), ...extra ];
     const proc = tjs.spawn(args, { stdout: 'pipe', stderr: 'pipe' });
     let timedOut = false;
+    // A hang fails here rather than at the runner's timeout; GC-stress builds are far slower.
     const watchdog = setTimeout(() => {
         timedOut = true;
         proc.kill('SIGKILL');
-    }, 10000);
+    }, tjs.env.TJS_GC_STRESS ? 60000 : 10000);
     const [ status, stdout ] = await Promise.all([ proc.wait(), proc.stdout.text(), proc.stderr.text() ]);
 
     clearTimeout(watchdog);

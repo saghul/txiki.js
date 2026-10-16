@@ -5,9 +5,11 @@ import assert from 'tjs:assert';
 
 const src = 'setTimeout(() => self.postMessage(\'ok\'), 200);';
 const gcTimer = setInterval(() => tjs.engine.gc.run(), 20);
+// A healthy run takes ~200ms, but ~7s on a GC-stress build.
+const watchdogMs = tjs.env.TJS_GC_STRESS ? 60000 : 5000;
 let watchdog;
 const timeout = new Promise((_, reject) => {
-    watchdog = setTimeout(() => reject(new Error('worker message never arrived')), 5000);
+    watchdog = setTimeout(() => reject(new Error('worker message never arrived')), watchdogMs);
 });
 
 async function round() {
