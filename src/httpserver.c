@@ -1393,6 +1393,99 @@ static JSValue tjs_httpserver_accept_upgrade(JSContext *ctx, JSValue this_val, i
 }
 
 /*
+ * The UDP address lws_create_adopt_udp() binds the QUIC listener to: a
+ * wildcard (udp_ads == NULL) means [::] v6-only in our dual-stack lws build,
+ * and a numeric v6 address is v6-only too. Returns false for a name lws would
+ * resolve, which we cannot mirror.
+ */
+static bool tjs_http_udp_addr(const char *udp_ads, int port, struct sockaddr_storage *ss, unsigned int *flags) {
+    memset(ss, 0, sizeof(*ss));
+    *flags = 0;
+    if (!udp_ads) {
+        CHECK_EQ(uv_ip6_addr("::", port, (struct sockaddr_in6 *) ss), 0);
+        *flags = UV_UDP_IPV6ONLY;
+        return true;
+    }
+    if (uv_ip4_addr(udp_ads, port, (struct sockaddr_in *) ss) == 0) {
+        return true;
+    }
+    if (uv_ip6_addr(udp_ads, port, (struct sockaddr_in6 *) ss) == 0) {
+        *flags = UV_UDP_IPV6ONLY;
+        return true;
+    }
+    return false;
+}
+
+static void tjs_http_udp_probe_close_cb(uv_handle_t *handle) {
+    tjs__free(handle);
+}
+
+static void tjs_http_udp_probe_close(uv_udp_t *probe) {
+    uv_close((uv_handle_t *) probe, tjs_http_udp_probe_close_cb);
+}
+
+/* Binds a throwaway UDP socket. On success the caller owns *out and must
+ * release it with tjs_http_udp_probe_close(). Returns 0 or a uv error. */
+static int tjs_http_udp_probe(uv_loop_t *loop, const struct sockaddr_storage *ss, unsigned int flags, uv_udp_t **out) {
+    uv_udp_t *probe = tjs__mallocz(sizeof(*probe));
+    if (!probe) {
+        return UV_ENOMEM;
+    }
+    int r = uv_udp_init(loop, probe);
+    if (r != 0) {
+        tjs__free(probe);
+        return r;
+    }
+    r = uv_udp_bind(probe, (const struct sockaddr *) ss, flags);
+    if (r != 0) {
+        tjs_http_udp_probe_close(probe);
+        return r;
+    }
+    *out = probe;
+    return 0;
+}
+
+static int tjs_http_udp_probe_port(uv_udp_t *probe) {
+    struct sockaddr_storage ss;
+    int len = sizeof(ss);
+    CHECK_EQ(uv_udp_getsockname(probe, (struct sockaddr *) &ss, &len), 0);
+    if (ss.ss_family == AF_INET6) {
+        return ntohs(((struct sockaddr_in6 *) &ss)->sin6_port);
+    }
+    return ntohs(((struct sockaddr_in *) &ss)->sin_port);
+}
+
+/* lws logs nothing in our build, so re-bind the address the QUIC listener
+ * wanted (with SO_REUSEADDR, as lws does) to name the OS error. */
+static JSValue tjs_http_throw_quic_error(JSContext *ctx, const char *listen_ip, const char *udp_ads, int port) {
+    const char *ip = udp_ads ? listen_ip : "*";
+    struct sockaddr_storage ss;
+    unsigned int flags;
+    int r = 0;
+    if (tjs_http_udp_addr(udp_ads, port, &ss, &flags)) {
+        uv_udp_t *probe;
+        r = tjs_http_udp_probe(TJS_GetLoop(TJS_GetRuntime(ctx)), &ss, flags | UV_UDP_REUSEADDR, &probe);
+        if (r == 0) {
+            tjs_http_udp_probe_close(probe);
+        }
+    }
+    if (r == 0) {
+        return JS_ThrowInternalError(
+            ctx,
+            "failed to create HTTP/3 (QUIC) listener on %s:%d/udp: lws could not adopt the UDP "
+            "socket",
+            ip,
+            port);
+    }
+    return JS_ThrowInternalError(ctx,
+                                 "failed to create HTTP/3 (QUIC) listener on %s:%d/udp: %s (%s)",
+                                 ip,
+                                 port,
+                                 uv_err_name(r),
+                                 uv_strerror(r));
+}
+
+/*
  * HttpServer constructor: new HttpServer(options)
  *
  * Options object (constructed by JS layer, properties are guaranteed):
@@ -1598,7 +1691,45 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         JS_FreeValue(ctx, js_request_cert);
     }
 
-    s->vhost = lws_create_vhost(lws_ctx, &vhost_info);
+    /* A wildcard bind address must be passed as NULL: lws_create_adopt_udp
+     * would otherwise try to resolve the literal string. */
+    const char *udp_ads = listen_ip;
+    if (udp_ads && (!udp_ads[0] || !strcmp(udp_ads, "0.0.0.0") || !strcmp(udp_ads, "::"))) {
+        udp_ads = NULL;
+    }
+
+    struct sockaddr_storage udp_ss;
+    unsigned int udp_flags;
+    if (want_http3 && port == 0 && tjs_http_udp_addr(udp_ads, 0, &udp_ss, &udp_flags)) {
+        /*
+         * Let a UDP bind pick the port and fit TCP onto it, not the reverse:
+         * the OS then hands out a port it accepts for UDP, and a TCP port that
+         * turns out to be taken is cheap to retry. Binding UDP to the port TCP
+         * got failed on every retry on Windows CI (test-fetch-h3-post.js and
+         * test-fetch-h3-native-cold-upgrade.js flakes).
+         *
+         * Only the probe and the TCP vhost are retried; the QUIC vhost does
+         * not exist yet. A TCP vhost that fails to bind is destroyed inside
+         * lws_create_vhost() before it is linked or protocol-initialized, so
+         * it never reports PROTOCOL_DESTROY to s.
+         */
+        uv_loop_t *loop = TJS_GetLoop(TJS_GetRuntime(ctx));
+        for (int attempt = 0; attempt < 16 && !s->vhost; attempt++) {
+            uv_udp_t *probe;
+            if (tjs_http_udp_probe(loop, &udp_ss, udp_flags, &probe) != 0) {
+                /* UDP cannot bind here at all: fall back to the plain order,
+                 * so the QUIC listener failure below reports why. */
+                vhost_info.port = 0;
+                s->vhost = lws_create_vhost(lws_ctx, &vhost_info);
+                break;
+            }
+            vhost_info.port = tjs_http_udp_probe_port(probe);
+            s->vhost = lws_create_vhost(lws_ctx, &vhost_info);
+            tjs_http_udp_probe_close(probe);
+        }
+    } else {
+        s->vhost = lws_create_vhost(lws_ctx, &vhost_info);
+    }
 
     if (!s->vhost) {
         JS_FreeCString(ctx, listen_ip);
@@ -1616,13 +1747,6 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
      * It shares the server's protocols/user, cert and key with the TCP vhost;
      * the TCP vhost advertises h3 to clients via an Alt-Svc header. */
     if (want_http3) {
-        /* A wildcard bind address must be passed as NULL: lws_create_adopt_udp
-         * would otherwise try to resolve the literal string. */
-        const char *udp_ads = listen_ip;
-        if (udp_ads && (!udp_ads[0] || !strcmp(udp_ads, "0.0.0.0") || !strcmp(udp_ads, "::"))) {
-            udp_ads = NULL;
-        }
-
         struct lws_context_creation_info qinfo;
         memset(&qinfo, 0, sizeof(qinfo));
         qinfo.port = CONTEXT_PORT_NO_LISTEN_SERVER;
@@ -1681,9 +1805,10 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
             }
             lws_vhost_destroy(s->vhost);
             s->vhost = NULL;
+            JSValue err = tjs_http_throw_quic_error(ctx, listen_ip, udp_ads, s->port);
             JS_FreeCString(ctx, listen_ip);
             JS_FreeValue(ctx, obj);
-            return JS_ThrowInternalError(ctx, "failed to create HTTP/3 (QUIC) listener");
+            return err;
         }
 
         s->vhost_count = 2;

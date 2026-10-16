@@ -11,17 +11,22 @@ import key from './fixtures/server-key.pem' with { type: 'text' };
 const squatter = await tjs.listen('udp', '127.0.0.1', 0);
 const port = (await squatter.opened).localPort;
 
-assert.throws(
-    () =>
-        tjs.serve({
-            port,
-            listenIp: '127.0.0.1',
-            tls: { cert, key },
-            http3: true,
-            fetch: () => new Response('nope'),
-        }),
-    Error,
-    'serve() rejects a QUIC listener it cannot bind'
-);
+let error;
+
+try {
+    tjs.serve({
+        port,
+        listenIp: '127.0.0.1',
+        tls: { cert, key },
+        http3: true,
+        fetch: () => new Response('nope'),
+    });
+} catch (e) {
+    error = e;
+}
+
+assert.ok(error instanceof Error, 'serve() rejects a QUIC listener it cannot bind');
+assert.ok(error.message.includes('failed to create HTTP/3 (QUIC) listener'), error.message);
+assert.ok(error.message.includes(`127.0.0.1:${port}/udp`), `error names the UDP address: ${error.message}`);
 
 squatter.close();
