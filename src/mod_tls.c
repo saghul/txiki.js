@@ -326,6 +326,27 @@ static void maybe_invoke_tls_callback(TJSTlsStream *s, int callback, int argc, J
     }
 }
 
+/* Like maybe_invoke_tls_callback, but for JS-callable natives: JS frames are
+ * still on the stack, so pending jobs must not run here (they would run in the
+ * middle of the caller), and an exception is left pending for the caller to
+ * propagate. Returns false if the callback threw. */
+static bool invoke_tls_callback_from_js(TJSTlsStream *s, int callback, int argc, JSValue *argv) {
+    JSContext *ctx = s->ctx;
+    bool ok = true;
+    if (!s->finalized && JS_IsFunction(ctx, s->callbacks[callback])) {
+        /* The callback may replace itself, keep it alive during the call. */
+        JSValue func = JS_DupValue(ctx, s->callbacks[callback]);
+        JSValue ret = JS_Call(ctx, func, JS_UNDEFINED, argc, argv);
+        JS_FreeValue(ctx, func);
+        ok = !JS_IsException(ret);
+        JS_FreeValue(ctx, ret);
+    }
+    for (int i = 0; i < argc; i++) {
+        JS_FreeValue(ctx, argv[i]);
+    }
+    return ok;
+}
+
 static void uv__tls_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     TJSTlsStream *s = handle->data;
     CHECK_NOT_NULL(s);
@@ -343,11 +364,26 @@ static bool tjs_tls_has_pending(TJSTlsStream *s) {
     return s->bio_in.len > 0 || mbedtls_ssl_check_pending(&s->ssl);
 }
 
-/* Decrypt everything buffered and deliver it via onread. Returns true if EOF
- * (close_notify) was delivered. Callbacks may close the stream or drop the
- * last reference to it (finalizing it), so stop as soon as the handle is
- * closing: the struct stays allocated until uv__tls_close_cb runs. */
-static bool tjs_tls_drain(TJSTlsStream *s) {
+typedef enum {
+    TLS_DRAIN_STOPPED = 0,
+    TLS_DRAIN_EOF,
+    TLS_DRAIN_EXCEPTION,
+} TJSTlsDrainResult;
+
+static bool tjs_tls_deliver_read(TJSTlsStream *s, bool from_js, JSValue *args) {
+    if (from_js) {
+        return invoke_tls_callback_from_js(s, TLS_CB_READ, 2, args);
+    }
+    maybe_invoke_tls_callback(s, TLS_CB_READ, 2, args);
+    return true;
+}
+
+/* Decrypt everything buffered and deliver it via onread. Set from_js when
+ * called from a JS-callable native (see invoke_tls_callback_from_js); the loop
+ * then stops if onread throws. Callbacks may close the stream or drop the last
+ * reference to it (finalizing it), so stop as soon as the handle is closing:
+ * the struct stays allocated until uv__tls_close_cb runs. */
+static TJSTlsDrainResult tjs_tls_drain(TJSTlsStream *s, bool from_js) {
     JSContext *ctx = s->ctx;
 
     while (!uv_is_closing((uv_handle_t *) &s->tcp)) {
@@ -360,20 +396,21 @@ static bool tjs_tls_drain(TJSTlsStream *s) {
         if (ret > 0) {
             JSValue data = TJS_NewUint8Array(ctx, plaintext, ret);
             JSValue args[2] = { data, JS_UNDEFINED };
-            maybe_invoke_tls_callback(s, TLS_CB_READ, 2, args);
+            if (!tjs_tls_deliver_read(s, from_js, args)) {
+                return TLS_DRAIN_EXCEPTION;
+            }
         } else {
             js_free(ctx, plaintext);
             if (ret == 0 || ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
                 JSValue args[2] = { JS_NULL, JS_UNDEFINED };
-                maybe_invoke_tls_callback(s, TLS_CB_READ, 2, args);
-                return true;
+                return tjs_tls_deliver_read(s, from_js, args) ? TLS_DRAIN_EOF : TLS_DRAIN_EXCEPTION;
             }
             /* MBEDTLS_ERR_SSL_WANT_READ means we need more data */
             break;
         }
     }
 
-    return false;
+    return TLS_DRAIN_STOPPED;
 }
 
 static void uv__tls_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
@@ -400,7 +437,7 @@ static void uv__tls_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *
 
         if (nread == UV_EOF) {
             /* Deliver records that arrived before the FIN first. */
-            if (tjs_tls_has_pending(s) && tjs_tls_drain(s)) {
+            if (tjs_tls_has_pending(s) && tjs_tls_drain(s, false) == TLS_DRAIN_EOF) {
                 return;
             }
             if (uv_is_closing((uv_handle_t *) &s->tcp)) {
@@ -427,7 +464,7 @@ static void uv__tls_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *
         return;
     }
 
-    tjs_tls_drain(s);
+    tjs_tls_drain(s, false);
 }
 
 /* For server-accepted clients: notify the server's onconnection callback
@@ -690,9 +727,10 @@ static JSValue tjs_tls_start_read(JSContext *ctx, JSValue this_val, int argc, JS
 
     /* Data left over from the handshake read won't trigger uv__tls_read_cb,
      * deliver it now. This may synchronously call onread, which may in turn
-     * call stopRead() and unpin, hence the pin above must come first. */
-    if (tjs_tls_has_pending(s)) {
-        tjs_tls_drain(s);
+     * call stopRead() and unpin, hence the pin above must come first. Pending
+     * jobs are not run here, they run once the JS caller unwinds. */
+    if (tjs_tls_has_pending(s) && tjs_tls_drain(s, true) == TLS_DRAIN_EXCEPTION) {
+        return JS_EXCEPTION;
     }
 
     return JS_UNDEFINED;

@@ -6,6 +6,8 @@
 // With `endAfterFlush`, the proxy half-closes the upstream connection right
 // after that coalesced write, so the server sees the FIN while the application
 // data is still buffered.
+//
+// `onFlush`, if given, is called synchronously right before the coalesced write.
 
 const HOLD_MS = 100;
 
@@ -42,7 +44,7 @@ async function pipeServerToClient(upstream, downstream) {
     }
 }
 
-async function pipeClientToServer(downstream, upstream, endAfterFlush) {
+async function pipeClientToServer(downstream, upstream, endAfterFlush, onFlush) {
     const reader = downstream.readable.getReader();
     const writer = upstream.writable.getWriter();
     const held = [];
@@ -84,6 +86,7 @@ async function pipeClientToServer(downstream, upstream, endAfterFlush) {
             held.push(value);
             flushed = new Promise(resolve => setTimeout(resolve, HOLD_MS)).then(async () => {
                 holding = false;
+                onFlush?.();
                 await writer.write(concat(held));
 
                 if (endAfterFlush) {
@@ -102,7 +105,7 @@ async function pipeClientToServer(downstream, upstream, endAfterFlush) {
     }
 }
 
-export async function createCoalescingProxy(targetPort, { endAfterFlush = false } = {}) {
+export async function createCoalescingProxy(targetPort, { endAfterFlush = false, onFlush } = {}) {
     const server = await tjs.listen('tcp', '127.0.0.1', 0);
     const { readable, localPort } = await server.opened;
     const sockets = [];
@@ -125,7 +128,7 @@ export async function createCoalescingProxy(targetPort, { endAfterFlush = false 
 
         await Promise.all([
             pipeServerToClient(up, downstream),
-            pipeClientToServer(downstream, up, endAfterFlush),
+            pipeClientToServer(downstream, up, endAfterFlush, onFlush),
         ]);
     })();
 
