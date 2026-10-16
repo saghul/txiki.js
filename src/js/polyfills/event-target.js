@@ -27,6 +27,9 @@
 import core from 'tjs:internal/core';
 const privateData = new WeakMap();
 
+// Captured at load time so user code overwriting Date can't break Event construction.
+const dateNow = Date.now;
+
 /**
  * Get private data.
  * @param {Event} event The event object to get private data.
@@ -79,7 +82,7 @@ class Event {
             stopped: false,
             immediateStopped: false,
             passiveListener: null,
-            timeStamp: Date.now(),
+            timeStamp: dateNow(),
         });
 
         // https://heycam.github.io/webidl/#Unforgeable

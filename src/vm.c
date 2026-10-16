@@ -899,25 +899,29 @@ void tjs__execute_jobs(JSContext *ctx) {
         args[2] = pr->reason;
 
         JSValue event = JS_CallConstructor(ctx, qrt->builtins.promise_event_ctor, countof(args), args);
-        CHECK_EQ(JS_IsException(event), 0);
-        JSValue ret = tjs__dispatch_event(ctx, &event);
-
-        JS_FreeValue(ctx, event);
         JS_FreeValue(ctx, event_name);
 
         bool should_abort = false;
 
-        if (JS_IsException(ret)) {
+        /* User code can break the event constructor (e.g. by overwriting
+         * globals it uses), so treat that as an unhandled rejection. */
+        if (JS_IsException(event)) {
             tjs_dump_error(ctx);
             should_abort = true;
         } else {
-            if (JS_ToBool(ctx, ret)) {
+            JSValue ret = tjs__dispatch_event(ctx, &event);
+            JS_FreeValue(ctx, event);
+
+            if (JS_IsException(ret)) {
+                tjs_dump_error(ctx);
+                should_abort = true;
+            } else if (JS_ToBool(ctx, ret)) {
                 /* The event wasn't cancelled, abort. */
                 should_abort = true;
             }
-        }
 
-        JS_FreeValue(ctx, ret);
+            JS_FreeValue(ctx, ret);
+        }
 
         if (should_abort) {
             JSValue reason = pr->reason;
