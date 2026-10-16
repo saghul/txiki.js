@@ -1,0 +1,55 @@
+From b608d0e7a1c587c7aae9e5287de65bcd7489f869 Mon Sep 17 00:00:00 2001
+From: Andy Green <andy@warmcat.com>
+Date: Sat, 3 Oct 2026 04:51:38 +0000
+Subject: [PATCH] client: h1: a request is not queued on a connection that said
+ connection: close
+
+An h1 client that did not ask to pipeline sends "connection: close", and
+the server closes the connection once it has answered.  The client still
+keeps that connection warm (LRS_IDLING) on the vhost's active
+connections, to absorb the close, and lws_vhost_active_conns() would
+queue a later pipelining request to the same place on it.  Unless the
+client had already heard the server's close, that request was handed the
+connection the server was closing.  The server never read it, and it
+failed with "server closed before responding".
+
+An h1 connection whose own request said connection: close is now passed
+over when choosing one to queue on.  Another connection to the same
+place may still be used.
+
+Backport of upstream 9baa7fb0ae520c0ccca34761559140b823b5f46f (main), adapted to v5.0-stable ac23cae70.
+Upstream's lib/sansio/vhost.c is lib/core-net/vhost.c here; the
+api-test-http-transfer hunks are dropped.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ lib/core-net/vhost.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/lib/core-net/vhost.c b/lib/core-net/vhost.c
+index f61bbda18..48edc32cb 100644
+--- a/lib/core-net/vhost.c
++++ b/lib/core-net/vhost.c
+@@ -2123,6 +2123,19 @@ lws_vhost_active_conns(struct lws *wsi, struct lws **nwsi, const char *adsin)
+ 				goto solo;
+ 			}
+ 
++			/*
++			 * ...or its own request said "connection: close" (it
++			 * did not ask to pipeline): the server closes it after
++			 * that transaction.  Queued on it, we would be sent on
++			 * a connection already closing, before its kept-warm
++			 * wait has heard the close.  Another to the same place
++			 * may still do.
++			 */
++			if (lwsi_role_h1(w) && !w->client_pipeline) {
++				lwsl_wsi_info(w, "said connection: close");
++				continue;
++			}
++
+ #if defined(LWS_WITH_HTTP2)
+ 			/*
+ 			 * h2: if in usable state already: just use it without
+-- 
+2.50.1 (Apple Git-155)
+

@@ -1,0 +1,103 @@
+From 4c549315dd9e481bc32136a10b97363e52e2e434 Mon Sep 17 00:00:00 2001
+From: Andy Green <andy@warmcat.com>
+Date: Mon, 12 Oct 2026 11:17:46 +0000
+Subject: [PATCH] client: honour a response's Connection: close
+
+RFC 9112 9.6: a response whose Connection header has the "close" option
+is the last on its connection.  The h1 client only looked for it on its
+digest auth retry; otherwise an HTTP/1.1 response saying close left the
+connection kept warm and joinable, so a request pipelining after it, or
+queued on it, was sent on a connection the server was closing.
+
+Take it as the server not keeping the connection alive, as an HTTP/1.0
+response is: requests queued on it restart on their own connections, and
+new ones don't join it.  The digest auth retry uses the same helper.
+
+Backport of upstream cd4de7456950cec5d6c5501ac53e8358841ce1cf (main), adapted to v5.0-stable ac23cae70.
+Upstream's lib/sansio/http/client/client-http.c is lib/roles/http/client/client-http.c
+here, and the pinned digest auth retry has no empty_body/cl401 parse to keep.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ lib/roles/http/client/client-http.c | 51 ++++++++++++++++++++---------
+ 1 file changed, 35 insertions(+), 16 deletions(-)
+
+diff --git a/lib/roles/http/client/client-http.c b/lib/roles/http/client/client-http.c
+index 12711348a..351a49775 100644
+--- a/lib/roles/http/client/client-http.c
++++ b/lib/roles/http/client/client-http.c
+@@ -30,6 +30,33 @@ lws_client_http_body_pending(struct lws *wsi, int something_left_to_send)
+ 	wsi->client_http_body_pending = !!something_left_to_send;
+ }
+ 
++#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
++/*
++ * RFC 9112 9.6: a response whose Connection header has the "close" option
++ * is the last on its connection
++ */
++static int
++lws_client_response_says_close(struct lws *wsi)
++{
++	const char *conn = lws_hdr_simple_ptr(wsi, WSI_TOKEN_CONNECTION);
++	struct lws_tokenize ts;
++
++	if (!conn)
++		return 0;
++
++	lws_tokenize_init(&ts, conn, LWS_TOKENIZE_F_COMMA_SEP_LIST |
++				     LWS_TOKENIZE_F_MINUS_NONTERM);
++	do {
++		ts.e = (int8_t)lws_tokenize(&ts);
++		if (ts.e == LWS_TOKZE_TOKEN && ts.token_len == 5 &&
++		    !strncasecmp(ts.token, "close", 5))
++			return 1;
++	} while (ts.e > 0);
++
++	return 0;
++}
++#endif
++
+ /*
+  * Returns 0 for wsi survived OK, or LWS_HPI_RET_WSI_ALREADY_DIED
+  * meaning the wsi was destroyed by us before return.
+@@ -974,22 +1001,7 @@ str_val:
+ 		{
+ 			const char *cl401 = lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH);
+ 			const char *te401 = lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_TRANSFER_ENCODING);
+-			const char *conn = lws_hdr_simple_ptr(wsi, WSI_TOKEN_CONNECTION);
+-			int keep_alive = 1;
+-
+-			if (conn) {
+-				struct lws_tokenize ts;
+-				lws_tokenize_init(&ts, conn, LWS_TOKENIZE_F_COMMA_SEP_LIST | LWS_TOKENIZE_F_MINUS_NONTERM);
+-				do {
+-					ts.e = (int8_t)lws_tokenize(&ts);
+-					if (ts.e == LWS_TOKZE_TOKEN &&
+-					    ts.token_len == 5 &&
+-					    !strncasecmp(ts.token, "close", 5)) {
+-						keep_alive = 0;
+-						break;
+-					}
+-				} while (ts.e > 0);
+-			}
++			int keep_alive = !lws_client_response_says_close(wsi);
+ 
+ 			if (wsi->http.conn_type == HTTP_CONNECTION_KEEP_ALIVE &&
+ 			    keep_alive &&
+@@ -1145,6 +1157,13 @@ lws_client_interpret_server_handshake(struct lws *wsi)
+ 			lwsl_info("no URI\n");
+ 			goto bail3_l;
+ 		}
++		/*
++		 * RFC 9112 9.6: the server will close after this response, so
++		 * nothing queued on the connection can follow it there, and
++		 * nothing new may join it
++		 */
++		if (lws_client_response_says_close(wsi))
++			wsi->http.conn_type = HTTP_CONNECTION_CLOSE;
+ #if defined(LWS_ROLE_H2)
+ 	} else {
+ 		p = lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_STATUS);
+-- 
+2.50.1 (Apple Git-155)
+
