@@ -333,6 +333,49 @@ static void uv__tls_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_
     buf->len = sizeof(s->read_buf);
 }
 
+/* Ciphertext can be left in bio_in when the handshake completes: the peer's
+ * first application records often arrive in the same TCP read as its Finished
+ * message, and mbedtls_ssl_handshake() only consumes the handshake records. */
+static bool tjs_tls_has_pending(TJSTlsStream *s) {
+    if (s->tls_state != TLS_STATE_ESTABLISHED && s->tls_state != TLS_STATE_CLOSING) {
+        return false;
+    }
+    return s->bio_in.len > 0 || mbedtls_ssl_check_pending(&s->ssl);
+}
+
+/* Decrypt everything buffered and deliver it via onread. Returns true if EOF
+ * (close_notify) was delivered. Callbacks may close the stream or drop the
+ * last reference to it (finalizing it), so stop as soon as the handle is
+ * closing: the struct stays allocated until uv__tls_close_cb runs. */
+static bool tjs_tls_drain(TJSTlsStream *s) {
+    JSContext *ctx = s->ctx;
+
+    while (!uv_is_closing((uv_handle_t *) &s->tcp)) {
+        uint8_t *plaintext = js_malloc(ctx, 16384);
+        if (!plaintext) {
+            break;
+        }
+
+        int ret = mbedtls_ssl_read(&s->ssl, plaintext, 16384);
+        if (ret > 0) {
+            JSValue data = TJS_NewUint8Array(ctx, plaintext, ret);
+            JSValue args[2] = { data, JS_UNDEFINED };
+            maybe_invoke_tls_callback(s, TLS_CB_READ, 2, args);
+        } else {
+            js_free(ctx, plaintext);
+            if (ret == 0 || ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
+                JSValue args[2] = { JS_NULL, JS_UNDEFINED };
+                maybe_invoke_tls_callback(s, TLS_CB_READ, 2, args);
+                return true;
+            }
+            /* MBEDTLS_ERR_SSL_WANT_READ means we need more data */
+            break;
+        }
+    }
+
+    return false;
+}
+
 static void uv__tls_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
     TJSTlsStream *s = handle->data;
     CHECK_NOT_NULL(s);
@@ -356,6 +399,13 @@ static void uv__tls_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *
         }
 
         if (nread == UV_EOF) {
+            /* Deliver records that arrived before the FIN first. */
+            if (tjs_tls_has_pending(s) && tjs_tls_drain(s)) {
+                return;
+            }
+            if (uv_is_closing((uv_handle_t *) &s->tcp)) {
+                return;
+            }
             JSValue args[2] = { JS_NULL, JS_UNDEFINED };
             maybe_invoke_tls_callback(s, TLS_CB_READ, 2, args);
         } else {
@@ -377,28 +427,7 @@ static void uv__tls_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *
         return;
     }
 
-    /* Read decrypted data */
-    for (;;) {
-        uint8_t *plaintext = js_malloc(ctx, 16384);
-        if (!plaintext) {
-            break;
-        }
-
-        int ret = mbedtls_ssl_read(&s->ssl, plaintext, 16384);
-        if (ret > 0) {
-            JSValue data = TJS_NewUint8Array(ctx, plaintext, ret);
-            JSValue args[2] = { data, JS_UNDEFINED };
-            maybe_invoke_tls_callback(s, TLS_CB_READ, 2, args);
-        } else {
-            js_free(ctx, plaintext);
-            if (ret == 0 || ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-                JSValue args[2] = { JS_NULL, JS_UNDEFINED };
-                maybe_invoke_tls_callback(s, TLS_CB_READ, 2, args);
-            }
-            /* MBEDTLS_ERR_SSL_WANT_READ means we need more data */
-            break;
-        }
-    }
+    tjs_tls_drain(s);
 }
 
 /* For server-accepted clients: notify the server's onconnection callback
@@ -658,6 +687,13 @@ static JSValue tjs_tls_start_read(JSContext *ctx, JSValue this_val, int argc, JS
     }
 
     tjs__handle_pin(ctx, &s->pin, this_val);
+
+    /* Data left over from the handshake read won't trigger uv__tls_read_cb,
+     * deliver it now. This may synchronously call onread, which may in turn
+     * call stopRead() and unpin, hence the pin above must come first. */
+    if (tjs_tls_has_pending(s)) {
+        tjs_tls_drain(s);
+    }
 
     return JS_UNDEFINED;
 }
