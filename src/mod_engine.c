@@ -135,14 +135,12 @@ static JSValue tjs_deserialize(JSContext *ctx, JSValue this_val, int argc, JSVal
 }
 
 static JSValue tjs_evalBytecode(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    JSValue obj = argv[0];
-
-    if (JS_IsException(obj)) {
-        return JS_EXCEPTION;
-    }
+    /* JS_EvalFunction consumes its argument but argv is borrowed. */
+    JSValue obj = JS_DupValue(ctx, argv[0]);
 
     if (JS_VALUE_GET_TAG(obj) == JS_TAG_MODULE) {
         if (JS_ResolveModule(ctx, obj) < 0) {
+            JS_FreeValue(ctx, obj);
             return JS_EXCEPTION;
         }
 
