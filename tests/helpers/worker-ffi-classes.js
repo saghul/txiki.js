@@ -2,7 +2,9 @@ import { FFI, sopath } from './ffi.js';
 
 // Loaded by test-worker-ffi-classes.js: the FFI native classes are registered
 // for the first time here, inside a Worker runtime.
-const ITERATIONS = 200;
+// Under GC stress a full GC runs before every allocation anyway, so fewer
+// rounds still exercise the GC'd-lib path.
+const ITERATIONS = tjs.env.TJS_GC_STRESS ? 50 : 200;
 
 for (let i = 0; i < ITERATIONS; i++) {
     const { symbols, close } = FFI.dlopen(sopath, {
