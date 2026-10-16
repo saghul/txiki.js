@@ -937,8 +937,9 @@ void tjs__execute_jobs(JSContext *ctx) {
                 js_free(ctx, pr2);
             }
             /* In a worker, an unhandled rejection that aborts the runtime should
-             * also reach the parent. The 'unhandledrejection' event already
-             * fired at the worker global, so just forward the reason. */
+             * also reach the parent. The 'unhandledrejection' event was already
+             * dispatched at the worker global (or could not be constructed), so
+             * just forward the reason. */
             if (qrt->is_worker) {
                 tjs__worker_post_error(ctx, reason);
             }
@@ -973,14 +974,13 @@ static bool tjs__fire_beforeunload(TJSRuntime *qrt) {
     JSValue ret = JS_Eval(ctx, code, strlen(code), "<beforeunload>", JS_EVAL_TYPE_GLOBAL);
     bool prevented = false;
 
-    if (JS_IsException(ret)) {
-        tjs_dump_error(ctx);
-        goto end;
+    /* dispatchEvent reports listener errors itself, so an exception here means
+     * the dispatch failed (e.g. a broken Event or dispatchEvent). Leave it
+     * pending so TJS_Run reports it once and exits with an error. */
+    if (!JS_IsException(ret)) {
+        prevented = JS_ToBool(ctx, ret);
     }
 
-    prevented = JS_ToBool(ctx, ret);
-
-end:
     JS_FreeValue(ctx, ret);
     return prevented;
 }
@@ -1011,10 +1011,17 @@ int TJS_Run(TJSRuntime *qrt) {
         do {
             uv__maybe_idle(qrt);
             r = uv_run(&qrt->loop, UV_RUN_DEFAULT);
-        } while (r == 0 && JS_IsJobPending(qrt->rt));
+        } while (r == 0 && JS_IsJobPending(qrt->rt) && !JS_HasException(qrt->ctx));
 
         /* Only fire beforeunload for main runtime, not workers. */
         if (qrt->is_worker) {
+            break;
+        }
+
+        /* A fatal error (unhandled rejection or uncaught exception) stopped the
+         * loop: skip beforeunload and keep the pending exception for the report
+         * below. */
+        if (JS_HasException(qrt->ctx)) {
             break;
         }
 
