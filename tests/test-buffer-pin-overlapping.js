@@ -14,11 +14,24 @@ if (navigator.userAgentData.platform === 'Windows') {
 // isn't reading, so the TCP write stays in flight.
 const SIZE = 16 * 1024 * 1024;
 
+async function sha256(buf) {
+    return new Uint8Array(await crypto.subtle.digest('SHA-256', buf)).toString();
+}
+
+// Content is i & 0xff, filled natively: a per-byte JS loop over SIZE bytes is
+// too slow on Debug and sanitizer builds.
 const data = new Uint8Array(SIZE);
 
-for (let i = 0; i < SIZE; i++) {
-    data[i] = i & 0xff;
+for (let i = 0; i < 256; i++) {
+    data[i] = i;
 }
+
+for (let len = 256; len < SIZE; len *= 2) {
+    data.copyWithin(len, 0, len);
+}
+
+// Hashed before any write starts, so the digest never overlaps the pins.
+const expected = await sha256(data);
 
 const server = new TCPServerSocket('127.0.0.1', { localPort: 0 });
 const { readable: acceptStream, localPort } = await server.opened;
@@ -70,11 +83,7 @@ await readDone;
 
 assert.eq(total, SIZE, 'peer got all the data');
 
-for (let i = 0; i < SIZE; i++) {
-    if (received[i] !== (i & 0xff)) {
-        assert.fail(`peer data corrupted at byte ${i}`);
-    }
-}
+assert.eq(await sha256(received), expected, 'peer data intact');
 
 assert.ok(!data.buffer.immutable, 'buffer is mutable once the last pin is released');
 
