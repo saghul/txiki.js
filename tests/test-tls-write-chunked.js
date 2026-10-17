@@ -3,10 +3,13 @@ import certPem from './fixtures/server-cert.pem' with { type: 'text' };
 import keyPem from './fixtures/server-key.pem' with { type: 'text' };
 
 // A large write is encrypted in 64 KiB chunks, at most 256 KiB per event loop
-// iteration. These sizes sit on both sides of those boundaries.
-const BOUNDARY_SIZES = [ 65536, 65537, 262144, 262145, 4 * 1024 * 1024 ];
-const LATE_READER_SIZE = 8 * 1024 * 1024;
-const YIELD_SIZE = 32 * 1024 * 1024;
+// iteration. These sizes sit on both sides of those boundaries. GC stress
+// builds are too slow for the multi-megabyte sizes; 1 MiB still spans several
+// iterations.
+const BIG = (tjs.env.TJS_GC_STRESS ? 1 : 4) * 1024 * 1024;
+const BOUNDARY_SIZES = [ 65536, 65537, 262144, 262145, BIG ];
+const LATE_READER_SIZE = 2 * BIG;
+const YIELD_SIZE = 8 * 1024 * 1024;
 
 function makeData(size) {
     const data = new Uint8Array(size);
