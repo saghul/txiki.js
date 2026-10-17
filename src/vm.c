@@ -494,6 +494,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     JSContext *ctx = NULL;
     TJSRuntime *qrt = tjs__mallocz(sizeof(*qrt));
 
+    tjs__lws_init_log_cx(qrt);
+
     memcpy(&qrt->options, options, sizeof(*options));
 
     rt = JS_NewRuntime2(&tjs_mf, NULL);
@@ -792,6 +794,10 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
 #else
     (void) closed;
 #endif
+
+    /* Every lws object bound to the runtime's log context is gone: lws
+     * finalizes them all inside lws_context_destroy (see lws-evlib.c). */
+    assert(qrt->lws.log_cx.refcount == 0);
 
     tjs__free(qrt);
 }

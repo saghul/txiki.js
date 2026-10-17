@@ -195,6 +195,16 @@ void tjs__lws_setup(void) {
     lws_set_log_level(0, NULL);
 }
 
+/* Called at runtime creation rather than from tjs__lws_init: module loading
+ * over http (tjs__lws_load_http) creates a one-shot lws context that may come
+ * before the runtime's main lws context exists. Mirrors lws's global log
+ * context after lws_set_log_level(0, NULL) above, so logs stay off. */
+void tjs__lws_init_log_cx(TJSRuntime *qrt) {
+    memset(&qrt->lws.log_cx, 0, sizeof(qrt->lws.log_cx));
+    qrt->lws.log_cx.u.emit = lwsl_emit_stderr;
+    qrt->lws.log_cx.lll_flags = 0;
+}
+
 static void tjs__load_ca_bundle(TJSRuntime *qrt) {
     if (qrt->lws.ca_bundle_data || !qrt->lws.ca_bundle_path) {
         return;
@@ -427,6 +437,7 @@ static struct lws_vhost *tjs__create_client_vhost(TJSRuntime *qrt, const char *n
      */
     vinfo.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_H2_JUST_FIX_WINDOW_UPDATE_OVERFLOW;
     vinfo.vhost_name = name;
+    vinfo.log_cx = &qrt->lws.log_cx;
     /*
      * ALPN list offered on TLS-over-TCP client handshakes.  lws derives its
      * default from the enabled roles, which on an HTTP/3-capable build means
@@ -486,6 +497,7 @@ static void tjs__lws_init(TJSRuntime *qrt) {
     /* Cookie jar is context-level in lws, must be set here. It may be NULL for
      * runtimes not created through run-main (embedders): lws then doesn't persist cookies. */
     info.http_nsc_filepath = qrt->lws.cookie_jar_path;
+    info.log_cx = &qrt->lws.log_cx;
 
     qrt->lws.ctx = lws_create_context(&info);
 
@@ -674,6 +686,7 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
     /* See tjs__create_client_vhost: tolerate h2 servers that overflow the
      * connection-level window (e.g. Cloudflare) instead of dropping them. */
     info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_H2_JUST_FIX_WINDOW_UPDATE_OVERFLOW;
+    info.log_cx = &qrt->lws.log_cx;
 
     tjs__set_ca_info(qrt, &info);
 
