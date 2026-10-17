@@ -86,6 +86,13 @@ typedef struct TJSHandlePin {
     void (*detach)(struct TJSHandlePin *pin);
 } TJSHandlePin;
 
+/* Counted self-pin held while libuv requests (write, shutdown, send) are in
+ * flight on a handle. Separate from the handle's read/listen/connect pin. */
+typedef struct {
+    TJSHandlePin pin;
+    unsigned int count;
+} TJSReqPin;
+
 /* Native classes. Their JSClassIDs are allocated per runtime (TJSRuntime.class_ids),
  * since each runtime numbers its classes independently. */
 typedef enum {
@@ -204,6 +211,12 @@ int tjs__class_register(JSContext *ctx, TJSClass c, const JSClassDef *def);
  * already-pinned handle or unpinning an idle one is a no-op. */
 void tjs__handle_pin(JSContext *ctx, TJSHandlePin *pin, JSValue obj);
 void tjs__handle_unpin(JSContext *ctx, TJSHandlePin *pin);
+/* Count one in-flight request; the first one pins `obj` (borrowed). Call only
+ * once libuv has accepted the request. An undefined `obj` only counts. */
+void tjs__req_pin_acquire(JSContext *ctx, TJSReqPin *rp, JSValue obj);
+/* Release one request; the last one unpins, which may finalize the wrapper, so
+ * it must be the last thing the request's callback does. */
+void tjs__req_pin_release(JSContext *ctx, TJSReqPin *rp);
 /* Teardown, before the lws context is destroyed: run each registered pin's
  * `detach` hook (no-op for pins without one) so lws-backed wrappers stop
  * dispatching to JS before their close callbacks fire. */

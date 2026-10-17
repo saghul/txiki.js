@@ -125,7 +125,8 @@ enum {
 };
 
 typedef struct TJSTlsStream {
-    TJSHandlePin pin; /* keep the JS object alive while the handle is active */
+    TJSHandlePin pin;  /* keep the JS object alive while the handle is active */
+    TJSReqPin req_pin; /* ... and while write / shutdown requests are in flight */
     JSContext *ctx;
     int closed;
     int finalized;
@@ -170,7 +171,7 @@ static TJSTlsStream *tjs_tls_get(JSContext *ctx, JSValue obj) {
 static JSValue tjs_new_tls_from_server(JSContext *ctx, TJSTlsStream *server);
 static void tjs_tls_handshake(TJSTlsStream *s);
 static void tjs_tls_server_handshake(TJSTlsStream *s);
-static int tjs_tls_flush_bio_out(TJSTlsStream *s);
+static int tjs_tls_flush_bio_out(TJSTlsStream *s, JSValue obj);
 static void tjs_tls_complete_accept(TJSTlsStream *client, JSValue error);
 static void maybe_invoke_tls_callback(TJSTlsStream *s, int callback, int argc, JSValue *argv);
 
@@ -250,11 +251,13 @@ static void uv__tls_write_cb(uv_write_t *req, int status) {
             JSValue arg = tjs_new_error(s->ctx, status);
             maybe_invoke_tls_callback(s, TLS_CB_WRITE, 1, &arg);
         }
+        tjs__req_pin_release(s->ctx, &s->req_pin);
         return;
     }
 
-    /* More data may have been appended to bio_out while the write was in flight. */
-    int r = tjs_tls_flush_bio_out(s);
+    /* More data may have been appended to bio_out while the write was in flight.
+     * The req pin is still held here (released below), so re-pin with it. */
+    int r = tjs_tls_flush_bio_out(s, s->req_pin.pin.obj);
 
     /* onwrite fires once everything queued so far has reached the kernel. */
     if (s->tls_state == TLS_STATE_ESTABLISHED) {
@@ -267,11 +270,15 @@ static void uv__tls_write_cb(uv_write_t *req, int status) {
             maybe_invoke_tls_callback(s, TLS_CB_WRITE, 1, &arg);
         }
     }
+
+    /* May finalize the wrapper: nothing may touch s->callbacks after this. */
+    tjs__req_pin_release(s->ctx, &s->req_pin);
 }
 
 /* Hands bio_out to the kernel, synchronously if possible, else via uv_write().
- * Returns 0 or a libuv error; on error the pending output is dropped. */
-static int tjs_tls_flush_bio_out(TJSTlsStream *s) {
+ * Returns 0 or a libuv error; on error the pending output is dropped. `obj` is
+ * the (borrowed) wrapper, pinned while the write is in flight. */
+static int tjs_tls_flush_bio_out(TJSTlsStream *s, JSValue obj) {
     if (s->bio_out.len == 0 || s->closed) {
         return 0;
     }
@@ -316,6 +323,7 @@ static int tjs_tls_flush_bio_out(TJSTlsStream *s) {
     }
 
     s->write_reqs++;
+    tjs__req_pin_acquire(s->ctx, &s->req_pin, obj);
     return 0;
 }
 
@@ -527,20 +535,21 @@ static JSValue tjs_tls_handshake_error(TJSTlsStream *s, int ret) {
     return err;
 }
 
-/* Client-only: drive the TLS handshake, fire onconnect when done. */
+/* Client-only: drive the TLS handshake, fire onconnect when done. The connect
+ * / read pin is held throughout, so it pins any write the handshake issues. */
 static void tjs_tls_handshake(TJSTlsStream *s) {
     int ret = mbedtls_ssl_handshake(&s->ssl);
 
     if (ret == 0) {
         s->tls_state = TLS_STATE_ESTABLISHED;
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, s->pin.obj);
         JSValue arg = JS_UNDEFINED;
         maybe_invoke_tls_callback(s, TLS_CB_CONNECT, 1, &arg);
     } else if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, s->pin.obj);
     } else {
         s->tls_state = TLS_STATE_ERROR;
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, s->pin.obj);
         JSValue err = tjs_tls_handshake_error(s, ret);
         maybe_invoke_tls_callback(s, TLS_CB_CONNECT, 1, &err);
     }
@@ -552,15 +561,15 @@ static void tjs_tls_server_handshake(TJSTlsStream *s) {
 
     if (ret == 0) {
         s->tls_state = TLS_STATE_ESTABLISHED;
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, s->pin.obj);
         /* Stop reading — JS will restart via startRead when it creates the ReadableStream. */
         uv_read_stop((uv_stream_t *) &s->tcp);
         tjs_tls_complete_accept(s, JS_UNDEFINED);
     } else if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, s->pin.obj);
     } else {
         s->tls_state = TLS_STATE_ERROR;
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, s->pin.obj);
         uv_read_stop((uv_stream_t *) &s->tcp);
         tjs_tls_complete_accept(s, tjs_tls_handshake_error(s, ret));
     }
@@ -802,7 +811,7 @@ static JSValue tjs_tls_write(JSContext *ctx, JSValue this_val, int argc, JSValue
         return JS_ThrowInternalError(ctx, "TLS write failed: %s", errbuf);
     }
 
-    int r = tjs_tls_flush_bio_out(s);
+    int r = tjs_tls_flush_bio_out(s, this_val);
     if (r != 0) {
         s->tls_state = TLS_STATE_ERROR;
         return r == UV_ENOMEM ? JS_ThrowOutOfMemory(ctx) : tjs_throw_errno(ctx, r);
@@ -820,6 +829,8 @@ static void uv__tls_shutdown_cb(uv_shutdown_t *req, int status) {
     JSValue arg = (status == 0) ? JS_UNDEFINED : tjs_new_error(ctx, status);
     maybe_invoke_tls_callback(s, TLS_CB_SHUTDOWN, 1, &arg);
     js_free(ctx, req);
+
+    tjs__req_pin_release(ctx, &s->req_pin);
 }
 
 static JSValue tjs_tls_shutdown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -839,7 +850,7 @@ static JSValue tjs_tls_shutdown(JSContext *ctx, JSValue this_val, int argc, JSVa
     if (s->tls_state == TLS_STATE_ESTABLISHED) {
         s->tls_state = TLS_STATE_CLOSING;
         mbedtls_ssl_close_notify(&s->ssl);
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, this_val);
     }
 
     uv_shutdown_t *req = js_malloc(ctx, sizeof(*req));
@@ -852,6 +863,8 @@ static JSValue tjs_tls_shutdown(JSContext *ctx, JSValue this_val, int argc, JSVa
         js_free(ctx, req);
         return tjs_throw_errno(ctx, r);
     }
+
+    tjs__req_pin_acquire(ctx, &s->req_pin, this_val);
 
     return JS_UNDEFINED;
 }
@@ -875,6 +888,10 @@ static void tjs_tls_maybe_close(TJSTlsStream *s) {
  * closed without relying on the GC to collect and finalize the wrapper. */
 static void tjs_tls_detach(TJSHandlePin *pin) {
     tjs_tls_maybe_close(list_entry(pin, TJSTlsStream, pin));
+}
+
+static void tjs_tls_req_detach(TJSHandlePin *pin) {
+    tjs_tls_maybe_close(list_entry(pin, TJSTlsStream, req_pin.pin));
 }
 
 static JSValue tjs_tls_close(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -1047,8 +1064,10 @@ static void tjs_tls_finalizer(JSRuntime *rt, JSValue val) {
     }
 
     /* A pinned stream holds a ref to itself, so it can't be finalized until the
-     * pin is released (on stop/close, accept completion, or at teardown). */
+     * pin is released (on stop/close, accept completion, or at teardown).
+     * Likewise the request pin, until its last in-flight request completes. */
     CHECK(JS_IsUndefined(s->pin.obj));
+    CHECK(JS_IsUndefined(s->req_pin.pin.obj));
     JS_FreeValueRT(rt, s->server);
 
     mbedtls_ssl_free(&s->ssl);
@@ -1088,7 +1107,9 @@ static void tjs_tls_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
         }
         /* s->pin is intentionally NOT marked: it is a GC-invisible
            self-reference that keeps the JS object alive while the libuv
-           handle is active (reading / listening). */
+           handle is active (reading / listening). Nor is s->req_pin, the
+           same kind of reference held while write / shutdown requests are
+           in flight. */
         JS_MarkValue(rt, s->server, mark_func);
     }
 }
@@ -1259,6 +1280,9 @@ static JSValue tjs_new_tls(JSContext *ctx, int af) {
     s->tls_state = TLS_STATE_INIT;
     s->pin.obj = JS_UNDEFINED;
     s->pin.detach = tjs_tls_detach;
+    s->req_pin.pin.obj = JS_UNDEFINED;
+    s->req_pin.pin.detach = tjs_tls_req_detach;
+    s->req_pin.count = 0;
     s->server = JS_UNDEFINED;
 
     tjs_tlsbuf_init(&s->bio_in);
