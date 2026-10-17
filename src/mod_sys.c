@@ -96,7 +96,18 @@ static JSValue tjs_isArrayBuffer(JSContext *ctx, JSValue this_val, int argc, JSV
     return JS_NewBool(ctx, JS_IsArrayBuffer(argv[0]));
 }
 
+static JSValue tjs_isImmutableArrayBuffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    return JS_NewBool(ctx, JS_IsImmutableArrayBuffer(argv[0]) == 1);
+}
+
 static JSValue tjs_detachArrayBuffer(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+    /* A buffer pinned by an in-flight native request is marked immutable;
+     * JS_DetachArrayBuffer ignores that flag and would free memory the
+     * request still reads. */
+    if (JS_IsImmutableArrayBuffer(argv[0]) == 1) {
+        return JS_ThrowTypeError(ctx, "Cannot transfer an immutable ArrayBuffer");
+    }
+
     JS_DetachArrayBuffer(ctx, argv[0]);
 
     return JS_UNDEFINED;
@@ -180,6 +191,7 @@ static const JSCFunctionListEntry tjs_sys_funcs[] = {
     TJS_CFUNC_DEF("randomUUID", 0, tjs_randomUUID),
     TJS_CFUNC_DEF("runRepl", 0, tjs_runRepl),
     TJS_CFUNC_DEF("isArrayBuffer", 1, tjs_isArrayBuffer),
+    TJS_CFUNC_DEF("isImmutableArrayBuffer", 1, tjs_isImmutableArrayBuffer),
     TJS_CFUNC_DEF("detachArrayBuffer", 1, tjs_detachArrayBuffer),
     TJS_CFUNC_MAGIC_DEF("stdoutPrint", 1, tjs_print, 0),
     TJS_CFUNC_MAGIC_DEF("stderrPrint", 1, tjs_print, 1),
