@@ -573,6 +573,10 @@ static JSValue tjs_port_postmessage(JSContext *ctx, JSValue this_val, int argc, 
     if (JS_IsArray(port_handles)) {
         JS_GetLength(ctx, port_handles, &nports);
     }
+    int64_t nbufs = 0;
+    if (JS_IsArray(buffers)) {
+        JS_GetLength(ctx, buffers, &nbufs);
+    }
 
     /* Serialize first so a clone failure transfers nothing. */
     TJSChannelMsg *m = channel_msg_build(ctx, value);
@@ -588,26 +592,62 @@ static JSValue tjs_port_postmessage(JSContext *ctx, JSValue this_val, int argc, 
             channel_msg_free(m);
             return JS_ThrowOutOfMemory(ctx);
         }
+    }
+
+    /* Snapshot both lists up front: reading an array element can run JS (an
+     * accessor), and between the immutability check below and the detach no
+     * JS may run, or it could pin a buffer we are about to free. */
+    int64_t nvals = nports + nbufs;
+    JSValue *vals = NULL;
+    if (nvals > 0) {
+        vals = tjs__malloc(sizeof(JSValue) * nvals);
+        if (!vals) {
+            channel_msg_free(m);
+            return JS_ThrowOutOfMemory(ctx);
+        }
         for (int64_t i = 0; i < nports; i++) {
-            JSValue h = JS_GetPropertyUint32(ctx, port_handles, (uint32_t) i);
-            TJSPort *tp = tjs_port_get(ctx, h);
-            JS_FreeValue(ctx, h);
+            vals[i] = JS_GetPropertyUint32(ctx, port_handles, (uint32_t) i);
+        }
+        for (int64_t i = 0; i < nbufs; i++) {
+            vals[nports + i] = JS_GetPropertyUint32(ctx, buffers, (uint32_t) i);
+        }
+    }
+    JSValue *bufs = vals ? vals + nports : NULL;
+
+    /* Serialization can run user code (getters) that starts a native write,
+     * which pins its buffer by marking it immutable. JS_DetachArrayBuffer
+     * ignores that flag and would free memory the write still reads, so refuse
+     * the whole transfer before anything moves. */
+    bool pinned = false;
+    for (int64_t i = 0; i < nbufs; i++) {
+        if (JS_IsImmutableArrayBuffer(bufs[i]) == 1) {
+            pinned = true;
+            break;
+        }
+    }
+
+    if (!pinned) {
+        for (int64_t i = 0; i < nports; i++) {
+            TJSPort *tp = tjs_port_get(ctx, vals[i]);
             if (tp && port_is_live(tp)) {
                 port_do_transfer(tp, &m->ports[m->nports++]);
             }
         }
+        for (int64_t i = 0; i < nbufs; i++) {
+            if (JS_IsArrayBuffer(bufs[i])) {
+                JS_DetachArrayBuffer(ctx, bufs[i]);
+            }
+        }
     }
 
-    if (JS_IsArray(buffers)) {
-        int64_t nbufs = 0;
-        JS_GetLength(ctx, buffers, &nbufs);
-        for (int64_t i = 0; i < nbufs; i++) {
-            JSValue b = JS_GetPropertyUint32(ctx, buffers, (uint32_t) i);
-            if (JS_IsArrayBuffer(b)) {
-                JS_DetachArrayBuffer(ctx, b);
-            }
-            JS_FreeValue(ctx, b);
-        }
+    for (int64_t i = 0; i < nvals; i++) {
+        JS_FreeValue(ctx, vals[i]);
+    }
+    tjs__free(vals);
+
+    if (pinned) {
+        channel_msg_free(m);
+        return JS_ThrowTypeError(ctx, "Cannot transfer an immutable ArrayBuffer");
     }
 
     port_post(p, m);
