@@ -173,6 +173,7 @@ typedef struct {
     JSValue callback;                   /* JS onrequest handler */
     JSValue body_chunk_callback;        /* JS onBodyChunk handler for streaming bodies */
     JSValue close_callback;             /* JS onClose, invoked when lws fires PROTOCOL_DESTROY */
+    JSValue request_close_callback;     /* JS onRequestClose: an unfinished request's connection closed */
     JSValue ws_callbacks[WS_EVENT_MAX]; /* server-level: open, message, close, error */
     struct lws_vhost *vhost;
     struct lws_vhost *quic_vhost; /* HTTP/3 (QUIC/UDP) vhost, or NULL if h3 off */
@@ -290,6 +291,9 @@ static void tjs_httpserver_detach(TJSHandlePin *pin) {
     JS_FreeValue(s->ctx, s->close_callback);
     s->close_callback = JS_UNDEFINED;
 
+    JS_FreeValue(s->ctx, s->request_close_callback);
+    s->request_close_callback = JS_UNDEFINED;
+
     for (int i = 0; i < WS_EVENT_MAX; i++) {
         JS_FreeValue(s->ctx, s->ws_callbacks[i]);
         s->ws_callbacks[i] = JS_UNDEFINED;
@@ -303,6 +307,7 @@ static void tjs_httpserver_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, s->callback);
         JS_FreeValueRT(rt, s->body_chunk_callback);
         JS_FreeValueRT(rt, s->close_callback);
+        JS_FreeValueRT(rt, s->request_close_callback);
 
         for (int i = 0; i < WS_EVENT_MAX; i++) {
             JS_FreeValueRT(rt, s->ws_callbacks[i]);
@@ -346,6 +351,7 @@ static void tjs_httpserver_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_fu
         JS_MarkValue(rt, s->callback, mark_func);
         JS_MarkValue(rt, s->body_chunk_callback, mark_func);
         JS_MarkValue(rt, s->close_callback, mark_func);
+        JS_MarkValue(rt, s->request_close_callback, mark_func);
         for (int i = 0; i < WS_EVENT_MAX; i++) {
             JS_MarkValue(rt, s->ws_callbacks[i], mark_func);
         }
@@ -1259,9 +1265,18 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 JS_FreeValue(s->ctx, cb_args[0]);
             }
 
+            uint64_t req_id = req->id;
             HASH_DEL(s->active_requests, req);
             tjs_http_req_free(JS_GetRuntime(s->ctx), req);
             lws_set_wsi_user(wsi, NULL);
+
+            /* Last: the handler may run user code (e.g. close the server), so
+             * neither req nor wsi may be used after it. */
+            if (JS_IsFunction(s->ctx, s->request_close_callback)) {
+                JSValue arg = JS_NewInt64(s->ctx, req_id);
+                tjs_call_handler(s->ctx, s->request_close_callback, 1, &arg);
+                JS_FreeValue(s->ctx, arg);
+            }
             return 0;
         }
 
@@ -1427,6 +1442,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     s->callback = JS_UNDEFINED;
     s->body_chunk_callback = JS_UNDEFINED;
     s->close_callback = JS_UNDEFINED;
+    s->request_close_callback = JS_UNDEFINED;
     s->pin.obj = JS_UNDEFINED;
     s->pin.detach = tjs_httpserver_detach;
     for (int i = 0; i < WS_EVENT_MAX; i++) {
@@ -1461,6 +1477,13 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     JSValue js_body_chunk = JS_GetPropertyStr(ctx, options, "onBodyChunk");
     CHECK(JS_IsFunction(ctx, js_body_chunk));
     s->body_chunk_callback = js_body_chunk;
+
+    JSValue js_request_close = JS_GetPropertyStr(ctx, options, "onRequestClose");
+    if (JS_IsFunction(ctx, js_request_close)) {
+        s->request_close_callback = js_request_close;
+    } else {
+        JS_FreeValue(ctx, js_request_close);
+    }
 
     /* Close callback, fired once lws is fully done draining the vhost
      * (i.e. LWS_CALLBACK_PROTOCOL_DESTROY). */
@@ -1735,6 +1758,9 @@ static JSValue tjs_httpserver_close(JSContext *ctx, JSValue this_val, int argc, 
 
     JS_FreeValue(ctx, s->body_chunk_callback);
     s->body_chunk_callback = JS_UNDEFINED;
+
+    JS_FreeValue(ctx, s->request_close_callback);
+    s->request_close_callback = JS_UNDEFINED;
 
     for (int i = 0; i < WS_EVENT_MAX; i++) {
         JS_FreeValue(ctx, s->ws_callbacks[i]);
@@ -2101,9 +2127,11 @@ static JSValue tjs_httpserver_send_body(JSContext *ctx, JSValue this_val, int ar
         return JS_EXCEPTION;
     }
 
+    /* false tells the caller the request is gone (its connection or the server
+     * closed), so it can stop producing the body. */
     TJSHttpRequest *req = tjs_http_find_request(s, req_id);
-    if (!req) {
-        return JS_UNDEFINED; /* Connection already closed, silently ignore. */
+    if (!req || s->closed) {
+        return JS_FALSE;
     }
 
     bool is_final = JS_ToBool(ctx, argv[2]);
@@ -2192,7 +2220,7 @@ static JSValue tjs_httpserver_send_body(JSContext *ctx, JSValue this_val, int ar
     list_add_tail(&pw->link, &req->pending_writes);
     lws_callback_on_writable(req->wsi);
 
-    return JS_UNDEFINED;
+    return JS_TRUE;
 }
 
 /*
