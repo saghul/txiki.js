@@ -19,6 +19,16 @@ v5.0-stable ac23cae70.  The pinned timeout callback has no busy-mux-child
 keepalive check and __lws_header_table_detach() has no HOLDING_AH disarm,
 so those hunks are dropped; the api-test-close-decided hunks are dropped.
 
+Deviation from upstream: __lws_wsi_remove_from_sul() also clears
+close_decided, so the flag is only ever set while the sul_timeout that
+carries the close out is armed.  The h1 pipeline handoff
+(_lws_generic_transaction_completed_active_conn()) cancels the retiring
+leader's sul by hand and then closes it with LWS_TO_KILL_ASYNC; if the
+leader's close had already been decided, eg, it was aborted earlier in the
+same service pass, that kill was ignored and the leader was left with no
+socket and no timeout until the context was destroyed.  Upstream main has
+the same sequence.
+
 In txiki.js this is what lets an h2 server close: lws_vhost_destroy()
 decides each of its connections closed, and a frame the client sends before
 the loop comes round re-arms the h2 network connection's timeout
@@ -28,8 +38,8 @@ never destroyed and server.close() never settles.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
  lib/core-net/private-lib-core-net.h |  1 +
- lib/core-net/wsi-timeout.c          | 30 ++++++++++++++++++++++++++++++
- 2 files changed, 31 insertions(+)
+ lib/core-net/wsi-timeout.c          | 37 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 38 insertions(+)
 
 diff --git a/lib/core-net/private-lib-core-net.h b/lib/core-net/private-lib-core-net.h
 index 9329b66ff..6703089af 100644
@@ -44,10 +54,24 @@ index 9329b66ff..6703089af 100644
  	unsigned int			upgraded_to_http2:1;
  	unsigned int			mux_stream_immortal:1;
 diff --git a/lib/core-net/wsi-timeout.c b/lib/core-net/wsi-timeout.c
-index a45faf888..48c0a0a2d 100644
+index a45faf888..1cd4a85ab 100644
 --- a/lib/core-net/wsi-timeout.c
 +++ b/lib/core-net/wsi-timeout.c
-@@ -101,6 +101,9 @@ lws_sul_wsitimeout_cb(lws_sorted_usec_list_t *sul)
+@@ -27,6 +27,13 @@
+ void
+ __lws_wsi_remove_from_sul(struct lws *wsi)
+ {
++	/*
++	 * A decided close is carried out by sul_timeout; with it cancelled
++	 * there is nothing left to carry it out, so a later close, eg, the
++	 * KILL_ASYNC on a pipeline leader that handed off its socket, must be
++	 * able to arm it again.
++	 */
++	wsi->close_decided = 0;
+ 	lws_sul_cancel(&wsi->sul_timeout);
+ 	lws_sul_cancel(&wsi->sul_hrtimer);
+ 	lws_sul_cancel(&wsi->sul_validity);
+@@ -101,6 +108,9 @@ lws_sul_wsitimeout_cb(lws_sorted_usec_list_t *sul)
  	struct lws_context *cx = wsi->a.context;
  	struct lws_context_per_thread *pt = &cx->pt[(int)wsi->tsi];
  
@@ -57,7 +81,7 @@ index a45faf888..48c0a0a2d 100644
  	/* no need to log normal idle keepalive timeout */
  //		if (wsi->pending_timeout != PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE)
  	if (wsi->pending_timeout == PENDING_TIMEOUT_HTTP_RESPONSE)
-@@ -166,6 +169,17 @@ __lws_set_timeout(struct lws *wsi, enum pending_timeout reason, int secs)
+@@ -166,6 +176,17 @@ __lws_set_timeout(struct lws *wsi, enum pending_timeout reason, int secs)
  {
  	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
  
@@ -75,7 +99,7 @@ index a45faf888..48c0a0a2d 100644
  	if (reason == PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE && secs > 0) {
  		if (wsi->immortal_substream_count > 0) {
  			lwsl_wsi_info(wsi, "Refusing to set idle keepalive timeout because it has %d immortal substreams", wsi->immortal_substream_count);
-@@ -188,6 +202,13 @@ lws_set_timeout(struct lws *wsi, enum pending_timeout reason, int secs)
+@@ -188,6 +209,13 @@ lws_set_timeout(struct lws *wsi, enum pending_timeout reason, int secs)
  	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
  
  	lws_context_lock(pt->context, __func__);
@@ -89,7 +113,7 @@ index a45faf888..48c0a0a2d 100644
  	lws_pt_lock(pt, __func__);
  	lws_dll2_remove(&wsi->sul_timeout.list);
  	lws_pt_unlock(pt);
-@@ -218,6 +239,9 @@ lws_set_timeout(struct lws *wsi, enum pending_timeout reason, int secs)
+@@ -218,6 +246,9 @@ lws_set_timeout(struct lws *wsi, enum pending_timeout reason, int secs)
  
  	lws_pt_lock(pt, __func__);
  	__lws_set_timeout(wsi, reason, secs);
@@ -99,7 +123,7 @@ index a45faf888..48c0a0a2d 100644
  	lws_pt_unlock(pt);
  
  bail:
-@@ -229,6 +253,12 @@ lws_set_timeout_us(struct lws *wsi, enum pending_timeout reason, lws_usec_t us)
+@@ -229,6 +260,12 @@ lws_set_timeout_us(struct lws *wsi, enum pending_timeout reason, lws_usec_t us)
  {
  	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
  
