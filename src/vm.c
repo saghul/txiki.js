@@ -621,6 +621,21 @@ void tjs__handle_unpin(JSContext *ctx, TJSHandlePin *pin) {
     }
 }
 
+void tjs__req_pin_acquire(JSContext *ctx, TJSReqPin *rp, JSValue obj) {
+    if (rp->count++ == 0 && !JS_IsUndefined(obj)) {
+        tjs__handle_pin(ctx, &rp->pin, obj);
+    }
+}
+
+/* After tjs__release_pins has dropped the pin at teardown, the remaining
+ * releases only decrement the count (unpinning an idle pin is a no-op). */
+void tjs__req_pin_release(JSContext *ctx, TJSReqPin *rp) {
+    CHECK_GT(rp->count, 0);
+    if (--rp->count == 0) {
+        tjs__handle_unpin(ctx, &rp->pin);
+    }
+}
+
 /* Run every registered pin's `detach` hook at the very start of teardown. The
  * hook quiesces the handle so nothing dispatches into the half-torn-down
  * runtime, but its exact job differs by who owns the handle's close:
