@@ -149,12 +149,14 @@ static void tjs__digest_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewUint8ArrayCopy(ctx, dr->digest, dr->digest_len);
     }
 
+    /* The threadpool is done with the input: unpin it before the callback,
+     * which drains microtasks and so runs the code awaiting this digest. */
+    tjs_buf_ref_release(ctx, &dr->data_ref);
     tjs_call_handler(ctx, dr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, dr->callback);
-    tjs_buf_ref_release(ctx, &dr->data_ref);
     js_free(ctx, dr);
 }
 
@@ -259,13 +261,13 @@ static void tjs__hmac_sign_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewUint8ArrayCopy(ctx, hr->digest, hr->digest_len);
     }
 
+    tjs_buf_ref_release(ctx, &hr->key_ref);
+    tjs_buf_ref_release(ctx, &hr->data_ref);
     tjs_call_handler(ctx, hr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, hr->callback);
-    tjs_buf_ref_release(ctx, &hr->key_ref);
-    tjs_buf_ref_release(ctx, &hr->data_ref);
     js_free(ctx, hr);
 }
 
@@ -664,15 +666,15 @@ static void tjs__cipher_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewUint8ArrayCopy(ctx, cr->output, cr->output_len);
     }
 
+    tjs_buf_ref_release(ctx, &cr->key_ref);
+    tjs_buf_ref_release(ctx, &cr->iv_ref);
+    tjs_buf_ref_release(ctx, &cr->data_ref);
+    tjs_buf_ref_release(ctx, &cr->aad_ref);
     tjs_call_handler(ctx, cr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, cr->callback);
-    tjs_buf_ref_release(ctx, &cr->key_ref);
-    tjs_buf_ref_release(ctx, &cr->iv_ref);
-    tjs_buf_ref_release(ctx, &cr->data_ref);
-    tjs_buf_ref_release(ctx, &cr->aad_ref);
     tjs__free(cr->output);
     js_free(ctx, cr);
 }
@@ -818,13 +820,13 @@ static void tjs__pbkdf2_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewUint8ArrayCopy(ctx, pr->output, pr->key_length);
     }
 
+    tjs_buf_ref_release(ctx, &pr->password_ref);
+    tjs_buf_ref_release(ctx, &pr->salt_ref);
     tjs_call_handler(ctx, pr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, pr->callback);
-    tjs_buf_ref_release(ctx, &pr->password_ref);
-    tjs_buf_ref_release(ctx, &pr->salt_ref);
     js_free(ctx, pr->output);
     js_free(ctx, pr);
 }
@@ -967,14 +969,14 @@ static void tjs__hkdf_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewUint8ArrayCopy(ctx, hr->output, hr->key_length);
     }
 
+    tjs_buf_ref_release(ctx, &hr->ikm_ref);
+    tjs_buf_ref_release(ctx, &hr->salt_ref);
+    tjs_buf_ref_release(ctx, &hr->info_ref);
     tjs_call_handler(ctx, hr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, hr->callback);
-    tjs_buf_ref_release(ctx, &hr->ikm_ref);
-    tjs_buf_ref_release(ctx, &hr->salt_ref);
-    tjs_buf_ref_release(ctx, &hr->info_ref);
     js_free(ctx, hr->output);
     js_free(ctx, hr);
 }
@@ -1306,13 +1308,13 @@ static void tjs__ecdsa_sign_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewUint8ArrayCopy(ctx, sr->signature, sr->sig_len);
     }
 
+    tjs_buf_ref_release(ctx, &sr->privkey_ref);
+    tjs_buf_ref_release(ctx, &sr->data_ref);
     tjs_call_handler(ctx, sr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, sr->callback);
-    tjs_buf_ref_release(ctx, &sr->privkey_ref);
-    tjs_buf_ref_release(ctx, &sr->data_ref);
     js_free(ctx, sr->signature);
     js_free(ctx, sr);
 }
@@ -1485,14 +1487,14 @@ static void tjs__ecdsa_verify_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewBool(ctx, vr->r == 0);
     }
 
+    tjs_buf_ref_release(ctx, &vr->pubkey_ref);
+    tjs_buf_ref_release(ctx, &vr->sig_ref);
+    tjs_buf_ref_release(ctx, &vr->data_ref);
     tjs_call_handler(ctx, vr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, vr->callback);
-    tjs_buf_ref_release(ctx, &vr->pubkey_ref);
-    tjs_buf_ref_release(ctx, &vr->sig_ref);
-    tjs_buf_ref_release(ctx, &vr->data_ref);
     js_free(ctx, vr);
 }
 
@@ -1643,13 +1645,13 @@ static void tjs__ecdh_derive_bits_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewUint8ArrayCopy(ctx, dr->output, dr->output_len);
     }
 
+    tjs_buf_ref_release(ctx, &dr->privkey_ref);
+    tjs_buf_ref_release(ctx, &dr->pubkey_ref);
     tjs_call_handler(ctx, dr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, dr->callback);
-    tjs_buf_ref_release(ctx, &dr->privkey_ref);
-    tjs_buf_ref_release(ctx, &dr->pubkey_ref);
     js_free(ctx, dr->output);
     js_free(ctx, dr);
 }
@@ -1959,14 +1961,14 @@ static void tjs__rsa_oaep_encrypt_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewUint8ArrayCopy(ctx, er->output, er->output_len);
     }
 
+    tjs_buf_ref_release(ctx, &er->pubkey_der_ref);
+    tjs_buf_ref_release(ctx, &er->data_ref);
+    tjs_buf_ref_release(ctx, &er->label_ref);
     tjs_call_handler(ctx, er->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, er->callback);
-    tjs_buf_ref_release(ctx, &er->pubkey_der_ref);
-    tjs_buf_ref_release(ctx, &er->data_ref);
-    tjs_buf_ref_release(ctx, &er->label_ref);
     tjs__free(er->output);
     js_free(ctx, er);
 }
@@ -2105,14 +2107,14 @@ static void tjs__rsa_oaep_decrypt_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewUint8ArrayCopy(ctx, dr->output, dr->output_len);
     }
 
+    tjs_buf_ref_release(ctx, &dr->privkey_der_ref);
+    tjs_buf_ref_release(ctx, &dr->data_ref);
+    tjs_buf_ref_release(ctx, &dr->label_ref);
     tjs_call_handler(ctx, dr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, dr->callback);
-    tjs_buf_ref_release(ctx, &dr->privkey_der_ref);
-    tjs_buf_ref_release(ctx, &dr->data_ref);
-    tjs_buf_ref_release(ctx, &dr->label_ref);
     tjs__free(dr->output);
     js_free(ctx, dr);
 }
@@ -2275,13 +2277,13 @@ static void tjs__rsa_sign_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewUint8ArrayCopy(ctx, sr->signature, sr->sig_len);
     }
 
+    tjs_buf_ref_release(ctx, &sr->privkey_der_ref);
+    tjs_buf_ref_release(ctx, &sr->data_ref);
     tjs_call_handler(ctx, sr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, sr->callback);
-    tjs_buf_ref_release(ctx, &sr->privkey_der_ref);
-    tjs_buf_ref_release(ctx, &sr->data_ref);
     tjs__free(sr->signature);
     js_free(ctx, sr);
 }
@@ -2432,14 +2434,14 @@ static void tjs__rsa_verify_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewBool(ctx, vr->r == 0);
     }
 
+    tjs_buf_ref_release(ctx, &vr->pubkey_der_ref);
+    tjs_buf_ref_release(ctx, &vr->sig_ref);
+    tjs_buf_ref_release(ctx, &vr->data_ref);
     tjs_call_handler(ctx, vr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, vr->callback);
-    tjs_buf_ref_release(ctx, &vr->pubkey_der_ref);
-    tjs_buf_ref_release(ctx, &vr->sig_ref);
-    tjs_buf_ref_release(ctx, &vr->data_ref);
     js_free(ctx, vr);
 }
 
@@ -3264,13 +3266,13 @@ static void tjs__ed25519_sign_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewUint8ArrayCopy(ctx, sr->signature, 64);
     }
 
+    tjs_buf_ref_release(ctx, &sr->privkey_ref);
+    tjs_buf_ref_release(ctx, &sr->message_ref);
     tjs_call_handler(ctx, sr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, sr->callback);
-    tjs_buf_ref_release(ctx, &sr->privkey_ref);
-    tjs_buf_ref_release(ctx, &sr->message_ref);
     js_free(ctx, sr);
 }
 
@@ -3375,14 +3377,14 @@ static void tjs__ed25519_verify_after_work_cb(uv_work_t *req, int status) {
         args[1] = JS_NewBool(ctx, vr->r == 0);
     }
 
+    tjs_buf_ref_release(ctx, &vr->pubkey_ref);
+    tjs_buf_ref_release(ctx, &vr->sig_ref);
+    tjs_buf_ref_release(ctx, &vr->message_ref);
     tjs_call_handler(ctx, vr->callback, 2, args);
 
     JS_FreeValue(ctx, args[0]);
     JS_FreeValue(ctx, args[1]);
     JS_FreeValue(ctx, vr->callback);
-    tjs_buf_ref_release(ctx, &vr->pubkey_ref);
-    tjs_buf_ref_release(ctx, &vr->sig_ref);
-    tjs_buf_ref_release(ctx, &vr->message_ref);
     js_free(ctx, vr);
 }
 

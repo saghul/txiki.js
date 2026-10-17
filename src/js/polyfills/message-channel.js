@@ -125,6 +125,13 @@ class MessagePort extends EventTarget {
 
                 portHandles.push(h);
             } else if (core.isArrayBuffer(t)) {
+                // Also covers buffers pinned by an in-flight native write. The
+                // native side re-checks after serialization, since a getter can
+                // start such a write while the message is being cloned.
+                if (core.isImmutableArrayBuffer(t)) {
+                    throw new DOMException('Cannot transfer an immutable ArrayBuffer', 'DataCloneError');
+                }
+
                 buffers.push(t);
             } else {
                 throw new DOMException('Value is not transferable', 'DataCloneError');

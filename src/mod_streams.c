@@ -285,8 +285,10 @@ static void uv__stream_write_cb(uv_write_t *req, int status) {
         arg = JS_UNDEFINED;
     }
 
-    maybe_invoke_callback(s, STREAM_CB_WRITE, 1, &arg);
+    /* libuv is done with the buffer: unpin it before the callback, which
+     * drains microtasks and so runs the code awaiting this write. */
     tjs_buf_ref_release(ctx, &wr->buf_ref);
+    maybe_invoke_callback(s, STREAM_CB_WRITE, 1, &arg);
     js_free(ctx, wr);
 
     /* May finalize the wrapper: nothing may touch s->callbacks after this. */
