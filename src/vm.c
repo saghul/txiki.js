@@ -754,6 +754,9 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     /* Finalizers look up class ids in qrt, so free qrt only after this. */
     JS_FreeRuntime(qrt->rt);
 
+    /* Requests left uncompleted by an abnormal exit can leave pins behind. */
+    tjs__free_buf_pins(qrt);
+
 #ifdef TJS_HAVE_WASM
     /* Destroy WASM runtime. */
     if (qrt->wasm_ctx.initialized) {

@@ -24,6 +24,7 @@
 
 #include "utils.h"
 
+#include "hash.h"
 #include "private.h"
 #include "tjs.h"
 
@@ -240,7 +241,28 @@ void tjs_buf_ref_init(TJSBufferRef *ref) {
     ref->abuf = JS_UNDEFINED;
     ref->data = NULL;
     ref->size = 0;
-    ref->was_immutable = false;
+    ref->counted = false;
+}
+
+/* An ArrayBuffer stays immutable while any native request uses it, so overlapping
+ * requests on one buffer share a pin count and only the last release clears the
+ * flag. An entry exists only while its count is > 0, and every counted ref holds a
+ * strong reference to the ArrayBuffer, so the object (and the pointer used as the
+ * key) can't be freed or reused while its entry exists. All gets and releases run
+ * on the runtime's loop thread (threadpool requests release in their after-work
+ * callbacks), so the table needs no locking. */
+struct TJSBufPin {
+    void *abuf;
+    uint32_t count;
+    UT_hash_handle hh;
+};
+
+void tjs__free_buf_pins(TJSRuntime *qrt) {
+    TJSBufPin *pin, *tmp;
+    HASH_ITER(hh, qrt->buf_pins, pin, tmp) {
+        HASH_DEL(qrt->buf_pins, pin);
+        tjs__free(pin);
+    }
 }
 
 int tjs_buf_ref_get(JSContext *ctx, JSValueConst obj, TJSBufferRef *ref) {
@@ -259,10 +281,31 @@ int tjs_buf_ref_get(JSContext *ctx, JSValueConst obj, TJSBufferRef *ref) {
     }
 
     ref->data = data;
-    ref->was_immutable = JS_IsImmutableArrayBuffer(ref->abuf) == 1;
-    if (!ref->was_immutable) {
+
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    void *key = JS_VALUE_GET_PTR(ref->abuf);
+    TJSBufPin *pin = NULL;
+    HASH_FIND_PTR(qrt->buf_pins, &key, pin);
+    if (pin) {
+        CHECK_LT(pin->count, UINT32_MAX);
+        pin->count++;
+        ref->counted = true;
+    } else if (JS_IsImmutableArrayBuffer(ref->abuf) != 1) {
+        pin = tjs__malloc(sizeof(*pin));
+        if (!pin) {
+            JS_FreeValue(ctx, ref->abuf);
+            tjs_buf_ref_init(ref);
+            JS_ThrowOutOfMemory(ctx);
+            return -1;
+        }
+        pin->abuf = key;
+        pin->count = 1;
+        HASH_ADD_PTR(qrt->buf_pins, abuf, pin);
         JS_SetImmutableArrayBuffer(ref->abuf, true);
+        ref->counted = true;
     }
+    /* Otherwise the buffer is immutable for good (transferToImmutable()) and
+     * stays that way. */
 
     return 0;
 }
@@ -271,8 +314,20 @@ void tjs_buf_ref_release(JSContext *ctx, TJSBufferRef *ref) {
     if (JS_IsUndefined(ref->abuf)) {
         return;
     }
-    if (!ref->was_immutable) {
-        JS_SetImmutableArrayBuffer(ref->abuf, false);
+    if (ref->counted) {
+        TJSRuntime *qrt = TJS_GetRuntime(ctx);
+        void *key = JS_VALUE_GET_PTR(ref->abuf);
+        TJSBufPin *pin = NULL;
+        HASH_FIND_PTR(qrt->buf_pins, &key, pin);
+        CHECK_NOT_NULL(pin);
+        CHECK_GT(pin->count, 0);
+        if (--pin->count == 0) {
+            HASH_DEL(qrt->buf_pins, pin);
+            tjs__free(pin);
+            /* Before dropping our reference, which may finalize the buffer. */
+            JS_SetImmutableArrayBuffer(ref->abuf, false);
+        }
+        ref->counted = false;
     }
     JS_FreeValue(ctx, ref->abuf);
     ref->abuf = JS_UNDEFINED;
