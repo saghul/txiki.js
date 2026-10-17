@@ -283,7 +283,14 @@ class Server {
                     ([ name ]) => !kHopByHopHeaders.has(name),
                 );
 
-                this.#handle.sendHeaders(requestId, status, streamHeaders);
+                // sendHeaders, getReader and the map insert run in one turn, so a
+                // close either makes sendHeaders fail or finds the reader in the map.
+                if (!this.#handle.sendHeaders(requestId, status, streamHeaders)) {
+                    await Server.#cancelReader(response.body.getReader());
+
+                    return;
+                }
+
                 headersSent = true;
 
                 const reader = response.body.getReader();
