@@ -37,6 +37,12 @@
 /* ---- Ring buffer for encrypted data between libuv and mbedtls ---- */
 
 #define TLS_BUF_INITIAL_SIZE 16384
+/* A drained bio_out larger than this is freed rather than kept around. */
+#define TLS_BUF_RETAIN_MAX (128 * 1024)
+/* Plaintext encrypted into bio_out before it is flushed. */
+#define TLS_WRITE_CHUNK (64 * 1024)
+/* Plaintext encrypted per loop iteration before yielding to the event loop. */
+#define TLS_WRITE_BUDGET (256 * 1024)
 
 typedef struct {
     uint8_t *data;
@@ -144,6 +150,11 @@ typedef struct TJSTlsStream {
     TJSTlsBuf bio_out;
     unsigned int write_reqs; /* uv_write() requests in flight */
 
+    /* Plaintext of the current write not yet encrypted. While set, a uv_write()
+     * is in flight and its callback resumes encrypting (or releases it). */
+    TJSBufferRef wbuf;
+    size_t woff;
+
     int tls_state;
     bool is_server;
 
@@ -170,7 +181,7 @@ static TJSTlsStream *tjs_tls_get(JSContext *ctx, JSValue obj) {
 static JSValue tjs_new_tls_from_server(JSContext *ctx, TJSTlsStream *server);
 static void tjs_tls_handshake(TJSTlsStream *s);
 static void tjs_tls_server_handshake(TJSTlsStream *s);
-static int tjs_tls_flush_bio_out(TJSTlsStream *s);
+static int tjs_tls_flush_bio_out(TJSTlsStream *s, bool force_async);
 static void tjs_tls_complete_accept(TJSTlsStream *client, JSValue error);
 static void maybe_invoke_tls_callback(TJSTlsStream *s, int callback, int argc, JSValue *argv);
 
@@ -227,6 +238,59 @@ typedef struct {
     uint8_t data[];
 } TJSTlsWriteReq;
 
+static bool tjs_tls_write_pending(TJSTlsStream *s) {
+    return !JS_IsUndefined(s->wbuf.abuf);
+}
+
+static JSValue tjs_tls_write_error(JSContext *ctx, int ret) {
+    char errbuf[128];
+    char msg[160];
+    mbedtls_strerror(ret, errbuf, sizeof(errbuf));
+    snprintf(msg, sizeof(msg), "TLS write failed: %s", errbuf);
+    JSValue err = JS_NewError(ctx);
+    JS_DefinePropertyValueStr(ctx, err, "message", JS_NewString(ctx, msg), JS_PROP_C_W_E);
+    return err;
+}
+
+/* Encrypts the pending plaintext in TLS_WRITE_CHUNK steps, flushing after each,
+ * until it is all consumed or a uv_write() is in flight. After TLS_WRITE_BUDGET
+ * the last chunk is always sent with uv_write(), so its callback resumes the
+ * work on a later loop iteration instead of blocking the loop now.
+ * Releases the plaintext once consumed. Returns 0, or an error with the
+ * plaintext left pending: an mbedtls error if *tls_err is set, else libuv's. */
+static int tjs_tls_pump(TJSTlsStream *s, bool *tls_err) {
+    size_t budget = TLS_WRITE_BUDGET;
+
+    *tls_err = false;
+    while (tjs_tls_write_pending(s) && s->write_reqs == 0) {
+        size_t end = s->wbuf.size - s->woff > TLS_WRITE_CHUNK ? s->woff + TLS_WRITE_CHUNK : s->wbuf.size;
+        budget -= end - s->woff;
+
+        /* mbedtls_ssl_write() consumes at most one record per call. */
+        while (s->woff < end) {
+            int ret = mbedtls_ssl_write(&s->ssl, s->wbuf.data + s->woff, end - s->woff);
+            if (ret < 0) {
+                *tls_err = true;
+                return ret;
+            }
+            s->woff += ret;
+        }
+
+        bool done = s->woff == s->wbuf.size;
+        if (done) {
+            tjs_buf_ref_release(s->ctx, &s->wbuf);
+        }
+
+        int r = tjs_tls_flush_bio_out(s, !done && budget == 0);
+        if (r != 0) {
+            return r;
+        }
+    }
+
+    CHECK(!tjs_tls_write_pending(s) || s->write_reqs > 0);
+    return 0;
+}
+
 static void uv__tls_write_cb(uv_write_t *req, int status) {
     TJSTlsStream *s = req->handle->data;
     CHECK_NOT_NULL(s);
@@ -239,6 +303,7 @@ static void uv__tls_write_cb(uv_write_t *req, int status) {
     if (status < 0) {
         int prev_state = s->tls_state;
         s->tls_state = TLS_STATE_ERROR;
+        tjs_buf_ref_release(s->ctx, &s->wbuf);
         if (prev_state == TLS_STATE_HANDSHAKING) {
             JSValue err = tjs_new_error(s->ctx, status);
             if (s->is_server) {
@@ -254,24 +319,44 @@ static void uv__tls_write_cb(uv_write_t *req, int status) {
     }
 
     /* More data may have been appended to bio_out while the write was in flight. */
-    int r = tjs_tls_flush_bio_out(s);
+    int r = tjs_tls_flush_bio_out(s, false);
+    bool tls_err = false;
+
+    if (r == 0 && s->write_reqs == 0 && tjs_tls_write_pending(s)) {
+        /* After finalization s->ssl is freed, it must not be touched. */
+        if (s->tls_state == TLS_STATE_ESTABLISHED && !s->finalized && !uv_is_closing((uv_handle_t *) &s->tcp)) {
+            r = tjs_tls_pump(s, &tls_err);
+        } else {
+            r = UV_ECANCELED;
+        }
+    }
 
     /* onwrite fires once everything queued so far has reached the kernel. */
-    if (s->tls_state == TLS_STATE_ESTABLISHED) {
-        if (r != 0) {
+    if (r != 0) {
+        tjs_buf_ref_release(s->ctx, &s->wbuf);
+        if (s->tls_state == TLS_STATE_ESTABLISHED) {
             s->tls_state = TLS_STATE_ERROR;
-            JSValue arg = tjs_new_error(s->ctx, r);
-            maybe_invoke_tls_callback(s, TLS_CB_WRITE, 1, &arg);
-        } else if (s->write_reqs == 0) {
-            JSValue arg = JS_UNDEFINED;
+            JSValue arg = tls_err ? tjs_tls_write_error(s->ctx, r) : tjs_new_error(s->ctx, r);
             maybe_invoke_tls_callback(s, TLS_CB_WRITE, 1, &arg);
         }
+    } else if (s->write_reqs == 0 && s->tls_state == TLS_STATE_ESTABLISHED) {
+        JSValue arg = JS_UNDEFINED;
+        maybe_invoke_tls_callback(s, TLS_CB_WRITE, 1, &arg);
     }
 }
 
-/* Hands bio_out to the kernel, synchronously if possible, else via uv_write().
- * Returns 0 or a libuv error; on error the pending output is dropped. */
-static int tjs_tls_flush_bio_out(TJSTlsStream *s) {
+static void tjs_tls_bio_out_drained(TJSTlsStream *s) {
+    s->bio_out.head = 0;
+    s->bio_out.len = 0;
+    if (s->bio_out.capacity > TLS_BUF_RETAIN_MAX) {
+        tjs_tlsbuf_free(&s->bio_out);
+    }
+}
+
+/* Hands bio_out to the kernel, synchronously if possible (unless force_async),
+ * else via uv_write(). Returns 0 or a libuv error; on error the pending output
+ * is dropped. */
+static int tjs_tls_flush_bio_out(TJSTlsStream *s, bool force_async) {
     if (s->bio_out.len == 0 || s->closed) {
         return 0;
     }
@@ -280,11 +365,10 @@ static int tjs_tls_flush_bio_out(TJSTlsStream *s) {
 
     /* Try synchronous write first — avoids allocation in the common case. */
     uv_buf_t buf = uv_buf_init((char *) (s->bio_out.data + s->bio_out.head), len);
-    int r = uv_try_write((uv_stream_t *) &s->tcp, &buf, 1);
+    int r = force_async ? UV_EAGAIN : uv_try_write((uv_stream_t *) &s->tcp, &buf, 1);
     if (r == (int) len) {
         /* All sent synchronously — drain bio_out, no async needed. */
-        s->bio_out.head = 0;
-        s->bio_out.len = 0;
+        tjs_tls_bio_out_drained(s);
         return 0;
     }
 
@@ -296,8 +380,7 @@ static int tjs_tls_flush_bio_out(TJSTlsStream *s) {
     TJSTlsWriteReq *wr = js_malloc(s->ctx, sizeof(*wr) + remaining);
     if (!wr) {
         /* Drop the rest: later output must never follow a partial record. */
-        s->bio_out.head = 0;
-        s->bio_out.len = 0;
+        tjs_tls_bio_out_drained(s);
         return UV_ENOMEM;
     }
 
@@ -305,8 +388,7 @@ static int tjs_tls_flush_bio_out(TJSTlsStream *s) {
     wr->req.data = wr;
 
     /* Drain bio_out now — the data is in our copy. */
-    s->bio_out.head = 0;
-    s->bio_out.len = 0;
+    tjs_tls_bio_out_drained(s);
 
     buf = uv_buf_init((char *) wr->data, remaining);
     r = uv_write(&wr->req, (uv_stream_t *) &s->tcp, &buf, 1, uv__tls_write_cb);
@@ -533,14 +615,14 @@ static void tjs_tls_handshake(TJSTlsStream *s) {
 
     if (ret == 0) {
         s->tls_state = TLS_STATE_ESTABLISHED;
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, false);
         JSValue arg = JS_UNDEFINED;
         maybe_invoke_tls_callback(s, TLS_CB_CONNECT, 1, &arg);
     } else if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, false);
     } else {
         s->tls_state = TLS_STATE_ERROR;
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, false);
         JSValue err = tjs_tls_handshake_error(s, ret);
         maybe_invoke_tls_callback(s, TLS_CB_CONNECT, 1, &err);
     }
@@ -552,15 +634,15 @@ static void tjs_tls_server_handshake(TJSTlsStream *s) {
 
     if (ret == 0) {
         s->tls_state = TLS_STATE_ESTABLISHED;
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, false);
         /* Stop reading — JS will restart via startRead when it creates the ReadableStream. */
         uv_read_stop((uv_stream_t *) &s->tcp);
         tjs_tls_complete_accept(s, JS_UNDEFINED);
     } else if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, false);
     } else {
         s->tls_state = TLS_STATE_ERROR;
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, false);
         uv_read_stop((uv_stream_t *) &s->tcp);
         tjs_tls_complete_accept(s, tjs_tls_handshake_error(s, ret));
     }
@@ -779,37 +861,31 @@ static JSValue tjs_tls_write(JSContext *ctx, JSValue this_val, int argc, JSValue
         return JS_ThrowInternalError(ctx, "stream is closed");
     }
 
-    TJSBufferRef buf_ref;
-    if (tjs_buf_ref_get(ctx, argv[0], &buf_ref)) {
+    if (tjs_tls_write_pending(s)) {
+        return JS_ThrowInternalError(ctx, "TLS write already in progress");
+    }
+
+    if (tjs_buf_ref_get(ctx, argv[0], &s->wbuf)) {
         return JS_EXCEPTION;
     }
+    s->woff = 0;
 
-    /* mbedtls_ssl_write() consumes at most one record per call. */
-    size_t off = 0;
-    int ret = 0;
-    while (off < buf_ref.size) {
-        ret = mbedtls_ssl_write(&s->ssl, buf_ref.data + off, buf_ref.size - off);
-        if (ret < 0) {
-            break;
-        }
-        off += ret;
-    }
-    tjs_buf_ref_release(ctx, &buf_ref);
-
-    if (ret < 0) {
-        char errbuf[128];
-        mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        return JS_ThrowInternalError(ctx, "TLS write failed: %s", errbuf);
-    }
-
-    int r = tjs_tls_flush_bio_out(s);
+    bool tls_err;
+    int r = tjs_tls_pump(s, &tls_err);
     if (r != 0) {
+        /* Records already in bio_out must not precede a later write. */
         s->tls_state = TLS_STATE_ERROR;
+        tjs_buf_ref_release(ctx, &s->wbuf);
+        if (tls_err) {
+            char errbuf[128];
+            mbedtls_strerror(r, errbuf, sizeof(errbuf));
+            return JS_ThrowInternalError(ctx, "TLS write failed: %s", errbuf);
+        }
         return r == UV_ENOMEM ? JS_ThrowOutOfMemory(ctx) : tjs_throw_errno(ctx, r);
     }
 
-    /* With writes in flight, onwrite fires once they have all completed. */
-    return s->write_reqs == 0 ? JS_TRUE : JS_FALSE;
+    /* Otherwise onwrite fires once the plaintext is consumed and all writes completed. */
+    return !tjs_tls_write_pending(s) && s->write_reqs == 0 ? JS_TRUE : JS_FALSE;
 }
 
 static void uv__tls_shutdown_cb(uv_shutdown_t *req, int status) {
@@ -831,6 +907,10 @@ static JSValue tjs_tls_shutdown(JSContext *ctx, JSValue this_val, int argc, JSVa
         return JS_ThrowInternalError(ctx, "stream is closed");
     }
 
+    if (tjs_tls_write_pending(s)) {
+        return JS_ThrowInternalError(ctx, "TLS write in progress");
+    }
+
     /* Guard against double shutdown. */
     if (s->tls_state == TLS_STATE_CLOSING || s->tls_state == TLS_STATE_CLOSED) {
         return JS_UNDEFINED;
@@ -839,7 +919,7 @@ static JSValue tjs_tls_shutdown(JSContext *ctx, JSValue this_val, int argc, JSVa
     if (s->tls_state == TLS_STATE_ESTABLISHED) {
         s->tls_state = TLS_STATE_CLOSING;
         mbedtls_ssl_close_notify(&s->ssl);
-        tjs_tls_flush_bio_out(s);
+        tjs_tls_flush_bio_out(s, false);
     }
 
     uv_shutdown_t *req = js_malloc(ctx, sizeof(*req));
@@ -1263,6 +1343,7 @@ static JSValue tjs_new_tls(JSContext *ctx, int af) {
 
     tjs_tlsbuf_init(&s->bio_in);
     tjs_tlsbuf_init(&s->bio_out);
+    tjs_buf_ref_init(&s->wbuf);
 
     for (int i = 0; i < TLS_CB_MAX; i++) {
         s->callbacks[i] = JS_UNDEFINED;
