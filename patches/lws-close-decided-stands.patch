@@ -1,0 +1,138 @@
+From f4a6dc71bb1ff2ad147214c930aa25d8dbd091b4 Mon Sep 17 00:00:00 2001
+From: Andy Green <andy@warmcat.com>
+Date: Tue, 13 Oct 2026 19:46:55 +0000
+Subject: [PATCH] wsi: a decided close stands
+
+lws_wsi_close(wsi, LWS_TO_KILL_ASYNC) only armed a 0s timeout, so anything
+that set or cancelled the wsi's timeout before the event loop came round to
+it undid the close.  A client whose connect completed in the same pass
+replaced it with the timeout for its next phase, eg, a connection culled as
+having no route to its peer went on to complete anyway.
+
+The wsi may have been closed for a reason that means it can no longer do
+its job, so once its close is decided, ignore further changes to its
+timeout until the close is carried out, except an immediate kill.
+
+Backport of upstream f4a6dc71bb1ff2ad147214c930aa25d8dbd091b4 and its
+follow-up e9008aa7b51d18b5774d7156448f65464321a9cc (main), adapted to
+v5.0-stable ac23cae70.  The pinned timeout callback has no busy-mux-child
+keepalive check and __lws_header_table_detach() has no HOLDING_AH disarm,
+so those hunks are dropped; the api-test-close-decided hunks are dropped.
+
+Deviation from upstream: __lws_wsi_remove_from_sul() also clears
+close_decided, so the flag is only ever set while the sul_timeout that
+carries the close out is armed.  The h1 pipeline handoff
+(_lws_generic_transaction_completed_active_conn()) cancels the retiring
+leader's sul by hand and then closes it with LWS_TO_KILL_ASYNC; if the
+leader's close had already been decided, eg, it was aborted earlier in the
+same service pass, that kill was ignored and the leader was left with no
+socket and no timeout until the context was destroyed.  Upstream main has
+the same sequence.
+
+In txiki.js this is what lets an h2 server close: lws_vhost_destroy()
+decides each of its connections closed, and a frame the client sends before
+the loop comes round re-arms the h2 network connection's timeout
+(rops_handle_POLLIN_h2, lws_h2_parser), so the connection and the vhost are
+never destroyed and server.close() never settles.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ lib/core-net/private-lib-core-net.h |  1 +
+ lib/core-net/wsi-timeout.c          | 37 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 38 insertions(+)
+
+diff --git a/lib/core-net/private-lib-core-net.h b/lib/core-net/private-lib-core-net.h
+index 9329b66ff..6703089af 100644
+--- a/lib/core-net/private-lib-core-net.h
++++ b/lib/core-net/private-lib-core-net.h
+@@ -968,6 +968,7 @@ struct lws {
+ 	short				bugcatcher;
+ 
+ 	unsigned int			hdr_parsing_completed:1;
++	unsigned int			close_decided:1; /* LWS_TO_KILL_ASYNC set */
+ 	unsigned int			mux_substream:1;
+ 	unsigned int			upgraded_to_http2:1;
+ 	unsigned int			mux_stream_immortal:1;
+diff --git a/lib/core-net/wsi-timeout.c b/lib/core-net/wsi-timeout.c
+index a45faf888..1cd4a85ab 100644
+--- a/lib/core-net/wsi-timeout.c
++++ b/lib/core-net/wsi-timeout.c
+@@ -27,6 +27,13 @@
+ void
+ __lws_wsi_remove_from_sul(struct lws *wsi)
+ {
++	/*
++	 * A decided close is carried out by sul_timeout; with it cancelled
++	 * there is nothing left to carry it out, so a later close, eg, the
++	 * KILL_ASYNC on a pipeline leader that handed off its socket, must be
++	 * able to arm it again.
++	 */
++	wsi->close_decided = 0;
+ 	lws_sul_cancel(&wsi->sul_timeout);
+ 	lws_sul_cancel(&wsi->sul_hrtimer);
+ 	lws_sul_cancel(&wsi->sul_validity);
+@@ -101,6 +108,9 @@ lws_sul_wsitimeout_cb(lws_sorted_usec_list_t *sul)
+ 	struct lws_context *cx = wsi->a.context;
+ 	struct lws_context_per_thread *pt = &cx->pt[(int)wsi->tsi];
+ 
++	/* the close is happening now, its own timeouts can be set again */
++	wsi->close_decided = 0;
++
+ 	/* no need to log normal idle keepalive timeout */
+ //		if (wsi->pending_timeout != PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE)
+ 	if (wsi->pending_timeout == PENDING_TIMEOUT_HTTP_RESPONSE)
+@@ -166,6 +176,17 @@ __lws_set_timeout(struct lws *wsi, enum pending_timeout reason, int secs)
+ {
+ 	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+ 
++	/*
++	 * Once the wsi's close has been decided, eg, a route to its peer is
++	 * gone, whatever the wsi does next, such as its connect moving on to
++	 * the next phase with a timeout of its own, must not undo it: it may
++	 * have lost what it needs to do its job.  The close stands.
++	 */
++	if (wsi->close_decided) {
++		lwsl_wsi_debug(wsi, "close decided, ignoring reason %d", reason);
++		return;
++	}
++
+ 	if (reason == PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE && secs > 0) {
+ 		if (wsi->immortal_substream_count > 0) {
+ 			lwsl_wsi_info(wsi, "Refusing to set idle keepalive timeout because it has %d immortal substreams", wsi->immortal_substream_count);
+@@ -188,6 +209,13 @@ lws_set_timeout(struct lws *wsi, enum pending_timeout reason, int secs)
+ 	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+ 
+ 	lws_context_lock(pt->context, __func__);
++
++	/* a decided close stands, see __lws_set_timeout() */
++	if (wsi->close_decided && secs != LWS_TO_KILL_SYNC) {
++		lwsl_wsi_debug(wsi, "close decided, ignoring reason %d", reason);
++		goto bail;
++	}
++
+ 	lws_pt_lock(pt, __func__);
+ 	lws_dll2_remove(&wsi->sul_timeout.list);
+ 	lws_pt_unlock(pt);
+@@ -218,6 +246,9 @@ lws_set_timeout(struct lws *wsi, enum pending_timeout reason, int secs)
+ 
+ 	lws_pt_lock(pt, __func__);
+ 	__lws_set_timeout(wsi, reason, secs);
++	if (!secs)
++		/* LWS_TO_KILL_ASYNC */
++		wsi->close_decided = 1;
+ 	lws_pt_unlock(pt);
+ 
+ bail:
+@@ -229,6 +260,12 @@ lws_set_timeout_us(struct lws *wsi, enum pending_timeout reason, lws_usec_t us)
+ {
+ 	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+ 
++	/* a decided close stands, see __lws_set_timeout() */
++	if (wsi->close_decided) {
++		lwsl_wsi_debug(wsi, "close decided, ignoring reason %d", reason);
++		return;
++	}
++
+ 	lws_pt_lock(pt, __func__);
+ 	lws_dll2_remove(&wsi->sul_timeout.list);
+ 	lws_pt_unlock(pt);
