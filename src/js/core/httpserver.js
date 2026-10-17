@@ -49,6 +49,7 @@ class Server {
     #closed = false;
     #closedPromise;
     #streamControllers = new Map();
+    #responseReaders = new Map();
 
     constructor(options) {
         if (typeof options === 'function') {
@@ -133,6 +134,15 @@ class Server {
             listenIp,
             onRequest,
             onBodyChunk,
+            // Runs inside an lws close callback, so the body's cancel() (user code)
+            // is deferred to a later event-loop turn.
+            onRequestClose: requestId => {
+                const reader = this.#responseReaders.get(requestId);
+
+                if (reader) {
+                    setTimeout(() => Server.#cancelReader(reader), 0);
+                }
+            },
             // onClose runs inside lws's vhost teardown (PROTOCOL_DESTROY). Resolving
             // there would run the awaiting code, which may create a new server,
             // re-entrantly inside lws, so resolve on a later event-loop turn.
@@ -159,6 +169,12 @@ class Server {
         if (!this.#closed) {
             this.#closed = true;
             this.#handle.close();
+
+            // The native callbacks are released now, so cancel in-flight response
+            // bodies here: one whose pull() never settles would otherwise never stop.
+            for (const reader of this.#responseReaders.values()) {
+                Server.#cancelReader(reader);
+            }
         }
 
         await this.#closedPromise;
@@ -272,16 +288,26 @@ class Server {
 
                 const reader = response.body.getReader();
 
+                this.#responseReaders.set(requestId, reader);
 
-                while (true) {
-                    const { done, value } = await reader.read();
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
 
-                    if (done) {
-                        this.#handle.sendBody(requestId, null, true);
-                        break;
+                        // After a cancel (request or server closed) read() resolves
+                        // done too; sendBody then returns false and sends nothing.
+                        if (done) {
+                            this.#handle.sendBody(requestId, null, true);
+                            break;
+                        }
+
+                        if (!this.#handle.sendBody(requestId, value, false)) {
+                            await Server.#cancelReader(reader);
+                            break;
+                        }
                     }
-
-                    this.#handle.sendBody(requestId, value, false);
+                } finally {
+                    this.#responseReaders.delete(requestId);
                 }
             } else {
                 // Buffered: read entire body and send at once.
@@ -314,6 +340,14 @@ class Server {
                     // Nothing we can do.
                 }
             }
+        }
+    }
+
+    static async #cancelReader(reader) {
+        try {
+            await reader.cancel();
+        } catch {
+            // The body's cancel() threw; the response is gone either way.
         }
     }
 

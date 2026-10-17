@@ -11,8 +11,28 @@ if (tjs.env.TJS_GC_STRESS) {
 
 // Pick a random port in the dynamic/private range to avoid clashes with
 // lingering sockets (e.g. TIME_WAIT) from previous runs on the CI machine.
+// This is also the ephemeral range, so another socket on the machine may
+// already hold the port: bindRandomPort() retries such collisions.
 function randomPort(){
 	return 49152 + Math.floor(Math.random() * (65535 - 49152));
+}
+
+function bindRandomPort(sock, ip){
+	let lastErr;
+	for(let i = 0; i < 20; i++){
+		const port = randomPort();
+		const sockaddr = PosixSocket.createSockaddrIn(ip, port);
+		try{
+			sock.bind(sockaddr);
+			return { port, sockaddr };
+		}catch(e){
+			if(!/Address already in use/.test(e.message)){
+				throw e;
+			}
+			lastErr = e;
+		}
+	}
+	throw lastErr;
 }
 
 // Build the sockaddr_in bytes we expect createSockaddrIn() to produce, so the
@@ -35,11 +55,9 @@ function expectedSockaddrIn(ip, port){
 }
 
 function testUdpSock(){
-	const port = randomPort();
 	const sock = new PosixSocket(PosixSocket.defines.AF_INET, PosixSocket.defines.SOCK_DGRAM, 0);
-	const sockaddr_bind = PosixSocket.createSockaddrIn('0.0.0.0', port);
+	const { port, sockaddr: sockaddr_bind } = bindRandomPort(sock, '0.0.0.0');
 	assert.eq(sockaddr_bind, expectedSockaddrIn('0.0.0.0', port));
-	sock.bind(sockaddr_bind);
 	const sockaddr_rem = PosixSocket.createSockaddrIn('127.0.0.1', port)
 	const sendbuf = (new TextEncoder).encode('Hello, world!');
 	const sendsz = sock.sendmsg(sockaddr_rem, undefined, 0, sendbuf);
@@ -55,10 +73,7 @@ function testUdpSock(){
 }
 
 async function testTcpSock(){
-	const port = randomPort();
 	const sock = new PosixSocket(PosixSocket.defines.AF_INET, PosixSocket.defines.SOCK_STREAM, 0);
-	const sockaddr_bind = PosixSocket.createSockaddrIn('0.0.0.0', port);
-	assert.eq(sockaddr_bind, expectedSockaddrIn('0.0.0.0', port));
 
 	const optval = new Uint8Array(4);
 	(new DataView(optval.buffer)).setUint32(0, 1, true);
@@ -71,7 +86,8 @@ async function testTcpSock(){
 		assert.eq(optval, optval2);
 	}
 	
-	sock.bind(sockaddr_bind);
+	const { port, sockaddr: sockaddr_bind } = bindRandomPort(sock, '0.0.0.0');
+	assert.eq(sockaddr_bind, expectedSockaddrIn('0.0.0.0', port));
 	sock.listen(1);
 	const sendbuf = (new TextEncoder).encode('Hello, world!');	
 
@@ -96,13 +112,12 @@ async function testTcpSock(){
 }
 
 async function testPoll(){
-	const port = randomPort();
 	const sock = new PosixSocket(PosixSocket.defines.AF_INET, PosixSocket.defines.SOCK_DGRAM, 0);
 	const info = sock.info;
 	assert.eq(info.socket.domain, PosixSocket.defines.AF_INET);
 	assert.eq(info.socket.type, PosixSocket.defines.SOCK_DGRAM);
 	assert.eq(info.socket.protocol, PosixSocket.defines.IPPROTO_UDP); // automatically determined by SOCK_DGRAM
-	sock.bind(PosixSocket.createSockaddrIn('0.0.0.0', port));
+	const { port } = bindRandomPort(sock, '0.0.0.0');
 	const sockaddr_rem = PosixSocket.createSockaddrIn('127.0.0.1', port);
 	function send(buf){
 		return sock.sendmsg(sockaddr_rem, undefined, 0, buf);
