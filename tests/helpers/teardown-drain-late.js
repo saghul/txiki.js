@@ -6,6 +6,10 @@
 //   write - a large write on B, whose peer isn't reading (write request pin)
 //   timer - setTimeout + setInterval
 //   fetch - fetch() against a closed local port (re-creates the lws context)
+//   fetch-port - fetch(), then a MessagePort message whose handler fetches
+//                again. It runs in the next iteration's poll phase, after the
+//                reap began closing that lws context but before the closing
+//                phase, and re-creates the context once more.
 // Teardown must still release it: Debug builds abort with "Object leaks" and
 // a JS_FreeRuntime assertion otherwise.
 
@@ -70,11 +74,20 @@ await sleep(50);
 
 let closedPort;
 
-if (variant === 'fetch') {
+if (variant === 'fetch' || variant === 'fetch-port') {
     const tmp = new TCPServerSocket('127.0.0.1', { localPort: 0 });
 
     closedPort = (await tmp.opened).localPort;
     tmp.close();
+}
+
+const { port1, port2 } = variant === 'fetch-port' ? new MessageChannel() : {};
+
+if (port2) {
+    port2.onmessage = () => {
+        fetch(`http://127.0.0.1:${closedPort}/`).catch(() => {});
+        console.error(`late ${variant} re-issued from a port message`);
+    };
 }
 
 function lateOperation() {
@@ -91,6 +104,10 @@ function lateOperation() {
             break;
         case 'fetch':
             fetch(`http://127.0.0.1:${closedPort}/`).catch(() => {});
+            break;
+        case 'fetch-port':
+            fetch(`http://127.0.0.1:${closedPort}/`).catch(() => {});
+            port1.postMessage('go');
             break;
         default:
             throw new Error(`unknown variant ${variant}`);

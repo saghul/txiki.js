@@ -544,6 +544,8 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     CHECK_EQ(uv_async_init(&qrt->loop, &qrt->stop, uv__stop), 0);
     qrt->stop.data = qrt;
 
+    tjs__lws_keepalive_init(qrt);
+
     /* loader for ES modules */
     JS_SetModuleLoaderFunc2(rt, tjs_module_normalizer, tjs_module_loader, tjs_module_attr_checker, qrt);
 
@@ -685,7 +687,6 @@ static void tjs__lws_teardown(TJSRuntime *qrt) {
     if (qrt->lws.ctx) {
         lws_context_destroy(qrt->lws.ctx);
         qrt->lws.ctx = NULL;
-        uv_close((uv_handle_t *) &qrt->lws.keepalive, NULL);
     }
 
     for (int i = 0; i < qrt->lws.no_proxy_count; i++) {
@@ -760,6 +761,9 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
     uv_close((uv_handle_t *) &qrt->jobs.idle, NULL);
     uv_close((uv_handle_t *) &qrt->jobs.check, NULL);
     uv_close((uv_handle_t *) &qrt->stop, NULL);
+    /* An lws context JS re-creates during the drain below only refs/unrefs
+     * keepalive, which libuv ignores on a closing or closed handle. */
+    uv_close((uv_handle_t *) &qrt->lws.keepalive, NULL);
 
     /* Destroy all timers */
     tjs__destroy_timers(qrt);

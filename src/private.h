@@ -324,6 +324,7 @@ extern const lws_plugin_evlib_t tjs_lws_evlib;
 struct lws_context *tjs__lws_get_context(JSContext *ctx);
 void tjs__lws_setup(void);
 void tjs__lws_init_log_cx(TJSRuntime *qrt);
+void tjs__lws_keepalive_init(TJSRuntime *qrt);
 #ifdef _WIN32
 void tjs__mbedtls_threading_init(void);
 #endif

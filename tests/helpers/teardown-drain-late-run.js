@@ -9,7 +9,7 @@ import path from 'tjs:path';
 // Fail with a clear message well before the runner's 30 s timeout.
 const TIMEOUT = 20000;
 
-export async function runTeardownDrainLateTest(variant) {
+export async function runTeardownDrainLateTest(variant, extraMarker) {
     const args = [
         tjs.exePath,
         'run',
@@ -36,6 +36,11 @@ export async function runTeardownDrainLateTest(variant) {
 
     assert.ok(stderrStr.includes(`late ${variant} issued during the teardown drain`),
         `the drain-time handler ran in the child:\n${stderrStr}`);
+
+    if (extraMarker) {
+        assert.ok(stderrStr.includes(extraMarker), `the child printed "${extraMarker}":\n${stderrStr}`);
+    }
+
     assert.eq(status.term_signal, null, `child was not killed by a signal (no abort on teardown):\n${stderrStr}`);
     assert.ok(status.exit_status !== 0, 'child exited non-zero');
 }
