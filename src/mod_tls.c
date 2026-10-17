@@ -28,6 +28,7 @@
 #include "quickjs.h"
 #include "utils.h"
 
+#include <assert.h>
 #include <mbedtls/error.h>
 #include <mbedtls/pk.h>
 #include <mbedtls/ssl.h>
@@ -43,6 +44,8 @@
 #define TLS_WRITE_CHUNK (64 * 1024)
 /* Plaintext encrypted per loop iteration before yielding to the event loop. */
 #define TLS_WRITE_BUDGET (256 * 1024)
+/* tjs_tls_pump() detects the end of the budget with budget == 0. */
+static_assert(TLS_WRITE_BUDGET % TLS_WRITE_CHUNK == 0, "TLS_WRITE_BUDGET must be a multiple of TLS_WRITE_CHUNK");
 
 typedef struct {
     uint8_t *data;
@@ -256,8 +259,9 @@ static JSValue tjs_tls_write_error(JSContext *ctx, int ret) {
  * until it is all consumed or a uv_write() is in flight. After TLS_WRITE_BUDGET
  * the last chunk is always sent with uv_write(), so its callback resumes the
  * work on a later loop iteration instead of blocking the loop now.
- * Releases the plaintext once consumed. Returns 0, or an error with the
- * plaintext left pending: an mbedtls error if *tls_err is set, else libuv's. */
+ * Releases the plaintext once consumed. Returns 0, or an error (an mbedtls one
+ * if *tls_err is set, else libuv's); on error the plaintext may still be
+ * pending and the caller must release it. */
 static int tjs_tls_pump(TJSTlsStream *s, bool *tls_err) {
     size_t budget = TLS_WRITE_BUDGET;
 

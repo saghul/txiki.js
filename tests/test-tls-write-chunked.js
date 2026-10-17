@@ -11,24 +11,33 @@ const BOUNDARY_SIZES = [ 65536, 65537, 262144, 262145, BIG ];
 const LATE_READER_SIZE = 2 * BIG;
 const YIELD_SIZE = 8 * 1024 * 1024;
 
+// Per-byte JS loops over these sizes are too slow on Debug builds, so the fill
+// doubles a 256-byte prefix (i & 0xff has period 256) and the check compares
+// SHA-256 digests.
 function makeData(size) {
     const data = new Uint8Array(size);
+    const n = Math.min(size, 256);
 
-    for (let i = 0; i < size; i++) {
-        data[i] = i & 0xff;
+    for (let i = 0; i < n; i++) {
+        data[i] = i;
+    }
+
+    for (let filled = n; filled < size; filled *= 2) {
+        data.set(data.subarray(0, Math.min(filled, size - filled)), filled);
     }
 
     return data;
 }
 
-function assertData(received, size) {
-    assert.eq(received.length, size, `received all ${size} bytes`);
+async function sha256(data) {
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
 
-    for (let i = 0; i < size; i++) {
-        if (received[i] !== (i & 0xff)) {
-            assert.fail(`byte ${i} of ${size} is ${received[i]}, expected ${i & 0xff}`);
-        }
-    }
+    return Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function assertData(received, expected) {
+    assert.eq(received.length, expected.length, `received all ${expected.length} bytes`);
+    assert.eq(await sha256(received), await sha256(expected), 'received bytes match');
 }
 
 async function readAll(readable, startDelay = 0) {
@@ -94,7 +103,7 @@ async function transfer(size, { readDelay = 0 } = {}) {
 
     await writer.close();
 
-    assertData(await received, size);
+    await assertData(await received, data);
 
     conn.close();
     client.close();
