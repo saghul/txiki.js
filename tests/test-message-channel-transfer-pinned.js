@@ -37,6 +37,17 @@ try {
     assert.eq(await p, SIZE, 'whole buffer written');
     await f.close();
 
+    // The write released its pin, so the buffer can be transferred now. A hang
+    // is left to the runner's per-test timeout: an ad-hoc timer here could fire
+    // before delivery if a long synchronous section ran in the same loop tick.
+    const msg = await new Promise(resolve => {
+        port2.onmessage = e => resolve(e.data);
+        port1.postMessage(data.buffer, [ data.buffer ]);
+    });
+
+    assert.eq(data.buffer.detached, true, 'buffer detached after the write completed');
+    assert.eq(msg.byteLength, SIZE, 'transferred buffer arrives whole');
+
     const back = await tjs.readFile(file);
     let bad = -1;
 
@@ -49,21 +60,6 @@ try {
 
     assert.eq(back.length, SIZE, 'file size');
     assert.eq(bad, -1, 'file contents intact');
-
-    // The write released its pin, so the buffer can be transferred now.
-    const msg = await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('timeout')), 3000);
-
-        port2.onmessage = e => {
-            clearTimeout(timer);
-            resolve(e.data);
-        };
-
-        port1.postMessage(data.buffer, [ data.buffer ]);
-    });
-
-    assert.eq(data.buffer.detached, true, 'buffer detached after the write completed');
-    assert.eq(msg.byteLength, SIZE, 'transferred buffer arrives whole');
 } finally {
     port1.close();
     port2.close();
