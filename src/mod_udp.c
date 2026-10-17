@@ -36,7 +36,8 @@ enum {
 };
 
 typedef struct {
-    TJSHandlePin pin; /* keep the JS object alive while receiving */
+    TJSHandlePin pin;  /* keep the JS object alive while receiving */
+    TJSReqPin req_pin; /* ... and while send requests are in flight */
     JSContext *ctx;
     int closed;
     int finalized;
@@ -73,6 +74,10 @@ static void tjs_udp_detach(TJSHandlePin *pin) {
     maybe_close(list_entry(pin, TJSUdp, pin));
 }
 
+static void tjs_udp_req_detach(TJSHandlePin *pin) {
+    maybe_close(list_entry(pin, TJSUdp, req_pin.pin));
+}
+
 static void maybe_invoke_callback(TJSUdp *u, int callback, int argc, JSValue *argv) {
     JSContext *ctx = u->ctx;
     /* A send canceled by uv_close completes here after the finalizer has already
@@ -102,8 +107,10 @@ static void tjs_udp_finalizer(JSRuntime *rt, JSValue val) {
     TJSUdp *u = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_UDP));
     if (u) {
         /* A pinned socket holds a ref to itself, so it can't be finalized until
-         * the pin is released (on stop/close or at teardown). */
+         * the pin is released (on stop/close or at teardown). Likewise the
+         * request pin, until its last in-flight send completes. */
         CHECK(JS_IsUndefined(u->pin.obj));
+        CHECK(JS_IsUndefined(u->req_pin.pin.obj));
         for (int i = 0; i < UDP_CB_MAX; i++) {
             JS_FreeValueRT(rt, u->callbacks[i]);
         }
@@ -124,6 +131,8 @@ static void tjs_udp_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
         for (int i = 0; i < UDP_CB_MAX; i++) {
             JS_MarkValue(rt, u->callbacks[i], mark_func);
         }
+        /* u->pin and u->req_pin are intentionally NOT marked: they are
+           GC-invisible self-references. */
     }
 }
 
@@ -269,6 +278,9 @@ static void uv__udp_send_cb(uv_udp_send_t *req, int status) {
     tjs_buf_ref_release(ctx, &sr->buf_ref);
     maybe_invoke_callback(u, UDP_CB_SEND, 1, &arg);
     js_free(ctx, sr);
+
+    /* May finalize the wrapper: nothing may touch u->callbacks after this. */
+    tjs__req_pin_release(ctx, &u->req_pin);
 }
 
 static JSValue tjs_udp_send(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -331,6 +343,8 @@ static JSValue tjs_udp_send(JSContext *ctx, JSValue this_val, int argc, JSValue 
         return tjs_throw_errno(ctx, r);
     }
 
+    tjs__req_pin_acquire(ctx, &u->req_pin, this_val);
+
     return JS_UNDEFINED;
 }
 
@@ -381,6 +395,9 @@ static JSValue tjs_new_udp(JSContext *ctx, int af) {
     u->udp.data = u;
     u->pin.obj = JS_UNDEFINED;
     u->pin.detach = tjs_udp_detach;
+    u->req_pin.pin.obj = JS_UNDEFINED;
+    u->req_pin.pin.detach = tjs_udp_req_detach;
+    u->req_pin.count = 0;
     u->read.buf = NULL;
 
     for (int i = 0; i < UDP_CB_MAX; i++) {

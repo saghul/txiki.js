@@ -42,6 +42,18 @@ function stalledBody(state) {
     });
 }
 
+// pull() never settles and never enqueues, so sendBody is never called.
+function pendingBody(state) {
+    return new ReadableStream({
+        pull() {
+            return new Promise(() => {});
+        },
+        cancel() {
+            state.cancelled = true;
+        },
+    });
+}
+
 async function waitCancelled(state, what) {
     const deadline = Date.now() + 1000;
 
@@ -95,9 +107,53 @@ async function runCase({ name, h2, makeBody, mode }) {
     await consumed;
 }
 
+// The request goes away while the handler is still pending: the body must be
+// cancelled as soon as the handler returns it, not only at server.close().
+async function runPendingHandlerCase({ name, h2, mode }) {
+    const state = { pushes: 0, cancelled: false };
+    const { promise: started, resolve: start } = Promise.withResolvers();
+    const { promise: resolved, resolve } = Promise.withResolvers();
+    const server = tjs.serve({
+        port: 0,
+        listenIp: '127.0.0.1',
+        tls: h2 ? { cert, key, alpn: [ 'h2' ] } : undefined,
+        fetch: async () => {
+            start();
+            await sleep(200);
+            resolve();
+
+            return new Response(pendingBody(state));
+        },
+    });
+    const ac = new AbortController();
+    const scheme = h2 ? 'https' : 'http';
+    const f = fetch(`${scheme}://127.0.0.1:${server.port}/`, { allowInsecure: true, signal: ac.signal })
+        .catch(() => {});
+
+    // Aborting or closing before the request reaches the handler would leave
+    // `resolved` pending forever, so wait for the handler rather than a fixed delay.
+    await started;
+
+    if (mode === 'server-close') {
+        await server.close();
+        await resolved;
+        await waitCancelled(state, name);
+    } else {
+        ac.abort();
+        await resolved;
+        await waitCancelled(state, name);
+        await server.close();
+    }
+
+    await f;
+}
+
 await runCase({ name: 'h2 server.close()', h2: true, makeBody: producingBody, mode: 'server-close' });
 await runCase({ name: 'h2 client abort', h2: true, makeBody: producingBody, mode: 'client-abort' });
 await runCase({ name: 'h1 server.close()', h2: false, makeBody: producingBody, mode: 'server-close' });
 await runCase({ name: 'h1 client abort', h2: false, makeBody: producingBody, mode: 'client-abort' });
 await runCase({ name: 'h2 stalled body, client abort', h2: true, makeBody: stalledBody, mode: 'client-abort' });
 await runCase({ name: 'h2 stalled body, server.close()', h2: true, makeBody: stalledBody, mode: 'server-close' });
+await runPendingHandlerCase({ name: 'h2 pending handler, client abort', h2: true, mode: 'client-abort' });
+await runPendingHandlerCase({ name: 'h1 pending handler, client abort', h2: false, mode: 'client-abort' });
+await runPendingHandlerCase({ name: 'h2 pending handler, server.close()', h2: true, mode: 'server-close' });
