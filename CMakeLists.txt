@@ -544,6 +544,10 @@ set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" 
 #     happy-eyeballs racer sockets, leaving a stale position_in_fds_table
 #     (pollfd.c assert / hang); upstream c6f480f54 on main, not yet in
 #     v5.0-stable.
+#   - lws-vhost-inherit-context-log-cx.patch: a vhost created without
+#     info->log_cx (e.g. lws's internal "system" vhost) bound to the global
+#     log context instead of its context's, so per-runtime log contexts still
+#     raced on the global one's unlocked refcount across Worker threads.
 tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets" "lws-")
 
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
