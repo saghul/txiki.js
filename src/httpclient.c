@@ -67,7 +67,8 @@ typedef struct {
     TJSHandlePin pin;
     JSContext *ctx;
     JSValue callbacks[HC_CALLBACK_MAX];
-    struct lws *wsi;
+    struct lws *wsi;        /* cci.pwsi target, owned by lws */
+    struct lws *stream_wsi; /* the wsi this request's own transaction runs on */
     char *method;
     char *url_str;
     TBuf req_headers;
@@ -80,6 +81,7 @@ typedef struct {
     bool torn_down;
     bool keepalive;      /* connection may be pooled for reuse (decided at headers) */
     bool conn_close;     /* the user asked for "Connection: close" */
+    bool kill_stream;    /* aborted before its h2 stream was known: kill it on adoption */
     lws_usec_t start_us; /* request start */
     unsigned long timeout;
     int ssl_flags;
@@ -198,24 +200,29 @@ static void httpclient_teardown(TJSHttpClient *h, struct lws *cbwsi) {
 
     tjs__lws_conn_unref(h->ctx);
 
-    if (h->wsi) {
+    if (h->stream_wsi) {
+        lws_set_timer_usecs(h->stream_wsi, LWS_SET_TIMER_USEC_CANCEL);
+    }
+    if (h->wsi && h->wsi != h->stream_wsi) {
         lws_set_timer_usecs(h->wsi, LWS_SET_TIMER_USEC_CANCEL);
     }
 
     /* Detach h from every wsi that carries it as user_space, so no later callback
      * on a reused/idle connection dereferences a client we no longer own. h->wsi
-     * is what lws wrote to cci.pwsi — for a pooled h2 request that is the shared
-     * network wsi, whereas the request's HTTP callbacks (including the terminal
-     * CLOSED) fire on a mux child stream wsi whose user_space is also h. cbwsi is
-     * the wsi of the terminal callback we tear down from; clear it, h->wsi, and
-     * cbwsi's network wsi, each guarded so we only ever null our own pointer. */
-    struct lws *carriers[3] = { h->wsi, cbwsi, cbwsi ? lws_get_network_wsi(cbwsi) : NULL };
+     * is what lws wrote to cci.pwsi — for the request that opened an h2
+     * connection it became the shared network wsi, and the request's HTTP
+     * callbacks (including the terminal CLOSED) fire on the mux child stream wsi
+     * (stream_wsi) whose user_space is also h. cbwsi is the wsi of the terminal
+     * callback we tear down from; clear it, h->wsi, stream_wsi and cbwsi's network
+     * wsi, each guarded so we only ever null our own pointer. */
+    struct lws *carriers[4] = { h->wsi, h->stream_wsi, cbwsi, cbwsi ? lws_get_network_wsi(cbwsi) : NULL };
     for (size_t i = 0; i < sizeof(carriers) / sizeof(carriers[0]); i++) {
         if (carriers[i] && lws_wsi_user(carriers[i]) == h) {
             lws_set_wsi_user(carriers[i], NULL);
         }
     }
     h->wsi = NULL;
+    h->stream_wsi = NULL;
 
     /* Release the self-pin; the finalizer frees callbacks, url, buffers, and the
      * struct itself once JS also lets go. Unpinning also removes h from the
@@ -397,11 +404,60 @@ static const char *detect_content_encoding(struct lws *wsi) {
     return NULL;
 }
 
+/* Ask lws to close wsi at a safe point of its service loop. Abort can be driven
+ * from a microtask drained *inside* this wsi's own service callback (e.g. a
+ * streaming fetch aborted from its ReadableStream cancel()): LWS_TO_KILL_SYNC
+ * would free the wsi inline while lws is still using it further up the stack
+ * (heap-use-after-free). ASYNC defers the close; the teardown callback chain
+ * handles cleanup. */
+static void httpclient_kill_async(struct lws *wsi) {
+    lws_set_timeout(wsi, PENDING_TIMEOUT_USER_OK, LWS_TO_KILL_ASYNC);
+}
+
+/* For the request that opens an h2 connection, lws turns h->wsi into the
+ * network wsi after ALPN and moves the request (and h as its user_space) onto a
+ * new mux child stream. Adopt that stream as stream_wsi the first time one of
+ * the request's own callbacks fires on it, so abort, the timeout and writes
+ * address only this request rather than every stream on the connection. */
+static void httpclient_adopt_stream(TJSHttpClient *h, struct lws *wsi) {
+    if (wsi == h->stream_wsi || lws_get_network_wsi(wsi) == wsi) {
+        return;
+    }
+
+    if (h->stream_wsi) {
+        lws_set_timer_usecs(h->stream_wsi, LWS_SET_TIMER_USEC_CANCEL);
+    }
+    h->stream_wsi = wsi;
+
+    if (h->kill_stream) {
+        /* Aborted while only the network wsi was known. Returning -1 from here
+         * would not do: a failing first callback (APPEND_HANDSHAKE_HEADER) fails
+         * lws_h2_client_handshake, which closes the whole network connection. */
+        h->kill_stream = false;
+        httpclient_kill_async(wsi);
+    } else if (!h->completed) {
+        httpclient_arm_timer(h, wsi);
+    }
+}
+
 static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
     TJSHttpClient *h = (TJSHttpClient *) user;
 
     if (!h) {
         return 0;
+    }
+
+    switch (reason) {
+        case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER:
+        case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP:
+        case LWS_CALLBACK_RECEIVE_CLIENT_HTTP:
+        case LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ:
+        case LWS_CALLBACK_CLIENT_HTTP_WRITEABLE:
+        case LWS_CALLBACK_COMPLETED_CLIENT_HTTP:
+            httpclient_adopt_stream(h, wsi);
+            break;
+        default:
+            break;
     }
 
     switch (reason) {
@@ -964,6 +1020,10 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
 
     tjs__lws_conn_ref(ctx);
 
+    /* Set before connecting: a request that joins a warm h2 connection gets
+     * its first callback (and arms its timer) from inside the connect call. */
+    h->start_us = lws_now_usecs();
+
     struct lws *wsi = lws_client_connect_via_info(&cci);
 
     lws_parse_uri_destroy(&uri);
@@ -976,7 +1036,7 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
 
     lws_cancel_service(lws_ctx);
 
-    h->start_us = lws_now_usecs();
+    h->stream_wsi = h->wsi;
     httpclient_arm_timer(h, wsi);
 
     return 0;
@@ -1124,8 +1184,8 @@ static JSValue tjs_httpclient_senddata(JSContext *ctx, JSValue this_val, int arg
         /* Signal end of body (streaming). */
         if (!h->body_done) {
             h->body_done = true;
-            if (h->wsi) {
-                lws_callback_on_writable(h->wsi);
+            if (h->stream_wsi) {
+                lws_callback_on_writable(h->stream_wsi);
             }
         }
     } else {
@@ -1133,8 +1193,8 @@ static JSValue tjs_httpclient_senddata(JSContext *ctx, JSValue this_val, int arg
         if (tjs_httpclient_buffer_data(h, arg)) {
             return JS_EXCEPTION;
         }
-        if (h->wsi) {
-            lws_callback_on_writable(h->wsi);
+        if (h->stream_wsi) {
+            lws_callback_on_writable(h->stream_wsi);
         }
     }
 
@@ -1147,24 +1207,26 @@ static JSValue tjs_httpclient_abort(JSContext *ctx, JSValue this_val, int argc, 
         return JS_EXCEPTION;
     }
 
-    if (h->wsi && !h->completed) {
+    if (h->stream_wsi && !h->completed) {
         h->completed = true;
 
-        struct lws *wsi = h->wsi;
+        struct lws *wsi = h->stream_wsi;
 
         lws_set_timer_usecs(wsi, LWS_SET_TIMER_USEC_CANCEL);
 
         JSValue error = JS_NewString(ctx, "ABORTED");
         maybe_invoke_callback(h, HC_CALLBACK_COMPLETE, 1, &error);
 
-        /* Mark the WSI to be closed at the next loop iteration. Abort can be
-         * driven from a microtask drained *inside* this wsi's own service
-         * callback (e.g. a streaming fetch aborted from its ReadableStream
-         * cancel()): LWS_TO_KILL_SYNC would free the wsi inline while lws is
-         * still using it further up the stack (heap-use-after-free). ASYNC
-         * defers the close to a safe point in lws's service loop. The teardown
-         * callback chain will handle cleanup — do not access h afterwards. */
-        lws_set_timeout(wsi, PENDING_TIMEOUT_USER_OK, LWS_TO_KILL_ASYNC);
+        /* An h2 network wsi carrying streams is this request's own wsi only
+         * until its stream is adopted (between ALPN and the stream's first
+         * callback); killing it would fail every stream on the connection, so
+         * kill the stream once it is known instead. Do not access h after the
+         * kill: the teardown callback chain handles cleanup. */
+        if (lws_get_child(wsi)) {
+            h->kill_stream = true;
+        } else {
+            httpclient_kill_async(wsi);
+        }
     }
 
     return JS_UNDEFINED;
