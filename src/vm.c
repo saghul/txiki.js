@@ -636,7 +636,8 @@ void tjs__req_pin_release(JSContext *ctx, TJSReqPin *rp) {
     }
 }
 
-/* Run every registered pin's `detach` hook at the very start of teardown. The
+/* Run every registered pin's `detach` hook at the very start of teardown (and
+ * again from the drain, for pins JS registered after this first pass). The
  * hook quiesces the handle so nothing dispatches into the half-torn-down
  * runtime, but its exact job differs by who owns the handle's close:
  *  - lws-backed handles (httpclient, ws): lws owns the close
@@ -664,7 +665,8 @@ void tjs__release_pins(TJSRuntime *qrt) {
      * list into a local head first, then release each entry: a wrapper stays
      * alive via its own pin until we free it, so the move frees nothing, and the
      * release pass no longer walks the shared list — a cascading finalizer that
-     * touches handle_pins can't corrupt the traversal. */
+     * touches handle_pins can't corrupt the traversal. This runs again for each
+     * drain iteration of TJS_FreeRuntime that finds pins JS registered late. */
     struct list_head pins;
     list_splice_init(&pins, &qrt->handle_pins);
     while (!list_empty(&pins)) {
@@ -674,6 +676,54 @@ void tjs__release_pins(TJSRuntime *qrt) {
         pin->obj = JS_UNDEFINED;
         JS_FreeValue(qrt->ctx, obj);
     }
+}
+
+/* Safe to call again: a fetch / WebSocket / serve during the teardown drain
+ * lazily re-creates the context (tjs__lws_init), which also re-parses
+ * no_proxy. Must not run inside an lws callback (see lws-evlib.c). */
+static void tjs__lws_teardown(TJSRuntime *qrt) {
+    if (qrt->lws.ctx) {
+        lws_context_destroy(qrt->lws.ctx);
+        qrt->lws.ctx = NULL;
+        uv_close((uv_handle_t *) &qrt->lws.keepalive, NULL);
+    }
+
+    for (int i = 0; i < qrt->lws.no_proxy_count; i++) {
+        js_free(qrt->ctx, qrt->lws.no_proxy_entries[i]);
+    }
+    js_free(qrt->ctx, qrt->lws.no_proxy_entries);
+    qrt->lws.no_proxy_entries = NULL;
+    qrt->lws.no_proxy_count = 0;
+
+    js_free(qrt->ctx, qrt->lws.cookie_jar_path);
+    qrt->lws.cookie_jar_path = NULL;
+    js_free(qrt->ctx, qrt->lws.ca_bundle_path);
+    qrt->lws.ca_bundle_path = NULL;
+    js_free(qrt->ctx, qrt->lws.ca_bundle_data);
+    qrt->lws.ca_bundle_data = NULL;
+}
+
+/* Repeat the teardown steps of TJS_FreeRuntime, in the same order, for
+ * whatever JS created during the previous drain iteration. */
+static bool tjs__reap_late_resources(TJSRuntime *qrt) {
+    bool found = false;
+    if (!list_empty(&qrt->handle_pins)) {
+        tjs__detach_handles(qrt);
+        found = true;
+    }
+    if (qrt->timers.timers) {
+        tjs__destroy_timers(qrt);
+        found = true;
+    }
+    if (qrt->lws.ctx) {
+        tjs__lws_teardown(qrt);
+        found = true;
+    }
+    if (found) {
+        tjs__release_pins(qrt);
+        JS_RunGC(qrt->rt);
+    }
+    return found;
 }
 
 void TJS_FreeRuntime(TJSRuntime *qrt) {
@@ -716,25 +766,7 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
 
     /* Destroy lws context. Must happen before freeing the JS engine
      * so that any remaining WSI_DESTROY callbacks can release GC refs. */
-    if (qrt->lws.ctx) {
-        lws_context_destroy(qrt->lws.ctx);
-        qrt->lws.ctx = NULL;
-        uv_close((uv_handle_t *) &qrt->lws.keepalive, NULL);
-    }
-
-    for (int i = 0; i < qrt->lws.no_proxy_count; i++) {
-        js_free(qrt->ctx, qrt->lws.no_proxy_entries[i]);
-    }
-    js_free(qrt->ctx, qrt->lws.no_proxy_entries);
-    qrt->lws.no_proxy_entries = NULL;
-    qrt->lws.no_proxy_count = 0;
-
-    js_free(qrt->ctx, qrt->lws.cookie_jar_path);
-    qrt->lws.cookie_jar_path = NULL;
-    js_free(qrt->ctx, qrt->lws.ca_bundle_path);
-    qrt->lws.ca_bundle_path = NULL;
-    js_free(qrt->ctx, qrt->lws.ca_bundle_data);
-    qrt->lws.ca_bundle_data = NULL;
+    tjs__lws_teardown(qrt);
 
     /* Drop the GC-invisible self-pins that keep actively reading/listening/
      * running native handles alive (set on an abnormal exit, when JS never
@@ -744,10 +776,20 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
      * `finalized` flag that suppresses dispatch during the drain below. Draining
      * the loop here — while the runtime and the shared TLS context are still
      * alive — lets the resulting close (and any canceled request) callbacks run
-     * safely, before anything they might touch is torn down. */
+     * safely, before anything they might touch is torn down.
+     *
+     * Those callbacks still run JS on reachable wrappers (e.g. a canceled write
+     * rejects its promise), and that JS can create pins, timers or a fresh lws
+     * context after the steps above already ran. So each iteration first reaps
+     * whatever the previous one left behind. JS that keeps creating resources
+     * on every one of the 32 iterations still leaks them; that takes
+     * adversarial code and is accepted. */
     tjs__release_pins(qrt);
     JS_RunGC(qrt->rt);
-    for (int i = 0; i < 32 && uv_loop_alive(&qrt->loop); i++) {
+    for (int i = 0; i < 32; i++) {
+        if (!tjs__reap_late_resources(qrt) && !uv_loop_alive(&qrt->loop)) {
+            break;
+        }
         uv_run(&qrt->loop, UV_RUN_NOWAIT);
     }
 
