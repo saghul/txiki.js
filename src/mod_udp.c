@@ -264,8 +264,10 @@ static void uv__udp_send_cb(uv_udp_send_t *req, int status) {
         arg = JS_UNDEFINED;
     }
 
-    maybe_invoke_callback(u, UDP_CB_SEND, 1, &arg);
+    /* libuv is done with the buffer: unpin it before the callback, which
+     * drains microtasks and so runs the code awaiting this send. */
     tjs_buf_ref_release(ctx, &sr->buf_ref);
+    maybe_invoke_callback(u, UDP_CB_SEND, 1, &arg);
     js_free(ctx, sr);
 }
 
