@@ -162,6 +162,11 @@ struct TJSRuntime {
         unsigned int ca_bundle_len;
         uv_async_t keepalive;
         int active_conns;
+        /* Every lws context, vhost and wsi of this runtime binds to it. lws
+         * refcounts its log context without a lock (LWS_MAX_SMP == 1), so
+         * runtimes on different threads must not share lws's global one. It
+         * must outlive all of them: see the assert in TJS_FreeRuntime. */
+        lws_log_cx_t log_cx;
     } lws;
     struct {
         TJSTimer *timers;
@@ -301,6 +306,7 @@ extern const lws_plugin_evlib_t tjs_lws_evlib;
 
 struct lws_context *tjs__lws_get_context(JSContext *ctx);
 void tjs__lws_setup(void);
+void tjs__lws_init_log_cx(TJSRuntime *qrt);
 #ifdef _WIN32
 void tjs__mbedtls_threading_init(void);
 #endif

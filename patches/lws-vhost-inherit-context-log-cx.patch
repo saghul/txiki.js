@@ -1,0 +1,32 @@
+vhost: inherit the context's log context when info->log_cx is NULL
+
+lws_create_vhost() bound a vhost created without info->log_cx to the
+process-global log_cx, even when its context was created with its own
+log_cx.  The internal "system" vhost (created from a zeroed info in
+lws_create_context(), e.g. for async DNS) always took that path, and the
+async-DNS UDP wsis inherit their log context from it.
+
+With LWS_MAX_SMP == 1, lwsl_refcount_cx() updates the refcount without a
+lock, so an application running one lws context per thread, each with its
+own log_cx, still raced on the global log_cx's refcount through those
+vhosts and wsis.  A lost update makes it reach 0 early and the next
+decrement fails assert(cx->refcount) (txiki.js: Worker runtimes tearing
+down concurrently in tests/test-tls-worker-concurrent.js).
+
+Fall back to context->log_cx instead.  It is &log_cx unless the context was
+given its own, so single-context users see no change.
+
+Upstreamable as is.
+
+diff --git a/lib/core-net/vhost.c b/lib/core-net/vhost.c
+--- a/lib/core-net/vhost.c
++++ b/lib/core-net/vhost.c
+@@ -764,7 +764,7 @@ lws_create_vhost(struct lws_context *context,
+ 	if (info->log_cx)
+ 		vh->lc.log_cx = info->log_cx;
+ 	else
+-		vh->lc.log_cx = &log_cx;
++		vh->lc.log_cx = context->log_cx;
+ 
+ #if defined(LWS_WITH_EVENT_LIBS)
+ 	vh->evlib_vh = (void *)&vh[1];

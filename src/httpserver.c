@@ -1553,6 +1553,8 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         JS_FreeValue(ctx, obj);
         return JS_ThrowInternalError(ctx, "failed to get lws context");
     }
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    CHECK_NOT_NULL(qrt);
 
     /* Use a mutable protocol name so we can swap it during WS upgrades
      * to match the negotiated subprotocol. */
@@ -1568,6 +1570,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     vhost_info.protocols = protocols;
     vhost_info.user = s;
     vhost_info.vhost_name = "tjs-http-server";
+    vhost_info.log_cx = &qrt->lws.log_cx;
     vhost_info.options = 0;
 
     /* Configure TLS if cert/key were provided. */
@@ -1631,6 +1634,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         qinfo.protocols = protocols;
         qinfo.user = s;
         qinfo.vhost_name = "tjs-http-server-h3";
+        qinfo.log_cx = &qrt->lws.log_cx;
         qinfo.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
         qinfo.server_ssl_cert_mem = s->ssl_cert_mem;
         qinfo.server_ssl_cert_mem_len = (unsigned int) strlen(s->ssl_cert_mem);
