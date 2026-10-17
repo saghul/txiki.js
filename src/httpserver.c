@@ -2005,9 +2005,10 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
         return JS_EXCEPTION;
     }
 
+    /* False tells the caller the request is gone, so it can drop the body. */
     TJSHttpRequest *req = tjs_http_find_request(s, req_id);
-    if (!req || req->responded) {
-        return JS_UNDEFINED;
+    if (!req || req->responded || s->closed) {
+        return JS_FALSE;
     }
 
     req->responded = true;
@@ -2106,7 +2107,7 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
     }
 
     js_free(ctx, header_buf);
-    return JS_UNDEFINED;
+    return JS_TRUE;
 }
 
 /*
