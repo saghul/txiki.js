@@ -2,6 +2,13 @@ import assert from 'tjs:assert';
 import cert from './fixtures/server-cert.pem' with { type: 'text' };
 import key from './fixtures/server-key.pem' with { type: 'text' };
 
+// Skipped under GC stress: forcing a full GC before every allocation starves
+// the event loop, so the setTimeout-based delays and the 1s cancellation
+// deadline this test relies on no longer hold.
+if (tjs.env.TJS_GC_STRESS) {
+    tjs.exit(0);
+}
+
 // A streaming response body is cancelled once its request goes away: the
 // client aborts, or the server is closed. The source's cancel() runs and pull()
 // is not called again, so nothing the body awaits keeps the process alive (if
