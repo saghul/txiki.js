@@ -2,13 +2,6 @@ import assert from 'tjs:assert';
 import cert from './fixtures/server-cert.pem' with { type: 'text' };
 import key from './fixtures/server-key.pem' with { type: 'text' };
 
-// Skipped under GC stress: forcing a full GC before every allocation starves
-// the event loop, so the setTimeout-based delays and the 1s cancellation
-// deadline this test relies on no longer hold.
-if (tjs.env.TJS_GC_STRESS) {
-    tjs.exit(0);
-}
-
 // A streaming response body is cancelled once its request goes away: the
 // client aborts, or the server is closed. The source's cancel() runs and pull()
 // is not called again, so nothing the body awaits keeps the process alive (if
@@ -118,12 +111,14 @@ async function runCase({ name, h2, makeBody, mode }) {
 // cancelled as soon as the handler returns it, not only at server.close().
 async function runPendingHandlerCase({ name, h2, mode }) {
     const state = { pushes: 0, cancelled: false };
+    const { promise: started, resolve: start } = Promise.withResolvers();
     const { promise: resolved, resolve } = Promise.withResolvers();
     const server = tjs.serve({
         port: 0,
         listenIp: '127.0.0.1',
         tls: h2 ? { cert, key, alpn: [ 'h2' ] } : undefined,
         fetch: async () => {
+            start();
             await sleep(200);
             resolve();
 
@@ -135,7 +130,9 @@ async function runPendingHandlerCase({ name, h2, mode }) {
     const f = fetch(`${scheme}://127.0.0.1:${server.port}/`, { allowInsecure: true, signal: ac.signal })
         .catch(() => {});
 
-    await sleep(50);
+    // Aborting or closing before the request reaches the handler would leave
+    // `resolved` pending forever, so wait for the handler rather than a fixed delay.
+    await started;
 
     if (mode === 'server-close') {
         await server.close();
