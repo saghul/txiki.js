@@ -1,4 +1,5 @@
 import { defineEventAttribute } from './event-target.js';
+import { isValidHeaderName, isValidHeaderValue, trimHeaderValue } from './fetch/headers.js';
 import { HttpClient } from './http-client.js';
 
 
@@ -402,6 +403,13 @@ class XMLHttpRequest extends EventTarget {
     }
 
     setRequestHeader(name, value) {
+        name = String(name);
+        value = trimHeaderValue(value);
+
+        if (!isValidHeaderName(name) || !isValidHeaderValue(value)) {
+            throw new DOMException('Invalid header name or value', 'SyntaxError');
+        }
+
         return this.#client.setRequestHeader(name, value);
     }
 }
