@@ -204,7 +204,8 @@ function sendRequest(request, init, opts) {
 
         client.redirectMode = request.redirect;
 
-        if (init && typeof init.headers === 'object' && !(init.headers instanceof Headers)) {
+        if (init && typeof init.headers === 'object' && !(init.headers instanceof Headers) &&
+            !Array.isArray(init.headers)) {
             const names = [];
 
             Object.getOwnPropertyNames(init.headers).forEach(function(name) {
