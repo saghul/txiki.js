@@ -1,0 +1,83 @@
+From 03da4abc39f5b159458e2a890190310f1ccf70c3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E9=A9=AC=E6=B6=9B?= <matao@sud.tech>
+Date: Sat, 5 Sep 2026 17:28:31 +0800
+Subject: [PATCH] win32: keep polling in-flight client connects to avoid hang
+
+On Windows connect() has no POSIX-style readiness event, so in-flight
+sockets are re-checked by a SUL timer (win32_sul_connect_async_check) at
+win32_connect_check_interval_usec.
+
+When a connect-completion timer fired with no fd yet completed, and there
+were no remaining DNS results (or parallel_count had reached
+LWS_MAX_PARALLEL_CONNS), lws_client_connect_3_connect() returned without
+rescheduling the timer. Nothing then woke the attempt again, so a client
+connect with every socket still in-flight could hang forever instead of
+completing or firing its connect timeout.
+
+Reschedule win32_sul_connect_async_check in that branch so the periodic
+check continues until a socket completes, fails, or the connect timeout
+expires.
+
+
+lws_sul_schedule() dispatches the callback on ctx->pt[tsi], but the
+win32_sul_connect_async_check timer was always scheduled on thread 0. The
+wsi belongs to wsi->tsi, so in a multi-service-thread context the callback
+runs on the wrong thread and touches the wsi cross-thread, risking races.
+
+Schedule all three win32_sul_connect_async_check sites on wsi->tsi, matching
+the other SUL schedules in this file.
+
+Backport of upstream 03da4abc39f5b159458e2a890190310f1ccf70c3 (main), adapted to v5.0-stable ac23cae70.
+
+Co-Authored-By: Claude Code <noreply@anthropic.com>
+---
+ lib/core-net/client/connect3.c | 19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/lib/core-net/client/connect3.c b/lib/core-net/client/connect3.c
+index db18b736a..7b9010a99 100644
+--- a/lib/core-net/client/connect3.c
++++ b/lib/core-net/client/connect3.c
+@@ -619,7 +619,7 @@ lws_client_connect_3_connect(struct lws *wsi, const char *ads,
+ 				goto conn_good;
+ 			case LCCCR_CONTINUE:
+ #if defined(WIN32)
+-				lws_sul_schedule(wsi->a.context, 0, &wsi->win32_sul_connect_async_check,
++				lws_sul_schedule(wsi->a.context, wsi->tsi, &wsi->win32_sul_connect_async_check,
+ 					lws_client_win32_conn_async_check,
+ 					wsi->a.context->win32_connect_check_interval_usec);
+ #endif
+@@ -700,8 +700,19 @@ lws_client_connect_3_connect(struct lws *wsi, const char *ads,
+ 			 * timer is already gated on the "poll" loop where it is
+ 			 */
+ 			if (!wsi->dns_sorted_list.count ||
+-		    wsi->parallel_count >= LWS_MAX_PARALLEL_CONNS)
+-			return wsi;
++			    wsi->parallel_count >= LWS_MAX_PARALLEL_CONNS) {
++#if defined(WIN32)
++				/*
++				 * Every fd is still in-flight.  Keep polling at
++				 * intervals until one completes, fails, or the
++				 * connect timeout fires.
++				 */
++				lws_sul_schedule(wsi->a.context, wsi->tsi, &wsi->win32_sul_connect_async_check,
++					lws_client_win32_conn_async_check,
++					wsi->a.context->win32_connect_check_interval_usec);
++#endif
++				return wsi;
++			}
+ 		}
+ 	}
+ 
+@@ -1246,7 +1257,7 @@ ads_known:
+ 		 * callback to poll checking its status
+ 		 */
+ 
+-		lws_sul_schedule(wsi->a.context, 0, &wsi->win32_sul_connect_async_check,
++		lws_sul_schedule(wsi->a.context, wsi->tsi, &wsi->win32_sul_connect_async_check,
+ 				 lws_client_win32_conn_async_check,
+ 				 wsi->a.context->win32_connect_check_interval_usec
+ 		);
+-- 
+2.55.0.windows.3
+

@@ -548,6 +548,11 @@ set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" 
 #     info->log_cx (e.g. lws's internal "system" vhost) bound to the global
 #     log context instead of its context's, so per-runtime log contexts still
 #     raced on the global one's unlocked refcount across Worker threads.
+#   - lws-win32-connect-check-reschedule.patch: on Windows the async
+#     connect check ran once and was never rescheduled when the only
+#     address was still connecting, so client connects to a single-address
+#     host hung until the connect timeout; upstream 03da4abc3 on main, not
+#     yet in v5.0-stable.
 tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets" "lws-")
 
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
