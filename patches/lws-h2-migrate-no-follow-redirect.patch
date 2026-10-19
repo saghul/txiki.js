@@ -1,0 +1,46 @@
+From e56ef83b59b621575bfbfec580eafae3cfb1d2ef Mon Sep 17 00:00:00 2001
+From: Andy Green <andy@warmcat.com>
+Date: Sat, 22 Aug 2026 05:36:24 +0100
+Subject: [PATCH] h2: client: carry the no-follow-redirect preference onto
+ stream 1
+
+When a client connection negotiates h2 via ALPN, the original request is
+migrated onto a new stream wsi (sid 1).  The migration copied wsi->flags but
+not client_no_follow_redirect, which lives in its own bitfield, so the first
+request on every fresh h2 connection followed redirects even when the caller
+connected with LCCSCF_HTTP_NO_FOLLOW_REDIRECT.  Requests adopted onto an
+existing h2 connection keep their own wsi and were not affected.
+
+Copy the bit across with the rest of the client state.
+
+Backport of the lib/roles/h2/http2.c hunk of upstream
+e56ef83b59b621575bfbfec580eafae3cfb1d2ef (main, "interceptor: clean up bot
+warnings"), adapted to v5.0-stable ac23cae70.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ lib/roles/h2/http2.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/lib/roles/h2/http2.c b/lib/roles/h2/http2.c
+index 775a8fc75..ae543b08f 100644
+--- a/lib/roles/h2/http2.c
++++ b/lib/roles/h2/http2.c
+@@ -1745,6 +1745,14 @@ lws_h2_parse_end_of_frame(struct lws *wsi)
+ #endif
+ #if defined(LWS_WITH_CLIENT)
+ 			h2n->swsi->flags = wsi->flags;
++			/*
++			 * The no-follow preference lives in its own bitfield,
++			 * it has to be brought over separately or the first
++			 * stream on the connection follows redirects the user
++			 * code asked not to follow
++			 */
++			h2n->swsi->client_no_follow_redirect =
++					wsi->client_no_follow_redirect;
+ #if defined(LWS_WITH_CONMON)
+ 			/* sid1 needs to represent the connection experience
+ 			 * ... we take over responsibility for the DNS list
+-- 
+2.55.0.windows.3
+
