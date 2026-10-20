@@ -564,6 +564,10 @@ set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" 
 #     END_STREAM stayed OPEN until a later POLLOUT pass, so a fast response
 #     left the stream HALF_CLOSED_LOCAL instead of CLOSED and the request
 #     hung; the "closed stays closed" half is from upstream 4f8d4fdee.
+#   - lws-h2-client-sid1-gate.patch: the "sid 1 sends headers first" rule
+#     tested the parser's current stream, which after a server PING is the
+#     connection itself, so later pooled requests stalled; from upstream
+#     a18023d26 on main, not yet in v5.0-stable.
 tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets" "lws-")
 
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
