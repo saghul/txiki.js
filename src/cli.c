@@ -22,12 +22,12 @@
  * THE SOFTWARE.
  */
 
+#include "mem.h"
 #include "tjs.h"
 
 #ifdef _WIN32
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <uv.h>
 #include <windows.h>
 /* Must come after windows.h. */
@@ -48,7 +48,7 @@ static char **tjs__utf8_argv(int *argc_out) {
         total += uv_utf16_length_as_wtf8((const uint16_t *) wargv[i], -1) + 1;
     }
 
-    char **argv = malloc(total);
+    char **argv = tjs__malloc(total);
     if (!argv) {
         LocalFree(wargv);
         return NULL;
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     TJS_Initialize(argc, argv);
 
 #ifdef _WIN32
-    free(argv);
+    tjs__free(argv);
 #endif
 
     TJSRuntime *qrt = TJS_NewRuntime();
