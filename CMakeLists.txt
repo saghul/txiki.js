@@ -557,6 +557,9 @@ set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" 
 #     connection lost LCCSCF_HTTP_NO_FOLLOW_REDIRECT when migrated onto
 #     stream 1, so fetch's redirect: 'manual' followed redirects over h2;
 #     from upstream e56ef83b5 on main, not yet in v5.0-stable.
+#   - lws-h2-client-empty-settings.patch: an empty SETTINGS frame from the
+#     server (Node's default) never completed, so the client's first request
+#     was never moved onto stream 1 or sent; not yet upstream.
 tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets" "lws-")
 
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
