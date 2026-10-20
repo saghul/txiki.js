@@ -80,6 +80,10 @@ int main(int argc, char **argv) {
 
     TJS_Initialize(argc, argv);
 
+#ifdef _WIN32
+    free(argv);
+#endif
+
     TJSRuntime *qrt = TJS_NewRuntime();
     if (!qrt) {
         return 1;

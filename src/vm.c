@@ -880,8 +880,27 @@ static void tjs__restore_console_output_cp(void) {
 void TJS_Initialize(int argc, char **argv) {
     CHECK_EQ(0, uv_replace_allocator(tjs__malloc, tjs__realloc, tjs__calloc, tjs__free));
 
+    /* uv_setup_args only copies argv on Unix (and not at all if that allocation fails), so keep
+     * our own copy: runtimes created later (e.g. Workers) read it, and the caller may free theirs. */
+    argv = uv_setup_args(argc, argv);
+
+    size_t size = (argc + 1) * sizeof(char *);
+    for (int i = 0; i < argc; i++) {
+        size += strlen(argv[i]) + 1;
+    }
+
+    tjs__argv = tjs__malloc(size);
+    CHECK_NOT_NULL(tjs__argv);
+
+    char *p = (char *) (tjs__argv + argc + 1);
+    for (int i = 0; i < argc; i++) {
+        size_t len = strlen(argv[i]) + 1;
+        memcpy(p, argv[i], len);
+        tjs__argv[i] = p;
+        p += len;
+    }
+    tjs__argv[argc] = NULL;
     tjs__argc = argc;
-    tjs__argv = uv_setup_args(argc, argv);
 
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
