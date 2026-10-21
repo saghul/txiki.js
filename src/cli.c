@@ -22,11 +22,67 @@
  * THE SOFTWARE.
  */
 
+#include "mem.h"
 #include "tjs.h"
 
+#ifdef _WIN32
+#include <stdint.h>
+#include <stdio.h>
+#include <uv.h>
+#include <windows.h>
+/* Must come after windows.h. */
+#include <shellapi.h>
+
+/* The CRT hands main() its arguments in the ANSI code page, which mangles anything outside
+ * it (e.g. CJK paths on a non-CJK locale, or anything at all on a GBK system). Rebuild argv
+ * from the UTF-16 command line as WTF-8, which is what libuv expects for paths. */
+static char **tjs__utf8_argv(int *argc_out) {
+    int argc;
+    wchar_t **wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    if (!wargv) {
+        return NULL;
+    }
+
+    size_t total = (argc + 1) * sizeof(char *);
+    for (int i = 0; i < argc; i++) {
+        total += uv_utf16_length_as_wtf8((const uint16_t *) wargv[i], -1) + 1;
+    }
+
+    char **argv = tjs__malloc(total);
+    if (!argv) {
+        LocalFree(wargv);
+        return NULL;
+    }
+
+    char *p = (char *) (argv + argc + 1);
+    for (int i = 0; i < argc; i++) {
+        size_t len = uv_utf16_length_as_wtf8((const uint16_t *) wargv[i], -1);
+        argv[i] = p;
+        uv_utf16_to_wtf8((const uint16_t *) wargv[i], -1, &p, &len);
+        p += len + 1;
+    }
+    argv[argc] = NULL;
+
+    LocalFree(wargv);
+    *argc_out = argc;
+    return argv;
+}
+#endif
 
 int main(int argc, char **argv) {
+#ifdef _WIN32
+    argv = tjs__utf8_argv(&argc);
+    if (!argv) {
+        fprintf(stderr, "tjs: failed to read the command line\n");
+        return 1;
+    }
+#endif
+
     TJS_Initialize(argc, argv);
+
+#ifdef _WIN32
+    tjs__free(argv);
+#endif
 
     TJSRuntime *qrt = TJS_NewRuntime();
     if (!qrt) {
