@@ -13,10 +13,12 @@ make                # Build (Release). Output: build/tjs
 make debug          # Build (Debug)
 make js             # Rebuild JS bundles only (after editing src/js/)
 make test           # Run all tests
-make test-advanced  # Run advanced/integration tests (requires npm install in tests/advanced/)
+make test-advanced  # Run advanced/integration tests (runs pnpm install in tests/advanced/)
 make format         # Run clang-format on C sources
 make lint           # Run ESLint on JS sources
 ```
+
+JS dependencies are managed with pnpm (version pinned in `packageManager` in `package.json`). Run `pnpm install` at the repo root before `make js`, `make lint` or building the docs. It installs the root and `website/` packages from the single `pnpm-lock.yaml`. `tests/advanced/` is a standalone, unlocked project.
 
 After modifying files in `src/js/`, run `make js && make` to rebuild.
 
