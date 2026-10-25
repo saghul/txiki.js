@@ -7,7 +7,9 @@ packages:
 overrides:
   minimatch: 10.2.5
   postcss-selector-parser: 7.1.6
-  serialize-javascript: 7.1.2
+  # A range so Dependabot can apply 7.x security patches; still forces the
+  # ^6 consumers in @docusaurus/bundler onto 7.x.
+  serialize-javascript: ^7.1.4
   tinypool: 2.1.2
   # Scoped to sockjs (the only website dependent): a global override would
   # downgrade the root's direct uuid, which `make js` bundles into the runtime.

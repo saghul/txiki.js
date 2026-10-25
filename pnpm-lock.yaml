@@ -7,7 +7,7 @@ settings:
 overrides:
   minimatch: 10.2.5
   postcss-selector-parser: 7.1.6
-  serialize-javascript: 7.1.2
+  serialize-javascript: ^7.1.4
   tinypool: 2.1.2
   sockjs>uuid: 11.1.1
 
@@ -5542,8 +5542,8 @@ packages:
     resolution: {integrity: sha512-VMbMxbDeehAxpOtWJXlcUS5E8iXh6QmN+BkRX1GARS3wRaXEEgzCcB10gTQazO42tpNIya8xIyNx8fll1OFPrg==}
     engines: {node: '>= 0.8.0'}
 
-  serialize-javascript@7.1.2:
-    resolution: {integrity: sha512-GL2BWwVa6JydKO6l/ljVgjAZF4QJ3S7dWDWi53s5GZT8PJzD2fNxi67HANQGKAqPrwEpL5ba7gUBGi0Ls/sEoQ==}
+  serialize-javascript@7.1.4:
+    resolution: {integrity: sha512-FqlEuoTq/zRmA4Lg6aOqyH3lCHbUtCB0bmHCeFniX2GBdDqMJM3FwdvEhlE5Pim1dlt2FfBdVPmUNNiGhhKqpw==}
     engines: {node: '>=20.0.0'}
 
   serve-handler@6.1.7:
@@ -9838,7 +9838,7 @@ snapshots:
       globby: 13.2.2
       normalize-path: 3.0.0
       schema-utils: 4.3.3
-      serialize-javascript: 7.1.2
+      serialize-javascript: 7.1.4
       webpack: 5.105.2(@swc/core@1.15.33)
 
   core-js-compat@3.49.0:
@@ -9905,7 +9905,7 @@ snapshots:
       jest-worker: 29.7.0
       postcss: 8.5.25
       schema-utils: 4.3.3
-      serialize-javascript: 7.1.2
+      serialize-javascript: 7.1.4
       webpack: 5.105.2(@swc/core@1.15.33)
     optionalDependencies:
       clean-css: 5.3.3
@@ -12950,7 +12950,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  serialize-javascript@7.1.2: {}
+  serialize-javascript@7.1.4: {}
 
   serve-handler@6.1.7:
     dependencies:
@@ -13220,7 +13220,7 @@ snapshots:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
       schema-utils: 4.3.3
-      serialize-javascript: 7.1.2
+      serialize-javascript: 7.1.4
       terser: 5.46.0
       webpack: 5.105.2(@swc/core@1.15.33)
     optionalDependencies:
