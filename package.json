@@ -4,13 +4,13 @@
   "description": "Utilities for txiki.js",
   "private": true,
   "scripts": {
-    "postinstall": "npm install --prefix website",
-    "docs": "npm run build --prefix website",
-    "docs:watch": "npm run start --prefix website",
-    "docs:deploy": "npm run docs && gh-pages -d website/build -u \"github-actions-bot <support+actions@github.com>\"",
+    "docs": "pnpm --dir website build",
+    "docs:watch": "pnpm --dir website start",
+    "docs:deploy": "pnpm run docs && gh-pages -d website/build -u \"github-actions-bot <support+actions@github.com>\"",
     "lint": "eslint --max-warnings 0 ."
   },
   "license": "MIT",
+  "packageManager": "pnpm@11.28.8",
   "dependencies": {
     "@eslint/js": "10.0.1",
     "@jridgewell/trace-mapping": "0.3.31",
@@ -29,8 +29,5 @@
   },
   "devDependencies": {
     "typedoc": "0.28.19"
-  },
-  "overrides": {
-    "minimatch": "10.2.5"
   }
 }

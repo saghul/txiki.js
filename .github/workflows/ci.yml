@@ -18,14 +18,16 @@ jobs:
       with:
         check-latest: true
         node-version-file: '.nvmrc'
+    - name: Install pnpm
+      run: npm install -g "$(node -p 'require("./package.json").packageManager')"
     - name: Install dependencies
       run: |
-        npm install
+        pnpm install --frozen-lockfile
         sudo apt update
         sudo apt install -y clang-format
         clang-format --version
     - name: Run the linter
-      run: npm run lint
+      run: pnpm run lint
     - name: Run the formatter
       run: clang-format -i src/*.{c,h}
     - name: Check if the tree is dirty
@@ -41,9 +43,11 @@ jobs:
         with:
           check-latest: true
           node-version-file: '.nvmrc'
+      - name: Install pnpm
+        run: npm install -g "$(node -p 'require("./package.json").packageManager')"
       - name: Install dependencies
         run: |
-          npm install
+          pnpm install --frozen-lockfile
       - name: Build it
         run: |
           make js
@@ -68,6 +72,8 @@ jobs:
     - uses: actions/setup-node@v7
       with:
         node-version-file: '.nvmrc'
+    - name: Install pnpm
+      run: npm install -g "$(node -p 'require("./package.json").packageManager')"
     - name: Dependencies
       env:
         ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
@@ -111,6 +117,8 @@ jobs:
     - uses: actions/setup-node@v7
       with:
         node-version-file: '.nvmrc'
+    - name: Install pnpm
+      run: npm install -g "$(node -p 'require("./package.json").packageManager')"
     - name: Build it
       run: make VERBOSE=1
     - name: Download esbuild

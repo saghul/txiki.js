@@ -17,7 +17,9 @@ jobs:
     - uses: actions/setup-node@v7
       with:
         node-version-file: '.nvmrc'
+    - name: Install pnpm
+      run: npm install -g "$(node -p 'require("./package.json").packageManager')"
     - name: Install dependencies
-      run: npm install
+      run: pnpm install --frozen-lockfile
     - name: Build the docs
-      run: npm run docs
+      run: pnpm run docs
