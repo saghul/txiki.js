@@ -11,6 +11,6 @@
   },
   "scripts": {
     "build": "node browserify.config.js && node esbuild.config.js",
-    "postinstall": "npm run build"
+    "postinstall": "pnpm run build"
   }
 }
