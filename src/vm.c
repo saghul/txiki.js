@@ -728,6 +728,11 @@ static bool tjs__reap_late_resources(TJSRuntime *qrt) {
 }
 
 void TJS_FreeRuntime(TJSRuntime *qrt) {
+    /* A worker runtime is freed on the thread that terminated it, not the one
+     * that created it, and the drain below runs JS. Re-anchor QuickJS's stack
+     * check on this thread, or every call can fail with a bogus stack overflow. */
+    JS_UpdateStackTop(qrt->rt);
+
     /* Quiesce every active native handle before dismantling anything else, so no
      * handle callback can fire into a half-torn-down runtime: libuv-backed
      * handles begin closing (their close no longer waits on the GC collecting
@@ -1183,7 +1188,11 @@ int TJS_Run(TJSRuntime *qrt) {
 
 void TJS_Stop(TJSRuntime *qrt) {
     CHECK_NOT_NULL(qrt);
-    uv_async_send(&qrt->stop);
+    /* TJS_FreeRuntime closes `stop` before its drain runs JS that may land here;
+     * libuv forbids sending to a closing handle (Windows asserts or re-closes it). */
+    if (!uv_is_closing((uv_handle_t *) &qrt->stop)) {
+        uv_async_send(&qrt->stop);
+    }
 }
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt) {
