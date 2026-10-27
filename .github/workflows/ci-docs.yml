@@ -5,6 +5,12 @@ on:
     paths:
       - 'website/**'
       - 'types/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.npmrc'
+      - '.nvmrc'
+      - '.github/workflows/ci-docs.yml'
 
 jobs:
   docs:
