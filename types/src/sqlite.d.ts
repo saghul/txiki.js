@@ -1,3 +1,5 @@
+/// <reference lib="esnext.disposable" />
+
 /**
  * SQLite3 module.
  *
