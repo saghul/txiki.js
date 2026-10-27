@@ -787,14 +787,32 @@ void TJS_FreeRuntime(TJSRuntime *qrt) {
      * context after the steps above already ran. So each iteration first reaps
      * whatever the previous one left behind. JS that keeps creating resources
      * on every one of the 32 iterations still leaks them; that takes
-     * adversarial code and is accepted. */
+     * adversarial code and is accepted.
+     *
+     * A request already running on the threadpool (fs, getaddrinfo,
+     * uv_queue_work) can't be canceled, and the threadpool thread uses the loop
+     * and the request struct (which JS owns) until it completes. So while any
+     * request is in flight, block in UV_RUN_ONCE: its completion wakes the loop,
+     * and its callback runs while the runtime is still alive. Those waits don't
+     * count against the 32 iterations. Every request on a handle is canceled by
+     * the close tjs__detach_handles began, so only threadpool work is waited
+     * for. The price: teardown (worker.terminate(), exit on an uncaught error)
+     * blocks until running native work finishes, and hangs if it never does
+     * (e.g. a read from a FIFO with no writer). Freeing memory that a running
+     * thread still uses is worse. */
     tjs__release_pins(qrt);
     JS_RunGC(qrt->rt);
-    for (int i = 0; i < 32; i++) {
-        if (!tjs__reap_late_resources(qrt) && !uv_loop_alive(&qrt->loop)) {
+    int rounds = 0;
+    for (;;) {
+        bool reaped = rounds < 32 && tjs__reap_late_resources(qrt);
+        if (!reaped && qrt->loop.active_reqs.count > 0) {
+            uv_run(&qrt->loop, UV_RUN_ONCE);
+        } else if (rounds < 32 && (reaped || uv_loop_alive(&qrt->loop))) {
+            rounds++;
+            uv_run(&qrt->loop, UV_RUN_NOWAIT);
+        } else {
             break;
         }
-        uv_run(&qrt->loop, UV_RUN_NOWAIT);
     }
 
     /* Destroy shared TLS context. */
