@@ -1,3 +1,5 @@
+/// <reference lib="esnext.disposable" />
+
 /**
  * Foreign Function Interface module.
  *

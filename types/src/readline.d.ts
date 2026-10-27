@@ -1,3 +1,6 @@
+/// <reference lib="dom" />
+/// <reference lib="esnext.disposable" />
+
 /**
  * Interactive line editing module.
  *
