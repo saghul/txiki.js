@@ -1,6 +1,6 @@
-// A synchronous exception in the entry script, thrown before the event loop ever
-// runs, must still wait for a digest in flight on the threadpool before tearing
-// the runtime down (GitHub issue #1084).
+// An exception thrown during synchronous evaluation of the entry script, with no
+// await before it, must still wait for a SHA-1 digest in flight on the threadpool
+// before tearing the runtime down (GitHub issue #1084).
 
 import assert from 'tjs:assert';
 
