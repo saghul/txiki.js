@@ -219,7 +219,6 @@ class Module {
 class Instance {
     #instance;
     #exports;
-    #moduleRef;
 
     constructor(module, importObject = {}) {
         const nativeModule = getNativeModule(module);
@@ -371,7 +370,6 @@ class Instance {
 
         this.#instance = instance;
         this.#exports = Object.freeze(exports);
-        this.#moduleRef = module;
     }
 
     get exports() {
