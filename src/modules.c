@@ -335,6 +335,93 @@ static inline void tjs__normalize_pathsep(const char *name) {
 #endif
 }
 
+bool tjs__is_file_url(const char *s) {
+    return strncasecmp(s, "file://", 7) == 0;
+}
+
+static int tjs__hexval(char c) {
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    if (c >= 'a' && c <= 'f') {
+        return c - 'a' + 10;
+    }
+    if (c >= 'A' && c <= 'F') {
+        return c - 'A' + 10;
+    }
+    return -1;
+}
+
+#if defined(_WIN32)
+static bool tjs__is_drive_letter(const char *p) {
+    return ((p[0] >= 'A' && p[0] <= 'Z') || (p[0] >= 'a' && p[0] <= 'z')) && p[1] == ':' &&
+           (p[2] == '\0' || p[2] == '/' || p[2] == '\\');
+}
+#endif
+
+char *tjs__file_url_to_path(JSContext *ctx, const char *url) {
+    const char *path, *end;
+    char *out, *q;
+
+    CHECK(tjs__is_file_url(url));
+
+    path = url + 7;
+#if defined(_WIN32)
+    /* import.meta.url on Windows has the form file://C:\x\y.js, with no host. */
+    if (!tjs__is_drive_letter(path))
+#endif
+    {
+        const char *host = path;
+        size_t host_len = strcspn(host, "/?#");
+        if (host_len != 0 && !(host_len == 9 && strncasecmp(host, "localhost", 9) == 0)) {
+            JS_ThrowTypeError(ctx, "unsupported file URL host in '%s'", url);
+            return NULL;
+        }
+        path = host + host_len;
+    }
+
+    end = path + strcspn(path, "?#");
+    if (end == path) {
+        JS_ThrowTypeError(ctx, "invalid file URL '%s'", url);
+        return NULL;
+    }
+
+    out = js_malloc(ctx, end - path + 1);
+    if (!out) {
+        return NULL;
+    }
+
+    for (q = out; path < end; path++) {
+        char c = *path;
+        if (c == '%') {
+            int hi = tjs__hexval(path[1]);
+            int lo = hi < 0 ? -1 : tjs__hexval(path[2]);
+            if (lo < 0 || (hi == 0 && lo == 0)) {
+                js_free(ctx, out);
+                JS_ThrowTypeError(ctx, "invalid file URL '%s'", url);
+                return NULL;
+            }
+            c = (char) ((hi << 4) | lo);
+            path += 2;
+        }
+        *q++ = c;
+    }
+    *q = '\0';
+
+#if defined(_WIN32)
+    if (out[0] == '/' && tjs__is_drive_letter(out + 1)) {
+        memmove(out, out + 1, strlen(out));
+    }
+    for (q = out; *q; q++) {
+        if (*q == '/') {
+            *q = '\\';
+        }
+    }
+#endif
+
+    return out;
+}
+
 char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque) {
     char *filename, *p;
     const char *r;
@@ -363,9 +450,12 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
             }
             if (JS_IsString(result)) {
                 const char *resolved = JS_ToCString(ctx, result);
-                char *ret = js_strdup(ctx, resolved);
-                JS_FreeCString(ctx, resolved);
                 JS_FreeValue(ctx, result);
+                if (!resolved) {
+                    return NULL;
+                }
+                char *ret = tjs__is_file_url(resolved) ? tjs__file_url_to_path(ctx, resolved) : js_strdup(ctx, resolved);
+                JS_FreeCString(ctx, resolved);
                 return ret;
             }
             if (JS_IsNull(result)) {
@@ -374,6 +464,11 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
                 return NULL;
             }
             JS_FreeValue(ctx, result);
+        }
+        /* file:// URLs are keyed by native path, so a module imported both by
+         * URL and by path is a single instance. */
+        if (tjs__is_file_url(name)) {
+            return tjs__file_url_to_path(ctx, name);
         }
         /* if no initial dot and no import map match, the module name is not modified */
         return js_strdup(ctx, name);
