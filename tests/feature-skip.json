@@ -7,6 +7,7 @@
     "test-sqlite.js",
     "test-dispose-database.js",
     "test-dispose-statement.js",
+    "test-native-error-class.js",
     "test-storage.js"
   ]
 }

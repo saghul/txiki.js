@@ -215,7 +215,7 @@ JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *op
             val = TJS_NewUint8Array(ctx, dbuf.buf, dbuf.size - 1);
             break;
         default:
-            val = JS_ThrowInternalError(ctx, "unsupported import type");
+            val = JS_ThrowPlainError(ctx, "unsupported import type");
             break;
     }
 

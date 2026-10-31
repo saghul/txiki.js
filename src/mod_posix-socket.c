@@ -24,7 +24,7 @@ typedef struct {
     uv_poll_t poll;
 } tjs_sock_t;
 
-#define THROW_STRERROR() JS_ThrowInternalError(ctx, "%s (%d)", strerror(errno), errno)
+#define THROW_STRERROR() JS_ThrowPlainError(ctx, "%s (%d)", strerror(errno), errno)
 #define RET_THROW_ERRNO(ctx, check)                                                                                    \
     if (!(check)) {                                                                                                    \
         return THROW_STRERROR();                                                                                       \
@@ -133,7 +133,7 @@ static JSValue tjs_sock_bind(JSContext *ctx, JSValue this_val, int argc, JSValue
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
     size_t sz;
     uint8_t *_sockaddr_buf = JS_GetUint8Array(ctx, &sz, argv[0]);
@@ -152,7 +152,7 @@ static JSValue tjs_sock_accept(JSContext *ctx, JSValue this_val, int argc, JSVal
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
 
     socklen_t sz = sizeof(struct sockaddr);
@@ -172,7 +172,7 @@ static JSValue tjs_sock_connect(JSContext *ctx, JSValue this_val, int argc, JSVa
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
 
     size_t sz;
@@ -193,7 +193,7 @@ static JSValue tjs_sock_setsockopt(JSContext *ctx, JSValue this_val, int argc, J
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
 
     unsigned level, optname;
@@ -216,7 +216,7 @@ static JSValue tjs_sock_getsockopt(JSContext *ctx, JSValue this_val, int argc, J
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
 
     unsigned level, optname;
@@ -243,10 +243,10 @@ static JSValue tjs_sock_close(JSContext *ctx, JSValue this_val, int argc, JSValu
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket already closed");
+        return JS_ThrowPlainError(ctx, "Socket already closed");
     }
     if (s->in_cb) {  // only relevant if poll is used, because libuv docs advise so
-        return JS_ThrowInternalError(ctx, "cannot close socket during poll callback");
+        return JS_ThrowPlainError(ctx, "cannot close socket during poll callback");
     }
     close_sock(s);
     return JS_UNDEFINED;
@@ -256,7 +256,7 @@ static JSValue tjs_sock_listen(JSContext *ctx, JSValue this_val, int argc, JSVal
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
     unsigned backlog;
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &backlog, argv[0]), 0, "positive integer");
@@ -287,7 +287,7 @@ static JSValue tjs_sock_get_info(JSContext *ctx, JSValue this_val) {
         JS_SetPropertyStr(ctx, socket_info, "protocol", JS_NewInt32(ctx, sock_fd_info.psi.soi_protocol));
         cnt++;
     } else {
-        return JS_ThrowInternalError(ctx, "proc_pidfdinfo: %s", strerror(errno));
+        return JS_ThrowPlainError(ctx, "proc_pidfdinfo: %s", strerror(errno));
     }
 #else
     int val;
@@ -317,7 +317,7 @@ static JSValue tjs_sock_read(JSContext *ctx, JSValue this_val, int argc, JSValue
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
     size_t count;
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, (unsigned *) &count, argv[0]), 0, "positive integer");
@@ -338,7 +338,7 @@ static JSValue tjs_sock_write(JSContext *ctx, JSValue this_val, int argc, JSValu
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
     size_t sz;
     uint8_t *buf = JS_GetUint8Array(ctx, &sz, argv[0]);
@@ -355,7 +355,7 @@ static JSValue tjs_sock_shutdown(JSContext *ctx, JSValue this_val, int argc, JSV
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
     unsigned how;
     TJS_CHECK_ARG_RET(ctx, !JS_ToUint32(ctx, &how, argv[0]), 0, "positive integer");
@@ -368,7 +368,7 @@ static JSValue tjs_sock_recv(JSContext *ctx, JSValue this_val, int argc, JSValue
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
     size_t count;
     int flags;
@@ -391,7 +391,7 @@ static JSValue tjs_sock_recvmsg(JSContext *ctx, JSValue this_val, int argc, JSVa
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
     TJS_CHECK_ARG_RET(ctx, JS_IsNumber(argv[0]), 1, "positive integer");
     int32_t bufsz;
@@ -434,7 +434,7 @@ static JSValue tjs_sock_send(JSContext *ctx, JSValue this_val, int argc, JSValue
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
     int flags;
     size_t sz;
@@ -452,7 +452,7 @@ static JSValue tjs_sock_sendto(JSContext *ctx, JSValue this_val, int argc, JSVal
     tjs_sock_t* s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if(s->closed){
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
     int flags;
     size_t sz;
@@ -479,12 +479,12 @@ static JSValue tjs_sock_sendmsg(JSContext *ctx, JSValue this_val, int argc, JSVa
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->closed) {
-        return JS_ThrowInternalError(ctx, "Socket closed");
+        return JS_ThrowPlainError(ctx, "Socket closed");
     }
     struct msghdr msg;
 
     if (argc < 4) {
-        return JS_ThrowInternalError(ctx, "expected at least 4 arguments");
+        return JS_ThrowPlainError(ctx, "expected at least 4 arguments");
     }
 
     if (!JS_IsUndefined(argv[0])) {
@@ -580,10 +580,10 @@ static JSValue tjs_sock_poll_stop(JSContext *ctx, JSValue this_val, int argc, JS
     tjs_sock_t *s = JS_GetOpaque(this_val, tjs__class_id(ctx, TJS_CLASS_SOCK));
     TJS_CHECK_ARG_RET(ctx, s, -1, TJS_SOCK_CLASS_NAME);
     if (s->in_cb) {
-        return JS_ThrowInternalError(ctx, "cannot stop poll during callback");
+        return JS_ThrowPlainError(ctx, "cannot stop poll during callback");
     }
     if (uv_is_closing((uv_handle_t *) &s->poll)) {
-        return JS_ThrowInternalError(ctx, "cannot stop poll when already closing");
+        return JS_ThrowPlainError(ctx, "cannot stop poll when already closing");
     }
     int ret = uv_poll_stop(&s->poll);
     if (ret < 0) {

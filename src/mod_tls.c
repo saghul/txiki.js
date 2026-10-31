@@ -827,7 +827,7 @@ static JSValue tjs_tls_start_read(JSContext *ctx, JSValue this_val, int argc, JS
         return JS_EXCEPTION;
     }
     if (uv_is_closing((uv_handle_t *) &s->tcp)) {
-        return JS_ThrowInternalError(ctx, "stream is closed");
+        return JS_ThrowPlainError(ctx, "stream is closed");
     }
     int r = uv_read_start((uv_stream_t *) &s->tcp, uv__tls_alloc_cb, uv__tls_read_cb);
     /* UV_EALREADY: reading was already started during TLS handshake — not an error. */
@@ -869,14 +869,14 @@ static JSValue tjs_tls_write(JSContext *ctx, JSValue this_val, int argc, JSValue
         return JS_EXCEPTION;
     }
     if (s->tls_state != TLS_STATE_ESTABLISHED) {
-        return JS_ThrowInternalError(ctx, "TLS not established");
+        return JS_ThrowPlainError(ctx, "TLS not established");
     }
     if (uv_is_closing((uv_handle_t *) &s->tcp)) {
-        return JS_ThrowInternalError(ctx, "stream is closed");
+        return JS_ThrowPlainError(ctx, "stream is closed");
     }
 
     if (tjs_tls_write_pending(s)) {
-        return JS_ThrowInternalError(ctx, "TLS write already in progress");
+        return JS_ThrowPlainError(ctx, "TLS write already in progress");
     }
 
     if (tjs_buf_ref_get(ctx, argv[0], &s->wbuf)) {
@@ -893,7 +893,7 @@ static JSValue tjs_tls_write(JSContext *ctx, JSValue this_val, int argc, JSValue
         if (tls_err) {
             char errbuf[128];
             mbedtls_strerror(r, errbuf, sizeof(errbuf));
-            return JS_ThrowInternalError(ctx, "TLS write failed: %s", errbuf);
+            return JS_ThrowPlainError(ctx, "TLS write failed: %s", errbuf);
         }
         return r == UV_ENOMEM ? JS_ThrowOutOfMemory(ctx) : tjs_throw_errno(ctx, r);
     }
@@ -920,11 +920,11 @@ static JSValue tjs_tls_shutdown(JSContext *ctx, JSValue this_val, int argc, JSVa
         return JS_EXCEPTION;
     }
     if (uv_is_closing((uv_handle_t *) &s->tcp)) {
-        return JS_ThrowInternalError(ctx, "stream is closed");
+        return JS_ThrowPlainError(ctx, "stream is closed");
     }
 
     if (tjs_tls_write_pending(s)) {
-        return JS_ThrowInternalError(ctx, "TLS write in progress");
+        return JS_ThrowPlainError(ctx, "TLS write in progress");
     }
 
     /* Guard against double shutdown. */
@@ -1357,7 +1357,7 @@ static JSValue tjs_new_tls(JSContext *ctx, int af) {
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         tjs__free(s);
-        return JS_ThrowInternalError(ctx, "couldn't initialize TCP handle");
+        return JS_ThrowPlainError(ctx, "couldn't initialize TCP handle");
     }
 
     s->ctx = ctx;
@@ -1405,7 +1405,7 @@ static JSValue tjs_new_tls_from_server(JSContext *ctx, TJSTlsStream *server) {
     if (ret != 0) {
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
         JS_FreeValue(ctx, obj);
-        return JS_ThrowInternalError(ctx, "TLS config failed: %s", errbuf);
+        return JS_ThrowPlainError(ctx, "TLS config failed: %s", errbuf);
     }
 
     mbedtls_ssl_conf_rng(&client->conf, tjs__entropy_uv, NULL);
@@ -1418,7 +1418,7 @@ static JSValue tjs_new_tls_from_server(JSContext *ctx, TJSTlsStream *server) {
         if (ret != 0) {
             mbedtls_strerror(ret, errbuf, sizeof(errbuf));
             JS_FreeValue(ctx, obj);
-            return JS_ThrowInternalError(ctx, "TLS cert parse failed: %s", errbuf);
+            return JS_ThrowPlainError(ctx, "TLS cert parse failed: %s", errbuf);
         }
 
         ret = mbedtls_pk_parse_key(&client->own_key,
@@ -1431,7 +1431,7 @@ static JSValue tjs_new_tls_from_server(JSContext *ctx, TJSTlsStream *server) {
         if (ret != 0) {
             mbedtls_strerror(ret, errbuf, sizeof(errbuf));
             JS_FreeValue(ctx, obj);
-            return JS_ThrowInternalError(ctx, "TLS key parse failed: %s", errbuf);
+            return JS_ThrowPlainError(ctx, "TLS key parse failed: %s", errbuf);
         }
 
         mbedtls_ssl_conf_own_cert(&client->conf, &client->own_cert, &client->own_key);
@@ -1460,7 +1460,7 @@ static JSValue tjs_new_tls_from_server(JSContext *ctx, TJSTlsStream *server) {
     if (ret != 0) {
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
         JS_FreeValue(ctx, obj);
-        return JS_ThrowInternalError(ctx, "TLS setup failed: %s", errbuf);
+        return JS_ThrowPlainError(ctx, "TLS setup failed: %s", errbuf);
     }
 
     mbedtls_ssl_set_bio(&client->ssl, client, tjs_tls_bio_send, tjs_tls_bio_recv, NULL);
@@ -1491,7 +1491,7 @@ static JSValue tjs_tls_constructor(JSContext *ctx, JSValue new_target, int argc,
         JS_FreeValue(ctx, obj);
         char errbuf[128];
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        return JS_ThrowInternalError(ctx, "TLS configuration failed: %s", errbuf);
+        return JS_ThrowPlainError(ctx, "TLS configuration failed: %s", errbuf);
     }
 
     return obj;

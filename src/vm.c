@@ -462,7 +462,7 @@ int tjs__class_register(JSContext *ctx, TJSClass c, const JSClassDef *def) {
 
     JSClassID id = JS_NewClassID(rt, &qrt->class_ids[c]);
     if (JS_NewClass(rt, id, def) < 0) {
-        JS_ThrowInternalError(ctx, "failed to register class %s", def->class_name);
+        JS_ThrowPlainError(ctx, "failed to register class %s", def->class_name);
         return -1;
     }
 

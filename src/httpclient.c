@@ -1024,7 +1024,7 @@ static JSValue tjs_httpclient_open(JSContext *ctx, JSValue this_val, int argc, J
     if (tjs_httpclient_connect(h)) {
         h->sent = false;
         tjs__handle_unpin(ctx, &h->pin);
-        return JS_ThrowInternalError(ctx, "Connection failed");
+        return JS_ThrowPlainError(ctx, "Connection failed");
     }
 
     return JS_UNDEFINED;

@@ -1574,7 +1574,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     if (!lws_ctx) {
         JS_FreeCString(ctx, listen_ip);
         JS_FreeValue(ctx, obj);
-        return JS_ThrowInternalError(ctx, "failed to get lws context");
+        return JS_ThrowPlainError(ctx, "failed to get lws context");
     }
     TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
@@ -1631,7 +1631,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     if (!s->vhost) {
         JS_FreeCString(ctx, listen_ip);
         JS_FreeValue(ctx, obj);
-        return JS_ThrowInternalError(ctx, "failed to create HTTP server vhost");
+        return JS_ThrowPlainError(ctx, "failed to create HTTP server vhost");
     }
 
     /* Get the actual port (in case port 0 was used for auto-assignment). */
@@ -1712,7 +1712,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
             s->vhost = NULL;
             JS_FreeCString(ctx, listen_ip);
             JS_FreeValue(ctx, obj);
-            return JS_ThrowInternalError(ctx, "failed to create HTTP/3 (QUIC) listener on port %d", s->port);
+            return JS_ThrowPlainError(ctx, "failed to create HTTP/3 (QUIC) listener on port %d", s->port);
         }
 
         s->vhost_count = 2;
@@ -1845,12 +1845,12 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
 
     if (lws_add_http_header_status(req->wsi, (unsigned int) status, &p, end)) {
         js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to add status header");
+        return JS_ThrowPlainError(ctx, "failed to add status header");
     }
 
     if (tjs_http_add_altsvc(s, req, &p, end)) {
         js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to add alt-svc header");
+        return JS_ThrowPlainError(ctx, "failed to add alt-svc header");
     }
 
     /* Iterate headers array. */
@@ -1886,7 +1886,7 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
                     JS_FreeValue(ctx, value_val);
                     JS_FreeValue(ctx, pair);
                     js_free(ctx, header_buf);
-                    return JS_ThrowInternalError(ctx, "failed to add response header");
+                    return JS_ThrowPlainError(ctx, "failed to add response header");
                 }
             }
 
@@ -1924,14 +1924,14 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
     if (!has_content_length) {
         if (lws_add_http_header_content_length(req->wsi, (lws_filepos_t) body_len, &p, end)) {
             js_free(ctx, header_buf);
-            return JS_ThrowInternalError(ctx, "failed to add content-length header");
+            return JS_ThrowPlainError(ctx, "failed to add content-length header");
         }
     }
 
     /* Finalize headers. */
     if (lws_finalize_http_header(req->wsi, &p, end)) {
         js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to finalize headers");
+        return JS_ThrowPlainError(ctx, "failed to finalize headers");
     }
 
     size_t hdr_len = p - start;
@@ -1958,7 +1958,7 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
     /* First write: send headers (with LWS_PRE padding). */
     int n = lws_write(req->wsi, req->response_data + LWS_PRE, hdr_len, LWS_WRITE_HTTP_HEADERS);
     if (n < 0) {
-        return JS_ThrowInternalError(ctx, "failed to write response headers");
+        return JS_ThrowPlainError(ctx, "failed to write response headers");
     }
     req->response_offset = hdr_len;
 
@@ -2040,7 +2040,7 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
     if (req->http_version != TJS_HTTP_1_1) {
         if (lws_add_http_common_headers(req->wsi, (unsigned int) status, NULL, LWS_ILLEGAL_HTTP_CONTENT_LEN, &p, end)) {
             js_free(ctx, header_buf);
-            return JS_ThrowInternalError(ctx, "failed to add status header");
+            return JS_ThrowPlainError(ctx, "failed to add status header");
         }
     } else {
         req->chunked_response = true;
@@ -2052,13 +2052,13 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
                                          &p,
                                          end)) {
             js_free(ctx, header_buf);
-            return JS_ThrowInternalError(ctx, "failed to add status header");
+            return JS_ThrowPlainError(ctx, "failed to add status header");
         }
     }
 
     if (tjs_http_add_altsvc(s, req, &p, end)) {
         js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to add alt-svc header");
+        return JS_ThrowPlainError(ctx, "failed to add alt-svc header");
     }
 
     /* Add custom headers from the array. */
@@ -2088,7 +2088,7 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
                     JS_FreeValue(ctx, value_val);
                     JS_FreeValue(ctx, pair);
                     js_free(ctx, header_buf);
-                    return JS_ThrowInternalError(ctx, "failed to add response header");
+                    return JS_ThrowPlainError(ctx, "failed to add response header");
                 }
             }
 
@@ -2103,7 +2103,7 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
     /* Finalize and write headers in one call. */
     if (lws_finalize_write_http_header(req->wsi, start, &p, end)) {
         js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to write response headers");
+        return JS_ThrowPlainError(ctx, "failed to write response headers");
     }
 
     js_free(ctx, header_buf);
