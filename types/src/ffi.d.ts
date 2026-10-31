@@ -246,17 +246,15 @@ declare module 'tjs:ffi'{
         readonly fields: FT;
     }
 
-    export class ArrayType<T> extends AdvancedType<Array<T>, ArrayType<T>>{
+    export class ArrayType<T, V = Array<T>> extends AdvancedType<V, ArrayType<T, V>>{
         constructor(type: SimpleType<T>, length: number, name: string);
-        readonly ffiTypeStruct: SimpleType<Array<T>>;
+        readonly ffiTypeStruct: SimpleType<V>;
         readonly length: number
         readonly size: number;
     }
 
-    export class StaticStringType extends ArrayType<number>{
+    export class StaticStringType extends ArrayType<number, string>{
         constructor(length: number, name: string);
-        toBuffer(str: string, ctx?: {}): Uint8Array;
-        fromBuffer(buf: Uint8Array, ctx?: {}): string;
     }
 
     /**
