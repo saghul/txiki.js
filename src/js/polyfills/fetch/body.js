@@ -13,7 +13,9 @@ function isDataView(obj) {
 }
 
 function bufferClone(buf) {
-    if (buf.slice) {
+    if (buf instanceof ArrayBuffer) {
+        return new Uint8Array(buf).slice().buffer;
+    } else if (buf.slice) {
         return buf.slice(0);
     } else {
         const view = new Uint8Array(buf.byteLength);
