@@ -308,6 +308,10 @@ int tjs__load_file(JSContext *ctx, TBuf *dbuf, const char *filename);
 int tjs_module_attr_checker(JSContext *ctx, void *opaque, JSValueConst attributes);
 JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *opaque, JSValueConst attributes);
 char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque);
+bool tjs__is_file_url(const char *s);
+/* Convert a file:// URL into a native path. Returns a js_malloc'd string, or
+ * NULL with a pending TypeError if the URL can't be mapped to a local path. */
+char *tjs__file_url_to_path(JSContext *ctx, const char *url);
 
 int js_module_set_import_meta(JSContext *ctx, JSValue func_val, bool use_realpath, bool is_main);
 

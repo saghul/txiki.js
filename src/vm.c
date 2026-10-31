@@ -1289,12 +1289,24 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     size_t dbuf_size;
     int r;
     JSValue ret;
+    char *path = NULL;
+
+    /* Use the native path as the module name too, so import.meta and relative
+     * imports resolve as if the path had been given. */
+    if (tjs__is_file_url(filename)) {
+        path = tjs__file_url_to_path(ctx, filename);
+        if (!path) {
+            return JS_EXCEPTION;
+        }
+        filename = path;
+    }
 
     tbuf_init(ctx, &dbuf);
     r = tjs__load_file(ctx, &dbuf, filename);
     if (r != 0) {
         tbuf_free(&dbuf);
         JS_ThrowReferenceError(ctx, "could not load '%s' - %s: %s", filename, uv_err_name(r), uv_strerror(r));
+        js_free(ctx, path);
         return JS_EXCEPTION;
     }
 
@@ -1306,5 +1318,6 @@ JSValue TJS_EvalModule(JSContext *ctx, const char *filename, bool is_main) {
     ret = TJS_EvalModuleContent(ctx, filename, is_main, true, (char *) dbuf.buf, dbuf_size - 1);
 
     tbuf_free(&dbuf);
+    js_free(ctx, path);
     return ret;
 }
