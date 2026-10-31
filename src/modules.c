@@ -454,7 +454,8 @@ char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *n
                 if (!resolved) {
                     return NULL;
                 }
-                char *ret = tjs__is_file_url(resolved) ? tjs__file_url_to_path(ctx, resolved) : js_strdup(ctx, resolved);
+                char *ret =
+                    tjs__is_file_url(resolved) ? tjs__file_url_to_path(ctx, resolved) : js_strdup(ctx, resolved);
                 JS_FreeCString(ctx, resolved);
                 return ret;
             }
