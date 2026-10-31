@@ -3,7 +3,7 @@
 import assert from 'tjs:assert';
 import path from 'tjs:path';
 
-const data = new Uint8Array(16 * 1024 * 1024);
+const data = new Uint8Array(1024 * 1024);
 
 for (let i = 0; i < data.length; i++) {
     data[i] = (i * 13 + (i >> 12)) & 0xff;

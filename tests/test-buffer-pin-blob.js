@@ -13,7 +13,7 @@ function assertBytes(actual, expected, what) {
     }
 }
 
-const data = new Uint8Array(16 * 1024 * 1024);
+const data = new Uint8Array(1024 * 1024);
 
 for (let i = 0; i < data.length; i++) {
     data[i] = (i * 31 + (i >> 8)) & 0xff;

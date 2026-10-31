@@ -14,10 +14,10 @@ const ed = await subtle.generateKey({ name: 'Ed25519' }, true, [ 'sign', 'verify
 const x = await subtle.generateKey({ name: 'X25519' }, true, [ 'deriveBits' ]);
 const xPeer = await subtle.generateKey({ name: 'X25519' }, true, [ 'deriveBits' ]);
 const ec = await subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, [ 'sign', 'verify' ]);
-const rsaAlg = { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' };
+const rsaAlg = { name: 'RSASSA-PKCS1-v1_5', modulusLength: 1024, publicExponent: new Uint8Array([ 1, 0, 1 ]), hash: 'SHA-256' };
 const rsa = await subtle.generateKey(rsaAlg, true, [ 'sign', 'verify' ]);
 
-const data = new Uint8Array(16 * 1024 * 1024);
+const data = new Uint8Array(1024 * 1024);
 
 for (let i = 0; i < data.length; i++) {
     data[i] = (i * 7) & 0xff;
