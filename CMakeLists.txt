@@ -84,6 +84,13 @@ if(BUILD_WITH_ASAN)
         add_compile_options(/fsanitize=address)
     else()
         add_compile_options(-fsanitize=address -fno-omit-frame-pointer -fno-sanitize-recover=all)
+        # No fake stacks: WAMR's native stack overflow check compares the
+        # address of a local against the thread stack, and it also runs on
+        # exec envs WAMR creates internally (start functions), where we can't
+        # disable it. Linux enables fake stacks by default; macOS doesn't.
+        add_compile_options(
+            $<$<C_COMPILER_ID:Clang,AppleClang>:-fsanitize-address-use-after-return=never>
+            $<$<C_COMPILER_ID:GNU>:--param=asan-use-after-return=0>)
         add_link_options(-fsanitize=address)
     endif()
 endif()
