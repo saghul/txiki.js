@@ -53,35 +53,48 @@ typedef struct {
         uint32_t map_dir_count;
     } wasi;
     TJSWasmImportGroup *pending_imports; /* Set by resolveImports, moved to instance by buildInstance */
+    /* Held by the JS Module object and by each native instance. WAMR needs the
+     * module to outlive its instances, and a JS-level reference can't ensure
+     * that: when Module and Instance die in the same GC cycle, finalizers run
+     * in arbitrary order. */
+    uint32_t ref_count;
 } TJSWasmModule;
+
+static void tjs__wasm_module_unref(JSRuntime *rt, TJSWasmModule *m) {
+    CHECK(m->ref_count > 0);
+    if (--m->ref_count > 0) {
+        return;
+    }
+    if (m->module) {
+        wasm_runtime_unload(m->module);
+    }
+    js_free_rt(rt, m->data.bytes);
+    /* Free WASI allocations */
+    if (m->wasi.argv) {
+        for (uint32_t i = 0; i < m->wasi.argc; i++) {
+            js_free_rt(rt, m->wasi.argv[i]);
+        }
+        js_free_rt(rt, m->wasi.argv);
+    }
+    if (m->wasi.env) {
+        for (uint32_t i = 0; i < m->wasi.env_count; i++) {
+            js_free_rt(rt, m->wasi.env[i]);
+        }
+        js_free_rt(rt, m->wasi.env);
+    }
+    if (m->wasi.map_dir_list) {
+        for (uint32_t i = 0; i < m->wasi.map_dir_count; i++) {
+            js_free_rt(rt, m->wasi.map_dir_list[i]);
+        }
+        js_free_rt(rt, m->wasi.map_dir_list);
+    }
+    js_free_rt(rt, m);
+}
 
 static void tjs_wasm_module_finalizer(JSRuntime *rt, JSValue val) {
     TJSWasmModule *m = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WASM_MODULE));
     if (m) {
-        if (m->module) {
-            wasm_runtime_unload(m->module);
-        }
-        js_free_rt(rt, m->data.bytes);
-        /* Free WASI allocations */
-        if (m->wasi.argv) {
-            for (uint32_t i = 0; i < m->wasi.argc; i++) {
-                js_free_rt(rt, m->wasi.argv[i]);
-            }
-            js_free_rt(rt, m->wasi.argv);
-        }
-        if (m->wasi.env) {
-            for (uint32_t i = 0; i < m->wasi.env_count; i++) {
-                js_free_rt(rt, m->wasi.env[i]);
-            }
-            js_free_rt(rt, m->wasi.env);
-        }
-        if (m->wasi.map_dir_list) {
-            for (uint32_t i = 0; i < m->wasi.map_dir_count; i++) {
-                js_free_rt(rt, m->wasi.map_dir_list[i]);
-            }
-            js_free_rt(rt, m->wasi.map_dir_list);
-        }
-        js_free_rt(rt, m);
+        tjs__wasm_module_unref(rt, m);
     }
 }
 
@@ -107,6 +120,7 @@ typedef struct TJSWasmImportGroup {
 } TJSWasmImportGroup;
 
 typedef struct {
+    TJSWasmModule *module;
     wasm_module_inst_t module_inst;
     wasm_exec_env_t exec_env;
     TJSWasmImportGroup *import_groups;
@@ -156,6 +170,9 @@ static void tjs_wasm_instance_finalizer(JSRuntime *rt, JSValue val) {
             JS_FreeValueRT(rt, i->externrefs[j]);
         }
         js_free_rt(rt, i->externrefs);
+        if (i->module) {
+            tjs__wasm_module_unref(rt, i->module);
+        }
         js_free_rt(rt, i);
     }
 }
@@ -203,6 +220,7 @@ static JSValue tjs_new_wasm_module(JSContext *ctx) {
         return JS_EXCEPTION;
     }
 
+    m->ref_count = 1;
     JS_SetOpaque(obj, m);
     return obj;
 }
@@ -935,6 +953,9 @@ static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc
         JS_FreeValue(ctx, obj);
         return JS_ThrowOutOfMemory(ctx);
     }
+
+    i->module = m;
+    m->ref_count++;
 
 #ifdef TJS__HAS_ASAN
     // ASAN moves local variables to a fake stack, which breaks WAMR's
