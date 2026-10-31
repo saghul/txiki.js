@@ -36,9 +36,16 @@
 #define TJS__WASM_MAX_ARGS       32
 #define TJS__WASM_ERROR_BUF_SIZE 256
 
-typedef struct TJSWasmImportGroup TJSWasmImportGroup;
+typedef struct TJSWasmModule TJSWasmModule;
+typedef struct TJSWasmInstance TJSWasmInstance;
 
 typedef struct {
+    TJSWasmModule *module;
+    uint32_t import_index;
+    wasm_func_type_t type;
+} TJSWasmImportSlot;
+
+struct TJSWasmModule {
     wasm_module_t module;
     struct {
         uint8_t *bytes;
@@ -52,13 +59,36 @@ typedef struct {
         char **map_dir_list;
         uint32_t map_dir_count;
     } wasi;
-    TJSWasmImportGroup *pending_imports; /* Set by resolveImports, moved to instance by buildInstance */
+    /* WAMR links imported functions once per module and keeps pointers to the
+     * attachment and signature of each one, so those belong to the module and
+     * are shared by all its instances. The trampoline picks the per-instance
+     * JS function from the slot's import index. Indexed by WAMR import index;
+     * a slot with a NULL type was not linked to the trampoline. */
+    bool imports_linked;
+    uint32_t import_count;
+    TJSWasmImportSlot *import_slots;
+    char **import_sigs;
+    /* Instance whose wasm_runtime_instantiate is running: start functions run
+     * before we can attach the instance to its WAMR module instance. */
+    TJSWasmInstance *instantiating;
     /* Held by the JS Module object and by each native instance. WAMR needs the
      * module to outlive its instances, and a JS-level reference can't ensure
      * that: when Module and Instance die in the same GC cycle, finalizers run
      * in arbitrary order. */
     uint32_t ref_count;
-} TJSWasmModule;
+};
+
+static void tjs__wasm_module_free_imports(JSRuntime *rt, TJSWasmModule *m) {
+    if (m->import_sigs) {
+        for (uint32_t i = 0; i < m->import_count; i++) {
+            js_free_rt(rt, m->import_sigs[i]);
+        }
+    }
+    js_free_rt(rt, m->import_sigs);
+    js_free_rt(rt, m->import_slots);
+    m->import_sigs = NULL;
+    m->import_slots = NULL;
+}
 
 static void tjs__wasm_module_unref(JSRuntime *rt, TJSWasmModule *m) {
     CHECK(m->ref_count > 0);
@@ -68,6 +98,7 @@ static void tjs__wasm_module_unref(JSRuntime *rt, TJSWasmModule *m) {
     if (m->module) {
         wasm_runtime_unload(m->module);
     }
+    tjs__wasm_module_free_imports(rt, m);
     js_free_rt(rt, m->data.bytes);
     /* Free WASI allocations */
     if (m->wasi.argv) {
@@ -103,27 +134,15 @@ static JSClassDef tjs_wasm_module_class = {
     .finalizer = tjs_wasm_module_finalizer,
 };
 
-/* Import trampoline context: bridges WAMR native calls to JS functions */
-typedef struct {
-    JSContext *ctx;
-    JSValue func;          /* The JS callback function */
-    wasm_func_type_t type; /* WAMR function type for param/result conversion */
-} TJSWasmImportCtx;
-
-/* Registered native symbols for a single import module name */
-typedef struct TJSWasmImportGroup {
-    char *module_name;
-    NativeSymbol *symbols;
-    uint32_t count;
-    TJSWasmImportCtx *ctxs;
-    struct TJSWasmImportGroup *next;
-} TJSWasmImportGroup;
-
-typedef struct {
+struct TJSWasmInstance {
     TJSWasmModule *module;
     wasm_module_inst_t module_inst;
     wasm_exec_env_t exec_env;
-    TJSWasmImportGroup *import_groups;
+    /* JS functions for this instance's imports, indexed by WAMR import index
+     * (JS_UNDEFINED for non-function and WAMR-provided imports). */
+    JSContext *ctx;
+    JSValue *import_funcs;
+    uint32_t import_count;
     bool has_pending_exception;
     JSValue pending_exception;
     /* externref: JSValues boxed for WAMR's externref map */
@@ -135,7 +154,7 @@ typedef struct {
     JSValue memory_buffer;
     void *memory_buffer_data;
     size_t memory_buffer_size;
-} TJSWasmInstance;
+};
 
 static void tjs_wasm_instance_finalizer(JSRuntime *rt, JSValue val) {
     TJSWasmInstance *i = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WASM_INSTANCE));
@@ -149,21 +168,12 @@ static void tjs_wasm_instance_finalizer(JSRuntime *rt, JSValue val) {
         if (i->module_inst) {
             wasm_runtime_deinstantiate(i->module_inst);
         }
-        /* Free import groups */
-        TJSWasmImportGroup *g = i->import_groups;
-        while (g) {
-            TJSWasmImportGroup *next = g->next;
-            wasm_runtime_unregister_natives(g->module_name, g->symbols);
-            for (uint32_t j = 0; j < g->count; j++) {
-                JS_FreeValueRT(rt, g->ctxs[j].func);
-                js_free_rt(rt, (char *) g->symbols[j].symbol);
-                js_free_rt(rt, (char *) g->symbols[j].signature);
-            }
-            js_free_rt(rt, g->ctxs);
-            js_free_rt(rt, g->symbols);
-            js_free_rt(rt, g->module_name);
-            js_free_rt(rt, g);
-            g = next;
+        for (uint32_t j = 0; j < i->import_count; j++) {
+            JS_FreeValueRT(rt, i->import_funcs[j]);
+        }
+        js_free_rt(rt, i->import_funcs);
+        if (i->has_pending_exception) {
+            JS_FreeValueRT(rt, i->pending_exception);
         }
         /* Free externref boxes */
         for (uint32_t j = 0; j < i->externref_count; j++) {
@@ -180,12 +190,8 @@ static void tjs_wasm_instance_finalizer(JSRuntime *rt, JSValue val) {
 static void tjs_wasm_instance_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_func) {
     TJSWasmInstance *i = JS_GetOpaque(val, tjs__class_id_rt(rt, TJS_CLASS_WASM_INSTANCE));
     if (i) {
-        TJSWasmImportGroup *g = i->import_groups;
-        while (g) {
-            for (uint32_t j = 0; j < g->count; j++) {
-                JS_MarkValue(rt, g->ctxs[j].func, mark_func);
-            }
-            g = g->next;
+        for (uint32_t j = 0; j < i->import_count; j++) {
+            JS_MarkValue(rt, i->import_funcs[j], mark_func);
         }
         if (i->has_pending_exception) {
             JS_MarkValue(rt, i->pending_exception, mark_func);
@@ -441,13 +447,19 @@ static JSValue tjs__externref_unbox(TJSWasmInstance *inst, uint32_t externref_id
  * Reference types work fine for exported functions, globals, and tables.
  */
 static void tjs__wasm_import_trampoline(wasm_exec_env_t exec_env, uint64_t *args) {
-    TJSWasmImportCtx *import_ctx = wasm_runtime_get_function_attachment(exec_env);
-    if (!import_ctx) {
-        return;
-    }
+    const TJSWasmImportSlot *slot = wasm_runtime_get_function_attachment(exec_env);
+    CHECK_NOT_NULL(slot);
 
-    JSContext *ctx = import_ctx->ctx;
-    wasm_func_type_t func_type = import_ctx->type;
+    TJSWasmInstance *inst = wasm_runtime_get_custom_data(wasm_runtime_get_module_inst(exec_env));
+    if (!inst) {
+        inst = slot->module->instantiating;
+    }
+    CHECK_NOT_NULL(inst);
+    CHECK_LT(slot->import_index, inst->import_count);
+
+    JSContext *ctx = inst->ctx;
+    wasm_func_type_t func_type = slot->type;
+    JSValue func = inst->import_funcs[slot->import_index];
 
     /* A `memory.grow` instruction earlier in this same wasm call can relocate
      * and free the linear-memory base (on macOS os_mremap always moves it).
@@ -455,10 +467,7 @@ static void tjs__wasm_import_trampoline(wasm_exec_env_t exec_env, uint64_t *args
      * the old base via a cached memory.buffer; detach it now if base/size
      * changed so the stale view reads/writes become inert instead of aliasing
      * freed memory. */
-    TJSWasmInstance *inst = wasm_runtime_get_user_data(exec_env);
-    if (inst) {
-        tjs__wasm_drop_memory_buffer_if_changed(ctx, inst);
-    }
+    tjs__wasm_drop_memory_buffer_if_changed(ctx, inst);
 
     uint32_t param_count = wasm_func_type_get_param_count(func_type);
     uint32_t result_count = wasm_func_type_get_result_count(func_type);
@@ -503,7 +512,7 @@ static void tjs__wasm_import_trampoline(wasm_exec_env_t exec_env, uint64_t *args
 
     /* Call the JS function */
     JSValue global_obj = JS_GetGlobalObject(ctx);
-    JSValue ret = JS_Call(ctx, import_ctx->func, global_obj, param_count, js_args);
+    JSValue ret = JS_Call(ctx, func, global_obj, param_count, js_args);
     JS_FreeValue(ctx, global_obj);
 
     for (uint32_t i = 0; i < param_count; i++) {
@@ -512,10 +521,8 @@ static void tjs__wasm_import_trampoline(wasm_exec_env_t exec_env, uint64_t *args
 
     if (JS_IsException(ret)) {
         /* Save the JS exception on the instance so tjs__call_wasm_func_inst can re-throw it */
-        if (inst) {
-            inst->pending_exception = JS_GetException(ctx);
-            inst->has_pending_exception = true;
-        }
+        inst->pending_exception = JS_GetException(ctx);
+        inst->has_pending_exception = true;
         wasm_runtime_set_exception(wasm_runtime_get_module_inst(exec_env), "imported function threw an exception");
         return;
     }
@@ -917,64 +924,6 @@ static JSValue tjs_wasm_callfunction(JSContext *ctx, JSValue this_val, int argc,
     return tjs__call_wasm_func_inst(ctx, i, func, argc - 1, argv + 1);
 }
 
-static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
-    TJSWasmModule *m = tjs_wasm_module_get(ctx, argv[0]);
-    if (!m) {
-        return JS_EXCEPTION;
-    }
-
-    JSValue obj = tjs_new_wasm_instance(ctx);
-    if (JS_IsException(obj)) {
-        return obj;
-    }
-
-    TJSWasmInstance *i = tjs_wasm_instance_get(ctx, obj);
-
-    char error_buf[TJS__WASM_ERROR_BUF_SIZE];
-
-    TJSRuntime *qrt = TJS_GetRuntime(ctx);
-    uint32_t stack_size = qrt->wasm_ctx.stack_size;
-
-    // Resolve any remaining symbols (WASI, etc.) if not already resolved
-    wasm_runtime_resolve_symbols(m->module);
-
-    // Instantiate the module
-    i->module_inst = wasm_runtime_instantiate(m->module, stack_size, 0, error_buf, sizeof(error_buf));
-    if (!i->module_inst) {
-        JS_FreeValue(ctx, obj);
-        return tjs_throw_wasm_error(ctx, "LinkError", error_buf);
-    }
-
-    // Create execution environment
-    i->exec_env = wasm_runtime_create_exec_env(i->module_inst, stack_size);
-    if (!i->exec_env) {
-        wasm_runtime_deinstantiate(i->module_inst);
-        i->module_inst = NULL;
-        JS_FreeValue(ctx, obj);
-        return JS_ThrowOutOfMemory(ctx);
-    }
-
-    i->module = m;
-    m->ref_count++;
-
-#ifdef TJS__HAS_ASAN
-    // ASAN moves local variables to a fake stack, which breaks WAMR's
-    // native stack overflow check (it compares &local against the real
-    // thread stack boundary — addresses in completely different regions).
-    // Disable the check; OS guard pages still catch real overflows.
-    wasm_runtime_set_native_stack_boundary(i->exec_env, (uint8_t *) 1);
-#endif
-
-    // Set user data so the import trampoline can find the instance
-    wasm_runtime_set_user_data(i->exec_env, i);
-
-    // Move pending imports from module to instance for lifetime management
-    i->import_groups = m->pending_imports;
-    m->pending_imports = NULL;
-
-    return obj;
-}
-
 static JSValue tjs_wasm_moduleexports(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWasmModule *m = tjs_wasm_module_get(ctx, argv[0]);
     if (!m) {
@@ -1091,20 +1040,122 @@ static char tjs__wasm_valkind_to_sig(wasm_valkind_t kind) {
     }
 }
 
+/* Build a WAMR raw-native signature string, e.g. "(iI)f". */
+static char *tjs__wasm_build_signature(JSContext *ctx, wasm_func_type_t ft) {
+    uint32_t pc = wasm_func_type_get_param_count(ft);
+    uint32_t rc = wasm_func_type_get_result_count(ft);
+
+    /* sig: "(" + params + ")" + result (or nothing) + null */
+    char *sig = js_malloc(ctx, pc + rc + 3);
+    if (!sig) {
+        return NULL;
+    }
+    uint32_t pos = 0;
+    sig[pos++] = '(';
+    for (uint32_t k = 0; k < pc; k++) {
+        sig[pos++] = tjs__wasm_valkind_to_sig(wasm_func_type_get_param_valkind(ft, k));
+    }
+    sig[pos++] = ')';
+    if (rc > 0) {
+        sig[pos++] = tjs__wasm_valkind_to_sig(wasm_func_type_get_result_valkind(ft, 0));
+    }
+    sig[pos] = '\0';
+    return sig;
+}
+
+/* Link every import that `inst` provides a JS function for to the trampoline.
+ * WAMR resolves imports against a process-global native symbol list, so the
+ * symbols are registered only for the duration of the resolve: nothing of
+ * ours stays there for another module to bind to. */
+static bool tjs__wasm_link_imports(JSContext *ctx, TJSWasmModule *m, TJSWasmInstance *inst) {
+    typedef struct {
+        const char *module_name;
+        NativeSymbol *symbols;
+        uint32_t count;
+    } SymbolGroup;
+
+    uint32_t n = inst->import_count;
+    NativeSymbol *syms = js_mallocz(ctx, sizeof(*syms) * n);
+    SymbolGroup *groups = js_mallocz(ctx, sizeof(*groups) * n);
+    uint32_t n_syms = 0, n_groups = 0, n_registered = 0;
+    bool ok = false;
+
+    m->import_count = n;
+    m->import_slots = js_mallocz(ctx, sizeof(*m->import_slots) * n);
+    m->import_sigs = js_mallocz(ctx, sizeof(*m->import_sigs) * n);
+    if (!syms || !groups || !m->import_slots || !m->import_sigs) {
+        goto done;
+    }
+
+    /* WAMR registers natives per module name, so group the symbols by it. */
+    for (uint32_t idx = 0; idx < n; idx++) {
+        if (JS_IsUndefined(inst->import_funcs[idx]) || m->import_slots[idx].type) {
+            continue;
+        }
+        wasm_import_t imp;
+        wasm_runtime_get_import_type(m->module, idx, &imp);
+        SymbolGroup *group = &groups[n_groups++];
+        group->module_name = imp.module_name;
+        group->symbols = &syms[n_syms];
+        for (uint32_t j = idx; j < n; j++) {
+            if (JS_IsUndefined(inst->import_funcs[j]) || m->import_slots[j].type) {
+                continue;
+            }
+            wasm_import_t other;
+            wasm_runtime_get_import_type(m->module, j, &other);
+            if (strcmp(other.module_name, imp.module_name) != 0) {
+                continue;
+            }
+            char *sig = tjs__wasm_build_signature(ctx, other.u.func_type);
+            if (!sig) {
+                goto done;
+            }
+            m->import_sigs[j] = sig;
+            m->import_slots[j] = (TJSWasmImportSlot){ .module = m, .import_index = j, .type = other.u.func_type };
+            syms[n_syms++] = (NativeSymbol){
+                .symbol = other.name,
+                .func_ptr = tjs__wasm_import_trampoline,
+                .signature = sig,
+                .attachment = &m->import_slots[j],
+            };
+            group->count++;
+        }
+    }
+
+    for (; n_registered < n_groups; n_registered++) {
+        SymbolGroup *group = &groups[n_registered];
+        if (!wasm_runtime_register_natives_raw(group->module_name, group->symbols, group->count)) {
+            goto done;
+        }
+    }
+
+    wasm_runtime_resolve_symbols(m->module);
+    m->imports_linked = true;
+    ok = true;
+
+done:
+    for (uint32_t g = 0; g < n_registered; g++) {
+        wasm_runtime_unregister_natives(groups[g].module_name, groups[g].symbols);
+    }
+    js_free(ctx, groups);
+    js_free(ctx, syms);
+    if (!ok) {
+        tjs__wasm_module_free_imports(JS_GetRuntime(ctx), m);
+    }
+    return ok;
+}
+
 /*
- * resolveImports(module, instance, importDescs)
+ * buildInstance(module, funcDescs)
  *
- * importDescs is an array of { module: string, name: string, func: Function }
- * Groups imports by module name, registers native trampolines, then resolves.
- * Returns the import groups linked list head (stored on the instance for cleanup).
+ * funcDescs is an array of { module: string, name: string, func: Function }.
  */
-static JSValue tjs_wasm_resolveimports(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSWasmModule *m = tjs_wasm_module_get(ctx, argv[0]);
     if (!m) {
         return JS_EXCEPTION;
     }
 
-    /* argv[1] is the array of import descriptors */
     JSValue arr = argv[1];
     JSValue js_length = JS_GetPropertyStr(ctx, arr, "length");
     uint64_t total;
@@ -1114,208 +1165,134 @@ static JSValue tjs_wasm_resolveimports(JSContext *ctx, JSValue this_val, int arg
     }
     JS_FreeValue(ctx, js_length);
 
-    if (total == 0) {
-        /* No imports to resolve, just resolve symbols (for WASI etc.) */
-        wasm_runtime_resolve_symbols(m->module);
-        return JS_UNDEFINED;
+    JSValue obj = tjs_new_wasm_instance(ctx);
+    if (JS_IsException(obj)) {
+        return obj;
     }
 
-    /* Get import type info from the module for signature building */
+    TJSWasmInstance *i = tjs_wasm_instance_get(ctx, obj);
+    i->ctx = ctx;
+
     int32_t import_count = wasm_runtime_get_import_count(m->module);
-
-    /* First pass: count imports per module name */
-    /* We'll use a simple approach: collect all imports, group by module name */
-
-    /* Temporary storage for parsed import descriptors */
-    typedef struct {
-        const char *module_name;
-        const char *func_name;
-        JSValue js_module_name;
-        JSValue js_func_name;
-        JSValue func;
-        wasm_func_type_t func_type;
-    } ImportDesc;
-
-    ImportDesc *descs = js_mallocz(ctx, sizeof(ImportDesc) * total);
-    if (!descs) {
-        return JS_EXCEPTION;
+    CHECK_GE(import_count, 0);
+    if (import_count > 0) {
+        i->import_funcs = js_malloc(ctx, sizeof(*i->import_funcs) * import_count);
+        if (!i->import_funcs) {
+            JS_FreeValue(ctx, obj);
+            return JS_EXCEPTION;
+        }
+        for (int32_t j = 0; j < import_count; j++) {
+            i->import_funcs[j] = JS_UNDEFINED;
+        }
+        i->import_count = import_count;
     }
 
-    /* Parse all descriptors and find matching WAMR import types */
-    for (uint64_t i = 0; i < total; i++) {
-        JSValue item = JS_GetPropertyUint32(ctx, arr, (uint32_t) i);
+    for (uint32_t k = 0; k < total; k++) {
+        JSValue item = JS_GetPropertyUint32(ctx, arr, k);
         if (JS_IsException(item)) {
-            goto fail_descs;
+            JS_FreeValue(ctx, obj);
+            return JS_EXCEPTION;
         }
-
-        descs[i].js_module_name = JS_GetPropertyStr(ctx, item, "module");
-        descs[i].js_func_name = JS_GetPropertyStr(ctx, item, "name");
-        descs[i].func = JS_GetPropertyStr(ctx, item, "func");
+        JSValue js_mod = JS_GetPropertyStr(ctx, item, "module");
+        JSValue js_name = JS_GetPropertyStr(ctx, item, "name");
+        JSValue func = JS_GetPropertyStr(ctx, item, "func");
         JS_FreeValue(ctx, item);
 
-        descs[i].module_name = JS_ToCString(ctx, descs[i].js_module_name);
-        descs[i].func_name = JS_ToCString(ctx, descs[i].js_func_name);
+        const char *mod_name = JS_ToCString(ctx, js_mod);
+        const char *name = JS_ToCString(ctx, js_name);
+        JS_FreeValue(ctx, js_mod);
+        JS_FreeValue(ctx, js_name);
+        bool parsed = mod_name && name;
 
-        if (!descs[i].module_name || !descs[i].func_name) {
-            goto fail_descs;
-        }
-
-        /* Find matching import in the WAMR module to get the function type */
-        descs[i].func_type = NULL;
-        for (int32_t j = 0; j < import_count; j++) {
+        int32_t idx = -1;
+        for (int32_t j = 0; parsed && j < import_count; j++) {
             wasm_import_t imp;
             wasm_runtime_get_import_type(m->module, j, &imp);
-            if (imp.kind == WASM_IMPORT_EXPORT_KIND_FUNC && strcmp(imp.module_name, descs[i].module_name) == 0 &&
-                strcmp(imp.name, descs[i].func_name) == 0) {
-                descs[i].func_type = imp.u.func_type;
+            if (imp.kind == WASM_IMPORT_EXPORT_KIND_FUNC && strcmp(imp.module_name, mod_name) == 0 &&
+                strcmp(imp.name, name) == 0) {
+                idx = j;
                 break;
             }
         }
+        JS_FreeCString(ctx, mod_name);
+        JS_FreeCString(ctx, name);
 
-        if (!descs[i].func_type) {
-            JS_FreeCString(ctx, descs[i].module_name);
-            JS_FreeCString(ctx, descs[i].func_name);
-            JS_FreeValue(ctx, descs[i].js_module_name);
-            JS_FreeValue(ctx, descs[i].js_func_name);
-            JS_FreeValue(ctx, descs[i].func);
-            js_free(ctx, descs);
+        if (!parsed) {
+            JS_FreeValue(ctx, func);
+            JS_FreeValue(ctx, obj);
+            return JS_EXCEPTION;
+        }
+        if (idx < 0) {
+            JS_FreeValue(ctx, func);
+            JS_FreeValue(ctx, obj);
             return tjs_throw_wasm_error(ctx, "LinkError", "imported function not found in module");
         }
+        JS_FreeValue(ctx, i->import_funcs[idx]);
+        i->import_funcs[idx] = func;
     }
 
-    /* Group by module name and register */
-    bool *processed = js_mallocz(ctx, sizeof(bool) * total);
-    if (!processed) {
-        goto fail_descs;
+    if (!m->imports_linked && total > 0 && !tjs__wasm_link_imports(ctx, m, i)) {
+        JS_FreeValue(ctx, obj);
+        return tjs_throw_wasm_error(ctx, "LinkError", "failed to register imports");
     }
 
-    TJSWasmImportGroup *groups_head = NULL;
-
-    for (uint64_t i = 0; i < total; i++) {
-        if (processed[i]) {
-            continue;
-        }
-
-        /* Count how many imports share this module name */
-        uint32_t group_count = 0;
-        for (uint64_t j = i; j < total; j++) {
-            if (!processed[j] && strcmp(descs[i].module_name, descs[j].module_name) == 0) {
-                group_count++;
-            }
-        }
-
-        /* Allocate group */
-        TJSWasmImportGroup *group = js_mallocz(ctx, sizeof(TJSWasmImportGroup));
-        if (!group) {
-            goto fail_groups;
-        }
-        group->module_name = js_strdup(ctx, descs[i].module_name);
-        group->symbols = js_mallocz(ctx, sizeof(NativeSymbol) * group_count);
-        group->ctxs = js_mallocz(ctx, sizeof(TJSWasmImportCtx) * group_count);
-        group->count = group_count;
-        group->next = groups_head;
-        groups_head = group;
-
-        if (!group->module_name || !group->symbols || !group->ctxs) {
-            goto fail_groups;
-        }
-
-        /* Fill in the symbols */
-        uint32_t si = 0;
-        for (uint64_t j = i; j < total; j++) {
-            if (processed[j] || strcmp(descs[i].module_name, descs[j].module_name) != 0) {
-                continue;
-            }
-            processed[j] = true;
-
-            /* Build signature string, e.g., "(iI)f" */
-            wasm_func_type_t ft = descs[j].func_type;
-            uint32_t pc = wasm_func_type_get_param_count(ft);
-            uint32_t rc = wasm_func_type_get_result_count(ft);
-
-            /* sig: "(" + params + ")" + result (or nothing) + null */
-            char *sig = js_malloc(ctx, pc + rc + 3);
-            if (!sig) {
-                goto fail_groups;
-            }
-            uint32_t pos = 0;
-            sig[pos++] = '(';
-            for (uint32_t k = 0; k < pc; k++) {
-                sig[pos++] = tjs__wasm_valkind_to_sig(wasm_func_type_get_param_valkind(ft, k));
-            }
-            sig[pos++] = ')';
-            if (rc > 0) {
-                sig[pos++] = tjs__wasm_valkind_to_sig(wasm_func_type_get_result_valkind(ft, 0));
-            }
-            sig[pos] = '\0';
-
-            /* Set up the import context */
-            group->ctxs[si].ctx = ctx;
-            group->ctxs[si].func = JS_DupValue(ctx, descs[j].func);
-            group->ctxs[si].type = ft;
-
-            /* Set up the native symbol */
-            group->symbols[si].symbol = js_strdup(ctx, descs[j].func_name);
-            group->symbols[si].func_ptr = tjs__wasm_import_trampoline;
-            group->symbols[si].signature = sig;
-            group->symbols[si].attachment = &group->ctxs[si];
-
-            si++;
-        }
-
-        /* Register this group */
-        if (!wasm_runtime_register_natives_raw(group->module_name, group->symbols, group->count)) {
-            goto fail_groups;
+    /* The module is linked to the trampoline once, so every later instance
+     * must provide a function for each of those imports. */
+    for (uint32_t j = 0; m->imports_linked && j < m->import_count; j++) {
+        if (m->import_slots[j].type && JS_IsUndefined(i->import_funcs[j])) {
+            JS_FreeValue(ctx, obj);
+            return tjs_throw_wasm_error(ctx, "LinkError", "imported function not provided");
         }
     }
 
-    /* Now resolve all symbols */
+    char error_buf[TJS__WASM_ERROR_BUF_SIZE];
+
+    TJSRuntime *qrt = TJS_GetRuntime(ctx);
+    uint32_t stack_size = qrt->wasm_ctx.stack_size;
+
+    // Resolve any remaining symbols (WASI, etc.) if not already resolved
     wasm_runtime_resolve_symbols(m->module);
 
-    /* Store groups on the module temporarily; buildInstance moves them to the instance */
-    m->pending_imports = groups_head;
-
-    /* Cleanup temporary data */
-    js_free(ctx, processed);
-    for (uint64_t i = 0; i < total; i++) {
-        JS_FreeCString(ctx, descs[i].module_name);
-        JS_FreeCString(ctx, descs[i].func_name);
-        JS_FreeValue(ctx, descs[i].js_module_name);
-        JS_FreeValue(ctx, descs[i].js_func_name);
-        JS_FreeValue(ctx, descs[i].func);
-    }
-    js_free(ctx, descs);
-
-    return JS_UNDEFINED;
-
-fail_groups:
-    /* Unregister and free any groups we already created */
-    while (groups_head) {
-        TJSWasmImportGroup *next = groups_head->next;
-        wasm_runtime_unregister_natives(groups_head->module_name, groups_head->symbols);
-        for (uint32_t j = 0; j < groups_head->count; j++) {
-            JS_FreeValue(ctx, groups_head->ctxs[j].func);
-            js_free(ctx, (char *) groups_head->symbols[j].symbol);
-            js_free(ctx, (char *) groups_head->symbols[j].signature);
+    // Instantiate the module. Saved and restored, since a start function can
+    // call into JS which instantiates the same module again.
+    TJSWasmInstance *prev_instantiating = m->instantiating;
+    m->instantiating = i;
+    i->module_inst = wasm_runtime_instantiate(m->module, stack_size, 0, error_buf, sizeof(error_buf));
+    m->instantiating = prev_instantiating;
+    if (!i->module_inst) {
+        JSValue err;
+        if (i->has_pending_exception) {
+            i->has_pending_exception = false;
+            err = JS_Throw(ctx, i->pending_exception);
+        } else {
+            err = tjs_throw_wasm_error(ctx, "LinkError", error_buf);
         }
-        js_free(ctx, groups_head->ctxs);
-        js_free(ctx, groups_head->symbols);
-        js_free(ctx, groups_head->module_name);
-        js_free(ctx, groups_head);
-        groups_head = next;
+        JS_FreeValue(ctx, obj);
+        return err;
     }
-    js_free(ctx, processed);
 
-fail_descs:
-    for (uint64_t i = 0; i < total; i++) {
-        JS_FreeCString(ctx, descs[i].module_name);
-        JS_FreeCString(ctx, descs[i].func_name);
-        JS_FreeValue(ctx, descs[i].js_module_name);
-        JS_FreeValue(ctx, descs[i].js_func_name);
-        JS_FreeValue(ctx, descs[i].func);
+    // Lets the import trampoline find the instance
+    wasm_runtime_set_custom_data(i->module_inst, i);
+
+    // Create execution environment
+    i->exec_env = wasm_runtime_create_exec_env(i->module_inst, stack_size);
+    if (!i->exec_env) {
+        JS_FreeValue(ctx, obj);
+        return JS_ThrowOutOfMemory(ctx);
     }
-    js_free(ctx, descs);
-    return tjs_throw_wasm_error(ctx, "LinkError", "failed to register imports");
+
+    i->module = m;
+    m->ref_count++;
+
+#ifdef TJS__HAS_ASAN
+    // ASAN moves local variables to a fake stack, which breaks WAMR's
+    // native stack overflow check (it compares &local against the real
+    // thread stack boundary — addresses in completely different regions).
+    // Disable the check; OS guard pages still catch real overflows.
+    wasm_runtime_set_native_stack_boundary(i->exec_env, (uint8_t *) 1);
+#endif
+
+    return obj;
 }
 
 /*
@@ -2100,7 +2077,7 @@ static JSValue tjs_wasm_validate(JSContext *ctx, JSValue this_val, int argc, JSV
 }
 
 static const JSCFunctionListEntry tjs_wasm_funcs[] = {
-    TJS_CFUNC_DEF("buildInstance", 1, tjs_wasm_buildinstance),
+    TJS_CFUNC_DEF("buildInstance", 2, tjs_wasm_buildinstance),
     TJS_CFUNC_DEF("callFuncByIndex", 3, tjs_wasm_callfuncbyindex),
     TJS_CFUNC_DEF("getFuncIndex", 2, tjs_wasm_getfuncindex),
     TJS_CFUNC_DEF("getGlobal", 2, tjs_wasm_getglobal),
@@ -2112,7 +2089,6 @@ static const JSCFunctionListEntry tjs_wasm_funcs[] = {
     TJS_CFUNC_DEF("moduleImports", 1, tjs_wasm_moduleimports),
     TJS_CFUNC_DEF("parseModule", 1, tjs_wasm_parsemodule),
     TJS_CFUNC_DEF("resolveGlobalImports", 2, tjs_wasm_resolveglobalimports),
-    TJS_CFUNC_DEF("resolveImports", 2, tjs_wasm_resolveimports),
     TJS_CFUNC_DEF("runWasiStart", 1, tjs_wasm_runwasistart),
     TJS_CFUNC_DEF("setGlobal", 3, tjs_wasm_setglobal),
     TJS_CFUNC_DEF("setWasiOptions", 7, tjs_wasm_setwasioptions),
