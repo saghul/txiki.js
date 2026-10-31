@@ -147,9 +147,9 @@ export function x25519ImportKey(format, keyData, algorithm, extractable, keyUsag
     let rawBytes;
 
     if (ArrayBuffer.isView(keyData)) {
-        rawBytes = new Uint8Array(keyData.buffer.slice(keyData.byteOffset, keyData.byteOffset + keyData.byteLength));
+        rawBytes = new Uint8Array(keyData.buffer, keyData.byteOffset, keyData.byteLength).slice();
     } else if (keyData instanceof ArrayBuffer) {
-        rawBytes = new Uint8Array(keyData.slice(0));
+        rawBytes = new Uint8Array(keyData).slice();
     } else {
         throw new TypeError('keyData must be a BufferSource');
     }
