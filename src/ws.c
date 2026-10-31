@@ -426,7 +426,7 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
         js_free(ctx, full_path);
         js_free(ctx, w);
         JS_FreeValue(ctx, obj);
-        return JS_ThrowInternalError(ctx, "failed to create lws context");
+        return JS_ThrowPlainError(ctx, "failed to create lws context");
     }
 
     struct lws_client_connect_info cci;

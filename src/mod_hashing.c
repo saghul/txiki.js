@@ -213,7 +213,7 @@ static JSValue tjs_hash_constructor(JSContext *ctx, JSValue new_target, int argc
     if (ret != 0) {
         js_free(ctx, h);
         JS_FreeValue(ctx, obj);
-        return JS_ThrowInternalError(ctx, "failed to initialize hash context");
+        return JS_ThrowPlainError(ctx, "failed to initialize hash context");
     }
 
     JS_SetOpaque(obj, h);
@@ -275,7 +275,7 @@ static JSValue tjs_hash_update(JSContext *ctx, JSValue this_val, int argc, JSVal
     }
 
     if (ret != 0) {
-        return JS_ThrowInternalError(ctx, "hash update failed");
+        return JS_ThrowPlainError(ctx, "hash update failed");
     }
 
     return JS_UNDEFINED;
@@ -325,7 +325,7 @@ static JSValue tjs_hash_finish(JSContext *ctx, JSValue this_val, int argc, JSVal
     }
 
     if (ret != 0) {
-        return JS_ThrowInternalError(ctx, "hash finish failed");
+        return JS_ThrowPlainError(ctx, "hash finish failed");
     }
 
     return JS_NewUint8ArrayCopy(ctx, buf, dsize);

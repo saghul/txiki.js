@@ -213,7 +213,7 @@ static JSValue tjs_stream_start_read(JSContext *ctx, JSValue this_val, int argc,
         return JS_EXCEPTION;
     }
     if (uv_is_closing(&s->h.handle)) {
-        return JS_ThrowInternalError(ctx, "stream is closed");
+        return JS_ThrowPlainError(ctx, "stream is closed");
     }
     int r = uv_read_start(&s->h.stream, uv__stream_alloc_cb, uv__stream_read_cb);
     if (r != 0) {
@@ -302,7 +302,7 @@ static JSValue tjs_stream_write(JSContext *ctx, JSValue this_val, int argc, JSVa
         return JS_EXCEPTION;
     }
     if (uv_is_closing(&s->h.handle)) {
-        return JS_ThrowInternalError(ctx, "stream is closed");
+        return JS_ThrowPlainError(ctx, "stream is closed");
     }
 
     TJSBufferRef buf_ref;
@@ -375,7 +375,7 @@ static JSValue tjs_stream_shutdown(JSContext *ctx, JSValue this_val, int argc, J
         return JS_EXCEPTION;
     }
     if (uv_is_closing(&s->h.handle)) {
-        return JS_ThrowInternalError(ctx, "stream is closed");
+        return JS_ThrowPlainError(ctx, "stream is closed");
     }
 
     uv_shutdown_t *req = js_malloc(ctx, sizeof(*req));
@@ -609,7 +609,7 @@ static JSValue tjs_new_tcp(JSContext *ctx, int af) {
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         tjs__free(s);
-        return JS_ThrowInternalError(ctx, "couldn't initialize TCP handle");
+        return JS_ThrowPlainError(ctx, "couldn't initialize TCP handle");
     }
 
     return tjs_init_stream(ctx, obj, s);
@@ -795,7 +795,7 @@ static JSValue tjs_tty_constructor(JSContext *ctx, JSValue new_target, int argc,
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         tjs__free(s);
-        return JS_ThrowInternalError(ctx, "couldn't initialize TTY handle");
+        return JS_ThrowPlainError(ctx, "couldn't initialize TTY handle");
     }
 
     return tjs_init_stream(ctx, obj, s);
@@ -881,7 +881,7 @@ JSValue tjs_new_pipe(JSContext *ctx) {
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         tjs__free(s);
-        return JS_ThrowInternalError(ctx, "couldn't initialize Pipe handle");
+        return JS_ThrowPlainError(ctx, "couldn't initialize Pipe handle");
     }
 
     return tjs_init_stream(ctx, obj, s);

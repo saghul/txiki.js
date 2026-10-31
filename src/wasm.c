@@ -814,7 +814,7 @@ static JSValue tjs__call_wasm_func_inst(JSContext *ctx,
                 } else {
                     uint32_t idx;
                     if (!tjs__externref_box(inst, ctx, argv[j], &idx)) {
-                        return JS_ThrowInternalError(ctx, "failed to register externref");
+                        return JS_ThrowPlainError(ctx, "failed to register externref");
                     }
                     /* Store the key pointer as foreign — WAMR will convert it to an index */
                     uint32_t slot = inst->externref_count - 1;
@@ -1662,7 +1662,7 @@ static JSValue tjs_wasm_setglobal(JSContext *ctx, JSValue this_val, int argc, JS
         case WASM_EXTERNREF: {
             uint32_t idx;
             if (!tjs__externref_box(i, ctx, argv[2], &idx)) {
-                return JS_ThrowInternalError(ctx, "failed to register externref");
+                return JS_ThrowPlainError(ctx, "failed to register externref");
             }
             memcpy(global_inst.global_data, &idx, sizeof(idx));
             break;
@@ -1894,7 +1894,7 @@ static JSValue tjs_wasm_tableset(JSContext *ctx, JSValue this_val, int argc, JSV
         } else {
             uint32_t idx;
             if (!tjs__externref_box(i, ctx, val, &idx)) {
-                return JS_ThrowInternalError(ctx, "failed to register externref");
+                return JS_ThrowPlainError(ctx, "failed to register externref");
             }
             table_elem_type_t elem = (table_elem_type_t) idx;
             memcpy(elem_ptr, &elem, sizeof(elem));

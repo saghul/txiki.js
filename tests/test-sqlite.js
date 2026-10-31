@@ -19,7 +19,13 @@ function testTypes(dbName) {
     
     ins.finalize();
 
-    assert.throws(() => ins.run('baz', 666, 6.6, null), InternalError);
+    assert.throws(() => ins.run('baz', 666, 6.6, null), Error);
+
+    try {
+        ins.run('baz', 666, 6.6, null);
+    } catch (e) {
+        assert.eq(e.name, 'Error');
+    }
 
     const data1 = db.prepare('SELECT * FROM test').all();
     const data2 = db.prepare('SELECT * FROM test WHERE txt = $txt').all({ $txt: 'foo' });

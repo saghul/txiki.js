@@ -1,6 +1,15 @@
 import assert from 'tjs:assert';
 import { Database } from 'tjs:sqlite';
 
+function assertPlainError(fn, message) {
+    assert.throws(fn, Error, message);
+
+    try {
+        fn();
+    } catch (e) {
+        assert.eq(e.name, 'Error', message);
+    }
+}
 
 function testBasicDispose() {
     const db = new Database(':memory:');
@@ -20,8 +29,8 @@ function testBasicDispose() {
     }
 
     // After scope, statement was finalized. Calling .all() / .run() should throw.
-    assert.throws(() => stmtRef.all(), InternalError, 'finalized stmt throws on all');
-    assert.throws(() => stmtRef.run(), InternalError, 'finalized stmt throws on run');
+    assertPlainError(() => stmtRef.all(), 'finalized stmt throws on all');
+    assertPlainError(() => stmtRef.run(), 'finalized stmt throws on run');
 
     db.close();
 }
@@ -42,7 +51,7 @@ function testManualFinalizeThenDispose() {
     }
 
     // Dispose after manual finalize must be a no-op (idempotent).
-    assert.throws(() => stmtRef.run(8), InternalError);
+    assertPlainError(() => stmtRef.run(8), 'finalized stmt throws on run');
     db.close();
 }
 

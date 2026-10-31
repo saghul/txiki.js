@@ -202,7 +202,7 @@ static JSValue tjs_fs_watch(JSContext *ctx, JSValue this_val, int argc, JSValue 
         JS_FreeCString(ctx, path);
         JS_FreeValue(ctx, obj);
         tjs__free(fw);
-        return JS_ThrowInternalError(ctx, "couldn't initialize handle");
+        return JS_ThrowPlainError(ctx, "couldn't initialize handle");
     }
 
     r = uv_fs_event_start(&fw->handle, uv__fs_event_cb, path, UV_FS_EVENT_RECURSIVE);

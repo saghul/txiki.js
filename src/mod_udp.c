@@ -388,7 +388,7 @@ static JSValue tjs_new_udp(JSContext *ctx, int af) {
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         tjs__free(u);
-        return JS_ThrowInternalError(ctx, "couldn't initialize UDP handle");
+        return JS_ThrowPlainError(ctx, "couldn't initialize UDP handle");
     }
 
     u->ctx = ctx;
