@@ -8,22 +8,14 @@ import { getFormDataBlob } from '../form-data.js';
 const kBodyState = Symbol('bodyState');
 
 
-function isDataView(obj) {
-    return obj && isPrototypeOf(DataView.prototype, obj);
-}
-
+// Copy exactly the bytes a BufferSource views. Avoids ArrayBuffer.prototype.slice,
+// which throws on pinned (immutable) buffers.
 function bufferClone(buf) {
-    if (buf instanceof ArrayBuffer) {
-        return new Uint8Array(buf).slice().buffer;
-    } else if (buf.slice) {
-        return buf.slice(0);
-    } else {
-        const view = new Uint8Array(buf.byteLength);
-
-        view.set(new Uint8Array(buf));
-
-        return view.buffer;
+    if (ArrayBuffer.isView(buf)) {
+        return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength).slice();
     }
+
+    return new Uint8Array(buf).slice();
 }
 
 function isPrototypeOf(a, b) {
@@ -125,23 +117,13 @@ export function initBody(target, body) {
                 controller.close();
             }
         });
-    } else if (isDataView(body)) {
-        const buffer = bufferClone(body.buffer);
-
-        size = buffer.byteLength;
-        stream = new ReadableStream({
-            start(controller) {
-                controller.enqueue(new Uint8Array(buffer));
-                controller.close();
-            }
-        });
     } else if (isPrototypeOf(ArrayBuffer.prototype, body) || ArrayBuffer.isView(body)) {
-        const buffer = bufferClone(body);
+        const bytes = bufferClone(body);
 
-        size = buffer.byteLength;
+        size = bytes.byteLength;
         stream = new ReadableStream({
             start(controller) {
-                controller.enqueue(new Uint8Array(buffer));
+                controller.enqueue(bytes);
                 controller.close();
             }
         });
