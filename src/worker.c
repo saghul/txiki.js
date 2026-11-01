@@ -49,6 +49,11 @@ void tjs__worker_post_error(JSContext *ctx, JSValueConst error) {
         return;
     }
 
+    /* The parent is terminating us: it no longer wants to hear about errors. */
+    if (atomic_load(&qrt->terminating)) {
+        return;
+    }
+
     JSValue obj = JS_NewObject(ctx);
     if (JS_IsException(obj)) {
         JS_FreeValue(ctx, JS_GetException(ctx));
@@ -229,8 +234,13 @@ static void worker_entry(void *arg) {
  * the worker is still running or has already stopped itself. */
 static void worker_reap(TJSWorker *w) {
     if (w->wrt) {
-        TJS_Stop(w->wrt);
+        /* Aborts JS that never returns to the worker's loop (a busy loop). */
+        tjs__runtime_terminate(w->wrt);
         CHECK_EQ(uv_thread_join(&w->tid), 0);
+        /* TJS_FreeRuntime can run JS on this thread (the handle drain). Without
+         * the handler that JS would be interrupted midway, and an error path
+         * would TJS_Stop the already-closed `stop` handle. */
+        JS_SetInterruptHandler(w->wrt->rt, NULL, NULL);
         TJS_FreeRuntime(w->wrt);
         w->wrt = NULL;
     }

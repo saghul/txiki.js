@@ -342,6 +342,12 @@ void tjs__worker_handle_uncaught(JSContext *ctx, JSValueConst exc) {
         return;
     }
 
+    /* Errors raised while being terminated (chiefly the interrupt that aborts
+     * the running JS) are not reported. */
+    if (atomic_load(&qrt->terminating)) {
+        return;
+    }
+
     /* Dispatch a cancelable 'error' ErrorEvent at the worker global scope so
      * self.onerror can observe (and, via preventDefault(), suppress propagation
      * to) the parent. */
@@ -436,6 +442,12 @@ static void uv__stop(uv_async_t *handle) {
     uv_stop(&qrt->loop);
 }
 
+/* Runs on the worker thread, polled by QuickJS while JS executes. */
+static int tjs__worker_interrupt_handler(JSContext *ctx, void *opaque) {
+    TJSRuntime *qrt = opaque;
+    return atomic_load(&qrt->terminating);
+}
+
 void TJS_DefaultOptions(TJSRunOptions *options) {
     static TJSRunOptions default_options = { .mem_limit = 0, .stack_size = TJS__DEFAULT_STACK_SIZE };
 
@@ -528,6 +540,10 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     /* Worker support */
     qrt->is_worker = is_worker;
     JS_SetCanBlock(rt, is_worker);
+    atomic_init(&qrt->terminating, false);
+    if (is_worker) {
+        JS_SetInterruptHandler(rt, tjs__worker_interrupt_handler, qrt);
+    }
 
     CHECK_EQ(uv_loop_init(&qrt->loop), 0);
 
@@ -1022,6 +1038,10 @@ void tjs__drain_microtasks(JSContext *ctx) {
     }
 }
 
+static bool tjs__worker_terminating(TJSRuntime *qrt) {
+    return qrt->is_worker && atomic_load(&qrt->terminating);
+}
+
 void tjs__execute_jobs(JSContext *ctx) {
     tjs__drain_microtasks(ctx);
 
@@ -1034,6 +1054,17 @@ void tjs__execute_jobs(JSContext *ctx) {
     struct list_head *el, *el1;
     list_for_each_safe(el, el1, &qrt->pending_rejections) {
         TJSPendingRejection *pr = list_entry(el, TJSPendingRejection, link);
+
+        /* A terminated worker drops its rejections. Module evaluation turns the
+         * interrupt that aborts a busy module body into a rejection of the module
+         * promise, so this is where the abort itself usually shows up. */
+        if (tjs__worker_terminating(qrt)) {
+            list_del(&pr->link);
+            JS_FreeValue(ctx, pr->promise);
+            JS_FreeValue(ctx, pr->reason);
+            js_free(ctx, pr);
+            continue;
+        }
 
         JSValue event_name = JS_NewString(ctx, "unhandledrejection");
         JSValue args[3];
@@ -1049,14 +1080,20 @@ void tjs__execute_jobs(JSContext *ctx) {
         /* User code can break the event constructor (e.g. by overwriting
          * globals it uses), so treat that as an unhandled rejection. */
         if (JS_IsException(event)) {
-            tjs_dump_error(ctx);
+            if (!tjs__worker_terminating(qrt)) {
+                tjs_dump_error(ctx);
+            }
             should_abort = true;
         } else {
             JSValue ret = tjs__dispatch_event(ctx, &event);
             JS_FreeValue(ctx, event);
 
             if (JS_IsException(ret)) {
-                tjs_dump_error(ctx);
+                /* Terminated mid-dispatch: the pending interrupt is replaced
+                 * below and freed silently by TJS_Run. */
+                if (!tjs__worker_terminating(qrt)) {
+                    tjs_dump_error(ctx);
+                }
                 should_abort = true;
             } else if (JS_ToBool(ctx, ret)) {
                 /* The event wasn't cancelled, abort. */
@@ -1182,8 +1219,13 @@ int TJS_Run(TJSRuntime *qrt) {
     }
 
     if (JS_HasException(qrt->ctx)) {
-        tjs_dump_error(qrt->ctx);
-        ret = 1;
+        if (tjs__worker_terminating(qrt)) {
+            /* A terminated worker exits silently. */
+            JS_FreeValue(qrt->ctx, JS_GetException(qrt->ctx));
+        } else {
+            tjs_dump_error(qrt->ctx);
+            ret = 1;
+        }
     }
 
     return ret;
@@ -1196,6 +1238,13 @@ void TJS_Stop(TJSRuntime *qrt) {
     if (!uv_is_closing((uv_handle_t *) &qrt->stop)) {
         uv_async_send(&qrt->stop);
     }
+}
+
+void tjs__runtime_terminate(TJSRuntime *qrt) {
+    CHECK_NOT_NULL(qrt);
+    /* Set before stopping, so the worker sees the flag no later than the stop. */
+    atomic_store(&qrt->terminating, true);
+    TJS_Stop(qrt);
 }
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt) {
