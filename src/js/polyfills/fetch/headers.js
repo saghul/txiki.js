@@ -24,12 +24,22 @@ export class Headers {
         }
     }
 
+    // Set-Cookie values are kept as a list: they must never be combined into
+    // one line (RFC 6265 § 3), so iteration yields one entry per cookie.
     append(name, value) {
         name = normalizeName(name);
         value = normalizeValue(value);
         var oldValue = this.#map[name];
 
-        this.#map[name] = oldValue ? oldValue + ', ' + value : value;
+        if (name === 'set-cookie') {
+            if (oldValue) {
+                oldValue.push(value);
+            } else {
+                this.#map[name] = [ value ];
+            }
+        } else {
+            this.#map[name] = oldValue ? oldValue + ', ' + value : value;
+        }
     }
 
     delete(name) {
@@ -39,7 +49,17 @@ export class Headers {
     get(name) {
         name = normalizeName(name);
 
-        return this.has(name) ? this.#map[name] : null;
+        if (!this.has(name)) {
+            return null;
+        }
+
+        const value = this.#map[name];
+
+        return name === 'set-cookie' ? value.join(', ') : value;
+    }
+
+    getSetCookie() {
+        return this.has('set-cookie') ? [ ...this.#map['set-cookie'] ] : [];
     }
 
     has(name) {
@@ -47,13 +67,22 @@ export class Headers {
     }
 
     set(name, value) {
-        this.#map[normalizeName(name)] = normalizeValue(value);
+        name = normalizeName(name);
+        value = normalizeValue(value);
+
+        this.#map[name] = name === 'set-cookie' ? [ value ] : value;
     }
 
     forEach(callback, thisArg) {
         for (const name in this.#map) {
             if (Object.prototype.hasOwnProperty.call(this.#map, name)) {
-                callback.call(thisArg, this.#map[name], name, this);
+                if (name === 'set-cookie') {
+                    for (const value of [ ...this.#map[name] ]) {
+                        callback.call(thisArg, value, name, this);
+                    }
+                } else {
+                    callback.call(thisArg, this.#map[name], name, this);
+                }
             }
         }
     }
