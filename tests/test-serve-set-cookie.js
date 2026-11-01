@@ -18,14 +18,8 @@ async function rawGet(port, path) {
     const reader = readable.getReader();
     let data = '';
 
-    while (true) {
-        const { value, done } = await reader.read();
-
-        if (done) {
-            break;
-        }
-
-        data += decoder.decode(value, { stream: true });
+    for (let r = await reader.read(); !r.done; r = await reader.read()) {
+        data += decoder.decode(r.value, { stream: true });
     }
 
     con.close();
@@ -34,9 +28,7 @@ async function rawGet(port, path) {
 }
 
 function headerLines(response, name) {
-    const head = response.split('\r\n\r\n')[0];
-
-    return head.split('\r\n')
+    return response.split('\r\n\r\n')[0].split('\r\n')
         .filter(line => line.toLowerCase().startsWith(name + ':'))
         .map(line => line.slice(name.length + 1).trim());
 }

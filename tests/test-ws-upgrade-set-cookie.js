@@ -46,10 +46,7 @@ try {
     while (!data.includes('\r\n\r\n')) {
         const { value, done } = await reader.read();
 
-        if (done) {
-            break;
-        }
-
+        assert.ok(!done, 'connection stays open until the 101 head is read');
         data += decoder.decode(value, { stream: true });
     }
 
