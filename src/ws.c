@@ -440,6 +440,9 @@ static JSValue tjs_ws_constructor(JSContext *ctx, JSValue new_target, int argc, 
     cci.origin = uri->host;
     cci.ssl_connection = use_ssl ? LCCSCF_USE_SSL : 0;
     cci.protocol = protocols;
+    /* Classic h1 Upgrade, never ws-over-h2 (RFC 8441): pin the ALPN rather
+     * than depend on lws's ws default, which differs between lws versions. */
+    cci.alpn = "http/1.1";
     cci.local_protocol_name = TJS_LWS_PROTOCOL_NAME;
     cci.userdata = w;
     cci.pwsi = &w->wsi;
