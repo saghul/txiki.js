@@ -1631,6 +1631,9 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     vhost_info.vhost_name = "tjs-http-server";
     vhost_info.log_cx = &qrt->lws.log_cx;
     vhost_info.options = 0;
+    /* lws >= 5.1 cuts a request body that falls below a minimum rate after a
+     * grace period; keep uploads unlimited, as they always were. */
+    vhost_info.http_body_min_rate = LWS_HTTP_BODY_MIN_RATE_NONE;
 
     /* Configure TLS if cert/key were provided. */
     if (use_tls) {
@@ -1695,6 +1698,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         qinfo.vhost_name = "tjs-http-server-h3";
         qinfo.log_cx = &qrt->lws.log_cx;
         qinfo.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+        qinfo.http_body_min_rate = LWS_HTTP_BODY_MIN_RATE_NONE;
         qinfo.server_ssl_cert_mem = s->ssl_cert_mem;
         qinfo.server_ssl_cert_mem_len = (unsigned int) strlen(s->ssl_cert_mem);
         qinfo.server_ssl_private_key_mem = s->ssl_key_mem;

@@ -1,0 +1,42 @@
+socks5: an empty socks_proxy_address means no socks proxy, not a bad one
+
+Since upstream 3e7f041dd ("core-net: C-087: fail vhost creation on a bad
+socks proxy address"), lws_create_vhost() fails when
+lws_socks5c_ads_server() rejects info->socks_proxy_address.  An empty
+string is rejected ("socks_proxy needs to be address:port"), so a vhost
+created with socks_proxy_address = "" now fails with "bad socks proxy
+address".
+
+Before that commit the error was ignored and "" left the vhost without a
+socks proxy, which is the only way an application could say "no socks
+proxy" explicitly: NULL makes lws fall back to getenv("socks_proxy"), and
+there is no option flag to turn that fallback off.  txiki.js parses the
+proxy environment itself (http_proxy / https_proxy / all_proxy / no_proxy)
+and pins every client vhost's other proxy kind to "", so with NULL a
+socks_proxy in the environment would silently route its direct and
+no_proxy connections through a socks proxy.
+
+Treat "" as explicitly disabled: no socks proxy and no env fallback, and
+no error.  A non-empty bad address still fails vhost creation as C-087
+intends.  The http proxy side already treats "" this way (lws_set_proxy()
+on "" leaves the vhost without a proxy, and its error is not fatal).
+
+Not an upstream backport: v5.1.0 (5f39aa483) and main (d954e68f2) both
+reject "".  Upstreamable as is.
+
+---
+diff --git a/lib/sansio/socks5-client.c b/lib/sansio/socks5-client.c
+index 559cad301..0e708c163 100644
+--- a/lib/sansio/socks5-client.c
++++ b/lib/sansio/socks5-client.c
+@@ -213,6 +213,10 @@ lws_socks5c_ads_server(struct lws_vhost *vh,
+ 
+ 	/* socks proxy */
+ 	if (info->socks_proxy_address) {
++		/* "" means explicitly no socks proxy, and no env fallback */
++		if (!info->socks_proxy_address[0])
++			return 0;
++
+ 		/* override for backwards compatibility */
+ 		if (info->socks_proxy_port)
+ 			vh->socks_proxy_port = info->socks_proxy_port;
