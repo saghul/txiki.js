@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Tarwin Stroh-Spijer <tarwin@gmail.com>
+Date: Mon, 19 Oct 2026 17:00:00 -0700
+Subject: [PATCH] h2: client: an empty SETTINGS from the server still migrates the request
+
+A client connection that negotiates h2 via ALPN moves its original request
+onto stream 1 when the server's first SETTINGS frame completes, in
+lws_h2_parse_end_of_frame().  That only runs from frame_end, which a frame
+reaches through its payload bytes, so a SETTINGS frame with no payload
+never got there: the request was never migrated and never sent, and the
+connection sat until its timeout.  An empty SETTINGS is valid (RFC 9113
+6.5) and is what Node's http2 server sends by default.
+
+Finish an empty non-ACK SETTINGS from the frame header parser instead.
+
+Not yet upstream: main has the same code.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+  lib/roles/h2/http2.c |    9 +++++++++
+  1 file changed, 9 insertions(+)
+
+diff --git a/lib/roles/h2/http2.c b/lib/roles/h2/http2.c
+--- a/lib/roles/h2/http2.c
++++ b/lib/roles/h2/http2.c
+@@ -1401,6 +1401,15 @@ lws_h2_parse_frame_header(struct lws *wsi)
+ 				lws_pps_schedule(wsi, pps);
+ 				wsi->h2_acked_settings = 1;
+ 			}
++
++			/*
++			 * An empty SETTINGS has no payload to reach frame_end
++			 * with, so finish it here: otherwise a client never
++			 * migrates its original request onto sid 1 and the
++			 * request is never sent
++			 */
++			if (!h2n->length && lws_h2_parse_end_of_frame(wsi))
++				return 1;
+ 			break;
+ 		}
+ 		/* came to us with ACK set... not allowed to have payload */
+-- 
+2.55.0.windows.3
+

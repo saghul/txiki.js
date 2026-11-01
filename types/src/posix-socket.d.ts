@@ -1,3 +1,5 @@
+/// <reference lib="esnext.disposable" />
+
 /**
  * Provides access to most of the POSIX socket API.
  * It can be listened to with poll (libuv poll).

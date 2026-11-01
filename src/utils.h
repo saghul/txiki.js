@@ -156,10 +156,10 @@ void TJS_SettlePromise(JSContext *ctx, TJSPromise *p, bool is_reject, JSValue ar
 JSValue TJS_NewUint8Array(JSContext *ctx, uint8_t *data, size_t size);
 
 typedef struct {
-    JSValue abuf;       /* Underlying ArrayBuffer (refcount held) */
-    uint8_t *data;      /* Raw data pointer */
-    size_t size;        /* Data size */
-    bool was_immutable; /* Was the buffer already immutable before we pinned it? */
+    JSValue abuf;  /* Underlying ArrayBuffer (refcount held) */
+    uint8_t *data; /* Raw data pointer */
+    size_t size;   /* Data size */
+    bool counted;  /* Holds one count in the runtime's buf_pins table */
 } TJSBufferRef;
 
 void tjs_buf_ref_init(TJSBufferRef *ref);

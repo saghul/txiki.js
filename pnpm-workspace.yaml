@@ -1,0 +1,25 @@
+# Listed explicitly, no globs: the canonical clone keeps git worktrees under
+# .worktrees/, and tests/advanced is a standalone, unlocked project with its
+# own pnpm-workspace.yaml.
+packages:
+  - website
+
+overrides:
+  minimatch: 10.2.5
+  postcss-selector-parser: 7.1.6
+  # A range so Dependabot can apply 7.x security patches; still forces the
+  # ^6 consumers in @docusaurus/bundler onto 7.x.
+  serialize-javascript: ^7.1.4
+  tinypool: 2.1.2
+  # Scoped to sockjs (the only website dependent): a global override would
+  # downgrade the root's direct uuid, which `make js` bundles into the runtime.
+  sockjs>uuid: 11.1.1
+
+# None of these build scripts is needed: the native binaries come from
+# optional platform packages, and the rest only print messages.
+allowBuilds:
+  '@swc/core': false
+  core-js: false
+  esbuild: false
+  fsevents: false
+  unrs-resolver: false

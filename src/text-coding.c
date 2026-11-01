@@ -283,7 +283,7 @@ static JSValue tjs_utf8_decoder_decode(JSContext *ctx, JSValueConst this_val, in
                     err = JS_ThrowTypeError(ctx, "decoding error");
                     goto end_error;
                 case -2:  // internal error
-                    err = JS_ThrowInternalError(ctx, "internal error");
+                    err = JS_ThrowPlainError(ctx, "internal error");
                     goto end_error;
                 case 0:  // continue
                     break;
@@ -298,7 +298,7 @@ end_ok:;
 
 end_error:
     if (JS_IsNull(err)) {
-        err = JS_ThrowInternalError(ctx, "unknown error");
+        err = JS_ThrowPlainError(ctx, "unknown error");
     }
     tbuf_free(&s);
     return err;
@@ -497,7 +497,7 @@ static JSValue tjs_utf8_encoder_encode(JSContext *ctx, JSValueConst this_val, in
             }
         } else if (TJS__UNLIKELY(res < 0)) {
             if (res <= -2) {
-                ret = JS_ThrowInternalError(ctx, "unknown decoding error");
+                ret = JS_ThrowPlainError(ctx, "unknown decoding error");
             } else {
                 ret = JS_ThrowTypeError(ctx, "decoder error");
             }

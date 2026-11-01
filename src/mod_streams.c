@@ -45,7 +45,8 @@ enum {
 };
 
 typedef struct {
-    TJSHandlePin pin; /* keep the JS object alive while the handle is active */
+    TJSHandlePin pin;  /* keep the JS object alive while the handle is active */
+    TJSReqPin req_pin; /* ... and while write / shutdown requests are in flight */
     JSContext *ctx;
     int closed;
     int finalized;
@@ -89,6 +90,10 @@ static void maybe_close(TJSStream *s) {
  * closed without relying on the GC to collect and finalize the wrapper. */
 static void tjs_stream_detach(TJSHandlePin *pin) {
     maybe_close(list_entry(pin, TJSStream, pin));
+}
+
+static void tjs_stream_req_detach(TJSHandlePin *pin) {
+    maybe_close(list_entry(pin, TJSStream, req_pin.pin));
 }
 
 static void maybe_invoke_callback(TJSStream *s, int callback, int argc, JSValue *argv) {
@@ -208,7 +213,7 @@ static JSValue tjs_stream_start_read(JSContext *ctx, JSValue this_val, int argc,
         return JS_EXCEPTION;
     }
     if (uv_is_closing(&s->h.handle)) {
-        return JS_ThrowInternalError(ctx, "stream is closed");
+        return JS_ThrowPlainError(ctx, "stream is closed");
     }
     int r = uv_read_start(&s->h.stream, uv__stream_alloc_cb, uv__stream_read_cb);
     if (r != 0) {
@@ -217,7 +222,7 @@ static JSValue tjs_stream_start_read(JSContext *ctx, JSValue this_val, int argc,
 
     /* Pin the JS object so the GC cannot collect it while the handle is
        actively reading.  The pin is intentionally NOT marked in gc_mark so the
-       cycle-collector cannot account for it. */
+       cycle-collector cannot account for it (nor is req_pin). */
     tjs__handle_pin(ctx, &s->pin, this_val);
 
     return JS_UNDEFINED;
@@ -280,9 +285,14 @@ static void uv__stream_write_cb(uv_write_t *req, int status) {
         arg = JS_UNDEFINED;
     }
 
-    maybe_invoke_callback(s, STREAM_CB_WRITE, 1, &arg);
+    /* libuv is done with the buffer: unpin it before the callback, which
+     * drains microtasks and so runs the code awaiting this write. */
     tjs_buf_ref_release(ctx, &wr->buf_ref);
+    maybe_invoke_callback(s, STREAM_CB_WRITE, 1, &arg);
     js_free(ctx, wr);
+
+    /* May finalize the wrapper: nothing may touch s->callbacks after this. */
+    tjs__req_pin_release(ctx, &s->req_pin);
 }
 
 static JSValue tjs_stream_write(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -292,7 +302,7 @@ static JSValue tjs_stream_write(JSContext *ctx, JSValue this_val, int argc, JSVa
         return JS_EXCEPTION;
     }
     if (uv_is_closing(&s->h.handle)) {
-        return JS_ThrowInternalError(ctx, "stream is closed");
+        return JS_ThrowPlainError(ctx, "stream is closed");
     }
 
     TJSBufferRef buf_ref;
@@ -334,6 +344,8 @@ static JSValue tjs_stream_write(JSContext *ctx, JSValue this_val, int argc, JSVa
         return tjs_throw_errno(ctx, r);
     }
 
+    tjs__req_pin_acquire(ctx, &s->req_pin, this_val);
+
     return JS_FALSE;
 }
 
@@ -352,6 +364,8 @@ static void uv__stream_shutdown_cb(uv_shutdown_t *req, int status) {
     maybe_invoke_callback(s, STREAM_CB_SHUTDOWN, 1, &arg);
 
     js_free(ctx, req);
+
+    tjs__req_pin_release(ctx, &s->req_pin);
 }
 
 static JSValue tjs_stream_shutdown(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -361,7 +375,7 @@ static JSValue tjs_stream_shutdown(JSContext *ctx, JSValue this_val, int argc, J
         return JS_EXCEPTION;
     }
     if (uv_is_closing(&s->h.handle)) {
-        return JS_ThrowInternalError(ctx, "stream is closed");
+        return JS_ThrowPlainError(ctx, "stream is closed");
     }
 
     uv_shutdown_t *req = js_malloc(ctx, sizeof(*req));
@@ -374,6 +388,8 @@ static JSValue tjs_stream_shutdown(JSContext *ctx, JSValue this_val, int argc, J
         js_free(ctx, req);
         return tjs_throw_errno(ctx, r);
     }
+
+    tjs__req_pin_acquire(ctx, &s->req_pin, this_val);
 
     return JS_UNDEFINED;
 }
@@ -510,6 +526,9 @@ static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
     s->h.handle.data = s;
     s->pin.obj = JS_UNDEFINED;
     s->pin.detach = tjs_stream_detach;
+    s->req_pin.pin.obj = JS_UNDEFINED;
+    s->req_pin.pin.detach = tjs_stream_req_detach;
+    s->req_pin.count = 0;
     s->read.buf = NULL;
 
     for (int i = 0; i < STREAM_CB_MAX; i++) {
@@ -523,8 +542,10 @@ static JSValue tjs_init_stream(JSContext *ctx, JSValue obj, TJSStream *s) {
 static void tjs_stream_finalizer(JSRuntime *rt, TJSStream *s) {
     if (s) {
         /* A pinned handle holds a ref to itself, so it can't be finalized until
-         * the pin is released (on stop/close or at teardown). */
+         * the pin is released (on stop/close or at teardown). Likewise the
+         * request pin, until its last in-flight request completes. */
         CHECK(JS_IsUndefined(s->pin.obj));
+        CHECK(JS_IsUndefined(s->req_pin.pin.obj));
         for (int i = 0; i < STREAM_CB_MAX; i++) {
             JS_FreeValueRT(rt, s->callbacks[i]);
         }
@@ -544,6 +565,8 @@ static void tjs_stream_mark(JSRuntime *rt, TJSStream *s, JS_MarkFunc *mark_func)
         for (int i = 0; i < STREAM_CB_MAX; i++) {
             JS_MarkValue(rt, s->callbacks[i], mark_func);
         }
+        /* s->pin and s->req_pin are intentionally NOT marked: they are
+           GC-invisible self-references (see tjs_stream_start_read). */
     }
 }
 
@@ -586,7 +609,7 @@ static JSValue tjs_new_tcp(JSContext *ctx, int af) {
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         tjs__free(s);
-        return JS_ThrowInternalError(ctx, "couldn't initialize TCP handle");
+        return JS_ThrowPlainError(ctx, "couldn't initialize TCP handle");
     }
 
     return tjs_init_stream(ctx, obj, s);
@@ -772,7 +795,7 @@ static JSValue tjs_tty_constructor(JSContext *ctx, JSValue new_target, int argc,
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         tjs__free(s);
-        return JS_ThrowInternalError(ctx, "couldn't initialize TTY handle");
+        return JS_ThrowPlainError(ctx, "couldn't initialize TTY handle");
     }
 
     return tjs_init_stream(ctx, obj, s);
@@ -858,7 +881,7 @@ JSValue tjs_new_pipe(JSContext *ctx) {
     if (r != 0) {
         JS_FreeValue(ctx, obj);
         tjs__free(s);
-        return JS_ThrowInternalError(ctx, "couldn't initialize Pipe handle");
+        return JS_ThrowPlainError(ctx, "couldn't initialize Pipe handle");
     }
 
     return tjs_init_stream(ctx, obj, s);

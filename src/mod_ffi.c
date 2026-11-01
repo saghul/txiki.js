@@ -403,7 +403,7 @@ int ffi_type_to_buffer(JSContext *ctx, JSValue val, ffi_type *type, uint8_t *buf
                 return -1;
                 break;
             default:
-                JS_ThrowInternalError(ctx, "FFI Unknown type %d", type->type);
+                JS_ThrowPlainError(ctx, "FFI Unknown type %d", type->type);
                 return -1;
         }
     }
@@ -431,7 +431,7 @@ static JSValue js_ffi_type_to_buffer(JSContext *ctx, JSValue this_val, int argc,
 
 static int ffi_type_from_buffer(JSContext *ctx, ffi_type *type, uint8_t *buf, JSValue *val) {
     if (type->type == FFI_TYPE_STRUCT) {
-        JS_ThrowInternalError(ctx, "converting buffer to js is not yet implemented for structs");
+        JS_ThrowPlainError(ctx, "converting buffer to js is not yet implemented for structs");
         return -1;
     } else {
         switch (type->type) {
@@ -492,7 +492,7 @@ static int ffi_type_from_buffer(JSContext *ctx, ffi_type *type, uint8_t *buf, JS
                 return -1;
                 break;
             default:
-                JS_ThrowInternalError(ctx, "FFI Unknown type %d", type->type);
+                JS_ThrowPlainError(ctx, "FFI Unknown type %d", type->type);
                 return -1;
         }
         return type->size;
@@ -643,7 +643,7 @@ static JSValue js_ffi_cif_create(JSContext *ctx, JSValue this_val, int argc, JSV
         js_free(ctx, js_cif->args);
         js_free(ctx, js_cif);
         JS_FreeValue(ctx, obj);
-        JS_ThrowInternalError(ctx, "internal error creating cif: %s", ffi_strerror(ret));
+        JS_ThrowPlainError(ctx, "internal error creating cif: %s", ffi_strerror(ret));
         return JS_EXCEPTION;
     }
     JS_SetOpaque(obj, js_cif);
@@ -985,7 +985,7 @@ static JSValue js_ffi_cif_fast_call(JSContext *ctx, JSValue this_val, int argc, 
         case FFI_TYPE_POINTER:
             return js_ffi_pointer_new(ctx, ret_storage.p);
         default:
-            JS_ThrowInternalError(ctx, "fast_call: unsupported return type %d", rtype->type);
+            JS_ThrowPlainError(ctx, "fast_call: unsupported return type %d", rtype->type);
             return JS_EXCEPTION;
     }
 
@@ -1018,7 +1018,7 @@ static JSValue js_uv_lib_create(JSContext *ctx, JSValue this_val, int argc, JSVa
     int ret = uv_dlopen(dlname, lib);
     JS_FreeCString(ctx, dlname);
     if (ret != 0) {
-        JS_ThrowInternalError(ctx, "uv_dlopen failed: %s", uv_dlerror(lib));
+        JS_ThrowPlainError(ctx, "uv_dlopen failed: %s", uv_dlerror(lib));
         js_free(ctx, lib);
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
@@ -1054,7 +1054,7 @@ static JSValue js_uv_lib_dlsym(JSContext *ctx, JSValue this_val, int argc, JSVal
     int ret = uv_dlsym(lib, sym, &ptr);
     JS_FreeCString(ctx, sym);
     if (ret != 0) {
-        JS_ThrowInternalError(ctx, "uv_dlsym failed: %s", uv_dlerror(lib));
+        JS_ThrowPlainError(ctx, "uv_dlsym failed: %s", uv_dlerror(lib));
         JS_FreeValue(ctx, obj);
         return JS_EXCEPTION;
     }

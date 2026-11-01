@@ -533,11 +533,16 @@ static void tjs__lws_init(TJSRuntime *qrt) {
             qrt->lws.vh_https_proxy = tjs__create_client_vhost(qrt, "tjs-https-proxy", &https_proxy);
         }
     }
+}
 
-    /* Keepalive handle: stays unrefed when idle so the loop can exit,
-     * gets refed while client connections are in flight to prevent
-     * the loop from exiting during async DNS resolution. */
-    uv_async_init(&qrt->loop, &qrt->lws.keepalive, tjs__lws_keepalive_cb);
+void tjs__lws_keepalive_init(TJSRuntime *qrt) {
+    /* Stays unrefed when idle so the loop can exit, gets refed while client
+     * connections are in flight to prevent the loop from exiting during async
+     * DNS resolution. Owned by the runtime rather than the lazily (re)created
+     * lws context: JS running during the teardown drain can re-create the
+     * context while a previous close of this handle is still pending, and
+     * re-initializing a closing handle corrupts the loop's handle queue. */
+    CHECK_EQ(uv_async_init(&qrt->loop, &qrt->lws.keepalive, tjs__lws_keepalive_cb), 0);
     uv_unref((uv_handle_t *) &qrt->lws.keepalive);
     qrt->lws.active_conns = 0;
 }
@@ -779,6 +784,8 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
     cci.ssl_connection =
         (use_ssl ? LCCSCF_USE_SSL : 0) | LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM;
     cci.method = "GET";
+    /* No QUIC on this path, so never offer h3 (lws's default list would). */
+    cci.alpn = "h2,http/1.1";
     cci.local_protocol_name = TJS_LWS_HTTP_LOAD_PROTOCOL_NAME;
     cci.userdata = load_ctx;
 

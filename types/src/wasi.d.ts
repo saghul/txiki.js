@@ -1,3 +1,5 @@
+/// <reference lib="dom" />
+
 /**
  * WASI (WebAssembly System Interface) implementation.
  *

@@ -520,7 +520,7 @@ static JSValue tjs_sqlite3_stmt_all(JSContext *ctx, JSValue this_val, int argc, 
     }
 
     if (!h->stmt) {
-        return JS_ThrowInternalError(ctx, "Statement has been finalized");
+        return JS_ThrowPlainError(ctx, "Statement has been finalized");
     }
 
     int r = sqlite3_reset(h->stmt);
@@ -560,7 +560,7 @@ static JSValue tjs_sqlite3_stmt_run(JSContext *ctx, JSValue this_val, int argc, 
     }
 
     if (!h->stmt) {
-        return JS_ThrowInternalError(ctx, "Statement has been finalized");
+        return JS_ThrowPlainError(ctx, "Statement has been finalized");
     }
 
     int r = sqlite3_reset(h->stmt);

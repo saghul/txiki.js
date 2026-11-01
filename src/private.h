@@ -60,6 +60,7 @@
 #endif
 
 typedef struct TJSTimer TJSTimer;
+typedef struct TJSBufPin TJSBufPin;
 
 typedef struct {
     struct list_head link;
@@ -85,6 +86,13 @@ typedef struct TJSHandlePin {
     JSValue obj;
     void (*detach)(struct TJSHandlePin *pin);
 } TJSHandlePin;
+
+/* Counted self-pin held while libuv requests (write, shutdown, send) are in
+ * flight on a handle. Separate from the handle's read/listen/connect pin. */
+typedef struct {
+    TJSHandlePin pin;
+    unsigned int count;
+} TJSReqPin;
 
 /* Native classes. Their JSClassIDs are allocated per runtime (TJSRuntime.class_ids),
  * since each runtime numbers its classes independently. */
@@ -142,6 +150,7 @@ struct TJSRuntime {
     uv_async_t stop;
     bool is_worker;
     bool draining_microtasks;
+    bool microtasks_stopped;
 #ifdef TJS_HAVE_WASM
     struct {
         bool initialized;
@@ -189,6 +198,8 @@ struct TJSRuntime {
     /* Self-pins of all active native handles (TJSHandlePin), so teardown can
      * drop them and let the final GC collect and close the handles. */
     struct list_head handle_pins;
+    /* Pin counts of the ArrayBuffers native requests are using (TJSBufferRef). */
+    TJSBufPin *buf_pins;
     JSClassID class_ids[TJS_CLASS__COUNT];
 };
 
@@ -209,12 +220,19 @@ int tjs__class_register(JSContext *ctx, TJSClass c, const JSClassDef *def);
  * already-pinned handle or unpinning an idle one is a no-op. */
 void tjs__handle_pin(JSContext *ctx, TJSHandlePin *pin, JSValue obj);
 void tjs__handle_unpin(JSContext *ctx, TJSHandlePin *pin);
+/* Count one in-flight request; the first one pins `obj` (borrowed). Call only
+ * once libuv has accepted the request. An undefined `obj` only counts. */
+void tjs__req_pin_acquire(JSContext *ctx, TJSReqPin *rp, JSValue obj);
+/* Release one request; the last one unpins, which may finalize the wrapper, so
+ * it must be the last thing the request's callback does. */
+void tjs__req_pin_release(JSContext *ctx, TJSReqPin *rp);
 /* Teardown, before the lws context is destroyed: run each registered pin's
  * `detach` hook (no-op for pins without one) so lws-backed wrappers stop
  * dispatching to JS before their close callbacks fire. */
 void tjs__detach_handles(TJSRuntime *qrt);
 /* Teardown: drop every registered self-pin so the objects become collectable. */
 void tjs__release_pins(TJSRuntime *qrt);
+void tjs__free_buf_pins(TJSRuntime *qrt);
 
 void tjs__mod_channel_init(JSContext *ctx, JSValue ns);
 
@@ -259,6 +277,7 @@ void tjs__mod_timers_init(JSContext *ctx, JSValue ns);
 void tjs__mod_udp_init(JSContext *ctx, JSValue ns);
 #ifdef TJS_HAVE_WASM
 void tjs__mod_wasm_init(JSContext *ctx, JSValue ns);
+void tjs__wasm_global_init(void);
 #endif
 void tjs__mod_worker_init(JSContext *ctx, JSValue ns);
 void tjs__webcrypto_init(JSContext *ctx, JSValue ns);
@@ -290,6 +309,10 @@ int tjs__load_file(JSContext *ctx, TBuf *dbuf, const char *filename);
 int tjs_module_attr_checker(JSContext *ctx, void *opaque, JSValueConst attributes);
 JSModuleDef *tjs_module_loader(JSContext *ctx, const char *module_name, void *opaque, JSValueConst attributes);
 char *tjs_module_normalizer(JSContext *ctx, const char *base_name, const char *name, void *opaque);
+bool tjs__is_file_url(const char *s);
+/* Convert a file:// URL into a native path. Returns a js_malloc'd string, or
+ * NULL with a pending TypeError if the URL can't be mapped to a local path. */
+char *tjs__file_url_to_path(JSContext *ctx, const char *url);
 
 int js_module_set_import_meta(JSContext *ctx, JSValue func_val, bool use_realpath, bool is_main);
 
@@ -307,6 +330,7 @@ extern const lws_plugin_evlib_t tjs_lws_evlib;
 struct lws_context *tjs__lws_get_context(JSContext *ctx);
 void tjs__lws_setup(void);
 void tjs__lws_init_log_cx(TJSRuntime *qrt);
+void tjs__lws_keepalive_init(TJSRuntime *qrt);
 #ifdef _WIN32
 void tjs__mbedtls_threading_init(void);
 #endif

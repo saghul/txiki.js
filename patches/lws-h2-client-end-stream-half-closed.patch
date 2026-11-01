@@ -1,0 +1,63 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Tarwin Stroh-Spijer <tarwin@gmail.com>
+Date: Mon, 19 Oct 2026 17:00:00 -0700
+Subject: [PATCH] h2: client: a request sent with END_STREAM is half-closed at once
+
+A body-less client request goes out as a HEADERS frame carrying
+END_STREAM, but lws_h2_client_handshake() left the stream OPEN, and only a
+later POLLOUT pass moved it to HALF_CLOSED_LOCAL.  A server answering
+before that pass (anything fast, eg on loopback) had its END_STREAM move
+the stream to HALF_CLOSED_REMOTE, which the POLLOUT pass then overwrote
+with HALF_CLOSED_LOCAL: the stream never reached CLOSED, the transaction
+never completed and the request hung until its timeout.
+
+Set HALF_CLOSED_LOCAL as the HEADERS go out when they carried END_STREAM,
+and never move a CLOSED stream back in the POLLOUT pass.
+
+The second part is a subset of upstream 4f8d4fdee (main, "h2: a write to
+a stream ended both ways fails"), which also moves HALF_CLOSED_REMOTE to
+CLOSED there; that is left out, since it also changes when server streams
+close.  The first part is not upstream: main still leaves the stream OPEN.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+  lib/roles/h2/http2.c  |   10 +++++++++-
+  lib/roles/h2/ops-h2.c |    3 ++-
+  2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/lib/roles/h2/http2.c b/lib/roles/h2/http2.c
+--- a/lib/roles/h2/http2.c
++++ b/lib/roles/h2/http2.c
+@@ -3039,7 +3048,15 @@ lws_h2_client_handshake(struct lws *wsi)
+ 	if (lws_h2_update_peer_txcredit(wsi, (unsigned int)wsi->mux.my_sid, n))
+ 		return 1;
+ 
+-	lws_h2_state(wsi, LWS_H2_STATE_OPEN);
++	/*
++	 * If END_STREAM went out on the HEADERS, the stream is half-closed
++	 * from here on.  Leaving it OPEN until a later POLLOUT pass lets a
++	 * fast peer's END_STREAM arrive first and move it to HALF_CLOSED_REMOTE,
++	 * which that pass then overwrites with HALF_CLOSED_LOCAL, so the
++	 * stream never reaches CLOSED and the transaction never completes
++	 */
++	lws_h2_state(wsi, wsi->h2.send_END_STREAM ?
++			  LWS_H2_STATE_HALF_CLOSED_LOCAL : LWS_H2_STATE_OPEN);
+ 	lwsi_set_state(wsi, LRS_ESTABLISHED);
+ 
+ 	if (wsi->mux.my_sid == 1) {
+diff --git a/lib/roles/h2/ops-h2.c b/lib/roles/h2/ops-h2.c
+--- a/lib/roles/h2/ops-h2.c
++++ b/lib/roles/h2/ops-h2.c
+@@ -1508,7 +1522,8 @@ rops_perform_user_POLLOUT_h2(struct lws *wsi)
+ 			lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
+ 					   "h2 pollout handle");
+ 		} else {
+-			 if (w->h2.send_END_STREAM)
++			 if (w->h2.send_END_STREAM &&
++			     w->h2.h2_state != LWS_H2_STATE_CLOSED)
+ 				lws_h2_state(w, LWS_H2_STATE_HALF_CLOSED_LOCAL);
+ 
+ #if defined(LWS_WITH_CLIENT)
+-- 
+2.55.0.windows.3
+

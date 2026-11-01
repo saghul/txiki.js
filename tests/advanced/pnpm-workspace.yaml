@@ -1,0 +1,8 @@
+# Standalone project, not part of the root pnpm workspace. It is deliberately
+# installed without a lockfile.
+lockfile: false
+
+# esbuild's postinstall is not needed: the binary comes from its optional
+# platform package.
+allowBuilds:
+  esbuild: false

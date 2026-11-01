@@ -1015,8 +1015,12 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
 
     /* HTTP/3 is handled entirely inside lws: it learns an origin's h3 Alt-Svc
      * from its responses, races QUIC-first on a later cold connect, falls back
-     * to TCP if QUIC does not answer, and cools down failed origins itself. We
-     * offer only the normal (TCP) ALPN and never force "h3" here. */
+     * to TCP if QUIC does not answer, and cools down failed origins itself.
+     *
+     * The ALPN list is per connection: lws's TLS client offers it instead of
+     * the vhost list. It does not name "h3": on this lws it would be offered on
+     * the TCP handshake too, where h3 cannot run. */
+    cci.alpn = "h2,http/1.1";
 
     tjs__lws_conn_ref(ctx);
 
@@ -1084,7 +1088,7 @@ static JSValue tjs_httpclient_open(JSContext *ctx, JSValue this_val, int argc, J
     if (tjs_httpclient_connect(h)) {
         h->sent = false;
         tjs__handle_unpin(ctx, &h->pin);
-        return JS_ThrowInternalError(ctx, "Connection failed");
+        return JS_ThrowPlainError(ctx, "Connection failed");
     }
 
     return JS_UNDEFINED;

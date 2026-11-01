@@ -16,7 +16,7 @@ endif
 TJS=$(BUILD_DIR)/tjs
 TJSC=$(BUILD_DIR)/tjsc
 STDLIB_MODULES=$(wildcard src/js/stdlib/*.js)
-ESBUILD?=npx esbuild
+ESBUILD?=pnpm exec esbuild
 ESBUILD_PARAMS_COMMON=--target=esnext --platform=neutral --format=esm --main-fields=main,module
 ESBUILD_PARAMS_MINIFY=--minify --keep-names
 TJSC_PARAMS_STIP=-s
@@ -189,13 +189,13 @@ format:
 	clang-format -i src/*.{c,h}
 
 lint:
-	npm run lint
+	pnpm run lint
 
 test:
 	./$(BUILD_DIR)/tjs test tests/
 
 test-advanced:
-	cd tests/advanced && npm install
+	cd tests/advanced && pnpm install
 	./$(BUILD_DIR)/tjs --stack-size 10485760 test tests/advanced/
 
 .PRECIOUS: src/bundles/js/core/%.js src/bundles/js/stdlib/%.js

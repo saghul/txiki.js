@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andy Green <andy@warmcat.com>
+Date: Tue, 22 Sep 2026 18:26:13 +0000
+Subject: [PATCH] h2: client: the sid 1 headers-first rule asks the sid 1 child
+
+A client stream other than sid 1 is held back until sid 1 has sent its
+headers.  The rule tested the parser's current-stream pointer, which
+between frames on stream 0 (eg, a PING) is the connection wsi itself, and
+the connection stays in LRS_H2_WAITING_TO_SEND_HEADERS for its whole life:
+after a server PING every later request on a pooled connection waited
+until it timed out.  Google's front ends send a PING right after each
+response, so every second fetch to them failed.
+
+Ask the sid 1 child instead.
+
+Backport of the rops_perform_user_POLLOUT_h2() hunk of upstream
+a18023d26d649951c26dab5c099345721de1f15b (main, "h2: a client connection
+whose request moved to sid 1 is established, not a flag"), adapted to
+v5.0-stable ac23cae70: client_mux_migrated instead of
+lws_wsi_client_nwsi_migrated(); the rest of that commit (the connection
+state rework) is not carried.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+  lib/roles/h2/ops-h2.c |   22 ++++++++++++++++++----
+  1 file changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/lib/roles/h2/ops-h2.c b/lib/roles/h2/ops-h2.c
+--- a/lib/roles/h2/ops-h2.c
++++ b/lib/roles/h2/ops-h2.c
+@@ -1284,10 +1284,24 @@ rops_perform_user_POLLOUT_h2(struct lws *wsi)
+ 
+ #if defined(LWS_WITH_CLIENT)
+ 		if (lwsi_state(w) == LRS_H2_WAITING_TO_SEND_HEADERS) {
+-			if (w->mux.my_sid != 1 && (!wsi->client_mux_migrated ||
+-			    (wsi->h2.h2n->swsi && lwsi_state(wsi->h2.h2n->swsi) == LRS_H2_WAITING_TO_SEND_HEADERS))) {
+-				lwsl_info("%s: waiting for sid 1 to send headers\n", __func__);
+-				continue;
++			if (w->mux.my_sid != 1) {
++				/*
++				 * Ask the sid 1 child itself: the parser's
++				 * current-stream pointer is the connection wsi
++				 * between frames on stream 0 (eg, a PING), and
++				 * the connection sits in WAITING_TO_SEND_HEADERS
++				 * for its whole life, so testing it stalls every
++				 * later stream until it times out
++				 */
++				struct lws *s1 = lws_wsi_mux_from_id(wsi, 1);
++
++				if (!wsi->client_mux_migrated ||
++				    (s1 && lwsi_state(s1) ==
++						LRS_H2_WAITING_TO_SEND_HEADERS)) {
++					lwsl_info("%s: waiting for sid 1 to send headers\n",
++						  __func__);
++					continue;
++				}
+ 			}
+ 
+ 			if (lws_h2_client_handshake(w))
+-- 
+2.55.0.windows.3
+

@@ -5,8 +5,8 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "generate-api": "typedoc && node scripts/fix-typedoc-filenames.mjs",
-    "start": "npm run generate-api && docusaurus start",
-    "build": "npm run generate-api && docusaurus build",
+    "start": "pnpm run generate-api && docusaurus start",
+    "build": "pnpm run generate-api && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
@@ -49,12 +49,5 @@
   },
   "engines": {
     "node": ">=20.0"
-  },
-  "overrides": {
-    "minimatch": "10.2.5",
-    "postcss-selector-parser": "7.1.6",
-    "serialize-javascript": "7.1.2",
-    "tinypool": "2.1.2",
-    "uuid": "11.1.1"
   }
 }

@@ -160,6 +160,7 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
     }
 
     p->ctx = ctx;
+    p->onexit = JS_UNDEFINED;
     p->process.data = p;
     p->pin.obj = JS_UNDEFINED;
     p->pin.detach = tjs_process_detach;
@@ -404,7 +405,15 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
     int r = uv_spawn(tjs_get_loop(ctx), &p->process, &options);
     if (r != 0) {
         tjs_throw_errno(ctx, r);
-        goto fail;
+        /* uv_spawn registers the handle with the loop even when it fails, so it
+         * must be closed (uv__close_cb then frees p), not freed right away. */
+        JS_FreeValue(ctx, p->onexit);
+        p->onexit = JS_UNDEFINED;
+        p->finalized = true;
+        uv_close((uv_handle_t *) &p->process, uv__close_cb);
+        JS_FreeValue(ctx, obj);
+        ret = JS_EXCEPTION;
+        goto cleanup;
     }
 
     JS_SetOpaque(obj, p);
@@ -413,6 +422,7 @@ static JSValue tjs_spawn(JSContext *ctx, JSValue this_val, int argc, JSValue *ar
     goto cleanup;
 
 fail:
+    JS_FreeValue(ctx, p->onexit);
     tjs__free(p);
     JS_FreeValue(ctx, obj);
     ret = JS_EXCEPTION;

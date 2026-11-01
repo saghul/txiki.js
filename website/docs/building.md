@@ -159,8 +159,8 @@ cmake --build build-min
 If you are making a custom build and are modifying any of the JS files that are part of the runtime, you'll need to regenerate the C code for them, so your changes become part of the build.
 
 ```bash
-# First install the JS dependencies
-npm install
+# First install the JS dependencies (requires pnpm)
+pnpm install
 # Now bundle the code and compile it into C source files
 make js
 ```

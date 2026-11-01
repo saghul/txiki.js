@@ -97,12 +97,26 @@ export class Headers {
     }
 }
 
+export function isValidHeaderName(name) {
+    return /^[a-z0-9\-#$%&'*+.^_`|~!]+$/i.test(name);
+}
+
+export function trimHeaderValue(value) {
+    return String(value).replace(/^[\t\n\r ]+|[\t\n\r ]+$/g, '');
+}
+
+// A CR or LF left inside a value would end the header line on the wire and
+// let the rest of the value be sent as headers of its own.
+export function isValidHeaderValue(value) {
+    return !/[\0\r\n]/.test(value);
+}
+
 export function normalizeName(name) {
     if (typeof name !== 'string') {
         name = String(name);
     }
 
-    if (/[^a-z0-9\-#$%&'*+.^_`|~!]/i.test(name) || name === '') {
+    if (!isValidHeaderName(name)) {
         throw new TypeError('Invalid character in header field name: "' + name + '"');
     }
 
@@ -111,8 +125,10 @@ export function normalizeName(name) {
 
 
 export function normalizeValue(value) {
-    if (typeof value !== 'string') {
-        value = String(value);
+    value = trimHeaderValue(value);
+
+    if (!isValidHeaderValue(value)) {
+        throw new TypeError('Invalid character in header field value');
     }
 
     return value;

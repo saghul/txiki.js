@@ -1,3 +1,6 @@
+/// <reference lib="dom" />
+/// <reference lib="esnext.disposable" />
+
 /**
  * The main txiki.js APIs are exposed as a single `tjs` global object.
  *

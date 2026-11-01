@@ -19,10 +19,10 @@ async function * toIterator (parts) {
 
             while (position !== end) {
                 const size = Math.min(end - position, POOL_SIZE);
-                const chunk = part.buffer.slice(position, position + size);
+                const chunk = new Uint8Array(part.buffer, position, size).slice();
 
                 position += chunk.byteLength;
-                yield new Uint8Array(chunk);
+                yield chunk;
             }
         } else {
             yield * part.stream();
@@ -69,14 +69,9 @@ class Blob {
             let part;
 
             if (isView(element)) {
-                part = new Uint8Array(
-                    element.buffer.slice(
-                        element.byteOffset,
-                        element.byteOffset + element.byteLength
-                    )
-                );
+                part = new Uint8Array(element.buffer, element.byteOffset, element.byteLength).slice();
             } else if (element instanceof ArrayBuffer) {
-                part = new Uint8Array(element.slice(0));
+                part = new Uint8Array(element).slice();
             } else if (element instanceof Blob) {
                 part = element;
             } else {

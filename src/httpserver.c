@@ -42,6 +42,16 @@
  * buffer with LWS_WRITE_HTTP_FINAL truncates h2 bodies larger than this. */
 #define TJS_HTTP_WRITE_CHUNK_SIZE 16384
 
+/* lws >= 5.1 (upstream 312615fcb, C-011) decodes a chunked h1 request body
+ * itself and enforces the framing: LWS_CALLBACK_HTTP_BODY carries the payload
+ * only, and the last-chunk ends it with LWS_CALLBACK_HTTP_BODY_COMPLETION.
+ * Older lws hands over the raw framing, which we decode ourselves. */
+#if LWS_LIBRARY_VERSION_NUMBER >= 5001000
+#define TJS_LWS_DECHUNKS_REQUEST_BODY 1
+#else
+#define TJS_LWS_DECHUNKS_REQUEST_BODY 0
+#endif
+
 typedef enum {
     TJS_HTTP_CHUNK_STATE_SIZE,
     TJS_HTTP_CHUNK_STATE_DATA,
@@ -173,6 +183,7 @@ typedef struct {
     JSValue callback;                   /* JS onrequest handler */
     JSValue body_chunk_callback;        /* JS onBodyChunk handler for streaming bodies */
     JSValue close_callback;             /* JS onClose, invoked when lws fires PROTOCOL_DESTROY */
+    JSValue request_close_callback;     /* JS onRequestClose: an unfinished request's connection closed */
     JSValue ws_callbacks[WS_EVENT_MAX]; /* server-level: open, message, close, error */
     struct lws_vhost *vhost;
     struct lws_vhost *quic_vhost; /* HTTP/3 (QUIC/UDP) vhost, or NULL if h3 off */
@@ -290,6 +301,9 @@ static void tjs_httpserver_detach(TJSHandlePin *pin) {
     JS_FreeValue(s->ctx, s->close_callback);
     s->close_callback = JS_UNDEFINED;
 
+    JS_FreeValue(s->ctx, s->request_close_callback);
+    s->request_close_callback = JS_UNDEFINED;
+
     for (int i = 0; i < WS_EVENT_MAX; i++) {
         JS_FreeValue(s->ctx, s->ws_callbacks[i]);
         s->ws_callbacks[i] = JS_UNDEFINED;
@@ -303,6 +317,7 @@ static void tjs_httpserver_finalizer(JSRuntime *rt, JSValue val) {
         JS_FreeValueRT(rt, s->callback);
         JS_FreeValueRT(rt, s->body_chunk_callback);
         JS_FreeValueRT(rt, s->close_callback);
+        JS_FreeValueRT(rt, s->request_close_callback);
 
         for (int i = 0; i < WS_EVENT_MAX; i++) {
             JS_FreeValueRT(rt, s->ws_callbacks[i]);
@@ -346,6 +361,7 @@ static void tjs_httpserver_mark(JSRuntime *rt, JSValue val, JS_MarkFunc *mark_fu
         JS_MarkValue(rt, s->callback, mark_func);
         JS_MarkValue(rt, s->body_chunk_callback, mark_func);
         JS_MarkValue(rt, s->close_callback, mark_func);
+        JS_MarkValue(rt, s->request_close_callback, mark_func);
         for (int i = 0; i < WS_EVENT_MAX; i++) {
             JS_MarkValue(rt, s->ws_callbacks[i], mark_func);
         }
@@ -362,6 +378,7 @@ static TJSHttpServer *tjs_httpserver_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_HTTPSERVER));
 }
 
+#if !TJS_LWS_DECHUNKS_REQUEST_BODY
 static int tjs_http_chunk_hex_value(uint8_t c) {
     if (c >= '0' && c <= '9') {
         return c - '0';
@@ -374,6 +391,7 @@ static int tjs_http_chunk_hex_value(uint8_t c) {
     }
     return -1;
 }
+#endif
 
 static int tjs_http_emit_body_chunk(TJSHttpServer *s, TJSHttpRequest *req, const uint8_t *data, size_t len) {
     JSContext *ctx = s->ctx;
@@ -935,7 +953,8 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
              * ambiguous (RFC 9112 § 6.1, request smuggling); lws rejects it in
              * its own parser before this callback, so we need not re-check here.
              * Only "chunked" is a recognized transfer coding; reject anything
-             * else, which lws does not. */
+             * else, which lws < 5.1 does not (lws >= 5.1 answers it with 501
+             * before this callback). */
             if (has_te > 0) {
                 char te[32];
                 int te_len = lws_hdr_copy(wsi, te, sizeof(te), WSI_TOKEN_HTTP_TRANSFER_ENCODING);
@@ -976,6 +995,14 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 return 0;
             }
 
+#if TJS_LWS_DECHUNKS_REQUEST_BODY
+            /* Decoded payload, at most one read's worth: the chunk size never
+             * drives an allocation here. */
+            if (len > 0) {
+                tjs_http_emit_body_chunk(s, req, in, len);
+            }
+            return 0;
+#else
             /* Chunked: de-chunk the data and detect the terminator. */
             const uint8_t *p = (const uint8_t *) in;
             const uint8_t *end = p + len;
@@ -1102,6 +1129,7 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             }
 
             return 0;
+#endif
         }
 
         case LWS_CALLBACK_HTTP_BODY_COMPLETION: {
@@ -1111,6 +1139,20 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             }
 
             req->body_complete = true;
+
+#if TJS_LWS_DECHUNKS_REQUEST_BODY
+            if (req->chunked) {
+                /* The handler already runs (it was invoked at the head, to
+                 * stream the body): end its body stream instead. */
+                JSValue cb_args[2];
+                cb_args[0] = JS_NewInt64(s->ctx, req->id);
+                cb_args[1] = JS_NULL;
+                tjs_call_handler(s->ctx, s->body_chunk_callback, 2, cb_args);
+                JS_FreeValue(s->ctx, cb_args[0]);
+                return 0;
+            }
+#endif
+
             tjs_http_invoke_handler(s, req);
             return 0;
         }
@@ -1259,9 +1301,18 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 JS_FreeValue(s->ctx, cb_args[0]);
             }
 
+            uint64_t req_id = req->id;
             HASH_DEL(s->active_requests, req);
             tjs_http_req_free(JS_GetRuntime(s->ctx), req);
             lws_set_wsi_user(wsi, NULL);
+
+            /* Last: the handler may run user code (e.g. close the server), so
+             * neither req nor wsi may be used after it. */
+            if (JS_IsFunction(s->ctx, s->request_close_callback)) {
+                JSValue arg = JS_NewInt64(s->ctx, req_id);
+                tjs_call_handler(s->ctx, s->request_close_callback, 1, &arg);
+                JS_FreeValue(s->ctx, arg);
+            }
             return 0;
         }
 
@@ -1427,6 +1478,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     s->callback = JS_UNDEFINED;
     s->body_chunk_callback = JS_UNDEFINED;
     s->close_callback = JS_UNDEFINED;
+    s->request_close_callback = JS_UNDEFINED;
     s->pin.obj = JS_UNDEFINED;
     s->pin.detach = tjs_httpserver_detach;
     for (int i = 0; i < WS_EVENT_MAX; i++) {
@@ -1461,6 +1513,13 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     JSValue js_body_chunk = JS_GetPropertyStr(ctx, options, "onBodyChunk");
     CHECK(JS_IsFunction(ctx, js_body_chunk));
     s->body_chunk_callback = js_body_chunk;
+
+    JSValue js_request_close = JS_GetPropertyStr(ctx, options, "onRequestClose");
+    if (JS_IsFunction(ctx, js_request_close)) {
+        s->request_close_callback = js_request_close;
+    } else {
+        JS_FreeValue(ctx, js_request_close);
+    }
 
     /* Close callback, fired once lws is fully done draining the vhost
      * (i.e. LWS_CALLBACK_PROTOCOL_DESTROY). */
@@ -1551,7 +1610,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     if (!lws_ctx) {
         JS_FreeCString(ctx, listen_ip);
         JS_FreeValue(ctx, obj);
-        return JS_ThrowInternalError(ctx, "failed to get lws context");
+        return JS_ThrowPlainError(ctx, "failed to get lws context");
     }
     TJSRuntime *qrt = TJS_GetRuntime(ctx);
     CHECK_NOT_NULL(qrt);
@@ -1608,7 +1667,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     if (!s->vhost) {
         JS_FreeCString(ctx, listen_ip);
         JS_FreeValue(ctx, obj);
-        return JS_ThrowInternalError(ctx, "failed to create HTTP server vhost");
+        return JS_ThrowPlainError(ctx, "failed to create HTTP server vhost");
     }
 
     /* Get the actual port (in case port 0 was used for auto-assignment). */
@@ -1689,7 +1748,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
             s->vhost = NULL;
             JS_FreeCString(ctx, listen_ip);
             JS_FreeValue(ctx, obj);
-            return JS_ThrowInternalError(ctx, "failed to create HTTP/3 (QUIC) listener on port %d", s->port);
+            return JS_ThrowPlainError(ctx, "failed to create HTTP/3 (QUIC) listener on port %d", s->port);
         }
 
         s->vhost_count = 2;
@@ -1735,6 +1794,9 @@ static JSValue tjs_httpserver_close(JSContext *ctx, JSValue this_val, int argc, 
 
     JS_FreeValue(ctx, s->body_chunk_callback);
     s->body_chunk_callback = JS_UNDEFINED;
+
+    JS_FreeValue(ctx, s->request_close_callback);
+    s->request_close_callback = JS_UNDEFINED;
 
     for (int i = 0; i < WS_EVENT_MAX; i++) {
         JS_FreeValue(ctx, s->ws_callbacks[i]);
@@ -1819,12 +1881,12 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
 
     if (lws_add_http_header_status(req->wsi, (unsigned int) status, &p, end)) {
         js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to add status header");
+        return JS_ThrowPlainError(ctx, "failed to add status header");
     }
 
     if (tjs_http_add_altsvc(s, req, &p, end)) {
         js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to add alt-svc header");
+        return JS_ThrowPlainError(ctx, "failed to add alt-svc header");
     }
 
     /* Iterate headers array. */
@@ -1860,7 +1922,7 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
                     JS_FreeValue(ctx, value_val);
                     JS_FreeValue(ctx, pair);
                     js_free(ctx, header_buf);
-                    return JS_ThrowInternalError(ctx, "failed to add response header");
+                    return JS_ThrowPlainError(ctx, "failed to add response header");
                 }
             }
 
@@ -1898,14 +1960,14 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
     if (!has_content_length) {
         if (lws_add_http_header_content_length(req->wsi, (lws_filepos_t) body_len, &p, end)) {
             js_free(ctx, header_buf);
-            return JS_ThrowInternalError(ctx, "failed to add content-length header");
+            return JS_ThrowPlainError(ctx, "failed to add content-length header");
         }
     }
 
     /* Finalize headers. */
     if (lws_finalize_http_header(req->wsi, &p, end)) {
         js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to finalize headers");
+        return JS_ThrowPlainError(ctx, "failed to finalize headers");
     }
 
     size_t hdr_len = p - start;
@@ -1932,7 +1994,7 @@ static JSValue tjs_httpserver_send_response(JSContext *ctx, JSValue this_val, in
     /* First write: send headers (with LWS_PRE padding). */
     int n = lws_write(req->wsi, req->response_data + LWS_PRE, hdr_len, LWS_WRITE_HTTP_HEADERS);
     if (n < 0) {
-        return JS_ThrowInternalError(ctx, "failed to write response headers");
+        return JS_ThrowPlainError(ctx, "failed to write response headers");
     }
     req->response_offset = hdr_len;
 
@@ -1979,9 +2041,10 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
         return JS_EXCEPTION;
     }
 
+    /* False tells the caller the request is gone, so it can drop the body. */
     TJSHttpRequest *req = tjs_http_find_request(s, req_id);
-    if (!req || req->responded) {
-        return JS_UNDEFINED;
+    if (!req || req->responded || s->closed) {
+        return JS_FALSE;
     }
 
     req->responded = true;
@@ -2013,7 +2076,7 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
     if (req->http_version != TJS_HTTP_1_1) {
         if (lws_add_http_common_headers(req->wsi, (unsigned int) status, NULL, LWS_ILLEGAL_HTTP_CONTENT_LEN, &p, end)) {
             js_free(ctx, header_buf);
-            return JS_ThrowInternalError(ctx, "failed to add status header");
+            return JS_ThrowPlainError(ctx, "failed to add status header");
         }
     } else {
         req->chunked_response = true;
@@ -2025,13 +2088,13 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
                                          &p,
                                          end)) {
             js_free(ctx, header_buf);
-            return JS_ThrowInternalError(ctx, "failed to add status header");
+            return JS_ThrowPlainError(ctx, "failed to add status header");
         }
     }
 
     if (tjs_http_add_altsvc(s, req, &p, end)) {
         js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to add alt-svc header");
+        return JS_ThrowPlainError(ctx, "failed to add alt-svc header");
     }
 
     /* Add custom headers from the array. */
@@ -2061,7 +2124,7 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
                     JS_FreeValue(ctx, value_val);
                     JS_FreeValue(ctx, pair);
                     js_free(ctx, header_buf);
-                    return JS_ThrowInternalError(ctx, "failed to add response header");
+                    return JS_ThrowPlainError(ctx, "failed to add response header");
                 }
             }
 
@@ -2076,11 +2139,11 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
     /* Finalize and write headers in one call. */
     if (lws_finalize_write_http_header(req->wsi, start, &p, end)) {
         js_free(ctx, header_buf);
-        return JS_ThrowInternalError(ctx, "failed to write response headers");
+        return JS_ThrowPlainError(ctx, "failed to write response headers");
     }
 
     js_free(ctx, header_buf);
-    return JS_UNDEFINED;
+    return JS_TRUE;
 }
 
 /*
@@ -2101,9 +2164,11 @@ static JSValue tjs_httpserver_send_body(JSContext *ctx, JSValue this_val, int ar
         return JS_EXCEPTION;
     }
 
+    /* false tells the caller the request is gone (its connection or the server
+     * closed), so it can stop producing the body. */
     TJSHttpRequest *req = tjs_http_find_request(s, req_id);
-    if (!req) {
-        return JS_UNDEFINED; /* Connection already closed, silently ignore. */
+    if (!req || s->closed) {
+        return JS_FALSE;
     }
 
     bool is_final = JS_ToBool(ctx, argv[2]);
@@ -2192,7 +2257,7 @@ static JSValue tjs_httpserver_send_body(JSContext *ctx, JSValue this_val, int ar
     list_add_tail(&pw->link, &req->pending_writes);
     lws_callback_on_writable(req->wsi);
 
-    return JS_UNDEFINED;
+    return JS_TRUE;
 }
 
 /*

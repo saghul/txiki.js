@@ -162,9 +162,9 @@ function validateFuncref(value, where) {
     return value;
 }
 
-function buildInstance(mod) {
+function buildInstance(mod, funcDescs) {
     try {
-        return wasm.buildInstance(mod);
+        return wasm.buildInstance(mod, funcDescs);
     } catch (e) {
         if (e.wasmError) {
             throw getWasmError(e);
@@ -211,15 +211,11 @@ class Module {
  * - externref/funcref params and returns in imported functions are not
  *   supported due to WAMR bugs in invoke_native_raw for externref.
  *   externref works fine for exported functions, globals, and tables.
- * - Instantiating the same Module with different importObjects reuses
- *   the first set of imports (WAMR resolves imports at the module level).
- *   Use WebAssembly.instantiate(bytes, imports) to get independent instances.
  * - Multi-value returns from imported functions are not supported.
  */
 class Instance {
     #instance;
     #exports;
-    #moduleRef;
 
     constructor(module, importObject = {}) {
         const nativeModule = getNativeModule(module);
@@ -290,19 +286,6 @@ class Instance {
             }
         }
 
-        // Register function imports before instantiation
-        if (funcDescs.length > 0) {
-            try {
-                wasm.resolveImports(nativeModule, funcDescs);
-            } catch (e) {
-                if (e.wasmError) {
-                    throw getWasmError(e);
-                } else {
-                    throw e;
-                }
-            }
-        }
-
         // Resolve global imports before instantiation
         if (globalDescs.length > 0) {
             try {
@@ -316,7 +299,7 @@ class Instance {
             }
         }
 
-        const instance = buildInstance(nativeModule);
+        const instance = buildInstance(nativeModule, funcDescs);
 
         // Wire up imported Memory objects to the WAMR instance
         for (const mem of memoryImports) {
@@ -371,7 +354,6 @@ class Instance {
 
         this.#instance = instance;
         this.#exports = Object.freeze(exports);
-        this.#moduleRef = module;
     }
 
     get exports() {

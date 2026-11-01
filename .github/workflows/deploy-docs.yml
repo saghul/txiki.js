@@ -15,13 +15,15 @@ jobs:
     - uses: actions/setup-node@v7
       with:
         node-version-file: '.nvmrc'
+    - name: Install pnpm
+      run: npm install -g "$(node -p 'require("./package.json").packageManager')"
     - name: Build
       run: |
-        npm install
-        npm run docs
+        pnpm install --frozen-lockfile
+        pnpm run docs
     - name: Deploy
       run: |
          git remote set-url origin https://git:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-         npm run docs:deploy
+         pnpm run docs:deploy
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

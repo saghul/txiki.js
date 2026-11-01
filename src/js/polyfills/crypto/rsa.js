@@ -339,9 +339,9 @@ export function rsaImportKey(format, keyData, algorithm, extractable, keyUsages)
     let derBytes;
 
     if (ArrayBuffer.isView(keyData)) {
-        derBytes = new Uint8Array(keyData.buffer.slice(keyData.byteOffset, keyData.byteOffset + keyData.byteLength));
+        derBytes = new Uint8Array(keyData.buffer, keyData.byteOffset, keyData.byteLength).slice();
     } else if (keyData instanceof ArrayBuffer) {
-        derBytes = new Uint8Array(keyData.slice(0));
+        derBytes = new Uint8Array(keyData).slice();
     } else {
         throw new TypeError('keyData must be a BufferSource');
     }
