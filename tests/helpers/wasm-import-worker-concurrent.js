@@ -4,6 +4,9 @@
 
 const WORKERS = Number(tjs.env.WORKERS ?? 8);
 const ROUNDS = Number(tjs.env.ROUNDS ?? 2000);
+// Each Worker also stops after this long, so slow (Debug) builds stay well
+// within the test timeout and don't starve the tests running alongside.
+const DURATION_MS = Number(tjs.env.DURATION_MS ?? 5000);
 
 // (module (import "env" "cb" (func (param i32) (result i32)))
 //         (func (export "run") (param i32) (result i32) local.get 0 call 0))
@@ -15,7 +18,8 @@ const bytes = [
 const workerSrc = `
 const bytes = new Uint8Array([${bytes.join(',')}]);
 let bad = 0;
-for (let i = 0; i < ${ROUNDS}; i++) {
+const end = Date.now() + ${DURATION_MS};
+for (let i = 0; i < ${ROUNDS} && Date.now() < end; i++) {
     if (!WebAssembly.validate(bytes)) bad++;
     const mod = new WebAssembly.Module(bytes);
     const a = new WebAssembly.Instance(mod, { env: { cb: x => x + 1 } });
