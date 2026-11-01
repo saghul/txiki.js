@@ -19,9 +19,7 @@ assert.eq(h.get('Set-Cookie'), 'a=1; Path=/, b=2; Path=/', 'get() joins cookies 
 assert.eq(h.get('x-multi'), 'x, y', 'other repeated headers still combine');
 assert.ok(h.has('SET-COOKIE'), 'has() finds set-cookie');
 
-const copy = h.getSetCookie();
-
-copy.push('c=3');
+h.getSetCookie().push('c=3');
 assert.eq(h.getSetCookie().length, 2, 'getSetCookie() returns a copy');
 
 const expected = [
