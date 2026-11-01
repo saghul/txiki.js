@@ -342,6 +342,12 @@ void tjs__worker_handle_uncaught(JSContext *ctx, JSValueConst exc) {
         return;
     }
 
+    /* Errors raised while being terminated (chiefly the interrupt that aborts
+     * the running JS) are not reported. */
+    if (atomic_load(&qrt->terminating)) {
+        return;
+    }
+
     /* Dispatch a cancelable 'error' ErrorEvent at the worker global scope so
      * self.onerror can observe (and, via preventDefault(), suppress propagation
      * to) the parent. */
@@ -436,6 +442,12 @@ static void uv__stop(uv_async_t *handle) {
     uv_stop(&qrt->loop);
 }
 
+/* Runs on the worker thread, polled by QuickJS while JS executes. */
+static int tjs__worker_interrupt_handler(JSContext *ctx, void *opaque) {
+    TJSRuntime *qrt = opaque;
+    return atomic_load(&qrt->terminating);
+}
+
 void TJS_DefaultOptions(TJSRunOptions *options) {
     static TJSRunOptions default_options = { .mem_limit = 0, .stack_size = TJS__DEFAULT_STACK_SIZE };
 
@@ -528,6 +540,10 @@ TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
     /* Worker support */
     qrt->is_worker = is_worker;
     JS_SetCanBlock(rt, is_worker);
+    atomic_init(&qrt->terminating, false);
+    if (is_worker) {
+        JS_SetInterruptHandler(rt, tjs__worker_interrupt_handler, qrt);
+    }
 
     CHECK_EQ(uv_loop_init(&qrt->loop), 0);
 
@@ -1182,8 +1198,13 @@ int TJS_Run(TJSRuntime *qrt) {
     }
 
     if (JS_HasException(qrt->ctx)) {
-        tjs_dump_error(qrt->ctx);
-        ret = 1;
+        if (qrt->is_worker && atomic_load(&qrt->terminating)) {
+            /* A terminated worker exits silently. */
+            JS_FreeValue(qrt->ctx, JS_GetException(qrt->ctx));
+        } else {
+            tjs_dump_error(qrt->ctx);
+            ret = 1;
+        }
     }
 
     return ret;
@@ -1196,6 +1217,13 @@ void TJS_Stop(TJSRuntime *qrt) {
     if (!uv_is_closing((uv_handle_t *) &qrt->stop)) {
         uv_async_send(&qrt->stop);
     }
+}
+
+void tjs__runtime_terminate(TJSRuntime *qrt) {
+    CHECK_NOT_NULL(qrt);
+    /* Set before stopping, so the worker sees the flag no later than the stop. */
+    atomic_store(&qrt->terminating, true);
+    TJS_Stop(qrt);
 }
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt) {

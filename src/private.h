@@ -35,6 +35,7 @@
 #ifdef TJS_HAVE_SQLITE
 #include <sqlite3.h>
 #endif
+#include <stdatomic.h>
 #include <stdbool.h>
 #ifndef _WIN32
 #include <unistd.h>
@@ -149,6 +150,9 @@ struct TJSRuntime {
     } jobs;
     uv_async_t stop;
     bool is_worker;
+    /* Set by the parent thread when it reaps the worker; read by the worker's
+     * interrupt handler to abort JS that never yields to the loop. */
+    atomic_bool terminating;
     bool draining_microtasks;
     bool microtasks_stopped;
 #ifdef TJS_HAVE_WASM
@@ -342,6 +346,9 @@ void tjs__lws_format_host(char *buf, size_t buflen, const char *scheme, const ch
 void tjs__lws_request_path(const char *url, char *buf, size_t buflen);
 
 uv_loop_t *TJS_GetLoop(TJSRuntime *qrt);
+/* Stop a worker runtime from another thread, aborting any JS it is running
+ * (unlike TJS_Stop, which waits for the running JS to return to the loop). */
+void tjs__runtime_terminate(TJSRuntime *qrt);
 TJSRuntime *TJS_NewRuntimeWorker(void);
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options);
 JSValue TJS_EvalScript(JSContext *ctx, const char *filename);
