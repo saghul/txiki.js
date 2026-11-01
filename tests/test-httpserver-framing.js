@@ -70,7 +70,9 @@ assert.eq(bodies.length, 0, 'ambiguous request body never reaches the handler');
 
 /* Transfer-Encoding with an unrecognized coding must also be rejected — the
  * server has no way to frame the body and accepting it would let a downstream
- * parser disagree about boundaries. */
+ * parser disagree about boundaries. RFC 9112 § 6.1 says 501 (lws >= 5.1
+ * answers in its own parser); older lws let it through and our request
+ * callback answered 400. Either way it never reaches the handler. */
 const unknownTe = await raw(server.port,
     'POST / HTTP/1.1\r\n' +
         'Host: 127.0.0.1\r\n' +
@@ -78,8 +80,33 @@ const unknownTe = await raw(server.port,
         'Connection: close\r\n' +
         '\r\n');
 
-assert.ok(unknownTe.startsWith('HTTP/1.1 400'), 'unknown transfer coding is rejected with 400');
+assert.ok(/^HTTP\/1\.1 (400|501) /.test(unknownTe), 'unknown transfer coding is rejected with 400 or 501');
 assert.eq(bodies.length, 0, 'unknown transfer coding body never reaches the handler');
+
+/* Chunked must be the only coding: a list ending in chunked, or chunked sent
+ * twice, is just as unframeable and is rejected the same way. */
+const teList = await raw(server.port,
+    'POST / HTTP/1.1\r\n' +
+        'Host: 127.0.0.1\r\n' +
+        'Transfer-Encoding: gzip, chunked\r\n' +
+        'Connection: close\r\n' +
+        '\r\n' +
+        '5\r\nhello\r\n0\r\n\r\n');
+
+assert.ok(/^HTTP\/1\.1 (400|501) /.test(teList), 'transfer coding list is rejected with 400 or 501');
+assert.eq(bodies.length, 0, 'transfer coding list body never reaches the handler');
+
+const teTwice = await raw(server.port,
+    'POST / HTTP/1.1\r\n' +
+        'Host: 127.0.0.1\r\n' +
+        'Transfer-Encoding: chunked\r\n' +
+        'Transfer-Encoding: chunked\r\n' +
+        'Connection: close\r\n' +
+        '\r\n' +
+        '5\r\nhello\r\n0\r\n\r\n');
+
+assert.ok(/^HTTP\/1\.1 (400|501) /.test(teTwice), 'repeated chunked coding is rejected with 400 or 501');
+assert.eq(bodies.length, 0, 'repeated chunked coding body never reaches the handler');
 
 /* Confirm a Content-Length-only request still works. */
 const clOnly = await raw(server.port,
