@@ -277,6 +277,7 @@ void tjs__mod_timers_init(JSContext *ctx, JSValue ns);
 void tjs__mod_udp_init(JSContext *ctx, JSValue ns);
 #ifdef TJS_HAVE_WASM
 void tjs__mod_wasm_init(JSContext *ctx, JSValue ns);
+void tjs__wasm_global_init(void);
 #endif
 void tjs__mod_worker_init(JSContext *ctx, JSValue ns);
 void tjs__webcrypto_init(JSContext *ctx, JSValue ns);

@@ -485,6 +485,9 @@ static void tjs__global_init(void) {
     tjs__mbedtls_threading_init();
 #endif
     tjs__lws_setup();
+#ifdef TJS_HAVE_WASM
+    tjs__wasm_global_init();
+#endif
 }
 
 TJSRuntime *TJS_NewRuntimeInternal(bool is_worker, TJSRunOptions *options) {
