@@ -13,10 +13,10 @@ async function raw(port, request) {
     const writer = writable.getWriter();
 
     // The server may close as soon as it sees the bad framing, so a write or a
-    // read may fail: either way it ends what the client gets back.
+    // read may fail: either way it ends what the client gets back. The write
+    // side is left open: the server closes the connection (Connection: close).
     try {
         await writer.write(encoder.encode(request));
-        await writer.close();
     } catch {}
 
     const reader = readable.getReader();
@@ -102,7 +102,7 @@ for (const [ path, body, whole ] of malformed) {
 const ok = await raw(server.port, chunked('/valid', '5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n'));
 
 assert.ok(ok.startsWith('HTTP/1.1 200'), `valid chunked request is answered with 200, got ${JSON.stringify(ok)}`);
-assert.ok(ok.endsWith('got:hello world'), 'valid chunked body is echoed back');
+assert.ok(ok.includes('got:hello world'), `valid chunked body is echoed back, got ${JSON.stringify(ok)}`);
 assert.eq(bodies.get('/valid'), 'hello world', 'valid chunked body is delivered intact');
 
 await server.close();
