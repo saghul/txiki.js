@@ -42,6 +42,16 @@
  * buffer with LWS_WRITE_HTTP_FINAL truncates h2 bodies larger than this. */
 #define TJS_HTTP_WRITE_CHUNK_SIZE 16384
 
+/* lws >= 5.1 (upstream 312615fcb, C-011) decodes a chunked h1 request body
+ * itself and enforces the framing: LWS_CALLBACK_HTTP_BODY carries the payload
+ * only, and the last-chunk ends it with LWS_CALLBACK_HTTP_BODY_COMPLETION.
+ * Older lws hands over the raw framing, which we decode ourselves. */
+#if LWS_LIBRARY_VERSION_NUMBER >= 5001000
+#define TJS_LWS_DECHUNKS_REQUEST_BODY 1
+#else
+#define TJS_LWS_DECHUNKS_REQUEST_BODY 0
+#endif
+
 typedef enum {
     TJS_HTTP_CHUNK_STATE_SIZE,
     TJS_HTTP_CHUNK_STATE_DATA,
@@ -368,6 +378,7 @@ static TJSHttpServer *tjs_httpserver_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_HTTPSERVER));
 }
 
+#if !TJS_LWS_DECHUNKS_REQUEST_BODY
 static int tjs_http_chunk_hex_value(uint8_t c) {
     if (c >= '0' && c <= '9') {
         return c - '0';
@@ -380,6 +391,7 @@ static int tjs_http_chunk_hex_value(uint8_t c) {
     }
     return -1;
 }
+#endif
 
 static int tjs_http_emit_body_chunk(TJSHttpServer *s, TJSHttpRequest *req, const uint8_t *data, size_t len) {
     JSContext *ctx = s->ctx;
@@ -941,7 +953,8 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
              * ambiguous (RFC 9112 § 6.1, request smuggling); lws rejects it in
              * its own parser before this callback, so we need not re-check here.
              * Only "chunked" is a recognized transfer coding; reject anything
-             * else, which lws does not. */
+             * else, which lws < 5.1 does not (lws >= 5.1 answers it with 501
+             * before this callback). */
             if (has_te > 0) {
                 char te[32];
                 int te_len = lws_hdr_copy(wsi, te, sizeof(te), WSI_TOKEN_HTTP_TRANSFER_ENCODING);
@@ -982,6 +995,14 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 return 0;
             }
 
+#if TJS_LWS_DECHUNKS_REQUEST_BODY
+            /* Decoded payload, at most one read's worth: the chunk size never
+             * drives an allocation here. */
+            if (len > 0) {
+                tjs_http_emit_body_chunk(s, req, in, len);
+            }
+            return 0;
+#else
             /* Chunked: de-chunk the data and detect the terminator. */
             const uint8_t *p = (const uint8_t *) in;
             const uint8_t *end = p + len;
@@ -1108,6 +1129,7 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             }
 
             return 0;
+#endif
         }
 
         case LWS_CALLBACK_HTTP_BODY_COMPLETION: {
@@ -1117,6 +1139,20 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             }
 
             req->body_complete = true;
+
+#if TJS_LWS_DECHUNKS_REQUEST_BODY
+            if (req->chunked) {
+                /* The handler already runs (it was invoked at the head, to
+                 * stream the body): end its body stream instead. */
+                JSValue cb_args[2];
+                cb_args[0] = JS_NewInt64(s->ctx, req->id);
+                cb_args[1] = JS_NULL;
+                tjs_call_handler(s->ctx, s->body_chunk_callback, 2, cb_args);
+                JS_FreeValue(s->ctx, cb_args[0]);
+                return 0;
+            }
+#endif
+
             tjs_http_invoke_handler(s, req);
             return 0;
         }
