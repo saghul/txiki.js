@@ -2106,6 +2106,16 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
         return JS_ThrowPlainError(ctx, "failed to write response headers");
     }
 
+    /* A streaming response (e.g. SSE) may legitimately idle for any length
+     * of time between chunks, and tjs.serve puts no idle limit on it. Without
+     * this, lws's pending timeouts cut it mid-body: the h1 request-content
+     * timeout, the h2/h3 response timeout and, on h2, the connection's
+     * keepalive-idle timeout. This clears the stream's timeout and, on a mux
+     * stream, keeps the connection immortal while the stream is open. It also
+     * detaches the request headers, which we already copied in
+     * LWS_CALLBACK_HTTP. */
+    lws_http_mark_sse(req->wsi);
+
     js_free(ctx, header_buf);
     return JS_TRUE;
 }
