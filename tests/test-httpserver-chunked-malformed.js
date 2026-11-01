@@ -21,30 +21,46 @@ async function raw(port, request) {
 
     const reader = readable.getReader();
     const chunks = [];
+    const timedOut = Symbol('timeout');
+
+    // The failsafe only keeps a hung server from hanging the test: running
+    // into it is a failure, so it is reported as its own outcome.
+    let timer;
+    const failsafe = new Promise(resolve => {
+        timer = setTimeout(() => resolve(timedOut), 5000);
+    });
+    let end;
 
     while (true) {
         let result;
 
         try {
-            const timeout = delay(500).then(() => ({ done: true }));
-
-            result = await Promise.race([ reader.read(), timeout ]);
+            result = await Promise.race([ reader.read(), failsafe ]);
         } catch {
+            end = 'error';
+            break;
+        }
+
+        if (result === timedOut) {
+            end = 'timeout';
             break;
         }
 
         if (result.done) {
+            end = 'eof';
             break;
         }
 
         chunks.push(decoder.decode(result.value, { stream: true }));
     }
 
+    clearTimeout(timer);
+
     try {
         con.close();
     } catch {}
 
-    return chunks.join('');
+    return { text: chunks.join(''), end };
 }
 
 function chunked(path, body) {
@@ -86,9 +102,10 @@ const malformed = [
 ];
 
 for (const [ path, body, whole ] of malformed) {
-    const res = await raw(server.port, chunked(path, body));
+    const { text, end } = await raw(server.port, chunked(path, body));
 
-    assert.ok(res === '' || /^HTTP\/1\.[01] 4\d\d /.test(res), `${path}: closed or 4xx, got ${JSON.stringify(res)}`);
+    assert.ok(end !== 'timeout', `${path}: the server ends the connection instead of hanging`);
+    assert.ok(text === '' || /^HTTP\/1\.[01] 4\d\d /.test(text), `${path}: closed or 4xx, got ${JSON.stringify(text)}`);
 
     // Give the handler a chance to see whatever the server delivered.
     await delay(100);
@@ -99,8 +116,9 @@ for (const [ path, body, whole ] of malformed) {
 }
 
 // (d) control: a valid two-chunk body is delivered intact.
-const ok = await raw(server.port, chunked('/valid', '5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n'));
+const { text: ok, end: okEnd } = await raw(server.port, chunked('/valid', '5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n'));
 
+assert.eq(okEnd, 'eof', 'valid chunked request ends with the server closing (Connection: close)');
 assert.ok(ok.startsWith('HTTP/1.1 200'), `valid chunked request is answered with 200, got ${JSON.stringify(ok)}`);
 assert.ok(ok.includes('got:hello world'), `valid chunked body is echoed back, got ${JSON.stringify(ok)}`);
 assert.eq(bodies.get('/valid'), 'hello world', 'valid chunked body is delivered intact');
