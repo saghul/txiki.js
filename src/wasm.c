@@ -36,6 +36,16 @@
 #define TJS__WASM_MAX_ARGS       32
 #define TJS__WASM_ERROR_BUF_SIZE 256
 
+/* Guards WAMR's process-global native symbol list, which WAMR itself does not
+ * lock and every Worker thread shares: the register / resolve / unregister
+ * sequence in tjs__wasm_link_imports and the resolve in buildInstance. Never
+ * held across wasm_runtime_instantiate or anything that can run JS. */
+static uv_mutex_t tjs__wasm_native_lock;
+
+void tjs__wasm_global_init(void) {
+    CHECK_EQ(uv_mutex_init(&tjs__wasm_native_lock), 0);
+}
+
 typedef struct TJSWasmModule TJSWasmModule;
 typedef struct TJSWasmInstance TJSWasmInstance;
 
@@ -1066,7 +1076,9 @@ static char *tjs__wasm_build_signature(JSContext *ctx, wasm_func_type_t ft) {
 /* Link every import that `inst` provides a JS function for to the trampoline.
  * WAMR resolves imports against a process-global native symbol list, so the
  * symbols are registered only for the duration of the resolve: nothing of
- * ours stays there for another module to bind to. */
+ * ours stays there for another module to bind to. WAMR doesn't lock that
+ * list, so register, resolve and unregister run as one critical section under
+ * tjs__wasm_native_lock. */
 static bool tjs__wasm_link_imports(JSContext *ctx, TJSWasmModule *m, TJSWasmInstance *inst) {
     typedef struct {
         const char *module_name;
@@ -1122,21 +1134,24 @@ static bool tjs__wasm_link_imports(JSContext *ctx, TJSWasmModule *m, TJSWasmInst
         }
     }
 
+    uv_mutex_lock(&tjs__wasm_native_lock);
     for (; n_registered < n_groups; n_registered++) {
         SymbolGroup *group = &groups[n_registered];
         if (!wasm_runtime_register_natives_raw(group->module_name, group->symbols, group->count)) {
-            goto done;
+            break;
         }
     }
-
-    wasm_runtime_resolve_symbols(m->module);
-    m->imports_linked = true;
-    ok = true;
-
-done:
+    if (n_registered == n_groups) {
+        wasm_runtime_resolve_symbols(m->module);
+        m->imports_linked = true;
+        ok = true;
+    }
     for (uint32_t g = 0; g < n_registered; g++) {
         wasm_runtime_unregister_natives(groups[g].module_name, groups[g].symbols);
     }
+    uv_mutex_unlock(&tjs__wasm_native_lock);
+
+done:
     js_free(ctx, groups);
     js_free(ctx, syms);
     if (!ok) {
@@ -1251,7 +1266,9 @@ static JSValue tjs_wasm_buildinstance(JSContext *ctx, JSValue this_val, int argc
     uint32_t stack_size = qrt->wasm_ctx.stack_size;
 
     // Resolve any remaining symbols (WASI, etc.) if not already resolved
+    uv_mutex_lock(&tjs__wasm_native_lock);
     wasm_runtime_resolve_symbols(m->module);
+    uv_mutex_unlock(&tjs__wasm_native_lock);
 
     // Instantiate the module. Saved and restored, since a start function can
     // call into JS which instantiates the same module again.
@@ -1450,6 +1467,7 @@ static JSValue tjs_wasm_parsemodule(JSContext *ctx, JSValue this_val, int argc, 
 
     char error_buf[TJS__WASM_ERROR_BUF_SIZE];
     LoadArgs load_args = { 0 };
+    /* Also keeps the load off WAMR's native symbol list, so it needs no lock. */
     load_args.no_resolve = true;
     m->module = wasm_runtime_load_ex(m->data.bytes, (uint32_t) size, &load_args, error_buf, sizeof(error_buf));
     if (!m->module) {
@@ -2066,7 +2084,11 @@ static JSValue tjs_wasm_validate(JSContext *ctx, JSValue this_val, int argc, JSV
     }
     memcpy(copy, buf, buf_len);
 
-    wasm_module_t module = wasm_runtime_load(copy, (uint32_t) buf_len, error_buf, sizeof(error_buf));
+    /* Unresolved imports don't fail a load, and not resolving keeps validation
+     * off WAMR's native symbol list (see tjs__wasm_native_lock). */
+    LoadArgs load_args = { 0 };
+    load_args.no_resolve = true;
+    wasm_module_t module = wasm_runtime_load_ex(copy, (uint32_t) buf_len, &load_args, error_buf, sizeof(error_buf));
     if (module) {
         wasm_runtime_unload(module);
         return JS_TRUE;
