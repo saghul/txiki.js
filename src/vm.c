@@ -1038,6 +1038,10 @@ void tjs__drain_microtasks(JSContext *ctx) {
     }
 }
 
+static bool tjs__worker_terminating(TJSRuntime *qrt) {
+    return qrt->is_worker && atomic_load(&qrt->terminating);
+}
+
 void tjs__execute_jobs(JSContext *ctx) {
     tjs__drain_microtasks(ctx);
 
@@ -1050,6 +1054,17 @@ void tjs__execute_jobs(JSContext *ctx) {
     struct list_head *el, *el1;
     list_for_each_safe(el, el1, &qrt->pending_rejections) {
         TJSPendingRejection *pr = list_entry(el, TJSPendingRejection, link);
+
+        /* A terminated worker drops its rejections. Module evaluation turns the
+         * interrupt that aborts a busy module body into a rejection of the module
+         * promise, so this is where the abort itself usually shows up. */
+        if (tjs__worker_terminating(qrt)) {
+            list_del(&pr->link);
+            JS_FreeValue(ctx, pr->promise);
+            JS_FreeValue(ctx, pr->reason);
+            js_free(ctx, pr);
+            continue;
+        }
 
         JSValue event_name = JS_NewString(ctx, "unhandledrejection");
         JSValue args[3];
@@ -1065,14 +1080,20 @@ void tjs__execute_jobs(JSContext *ctx) {
         /* User code can break the event constructor (e.g. by overwriting
          * globals it uses), so treat that as an unhandled rejection. */
         if (JS_IsException(event)) {
-            tjs_dump_error(ctx);
+            if (!tjs__worker_terminating(qrt)) {
+                tjs_dump_error(ctx);
+            }
             should_abort = true;
         } else {
             JSValue ret = tjs__dispatch_event(ctx, &event);
             JS_FreeValue(ctx, event);
 
             if (JS_IsException(ret)) {
-                tjs_dump_error(ctx);
+                /* Terminated mid-dispatch: the pending interrupt is replaced
+                 * below and freed silently by TJS_Run. */
+                if (!tjs__worker_terminating(qrt)) {
+                    tjs_dump_error(ctx);
+                }
                 should_abort = true;
             } else if (JS_ToBool(ctx, ret)) {
                 /* The event wasn't cancelled, abort. */
@@ -1198,7 +1219,7 @@ int TJS_Run(TJSRuntime *qrt) {
     }
 
     if (JS_HasException(qrt->ctx)) {
-        if (qrt->is_worker && atomic_load(&qrt->terminating)) {
+        if (tjs__worker_terminating(qrt)) {
             /* A terminated worker exits silently. */
             JS_FreeValue(qrt->ctx, JS_GetException(qrt->ctx));
         } else {

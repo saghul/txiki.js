@@ -2,7 +2,8 @@
 // that is stuck in a synchronous busy loop. The mode picks where the loop runs.
 const mode = tjs.args.at(-1);
 
-const prelude = 'self.onerror = e => console.error(\'worker onerror\', e.message);';
+const prelude = 'self.onerror = e => console.error(\'worker onerror\', e.message);'
+    + 'self.onunhandledrejection = e => console.error(\'worker onunhandledrejection\', e.reason?.message);';
 const sources = {
     'top-level': 'self.postMessage(\'busy\'); for (;;) {}',
     'onmessage': 'self.onmessage = () => { self.postMessage(\'busy\'); for (;;) {} };',
