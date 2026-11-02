@@ -84,7 +84,8 @@ typedef struct {
     bool got_response;   /* the (non-interim) response headers arrived */
     bool connecting;     /* this request opened a socket of its own */
     bool headers_sent;   /* lws asked us for the request headers: it was sent */
-    bool retried;        /* the one retry of an unsent request was used */
+    bool sent_on_mux;    /* headers went out on an h2/h3 stream */
+    bool retried;        /* the one retry of the request was used */
     bool retry_pending;  /* retry_sul is scheduled */
     lws_usec_t start_us; /* request start */
     lws_sorted_usec_list_t retry_sul;
@@ -291,18 +292,58 @@ static void httpclient_teardown(TJSHttpClient *h, struct lws *cbwsi) {
     tjs__handle_unpin(h->ctx, &h->pin);
 }
 
-/* A request issued while another one to the same origin is setting up its
- * connection (or, on h1, still waiting for its response) is queued on that
- * request's wsi. When that request's connection closes for any reason (abort,
- * timeout, peer reset), lws closes everything queued on it, although none of
- * it was sent, and tells each one CLOSED_CLIENT_HTTP. Such a request gets one
- * more attempt on a fresh connection, as a browser would. Nothing that went
- * out on the wire is ever retried: lws never asked for its headers and it
- * never had a socket of its own. A request that failed on its own connection
- * before connecting (DNS) is told CLIENT_CONNECTION_ERROR instead. */
+/* True for an h2/h3 stream, which runs on a network wsi of its own; false for
+ * h1, where the request's wsi is the connection. */
+static bool httpclient_wsi_is_mux(struct lws *wsi) {
+    return lws_get_network_wsi(wsi) != wsi;
+}
+
+/* RFC 9110 §9.2.2. Fetch and XHR uppercase the standard methods, so an exact
+ * match suffices; anything else (POST, PATCH, custom methods) is not. */
+static bool httpclient_method_is_idempotent(const char *method) {
+    static const char *const methods[] = { "GET", "HEAD", "OPTIONS", "TRACE", "PUT", "DELETE" };
+    for (size_t i = 0; i < sizeof(methods) / sizeof(methods[0]); i++) {
+        if (!strcmp(method, methods[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* A request gets one more attempt on a fresh connection, as a browser would,
+ * in two cases. Both only apply to a request that did not open the connection
+ * it failed on (a request on its own new connection is never retried).
+ *
+ * 1. A request issued while another one to the same origin is setting up its
+ *    connection (or, on h1, still waiting for its response) is queued on that
+ *    request's wsi. When that request's connection closes for any reason
+ *    (abort, timeout, peer reset), lws closes everything queued on it, although
+ *    none of it was sent, and tells each one CLOSED_CLIENT_HTTP. lws never
+ *    asked for its headers: nothing went out on the wire. A request that
+ *    failed before lws asked for its headers on a connection of its own (DNS)
+ *    is told CLIENT_CONNECTION_ERROR instead, and is not retried.
+ *
+ * 2. An h1 keep-alive server may close an idle connection right after a
+ *    response (its idle timeout), racing the next request lws puts on it: the
+ *    local write succeeds, but the server never reads the request. Like
+ *    Chromium (HttpNetworkTransaction::ShouldResendRequest) and RFC 9112
+ *    §9.3.1, a request that went out on a reused connection which then closed
+ *    before any response headers is resent, but only if replaying it is safe:
+ *    an idempotent method and a buffered (not streamed) body. lws reports the
+ *    peer's FIN while awaiting the response as CLIENT_CONNECTION_ERROR
+ *    ("server closed before responding") and a reset as CLOSED_CLIENT_HTTP,
+ *    so either counts. It swallows 1xx interim responses and exposes no way
+ *    to tell one, or a partial or malformed response head, arrived: a request
+ *    whose connection dies after one of those is resent too. h2/h3 streams
+ *    are left out: a stream closed there is a RST_STREAM/GOAWAY matter, not a
+ *    stale socket.
+ *
+ * Either way the retry is the request's only one. */
 static bool httpclient_should_retry(TJSHttpClient *h, enum lws_callback_reasons reason) {
-    return reason == LWS_CALLBACK_CLOSED_CLIENT_HTTP && !h->completed && !h->retried && !h->connecting &&
-           !h->headers_sent;
+    return !h->completed && !h->retried && !h->connecting &&
+           ((reason == LWS_CALLBACK_CLOSED_CLIENT_HTTP && !h->headers_sent) ||
+            (h->headers_sent && !h->got_response && !h->sent_on_mux && !h->streaming &&
+             httpclient_method_is_idempotent(h->method)));
 }
 
 static int tjs_httpclient_connect(TJSHttpClient *h);
@@ -333,6 +374,14 @@ static void httpclient_retry_cb(lws_sorted_usec_list_t *sul) {
  * request keeps its pin and its loop reference meanwhile. */
 static void httpclient_schedule_retry(TJSHttpClient *h, struct lws *cbwsi) {
     httpclient_release_wsi(h, cbwsi);
+    /* The attempt that failed may have composed and written the request
+     * already: the retry sends it again from the start. */
+    h->headers_sent = false;
+    h->sent_on_mux = false;
+    h->req_sent = false;
+    h->send_offset = 0;
+    h->keepalive = true;
+    h->connecting = false;
     h->retried = true;
     h->retry_pending = true;
     lws_sul_schedule(tjs__lws_get_context(h->ctx), 0, &h->retry_sul, httpclient_retry_cb, 1);
@@ -527,6 +576,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
             unsigned char **p = (unsigned char **) in, *end = (*p) + len;
 
             h->headers_sent = true;
+            h->sent_on_mux = httpclient_wsi_is_mux(wsi);
 
             /* Add User-Agent header unless the user already set one. */
             if (!has_request_header(&h->req_headers, "User-Agent")) {
@@ -556,7 +606,10 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
             /* Add custom headers stored in req_headers TBuf.
              * Format: "Name: Value\r\nName2: Value2\r\n" */
             if (h->req_headers.size > 0) {
-                tbuf_putc(&h->req_headers, '\0');
+                /* NUL-terminate once: a retry composes the headers again. */
+                if (h->req_headers.buf[h->req_headers.size - 1] != '\0') {
+                    tbuf_putc(&h->req_headers, '\0');
+                }
                 char *headers = (char *) h->req_headers.buf;
                 char *line = headers;
                 while (line && *line) {
@@ -584,6 +637,9 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                                                         (int) strlen(value),
                                                         p,
                                                         end)) {
+                            /* Leave req_headers intact for a retry. */
+                            *colon = ':';
+                            *eol = '\r';
                             return -1;
                         }
                         *colon = ':';
@@ -1098,9 +1154,9 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
      * "connection: close" on h1, and on h2 the dedicated connection carries no
      * connection header at all (it would be malformed there).
      *
-     * The one retry of a request lws closed unsent (httpclient_should_retry)
-     * gets its own connection too, so it can't be queued behind, and fail with,
-     * another connection again. */
+     * The one retry of a request (httpclient_should_retry) gets its own
+     * connection too, so it can't be queued behind, fail with, or race the
+     * idle close of another connection again. */
     cci.ssl_connection = (use_ssl ? LCCSCF_USE_SSL : 0) | h->ssl_flags | LCCSCF_HTTP_NO_FOLLOW_REDIRECT |
                          LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM |
                          (h->streaming || h->conn_close || h->retried ? 0 : LCCSCF_PIPELINE);
