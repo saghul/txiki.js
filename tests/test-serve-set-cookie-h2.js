@@ -3,8 +3,8 @@ import path from 'tjs:path';
 
 // Two Set-Cookie headers sent by tjs.serve over HTTP/2 must reach the client
 // as two cookies: a credentialed fetch stores both and sends both back. The
-// fetch client merges repeated response headers itself, so the check goes
-// through the cookie jar, which a child process gets in an isolated TJS_HOME.
+// check goes through the cookie jar (which a child process gets in an isolated
+// TJS_HOME); test-fetch-response-set-cookie.js covers getSetCookie() directly.
 
 const tmpHome = await tjs.makeTempDir('tjs-cookie-jar-XXXXXX');
 
