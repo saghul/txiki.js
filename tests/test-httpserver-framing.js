@@ -3,10 +3,6 @@ import assert from 'tjs:assert';
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 async function raw(port, request) {
     const con = await tjs.connect('tcp', '127.0.0.1', port);
     const { readable, writable } = await con.opened;
@@ -14,24 +10,27 @@ async function raw(port, request) {
 
     await writer.write(encoder.encode(request));
 
-    try {
-        await writer.close();
-    } catch {}
-
+    // Don't half-close before reading: the server treats the FIN as a full
+    // close and drops a response the handler hasn't written yet. Every request
+    // sends `Connection: close`, so read until EOF, bounded by one deadline.
     const reader = readable.getReader();
     const chunks = [];
+    let timer;
+    const deadline = new Promise(resolve => {
+        timer = setTimeout(() => resolve({ done: true }), 5000);
+    });
 
     while (true) {
-        const read = reader.read();
-        const timeout = delay(500).then(() => ({ done: true, timeout: true }));
-        const { value, done, timeout: timedOut } = await Promise.race([ read, timeout ]);
+        const { value, done } = await Promise.race([ reader.read(), deadline ]);
 
-        if (done || timedOut) {
+        if (done) {
             break;
         }
 
         chunks.push(decoder.decode(value, { stream: true }));
     }
+
+    clearTimeout(timer);
 
     try {
         con.close();
