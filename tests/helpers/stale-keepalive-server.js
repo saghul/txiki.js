@@ -1,10 +1,16 @@
 // Raw keep-alive HTTP/1.1 server whose first connection goes stale: connection
-// 0 handles its first request and then closes at once, without sending
+// 0 handles its first request and then closes, without sending
 // "Connection: close" (a server's keep-alive idle timeout racing the client's
-// next request). In mode 'reply-then-close' it replies first; in mode
-// 'close-before-reply' it closes without replying. Later connections reply
-// to every request with "ok <path>". It records every request it reads and
-// counts the connections it accepts.
+// next request). In mode 'reply-then-close' it replies and then only
+// half-closes: the client sees a FIN, but the server keeps reading, so a
+// request written onto the stale connection is recorded (never answered) and
+// a retry can be told apart from a request that went out on a fresh
+// connection in the first place. In mode 'close-before-reply' it fully
+// closes without replying. Later connections reply to every request with
+// "ok <path>". It records every request it reads and counts the connections
+// it accepts. staleDone settles once connection 0 is gone (the client closed
+// it); await it before reading state.requests, since the client can report a
+// failure before the server has read the stale write.
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -13,6 +19,7 @@ export async function startStaleKeepAliveServer(mode = 'reply-then-close') {
     const { readable, localPort } = await server.opened;
     const state = { connections: 0, requests: [] };
     const conns = [];
+    const { promise: staleDone, resolve: resolveStaleDone } = Promise.withResolvers();
 
     (async () => {
         const reader = readable.getReader();
@@ -33,7 +40,12 @@ export async function startStaleKeepAliveServer(mode = 'reply-then-close') {
             const connIndex = state.connections++;
 
             conns.push(accepted.value);
-            handleConnection(accepted.value, connIndex, state, mode);
+
+            const handled = handleConnection(accepted.value, connIndex, state, mode);
+
+            if (connIndex === 0) {
+                handled.then(resolveStaleDone);
+            }
         }
     })();
 
@@ -49,7 +61,7 @@ export async function startStaleKeepAliveServer(mode = 'reply-then-close') {
         await server.close();
     };
 
-    return { base: `http://127.0.0.1:${localPort}`, state, close };
+    return { base: `http://127.0.0.1:${localPort}`, state, staleDone, close };
 }
 
 async function handleConnection(conn, connIndex, state, mode) {
@@ -57,6 +69,7 @@ async function handleConnection(conn, connIndex, state, mode) {
     const reader = readable.getReader();
     const writer = writable.getWriter();
     let buf = '';
+    let halfClosed = false;
 
     const fill = async () => {
         const { value, done } = await reader.read();
@@ -100,6 +113,10 @@ async function handleConnection(conn, connIndex, state, mode) {
                 break;
             }
 
+            if (halfClosed) {
+                continue;
+            }
+
             // Give requests issued in the same tick time to queue on this connection.
             await new Promise(r => setTimeout(r, 10));
 
@@ -109,7 +126,9 @@ async function handleConnection(conn, connIndex, state, mode) {
             await writer.write(encoder.encode(method === 'HEAD' ? head : head + text));
 
             if (stale) {
-                break;
+                // Shuts down the write side only; the loop reads until the client closes.
+                await writer.close();
+                halfClosed = true;
             }
         }
     } catch {
