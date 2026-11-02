@@ -574,6 +574,10 @@ set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" 
 #   - lws-h2-empty-body-completion-any-method.patch: an h2 request ended with
 #     its HEADERS got the empty body completion only for POST, so an empty
 #     no-Content-Length PUT / PATCH / DELETE whose body we stream never ended.
+#   - lws-h2-client-rst-abandoned-stream.patch: a client h2 stream closed
+#     before its answer ended (an aborted fetch on a pooled connection) was
+#     never reset, so the server went on sending its answer; it now gets
+#     RST_STREAM(CANCEL), the client side of upstream 35c77bb96b.
 tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets" "lws-")
 
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)

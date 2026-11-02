@@ -1,0 +1,66 @@
+h2: a client stream closing before its answer ended is reset with CANCEL
+
+A client h2 stream that is closed before the peer ended its answer, eg, a
+request its user aborted with lws_set_timeout(LWS_TO_KILL_ASYNC) on a pooled
+connection, goes away without telling the server.  The general "swsi got
+closed" RST_STREAM in rops_close_kill_connection_h2() is commented out, and
+the resets upstream added there (35c77bb96b "h2: a stream closing before its
+answer ended is reset with CANCEL", and the "answered before the request
+ended" one) are only for server streams.  So the server keeps producing and
+sending the answer for a stream nobody reads (the client drops it as
+straggling DATA), for ever if it never ends, and the stream stays open on the
+connection until the connection itself closes.  On txiki.js, about 23 such
+aborts on one pooled connection while another stream stays open make the next
+request on it fail.
+
+Reset such a stream with RST_STREAM(CANCEL), as 35c77bb96b does for a server
+stream abandoning its answer: a client mux substream whose peer has not ended
+its side (h2.END_STREAM, latched as the END_STREAM is consumed), that is not
+IDLE (never sent, nothing to reset) or CLOSED (already reset either way, or
+done with), on a connection that is not itself closing, which says it for
+every stream.  A request whose answer ended normally is not reset.  If the
+reset can't be queued, it is logged, as for the server streams.
+
+lws_h2_rst_stream() latches on the stream's own h2.rst_queued on v5.1.0, not
+on the parser's frame type, so a close outside the parser (at POLLOUT, from
+a timeout) queues it.
+
+Not an upstream backport: v5.1.0 (5f39aa483) and main (095ee0784d) still
+never reset a client stream.  It is the client-side counterpart of upstream
+35c77bb96b.  Upstreamable.
+
+---
+diff --git a/lib/sansio/h2/ops-h2.c b/lib/sansio/h2/ops-h2.c
+index 1d4e00af1..279e6ed41 100644
+--- a/lib/sansio/h2/ops-h2.c
++++ b/lib/sansio/h2/ops-h2.c
+@@ -921,6 +921,29 @@ rops_close_kill_connection_h2(struct lws *wsi, enum lws_close_status reason)
+ 			lwsl_wsi_info(wsi, "%s: couldn't queue RST_STREAM",
+ 				      __func__);
+ 	}
++#if defined(LWS_WITH_CLIENT)
++	else if (wsi->client_mux_substream &&
++		 !wsi->h2.END_STREAM &&
++		 wsi->h2.h2_state != LWS_H2_STATE_CLOSED &&
++		 wsi->h2.h2_state != LWS_H2_STATE_IDLE &&
++		 wsi->mux.parent_wsi &&
++		 !lwsi_close_started(wsi->mux.parent_wsi)) {
++		/*
++		 * The client counterpart: the stream is going away before the
++		 * peer ended its answer, eg, the user aborted the request.
++		 * Without a reset the server would go on producing the answer
++		 * for a stream nobody reads, for ever if it never ends, and
++		 * keep the stream open on the connection.  A stream never
++		 * sent (IDLE) has nothing to reset, nor has one the peer
++		 * ended or reset, nor one whose connection is closing, which
++		 * says it for every stream.
++		 */
++		if (lws_h2_rst_stream(wsi, H2_ERR_CANCEL,
++				      "request abandoned"))
++			lwsl_wsi_info(wsi, "%s: couldn't queue RST_STREAM",
++				      __func__);
++	}
++#endif
+ 
+ 	lwsl_info(" %s, his parent %s: siblings:\n", lws_wsi_tag(wsi), lws_wsi_tag(wsi->mux.parent_wsi));
+ 	lws_wsi_mux_dump_children(wsi);
