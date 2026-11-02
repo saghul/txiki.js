@@ -33,7 +33,18 @@ try {
         assert.eq(await rawH2Request(server.port, method, '/'), `${method} ""`, `empty no-CL ${method} body ends`);
     }
 
-    assert.eq(calls, 8, 'the handler runs once per request');
+    // lws frames a no-CL h2 body only for POST, PUT and PATCH, and drops it
+    // for any other method: such a request must still be answered.
+    let timer;
+    const timeout = new Promise(resolve => {
+        timer = setTimeout(() => resolve('timed out'), 3000);
+    });
+    const deleteWithBody = rawH2Request(server.port, 'DELETE', '/', [ 'hello', 'end' ]);
+
+    assert.eq(await Promise.race([ deleteWithBody, timeout ]), 'DELETE ""', 'a no-CL DELETE body does not hang');
+    clearTimeout(timer);
+
+    assert.eq(calls, 9, 'the handler runs once per request');
 } finally {
     await server.close();
 }

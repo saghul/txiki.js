@@ -958,10 +958,13 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
              * chunked one. lws raises HTTP_BODY_COMPLETION at END_STREAM, also
              * when it came on the HEADERS (an empty body, for every method
              * only with patches/lws-h2-empty-body-completion-any-method.patch).
+             * Only POST, PUT and PATCH: lws frames a no-CL h2 body for those
+             * alone (lws_http_request_body_framing()); for any other method it
+             * never delivers nor completes the DATA, so streaming would hang.
              * Not h3: lws never completes an h3 request whose FIN came on the
-             * HEADERS, so an empty no-CL h3 DELETE would hang. */
+             * HEADERS, so an empty no-CL h3 body would never end. */
             if (req->http_version == TJS_HTTP_2 && lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH) <= 0 &&
-                req->method != LWSHUMETH_GET && req->method != LWSHUMETH_HEAD) {
+                (req->method == LWSHUMETH_POST || req->method == LWSHUMETH_PUT || req->method == LWSHUMETH_PATCH)) {
                 req->chunked = true;
                 tjs_http_invoke_handler(s, req);
                 return 0;
