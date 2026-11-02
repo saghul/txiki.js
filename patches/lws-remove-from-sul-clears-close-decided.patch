@@ -1,0 +1,54 @@
+wsi: cancelling a wsi's sul_timeout also undecides its close
+
+Upstream f4a6dc71b ("wsi: a decided close stands") and its follow-up
+e9008aa7b make lws_set_timeout(wsi, ..., LWS_TO_KILL_ASYNC) set
+wsi->close_decided, and ignore every later timeout on that wsi until
+lws_sul_wsitimeout_cb() carries the close out and clears the flag.
+
+__lws_wsi_remove_from_sul() cancels sul_timeout but leaves the flag set.
+Then nothing is left to carry the decided close out, and every later
+close of the wsi by timeout is ignored as well.  The h1 pipeline handoff,
+_lws_generic_transaction_completed_active_conn(), does exactly that: it
+cancels the retiring leader's suls by hand, hands its connection to the
+next queued transaction, then closes the leader with
+lws_set_timeout(wsi, 1, LWS_TO_KILL_ASYNC).  If the leader's close was
+already decided, eg, its user aborted it with LWS_TO_KILL_ASYNC from
+inside its final RECEIVE_CLIENT_HTTP_READ just before the transaction
+completed, that kill is ignored.  The retired leader is left with no
+socket and no timeout, and is freed only when the context is destroyed.
+
+In txiki.js that is a streaming fetch() whose reader is cancelled on the
+last chunk of its body while another request to the same origin is
+queued behind it: each time, one struct lws stays allocated (and bound to
+the client vhost) for the life of the runtime.
+
+Clear close_decided in __lws_wsi_remove_from_sul(), so the flag is only
+ever set while the sul_timeout that carries the close out is armed.  Its
+other callers are in the close path itself, where the close is already
+being carried out and lws_sul_wsitimeout_cb() would have cleared it too.
+
+Not an upstream backport: v5.1.0 (5f39aa483) and main (d954e68f2) have
+the same sequence.  It is the deviation txiki.js carried in its backport
+of f4a6dc71b/e9008aa7b for the v5.0-stable pin ac23cae70
+(lws-close-decided-stands.patch), rebased onto lib/sansio/wsi.c.
+Upstream PR: https://github.com/warmcat/libwebsockets/pull/3685
+
+---
+diff --git a/lib/sansio/wsi.c b/lib/sansio/wsi.c
+index 88995b94f..37070958c 100644
+--- a/lib/sansio/wsi.c
++++ b/lib/sansio/wsi.c
+@@ -2812,6 +2812,13 @@ lws_callback_as_writeable(struct lws *wsi)
+ void
+ __lws_wsi_remove_from_sul(struct lws *wsi)
+ {
++	/*
++	 * A decided close is carried out by sul_timeout; with it cancelled
++	 * there is nothing left to carry it out, so a later close, eg, the
++	 * KILL_ASYNC on a pipeline leader that handed off its connection, must
++	 * be able to arm it again.
++	 */
++	wsi->close_decided = 0;
+ 	lws_sul_cancel(&wsi->sul_timeout);
+ 	lws_sul_cancel(&wsi->sul_hrtimer);
+ 	lws_sul_cancel(&wsi->sul_validity);

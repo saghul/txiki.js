@@ -784,6 +784,8 @@ static int tjs__lws_load_http_once(TJSRuntime *qrt, TJSHttpLoadCtx *load_ctx, co
     cci.ssl_connection =
         (use_ssl ? LCCSCF_USE_SSL : 0) | LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM;
     cci.method = "GET";
+    /* No QUIC on this path, so never offer h3 (lws's default list would). */
+    cci.alpn = "h2,http/1.1";
     cci.local_protocol_name = TJS_LWS_HTTP_LOAD_PROTOCOL_NAME;
     cci.userdata = load_ctx;
 

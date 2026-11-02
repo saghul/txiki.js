@@ -33,20 +33,11 @@
 #ifndef MIN
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #endif
-#define TJS_HTTP_MAX_CHUNK_SIZE        (64 * 1024 * 1024)
-#define TJS_HTTP_MAX_CHUNK_SIZE_DIGITS 16
-#define TJS_HTTP_MAX_CHUNK_HEADER_SIZE 1024
 /* Max payload handed to a single lws_write(). Over HTTP/2 a response body
  * must be written in chunks the connection can flush per writable callback
  * (matches H2SET_MAX_FRAME_SIZE / pt_serv_buf_size); handing lws one giant
  * buffer with LWS_WRITE_HTTP_FINAL truncates h2 bodies larger than this. */
 #define TJS_HTTP_WRITE_CHUNK_SIZE 16384
-
-typedef enum {
-    TJS_HTTP_CHUNK_STATE_SIZE,
-    TJS_HTTP_CHUNK_STATE_DATA,
-    TJS_HTTP_CHUNK_STATE_DATA_CRLF,
-} TJSHttpChunkState;
 
 /*
  * Pending write for streaming responses (modeled after TJSWsPendingWrite in ws.c).
@@ -97,14 +88,6 @@ typedef struct TJSHttpRequest {
     bool body_complete;
     bool dispatched; /* JS handler has been invoked for this request */
     bool chunked;    /* true for Transfer-Encoding: chunked — body is streamed to JS */
-    TJSHttpChunkState chunk_state;
-    size_t chunk_size;
-    size_t chunk_remaining;
-    size_t chunk_header_len;
-    uint8_t chunk_size_digits;
-    uint8_t chunk_crlf_seen;
-    bool chunk_size_extension;
-    bool chunk_size_cr;
 
     /* Response state. */
     bool responded;
@@ -366,19 +349,6 @@ static JSClassDef tjs_httpserver_class = {
 
 static TJSHttpServer *tjs_httpserver_get(JSContext *ctx, JSValue obj) {
     return JS_GetOpaque2(ctx, obj, tjs__class_id(ctx, TJS_CLASS_HTTPSERVER));
-}
-
-static int tjs_http_chunk_hex_value(uint8_t c) {
-    if (c >= '0' && c <= '9') {
-        return c - '0';
-    }
-    if (c >= 'a' && c <= 'f') {
-        return c - 'a' + 10;
-    }
-    if (c >= 'A' && c <= 'F') {
-        return c - 'A' + 10;
-    }
-    return -1;
 }
 
 static int tjs_http_emit_body_chunk(TJSHttpServer *s, TJSHttpRequest *req, const uint8_t *data, size_t len) {
@@ -940,8 +910,10 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             /* A message carrying both Content-Length and Transfer-Encoding is
              * ambiguous (RFC 9112 § 6.1, request smuggling); lws rejects it in
              * its own parser before this callback, so we need not re-check here.
-             * Only "chunked" is a recognized transfer coding; reject anything
-             * else, which lws does not. */
+             * Only "chunked" is a recognized transfer coding. lws already
+             * answers any other h1 Transfer-Encoding with 501 before this
+             * callback (h2/h3 refuse TE at their framing layer), so this is
+             * a backstop that should not normally fire. */
             if (has_te > 0) {
                 char te[32];
                 int te_len = lws_hdr_copy(wsi, te, sizeof(te), WSI_TOKEN_HTTP_TRANSFER_ENCODING);
@@ -982,131 +954,13 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 return 0;
             }
 
-            /* Chunked: de-chunk the data and detect the terminator. */
-            const uint8_t *p = (const uint8_t *) in;
-            const uint8_t *end = p + len;
-            JSContext *ctx = s->ctx;
-
-            while (p < end) {
-                if (req->chunk_state == TJS_HTTP_CHUNK_STATE_SIZE) {
-                    bool size_complete = false;
-
-                    while (p < end) {
-                        uint8_t c = *p++;
-
-                        if (++req->chunk_header_len > TJS_HTTP_MAX_CHUNK_HEADER_SIZE) {
-                            return -1;
-                        }
-
-                        if (req->chunk_size_cr) {
-                            if (c != '\n' || req->chunk_size_digits == 0) {
-                                return -1;
-                            }
-
-                            req->chunk_size_cr = false;
-                            req->chunk_size_extension = false;
-                            req->chunk_size_digits = 0;
-                            req->chunk_header_len = 0;
-                            size_complete = true;
-                            break;
-                        }
-
-                        if (c == '\r') {
-                            req->chunk_size_cr = true;
-                            continue;
-                        }
-
-                        if (c == '\n') {
-                            return -1;
-                        }
-
-                        if (req->chunk_size_extension) {
-                            continue;
-                        }
-
-                        if (c == ';') {
-                            req->chunk_size_extension = true;
-                            continue;
-                        }
-
-                        int digit = tjs_http_chunk_hex_value(c);
-                        if (digit < 0 || req->chunk_size_digits >= TJS_HTTP_MAX_CHUNK_SIZE_DIGITS) {
-                            return -1;
-                        }
-
-                        if (req->chunk_size > (((size_t) -1) - (size_t) digit) / 16) {
-                            return -1;
-                        }
-
-                        req->chunk_size = req->chunk_size * 16 + (size_t) digit;
-                        req->chunk_size_digits++;
-
-                        if (req->chunk_size > TJS_HTTP_MAX_CHUNK_SIZE) {
-                            return -1;
-                        }
-                    }
-
-                    if (!size_complete) {
-                        break;
-                    }
-
-                    size_t chunk_size = req->chunk_size;
-                    req->chunk_size = 0;
-
-                    if (chunk_size == 0) {
-                        /* Terminal chunk. */
-                        req->body_complete = true;
-
-                        /* Signal end-of-stream to JS. */
-                        JSValue cb_args[2];
-                        cb_args[0] = JS_NewInt64(ctx, req->id);
-                        cb_args[1] = JS_NULL;
-                        tjs_call_handler(ctx, s->body_chunk_callback, 2, cb_args);
-                        JS_FreeValue(ctx, cb_args[0]);
-                        return 0;
-                    }
-
-                    req->chunk_remaining = chunk_size;
-                    req->chunk_state = TJS_HTTP_CHUNK_STATE_DATA;
-                }
-
-                if (req->chunk_state == TJS_HTTP_CHUNK_STATE_DATA) {
-                    size_t avail = end - p;
-                    size_t to_copy = MIN(req->chunk_remaining, avail);
-                    if (to_copy == 0) {
-                        break;
-                    }
-
-                    tjs_http_emit_body_chunk(s, req, p, to_copy);
-                    p += to_copy;
-                    req->chunk_remaining -= to_copy;
-
-                    if (req->chunk_remaining > 0) {
-                        break;
-                    }
-
-                    req->chunk_state = TJS_HTTP_CHUNK_STATE_DATA_CRLF;
-                    req->chunk_crlf_seen = 0;
-                }
-
-                if (req->chunk_state == TJS_HTTP_CHUNK_STATE_DATA_CRLF) {
-                    while (p < end && req->chunk_crlf_seen < 2) {
-                        uint8_t expected = req->chunk_crlf_seen == 0 ? '\r' : '\n';
-                        if (*p++ != expected) {
-                            return -1;
-                        }
-                        req->chunk_crlf_seen++;
-                    }
-
-                    if (req->chunk_crlf_seen < 2) {
-                        break;
-                    }
-
-                    req->chunk_state = TJS_HTTP_CHUNK_STATE_SIZE;
-                    req->chunk_crlf_seen = 0;
-                }
+            /* lws (>= 5.1, upstream 312615fcb) has de-chunked this: it is the
+             * decoded payload, at most one read's worth, so the chunk size
+             * never drives an allocation here. The last-chunk raises
+             * LWS_CALLBACK_HTTP_BODY_COMPLETION. */
+            if (len > 0) {
+                tjs_http_emit_body_chunk(s, req, in, len);
             }
-
             return 0;
         }
 
@@ -1117,6 +971,18 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             }
 
             req->body_complete = true;
+
+            if (req->chunked) {
+                /* The handler already runs (it was invoked at the head, to
+                 * stream the body): end its body stream instead. */
+                JSValue cb_args[2];
+                cb_args[0] = JS_NewInt64(s->ctx, req->id);
+                cb_args[1] = JS_NULL;
+                tjs_call_handler(s->ctx, s->body_chunk_callback, 2, cb_args);
+                JS_FreeValue(s->ctx, cb_args[0]);
+                return 0;
+            }
+
             tjs_http_invoke_handler(s, req);
             return 0;
         }
@@ -1595,6 +1461,9 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
     vhost_info.vhost_name = "tjs-http-server";
     vhost_info.log_cx = &qrt->lws.log_cx;
     vhost_info.options = 0;
+    /* lws >= 5.1 cuts a request body that falls below a minimum rate after a
+     * grace period; keep uploads unlimited, as they always were. */
+    vhost_info.http_body_min_rate = LWS_HTTP_BODY_MIN_RATE_NONE;
 
     /* Configure TLS if cert/key were provided. */
     if (use_tls) {
@@ -1659,6 +1528,7 @@ static JSValue tjs_httpserver_constructor(JSContext *ctx, JSValue new_target, in
         qinfo.vhost_name = "tjs-http-server-h3";
         qinfo.log_cx = &qrt->lws.log_cx;
         qinfo.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+        qinfo.http_body_min_rate = LWS_HTTP_BODY_MIN_RATE_NONE;
         qinfo.server_ssl_cert_mem = s->ssl_cert_mem;
         qinfo.server_ssl_cert_mem_len = (unsigned int) strlen(s->ssl_cert_mem);
         qinfo.server_ssl_private_key_mem = s->ssl_key_mem;

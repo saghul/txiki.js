@@ -1,41 +1,49 @@
-From: devteam builder <317464+saghul@users.noreply.github.com>
-Subject: [PATCH] client: h1: restart the guys queued on a connection that
- won't be kept alive
+client: h1: restart the guys queued on a connection that won't be kept alive
 
 When an h1 response says the connection won't be kept alive (an HTTP/1.0
-status line, or, with the Connection: close backport, a "Connection: close"
-header), lws_client_interpret_server_handshake() takes every request queued
-on that connection off its queue to restart them on connections of their
-own.  On v5.0-stable that loop only moves them back to LRS_UNCONNECTED and
-sets their user_space to NULL: nothing re-drives them, their timeout was
-cleared when they were queued, and their user can no longer find them from
-their callbacks.  The requests never go out and never settle.
-
-Before the Connection: close backport this only bit HTTP/1.0 servers; with
-it, any HTTP/1.1 server answering "Connection: close" while requests are
-queued (eg, several fetches to one origin issued in the same tick) leaves
-them hanging, where previously they failed fast with the leader.
+status line, or a "Connection: close" header, upstream cd4de7456),
+lws_client_interpret_server_handshake() takes every request queued on that
+connection off its queue to restart them on connections of their own.  On
+v5.1.0 that loop moves each of them back to LRS_UNCONNECTED with
+lws_wsi_event_role(ww, LWS_WSIEV_RESTART, ...) and sets its user_space to
+NULL, but nothing re-drives them: the RESTART event is only a state
+transition, their timeout was cleared when they were queued, and their
+user can no longer find them from their callbacks.  The requests never go
+out and never settle (txiki.js: tests/test-fetch-connection-close-concurrent.js,
+"queued fetches never settled").
 
 Keep each dequeued guy's user_space and schedule him, through his
-sul_connect_timeout (unused while he was queued), to restart from
-lws_client_connect_2_dnsreq_MAY_CLOSE_WSI().  He goes solo there, since he
-no longer pipelines, and if his connect fails he is closed and his user is
-told.  Running from the event loop keeps the restart out of the leader's
-handshake interpretation and the vhost lock it holds.
+sul_timeout (idle while he was queued), to restart the way a redirect's
+restart does in _lws_close_free_wsi_final(): lws_header_table_attach() on
+a client in LRS_UNCONNECTED goes on to lws_client_transport_start(), which
+makes him a connection of his own (he no longer pipelines).  If that
+fails he is closed and his user is told.  Running from the event loop
+keeps the restart out of the leader's handshake interpretation and the
+vhost lock it holds.  The sul is the sansIO one (struct lws), since
+lib/sansio may not touch the IO adjunct's sul_connect_timeout
+(LWS_SANSIO_CHECK).
 
-Not an upstream backport: this is specific to the v5.0-stable pin ac23cae70.
-Upstream main replaces the transition with lws_wsi_event_role(ww,
-LWS_WSIEV_RESTART, rops), which v5.0-stable does not have.  Drop this patch
-on a bump once the target restarts the dequeued guys itself.
+A guy whose close was already decided while he was queued (eg, his user
+aborted him with lws_set_timeout(LWS_TO_KILL_ASYNC) in the same service
+pass, before the leader's response was read) is not restarted: that kill
+is armed on the same sul_timeout, and scheduling the restart there would
+replace it, send his request anyway and leave close_decided set, so every
+later timeout on him would be ignored.  He is left for the armed kill,
+which closes him before he ever connected and tells his user.  A timeout
+set on a guy after he was dequeued replaces the pending restart and wins,
+as it should (txiki.js: tests/test-fetch-connection-close-abort-queued.js).
+
+v5.1.0 port of txiki.js's lws-h1-restart-queued-on-connection-close.patch
+for the v5.0-stable pin ac23cae70.  Not upstream: v5.1.0 (5f39aa483) and
+main (d954e68f2) still drop the dequeued guys.  Upstreamable.
+
 ---
- lib/roles/http/client/client-http.c | 24 +++++++++++++++++++++++-
- 1 file changed, 23 insertions(+), 1 deletion(-)
-
-diff --git a/lib/roles/http/client/client-http.c b/lib/roles/http/client/client-http.c
---- a/lib/roles/http/client/client-http.c
-+++ b/lib/roles/http/client/client-http.c
-@@ -1048,6 +1048,22 @@ lws_http_is_redirected_to_get(struct lws *wsi)
- 	return wsi->redirected_to_get;
+diff --git a/lib/sansio/http/client/client-http.c b/lib/sansio/http/client/client-http.c
+index b82fbb680..de91f1199 100644
+--- a/lib/sansio/http/client/client-http.c
++++ b/lib/sansio/http/client/client-http.c
+@@ -1538,6 +1538,35 @@ lws_http_client_response_is_interim(struct lws *wsi)
+ 	return n >= 100 && n < 200 && n != 101;
  }
  
 +/*
@@ -48,29 +56,48 @@ diff --git a/lib/roles/http/client/client-http.c b/lib/roles/http/client/client-
 +static void
 +lws_client_restart_dequeued(lws_sorted_usec_list_t *sul)
 +{
-+	struct lws *wsi = lws_container_of(sul, struct lws,
-+					   sul_connect_timeout);
++	struct lws *wsi = lws_container_of(sul, struct lws, sul_timeout);
 +
-+	lws_client_connect_2_dnsreq_MAY_CLOSE_WSI(wsi);
++	/*
++	 * As a redirect's restart does: he is a client in LRS_UNCONNECTED,
++	 * so the attach goes on to start his transport, dns first.  If that
++	 * fails he has been closed, and his user told, and is gone.
++	 */
++	switch (lws_header_table_attach(wsi, 0)) {
++	case LWS_AH_ATTACH_OK:
++	case LWS_AH_ATTACH_WAITING: /* the connect starts when he gets one */
++	case LWS_AH_ATTACH_WSI_GONE:
++		break;
++	default:
++		lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS,
++				   "restart dequeued: no ah");
++		break;
++	}
 +}
 +
- int
- lws_client_interpret_server_handshake(struct lws *wsi)
- {
-@@ -1492,7 +1508,13 @@ lws_client_interpret_server_handshake(struct lws *wsi)
- #endif
- #endif
- #endif
+ /*
+  * Returns LWS_HPI_RET_HANDLED, or when the response ended the wsi's part in
+  * this pass, what the close of it said: LWS_HPI_RET_WSI_ALREADY_DIED, it was
+@@ -1984,7 +2013,21 @@ lws_client_interpret_server_handshake(struct lws *wsi)
+ 
+ 				/* go back to "trying to connect" state */
+ 				lws_wsi_event_role(ww, LWS_WSIEV_RESTART, rops);
 -				ww->user_space = NULL;
 +				/*
 +				 * Keep his user_space: it is his user's, and
 +				 * the restart still reports to it
 +				 */
++				if (ww->close_decided)
++					/*
++					 * His close (eg, an abort) is already
++					 * armed on his sul_timeout: don't
++					 * restart him, let it close him
++					 */
++					continue;
++
 +				lws_sul_schedule(ww->a.context, ww->tsi,
-+						 &ww->sul_connect_timeout,
++						 &ww->sul_timeout,
 +						 lws_client_restart_dequeued, 1);
  			} lws_end_foreach_dll_safe(d, d1);
  			lws_vhost_unlock(wsi->a.vhost);
  		}
--- 
-2.50.1
