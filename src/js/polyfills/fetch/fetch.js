@@ -225,6 +225,14 @@ function sendRequest(request, init, opts) {
 
         if (request.signal) {
             request.signal.addEventListener('abort', abortClient);
+
+            if (request.signal.aborted) {
+                request.signal.removeEventListener('abort', abortClient);
+                activeClients.delete(client);
+                reject(new DOMException('Aborted', 'AbortError'));
+
+                return;
+            }
         }
 
         // Open the connection. Body handling depends on request type.
@@ -296,9 +304,21 @@ export function fetch(input, init) {
             return reject(e);
         }
 
-        if (request.signal && request.signal.aborted) {
+        const { signal } = request;
+
+        if (signal && signal.aborted) {
             return reject(new DOMException('Aborted', 'AbortError'));
         }
+
+        // The body is read asynchronously before the request is handed to
+        // sendRequest(), so an abort fired in the meantime (even in the same
+        // tick as fetch()) must be caught here; sendRequest() only starts
+        // listening right before opening the connection.
+        function onEarlyAbort() {
+            reject(new DOMException('Aborted', 'AbortError'));
+        }
+
+        signal?.addEventListener('abort', onEarlyAbort);
 
         const streaming = request.bodySize === -1;
 
@@ -307,7 +327,24 @@ export function fetch(input, init) {
             : Promise.resolve(null);
 
         bodyReady.then(function(bodyBytes) {
+            signal?.removeEventListener('abort', onEarlyAbort);
+
+            if (signal?.aborted) {
+                const error = new DOMException('Aborted', 'AbortError');
+
+                if (streaming) {
+                    request.body.cancel(error).catch(() => {});
+                }
+
+                reject(error);
+
+                return;
+            }
+
             sendRequest(request, init, { bodyBytes, streaming }).then(resolve, reject);
-        }).catch(reject);
+        }).catch(function(e) {
+            signal?.removeEventListener('abort', onEarlyAbort);
+            reject(e);
+        });
     });
 }

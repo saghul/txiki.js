@@ -8,3 +8,8 @@ alignment:wasm_runtime_common.c
 alignment:wasm_runtime_common.h
 alignment:wasm_runtime.c
 
+# libwebsockets: _lws_smd_peer_destroy() takes lws_container_of() of a NULL
+# list "next" (offset 0) when it walks past the last pending SMD message at
+# context teardown; the result is never dereferenced.
+pointer-overflow:_lws_smd_peer_destroy
+

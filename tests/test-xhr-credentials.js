@@ -1,45 +1,29 @@
 import assert from 'tjs:assert';
-import path from "tjs:path";
+import path from 'tjs:path';
 
-import { createEchoServer } from './helpers/echo-server.js';
+// XHR withCredentials sends cookies back, and a cookie with Expires is
+// persisted to the jar.
+//
+// Every tjs process shares the jar at $TJS_HOME/cookies.txt, and lws skips
+// the jar write while another process holds its lock (the cookie is still
+// kept in-process, see test-fetch-cookie-jar-locked). The suite runs many tjs
+// processes at once, so the requests run in a child with an isolated TJS_HOME.
 
-const { server, baseUrl } = createEchoServer();
-
-const TJS_HOME = tjs.env.TJS_HOME ?? path.join(tjs.homeDir, '.tjs');
-const cookieJarPath = path.join(TJS_HOME, 'cookies.txt');
-
-const cookieValue = Math.random().toString();
-// Use an explicit Expires so the cookie jar stores it (session cookies are not persisted).
-const cookieHeader = `key=${cookieValue}; Expires=Thu, 01 Jan 2099 00:00:00 GMT; Path=/cookies`;
-
-function doXhr(reqUrl, withCredentials) {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.withCredentials = withCredentials;
-        xhr.open('GET', reqUrl);
-        xhr.onload = () => resolve(xhr);
-        xhr.onerror = () => reject(new Error('XHR error'));
-        xhr.send();
+const tmpHome = await tjs.makeTempDir('tjs-cookie-jar-XXXXXX');
+try {
+    const args = [
+        tjs.exePath,
+        'run',
+        path.join(import.meta.dirname, 'helpers', 'xhr-credentials.js'),
+    ];
+    const proc = tjs.spawn(args, {
+        stdout: 'ignore',
+        stderr: 'pipe',
+        env: { ...tjs.env, TJS_HOME: tmpHome },
     });
+    const [ status, stderr ] = await Promise.all([ proc.wait(), proc.stderr.text() ]);
+
+    assert.eq(status.exit_status, 0, `child exited non-zero: ${stderr}`);
+} finally {
+    await tjs.remove(tmpHome);
 }
-
-// Set cookie via response-headers endpoint (sends Set-Cookie in the response).
-const setUrl = `${baseUrl}/response-headers?` + new URLSearchParams({ 'Set-Cookie': cookieHeader });
-const xhr1 = await doXhr(setUrl, true);
-assert.eq(xhr1.readyState, xhr1.DONE, 'readyState is DONE');
-assert.eq(xhr1.status, 200, 'status is 200');
-
-// Without credentials: cookie should not be sent.
-const xhr2 = await doXhr(`${baseUrl}/cookies`, false);
-let result = JSON.parse(xhr2.responseText);
-assert.eq(result.cookies.key, undefined, 'cookies is omitted');
-
-// With credentials: cookie should be sent back.
-const xhr3 = await doXhr(`${baseUrl}/cookies`, true);
-result = JSON.parse(xhr3.responseText);
-assert.eq(result.cookies.key, cookieValue, 'cookies is same');
-
-const cookies = new TextDecoder().decode(await tjs.readFile(cookieJarPath));
-assert.ok(cookies.includes(cookieValue), 'cookies has wrote to disk');
-
-await server.close();

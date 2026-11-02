@@ -1,12 +1,5 @@
 import assert from 'tjs:assert';
 
-// Skipped under GC stress: forcing a full GC before every allocation starves
-// the event loop, so the per-chunk delays and the read-timeout race this test
-// relies on no longer hold.
-if (tjs.env.TJS_GC_STRESS) {
-    tjs.exit(0);
-}
-
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -24,24 +17,27 @@ async function raw(port, parts) {
         await delay(10);
     }
 
-    try {
-        await writer.close();
-    } catch {}
-
+    // Don't half-close before reading: the server treats the FIN as a full
+    // close and drops a response the handler hasn't written yet. Every request
+    // sends `Connection: close`, so read until EOF, bounded by one deadline.
     const reader = readable.getReader();
     const chunks = [];
+    let timer;
+    const deadline = new Promise(resolve => {
+        timer = setTimeout(() => resolve({ done: true }), 5000);
+    });
 
     while (true) {
-        const read = reader.read();
-        const timeout = delay(500).then(() => ({ done: true, timeout: true }));
-        const { value, done, timeout: timedOut } = await Promise.race([ read, timeout ]);
+        const { value, done } = await Promise.race([ reader.read(), deadline ]);
 
-        if (done || timedOut) {
+        if (done) {
             break;
         }
 
         chunks.push(decoder.decode(value, { stream: true }));
     }
+
+    clearTimeout(timer);
 
     try {
         con.close();

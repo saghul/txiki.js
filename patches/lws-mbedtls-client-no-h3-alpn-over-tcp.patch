@@ -1,0 +1,83 @@
+tls: mbedtls: client: never offer the h3 family over TCP
+
+Since upstream c817c5292 ("tls: mbedtls: C-675: a client offers only the
+ALPN it asked for") a TLS-over-TCP client offers exactly its connect info's
+ALPN list (stash CIS_ALPN) and no longer falls back to the vhost's alpn.
+Since upstream 4761cafff ("client: an alpn list without h3 pins the
+protocol against alt-svc"), a connect info ALPN list that leaves h3 out is
+taken as the user pinning the protocol: neither a learned Alt-Svc nor a
+remembered h3 negotiation races QUIC for it any more.
+
+Together they leave an HTTP client that wants both h2 over TCP and h3
+upgrades no list to give: "h2,http/1.1" never upgrades to h3 (txiki.js:
+tests/test-fetch-h3-post.js and test-fetch-h3-native-cold-upgrade.js), and
+"h2,http/1.1,h3" offers h3 on the TCP handshake, where some servers
+(Fastly) select it and the connection is left with no role that can carry
+it (txiki.js: tests/test-fetch-alpn-no-h3-over-tcp.js).
+
+Mirror the QUIC case just above (which keeps the TCP ALPNs off a QUIC
+handshake): on a non-QUIC connection, drop "h3" and "h3-*" entries from
+the list before handing it to mbedtls.  The list on the connection still
+names h3, so connect2's alt-svc / h3 race logic sees the user's wish; only
+the TCP wire offer changes.  If nothing is left, no ALPN is offered.
+
+Not upstream: v5.1.0 (5f39aa483) and main (d954e68f2) offer the stash list
+verbatim.  Upstreamable (the openssl / other backends would want the same).
+
+---
+diff --git a/lib/tls/mbedtls/mbedtls-client.c b/lib/tls/mbedtls/mbedtls-client.c
+index 9021df9ad..d4350ef18 100644
+--- a/lib/tls/mbedtls/mbedtls-client.c
++++ b/lib/tls/mbedtls/mbedtls-client.c
+@@ -98,7 +98,7 @@ lws_ssl_client_bio_create(struct lws *wsi)
+ {
+ 	struct lws_tls_conn *conn;
+ 	char hostname[LWS_TLS_CLIENT_HOSTNAME_LEN];
+-	char temp_alpn[128];
++	char temp_alpn[128], tcp_alpn[128];
+ 	const char *alpn_comma = NULL;
+ 
+ 	if (wsi->stash)
+@@ -163,6 +163,42 @@ lws_ssl_client_bio_create(struct lws *wsi)
+ 			alpn_comma = temp_alpn;
+ 	}
+ 
++	if (alpn_comma && !(wsi->role_ops &&
++			    !strcmp(wsi->role_ops->name, "quic")) &&
++	    strstr(alpn_comma, "h3")) {
++		/*
++		 * The mirror of the QUIC case: TLS over TCP cannot carry the
++		 * h3 family, and a server that selects h3 from a TCP offer
++		 * (eg, Fastly) leaves the connection with no role that can
++		 * use it.  The connection's list still names h3 when its user
++		 * wants alt-svc / QUIC upgrades (connect2 takes a list without
++		 * h3 as the user pinning the protocol), so keep h3 off the
++		 * wire here rather than out of the list.
++		 */
++		const char *p = alpn_comma;
++		char *o = tcp_alpn, *oe = tcp_alpn + sizeof(tcp_alpn) - 1;
++
++		while (*p) {
++			const char *e = strchr(p, ',');
++			size_t l = e ? lws_ptr_diff_size_t(e, p) : strlen(p);
++
++			if (l && !(l >= 2 && p[0] == 'h' && p[1] == '3' &&
++				   (l == 2 || p[2] == '-'))) {
++				if (o != tcp_alpn && o < oe)
++					*o++ = ',';
++				if (l > lws_ptr_diff_size_t(oe, o))
++					break;
++				memcpy(o, p, l);
++				o += l;
++			}
++			p += l;
++			if (*p == ',')
++				p++;
++		}
++		*o = '\0';
++		alpn_comma = tcp_alpn[0] ? tcp_alpn : NULL;
++	}
++
+ 	if (alpn_comma) {
+ 		lwsl_info("%s: %s: client conn sending ALPN list '%s'\n",
+ 			  __func__, lws_wsi_tag(wsi), alpn_comma);

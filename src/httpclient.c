@@ -81,8 +81,16 @@ typedef struct {
     bool torn_down;
     bool keepalive;      /* connection may be pooled for reuse (decided at headers) */
     bool conn_close;     /* the user asked for "Connection: close" */
+    bool req_sent;       /* the whole request (headers and body) was handed to lws */
+    bool got_response;   /* the (non-interim) response headers arrived */
+    bool connecting;     /* this request opened a socket of its own */
+    bool headers_sent;   /* lws asked us for the request headers: it was sent */
+    bool sent_on_mux;    /* headers went out on an h2/h3 stream */
+    bool retried;        /* the one retry of the request was used */
+    bool retry_pending;  /* retry_sul is scheduled */
     bool kill_stream;    /* aborted before its h2 stream was known: kill it on adoption */
     lws_usec_t start_us; /* request start */
+    lws_sorted_usec_list_t retry_sul;
     unsigned long timeout;
     int ssl_flags;
     JSValue url;
@@ -143,6 +151,13 @@ static void tjs_httpclient_detach(TJSHandlePin *pin) {
         JS_FreeValue(h->ctx, h->callbacks[i]);
         h->callbacks[i] = JS_UNDEFINED;
     }
+    /* The lws context is destroyed next, with the sul lists: nothing may be
+     * left on them, nor scheduled while lws closes the connections. */
+    if (h->retry_pending) {
+        h->retry_pending = false;
+        lws_sul_cancel(&h->retry_sul);
+    }
+    h->retried = true;
 }
 
 static void maybe_invoke_callback(TJSHttpClient *h, int callback, int argc, JSValue *argv) {
@@ -163,19 +178,88 @@ static void maybe_invoke_callback(TJSHttpClient *h, int callback, int argc, JSVa
     }
 }
 
-/* Arm (or cancel) the request-timeout timer, measured from h->start_us. */
+/* Browsers put no limit on the wait for response headers; only the user's
+ * timeout (XHR timeout, AbortSignal) ends it. lws, however, arms its own reply
+ * timer (PENDING_TIMEOUT_AWAITING_SERVER_RESPONSE, the context's timeout_secs,
+ * 15 s by default) inside its state machine once the request is sent, where no
+ * callback of ours runs. So while the reply is pending we wake up every
+ * TJS_HTTPCLIENT_REPLY_TICK_US and clear it. The tick must stay below
+ * timeout_secs: lws re-arms the reply timer at several points (after a 1xx
+ * interim response, when a queued h1 request reuses a pooled connection) and
+ * each tick has to undo that before it fires. */
+#define TJS_HTTPCLIENT_REPLY_TICK_US (5 * LWS_USEC_PER_SEC)
+
+static bool httpclient_awaiting_reply(TJSHttpClient *h) {
+    return h->req_sent && !h->got_response;
+}
+
+static lws_usec_t httpclient_deadline(TJSHttpClient *h) {
+    return h->start_us + (lws_usec_t) h->timeout * LWS_USEC_PER_SEC / 1000;
+}
+
+/* Arm (or cancel) the request timer: the user timeout, measured from
+ * h->start_us, and the reply keep-off tick while awaiting the response. */
 static void httpclient_arm_timer(TJSHttpClient *h, struct lws *wsi) {
-    if (h->timeout == 0) {
+    bool tick = httpclient_awaiting_reply(h);
+
+    if (h->timeout == 0 && !tick) {
         lws_set_timer_usecs(wsi, LWS_SET_TIMER_USEC_CANCEL);
         return;
     }
 
-    lws_usec_t now = lws_now_usecs();
-    lws_usec_t deadline = h->start_us + (lws_usec_t) h->timeout * LWS_USEC_PER_SEC / 1000;
+    lws_usec_t delay = TJS_HTTPCLIENT_REPLY_TICK_US;
 
-    /* Already past due (or due this instant): lws treats 0 as "cancel", so ask
-     * for the shortest real delay instead and let the timer callback report it. */
-    lws_set_timer_usecs(wsi, deadline > now ? deadline - now : 1);
+    if (h->timeout != 0) {
+        lws_usec_t now = lws_now_usecs();
+        lws_usec_t deadline = httpclient_deadline(h);
+
+        /* Already past due (or due this instant): lws treats 0 as "cancel", so
+         * ask for the shortest real delay instead and let the timer callback
+         * report it. */
+        lws_usec_t left = deadline > now ? deadline - now : 1;
+        if (!tick || left < delay) {
+            delay = left;
+        }
+    }
+
+    lws_set_timer_usecs(wsi, delay);
+}
+
+/* The request was fully handed to lws: from here until the response headers
+ * arrive, lws's reply timer must be kept off (see above). */
+static void httpclient_request_sent(TJSHttpClient *h, struct lws *wsi) {
+    h->req_sent = true;
+    httpclient_arm_timer(h, wsi);
+}
+
+/* Cancel the request timer and detach h from the wsi it ran on. */
+static void httpclient_release_wsi(TJSHttpClient *h, struct lws *cbwsi) {
+    if (h->stream_wsi) {
+        lws_set_timer_usecs(h->stream_wsi, LWS_SET_TIMER_USEC_CANCEL);
+    }
+    if (h->wsi && h->wsi != h->stream_wsi) {
+        lws_set_timer_usecs(h->wsi, LWS_SET_TIMER_USEC_CANCEL);
+    }
+    if (cbwsi && cbwsi != h->wsi && cbwsi != h->stream_wsi) {
+        lws_set_timer_usecs(cbwsi, LWS_SET_TIMER_USEC_CANCEL);
+    }
+
+    /* Detach h from every wsi that carries it as user_space, so no later callback
+     * on a reused/idle connection dereferences a client we no longer own. h->wsi
+     * is what lws wrote to cci.pwsi — for the request that opened an h2
+     * connection it became the shared network wsi, and the request's HTTP
+     * callbacks (including the terminal CLOSED) fire on the mux child stream wsi
+     * (stream_wsi) whose user_space is also h. cbwsi is the wsi of the terminal
+     * callback we tear down from; clear it, h->wsi, stream_wsi and cbwsi's network
+     * wsi, each guarded so we only ever null our own pointer. */
+    struct lws *carriers[4] = { h->wsi, h->stream_wsi, cbwsi, cbwsi ? lws_get_network_wsi(cbwsi) : NULL };
+    for (size_t i = 0; i < sizeof(carriers) / sizeof(carriers[0]); i++) {
+        if (carriers[i] && lws_wsi_user(carriers[i]) == h) {
+            lws_set_wsi_user(carriers[i], NULL);
+        }
+    }
+    h->wsi = NULL;
+    h->stream_wsi = NULL;
 }
 
 /* Release our hold on a finished request.  With connection reuse
@@ -200,35 +284,149 @@ static void httpclient_teardown(TJSHttpClient *h, struct lws *cbwsi) {
 
     tjs__lws_conn_unref(h->ctx);
 
-    if (h->stream_wsi) {
-        lws_set_timer_usecs(h->stream_wsi, LWS_SET_TIMER_USEC_CANCEL);
-    }
-    if (h->wsi && h->wsi != h->stream_wsi) {
-        lws_set_timer_usecs(h->wsi, LWS_SET_TIMER_USEC_CANCEL);
+    if (h->retry_pending) {
+        h->retry_pending = false;
+        lws_sul_cancel(&h->retry_sul);
     }
 
-    /* Detach h from every wsi that carries it as user_space, so no later callback
-     * on a reused/idle connection dereferences a client we no longer own. h->wsi
-     * is what lws wrote to cci.pwsi — for the request that opened an h2
-     * connection it became the shared network wsi, and the request's HTTP
-     * callbacks (including the terminal CLOSED) fire on the mux child stream wsi
-     * (stream_wsi) whose user_space is also h. cbwsi is the wsi of the terminal
-     * callback we tear down from; clear it, h->wsi, stream_wsi and cbwsi's network
-     * wsi, each guarded so we only ever null our own pointer. */
-    struct lws *carriers[4] = { h->wsi, h->stream_wsi, cbwsi, cbwsi ? lws_get_network_wsi(cbwsi) : NULL };
-    for (size_t i = 0; i < sizeof(carriers) / sizeof(carriers[0]); i++) {
-        if (carriers[i] && lws_wsi_user(carriers[i]) == h) {
-            lws_set_wsi_user(carriers[i], NULL);
-        }
-    }
-    h->wsi = NULL;
-    h->stream_wsi = NULL;
+    httpclient_release_wsi(h, cbwsi);
 
     /* Release the self-pin; the finalizer frees callbacks, url, buffers, and the
      * struct itself once JS also lets go. Unpinning also removes h from the
      * teardown registry, so an abnormal-exit drain won't touch it. */
     CHECK(!JS_IsUndefined(h->pin.obj));
     tjs__handle_unpin(h->ctx, &h->pin);
+}
+
+/* True for an h2/h3 stream, which runs on a network wsi of its own; false for
+ * h1, where the request's wsi is the connection. */
+static bool httpclient_wsi_is_mux(struct lws *wsi) {
+    return lws_get_network_wsi(wsi) != wsi;
+}
+
+/* Ask lws to close wsi at a safe point of its service loop. Abort can be driven
+ * from a microtask drained *inside* this wsi's own service callback (e.g. a
+ * streaming fetch aborted from its ReadableStream cancel()): LWS_TO_KILL_SYNC
+ * would free the wsi inline while lws is still using it further up the stack
+ * (heap-use-after-free). ASYNC defers the close; the teardown callback chain
+ * handles cleanup. */
+static void httpclient_kill_async(struct lws *wsi) {
+    lws_set_timeout(wsi, PENDING_TIMEOUT_USER_OK, LWS_TO_KILL_ASYNC);
+}
+
+/* For the request that opens an h2 connection, lws turns h->wsi into the
+ * network wsi after ALPN and moves the request (and h as its user_space) onto a
+ * new mux child stream. Adopt that stream as stream_wsi the first time one of
+ * the request's own callbacks fires on it, so abort, the timeout and writes
+ * address only this request rather than every stream on the connection. */
+static void httpclient_adopt_stream(TJSHttpClient *h, struct lws *wsi) {
+    if (wsi == h->stream_wsi || !httpclient_wsi_is_mux(wsi)) {
+        return;
+    }
+
+    if (h->stream_wsi) {
+        lws_set_timer_usecs(h->stream_wsi, LWS_SET_TIMER_USEC_CANCEL);
+    }
+    h->stream_wsi = wsi;
+
+    if (h->kill_stream) {
+        /* Aborted while only the network wsi was known. Returning -1 from here
+         * would not do: a failing first callback (APPEND_HANDSHAKE_HEADER) fails
+         * lws_h2_client_handshake, which closes the whole network connection. */
+        h->kill_stream = false;
+        httpclient_kill_async(wsi);
+    } else if (!h->completed) {
+        httpclient_arm_timer(h, wsi);
+    }
+}
+
+/* RFC 9110 §9.2.2. Fetch and XHR uppercase the standard methods, so an exact
+ * match suffices; anything else (POST, PATCH, custom methods) is not. */
+static bool httpclient_method_is_idempotent(const char *method) {
+    static const char *const methods[] = { "GET", "HEAD", "OPTIONS", "TRACE", "PUT", "DELETE" };
+    for (size_t i = 0; i < sizeof(methods) / sizeof(methods[0]); i++) {
+        if (!strcmp(method, methods[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* A request gets one more attempt on a fresh connection, as a browser would,
+ * in two cases. Both only apply to a request that did not open the connection
+ * it failed on (a request on its own new connection is never retried).
+ *
+ * 1. A request issued while another one to the same origin is setting up its
+ *    connection (or, on h1, still waiting for its response) is queued on that
+ *    request's wsi. When that request's connection closes for any reason
+ *    (abort, timeout, peer reset), lws closes everything queued on it, although
+ *    none of it was sent, and tells each one CLOSED_CLIENT_HTTP. lws never
+ *    asked for its headers: nothing went out on the wire. A request that
+ *    failed before lws asked for its headers on a connection of its own (DNS)
+ *    is told CLIENT_CONNECTION_ERROR instead, and is not retried.
+ *
+ * 2. An h1 keep-alive server may close an idle connection right after a
+ *    response (its idle timeout), racing the next request lws puts on it: the
+ *    local write succeeds, but the server never reads the request. Like
+ *    Chromium (HttpNetworkTransaction::ShouldResendRequest) and RFC 9112
+ *    §9.3.1, a request that went out on a reused connection which then closed
+ *    before any response headers is resent, but only if replaying it is safe:
+ *    an idempotent method and a buffered (not streamed) body. lws reports the
+ *    peer's FIN while awaiting the response as CLIENT_CONNECTION_ERROR
+ *    ("server closed before responding") and a reset as CLOSED_CLIENT_HTTP,
+ *    so either counts. It swallows 1xx interim responses and exposes no way
+ *    to tell one, or a partial or malformed response head, arrived: a request
+ *    whose connection dies after one of those is resent too. h2/h3 streams
+ *    are left out: a stream closed there is a RST_STREAM/GOAWAY matter, not a
+ *    stale socket.
+ *
+ * Either way the retry is the request's only one. */
+static bool httpclient_should_retry(TJSHttpClient *h, enum lws_callback_reasons reason) {
+    return !h->completed && !h->retried && !h->connecting &&
+           ((reason == LWS_CALLBACK_CLOSED_CLIENT_HTTP && !h->headers_sent) ||
+            (h->headers_sent && !h->got_response && !h->sent_on_mux && !h->streaming &&
+             httpclient_method_is_idempotent(h->method)));
+}
+
+static int tjs_httpclient_connect(TJSHttpClient *h);
+
+static void httpclient_retry_cb(lws_sorted_usec_list_t *sul) {
+    TJSHttpClient *h = lws_container_of(sul, TJSHttpClient, retry_sul);
+    JSContext *ctx = h->ctx;
+
+    h->retry_pending = false;
+
+    /* A failure tears down h, which unpins it and may free it; keep the
+     * wrapper alive until we are done with h. */
+    JSValue obj = JS_DupValue(ctx, h->pin.obj);
+
+    if (tjs_httpclient_connect(h) != 0 && !h->completed) {
+        h->completed = true;
+        JSValue args[2];
+        args[0] = JS_NewString(ctx, "CONNECTION_ERROR");
+        args[1] = JS_NewString(ctx, "Connection failed");
+        maybe_invoke_callback(h, HC_CALLBACK_COMPLETE, 2, args);
+        httpclient_teardown(h, NULL);
+    }
+
+    JS_FreeValue(ctx, obj);
+}
+
+/* Called from the dying wsi's close: connect from the event loop instead. The
+ * request keeps its pin and its loop reference meanwhile. */
+static void httpclient_schedule_retry(TJSHttpClient *h, struct lws *cbwsi) {
+    httpclient_release_wsi(h, cbwsi);
+    /* The attempt that failed may have composed and written the request
+     * already: the retry sends it again from the start. */
+    h->headers_sent = false;
+    h->sent_on_mux = false;
+    h->req_sent = false;
+    h->send_offset = 0;
+    h->keepalive = true;
+    h->connecting = false;
+    h->retried = true;
+    h->retry_pending = true;
+    lws_sul_schedule(tjs__lws_get_context(h->ctx), 0, &h->retry_sul, httpclient_retry_cb, 1);
 }
 
 /* Connection is a comma-separated token list; a "close" token anywhere means
@@ -307,9 +505,51 @@ static void custom_header_foreach_cb(const char *name, int nlen, void *opaque) {
     js_free(hctx->h->ctx, val);
 }
 
+/* lws joins repeated Set-Cookie headers with ';', which can't be split back
+ * apart, so report each fragment (one per header line) on its own. */
+static void fire_set_cookie_headers(TJSHttpClient *h, struct lws *wsi) {
+    /* The joined length bounds every fragment, so one buffer fits them all. */
+    int total_len = lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_SET_COOKIE);
+    if (total_len <= 0) {
+        return;
+    }
+    size_t buf_size = (size_t) total_len + 1;
+    char *val = js_malloc(h->ctx, buf_size);
+    if (!val) {
+        return;
+    }
+
+    /* lws_hdr_copy_fragment() returns -1 once frag_idx is past the last one;
+     * it can't return -2 (buffer too small) since the buffer fits the joined value. */
+    int len;
+    for (int i = 0; (len = lws_hdr_copy_fragment(wsi, val, (int) buf_size, WSI_TOKEN_HTTP_SET_COOKIE, i)) != -1; i++) {
+        CHECK_GE(len, 0);
+
+        const char *start = val;
+        const char *end = val + len;
+        while (start < end && (*start == ' ' || *start == '\t')) {
+            start++;
+        }
+        while (end > start && (end[-1] == ' ' || end[-1] == '\t')) {
+            end--;
+        }
+
+        JSValue args[2];
+        args[0] = JS_NewString(h->ctx, "set-cookie");
+        args[1] = JS_NewStringLen(h->ctx, start, end - start);
+        maybe_invoke_callback(h, HC_CALLBACK_HEADER, 2, args);
+    }
+
+    js_free(h->ctx, val);
+}
+
 static void fire_response_headers(TJSHttpClient *h, struct lws *wsi) {
     /* Iterate known tokens. */
     for (int n = 0; n < WSI_TOKEN_COUNT; n++) {
+        if (n == WSI_TOKEN_HTTP_SET_COOKIE) {
+            fire_set_cookie_headers(h, wsi);
+            continue;
+        }
         const unsigned char *tok_name = lws_token_to_string(n);
         if (!tok_name) {
             continue;
@@ -404,42 +644,6 @@ static const char *detect_content_encoding(struct lws *wsi) {
     return NULL;
 }
 
-/* Ask lws to close wsi at a safe point of its service loop. Abort can be driven
- * from a microtask drained *inside* this wsi's own service callback (e.g. a
- * streaming fetch aborted from its ReadableStream cancel()): LWS_TO_KILL_SYNC
- * would free the wsi inline while lws is still using it further up the stack
- * (heap-use-after-free). ASYNC defers the close; the teardown callback chain
- * handles cleanup. */
-static void httpclient_kill_async(struct lws *wsi) {
-    lws_set_timeout(wsi, PENDING_TIMEOUT_USER_OK, LWS_TO_KILL_ASYNC);
-}
-
-/* For the request that opens an h2 connection, lws turns h->wsi into the
- * network wsi after ALPN and moves the request (and h as its user_space) onto a
- * new mux child stream. Adopt that stream as stream_wsi the first time one of
- * the request's own callbacks fires on it, so abort, the timeout and writes
- * address only this request rather than every stream on the connection. */
-static void httpclient_adopt_stream(TJSHttpClient *h, struct lws *wsi) {
-    if (wsi == h->stream_wsi || lws_get_network_wsi(wsi) == wsi) {
-        return;
-    }
-
-    if (h->stream_wsi) {
-        lws_set_timer_usecs(h->stream_wsi, LWS_SET_TIMER_USEC_CANCEL);
-    }
-    h->stream_wsi = wsi;
-
-    if (h->kill_stream) {
-        /* Aborted while only the network wsi was known. Returning -1 from here
-         * would not do: a failing first callback (APPEND_HANDSHAKE_HEADER) fails
-         * lws_h2_client_handshake, which closes the whole network connection. */
-        h->kill_stream = false;
-        httpclient_kill_async(wsi);
-    } else if (!h->completed) {
-        httpclient_arm_timer(h, wsi);
-    }
-}
-
 static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
     TJSHttpClient *h = (TJSHttpClient *) user;
 
@@ -461,8 +665,15 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
     }
 
     switch (reason) {
+        case LWS_CALLBACK_CONNECTING:
+            h->connecting = true;
+            break;
+
         case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER: {
             unsigned char **p = (unsigned char **) in, *end = (*p) + len;
+
+            h->headers_sent = true;
+            h->sent_on_mux = httpclient_wsi_is_mux(wsi);
 
             /* Add User-Agent header unless the user already set one. */
             if (!has_request_header(&h->req_headers, "User-Agent")) {
@@ -492,7 +703,10 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
             /* Add custom headers stored in req_headers TBuf.
              * Format: "Name: Value\r\nName2: Value2\r\n" */
             if (h->req_headers.size > 0) {
-                tbuf_putc(&h->req_headers, '\0');
+                /* NUL-terminate once: a retry composes the headers again. */
+                if (h->req_headers.buf[h->req_headers.size - 1] != '\0') {
+                    tbuf_putc(&h->req_headers, '\0');
+                }
                 char *headers = (char *) h->req_headers.buf;
                 char *line = headers;
                 while (line && *line) {
@@ -520,6 +734,9 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                                                         (int) strlen(value),
                                                         p,
                                                         end)) {
+                            /* Leave req_headers intact for a retry. */
+                            *colon = ':';
+                            *eol = '\r';
                             return -1;
                         }
                         *colon = ':';
@@ -556,6 +773,8 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                 }
                 lws_client_http_body_pending(wsi, 1);
                 lws_callback_on_writable(wsi);
+            } else {
+                httpclient_request_sent(h, wsi);
             }
 
             break;
@@ -572,6 +791,9 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
             if (status <= 0) {
                 break;
             }
+
+            h->got_response = true;
+            httpclient_arm_timer(h, wsi);
 
             /* Decide reuse now, while the response headers are still parsed: a
              * response that carried "Connection: close" leaves the socket about
@@ -650,6 +872,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                 size_t remaining = h->send_buf.size - h->send_offset;
                 if (remaining == 0) {
                     lws_client_http_body_pending(wsi, 0);
+                    httpclient_request_sent(h, wsi);
                     break;
                 }
 
@@ -695,6 +918,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                     lws_callback_on_writable(wsi);
                 } else {
                     lws_client_http_body_pending(wsi, 0);
+                    httpclient_request_sent(h, wsi);
                 }
 
                 break;
@@ -708,6 +932,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                     uint8_t buf[LWS_PRE + 5];
                     memcpy(buf + LWS_PRE, "0\r\n\r\n", 5);
                     lws_write(wsi, buf + LWS_PRE, 5, LWS_WRITE_HTTP_FINAL);
+                    httpclient_request_sent(h, wsi);
                 } else {
                     /* No data buffered — ask JS for more. */
                     maybe_invoke_callback(h, HC_CALLBACK_DRAIN, 0, NULL);
@@ -766,6 +991,22 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
         }
 
         case LWS_CALLBACK_TIMER: {
+            /* Not yet due: the reply keep-off tick (see httpclient_arm_timer). */
+            if (!h->completed && (h->timeout == 0 || lws_now_usecs() < httpclient_deadline(h))) {
+                if (httpclient_awaiting_reply(h)) {
+                    lws_set_timeout(wsi, NO_PENDING_TIMEOUT, 0);
+                    /* Over h2 lws also times out the whole connection for rx
+                     * silence (PENDING_TIMEOUT_HTTP_CONTENT, timeout_secs,
+                     * renewed on every frame received), which a slow reply is. */
+                    struct lws *nwsi = lws_get_network_wsi(wsi);
+                    if (nwsi && nwsi != wsi) {
+                        lws_set_timeout(nwsi, NO_PENDING_TIMEOUT, 0);
+                    }
+                }
+                httpclient_arm_timer(h, wsi);
+                break;
+            }
+
             if (!h->completed) {
                 h->completed = true;
                 JSValue error = JS_NewString(h->ctx, "TIMED_OUT");
@@ -784,6 +1025,11 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
 
         case LWS_CALLBACK_CLOSED_CLIENT_HTTP:
         case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: {
+            if (httpclient_should_retry(h, reason)) {
+                httpclient_schedule_retry(h, wsi);
+                break;
+            }
+
             if (!h->completed) {
                 h->completed = true;
                 if (reason == LWS_CALLBACK_CLIENT_CONNECTION_ERROR) {
@@ -1003,10 +1249,14 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
      * itself is never sent (see tjs_httpclient_setrequestheader), so the
      * request's own connection is how it is honored — lws sends
      * "connection: close" on h1, and on h2 the dedicated connection carries no
-     * connection header at all (it would be malformed there). */
+     * connection header at all (it would be malformed there).
+     *
+     * The one retry of a request (httpclient_should_retry) gets its own
+     * connection too, so it can't be queued behind, fail with, or race the
+     * idle close of another connection again. */
     cci.ssl_connection = (use_ssl ? LCCSCF_USE_SSL : 0) | h->ssl_flags | LCCSCF_HTTP_NO_FOLLOW_REDIRECT |
                          LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM |
-                         (h->streaming || h->conn_close ? 0 : LCCSCF_PIPELINE);
+                         (h->streaming || h->conn_close || h->retried ? 0 : LCCSCF_PIPELINE);
     cci.method = h->method;
     cci.local_protocol_name = TJS_LWS_HTTP_PROTOCOL_NAME;
     cci.userdata = h;
@@ -1017,31 +1267,30 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
      * from its responses, races QUIC-first on a later cold connect, falls back
      * to TCP if QUIC does not answer, and cools down failed origins itself.
      *
-     * The ALPN list is per connection: lws's TLS client offers it instead of
-     * the vhost list. It does not name "h3": on this lws it would be offered on
-     * the TCP handshake too, where h3 cannot run. */
-    cci.alpn = "h2,http/1.1";
-
-    tjs__lws_conn_ref(ctx);
-
-    /* Set before connecting: a request that joins a warm h2 connection gets
-     * its first callback (and arms its timer) from inside the connect call. */
-    h->start_us = lws_now_usecs();
+     * The ALPN list is per connection: lws's TLS client offers only this list,
+     * never the vhost's. It must name h3, or lws takes it as pinning the
+     * protocol and never upgrades the origin to h3 (upstream 4761cafff); h3 is
+     * kept off the TCP handshake itself by
+     * patches/lws-mbedtls-client-no-h3-alpn-over-tcp.patch. */
+    cci.alpn = "h2,http/1.1,h3";
 
     struct lws *wsi = lws_client_connect_via_info(&cci);
 
     lws_parse_uri_destroy(&uri);
 
     if (!wsi) {
-        tjs__lws_conn_unref(ctx);
         h->wsi = NULL;
         return -1;
     }
 
     lws_cancel_service(lws_ctx);
 
-    h->stream_wsi = h->wsi;
-    httpclient_arm_timer(h, wsi);
+    /* A request that joins a warm h2 connection may have adopted its stream
+     * already, from a callback fired inside the connect call. */
+    if (!h->stream_wsi) {
+        h->stream_wsi = wsi;
+    }
+    httpclient_arm_timer(h, h->stream_wsi);
 
     return 0;
 }
@@ -1085,7 +1334,13 @@ static JSValue tjs_httpclient_open(JSContext *ctx, JSValue this_val, int argc, J
     tjs__handle_pin(ctx, &h->pin, this_val);
     h->sent = true;
 
+    /* The loop reference and the start time (the user timeout counts from it)
+     * span a retry on a fresh connection, so they are taken here. */
+    tjs__lws_conn_ref(ctx);
+    h->start_us = lws_now_usecs();
+
     if (tjs_httpclient_connect(h)) {
+        tjs__lws_conn_unref(ctx);
         h->sent = false;
         tjs__handle_unpin(ctx, &h->pin);
         return JS_ThrowPlainError(ctx, "Connection failed");
@@ -1211,7 +1466,13 @@ static JSValue tjs_httpclient_abort(JSContext *ctx, JSValue this_val, int argc, 
         return JS_EXCEPTION;
     }
 
-    if (h->stream_wsi && !h->completed) {
+    if (h->retry_pending && !h->completed) {
+        /* Between a queued request's close and its retry it has no wsi. */
+        h->completed = true;
+        JSValue error = JS_NewString(ctx, "ABORTED");
+        maybe_invoke_callback(h, HC_CALLBACK_COMPLETE, 1, &error);
+        httpclient_teardown(h, NULL);
+    } else if (h->stream_wsi && !h->completed) {
         h->completed = true;
 
         struct lws *wsi = h->stream_wsi;

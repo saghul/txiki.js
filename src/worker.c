@@ -49,6 +49,11 @@ void tjs__worker_post_error(JSContext *ctx, JSValueConst error) {
         return;
     }
 
+    /* The parent is terminating us: it no longer wants to hear about errors. */
+    if (atomic_load(&qrt->terminating)) {
+        return;
+    }
+
     JSValue obj = JS_NewObject(ctx);
     if (JS_IsException(obj)) {
         JS_FreeValue(ctx, JS_GetException(ctx));
@@ -229,8 +234,15 @@ static void worker_entry(void *arg) {
  * the worker is still running or has already stopped itself. */
 static void worker_reap(TJSWorker *w) {
     if (w->wrt) {
-        TJS_Stop(w->wrt);
+        /* Aborts JS that never returns to the worker's loop (a busy loop). */
+        tjs__runtime_terminate(w->wrt);
         CHECK_EQ(uv_thread_join(&w->tid), 0);
+        /* TJS_FreeRuntime drains the worker's loop on this (the parent's) thread,
+         * and the drain runs JS (e.g. the continuation of a threadpool request
+         * that was in flight). Keep the interrupt handler installed: `terminating`
+         * is set on every path here, so that JS is aborted at its next interrupt
+         * poll instead of possibly hanging this thread. The handler only reads the
+         * atomic flag, so it is safe to call from here. */
         TJS_FreeRuntime(w->wrt);
         w->wrt = NULL;
     }
