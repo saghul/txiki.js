@@ -21,8 +21,17 @@ fails he is closed and his user is told.  Running from the event loop
 keeps the restart out of the leader's handshake interpretation and the
 vhost lock it holds.  The sul is the sansIO one (struct lws), since
 lib/sansio may not touch the IO adjunct's sul_connect_timeout
-(LWS_SANSIO_CHECK); a pending timeout set on him before it fires (eg, an
-abort) replaces it and wins, as it should.
+(LWS_SANSIO_CHECK).
+
+A guy whose close was already decided while he was queued (eg, his user
+aborted him with lws_set_timeout(LWS_TO_KILL_ASYNC) in the same service
+pass, before the leader's response was read) is not restarted: that kill
+is armed on the same sul_timeout, and scheduling the restart there would
+replace it, send his request anyway and leave close_decided set, so every
+later timeout on him would be ignored.  He is left for the armed kill,
+which closes him before he ever connected and tells his user.  A timeout
+set on a guy after he was dequeued replaces the pending restart and wins,
+as it should (txiki.js: tests/test-fetch-connection-close-abort-queued.js).
 
 v5.1.0 port of txiki.js's lws-h1-restart-queued-on-connection-close.patch
 for the v5.0-stable pin ac23cae70.  Not upstream: v5.1.0 (5f39aa483) and
@@ -30,7 +39,7 @@ main (d954e68f2) still drop the dequeued guys.  Upstreamable.
 
 ---
 diff --git a/lib/sansio/http/client/client-http.c b/lib/sansio/http/client/client-http.c
-index b82fbb680..f563fc92a 100644
+index b82fbb680..de91f1199 100644
 --- a/lib/sansio/http/client/client-http.c
 +++ b/lib/sansio/http/client/client-http.c
 @@ -1538,6 +1538,35 @@ lws_http_client_response_is_interim(struct lws *wsi)
@@ -69,7 +78,7 @@ index b82fbb680..f563fc92a 100644
  /*
   * Returns LWS_HPI_RET_HANDLED, or when the response ended the wsi's part in
   * this pass, what the close of it said: LWS_HPI_RET_WSI_ALREADY_DIED, it was
-@@ -1984,7 +2013,13 @@ lws_client_interpret_server_handshake(struct lws *wsi)
+@@ -1984,7 +2013,21 @@ lws_client_interpret_server_handshake(struct lws *wsi)
  
  				/* go back to "trying to connect" state */
  				lws_wsi_event_role(ww, LWS_WSIEV_RESTART, rops);
@@ -78,6 +87,14 @@ index b82fbb680..f563fc92a 100644
 +				 * Keep his user_space: it is his user's, and
 +				 * the restart still reports to it
 +				 */
++				if (ww->close_decided)
++					/*
++					 * His close (eg, an abort) is already
++					 * armed on his sul_timeout: don't
++					 * restart him, let it close him
++					 */
++					continue;
++
 +				lws_sul_schedule(ww->a.context, ww->tsi,
 +						 &ww->sul_timeout,
 +						 lws_client_restart_dequeued, 1);
