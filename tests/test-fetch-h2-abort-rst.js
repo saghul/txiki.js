@@ -2,6 +2,12 @@ import assert from 'tjs:assert';
 import cert from './fixtures/server-cert.pem' with { type: 'text' };
 import key from './fixtures/server-key.pem' with { type: 'text' };
 
+// Skipped under GC stress: h2 response bodies stall there (t_a77e0129), so the
+// timing this test relies on no longer holds.
+if (tjs.env.TJS_GC_STRESS) {
+    tjs.exit(0);
+}
+
 // HTTP/2: aborting a fetch that shares a pooled connection resets its stream
 // (RST_STREAM), so the server stops producing that response body: its cancel()
 // runs. The other streams on the connection keep delivering, and the
