@@ -565,6 +565,9 @@ set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" 
 #     per-connection ALPN list verbatim, and a list without h3 disables the
 #     h3 upgrade, so ours names h3; keep it off the TCP handshake (Fastly
 #     selects it there).
+#   - lws-cache-l1-serves-when-jar-busy.patch: lws no longer waits for the
+#     shared cookie jar's lock, and a cookie whose jar write was skipped
+#     because another tjs process held it was not sent back even in-process.
 tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets" "lws-")
 
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)
