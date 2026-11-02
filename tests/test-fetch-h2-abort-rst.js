@@ -120,4 +120,38 @@ async function testJoinedStreamAbort() {
     });
 }
 
+// No warm-up: #0 opens the connection and #1/#2 join it. #0's request runs on
+// a stream of its own, not on the connection, so aborting it resets only that
+// stream.
+async function testOpenerStreamAbort() {
+    await withServer(async (base, states) => {
+        const acs = [ 0, 1, 2 ].map(() => new AbortController());
+        const responses = await Promise.all([ 0, 1, 2 ].map(n =>
+            fetch(`${base}/s?n=${n}`, { allowInsecure: true, signal: acs[n].signal })));
+        const readers = responses.map(r => r.body.getReader());
+
+        for (const reader of readers) {
+            await readBytes(reader, 1);
+        }
+
+        acs[0].abort();
+
+        const aborted = await readers[0].read().then(() => 'read', e => e.name);
+
+        assert.eq(aborted, 'AbortError', 'aborted opener stream errors');
+        await waitCancelled(states.get('0'), 'aborted opener stream #0');
+
+        for (const n of [ 1, 2 ]) {
+            await readBytes(readers[n], 8 * 1024);
+            assert.ok(!states.get(String(n)).cancelled, `stream #${n} not cancelled by #0's abort`);
+        }
+
+        for (const n of [ 1, 2 ]) {
+            acs[n].abort();
+            await waitCancelled(states.get(String(n)), `aborted stream #${n}`);
+        }
+    });
+}
+
 await testJoinedStreamAbort();
+await testOpenerStreamAbort();
