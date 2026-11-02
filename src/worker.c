@@ -237,10 +237,12 @@ static void worker_reap(TJSWorker *w) {
         /* Aborts JS that never returns to the worker's loop (a busy loop). */
         tjs__runtime_terminate(w->wrt);
         CHECK_EQ(uv_thread_join(&w->tid), 0);
-        /* TJS_FreeRuntime can run JS on this thread (the handle drain). Without
-         * the handler that JS would be interrupted midway, and an error path
-         * would TJS_Stop the already-closed `stop` handle. */
-        JS_SetInterruptHandler(w->wrt->rt, NULL, NULL);
+        /* TJS_FreeRuntime drains the worker's loop on this (the parent's) thread,
+         * and the drain runs JS (e.g. the continuation of a threadpool request
+         * that was in flight). Keep the interrupt handler installed: `terminating`
+         * is set on every path here, so that JS is aborted at its next interrupt
+         * poll instead of possibly hanging this thread. The handler only reads the
+         * atomic flag, so it is safe to call from here. */
         TJS_FreeRuntime(w->wrt);
         w->wrt = NULL;
     }

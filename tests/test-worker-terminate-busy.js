@@ -1,6 +1,8 @@
 // terminate() aborts a worker stuck in synchronous JS instead of blocking the
 // parent forever, and the abort is silent: no error event and nothing on stderr.
-// An uncaught error in the parent tears a busy worker down the same way.
+// An uncaught error in the parent tears a busy worker down the same way. JS that
+// the teardown drain runs (on the parent thread) is aborted too, whether the
+// worker was terminated or closed itself.
 import assert from 'tjs:assert';
 import path from 'tjs:path';
 
@@ -21,12 +23,20 @@ async function runHelper(mode) {
     return { status, stdout: stdout.trim(), stderr };
 }
 
-for (const mode of [ 'top-level', 'onmessage', 'await' ]) {
+for (const mode of [ 'top-level', 'onmessage', 'await', 'drain-terminate' ]) {
     const { status, stdout, stderr } = await runHelper(mode);
 
     assert.eq(status.exit_status, 0, `${mode}: exits cleanly`);
     assert.eq(stdout, 'terminate returned', `${mode}: terminate() returned, no error event`);
     assert.eq(stderr, '', `${mode}: nothing on stderr`);
+}
+
+{
+    const { status, stdout, stderr } = await runHelper('drain-close');
+
+    assert.eq(status.exit_status, 0, 'drain-close: exits cleanly');
+    assert.eq(stdout, 'parent alive', 'drain-close: parent loop kept running, no error event');
+    assert.eq(stderr, '', 'drain-close: nothing on stderr');
 }
 
 {

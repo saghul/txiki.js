@@ -442,7 +442,8 @@ static void uv__stop(uv_async_t *handle) {
     uv_stop(&qrt->loop);
 }
 
-/* Runs on the worker thread, polled by QuickJS while JS executes. */
+/* Polled by QuickJS while JS executes: on the worker thread, and on the parent
+ * thread while TJS_FreeRuntime drains a reaped worker's loop. */
 static int tjs__worker_interrupt_handler(JSContext *ctx, void *opaque) {
     TJSRuntime *qrt = opaque;
     return atomic_load(&qrt->terminating);
