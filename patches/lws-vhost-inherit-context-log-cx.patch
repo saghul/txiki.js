@@ -16,12 +16,18 @@ down concurrently in tests/test-tls-worker-concurrent.js).
 Fall back to context->log_cx instead.  It is &log_cx unless the context was
 given its own, so single-context users see no change.
 
+Rebased onto v5.1.0 (5f39aa483): the code moved from lib/core-net/vhost.c
+to lib/io/vhost.c (sans-io split, 4c1c0d6f2); the change is unchanged and
+still not upstream (v5.1.0 and main d954e68f2 still bind &log_cx).
+
 Upstreamable as is.
 
-diff --git a/lib/core-net/vhost.c b/lib/core-net/vhost.c
---- a/lib/core-net/vhost.c
-+++ b/lib/core-net/vhost.c
-@@ -764,7 +764,7 @@ lws_create_vhost(struct lws_context *context,
+---
+diff --git a/lib/io/vhost.c b/lib/io/vhost.c
+index c7489bb5c..66a5d4805 100644
+--- a/lib/io/vhost.c
++++ b/lib/io/vhost.c
+@@ -166,7 +166,7 @@ lws_create_vhost(struct lws_context *context,
  	if (info->log_cx)
  		vh->lc.log_cx = info->log_cx;
  	else

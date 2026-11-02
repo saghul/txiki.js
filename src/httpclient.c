@@ -961,10 +961,12 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
      * from its responses, races QUIC-first on a later cold connect, falls back
      * to TCP if QUIC does not answer, and cools down failed origins itself.
      *
-     * The ALPN list is per connection: lws's TLS client offers it instead of
-     * the vhost list. It does not name "h3": on this lws it would be offered on
-     * the TCP handshake too, where h3 cannot run. */
-    cci.alpn = "h2,http/1.1";
+     * The ALPN list is per connection: lws's TLS client offers only this list,
+     * never the vhost's. It must name h3, or lws takes it as pinning the
+     * protocol and never upgrades the origin to h3 (upstream 4761cafff); h3 is
+     * kept off the TCP handshake itself by
+     * patches/lws-mbedtls-client-no-h3-alpn-over-tcp.patch. */
+    cci.alpn = "h2,http/1.1,h3";
 
     tjs__lws_conn_ref(ctx);
 

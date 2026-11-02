@@ -1,0 +1,161 @@
+cache-ttl: a lookup also finds what only L1 holds, eg, when the jar is busy
+
+Since upstream bc7cee276 ("cache-ttl: C-713: ... never wait for its
+lock"), the nscookiejar level tries the jar's lock file once and fails the
+operation when another process holds it.  The pin retried for up to 5 s.
+The intent stated in lib/misc/cache-ttl/file.c is that "the caller still
+has L1", but a lookup doesn't consult L1's items at all: on a meta-result
+miss it asks only the backing store.  So while another process using the
+same jar holds the lock (every lws process takes it at startup for the
+expiry sweep, and on every jar write):
+
+ - a Set-Cookie is written to L1, but the jar write fails, and the next
+   lookup either fails outright (jar still busy) or reads a jar that does
+   not have the cookie: the cookie is never sent back, even in-process;
+ - a lookup while the jar is busy finds nothing at all.
+
+Make __lws_cache_lookup() also take the unexpired items held in L1, matched
+with the backing store level's rules (the cookie path / domain match is not
+L1's plain wildcard), and add the ones the backing store did not report.
+If the backing store lookup failed, answer from L1 alone and cache that
+result set for at most 1 s, so the jar is asked again soon.
+
+Only persistence is skipped while the jar is busy: nothing waits on the
+event loop.  Known limit: a cookie deleted (expired Set-Cookie) while the
+jar is busy is removed from L1 only, so the jar copy can come back.
+
+Not an upstream backport: v5.1.0 (5f39aa483) behaves as described above.
+
+---
+diff --git a/lib/misc/cache-ttl/lws-cache-ttl.c b/lib/misc/cache-ttl/lws-cache-ttl.c
+index d4fc38129..0a36e6be1 100644
+--- a/lib/misc/cache-ttl/lws-cache-ttl.c
++++ b/lib/misc/cache-ttl/lws-cache-ttl.c
+@@ -216,6 +216,76 @@ lws_cache_write_through(struct lws_cache_ttl_lru *cache,
+ 	return r;
+ }
+ 
++/*
++ * How long L1 may answer a lookup by itself when the backing store could not
++ * be asked, eg, because another process held the cookie jar lock
++ */
++#define LWS_CACHE_BS_RETRY_US (1 * LWS_US_PER_SEC)
++
++/*
++ * Add the unexpired items in L1 that match wildcard_key by the rules of the
++ * backing store level, and are not on results_owner already
++ */
++
++static int
++__lws_cache_lookup_l1(struct lws_cache_ttl_lru *l1,
++		      struct lws_cache_ttl_lru *backing,
++		      const char *wildcard_key, lws_dll2_owner_t *results_owner)
++{
++	lws_usec_t now = lws_cx_now(l1->info.cx, l1->info.tsi);
++	lws_dll2_owner_t l1_owner;
++
++	memset(&l1_owner, 0, sizeof(l1_owner));
++
++	/*
++	 * L1's own wildcard rules may not be the backing store's (eg, the
++	 * cookie path match), so take all of L1 and match it ourselves
++	 */
++	if (l1->info.ops->lookup(l1, "*", &l1_owner)) {
++		lws_cache_clear_matches(&l1_owner);
++		return 1;
++	}
++
++	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
++				   lws_dll2_get_head(&l1_owner)) {
++		lws_cache_match_t *m = lws_container_of(d, lws_cache_match_t,
++							list);
++		const char *tag = (const char *)&m[1];
++		char dupe = 0;
++
++		lws_dll2_remove(d);
++
++		if (*tag == META_ITEM_LEADING ||
++		    (m->expiry && m->expiry <= now) ||
++		    backing->info.ops->tag_match(backing, wildcard_key, tag, 1)) {
++			lws_free(m);
++			continue;
++		}
++
++		lws_start_foreach_dll(struct lws_dll2 *, e,
++				      lws_dll2_get_head(results_owner)) {
++			lws_cache_match_t *i = lws_container_of(e,
++						lws_cache_match_t, list);
++
++			if (i->tag_size == m->tag_size &&
++			    !strcmp(tag, (const char *)&i[1])) {
++				dupe = 1;
++				break;
++			}
++		} lws_end_foreach_dll(e);
++
++		if (dupe) {
++			lws_free(m);
++			continue;
++		}
++
++		lws_dll2_add_tail(&m->list, results_owner);
++
++	} lws_end_foreach_dll_safe(d, d1);
++
++	return 0;
++}
++
+ /*
+  * We want to make a list of unique keys that exist at any cache level
+  * matching a wildcard search key.
+@@ -232,7 +302,7 @@ __lws_cache_lookup(struct lws_cache_ttl_lru *cache, const char *wildcard_key,
+ 	lws_usec_t expiry = 0;
+ 	uint8_t *p, *temp;
+ 	size_t sum = 0;
+-	int n;
++	int n, bs_failed = 0;
+ 
+ 	memset(&results_owner, 0, sizeof(results_owner));
+ 
+@@ -252,14 +322,40 @@ __lws_cache_lookup(struct lws_cache_ttl_lru *cache, const char *wildcard_key,
+ 		cache = cache->info.parent;
+ 
+ 	if (cache->info.ops->lookup(cache, wildcard_key, &results_owner)) {
+-		/* eg, OOM */
++		/*
++		 * eg, OOM, or the cookie jar is locked by another process,
++		 * which we don't wait for.  L1 can still answer for what it
++		 * holds, but only briefly: the backing store has to be asked
++		 * again soon.
++		 */
+ 
+ 		lwsl_cache("%s: bs lookup fail\n", __func__);
+ 
++		lws_cache_clear_matches(&results_owner);
++		bs_failed = 1;
++	}
++
++	/*
++	 * L1 may hold items the backing store does not, eg, the backing
++	 * store refused the write because the cookie jar was locked by
++	 * another process at the time.  Add those, matched with the rules of
++	 * the backing store level.
++	 */
++
++	if (l1 != cache &&
++	    __lws_cache_lookup_l1(l1, cache, wildcard_key, &results_owner)) {
+ 		lws_cache_clear_matches(&results_owner);
+ 		return 1;
+ 	}
+ 
++	if (bs_failed) {
++		lws_usec_t retry = lws_cx_now(l1->info.cx, l1->info.tsi) +
++				   LWS_CACHE_BS_RETRY_US;
++
++		if (!expiry || retry < expiry)
++			expiry = retry;
++	}
++
+ 	/*
+ 	 * Scan the results, we want to know how big a payload it needs in
+ 	 * the cache, and we want to know the earliest expiry of any of the
