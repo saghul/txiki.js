@@ -114,7 +114,7 @@ class Server {
             }
         };
 
-        const onBodyChunk = (requestId, chunk) => {
+        const onBodyChunk = (requestId, chunk, aborted) => {
             const controller = this.#streamControllers.get(requestId);
 
             if (!controller) {
@@ -124,7 +124,12 @@ class Server {
             if (chunk) {
                 controller.enqueue(new Uint8Array(chunk));
             } else {
-                controller.close();
+                if (aborted === true) {
+                    controller.error(new TypeError('Request body aborted'));
+                } else {
+                    controller.close();
+                }
+
                 this.#streamControllers.delete(requestId);
             }
         };
@@ -175,6 +180,13 @@ class Server {
             for (const reader of this.#responseReaders.values()) {
                 Server.#cancelReader(reader);
             }
+
+            // Likewise request bodies still streaming in will never end now.
+            for (const controller of this.#streamControllers.values()) {
+                controller.error(new TypeError('Request body aborted'));
+            }
+
+            this.#streamControllers.clear();
         }
 
         await this.#closedPromise;

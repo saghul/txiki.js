@@ -87,7 +87,7 @@ typedef struct TJSHttpRequest {
     TJSHttpVersion http_version; /* wire protocol the request arrived over */
     bool body_complete;
     bool dispatched; /* JS handler has been invoked for this request */
-    bool chunked;    /* true for Transfer-Encoding: chunked — body is streamed to JS */
+    bool chunked;    /* body is streamed to JS (h1 chunked, or h2 without Content-Length) */
 
     /* Response state. */
     bool responded;
@@ -360,6 +360,23 @@ static int tjs_http_emit_body_chunk(TJSHttpServer *s, TJSHttpRequest *req, const
     JS_FreeValue(ctx, cb_args[0]);
     JS_FreeValue(ctx, cb_args[1]);
     return 0;
+}
+
+/* End a streamed request body. An aborted body must error the stream: ending
+ * it normally would hand the handler a truncated body as if it were whole. */
+static void tjs_http_end_body_stream(TJSHttpServer *s, TJSHttpRequest *req, bool aborted) {
+    JSContext *ctx = s->ctx;
+    req->body_complete = true;
+    /* After close() the callbacks are released; JS errors its streams itself. */
+    if (!JS_IsFunction(ctx, s->body_chunk_callback)) {
+        return;
+    }
+    JSValue cb_args[3];
+    cb_args[0] = JS_NewInt64(ctx, req->id);
+    cb_args[1] = JS_NULL;
+    cb_args[2] = JS_NewBool(ctx, aborted);
+    tjs_call_handler(ctx, s->body_chunk_callback, countof(cb_args), cb_args);
+    JS_FreeValue(ctx, cb_args[0]);
 }
 
 typedef struct {
@@ -936,6 +953,20 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 return 0;
             }
 
+            /* h2 has no Transfer-Encoding: a body without Content-Length is
+             * framed by DATA frames up to END_STREAM, so stream it like an h1
+             * chunked one. lws raises HTTP_BODY_COMPLETION at END_STREAM, also
+             * when it came on the HEADERS (an empty body, for every method
+             * only with patches/lws-h2-empty-body-completion-any-method.patch).
+             * Not h3: lws never completes an h3 request whose FIN came on the
+             * HEADERS, so an empty no-CL h3 DELETE would hang. */
+            if (req->http_version == TJS_HTTP_2 && lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH) <= 0 &&
+                req->method != LWSHUMETH_GET && req->method != LWSHUMETH_HEAD) {
+                req->chunked = true;
+                tjs_http_invoke_handler(s, req);
+                return 0;
+            }
+
             /* No body expected. Invoke handler immediately. */
             req->body_complete = true;
             tjs_http_invoke_handler(s, req);
@@ -970,19 +1001,14 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 return -1;
             }
 
-            req->body_complete = true;
-
             if (req->chunked) {
                 /* The handler already runs (it was invoked at the head, to
                  * stream the body): end its body stream instead. */
-                JSValue cb_args[2];
-                cb_args[0] = JS_NewInt64(s->ctx, req->id);
-                cb_args[1] = JS_NULL;
-                tjs_call_handler(s->ctx, s->body_chunk_callback, 2, cb_args);
-                JS_FreeValue(s->ctx, cb_args[0]);
+                tjs_http_end_body_stream(s, req, false);
                 return 0;
             }
 
+            req->body_complete = true;
             tjs_http_invoke_handler(s, req);
             return 0;
         }
@@ -1121,14 +1147,10 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
                 return 0;
             }
 
-            /* If streaming body was in progress, signal end-of-stream. */
+            /* lws cut a streamed body off before its end (client gone, reset
+             * stream, bad framing, timeout). */
             if (req->chunked && !req->body_complete) {
-                req->body_complete = true;
-                JSValue cb_args[2];
-                cb_args[0] = JS_NewInt64(s->ctx, req->id);
-                cb_args[1] = JS_NULL;
-                tjs_call_handler(s->ctx, s->body_chunk_callback, 2, cb_args);
-                JS_FreeValue(s->ctx, cb_args[0]);
+                tjs_http_end_body_stream(s, req, true);
             }
 
             uint64_t req_id = req->id;

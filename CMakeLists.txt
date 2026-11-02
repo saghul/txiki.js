@@ -571,6 +571,9 @@ set(LWS_MBEDTLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/deps/mbedtls/include" 
 #   - lws-remove-from-sul-clears-close-decided.patch: an h1 request aborted
 #     just before its transaction completed and handed its connection to a
 #     queued one was never closed, only freed when the runtime exited.
+#   - lws-h2-empty-body-completion-any-method.patch: an h2 request ended with
+#     its HEADERS got the empty body completion only for POST, so an empty
+#     no-Content-Length PUT / PATCH / DELETE whose body we stream never ended.
 tjs_apply_patches("${CMAKE_CURRENT_SOURCE_DIR}/deps/libwebsockets" "lws-")
 
 add_subdirectory(deps/libwebsockets EXCLUDE_FROM_ALL)

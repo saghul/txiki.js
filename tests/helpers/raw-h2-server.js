@@ -18,7 +18,7 @@ const FLAG_END_STREAM = 0x1;
 const FLAG_END_HEADERS = 0x4;
 const STATUS_200 = 0x88; // HPACK static table entry 8, ":status: 200"
 
-function frame(type, flags, sid, payload = new Uint8Array(0)) {
+export function frame(type, flags, sid, payload = new Uint8Array(0)) {
     const buf = new Uint8Array(9 + payload.length);
     const view = new DataView(buf.buffer);
 
