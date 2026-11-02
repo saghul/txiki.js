@@ -80,6 +80,8 @@ typedef struct {
     bool torn_down;
     bool keepalive;      /* connection may be pooled for reuse (decided at headers) */
     bool conn_close;     /* the user asked for "Connection: close" */
+    bool req_sent;       /* the whole request (headers and body) was handed to lws */
+    bool got_response;   /* the (non-interim) response headers arrived */
     lws_usec_t start_us; /* request start */
     unsigned long timeout;
     int ssl_flags;
@@ -161,19 +163,58 @@ static void maybe_invoke_callback(TJSHttpClient *h, int callback, int argc, JSVa
     }
 }
 
-/* Arm (or cancel) the request-timeout timer, measured from h->start_us. */
+/* Browsers put no limit on the wait for response headers; only the user's
+ * timeout (XHR timeout, AbortSignal) ends it. lws, however, arms its own reply
+ * timer (PENDING_TIMEOUT_AWAITING_SERVER_RESPONSE, the context's timeout_secs,
+ * 15 s by default) inside its state machine once the request is sent, where no
+ * callback of ours runs. So while the reply is pending we wake up every
+ * TJS_HTTPCLIENT_REPLY_TICK_US and clear it. The tick must stay below
+ * timeout_secs: lws re-arms the reply timer at several points (after a 1xx
+ * interim response, when a queued h1 request reuses a pooled connection) and
+ * each tick has to undo that before it fires. */
+#define TJS_HTTPCLIENT_REPLY_TICK_US (5 * LWS_USEC_PER_SEC)
+
+static bool httpclient_awaiting_reply(TJSHttpClient *h) {
+    return h->req_sent && !h->got_response;
+}
+
+static lws_usec_t httpclient_deadline(TJSHttpClient *h) {
+    return h->start_us + (lws_usec_t) h->timeout * LWS_USEC_PER_SEC / 1000;
+}
+
+/* Arm (or cancel) the request timer: the user timeout, measured from
+ * h->start_us, and the reply keep-off tick while awaiting the response. */
 static void httpclient_arm_timer(TJSHttpClient *h, struct lws *wsi) {
-    if (h->timeout == 0) {
+    bool tick = httpclient_awaiting_reply(h);
+
+    if (h->timeout == 0 && !tick) {
         lws_set_timer_usecs(wsi, LWS_SET_TIMER_USEC_CANCEL);
         return;
     }
 
-    lws_usec_t now = lws_now_usecs();
-    lws_usec_t deadline = h->start_us + (lws_usec_t) h->timeout * LWS_USEC_PER_SEC / 1000;
+    lws_usec_t delay = TJS_HTTPCLIENT_REPLY_TICK_US;
 
-    /* Already past due (or due this instant): lws treats 0 as "cancel", so ask
-     * for the shortest real delay instead and let the timer callback report it. */
-    lws_set_timer_usecs(wsi, deadline > now ? deadline - now : 1);
+    if (h->timeout != 0) {
+        lws_usec_t now = lws_now_usecs();
+        lws_usec_t deadline = httpclient_deadline(h);
+
+        /* Already past due (or due this instant): lws treats 0 as "cancel", so
+         * ask for the shortest real delay instead and let the timer callback
+         * report it. */
+        lws_usec_t left = deadline > now ? deadline - now : 1;
+        if (!tick || left < delay) {
+            delay = left;
+        }
+    }
+
+    lws_set_timer_usecs(wsi, delay);
+}
+
+/* The request was fully handed to lws: from here until the response headers
+ * arrive, lws's reply timer must be kept off (see above). */
+static void httpclient_request_sent(TJSHttpClient *h, struct lws *wsi) {
+    h->req_sent = true;
+    httpclient_arm_timer(h, wsi);
 }
 
 /* Release our hold on a finished request.  With connection reuse
@@ -200,6 +241,10 @@ static void httpclient_teardown(TJSHttpClient *h, struct lws *cbwsi) {
 
     if (h->wsi) {
         lws_set_timer_usecs(h->wsi, LWS_SET_TIMER_USEC_CANCEL);
+    }
+    /* The reply tick may run on the stream wsi (an h2/h3 child) rather than h->wsi. */
+    if (cbwsi && cbwsi != h->wsi) {
+        lws_set_timer_usecs(cbwsi, LWS_SET_TIMER_USEC_CANCEL);
     }
 
     /* Detach h from every wsi that carries it as user_space, so no later callback
@@ -500,6 +545,8 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                 }
                 lws_client_http_body_pending(wsi, 1);
                 lws_callback_on_writable(wsi);
+            } else {
+                httpclient_request_sent(h, wsi);
             }
 
             break;
@@ -516,6 +563,9 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
             if (status <= 0) {
                 break;
             }
+
+            h->got_response = true;
+            httpclient_arm_timer(h, wsi);
 
             /* Decide reuse now, while the response headers are still parsed: a
              * response that carried "Connection: close" leaves the socket about
@@ -594,6 +644,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                 size_t remaining = h->send_buf.size - h->send_offset;
                 if (remaining == 0) {
                     lws_client_http_body_pending(wsi, 0);
+                    httpclient_request_sent(h, wsi);
                     break;
                 }
 
@@ -639,6 +690,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                     lws_callback_on_writable(wsi);
                 } else {
                     lws_client_http_body_pending(wsi, 0);
+                    httpclient_request_sent(h, wsi);
                 }
 
                 break;
@@ -652,6 +704,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                     uint8_t buf[LWS_PRE + 5];
                     memcpy(buf + LWS_PRE, "0\r\n\r\n", 5);
                     lws_write(wsi, buf + LWS_PRE, 5, LWS_WRITE_HTTP_FINAL);
+                    httpclient_request_sent(h, wsi);
                 } else {
                     /* No data buffered — ask JS for more. */
                     maybe_invoke_callback(h, HC_CALLBACK_DRAIN, 0, NULL);
@@ -710,6 +763,22 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
         }
 
         case LWS_CALLBACK_TIMER: {
+            /* Not yet due: the reply keep-off tick (see httpclient_arm_timer). */
+            if (!h->completed && (h->timeout == 0 || lws_now_usecs() < httpclient_deadline(h))) {
+                if (httpclient_awaiting_reply(h)) {
+                    lws_set_timeout(wsi, NO_PENDING_TIMEOUT, 0);
+                    /* Over h2 lws also times out the whole connection for rx
+                     * silence (PENDING_TIMEOUT_HTTP_CONTENT, timeout_secs,
+                     * renewed on every frame received), which a slow reply is. */
+                    struct lws *nwsi = lws_get_network_wsi(wsi);
+                    if (nwsi && nwsi != wsi) {
+                        lws_set_timeout(nwsi, NO_PENDING_TIMEOUT, 0);
+                    }
+                }
+                httpclient_arm_timer(h, wsi);
+                break;
+            }
+
             if (!h->completed) {
                 h->completed = true;
                 JSValue error = JS_NewString(h->ctx, "TIMED_OUT");
