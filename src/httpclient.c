@@ -463,9 +463,51 @@ static void custom_header_foreach_cb(const char *name, int nlen, void *opaque) {
     js_free(hctx->h->ctx, val);
 }
 
+/* lws joins repeated Set-Cookie headers with ';', which can't be split back
+ * apart, so report each fragment (one per header line) on its own. */
+static void fire_set_cookie_headers(TJSHttpClient *h, struct lws *wsi) {
+    /* The joined length bounds every fragment, so one buffer fits them all. */
+    int total_len = lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_SET_COOKIE);
+    if (total_len <= 0) {
+        return;
+    }
+    size_t buf_size = (size_t) total_len + 1;
+    char *val = js_malloc(h->ctx, buf_size);
+    if (!val) {
+        return;
+    }
+
+    /* lws_hdr_copy_fragment() returns -1 once frag_idx is past the last one;
+     * it can't return -2 (buffer too small) since the buffer fits the joined value. */
+    int len;
+    for (int i = 0; (len = lws_hdr_copy_fragment(wsi, val, (int) buf_size, WSI_TOKEN_HTTP_SET_COOKIE, i)) != -1; i++) {
+        CHECK_GE(len, 0);
+
+        const char *start = val;
+        const char *end = val + len;
+        while (start < end && (*start == ' ' || *start == '\t')) {
+            start++;
+        }
+        while (end > start && (end[-1] == ' ' || end[-1] == '\t')) {
+            end--;
+        }
+
+        JSValue args[2];
+        args[0] = JS_NewString(h->ctx, "set-cookie");
+        args[1] = JS_NewStringLen(h->ctx, start, end - start);
+        maybe_invoke_callback(h, HC_CALLBACK_HEADER, 2, args);
+    }
+
+    js_free(h->ctx, val);
+}
+
 static void fire_response_headers(TJSHttpClient *h, struct lws *wsi) {
     /* Iterate known tokens. */
     for (int n = 0; n < WSI_TOKEN_COUNT; n++) {
+        if (n == WSI_TOKEN_HTTP_SET_COOKIE) {
+            fire_set_cookie_headers(h, wsi);
+            continue;
+        }
         const unsigned char *tok_name = lws_token_to_string(n);
         if (!tok_name) {
             continue;
