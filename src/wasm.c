@@ -2077,7 +2077,9 @@ static JSValue tjs_wasm_validate(JSContext *ctx, JSValue this_val, int argc, JSV
 
     char error_buf[TJS__WASM_ERROR_BUF_SIZE];
 
-    /* Make a copy using WAMR's allocator since wasm_runtime_load takes ownership on success */
+    /* The loader may modify the buffer in place, so validate a copy of the user's bytes.
+     * WAMR doesn't take ownership of it: the module may point into it while loaded,
+     * so it's freed only after the unload. */
     uint8_t *copy = wasm_runtime_malloc(buf_len);
     if (!copy) {
         return JS_FALSE;
@@ -2089,13 +2091,13 @@ static JSValue tjs_wasm_validate(JSContext *ctx, JSValue this_val, int argc, JSV
     LoadArgs load_args = { 0 };
     load_args.no_resolve = true;
     wasm_module_t module = wasm_runtime_load_ex(copy, (uint32_t) buf_len, &load_args, error_buf, sizeof(error_buf));
-    if (module) {
+    bool valid = module != NULL;
+    if (valid) {
         wasm_runtime_unload(module);
-        return JS_TRUE;
     }
 
     wasm_runtime_free(copy);
-    return JS_FALSE;
+    return JS_NewBool(ctx, valid);
 }
 
 static const JSCFunctionListEntry tjs_wasm_funcs[] = {
