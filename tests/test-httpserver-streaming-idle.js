@@ -1,11 +1,12 @@
 // A streaming response that goes idle (no data for longer than lws's 15 s
 // pending timeout) stays open until the stream sends more data and closes:
 // tjs.serve puts no idle limit on streaming responses (SSE, long-poll). The
-// server sends 'a', idles 20 s, then sends 'b' and closes. The three cases run
+// server sends 'a', idles 20 s, then sends 'b' and closes. The cases run
 // concurrently so the file stays well under the test runner's timeout.
+//
+// HTTP/1.1 only: over h2 the fetch() client cuts an idle response body on its
+// own, so an h2 case would test the client, not the server.
 import assert from 'tjs:assert';
-import cert from './fixtures/server-cert.pem' with { type: 'text' };
-import key from './fixtures/server-key.pem' with { type: 'text' };
 
 // Skipped under GC stress: it starves the event loop, so the 20 s idle plus
 // the requests no longer fit in the test timeout.
@@ -68,27 +69,19 @@ async function testH1Raw(port) {
 }
 
 async function testFetch(url) {
-    const resp = await fetch(url, { allowInsecure: true });
+    const resp = await fetch(url);
 
     assert.eq(resp.status, 200, `${url} status`);
     assert.eq(await resp.text(), 'ab', `${url} full body`);
 }
 
-const h1Server = tjs.serve({ port: 0, listenIp: '127.0.0.1', fetch: handler });
-const h2Server = tjs.serve({
-    port: 0,
-    listenIp: '127.0.0.1',
-    tls: { cert, key, alpn: [ 'h2' ] },
-    fetch: handler,
-});
+const server = tjs.serve({ port: 0, listenIp: '127.0.0.1', fetch: handler });
 
 try {
     await Promise.all([
-        testH1Raw(h1Server.port),
-        testFetch(`http://127.0.0.1:${h1Server.port}/idle`),
-        testFetch(`https://127.0.0.1:${h2Server.port}/idle`),
+        testH1Raw(server.port),
+        testFetch(`http://127.0.0.1:${server.port}/idle`),
     ]);
 } finally {
-    await h1Server.close();
-    await h2Server.close();
+    await server.close();
 }

@@ -497,6 +497,23 @@ static void tjs_http_invoke_handler(TJSHttpServer *s, TJSHttpRequest *req) {
 }
 
 /*
+ * A streaming response (e.g. SSE) may legitimately idle for any length of time
+ * between chunks, and tjs.serve puts no idle limit on it. Without this, lws's
+ * pending timeouts cut it mid-body: the h1 request-content timeout, the h2/h3
+ * response watchdog and, on h2, the connection's keepalive-idle timeout. This
+ * clears the stream's timeout and, on a mux stream, keeps the connection
+ * immortal while the stream is open.
+ *
+ * Only once the request body is complete: lws_http_mark_sse() detaches the
+ * request headers (we copied them already) and lws then closes an h1 SSE
+ * connection on any further rx, which would cut a chunked request body that
+ * is still streaming in.
+ */
+static void tjs_http_mark_stream_idle_ok(TJSHttpRequest *req) {
+    lws_http_mark_sse(req->wsi);
+}
+
+/*
  * LWS HTTP server callback.
  *
  * Handles both HTTP requests and WebSocket connections (after upgrade).
@@ -973,6 +990,10 @@ static int tjs_http_callback(struct lws *wsi, enum lws_callback_reasons reason, 
             req->body_complete = true;
 
             if (req->chunked) {
+                if (req->streaming) {
+                    tjs_http_mark_stream_idle_ok(req);
+                }
+
                 /* The handler already runs (it was invoked at the head, to
                  * stream the body): end its body stream instead. */
                 JSValue cb_args[2];
@@ -1976,15 +1997,9 @@ static JSValue tjs_httpserver_send_headers(JSContext *ctx, JSValue this_val, int
         return JS_ThrowPlainError(ctx, "failed to write response headers");
     }
 
-    /* A streaming response (e.g. SSE) may legitimately idle for any length
-     * of time between chunks, and tjs.serve puts no idle limit on it. Without
-     * this, lws's pending timeouts cut it mid-body: the h1 request-content
-     * timeout, the h2/h3 response timeout and, on h2, the connection's
-     * keepalive-idle timeout. This clears the stream's timeout and, on a mux
-     * stream, keeps the connection immortal while the stream is open. It also
-     * detaches the request headers, which we already copied in
-     * LWS_CALLBACK_HTTP. */
-    lws_http_mark_sse(req->wsi);
+    if (req->body_complete) {
+        tjs_http_mark_stream_idle_ok(req);
+    }
 
     js_free(ctx, header_buf);
     return JS_TRUE;
