@@ -82,7 +82,12 @@ typedef struct {
     bool conn_close;     /* the user asked for "Connection: close" */
     bool req_sent;       /* the whole request (headers and body) was handed to lws */
     bool got_response;   /* the (non-interim) response headers arrived */
+    bool connecting;     /* this request opened a socket of its own */
+    bool headers_sent;   /* lws asked us for the request headers: it was sent */
+    bool retried;        /* the one retry of an unsent request was used */
+    bool retry_pending;  /* retry_sul is scheduled */
     lws_usec_t start_us; /* request start */
+    lws_sorted_usec_list_t retry_sul;
     unsigned long timeout;
     int ssl_flags;
     JSValue url;
@@ -143,6 +148,13 @@ static void tjs_httpclient_detach(TJSHandlePin *pin) {
         JS_FreeValue(h->ctx, h->callbacks[i]);
         h->callbacks[i] = JS_UNDEFINED;
     }
+    /* The lws context is destroyed next, with the sul lists: nothing may be
+     * left on them, nor scheduled while lws closes the connections. */
+    if (h->retry_pending) {
+        h->retry_pending = false;
+        lws_sul_cancel(&h->retry_sul);
+    }
+    h->retried = true;
 }
 
 static void maybe_invoke_callback(TJSHttpClient *h, int callback, int argc, JSValue *argv) {
@@ -217,28 +229,8 @@ static void httpclient_request_sent(TJSHttpClient *h, struct lws *wsi) {
     httpclient_arm_timer(h, wsi);
 }
 
-/* Release our hold on a finished request.  With connection reuse
- * (LCCSCF_PIPELINE) a wsi is no longer 1:1 with a socket: on transaction
- * completion lws keeps the connection warm and, for h1, migrates it to the
- * next queued request — the retired leader is then destroyed WITHOUT a
- * CLOSED_CLIENT_HTTP callback (it sets already_did_cce). So teardown must run
- * from whichever terminal callback fires first: COMPLETED_CLIENT_HTTP on
- * success, CLOSED/CONNECTION_ERROR on failure; an idle connection's eventual
- * CLOSED arrives after we have already detached here and is a no-op.
- *
- * This drops loop-liveness (so idle pooled connections don't keep the process
- * alive), cancels the request timeout, and detaches h from the wsi so no later
- * callback on the reused/idle connection sees this client.  It does NOT free
- * h: that stays the GC finalizer's job, since the JS wrapper (and abort())
- * may still reach it until it is collected. */
-static void httpclient_teardown(TJSHttpClient *h, struct lws *cbwsi) {
-    if (h->torn_down) {
-        return;
-    }
-    h->torn_down = true;
-
-    tjs__lws_conn_unref(h->ctx);
-
+/* Cancel the request timer and detach h from the wsi it ran on. */
+static void httpclient_release_wsi(TJSHttpClient *h, struct lws *cbwsi) {
     if (h->wsi) {
         lws_set_timer_usecs(h->wsi, LWS_SET_TIMER_USEC_CANCEL);
     }
@@ -261,12 +253,89 @@ static void httpclient_teardown(TJSHttpClient *h, struct lws *cbwsi) {
         }
     }
     h->wsi = NULL;
+}
+
+/* Release our hold on a finished request.  With connection reuse
+ * (LCCSCF_PIPELINE) a wsi is no longer 1:1 with a socket: on transaction
+ * completion lws keeps the connection warm and, for h1, migrates it to the
+ * next queued request — the retired leader is then destroyed WITHOUT a
+ * CLOSED_CLIENT_HTTP callback (it sets already_did_cce). So teardown must run
+ * from whichever terminal callback fires first: COMPLETED_CLIENT_HTTP on
+ * success, CLOSED/CONNECTION_ERROR on failure; an idle connection's eventual
+ * CLOSED arrives after we have already detached here and is a no-op.
+ *
+ * This drops loop-liveness (so idle pooled connections don't keep the process
+ * alive), cancels the request timeout, and detaches h from the wsi so no later
+ * callback on the reused/idle connection sees this client.  It does NOT free
+ * h: that stays the GC finalizer's job, since the JS wrapper (and abort())
+ * may still reach it until it is collected. */
+static void httpclient_teardown(TJSHttpClient *h, struct lws *cbwsi) {
+    if (h->torn_down) {
+        return;
+    }
+    h->torn_down = true;
+
+    tjs__lws_conn_unref(h->ctx);
+
+    if (h->retry_pending) {
+        h->retry_pending = false;
+        lws_sul_cancel(&h->retry_sul);
+    }
+
+    httpclient_release_wsi(h, cbwsi);
 
     /* Release the self-pin; the finalizer frees callbacks, url, buffers, and the
      * struct itself once JS also lets go. Unpinning also removes h from the
      * teardown registry, so an abnormal-exit drain won't touch it. */
     CHECK(!JS_IsUndefined(h->pin.obj));
     tjs__handle_unpin(h->ctx, &h->pin);
+}
+
+/* A request issued while another one to the same origin is setting up its
+ * connection (or, on h1, still waiting for its response) is queued on that
+ * request's wsi. When that request's connection closes for any reason (abort,
+ * timeout, peer reset), lws closes everything queued on it, although none of
+ * it was sent, and tells each one CLOSED_CLIENT_HTTP. Such a request gets one
+ * more attempt on a fresh connection, as a browser would. Nothing that went
+ * out on the wire is ever retried: lws never asked for its headers and it
+ * never had a socket of its own. A request that failed on its own connection
+ * before connecting (DNS) is told CLIENT_CONNECTION_ERROR instead. */
+static bool httpclient_should_retry(TJSHttpClient *h, enum lws_callback_reasons reason) {
+    return reason == LWS_CALLBACK_CLOSED_CLIENT_HTTP && !h->completed && !h->retried && !h->connecting &&
+           !h->headers_sent;
+}
+
+static int tjs_httpclient_connect(TJSHttpClient *h);
+
+static void httpclient_retry_cb(lws_sorted_usec_list_t *sul) {
+    TJSHttpClient *h = lws_container_of(sul, TJSHttpClient, retry_sul);
+    JSContext *ctx = h->ctx;
+
+    h->retry_pending = false;
+
+    /* A failure tears down h, which unpins it and may free it; keep the
+     * wrapper alive until we are done with h. */
+    JSValue obj = JS_DupValue(ctx, h->pin.obj);
+
+    if (tjs_httpclient_connect(h) != 0 && !h->completed) {
+        h->completed = true;
+        JSValue args[2];
+        args[0] = JS_NewString(ctx, "CONNECTION_ERROR");
+        args[1] = JS_NewString(ctx, "Connection failed");
+        maybe_invoke_callback(h, HC_CALLBACK_COMPLETE, 2, args);
+        httpclient_teardown(h, NULL);
+    }
+
+    JS_FreeValue(ctx, obj);
+}
+
+/* Called from the dying wsi's close: connect from the event loop instead. The
+ * request keeps its pin and its loop reference meanwhile. */
+static void httpclient_schedule_retry(TJSHttpClient *h, struct lws *cbwsi) {
+    httpclient_release_wsi(h, cbwsi);
+    h->retried = true;
+    h->retry_pending = true;
+    lws_sul_schedule(tjs__lws_get_context(h->ctx), 0, &h->retry_sul, httpclient_retry_cb, 1);
 }
 
 /* Connection is a comma-separated token list; a "close" token anywhere means
@@ -450,8 +519,14 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
     }
 
     switch (reason) {
+        case LWS_CALLBACK_CONNECTING:
+            h->connecting = true;
+            break;
+
         case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER: {
             unsigned char **p = (unsigned char **) in, *end = (*p) + len;
+
+            h->headers_sent = true;
 
             /* Add User-Agent header unless the user already set one. */
             if (!has_request_header(&h->req_headers, "User-Agent")) {
@@ -797,6 +872,11 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
 
         case LWS_CALLBACK_CLOSED_CLIENT_HTTP:
         case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: {
+            if (httpclient_should_retry(h, reason)) {
+                httpclient_schedule_retry(h, wsi);
+                break;
+            }
+
             if (!h->completed) {
                 h->completed = true;
                 if (reason == LWS_CALLBACK_CLIENT_CONNECTION_ERROR) {
@@ -1016,10 +1096,14 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
      * itself is never sent (see tjs_httpclient_setrequestheader), so the
      * request's own connection is how it is honored — lws sends
      * "connection: close" on h1, and on h2 the dedicated connection carries no
-     * connection header at all (it would be malformed there). */
+     * connection header at all (it would be malformed there).
+     *
+     * The one retry of a request lws closed unsent (httpclient_should_retry)
+     * gets its own connection too, so it can't be queued behind, and fail with,
+     * another connection again. */
     cci.ssl_connection = (use_ssl ? LCCSCF_USE_SSL : 0) | h->ssl_flags | LCCSCF_HTTP_NO_FOLLOW_REDIRECT |
                          LCCSCF_H2_QUIRK_OVERFLOWS_TXCR | LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM |
-                         (h->streaming || h->conn_close ? 0 : LCCSCF_PIPELINE);
+                         (h->streaming || h->conn_close || h->retried ? 0 : LCCSCF_PIPELINE);
     cci.method = h->method;
     cci.local_protocol_name = TJS_LWS_HTTP_PROTOCOL_NAME;
     cci.userdata = h;
@@ -1037,21 +1121,17 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
      * patches/lws-mbedtls-client-no-h3-alpn-over-tcp.patch. */
     cci.alpn = "h2,http/1.1,h3";
 
-    tjs__lws_conn_ref(ctx);
-
     struct lws *wsi = lws_client_connect_via_info(&cci);
 
     lws_parse_uri_destroy(&uri);
 
     if (!wsi) {
-        tjs__lws_conn_unref(ctx);
         h->wsi = NULL;
         return -1;
     }
 
     lws_cancel_service(lws_ctx);
 
-    h->start_us = lws_now_usecs();
     httpclient_arm_timer(h, wsi);
 
     return 0;
@@ -1096,7 +1176,13 @@ static JSValue tjs_httpclient_open(JSContext *ctx, JSValue this_val, int argc, J
     tjs__handle_pin(ctx, &h->pin, this_val);
     h->sent = true;
 
+    /* The loop reference and the start time (the user timeout counts from it)
+     * span a retry on a fresh connection, so they are taken here. */
+    tjs__lws_conn_ref(ctx);
+    h->start_us = lws_now_usecs();
+
     if (tjs_httpclient_connect(h)) {
+        tjs__lws_conn_unref(ctx);
         h->sent = false;
         tjs__handle_unpin(ctx, &h->pin);
         return JS_ThrowPlainError(ctx, "Connection failed");
@@ -1222,7 +1308,13 @@ static JSValue tjs_httpclient_abort(JSContext *ctx, JSValue this_val, int argc, 
         return JS_EXCEPTION;
     }
 
-    if (h->wsi && !h->completed) {
+    if (h->retry_pending && !h->completed) {
+        /* Between a queued request's close and its retry it has no wsi. */
+        h->completed = true;
+        JSValue error = JS_NewString(ctx, "ABORTED");
+        maybe_invoke_callback(h, HC_CALLBACK_COMPLETE, 1, &error);
+        httpclient_teardown(h, NULL);
+    } else if (h->wsi && !h->completed) {
         h->completed = true;
 
         struct lws *wsi = h->wsi;
