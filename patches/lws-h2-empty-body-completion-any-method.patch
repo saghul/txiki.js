@@ -1,0 +1,44 @@
+h2: complete an empty request body for every method, not just POST
+
+An h2 request without Content-Length whose END_STREAM came on the HEADERS
+has an empty, complete body: lws_http_action() already marks it
+content_length_explicitly_zero.  But the empty LWS_CALLBACK_HTTP_BODY and
+LWS_CALLBACK_HTTP_BODY_COMPLETION are only raised for a POST; a PUT,
+PATCH, DELETE or OPTIONS goes straight to no_more_body with no callback.
+
+An application reading the request body of an h2 request without
+Content-Length (DATA frames up to END_STREAM) cannot tell an empty body
+from one still to come, since no public API says END_STREAM arrived with
+the HEADERS, so it waits for a completion that never comes and the
+request hangs.  A PUT or PATCH has a body as much as a POST (the cgi
+branch just above already ends stdin whatever the method).
+
+Raise them for any request on an h2 / h3 stream (mux_substream).  h1 is
+unchanged: an h1 request with no framing has no body and nothing waits
+for one.  The "already answered" check below still applies, so an app
+that completed the transaction from LWS_CALLBACK_HTTP is not called.
+
+Not an upstream backport: v5.1.0 (5f39aa483) and main (d954e68f2) both
+gate on method_post.
+
+---
+diff --git a/lib/sansio/http/server/server.c b/lib/sansio/http/server/server.c
+index ba1f6e750..0db79da66 100644
+--- a/lib/sansio/http/server/server.c
++++ b/lib/sansio/http/server/server.c
+@@ -3432,10 +3432,13 @@ deal_body:
+ #endif
+ 
+ 	if (wsi->http.content_length_explicitly_zero &&
+-	    wsi->http.method_post) {
++	    (wsi->http.method_post || wsi->mux_substream)) {
+ 
+ 		/*
+-		 * POST with an explicit content-length of zero
++		 * POST with an explicit content-length of zero, or any h2 / h3
++		 * request whose body is empty: a PUT or PATCH stream ended
++		 * with its headers is complete as much as a POST one, and an
++		 * app reading a body without Content-Length waits for this.
+ 		 *
+ 		 * If we don't give the user code the empty HTTP_BODY callback,
+ 		 * he may become confused to hear the HTTP_BODY_COMPLETION (due
