@@ -204,6 +204,8 @@ static void tjs_http_req_free(JSRuntime *rt, TJSHttpRequest *req) {
     js_free_rt(rt, req);
 }
 
+static void tjs_http_end_body_stream(TJSHttpServer *s, TJSHttpRequest *req, bool aborted);
+
 /*
  * Detach a completed request from its wsi and free it.  Used once the
  * response is fully transmitted: on a keep-alive connection lws may reuse
@@ -213,6 +215,12 @@ static void tjs_http_req_free(JSRuntime *rt, TJSHttpRequest *req) {
 static void tjs_http_req_complete(TJSHttpServer *s, TJSHttpRequest *req) {
     if (!req) {
         return;
+    }
+    /* The response finished before the streamed body did. lws discards the
+     * rest of the body, and CLOSED_HTTP won't see this req any more, so error
+     * the stream now or it leaks for the life of the server. */
+    if (req->chunked && !req->body_complete) {
+        tjs_http_end_body_stream(s, req, true);
     }
     HASH_DEL(s->active_requests, req);
     if (req->wsi && lws_wsi_user(req->wsi) == req) {
