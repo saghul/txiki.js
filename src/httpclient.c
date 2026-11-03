@@ -67,7 +67,8 @@ typedef struct {
     TJSHandlePin pin;
     JSContext *ctx;
     JSValue callbacks[HC_CALLBACK_MAX];
-    struct lws *wsi;
+    struct lws *wsi;        /* cci.pwsi target, owned by lws */
+    struct lws *stream_wsi; /* the wsi this request's own transaction runs on */
     char *method;
     char *url_str;
     TBuf req_headers;
@@ -86,9 +87,9 @@ typedef struct {
     bool headers_sent;   /* lws asked us for the request headers: it was sent */
     bool sent_on_mux;    /* headers went out on an h2/h3 stream */
     bool mux_body;       /* streaming body sent as raw DATA (h2/h3), not chunked */
-    struct lws *mux_wsi; /* the h2/h3 stream wsi a mux_body is written on */
     bool retried;        /* the one retry of the request was used */
     bool retry_pending;  /* retry_sul is scheduled */
+    bool kill_stream;    /* aborted before its h2 stream was known: kill it on adoption */
     lws_usec_t start_us; /* request start */
     lws_sorted_usec_list_t retry_sul;
     unsigned long timeout;
@@ -234,29 +235,32 @@ static void httpclient_request_sent(TJSHttpClient *h, struct lws *wsi) {
 
 /* Cancel the request timer and detach h from the wsi it ran on. */
 static void httpclient_release_wsi(TJSHttpClient *h, struct lws *cbwsi) {
-    if (h->wsi) {
+    if (h->stream_wsi) {
+        lws_set_timer_usecs(h->stream_wsi, LWS_SET_TIMER_USEC_CANCEL);
+    }
+    if (h->wsi && h->wsi != h->stream_wsi) {
         lws_set_timer_usecs(h->wsi, LWS_SET_TIMER_USEC_CANCEL);
     }
-    /* The reply tick may run on the stream wsi (an h2/h3 child) rather than h->wsi. */
-    if (cbwsi && cbwsi != h->wsi) {
+    if (cbwsi && cbwsi != h->wsi && cbwsi != h->stream_wsi) {
         lws_set_timer_usecs(cbwsi, LWS_SET_TIMER_USEC_CANCEL);
     }
 
     /* Detach h from every wsi that carries it as user_space, so no later callback
      * on a reused/idle connection dereferences a client we no longer own. h->wsi
-     * is what lws wrote to cci.pwsi — for a pooled h2 request that is the shared
-     * network wsi, whereas the request's HTTP callbacks (including the terminal
-     * CLOSED) fire on a mux child stream wsi whose user_space is also h. cbwsi is
-     * the wsi of the terminal callback we tear down from; clear it, h->wsi, and
-     * cbwsi's network wsi, each guarded so we only ever null our own pointer. */
-    struct lws *carriers[3] = { h->wsi, cbwsi, cbwsi ? lws_get_network_wsi(cbwsi) : NULL };
+     * is what lws wrote to cci.pwsi — for the request that opened an h2
+     * connection it became the shared network wsi, and the request's HTTP
+     * callbacks (including the terminal CLOSED) fire on the mux child stream wsi
+     * (stream_wsi) whose user_space is also h. cbwsi is the wsi of the terminal
+     * callback we tear down from; clear it, h->wsi, stream_wsi and cbwsi's network
+     * wsi, each guarded so we only ever null our own pointer. */
+    struct lws *carriers[4] = { h->wsi, h->stream_wsi, cbwsi, cbwsi ? lws_get_network_wsi(cbwsi) : NULL };
     for (size_t i = 0; i < sizeof(carriers) / sizeof(carriers[0]); i++) {
         if (carriers[i] && lws_wsi_user(carriers[i]) == h) {
             lws_set_wsi_user(carriers[i], NULL);
         }
     }
     h->wsi = NULL;
-    h->mux_wsi = NULL;
+    h->stream_wsi = NULL;
 }
 
 /* Release our hold on a finished request.  With connection reuse
@@ -299,6 +303,42 @@ static void httpclient_teardown(TJSHttpClient *h, struct lws *cbwsi) {
  * h1, where the request's wsi is the connection. */
 static bool httpclient_wsi_is_mux(struct lws *wsi) {
     return lws_get_network_wsi(wsi) != wsi;
+}
+
+/* Ask lws to close wsi at a safe point of its service loop. Abort can be driven
+ * from a microtask drained *inside* this wsi's own service callback (e.g. a
+ * streaming fetch aborted from its ReadableStream cancel()): LWS_TO_KILL_SYNC
+ * would free the wsi inline while lws is still using it further up the stack
+ * (heap-use-after-free). ASYNC defers the close; the teardown callback chain
+ * handles cleanup. */
+static void httpclient_kill_async(struct lws *wsi) {
+    lws_set_timeout(wsi, PENDING_TIMEOUT_USER_OK, LWS_TO_KILL_ASYNC);
+}
+
+/* For the request that opens an h2 connection, lws turns h->wsi into the
+ * network wsi after ALPN and moves the request (and h as its user_space) onto a
+ * new mux child stream. Adopt that stream as stream_wsi the first time one of
+ * the request's own callbacks fires on it, so abort, the timeout and writes
+ * address only this request rather than every stream on the connection. */
+static void httpclient_adopt_stream(TJSHttpClient *h, struct lws *wsi) {
+    if (wsi == h->stream_wsi || !httpclient_wsi_is_mux(wsi)) {
+        return;
+    }
+
+    if (h->stream_wsi) {
+        lws_set_timer_usecs(h->stream_wsi, LWS_SET_TIMER_USEC_CANCEL);
+    }
+    h->stream_wsi = wsi;
+
+    if (h->kill_stream) {
+        /* Aborted while only the network wsi was known. Returning -1 from here
+         * would not do: a failing first callback (APPEND_HANDSHAKE_HEADER) fails
+         * lws_h2_client_handshake, which closes the whole network connection. */
+        h->kill_stream = false;
+        httpclient_kill_async(wsi);
+    } else if (!h->completed) {
+        httpclient_arm_timer(h, wsi);
+    }
 }
 
 /* RFC 9110 §9.2.2. Fetch and XHR uppercase the standard methods, so an exact
@@ -614,6 +654,19 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
     }
 
     switch (reason) {
+        case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER:
+        case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP:
+        case LWS_CALLBACK_RECEIVE_CLIENT_HTTP:
+        case LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ:
+        case LWS_CALLBACK_CLIENT_HTTP_WRITEABLE:
+        case LWS_CALLBACK_COMPLETED_CLIENT_HTTP:
+            httpclient_adopt_stream(h, wsi);
+            break;
+        default:
+            break;
+    }
+
+    switch (reason) {
         case LWS_CALLBACK_CONNECTING:
             h->connecting = true;
             break;
@@ -624,7 +677,6 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
             h->headers_sent = true;
             h->sent_on_mux = httpclient_wsi_is_mux(wsi);
             h->mux_body = h->streaming && h->sent_on_mux;
-            h->mux_wsi = h->mux_body ? wsi : NULL;
 
             /* Add User-Agent header unless the user already set one. */
             if (!has_request_header(&h->req_headers, "User-Agent")) {
@@ -1299,7 +1351,12 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
 
     lws_cancel_service(lws_ctx);
 
-    httpclient_arm_timer(h, wsi);
+    /* A request that joins a warm h2 connection may have adopted its stream
+     * already, from a callback fired inside the connect call. */
+    if (!h->stream_wsi) {
+        h->stream_wsi = wsi;
+    }
+    httpclient_arm_timer(h, h->stream_wsi);
 
     return 0;
 }
@@ -1440,14 +1497,6 @@ static JSValue tjs_httpclient_set_enable_cookies(JSContext *ctx, JSValue this_va
     return JS_UNDEFINED;
 }
 
-/* The wsi to make writable for more of a streaming body. A mux body is written
- * on its h2/h3 stream wsi, not h->wsi: that is what lws returned at connect,
- * which on h2/h3 is the network connection, and making it writable never
- * reaches the stream. */
-static struct lws *httpclient_body_wsi(TJSHttpClient *h) {
-    return h->mux_body ? h->mux_wsi : h->wsi;
-}
-
 static JSValue tjs_httpclient_senddata(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
     TJSHttpClient *h = tjs_httpclient_get(ctx, this_val);
     if (!h) {
@@ -1455,14 +1504,13 @@ static JSValue tjs_httpclient_senddata(JSContext *ctx, JSValue this_val, int arg
     }
 
     JSValue arg = argv[0];
-    struct lws *body_wsi = httpclient_body_wsi(h);
 
     if (JS_IsNull(arg) || JS_IsUndefined(arg)) {
         /* Signal end of body (streaming). */
         if (!h->body_done) {
             h->body_done = true;
-            if (body_wsi) {
-                lws_callback_on_writable(body_wsi);
+            if (h->stream_wsi) {
+                lws_callback_on_writable(h->stream_wsi);
             }
         }
     } else {
@@ -1470,8 +1518,8 @@ static JSValue tjs_httpclient_senddata(JSContext *ctx, JSValue this_val, int arg
         if (tjs_httpclient_buffer_data(h, arg)) {
             return JS_EXCEPTION;
         }
-        if (body_wsi) {
-            lws_callback_on_writable(body_wsi);
+        if (h->stream_wsi) {
+            lws_callback_on_writable(h->stream_wsi);
         }
     }
 
@@ -1490,24 +1538,28 @@ static JSValue tjs_httpclient_abort(JSContext *ctx, JSValue this_val, int argc, 
         JSValue error = JS_NewString(ctx, "ABORTED");
         maybe_invoke_callback(h, HC_CALLBACK_COMPLETE, 1, &error);
         httpclient_teardown(h, NULL);
-    } else if (h->wsi && !h->completed) {
+    } else if (h->stream_wsi && !h->completed) {
         h->completed = true;
 
-        struct lws *wsi = h->wsi;
+        struct lws *wsi = h->stream_wsi;
 
         lws_set_timer_usecs(wsi, LWS_SET_TIMER_USEC_CANCEL);
 
         JSValue error = JS_NewString(ctx, "ABORTED");
         maybe_invoke_callback(h, HC_CALLBACK_COMPLETE, 1, &error);
 
-        /* Mark the WSI to be closed at the next loop iteration. Abort can be
-         * driven from a microtask drained *inside* this wsi's own service
-         * callback (e.g. a streaming fetch aborted from its ReadableStream
-         * cancel()): LWS_TO_KILL_SYNC would free the wsi inline while lws is
-         * still using it further up the stack (heap-use-after-free). ASYNC
-         * defers the close to a safe point in lws's service loop. The teardown
-         * callback chain will handle cleanup — do not access h afterwards. */
-        lws_set_timeout(wsi, PENDING_TIMEOUT_USER_OK, LWS_TO_KILL_ASYNC);
+        /* For the connection opener, lws moves h from h->wsi to the new sid 1
+         * stream when h2 is negotiated and clears h->wsi's user_space. Until
+         * that stream's first callback adopts it, stream_wsi is still the
+         * network wsi; killing it would fail every stream on the connection,
+         * so kill the stream on adoption instead. lws_get_child() can't tell:
+         * it walks the non-mux child list, never h2 streams. Do not access h
+         * after the kill: the teardown callback chain handles cleanup. */
+        if (wsi == h->wsi && lws_wsi_user(wsi) != h) {
+            h->kill_stream = true;
+        } else {
+            httpclient_kill_async(wsi);
+        }
     }
 
     return JS_UNDEFINED;
