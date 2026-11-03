@@ -73,7 +73,7 @@ typedef struct {
     char *url_str;
     TBuf req_headers;
     TBuf send_buf;
-    size_t send_offset; /* bytes of send_buf written (non-streaming h2 chunking) */
+    size_t send_offset; /* bytes of send_buf written (non-streaming and h2/h3 streaming bodies) */
     bool sent;
     bool streaming;
     bool body_done;
@@ -86,6 +86,7 @@ typedef struct {
     bool connecting;     /* this request opened a socket of its own */
     bool headers_sent;   /* lws asked us for the request headers: it was sent */
     bool sent_on_mux;    /* headers went out on an h2/h3 stream */
+    bool mux_body;       /* streaming body sent as raw DATA (h2/h3), not chunked */
     bool retried;        /* the one retry of the request was used */
     bool retry_pending;  /* retry_sul is scheduled */
     bool kill_stream;    /* aborted before its h2 stream was known: kill it on adoption */
@@ -420,6 +421,7 @@ static void httpclient_schedule_retry(TJSHttpClient *h, struct lws *cbwsi) {
      * already: the retry sends it again from the start. */
     h->headers_sent = false;
     h->sent_on_mux = false;
+    h->mux_body = false;
     h->req_sent = false;
     h->send_offset = 0;
     h->keepalive = true;
@@ -674,6 +676,7 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
 
             h->headers_sent = true;
             h->sent_on_mux = httpclient_wsi_is_mux(wsi);
+            h->mux_body = h->streaming && h->sent_on_mux;
 
             /* Add User-Agent header unless the user already set one. */
             if (!has_request_header(&h->req_headers, "User-Agent")) {
@@ -760,8 +763,11 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                                                     end)) {
                         return -1;
                     }
-                } else {
-                    /* Streaming body: use chunked transfer encoding. */
+                } else if (!h->mux_body) {
+                    /* Streaming body over h1: use chunked transfer encoding.
+                     * h2/h3 forbid Transfer-Encoding (RFC 9113 §8.2.2, RFC
+                     * 9114 §4.2): there the DATA frames carry the body and
+                     * END_STREAM ends it. */
                     if (lws_add_http_header_by_name(wsi,
                                                     (const unsigned char *) "transfer-encoding:",
                                                     (const unsigned char *) "chunked",
@@ -924,7 +930,67 @@ static int tjs_lws_http_callback(struct lws *wsi, enum lws_callback_reasons reas
                 break;
             }
 
-            /* Streaming body (chunked transfer-encoding). */
+            if (h->mux_body) {
+                /* Streaming body over h2/h3: raw bytes in DATA frames, bounded
+                 * by the peer's send window like the non-streaming body above.
+                 * The stream's end is a body-less FINAL write, which lws sends
+                 * as END_STREAM (h2) or a FIN (h3). */
+                if (h->req_sent) {
+                    /* The stream's end went already: nothing may follow it. */
+                    break;
+                }
+                size_t remaining = h->send_buf.size - h->send_offset;
+                if (remaining == 0) {
+                    if (h->body_done) {
+                        lws_client_http_body_pending(wsi, 0);
+                        uint8_t fin[LWS_PRE + 1];
+                        if (lws_write(wsi, fin + LWS_PRE, 0, LWS_WRITE_HTTP_FINAL) < 0) {
+                            return -1;
+                        }
+                        httpclient_request_sent(h, wsi);
+                    } else {
+                        maybe_invoke_callback(h, HC_CALLBACK_DRAIN, 0, NULL);
+                    }
+                    break;
+                }
+
+                size_t to_send = MIN(remaining, TJS_HTTPCLIENT_WRITE_CHUNK_SIZE);
+                lws_fileofs_t allow = lws_get_peer_write_allowance(wsi);
+                if (allow == 0) {
+                    break;
+                }
+                if (allow > 0 && (lws_fileofs_t) to_send > allow) {
+                    to_send = (size_t) allow;
+                }
+
+                uint8_t *buf = js_malloc(h->ctx, LWS_PRE + to_send);
+                if (!buf) {
+                    return -1;
+                }
+                memcpy(buf + LWS_PRE, h->send_buf.buf + h->send_offset, to_send);
+                int n = lws_write(wsi, buf + LWS_PRE, to_send, LWS_WRITE_HTTP);
+                js_free(h->ctx, buf);
+                if (n < 0) {
+                    return -1;
+                }
+                h->send_offset += (size_t) n;
+
+                if (h->send_offset < h->send_buf.size) {
+                    lws_callback_on_writable(wsi);
+                } else {
+                    h->send_buf.size = 0;
+                    h->send_offset = 0;
+                    if (!h->body_done) {
+                        maybe_invoke_callback(h, HC_CALLBACK_DRAIN, 0, NULL);
+                    } else {
+                        lws_callback_on_writable(wsi);
+                    }
+                }
+
+                break;
+            }
+
+            /* Streaming body over h1 (chunked transfer-encoding). */
             if (h->send_buf.size == 0) {
                 if (h->body_done) {
                     /* All body data sent — finalize with the terminating chunk. */
@@ -1236,7 +1302,7 @@ static int tjs_httpclient_connect(TJSHttpClient *h) {
      * sequentially, h2 multiplexes streams. Without it lws also sends
      * "Connection: close" on every request.
      *
-     * A streaming (unknown-length) request body is sent chunked, and a
+     * A streaming (unknown-length) request body is sent chunked over h1, and a
      * keep-alive peer that cannot de-frame a chunked request body would fail to
      * parse the next request on a reused connection (lws itself has no such
      * server-side de-framer). Rather than pool such a connection and evict it
