@@ -1482,12 +1482,14 @@ static JSValue tjs_httpclient_abort(JSContext *ctx, JSValue this_val, int argc, 
         JSValue error = JS_NewString(ctx, "ABORTED");
         maybe_invoke_callback(h, HC_CALLBACK_COMPLETE, 1, &error);
 
-        /* An h2 network wsi carrying streams is this request's own wsi only
-         * until its stream is adopted (between ALPN and the stream's first
-         * callback); killing it would fail every stream on the connection, so
-         * kill the stream once it is known instead. Do not access h after the
-         * kill: the teardown callback chain handles cleanup. */
-        if (lws_get_child(wsi)) {
+        /* For the connection opener, lws moves h from h->wsi to the new sid 1
+         * stream when h2 is negotiated and clears h->wsi's user_space. Until
+         * that stream's first callback adopts it, stream_wsi is still the
+         * network wsi; killing it would fail every stream on the connection,
+         * so kill the stream on adoption instead. lws_get_child() can't tell:
+         * it walks the non-mux child list, never h2 streams. Do not access h
+         * after the kill: the teardown callback chain handles cleanup. */
+        if (wsi == h->wsi && lws_wsi_user(wsi) != h) {
             h->kill_stream = true;
         } else {
             httpclient_kill_async(wsi);
