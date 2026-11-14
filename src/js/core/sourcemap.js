@@ -7,11 +7,14 @@ const registry = new Map();
 const decoder = new TextDecoder();
 
 function extractSourceMappingURL(content) {
-    // Search the last 512 bytes for the sourceMappingURL comment.
-    const searchRegion = content.length > 512 ? content.slice(content.length - 512) : content;
-    const match = searchRegion.match(/\/\/[#@]\s*sourceMappingURL=(.+?)(?:\s|$)/);
+    // Earlier matches may be string literals, so take the last.
+    let lastMatch;
 
-    return match ? match[1] : null;
+    for (const match of content.matchAll(/\/\/[#@]\s*sourceMappingURL=(.+?)(?:\s|$)/g)) {
+        lastMatch = match;
+    }
+
+    return lastMatch ? lastMatch[1] : null;
 }
 
 function getOrLoadSourceMap(filename) {

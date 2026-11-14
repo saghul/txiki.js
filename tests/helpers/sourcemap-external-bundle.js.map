@@ -1,7 +1,7 @@
 {
   "version": 3,
   "sources": ["sourcemap-src/a.js", "sourcemap-src/main.js"],
-  "sourcesContent": ["export function throwFromA() {\n    throw new Error(\"error from a.js\");\n}\n", "import { throwFromA } from './a.js';\n\nthrowFromA();\n"],
-  "mappings": ";AAAO,SAAS,aAAa;AACzB,QAAM,IAAI,MAAM,iBAAiB;AACrC;;;ACAA,WAAW;",
+  "sourcesContent": ["export function throwFromA() {\n    const values = [ 1, 2, -3 ];\n    const negative = values.find(value => value < 0);\n\n    throw new Error(`error from a.js: unexpected negative value ${negative}`);\n}\n", "import { throwFromA } from './a.js';\n\nthrowFromA();\n"],
+  "mappings": ";AAAO,SAAS,aAAa;AACzB,QAAM,SAAS,CAAE,GAAG,GAAG,EAAG;AAC1B,QAAM,WAAW,OAAO,KAAK,WAAS,QAAQ,CAAC;AAE/C,QAAM,IAAI,MAAM,8CAA8C,QAAQ,EAAE;AAC5E;;;ACHA,WAAW;",
   "names": []
 }
