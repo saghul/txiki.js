@@ -8,6 +8,22 @@ function checkTransferable(t) {
     }
 }
 
+// Blob and File keep their data in private fields, which QuickJS can't serialize,
+// so copy them directly. This only handles a top-level Blob or File.
+function cloneValue(value) {
+    const { Blob, File } = globalThis;
+
+    if (File && value instanceof File) {
+        return new File([ value ], value.name, { type: value.type, lastModified: value.lastModified });
+    }
+
+    if (Blob && value instanceof Blob) {
+        return new Blob([ value ], { type: value.type });
+    }
+
+    return core.deserialize(core.serialize(value));
+}
+
 /**
  * A somewhat naive implementation. It will always copy array buffers, but this drawback
  * comes with the upside of a very simple implementation. We rely on QuickJS's ability
@@ -26,10 +42,14 @@ globalThis.structuredClone = (value, options = {}) => {
         checkTransferable(transfers[i]);
     }
 
+    if (typeof value === 'symbol') {
+        throw new DOMException(`${String(value)} could not be cloned.`, 'DataCloneError');
+    }
+
     let ret;
 
     try {
-        ret = core.deserialize(core.serialize(value));
+        ret = cloneValue(value);
     } catch (e) {
         throw new DOMException(e.message, 'DataCloneError');
     }
