@@ -728,7 +728,7 @@ declare module 'tjs:ffi'{
      * platform's C and math libraries, whose file names differ per platform.
      * @param symbols - Object mapping symbol names to their type signatures.
      */
-    export function dlopen<T extends Record<string, DlopenSymbol>>(path: string, symbols: T): DlopenResult<T>;
+    export function dlopen<const T extends Record<string, DlopenSymbol>>(path: string, symbols: T): DlopenResult<T>;
 
     /** Result of {@link dlopenCProto}. */
     export interface DlopenCProtoResult extends Disposable {
